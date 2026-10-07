@@ -245,7 +245,7 @@ getStockItems: async (filters = {}) => {
   try {
     const allItems: StockItem[] = [];
     let currentPage = 1;
-    const limit = 500; // Request up to 500 per page
+    const limit = 100;
     let hasMore = true;
     let totalItems = 0;
     
@@ -291,20 +291,15 @@ getStockItems: async (filters = {}) => {
       allItems.push(...normalizedItems as StockItem[]);
       
       // ✅ Get total from pagination
-      totalItems = response?.pagination?.total || 
+      totalItems = response?.pagination?.total ||
                    response?.data?.pagination?.total || 
+                   response?.meta?.total ||
                    response?.total || 
                    items.length;
       
       // ✅ Check if we have more pages
       const itemsFetched = items.length;
       hasMore = allItems.length < totalItems && itemsFetched === limit;
-      
-      // ✅ Safety: Don't make more than 20 requests
-      if (currentPage > 20) {
-        console.warn('⚠️ Reached maximum page limit (20), stopping pagination');
-        break;
-      }
       
       currentPage++;
     }

@@ -114,7 +114,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Add Failed', err.message || 'Could not add diagnosis');
+      error('Add Failed', err.response?.data?.message || err.message || 'Could not add diagnosis');
     } finally {
       setIsSubmitting(false);
     }

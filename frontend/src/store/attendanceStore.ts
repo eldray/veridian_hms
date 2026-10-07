@@ -51,6 +51,7 @@ interface Attendance {
   nhisCCC?: string;
   complaints: string;
   medicalNotes?: string;
+  clinicalNotes?: Record<string, any> | null;
   encounterCategory: 'opd' | 'ipd' | 'daycase';  // ✅ UPDATED
   visitCategory: string;
   gdrgCategory?: string;
@@ -131,7 +132,7 @@ interface AttendanceState {
   removeLabTest: (attendanceId: string, labTestId: string) => Promise<void>;
   
   // Procedure operations
-  addProcedure: (attendanceId: string, data: { serviceCatalogId: string; templateId?: string; scheduledDate?: string; notes?: string }) => Promise<void>;
+  addProcedure: (attendanceId: string, data: { serviceCatalogId: string; scheduledDate?: string; notes?: string }) => Promise<void>;
   updateProcedureStatus: (attendanceId: string, procedureId: string, data: any) => Promise<void>;
   removeProcedure: (attendanceId: string, procedureId: string) => Promise<void>;
   
@@ -149,7 +150,7 @@ interface AttendanceState {
   removeMedication: (attendanceId: string, medicationId: string) => Promise<void>;
   
   // Scan operations
-  addScan: (attendanceId: string, data: { serviceCatalogId: string; templateId?: string; priority?: string; notes?: string }) => Promise<void>;
+  addScan: (attendanceId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) => Promise<void>;
   updateScanStatus: (attendanceId: string, scanId: string, data: any) => Promise<void>;
   removeScan: (attendanceId: string, scanId: string) => Promise<void>;
 
@@ -319,13 +320,50 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     try {
       console.log('📝 Updating attendance:', { id, data });
       
-      // ✅ Filter out undefined values and fields that should not be sent
-      const cleanData = Object.keys(data).reduce((acc, key) => {
-        if (data[key] !== undefined && data[key] !== null) {
-          // Remove updatedAt if present - let backend handle it
-          if (key !== 'updatedAt') {
-            acc[key] = data[key];
-          }
+      // ✅ Filter out undefined values and normalize legacy SOAP fields to the current Prisma schema
+      const allowedTopLevelKeys = new Set([
+        'status',
+        'complaint',
+        'complaints',
+        'medicalNotes',
+        'clinicalNotes',
+        'followUpDate',
+        'dateTime',
+        'attendanceType',
+        'paymentMode',
+        'nhisCCC',
+        'insuranceProviderId',
+        'corporateAccountId',
+        'encounterCategory',
+        'bedId',
+        'wardId',
+        'admissionType',
+        'updatedById',
+      ]);
+
+      const legacyClinicalKeys = new Set([
+        'historyPresentingComplaint',
+        'onsetDurationQuality',
+        'physicalExamination',
+        'treatmentPlan',
+        'treatmentNotes',
+        'physicianNotes',
+      ]);
+
+      const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
+        if (value === undefined || value === null) return acc;
+        if (key === 'updatedAt') return acc;
+
+        if (legacyClinicalKeys.has(key)) {
+          acc.clinicalNotes = {
+            ...(acc.clinicalNotes || {}),
+            [key]: value,
+          };
+          return acc;
+        }
+
+        if (allowedTopLevelKeys.has(key)) {
+          acc[key] = value;
         }
         return acc;
       }, {} as any);
@@ -513,7 +551,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // PROCEDURE OPERATIONS
   // ==========================================
 
-  addProcedure: async (attendanceId, { serviceCatalogId, templateId, scheduledDate, notes }) => {
+  addProcedure: async (attendanceId, { serviceCatalogId, scheduledDate, notes }) => {
     const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add procedure to non-pending attendance');
@@ -521,7 +559,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddProcedure(attendanceId, { serviceCatalogId, templateId, scheduledDate, notes });
+      const updated = await apiAddProcedure(attendanceId, { serviceCatalogId, scheduledDate, notes });
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,
@@ -660,7 +698,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // SCAN OPERATIONS
   // ==========================================
 
-  addScan: async (attendanceId, { serviceCatalogId, templateId, priority, notes }) => {
+  addScan: async (attendanceId, { serviceCatalogId, priority, notes }) => {
     const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add scan to non-pending attendance');
@@ -668,7 +706,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddScan(attendanceId, { serviceCatalogId, templateId, priority, notes });
+      const updated = await apiAddScan(attendanceId, { serviceCatalogId, priority, notes });
       set({
         attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
         currentAttendance: updated,

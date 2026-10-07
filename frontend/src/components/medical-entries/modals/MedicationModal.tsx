@@ -49,7 +49,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
       hasLoaded.current = true;
       const loadServiceCatalogs = async () => {
         try {
-          await getServiceCatalog({ serviceType: 'medication' });
+          await getServiceCatalog({ serviceType: 'medication', limit: 10000 });
         } catch (err) {
           console.error('Error loading medication service catalogs:', err);
         }
@@ -175,7 +175,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Prescription Failed', err.message || 'Could not prescribe medication');
+      error('Prescription Failed', err.response?.data?.message || err.message || 'Could not prescribe medication');
     } finally {
       setIsSubmitting(false);
     }

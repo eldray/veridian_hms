@@ -19,6 +19,9 @@ import { LabTestModal } from '../components/medical-entries/modals/LabTestModal'
 import { ProcedureModal } from '../components/medical-entries/modals/ProcedureModal';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
+import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
+import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 
 import ComplaintInput from '../components/ComplaintInput';
 import ODQInput from '../components/medical-entries/ODQInput';
@@ -30,13 +33,13 @@ import {
   Hospital, User, Calendar, DollarSign, Clock, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
   Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
-  ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed,
+  ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?._id || entity?.id;
 
-type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | null;
+type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'consumable' | null;
 
 // ─── Reusable section card ───────────────────────────────────────────────────
 const SectionCard: React.FC<{
@@ -592,6 +595,14 @@ export default function MedicalEntries() {
   const [physicianNoteText, setPhysicianNoteText] = useState('');
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [modalType, setModalType] = useState<ModalType>(null);
+  const [consumableUses, setConsumableUses] = useState<any[]>([]);
+  const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+
+  const loadConsumableUses = async (id: string) => {
+    const response = await getEncounterConsumableUses(id);
+    const data = response?.data;
+    setConsumableUses(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
+  };
 
   const loadData = async () => {
     setRefreshing(true);
@@ -644,6 +655,16 @@ export default function MedicalEntries() {
   }, [selectedAttendanceId]);
 
   useEffect(() => {
+    if (!selectedAttendanceId) {
+      setConsumableUses([]);
+      return;
+    }
+    loadConsumableUses(selectedAttendanceId).catch((err: Error) => {
+      toastError('Consumable history unavailable', err.message || 'Could not load consumable usage');
+    });
+  }, [selectedAttendanceId]);
+
+  useEffect(() => {
     if (!selectedPatientId) return;
     let active = true;
     fetchPatient(selectedPatientId).catch((error: Error) => {
@@ -670,14 +691,17 @@ export default function MedicalEntries() {
     if (!selectedAttendanceId) return;
     getAttendance(selectedAttendanceId).then(att => {
       if (!att) return;
+      const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
+        ? att.clinicalNotes as Record<string, any>
+        : {};
       setPresentedComplaints(att.complaints || '');
-      setHpc((att as any).historyPresentingComplaint || '');
-      setOdq((att as any).onsetDurationQuality || '');
-      setPhysicalExam((att as any).physicalExamination || '');
+      setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
+      setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
+      setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
       setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
-      setTreatmentNotes((att as any).treatmentNotes || []);
-      setPhysicianNotes((att as any).physicianNotes || []);
-      setTreatmentPlan('');
+      setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
+      setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
+      setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
     });
   }, [selectedAttendanceId]);
 
@@ -685,15 +709,18 @@ export default function MedicalEntries() {
     if (!selectedAttendanceId) return;
     getAttendance(selectedAttendanceId).then(att => {
       if (!att) return;
+      const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
+        ? att.clinicalNotes as Record<string, any>
+        : {};
       setPresentedComplaints(att.complaints || '');
-      setHpc((att as any).historyPresentingComplaint || '');
-      setOdq((att as any).onsetDurationQuality || '');
-      setPhysicalExam((att as any).physicalExamination || '');
+      setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
+      setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
+      setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
       setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
       // Load persisted treatment notes
-      setTreatmentNotes((att as any).treatmentNotes || []);
-      // Clear treatment plan input (it's now a draft field, not the saved value)
-      setTreatmentPlan('');
+      setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
+      setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
+      setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
     });
   }, [selectedAttendanceId]);
 
@@ -722,12 +749,19 @@ export default function MedicalEntries() {
   const handleSaveClinical = async () => {
     if (!selectedAttendanceId) return;
     try {
+      const clinicalNotes = {
+        ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+          ? currentAttendance.clinicalNotes
+          : {}),
+        historyPresentingComplaint: hpc || null,
+        onsetDurationQuality: odq || null,
+        physicalExamination: physicalExam || null,
+        treatmentPlan: treatmentPlan || null,
+      };
+
       await updateAttendance(selectedAttendanceId, {
         complaints: presentedComplaints,
-        historyPresentingComplaint: hpc,
-        onsetDurationQuality: odq,
-        physicalExamination: physicalExam,
-        treatmentPlan,
+        clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         updatedById: user?.id,
       });
@@ -746,8 +780,15 @@ export default function MedicalEntries() {
     };
     const updatedNotes = [...treatmentNotes, newNote];
     try {
-      await updateAttendance(selectedAttendanceId, {
+      const clinicalNotes = {
+        ...(currentAttendance && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+          ? currentAttendance.clinicalNotes
+          : {}),
         treatmentNotes: updatedNotes,
+      };
+
+      await updateAttendance(selectedAttendanceId, {
+        clinicalNotes,
         updatedById: user?.id,
       });
       setTreatmentNotes(updatedNotes);
@@ -1021,7 +1062,34 @@ export default function MedicalEntries() {
 
   const afterModal = async () => {
     setModalType(null);
-    if (selectedAttendanceId) { await getAttendance(selectedAttendanceId); await calculateBill(selectedAttendanceId); }
+    if (selectedAttendanceId) {
+      await getAttendance(selectedAttendanceId);
+      await calculateBill(selectedAttendanceId);
+      await loadConsumableUses(selectedAttendanceId);
+    }
+  };
+
+  const afterConsumableUse = async () => {
+    setModalType(null);
+    setEditingConsumable(null);
+    try {
+      await afterModal();
+      await getStockItems();
+    } catch (err: any) {
+      toastError('Encounter refresh failed', err.message || 'Consumable was recorded but data could not be refreshed');
+    }
+  };
+
+  const deleteConsumableUse = async (use: any) => {
+    if (!window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    try {
+      await deleteEncounterConsumableUse(selectedAttendanceId, use.id);
+      success('Consumable use deleted', 'The stock was restored.');
+      await loadConsumableUses(selectedAttendanceId);
+      await getStockItems();
+    } catch (err: any) {
+      toastError('Could not delete consumable use', err?.response?.data?.message || err.message);
+    }
   };
 
   // Get action buttons - modified to show the new handlers
@@ -1481,7 +1549,7 @@ export default function MedicalEntries() {
                         {labTestsList.map((t: any) => (
                           <tr key={t.id} className="hover:bg-[var(--bg-main)] transition-colors">
                             <TdPrimary>
-                              {t.ServiceCatalog?.name || t.name}
+                              {t.ServiceCatalog?.name || t.LabTestTemplate?.name || t.name || 'Lab test'}
                               {t.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 line-clamp-1">{t.notes}</p>}
                             </TdPrimary>
                             <Td>
@@ -1514,7 +1582,7 @@ export default function MedicalEntries() {
                       <Table heads={['Test / Parameter', 'Result', 'Range', 'Flag', 'Date']}>
                         {labTestsList.filter((t: any) => t.status === 'completed').map((test: any) => (
                           <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{test.ServiceCatalog?.name || test.name}</TdPrimary>
+                            <TdPrimary>{test.ServiceCatalog?.name || test.LabTestTemplate?.name || test.name || 'Lab test'}</TdPrimary>
                             <Td>{typeof test.result === 'object' ? JSON.stringify(test.result) : (test.result || '—')}</Td>
                             <Td>{test.normalRange || '—'}</Td>
                             <Td><StatusBadge status={test.status} /></Td>
@@ -1580,7 +1648,7 @@ export default function MedicalEntries() {
                       <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', 'By', '']}>
                         {proceduresList.map((proc: any) => (
                           <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{proc.ServiceCatalog?.name || proc.name}</TdPrimary>
+                            <TdPrimary>{proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}</TdPrimary>
                             <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
                             <Td><StatusBadge status={proc.status} /></Td>
                             <Td className="max-w-[120px] truncate">{proc.notes || '—'}</Td>
@@ -1663,6 +1731,17 @@ export default function MedicalEntries() {
                 </SectionCard>
               </div>
 
+              <SectionCard
+                icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                title="Consumables Used"
+                count={consumableUses.length}
+                action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
+              >
+                <ConsumableUsesPanel uses={consumableUses}
+                  onEdit={canAddEntries ? use => { setEditingConsumable(use); setModalType('consumable'); } : undefined}
+                  onDelete={canAddEntries ? deleteConsumableUse : undefined} />
+              </SectionCard>
+
               {/* ── SCANS ─────────────────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -1680,7 +1759,7 @@ export default function MedicalEntries() {
                       <Table heads={['Scan', 'Body Part', 'Priority', 'Status', 'Requested', '']}>
                         {requestedScans.map((scan: any) => (
                           <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{scan.scanType || scan.ServiceCatalog?.name}</TdPrimary>
+                            <TdPrimary>{scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}</TdPrimary>
                             <Td>{scan.bodyPart || '—'}</Td>
                             <Td>
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${scan.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
@@ -1711,7 +1790,7 @@ export default function MedicalEntries() {
                         {completedScans.map((scan: any) => (
                           <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
                             <TdPrimary>
-                              {scan.scanType || scan.ServiceCatalog?.name}
+                              {scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}
                               {scan.bodyPart && <p className="text-[10px] text-[var(--text-tertiary)]">{scan.bodyPart}</p>}
                             </TdPrimary>
                             <Td className="max-w-[150px] truncate">{scan.findings || '—'}</Td>
@@ -1910,6 +1989,8 @@ export default function MedicalEntries() {
       <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries}
         userId={user?.id} userName={user?.fullName} />
+      <ConsumableModal isOpen={modalType === 'consumable'} onClose={() => { setModalType(null); setEditingConsumable(null); }} onSuccess={afterConsumableUse}
+        encounterId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} existingUse={editingConsumable} />
       <ScanModal isOpen={modalType === 'scan'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} scans={scanTemplates} canAdd={canAddEntries}
         userId={user?.id} userName={user?.fullName} />

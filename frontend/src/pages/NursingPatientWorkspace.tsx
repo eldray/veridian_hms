@@ -15,11 +15,14 @@ import { MarChart } from '../components/nursing/MarChart';
 import { MarGrid } from '../components/nursing/MarGrid';
 import { MarPrintModal } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
+import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
+import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
 import { getPatientName } from '../utils/patient';
 import type { MarDose } from '../api/nursing';
 import {
   ChevronLeft, Pill, Hospital, Bed,
-  Plus, CheckCircle, Activity, User,
+  Plus, CheckCircle, Activity, User, Package,
   AlertTriangle, ClipboardList, ListTodo, StickyNote,
   Moon, Sun, Printer, LayoutGrid, List, Info,
   Heart, Phone, MapPin, Shield, Calendar, Syringe,
@@ -115,16 +118,19 @@ export default function NursingPatientWorkspace() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [marView, setMarView] = useState<'list' | 'grid'>('list');
   const [showVitalsModal, setShowVitalsModal] = useState(false);
+  const [showConsumableModal, setShowConsumableModal] = useState(false);
+  const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+  const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [showMarPrint, setShowMarPrint] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [latestVitals, setLatestVitals] = useState<any>(null);
   const [administeringId, setAdministeringId] = useState<string | null>(null);
   const [busyDoseId, setBusyDoseId] = useState<string | null>(null);
 
-  const { attendances, getAttendances, updateMedicationStatus, getVitalsByAttendance, addVitals } = useAttendanceStore();
+  const { attendances, getAttendances, refreshAttendance, updateMedicationStatus, getVitalsByAttendance, addVitals } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { admissions, getAdmissions } = useAdmissionStore();
-  const { getStockItems } = useStockStore();
+  const { stockItems, getStockItems } = useStockStore();
 
   const {
     doses, dosesLoading,
@@ -178,11 +184,42 @@ export default function NursingPatientWorkspace() {
 
   const meds = useMemo(() => selectedAtt?.Medication ?? [], [selectedAtt]);
   const administrableMeds = meds.filter((m: any) => m.status === 'dispensed' || m.status === 'administered');
+  const canRecordConsumable = !!selectedAtt && ['pending', 'admitted'].includes(selectedAtt.status);
+
+  const refreshConsumableUses = async () => {
+    if (!attendanceId) return;
+    const response = await getEncounterConsumableUses(attendanceId);
+    setConsumableUses(Array.isArray(response?.data) ? response.data : []);
+  };
+
+  const afterConsumableChange = async () => {
+    setShowConsumableModal(false);
+    setEditingConsumable(null);
+    try {
+      await Promise.all([refreshConsumableUses(), getStockItems(), refreshAttendance(attendanceId || '')]);
+    } catch (err: any) {
+      toastError('Refresh failed', err?.response?.data?.message || err.message);
+    }
+  };
+
+  const handleDeleteConsumable = async (use: any) => {
+    if (!attendanceId || !window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    try {
+      await deleteEncounterConsumableUse(attendanceId, use.id);
+      success('Consumable use deleted', 'The stock was restored.');
+      await Promise.all([refreshConsumableUses(), getStockItems()]);
+    } catch (err: any) {
+      toastError('Could not delete consumable use', err?.response?.data?.message || err.message);
+    }
+  };
 
   // ── Load MAR + Tasks + Vitals when attendance changes ──
   useEffect(() => {
     if (!attendanceId) return;
 
+    refreshConsumableUses().catch((err: any) => {
+      toastError('Consumable history unavailable', err?.response?.data?.message || err.message);
+    });
     void fetchDoses({ attendanceId, limit: 500 }).catch(() => {});
     void fetchTasks({ attendanceId }).catch(() => {});
 
@@ -695,6 +732,28 @@ export default function NursingPatientWorkspace() {
                 </div>
               </div>
 
+              {/* ─── Consumables used during care ─── */}
+              <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    <span className="text-xs font-semibold text-[var(--text-primary)]">Consumables Used</span>
+                    <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                      {consumableUses.length}
+                    </span>
+                  </div>
+                  {canRecordConsumable && (
+                    <button onClick={() => { setEditingConsumable(null); setShowConsumableModal(true); }}
+                      className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                      <Plus className="w-3 h-3" /> Add Consumable
+                    </button>
+                  )}
+                </div>
+                <ConsumableUsesPanel uses={consumableUses}
+                  onEdit={canRecordConsumable ? use => { setEditingConsumable(use); setShowConsumableModal(true); } : undefined}
+                  onDelete={canRecordConsumable ? handleDeleteConsumable : undefined} />
+              </div>
+
               {/* ─── ROW 3: Tasks (2/3) | Patient info (1/3) ─── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
@@ -996,6 +1055,18 @@ export default function NursingPatientWorkspace() {
         attendanceId={attendanceId || null}
         attendanceType={selectedAtt?.attendanceType}
       />
+
+      {attendanceId && (
+        <ConsumableModal
+          isOpen={showConsumableModal}
+          onClose={() => { setShowConsumableModal(false); setEditingConsumable(null); }}
+          onSuccess={afterConsumableChange}
+          encounterId={attendanceId}
+          stockItems={stockItems}
+          canAdd={canRecordConsumable}
+          existingUse={editingConsumable}
+        />
+      )}
 
       {showMarPrint && (
         <MarPrintModal

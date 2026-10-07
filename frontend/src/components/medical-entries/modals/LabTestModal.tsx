@@ -75,7 +75,7 @@ export const LabTestModal: React.FC<LabTestModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Add Failed', err.message || 'Could not add lab test');
+      error('Add Failed', err.response?.data?.message || err.message || 'Could not add lab test');
     } finally {
       setIsSubmitting(false);
     }

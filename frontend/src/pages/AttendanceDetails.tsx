@@ -222,6 +222,9 @@ export default function AttendanceDetails() {
   }, [bills, currentAttendance]);
 
   const latestBill = attendanceBills[0];
+  const clinicalNotes = currentAttendance?.clinicalNotes && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
+    ? currentAttendance.clinicalNotes as Record<string, any>
+    : {};
 
   // Get latest vitals
   const latestVitals = vitalsList.length > 0 ? vitalsList[vitalsList.length - 1] : null;
@@ -712,13 +715,13 @@ export default function AttendanceDetails() {
                           {currentAttendance.complaints || 'No complaints recorded'}
                         </p>
                       </div>
-                      {(currentAttendance as any)?.historyPresentingComplaint && (
+                      {clinicalNotes.historyPresentingComplaint && (
                         <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                           <p className="text-xs text-[var(--text-secondary)] font-medium mb-2 flex items-center gap-2">
                             <History className="w-3 h-3" />
                             History of Presenting Complaint
                           </p>
-                          <p className="font-semibold text-[var(--text-primary)] text-sm">{(currentAttendance as any).historyPresentingComplaint}</p>
+                          <p className="font-semibold text-[var(--text-primary)] text-sm">{clinicalNotes.historyPresentingComplaint}</p>
                         </div>
                       )}
                       {currentAttendance.medicalNotes && (
@@ -1126,34 +1129,34 @@ export default function AttendanceDetails() {
                 
                 <div className="space-y-4">
                   {/* History of Presenting Complaint */}
-                  {(currentAttendance as any)?.historyPresentingComplaint && (
+                  {clinicalNotes.historyPresentingComplaint && (
                     <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
                       <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2">History of Presenting Complaint</p>
-                      <p className="text-sm text-[var(--text-primary)]">{(currentAttendance as any).historyPresentingComplaint}</p>
+                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.historyPresentingComplaint}</p>
                     </div>
                   )}
                   
                   {/* ODQ */}
-                  {(currentAttendance as any)?.onsetDurationQuality && (
+                  {clinicalNotes.onsetDurationQuality && (
                     <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
                       <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 mb-2">Onset, Duration & Quality</p>
-                      <p className="text-sm text-[var(--text-primary)]">{(currentAttendance as any).onsetDurationQuality}</p>
+                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.onsetDurationQuality}</p>
                     </div>
                   )}
                   
                   {/* Physical Examination */}
-                  {(currentAttendance as any)?.physicalExamination && (
+                  {clinicalNotes.physicalExamination && (
                     <div className="bg-teal-50 dark:bg-teal-950/30 rounded-lg p-4 border border-teal-200 dark:border-teal-800">
                       <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-2">Physical Examination</p>
-                      <p className="text-sm text-[var(--text-primary)]">{(currentAttendance as any).physicalExamination}</p>
+                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.physicalExamination}</p>
                     </div>
                   )}
                   
                   {/* Treatment Plan */}
-                  {(currentAttendance as any)?.treatmentPlan && (
+                  {clinicalNotes.treatmentPlan && (
                     <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
                       <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">Treatment Plan</p>
-                      <p className="text-sm text-[var(--text-primary)]">{(currentAttendance as any).treatmentPlan}</p>
+                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.treatmentPlan}</p>
                     </div>
                   )}
                   
@@ -1165,10 +1168,10 @@ export default function AttendanceDetails() {
                     </div>
                   )}
                   
-                  {!(currentAttendance as any)?.historyPresentingComplaint && 
-                   !(currentAttendance as any)?.onsetDurationQuality && 
-                   !(currentAttendance as any)?.physicalExamination && 
-                   !(currentAttendance as any)?.treatmentPlan && (
+                  {!clinicalNotes.historyPresentingComplaint &&
+                   !clinicalNotes.onsetDurationQuality &&
+                   !clinicalNotes.physicalExamination &&
+                   !clinicalNotes.treatmentPlan && (
                     <div className="text-center py-8">
                       <Stethoscope className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                       <p className="text-[var(--text-secondary)]">No clinical notes recorded for this attendance.</p>

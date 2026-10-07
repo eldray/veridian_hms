@@ -67,7 +67,6 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     try {
       await addScan(attendanceId, {
         serviceCatalogId: selectedScan.id,
-        templateId: selectedScan.templateId || selectedScan.id,
         priority: priority,
         notes: notes,
       });
@@ -76,7 +75,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Order Failed', err.message || 'Could not order scan');
+      error('Order Failed', err.response?.data?.message || err.message || 'Could not order scan');
     } finally {
       setIsSubmitting(false);
     }

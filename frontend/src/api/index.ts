@@ -1369,6 +1369,33 @@ export const removeServiceFromEncounter = async (encounterId: string, serviceId:
   return response.data;
 };
 
+export const getEncounterConsumableUses = async (encounterId: string) => {
+  const response = await api.get(`/encounters/${encounterId}/consumables`);
+  return response.data;
+};
+
+export const recordEncounterConsumableUse = async (
+  encounterId: string,
+  data: { stockItemId: string; quantity: number; notes?: string },
+) => {
+  const response = await api.post(`/encounters/${encounterId}/consumables`, data);
+  return response.data;
+};
+
+export const updateEncounterConsumableUse = async (
+  encounterId: string,
+  transactionId: string,
+  data: { stockItemId: string; quantity: number; notes?: string },
+) => {
+  const response = await api.patch(`/encounters/${encounterId}/consumables/${transactionId}`, data);
+  return response.data;
+};
+
+export const deleteEncounterConsumableUse = async (encounterId: string, transactionId: string) => {
+  const response = await api.delete(`/encounters/${encounterId}/consumables/${transactionId}`);
+  return response.data;
+};
+
 // Bed Assignment
 export const assignBedToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
@@ -1841,7 +1868,18 @@ export const deletePurchaseInvoice = (id: string) =>
 // ──────────────────────────────────────────────
 
 export const getStockItems = (filters?: any) =>
-  api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
+  api.get('/stock-items', { params: filters }).then(r => {
+    const response = r.data;
+    const items = response?.success && Array.isArray(response.data?.data)
+      ? response.data.data
+      : Array.isArray(response?.data)
+        ? response.data
+        : Array.isArray(response)
+          ? response
+          : [];
+    const pagination = response?.meta || response?.pagination || response?.data?.pagination || null;
+    return { data: items, pagination, total: pagination?.total ?? response?.total };
+  });
 
 export const getStockItem = (id: string) =>
   api.get(`/stock-items/${id}`).then(r => r.data);
@@ -3631,7 +3669,8 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
   addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
-  addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
+  addServiceToEncounter, removeServiceFromEncounter, getEncounterConsumableUses, recordEncounterConsumableUse,
+  updateEncounterConsumableUse, deleteEncounterConsumableUse, assignBedToEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
   addProgressNoteToEncounter, removeProgressNoteFromEncounter,
   getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,

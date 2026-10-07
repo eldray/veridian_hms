@@ -76,7 +76,6 @@ export const ProcedureModal: React.FC<ProcedureModalProps> = ({
     try {
       await addProcedure(attendanceId, {
         serviceCatalogId: selectedProcedure.id,
-        templateId: selectedProcedure.templateId || selectedProcedure.id,
         scheduledDate: scheduledDate,
         notes: notes,
       });
@@ -85,7 +84,7 @@ export const ProcedureModal: React.FC<ProcedureModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Schedule Failed', err.message || 'Could not schedule procedure');
+      error('Schedule Failed', err.response?.data?.message || err.message || 'Could not schedule procedure');
     } finally {
       setIsSubmitting(false);
     }

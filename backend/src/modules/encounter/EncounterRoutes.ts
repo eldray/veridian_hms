@@ -104,6 +104,10 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   router.post('/:id/services', controller.addService);
   router.delete('/:encounterId/services/:serviceRenderedId', controller.removeService);
+  router.get('/:id/consumables', controller.getConsumableUses);
+  router.post('/:id/consumables', controller.recordConsumableUse);
+  router.patch('/:id/consumables/:transactionId', controller.updateConsumableUse);
+  router.delete('/:id/consumables/:transactionId', controller.deleteConsumableUse);
 
   return router;
 }

@@ -180,9 +180,9 @@ export class EncounterController extends BaseController {
   updateLabTestStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { labTestId } = req.params;
     const { status, result, normalRange, units, notes } = req.body;
-    const user = req.user;
+    const user = req.user!;
 
-    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes }, user?.id);
+    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes }, user.id);
     return this.ok(res, labOrder, 'Lab order status updated');
   });
 
@@ -217,8 +217,9 @@ export class EncounterController extends BaseController {
 
   updateScanStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { scanId } = req.params;
-    const { status, result, findings, impression, imageUrls, performedById } = req.body;
-    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls, performedById });
+    const { status, result, findings, impression, imageUrls } = req.body;
+    const user = req.user!;
+    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls }, user.id);
     return this.ok(res, scan, 'Scan status updated');
   });
 
@@ -244,7 +245,12 @@ export class EncounterController extends BaseController {
   updateProcedureStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { procedureId } = req.params;
     const { status, ...updates } = req.body;
-    const procedure = await this.service.updateProcedureStatus(procedureId, status, updates);
+    const user = req.user!;
+    delete updates.performedById;
+    if (status === 'in_progress' || status === 'completed') {
+      updates.performedById = user.id;
+    }
+    const procedure = await this.service.updateProcedureStatus(procedureId, status, updates, user.id);
     return this.ok(res, procedure, 'Procedure status updated');
   });
 
@@ -267,6 +273,26 @@ export class EncounterController extends BaseController {
     const { encounterId, serviceRenderedId } = req.params;
     await this.service.removeService(encounterId, serviceRenderedId);
     return this.ok(res, null, 'Service removed successfully');
+  });
+
+  getConsumableUses = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.getConsumableUses(req.params.id);
+    return this.ok(res, result, 'Consumable usage retrieved successfully');
+  });
+
+  recordConsumableUse = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.recordConsumableUse(req.params.id, req.body, req.user!.id);
+    return this.created(res, result, 'Consumable use recorded successfully');
+  });
+
+  updateConsumableUse = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.updateConsumableUse(req.params.id, req.params.transactionId, req.body, req.user!.id);
+    return this.ok(res, result, 'Consumable use updated successfully');
+  });
+
+  deleteConsumableUse = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    await this.service.deleteConsumableUse(req.params.id, req.params.transactionId, req.user!.id);
+    return this.ok(res, null, 'Consumable use deleted successfully');
   });
 
   // ============================================

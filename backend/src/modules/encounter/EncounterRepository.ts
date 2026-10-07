@@ -1,4 +1,4 @@
-import { PrismaClient, Attendance, Admission } from '@prisma/client';
+import { PrismaClient, Attendance, Admission, type BodyPart, type ScanCategory } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, EncounterFilters, 
@@ -6,7 +6,7 @@ import {
 } from './EncounterTypes';
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
-import { NotFoundError, ConflictError, ValidationError } from '../../utils/errors';
+import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -24,12 +24,64 @@ export const WORKLIST_OPEN_DAYS = 30;
 export const WORKLIST_DONE_HOURS = 72;
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000);
+const bodyParts: BodyPart[] = [
+  'head', 'chest', 'neck', 'abdomen', 'pelvis', 'spine',
+  'extremities', 'breast', 'eye', 'skeleton', 'other',
+];
+
+const normalizeScanCategory = (name: string, value?: unknown): ScanCategory => {
+  const text = `${String(value || '')} ${name}`.toLowerCase();
+  if (/ultrasound|sonograph/.test(text)) return 'ultrasound';
+  if (/computed tomography|\bct\b|ct.scan/.test(text)) return 'ct_scan';
+  if (/\bmri\b|magnetic resonance/.test(text)) return 'mri';
+  if (/fluoroscopy/.test(text)) return 'fluoroscopy';
+  if (/mammograph/.test(text)) return 'mammography';
+  if (/pet.scan|positron emission/.test(text)) return 'pet_scan';
+  if (/nuclear.medicine/.test(text)) return 'nuclear_medicine';
+  if (/echocardiogram|\becho\b/.test(text)) return 'echocardiography';
+  if (/bone.densitometry|dexa/.test(text)) return 'bone_densitometry';
+  if (/dental.x.ray/.test(text)) return 'dental_xray';
+  if (/x.ray|radiograph/.test(text)) return 'xray';
+  if (/nuclear/.test(text)) return 'nuclear';
+  return 'other';
+};
+
+const normalizeBodyPart = (value?: unknown): BodyPart => {
+  const text = String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+  return bodyParts.find((part) => text.includes(part)) || 'other';
+};
 
 export class EncounterRepository extends BaseRepository<Attendance, CreateEncounterDTO, UpdateEncounterDTO> {
  private marService: MarService;
   constructor(prisma: PrismaClient) {
     super(prisma, 'attendance');
     this.marService = new MarService(prisma);
+  }
+
+  async requireActorId(userId: string) {
+    if (!userId) {
+      throw new UnauthorizedError('Your sign-in is no longer valid. Please sign in again.');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      throw new UnauthorizedError('Your sign-in is no longer valid. Please sign in again.');
+    }
+
+    return user.id;
+  }
+
+  private async requireEncounterId(encounterId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { id: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    return encounter.id;
   }
   
 
@@ -38,6 +90,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // ============================================
   
   async create(data: CreateEncounterDTO, userId: string) {
+    const actorId = await this.requireActorId(userId);
     const counterService = getCounterService(); 
     return this.getModel().create({
       data: {
@@ -49,11 +102,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         insuranceProviderId: data.insuranceProviderId,
         
         // ✅ FIXED: Use complaint field directly (not complaints)
-        complaints: data.complaint || '', 
-        medicalNotes: data.medicalNotes || '', // Keep this separate
+        complaints: data.complaints ?? data.complaint ?? '',
+        medicalNotes: data.medicalNotes || '',
         
         status: 'pending',
-        createdById: userId,
+        createdById: actorId,
         dateTime: new Date(), 
       },
       include: {
@@ -70,9 +123,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } } } },
-        LabTest: { include: { LabTestTemplate: true, User_LabTest_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' } },
-        Procedure: { include: { ProcedureTemplate: true } },
-        Scan: { include: { ScanTemplate: true } },
+        LabTest: { include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_LabTest_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' } },
+        Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } } },
+        Scan: { include: { ScanTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } } },
         referral: { select: { id: true, referralNumber: true, referralType: true, referralReason: true, status: true } },
         ServiceRendered: { include: { ServiceCatalog: { include: { pricing: true } } } }
       }
@@ -122,19 +175,114 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true } } } },
-        LabTest: { include: { LabTestTemplate: true }, orderBy: { requestedAt: 'desc' } },
-        Procedure: { include: { ProcedureTemplate: true } },
-        Scan: { include: { ScanTemplate: true } },
+        LabTest: { include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } }, orderBy: { requestedAt: 'desc' } },
+        Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } } },
+        Scan: { include: { ScanTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } } } },
         referral: { select: { id: true, referralNumber: true, referralType: true, status: true } }
       }
     });
   }
 
-  async updateEncounter(id: string, data: UpdateEncounterDTO) {
-    return this.getModel().update({
-      where: { id },
-      data: { ...data, updatedAt: new Date() },
-      include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } }
+  private normalizeUpdateData(data: UpdateEncounterDTO) {
+    const allowedKeys = new Set([
+      'status',
+      'complaints',
+      'medicalNotes',
+      'clinicalNotes',
+      'followUpDate',
+      'dateTime',
+      'attendanceType',
+      'paymentMode',
+      'nhisCCC',
+      'insuranceProviderId',
+      'corporateAccountId',
+      'encounterCategory',
+      'bedId',
+      'wardId',
+      'updatedById',
+    ]);
+
+    const normalized: Record<string, any> = {};
+    const legacyClinicalNotes: Record<string, any> = {};
+
+    Object.entries(data || {}).forEach(([key, value]) => {
+      if (value === undefined || value === null) return;
+      if (key === 'updatedAt') return;
+
+      if (key === 'complaint') {
+        normalized.complaints = value;
+        return;
+      }
+      if (key === 'admissionType') {
+        normalized.admissionType = value;
+        return;
+      }
+      if (key === 'dateTime' || key === 'followUpDate') {
+        const date = value instanceof Date ? value : new Date(value);
+        if (Number.isNaN(date.getTime())) {
+          throw new ValidationError(`Invalid ${key}`);
+        }
+        normalized[key] = date;
+        return;
+      }
+
+      if (key === 'historyPresentingComplaint' || key === 'onsetDurationQuality' || key === 'physicalExamination' || key === 'treatmentPlan' || key === 'treatmentNotes' || key === 'physicianNotes') {
+        legacyClinicalNotes[key] = value;
+        return;
+      }
+
+      if (allowedKeys.has(key)) {
+        normalized[key] = value;
+      }
+    });
+
+    if (Object.keys(legacyClinicalNotes).length) {
+      const existingClinicalNotes = (data.clinicalNotes && typeof data.clinicalNotes === 'object' && !Array.isArray(data.clinicalNotes))
+        ? { ...data.clinicalNotes }
+        : {};
+
+      const mappedLegacyClinicalNotes = {
+        ...(legacyClinicalNotes.historyPresentingComplaint !== undefined ? { historyPresentingComplaint: legacyClinicalNotes.historyPresentingComplaint } : {}),
+        ...(legacyClinicalNotes.onsetDurationQuality !== undefined ? { onsetDurationQuality: legacyClinicalNotes.onsetDurationQuality } : {}),
+        ...(legacyClinicalNotes.physicalExamination !== undefined ? { physicalExamination: legacyClinicalNotes.physicalExamination } : {}),
+        ...(legacyClinicalNotes.treatmentPlan !== undefined ? { treatmentPlan: legacyClinicalNotes.treatmentPlan } : {}),
+        ...(legacyClinicalNotes.treatmentNotes !== undefined ? { treatmentNotes: legacyClinicalNotes.treatmentNotes } : {}),
+        ...(legacyClinicalNotes.physicianNotes !== undefined ? { physicianNotes: legacyClinicalNotes.physicianNotes } : {}),
+      };
+
+      normalized.clinicalNotes = { ...existingClinicalNotes, ...mappedLegacyClinicalNotes };
+    }
+
+    return normalized;
+  }
+
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    const normalizedData = this.normalizeUpdateData(data);
+    normalizedData.updatedById = actorId;
+    const admissionType = normalizedData.admissionType;
+    delete normalizedData.admissionType;
+
+    return this.prisma.$transaction(async (tx) => {
+      if (admissionType !== undefined) {
+        const admission = await tx.admission.findUnique({
+          where: { attendanceId: id },
+          select: { id: true },
+        });
+        if (!admission) {
+          throw new ValidationError('Create an admission before updating its admission type');
+        }
+        await tx.admission.update({
+          where: { id: admission.id },
+          data: { admissionType },
+        });
+      }
+
+      return tx.attendance.update({
+        where: { id },
+        data: { ...normalizedData, updatedAt: new Date() },
+        include: { Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } } }
+      });
     });
   }
 
@@ -147,6 +295,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // ============================================
 
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
+    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id: data.diagnosisId } });
+    if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
+
     if (data.diagnosisType === 'primary') {
       await this.prisma.attendanceDiagnosis.updateMany({
         where: { attendanceId: encounterId, diagnosisType: 'primary' },
@@ -156,9 +309,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const existing = await this.prisma.attendanceDiagnosis.findFirst({ where: { attendanceId: encounterId, diagnosisId: data.diagnosisId } });
     if (existing) throw new Error('Diagnosis already added to this encounter');
 
-    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id: data.diagnosisId } });
     return this.prisma.attendanceDiagnosis.create({
-      data: { attendanceId: encounterId, diagnosisId: data.diagnosisId, diagnosisType: data.diagnosisType, notes: data.notes, createdById: userId, icdCode: diagnosis?.icdCode || '' },
+      data: { attendanceId: encounterId, diagnosisId: data.diagnosisId, diagnosisType: data.diagnosisType, notes: data.notes, createdById: actorId, icdCode: diagnosis.icdCode || '' },
       include: { Diagnosis: true }
     });
   }
@@ -168,6 +320,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
+    const actorId = await this.requireActorId(userId);
     const {
       fetalHeartRate,
       fundalHeight,
@@ -198,7 +351,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           attendanceId: encounterId,
           patientId: attendance.patientId,
           ...vitalsData,
-          recordedById: userId,
+          recordedById: actorId,
           recordedAt: new Date(),
         },
         include: { User: { select: { fullName: true } } },
@@ -290,8 +443,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
     const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
-    if (!stockItem) throw new Error('Stock item not found');
+    if (!stockItem) throw new NotFoundError('Stock item', data.stockItemId);
+    if (!data.serviceCatalogId) throw new ValidationError('A medication service is required');
+    const service = await this.prisma.serviceCatalog.findUnique({ where: { id: data.serviceCatalogId } });
+    if (!service || service.serviceType !== 'medication') {
+      throw new NotFoundError('Medication service', data.serviceCatalogId);
+    }
 
     const medication = await this.prisma.medication.create({
       data: {
@@ -306,7 +466,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         instructions: data.instructions,
         quantity: data.quantity || 1,
         status: 'prescribed',
-        prescribedById: userId,
+        prescribedById: actorId,
         prescribedAt: new Date(),
       },
       include: {
@@ -329,6 +489,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const med = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
       if (!med) throw new Error('Medication not found');
@@ -337,7 +498,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       // Update medication status
       const updatedMed = await tx.medication.update({
         where: { id: medicationId },
-        data: { status: 'dispensed', dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, quantity }
+        data: { status: 'dispensed', dispensedAt: new Date(), dispensedById: actorId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, quantity }
       });
 
       // Deduct stock safely
@@ -348,7 +509,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
         // Log transaction
         await tx.stockTransaction.create({
-          data: { stockItemId: med.stockItemId, transactionType: 'sale', quantity: -quantity, balanceAfter: med.StockItem.currentStock - quantity, performedBy: userId, reference: medicationId }
+          data: { stockItemId: med.stockItemId, transactionType: 'sale', quantity: -quantity, balanceAfter: med.StockItem.currentStock - quantity, performedBy: actorId, reference: medicationId }
         });
       }
       return updatedMed;
@@ -366,6 +527,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
    *   the currently due MedicationDose row.
    */
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
       const med = await tx.medication.findUnique({
         where: { id: medicationId },
@@ -401,14 +563,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
               transactionType: 'sale',
               quantity: -qty,
               balanceAfter: after?.currentStock ?? med.StockItem.currentStock - qty,
-              performedBy: userId,
+              performedBy: actorId,
               reference: medicationId,
             },
           });
         }
         updateData.quantity = qty;
         updateData.dispensedAt = data.dispensedAt ? new Date(data.dispensedAt) : new Date();
-        updateData.dispensedById = data.dispensedById || userId;
+        updateData.dispensedById = actorId;
         if (data.batchNumber !== undefined) updateData.dispensedBatchNumber = data.batchNumber;
         updateData.dispensedUnitCost = data.dispensedUnitCost ?? med.StockItem?.costPrice ?? null;
       } else if (data.quantity !== undefined) {
@@ -419,7 +581,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       // The UI passes doseId explicitly now; fall back to the next pending one.
       if (data.status === 'administered') {
         updateData.administeredAt = data.administeredAt ? new Date(data.administeredAt) : new Date();
-        updateData.administeredById = data.administeredById || userId;
+        updateData.administeredById = actorId;
       }
 
       const updated = await tx.medication.update({
@@ -471,40 +633,43 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
 async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
-  // ─────────────────────────────────────────────────────────────
-  // Resolve templateId from the ServiceCatalog link if the caller
-  // didn't provide one. The frontend sends `serviceCatalogId` only;
-  // we walk the relation to find the underlying LabTestTemplate.
-  // ─────────────────────────────────────────────────────────────
-  let templateId: string | undefined = data.templateId;
+  const actorId = await this.requireActorId(userId);
+  await this.requireEncounterId(encounterId);
+  let templateId: string | undefined;
 
-  if (!templateId && data.serviceCatalogId) {
+  if (data.serviceCatalogId) {
     const catalogEntry = await this.prisma.serviceCatalog.findUnique({
       where: { id: data.serviceCatalogId },
-      select: { labTestTemplateId: true, name: true, code: true },
+      select: { labTestTemplateId: true, name: true, code: true, serviceType: true },
     });
 
     if (!catalogEntry) {
-      throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+      throw new NotFoundError('Lab service', data.serviceCatalogId);
+    }
+    if (catalogEntry.serviceType !== 'lab_test') {
+      throw new ValidationError(`Service "${catalogEntry.name}" is not a laboratory service`);
     }
     if (!catalogEntry.labTestTemplateId) {
-      throw new Error(
+      throw new ValidationError(
         `ServiceCatalog entry "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a lab test template. ` +
         `Ask an admin to fix the catalog linkage.`,
       );
     }
     templateId = catalogEntry.labTestTemplateId;
+  } else {
+    templateId = data.templateId;
   }
 
   if (!templateId) {
-    throw new Error('A lab test template or service catalog entry is required');
+    throw new ValidationError('A lab test template or service catalog entry is required');
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Prisma rule: never pass `undefined` for a scalar FK in `create`.
-  // Either omit the key entirely or provide a real value. We always
-  // have a real `templateId` at this point, so the key is always set.
-  // ─────────────────────────────────────────────────────────────
+  const template = await this.prisma.labTestTemplate.findUnique({
+    where: { id: templateId },
+    select: { id: true },
+  });
+  if (!template) throw new NotFoundError('Lab test template', templateId);
+
   return this.prisma.labTest.create({
     data: {
       attendanceId: encounterId,
@@ -513,7 +678,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
       status: 'requested',
       priority: data.priority ?? 'routine',
       requestedAt: new Date(),
-      createdById: userId,
+      createdById: actorId,
       notes: data.notes ?? null,
     },
     include: {
@@ -523,10 +688,11 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   });
 }
 
-  async updateLabTestStatus(labOrderId: string, status: string, data: any, userId?: string) {
+  async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     const updateData: any = { status, ...data };
     if (status === 'completed') updateData.completedAt = new Date();
-    if (userId && status === 'in_progress') updateData.performedById = userId;
+    if (status === 'in_progress') updateData.performedById = actorId;
     return this.prisma.labTest.update({ where: { id: labOrderId }, data: updateData });
   }
 
@@ -535,45 +701,113 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
-  let templateId: string | undefined = data.templateId;
+  const actorId = await this.requireActorId(userId);
+  await this.requireEncounterId(encounterId);
+  let templateId: string | undefined;
+  const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
-  if (!templateId && data.serviceCatalogId) {
+  if (serviceCatalogId) {
     const catalogEntry = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId },
-      select: { scanTemplateId: true, name: true, code: true },
+      where: { id: serviceCatalogId },
+      select: {
+        id: true, name: true, code: true, description: true, serviceType: true,
+        scanTemplateId: true, subType: true, metadata: true, isNHISCovered: true,
+        nhisRequiresAuth: true, isActive: true,
+      },
     });
-    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
-    if (!catalogEntry.scanTemplateId) {
-      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a scan template`);
+    if (!catalogEntry || catalogEntry.serviceType !== 'scan') {
+      throw new NotFoundError('Scan service', serviceCatalogId);
     }
-    templateId = catalogEntry.scanTemplateId;
+
+    if (catalogEntry.scanTemplateId) {
+      const linkedTemplate = await this.prisma.scanTemplate.findUnique({
+        where: { id: catalogEntry.scanTemplateId },
+        select: { id: true },
+      });
+      templateId = linkedTemplate?.id;
+    }
+
+    if (!templateId) {
+      const metadata = catalogEntry.metadata && typeof catalogEntry.metadata === 'object' && !Array.isArray(catalogEntry.metadata)
+        ? catalogEntry.metadata as Record<string, unknown>
+        : {};
+      const scanType = metadata.scanType;
+      const bodyPart = normalizeBodyPart(metadata.bodyPart ?? catalogEntry.subType);
+      const scanCategory = normalizeScanCategory(catalogEntry.name, scanType);
+
+      templateId = await this.prisma.$transaction(async (tx) => {
+        const currentCatalog = await tx.serviceCatalog.findUnique({
+          where: { id: serviceCatalogId },
+          select: { scanTemplateId: true },
+        });
+        if (!currentCatalog) throw new NotFoundError('Scan service', serviceCatalogId);
+        if (currentCatalog.scanTemplateId) {
+          const currentTemplate = await tx.scanTemplate.findUnique({
+            where: { id: currentCatalog.scanTemplateId },
+            select: { id: true },
+          });
+          if (currentTemplate) return currentTemplate.id;
+        }
+
+        const template = await tx.scanTemplate.upsert({
+          where: { scanCode: catalogEntry.code },
+          create: {
+            name: catalogEntry.name,
+            investigationCode: catalogEntry.code,
+            scanCode: catalogEntry.code,
+            description: catalogEntry.description || catalogEntry.name,
+            category: scanCategory,
+            bodyPart,
+            isNHISCovered: catalogEntry.isNHISCovered,
+            nhisRequiresAuth: catalogEntry.nhisRequiresAuth,
+            isActive: catalogEntry.isActive,
+            preparationInstructions: typeof metadata.preparationInstructions === 'string' ? metadata.preparationInstructions : null,
+            duration: typeof metadata.duration === 'number' ? metadata.duration : 30,
+            contrastRequired: metadata.contrastRequired === true,
+            scanType: typeof scanType === 'string' ? scanType : catalogEntry.name,
+            resultTemplate: Array.isArray(metadata.resultTemplate) ? metadata.resultTemplate : undefined,
+          },
+          update: {},
+          select: { id: true },
+        });
+        await tx.serviceCatalog.update({
+          where: { id: serviceCatalogId },
+          data: { scanTemplateId: template.id },
+        });
+        return template.id;
+      });
+    }
+  } else {
+    templateId = data.templateId;
   }
 
-  if (!templateId) throw new Error('A scan template or service catalog entry is required');
+  if (!templateId) throw new ValidationError('A scan template or service catalog entry is required');
 
   const template = await this.prisma.scanTemplate.findUnique({ where: { id: templateId } });
-  if (!template) throw new Error(`Scan template ${templateId} does not exist`);
+  if (!template) throw new NotFoundError('Scan template', templateId);
 
   return this.prisma.scan.create({
     data: {
       attendanceId: encounterId,
       templateId: template.id,
-      serviceCatalogId: data.serviceCatalogId ?? null,
+      serviceCatalogId: serviceCatalogId ?? null,
       scanType: template.scanType || template.name,
       description: template.description ?? null,
       bodyPart: data.bodyPart ?? null,
       status: 'requested',
       priority: data.priority ?? 'routine',
       requestedAt: new Date(),
-      createdById: userId,
+      createdById: actorId,
     },
     include: { ScanTemplate: true },
   });
 }
 
-  async updateScanStatus(scanId: string, status: string, data: any) {
+  async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     const updateData: any = { status, ...data };
     if (status === 'completed') updateData.completedAt = new Date();
+    if (status === 'in_progress') updateData.performedById = actorId;
     return this.prisma.scan.update({ where: { id: scanId }, data: updateData });
   }
 
@@ -582,43 +816,52 @@ async addScan(encounterId: string, data: any, userId: string) {
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
-  let templateId: string | undefined = data.templateId;
+  const actorId = await this.requireActorId(userId);
+  await this.requireEncounterId(encounterId);
+  let templateId: string | undefined;
+  const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
-  if (!templateId && data.serviceCatalogId) {
+  if (serviceCatalogId) {
     const catalogEntry = await this.prisma.serviceCatalog.findUnique({
-      where: { id: data.serviceCatalogId },
-      select: { procedureTemplateId: true, name: true, code: true },
+      where: { id: serviceCatalogId },
+      select: { procedureTemplateId: true, name: true, code: true, serviceType: true },
     });
-    if (!catalogEntry) throw new Error(`ServiceCatalog entry ${data.serviceCatalogId} not found`);
+    if (!catalogEntry || catalogEntry.serviceType !== 'procedure') {
+      throw new NotFoundError('Procedure service', serviceCatalogId);
+    }
     if (!catalogEntry.procedureTemplateId) {
-      throw new Error(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a procedure template`);
+      throw new ValidationError(`ServiceCatalog "${catalogEntry.name}" (${catalogEntry.code}) is not linked to a procedure template`);
     }
     templateId = catalogEntry.procedureTemplateId;
+  } else {
+    templateId = data.templateId;
   }
 
-  if (!templateId) throw new Error('A procedure template or service catalog entry is required');
+  if (!templateId) throw new ValidationError('A procedure template or service catalog entry is required');
 
   const template = await this.prisma.procedureTemplate.findUnique({ where: { id: templateId } });
-  if (!template) throw new Error(`Procedure template ${templateId} does not exist`);
+  if (!template) throw new NotFoundError('Procedure template', templateId);
 
   return this.prisma.procedure.create({
     data: {
       attendanceId: encounterId,
       templateId: template.id,
-      serviceCatalogId: data.serviceCatalogId ?? null,
+      serviceCatalogId: serviceCatalogId ?? null,
       status: 'scheduled',
       scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
       notes: data.notes ?? null,
       duration: data.duration ?? null,
-      createdById: userId,
+      createdById: actorId,
     },
     include: { ProcedureTemplate: true },
   });
 }
 
-  async updateProcedureStatus(procedureId: string, status: string, data: any) {
+  async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
     const updateData: any = { status, ...data };
     if (status === 'completed') updateData.performedAt = new Date();
+    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
     return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
   }
 
@@ -627,13 +870,184 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async addService(encounterId: string, data: any, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
+    if (!data.serviceCatalogId) throw new ValidationError('A service catalog entry is required');
+    const service = await this.prisma.serviceCatalog.findUnique({ where: { id: data.serviceCatalogId } });
+    if (!service) throw new NotFoundError('Service', data.serviceCatalogId);
     return this.prisma.serviceRendered.create({
-      data: { attendanceId: encounterId, serviceItemId: data.serviceCatalogId, quantity: data.quantity || 1, date: new Date(), performedById: userId, notes: data.notes }
+      data: { attendanceId: encounterId, serviceItemId: data.serviceCatalogId, quantity: data.quantity || 1, date: new Date(), performedById: actorId, notes: data.notes }
     });
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
     return this.prisma.serviceRendered.delete({ where: { id: serviceRenderedId } });
+  }
+
+  async getConsumableUses(encounterId: string) {
+    await this.requireEncounterId(encounterId);
+    return this.prisma.stockTransaction.findMany({
+      where: {
+        reference: encounterId,
+        notes: { startsWith: 'Consumable use:' },
+      },
+      include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
+      orderBy: { transactionDate: 'desc' },
+    });
+  }
+
+  async recordConsumableUse(encounterId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+      if (!item || !item.isActive || item.isMedication) {
+        throw new NotFoundError('Active consumable', stockItemId);
+      }
+
+      const updated = await tx.stockItem.updateMany({
+        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
+        data: { currentStock: { decrement: quantity } },
+      });
+      if (updated.count === 0) {
+        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock}`);
+      }
+
+      const current = await tx.stockItem.findUnique({
+        where: { id: stockItemId },
+        select: { currentStock: true },
+      });
+      if (!current) throw new NotFoundError('Stock item', stockItemId);
+
+      return tx.stockTransaction.create({
+        data: {
+          stockItemId,
+          transactionType: 'sale',
+          quantity,
+          balanceAfter: current.currentStock,
+          reference: encounterId,
+          notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
+          performedBy: actorId,
+        },
+        include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
+      });
+    });
+  }
+
+  async updateConsumableUse(encounterId: string, transactionId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const previous = await tx.stockTransaction.findFirst({
+        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+      });
+      if (!previous) throw new NotFoundError('Consumable use', transactionId);
+      const claimed = await tx.stockTransaction.updateMany({
+        where: { id: previous.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        data: { notes: `Consumable use edit in progress: ${previous.id}` },
+      });
+      if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
+      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+      if (!item || !item.isActive || item.isMedication) {
+        throw new NotFoundError('Active consumable', stockItemId);
+      }
+
+      await tx.stockItem.update({
+        where: { id: previous.stockItemId },
+        data: { currentStock: { increment: previous.quantity } },
+      });
+      const updated = await tx.stockItem.updateMany({
+        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
+        data: { currentStock: { decrement: quantity } },
+      });
+      if (updated.count === 0) {
+        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock + (previous.stockItemId === stockItemId ? previous.quantity : 0)}`);
+      }
+
+      const previousBalance = await tx.stockItem.findUnique({
+        where: { id: previous.stockItemId },
+        select: { currentStock: true },
+      });
+      if (!previousBalance) throw new NotFoundError('Stock item', previous.stockItemId);
+      await tx.stockTransaction.update({
+        where: { id: previous.id },
+        data: { notes: `Consumable use edited: ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+      });
+      await tx.stockTransaction.create({
+        data: {
+          stockItemId: previous.stockItemId,
+          transactionType: 'adjustment',
+          quantity: previous.quantity,
+          balanceAfter: previousBalance.currentStock,
+          reference: encounterId,
+          notes: `Consumable use edit reversal: ${previous.id}`,
+          performedBy: actorId,
+        },
+      });
+
+      const current = await tx.stockItem.findUnique({
+        where: { id: stockItemId },
+        select: { currentStock: true },
+      });
+      if (!current) throw new NotFoundError('Stock item', stockItemId);
+      return tx.stockTransaction.create({
+        data: {
+          stockItemId,
+          transactionType: 'sale',
+          quantity,
+          balanceAfter: current.currentStock,
+          reference: encounterId,
+          notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
+          performedBy: actorId,
+        },
+        include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
+      });
+    });
+  }
+
+  async deleteConsumableUse(encounterId: string, transactionId: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireEncounterId(encounterId);
+
+    return this.prisma.$transaction(async (tx) => {
+      const use = await tx.stockTransaction.findFirst({
+        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+      });
+      if (!use) throw new NotFoundError('Consumable use', transactionId);
+      const claimed = await tx.stockTransaction.updateMany({
+        where: { id: use.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        data: { notes: `Consumable use deletion in progress: ${use.id}` },
+      });
+      if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
+      const item = await tx.stockItem.update({
+        where: { id: use.stockItemId },
+        data: { currentStock: { increment: use.quantity } },
+        select: { currentStock: true },
+      });
+      await tx.stockTransaction.update({
+        where: { id: use.id },
+        data: { notes: `Consumable use deleted: ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+      });
+      return tx.stockTransaction.create({
+        data: {
+          stockItemId: use.stockItemId,
+          transactionType: 'adjustment',
+          quantity: use.quantity,
+          balanceAfter: item.currentStock,
+          reference: encounterId,
+          notes: `Consumable use deletion reversal: ${use.id}`,
+          performedBy: actorId,
+        },
+      });
+    });
   }
 
   // ============================================
