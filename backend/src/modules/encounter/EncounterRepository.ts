@@ -319,6 +319,71 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
   }
 
+  private async getOrCreateANCVisit(tx: any, attendance: { id: string; patientId: string; dateTime: Date }, userId: string) {
+    const existingVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: attendance.id } });
+    if (existingVisit) return existingVisit;
+
+    let booking = await tx.antenatalBooking.findFirst({
+      where: {
+        patientId: attendance.patientId,
+        OR: [
+          { attendanceId: attendance.id },
+          { currentAttendanceId: attendance.id },
+          { isActive: true, isCompleted: false },
+        ],
+      },
+      orderBy: { bookingDate: 'desc' },
+    });
+
+    if (!booking) {
+      booking = await tx.antenatalBooking.create({
+        data: {
+          patientId: attendance.patientId,
+          attendanceId: attendance.id,
+          currentAttendanceId: attendance.id,
+          bookingDate: attendance.dateTime,
+          gravida: 1,
+          para: 0,
+          riskLevel: 'low',
+          riskFactors: [],
+          isActive: true,
+          isCompleted: false,
+          createdById: userId,
+          iptpDoses: {},
+          ttDoses: {},
+          previousCSection: false,
+          malariaTested: false,
+          malariaPositive: false,
+          anaemiaDiagnosed: false,
+          ironFolateGiven: false,
+          itnGiven: false,
+        },
+      });
+    }
+
+    const visitCount = await tx.aNCVisit.count({ where: { bookingId: booking.id } });
+    return tx.aNCVisit.create({
+      data: {
+        bookingId: booking.id,
+        attendanceId: attendance.id,
+        visitNumber: visitCount + 1,
+        visitDate: attendance.dateTime,
+        recordedById: userId,
+        iptpGiven: false,
+        ttGiven: false,
+        ironGiven: false,
+        folateGiven: false,
+        calciumGiven: false,
+        malariaTestDone: false,
+        malariaTreatmentGiven: false,
+        dangerSignsPresent: false,
+        referralMade: false,
+        oedema: false,
+        dangerSignsList: [],
+      },
+    });
+  }
+
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     const {
@@ -331,20 +396,23 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       recordedAt: _recordedAt,
       ...vitalsData
     } = data as AddVitalsDTO & { recordedById?: string; recordedAt?: Date | string };
-    const hasAntenatalData = [
-      fetalHeartRate,
-      fundalHeight,
-      presentingPart,
-      fetalMovement,
-      oedema,
-    ].some(value => value !== undefined);
+    const hasAntenatalData =
+      fetalHeartRate !== undefined ||
+      fundalHeight !== undefined ||
+      Boolean(presentingPart?.trim()) ||
+      fetalMovement !== undefined ||
+      oedema !== undefined;
 
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: encounterId },
-        select: { patientId: true },
+        select: { id: true, patientId: true, attendanceType: true, dateTime: true },
       });
       if (!attendance) throw new NotFoundError('Encounter', encounterId);
+
+      if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
+        throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
+      }
 
       const savedVitals = await tx.vitals.create({
         data: {
@@ -358,16 +426,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
 
       if (hasAntenatalData) {
-        const ancVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: encounterId } });
-        if (!ancVisit) {
-          throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
-        }
+        const ancVisit = await this.getOrCreateANCVisit(tx, attendance, actorId);
         await tx.aNCVisit.update({
           where: { id: ancVisit.id },
           data: {
             ...(fetalHeartRate !== undefined && { fetalHeartRate }),
             ...(fundalHeight !== undefined && { fundalHeight: Math.round(fundalHeight) }),
-            ...(presentingPart !== undefined && { presentation: presentingPart || null }),
+            ...(presentingPart !== undefined && { presentation: presentingPart.trim() || null }),
             ...(fetalMovement !== undefined && { fetalMovements: fetalMovement }),
             ...(oedema !== undefined && { oedema }),
             ...(vitalsData.weight !== undefined && { weight: vitalsData.weight }),
@@ -393,20 +458,28 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       patientId: _patientId,
       ...vitalsData
     } = data;
-    const hasAntenatalData = [
-      fetalHeartRate,
-      fundalHeight,
-      presentingPart,
-      fetalMovement,
-      oedema,
-    ].some(value => value !== undefined);
+    const hasAntenatalData =
+      fetalHeartRate !== undefined ||
+      fundalHeight !== undefined ||
+      Boolean(presentingPart?.trim()) ||
+      fetalMovement !== undefined ||
+      oedema !== undefined;
 
     return this.prisma.$transaction(async (tx) => {
       const existingVitals = await tx.vitals.findUnique({
         where: { id: vitalsId },
-        select: { attendanceId: true },
+        select: { attendanceId: true, recordedById: true },
       });
       if (!existingVitals) throw new NotFoundError('Vitals', vitalsId);
+
+      const attendance = await tx.attendance.findUnique({
+        where: { id: existingVitals.attendanceId },
+        select: { id: true, patientId: true, attendanceType: true, dateTime: true },
+      });
+      if (!attendance) throw new NotFoundError('Encounter', existingVitals.attendanceId);
+      if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
+        throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
+      }
 
       const updatedVitals = await tx.vitals.update({
         where: { id: vitalsId },
@@ -414,18 +487,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
 
       if (hasAntenatalData) {
-        const ancVisit = await tx.aNCVisit.findUnique({
-          where: { attendanceId: existingVitals.attendanceId },
-        });
-        if (!ancVisit) {
-          throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
-        }
+        const ancVisit = await this.getOrCreateANCVisit(tx, attendance, existingVitals.recordedById);
         await tx.aNCVisit.update({
           where: { id: ancVisit.id },
           data: {
             ...(fetalHeartRate !== undefined && { fetalHeartRate }),
             ...(fundalHeight !== undefined && { fundalHeight: Math.round(fundalHeight) }),
-            ...(presentingPart !== undefined && { presentation: presentingPart || null }),
+            ...(presentingPart !== undefined && { presentation: presentingPart.trim() || null }),
             ...(fetalMovement !== undefined && { fetalMovements: fetalMovement }),
             ...(oedema !== undefined && { oedema }),
             ...(vitalsData.weight !== undefined && { weight: vitalsData.weight }),
@@ -628,8 +696,28 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async removeMedication(encounterId: string, medicationId: string) {
-    // Soft delete is safer for medical records
-    return this.prisma.medication.update({ where: { id: medicationId }, data: { status: 'cancelled' } });
+    return this.prisma.$transaction(async (tx) => {
+      const medication = await tx.medication.findFirst({
+        where: { id: medicationId, attendanceId: encounterId },
+        select: { id: true },
+      });
+      if (!medication) throw new NotFoundError('Medication', medicationId);
+
+      const cancelled = await tx.medication.update({
+        where: { id: medication.id },
+        data: { status: 'cancelled' },
+      });
+
+      await tx.medicationDose.updateMany({
+        where: {
+          medicationId: medication.id,
+          status: { in: ['scheduled', 'due', 'late'] },
+        },
+        data: { status: 'discontinued' },
+      });
+
+      return cancelled;
+    });
   }
 
 async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {

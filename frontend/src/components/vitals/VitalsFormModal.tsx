@@ -39,8 +39,8 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
     fetalHeartRate: undefined,
     fundalHeight: undefined,
     presentingPart: '',
-    fetalMovement: false,
-    oedema: false,
+    fetalMovement: undefined,
+    oedema: undefined,
     notes: '',
   });
 
@@ -57,8 +57,8 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
         fetalHeartRate: initialData.fetalHeartRate,
         fundalHeight: initialData.fundalHeight,
         presentingPart: initialData.presentingPart || '',
-        fetalMovement: initialData.fetalMovement || false,
-        oedema: initialData.oedema || false,
+        fetalMovement: initialData.fetalMovement,
+        oedema: initialData.oedema,
         notes: initialData.notes || '',
       });
     } else {
@@ -73,8 +73,8 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
         fetalHeartRate: undefined,
         fundalHeight: undefined,
         presentingPart: '',
-        fetalMovement: false,
-        oedema: false,
+        fetalMovement: undefined,
+        oedema: undefined,
         notes: '',
       });
     }
@@ -94,9 +94,9 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       (isAntenatal && (
         formData.fetalHeartRate !== undefined ||
         formData.fundalHeight !== undefined ||
-        formData.presentingPart ||
-        formData.fetalMovement ||
-        formData.oedema
+        Boolean(formData.presentingPart?.trim()) ||
+        formData.fetalMovement !== undefined ||
+        formData.oedema !== undefined
       ));
 
     if (!hasAnyValue) {
@@ -130,8 +130,8 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       fetalHeartRate: undefined,
       fundalHeight: undefined,
       presentingPart: '',
-      fetalMovement: false,
-      oedema: false,
+      fetalMovement: undefined,
+      oedema: undefined,
       notes: '',
     });
   };
@@ -148,8 +148,8 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       fetalHeartRate: undefined,
       fundalHeight: undefined,
       presentingPart: '',
-      fetalMovement: false,
-      oedema: false,
+      fetalMovement: undefined,
+      oedema: undefined,
       notes: '',
     });
     onClose();
@@ -417,7 +417,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formData.fetalMovement}
+                      checked={Boolean(formData.fetalMovement)}
                       onChange={(e) => setFormData(prev => ({ ...prev, fetalMovement: e.target.checked }))}
                       disabled={isLoading}
                       className="w-4 h-4 rounded border-[var(--border-color)] text-pink-500 focus:ring-pink-500"
@@ -427,7 +427,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
                       type="checkbox"
-                      checked={formData.oedema}
+                      checked={Boolean(formData.oedema)}
                       onChange={(e) => setFormData(prev => ({ ...prev, oedema: e.target.checked }))}
                       disabled={isLoading}
                       className="w-4 h-4 rounded border-[var(--border-color)] text-pink-500 focus:ring-pink-500"

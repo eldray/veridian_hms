@@ -162,6 +162,7 @@ export class NursingService extends BaseService {
   async administerDose(doseId: string, userId: string, data: AdministerDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
+    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
     if (existing.status === 'administered') throw new Error('This dose has already been administered');
     if (existing.status === 'discontinued') throw new Error('This dose was discontinued');
 
@@ -175,6 +176,7 @@ export class NursingService extends BaseService {
   async recordVariance(doseId: string, userId: string, data: VarianceDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
+    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
     if (existing.status === 'administered') throw new Error('Cannot record a variance for an administered dose');
 
     return this.repository.recordDoseVariance(doseId, userId, data);

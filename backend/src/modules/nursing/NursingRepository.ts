@@ -27,6 +27,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
           frequency: true,
           instructions: true,
           attendanceId: true,
+          status: true,
         },
       },
     };
@@ -43,8 +44,11 @@ export class NursingRepository extends BaseRepository<any, any, any> {
       if (fromDate) where.scheduledAt.gte = fromDate;
       if (toDate) where.scheduledAt.lte = toDate;
     }
-    if (attendanceId) where.medication = { attendanceId };
-    if (patientId) where.medication = { ...(where.medication ?? {}), Attendance: { patientId } };
+    where.medication = {
+      status: { not: 'cancelled' },
+      ...(attendanceId ? { attendanceId } : {}),
+      ...(patientId ? { Attendance: { patientId } } : {}),
+    };
 
     const result = await this.findManyWithPagination({
       where,
@@ -66,7 +70,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
 
   async findDosesByMedication(medicationId: string) {
     return this.prisma.medicationDose.findMany({
-      where: { medicationId },
+      where: { medicationId, medication: { status: { not: 'cancelled' } } },
       orderBy: { doseNumber: 'asc' },
       include: this.doseInclude(),
     });
