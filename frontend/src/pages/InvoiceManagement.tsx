@@ -212,7 +212,7 @@ export default function InvoiceManagement() {
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
-  const isAdmin = hasRole(['admin', 'pharmacist']);
+const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
 
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');

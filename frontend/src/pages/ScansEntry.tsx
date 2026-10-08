@@ -1,4 +1,4 @@
-// src/pages/ScansEntry.tsx — Scans Results Entry Page (parity with LabResultEntry)
+// src/pages/ScansEntry.tsx — Scans Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -14,23 +14,12 @@ import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
-  ChevronLeft,
-  Scan,
-  RefreshCw,
-  AlertCircle,
-  Plus,
-  Clock,
-  CheckCircle,
-  Activity,
-  User,
-  Calendar,
-  X,
-  Edit,
-  Trash2,
-  Eye,
-  Printer,
-  Image,
-  MessageSquare,
+  ChevronLeft, Scan, RefreshCw, AlertCircle, Plus, Clock,
+  CheckCircle, Activity, User, Calendar, X, Edit, Trash2,
+  Eye, Printer, Image as ImageIcon, MessageSquare,
+  Play, FileText, Hash, Phone, AlertTriangle, Info,
+  ChevronDown, ChevronRight, Stethoscope, Sparkles,
+  Maximize2, Minimize2,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
@@ -39,7 +28,22 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 const getScanDisplayName = (scan: any): string =>
   scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Unknown Scan';
 
-// ── Inline expanded result card, mirroring the lab parameter block ────────────
+// ── Priority pill ──
+const PriorityPill: React.FC<{ priority: string }> = ({ priority }) => {
+  const map: Record<string, string> = {
+    stat:   'bg-red-100 text-red-700 border-red-200',
+    urgent: 'bg-orange-100 text-orange-700 border-orange-200',
+    routine:'bg-blue-100 text-blue-700 border-blue-200',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[priority] || map.routine}`}>
+      {priority === 'stat' && <AlertTriangle className="w-2.5 h-2.5" />}
+      {priority?.toUpperCase() || 'ROUTINE'}
+    </span>
+  );
+};
+
+// ── Result card ──
 const ScanResultDisplay: React.FC<{
   scan: any;
   printing: boolean;
@@ -49,94 +53,125 @@ const ScanResultDisplay: React.FC<{
   canEdit: boolean;
 }> = ({ scan, printing, onPrint, onSend, onEdit, canEdit }) => {
   const [expanded, setExpanded] = useState(false);
+  const imageCount = scan.imageUrls?.length || 0;
 
   return (
     <div className="border-b border-[var(--border-color)] last:border-b-0">
-      {/* Header */}
-      <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
+      {/* Header row */}
+      <div
+        className={`px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer ${
+          expanded ? 'bg-indigo-50/40' : 'bg-[var(--bg-card)] hover:bg-indigo-50/30'
+        }`}
+        onClick={() => setExpanded(v => !v)}
+      >
+        <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
+          <CheckCircle className="w-4 h-4 text-green-600" />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
             <h4 className="font-semibold text-sm text-[var(--text-primary)] truncate">
               {getScanDisplayName(scan)}
             </h4>
-            <p className="text-[10px] text-[var(--text-secondary)]">
-              {scan.bodyPart ? `Body Part: ${scan.bodyPart} · ` : ''}
-              Completed: {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
-            </p>
+            <span className="inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0">
+              Completed
+            </span>
           </div>
-
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {scan.imageUrls?.length > 0 && (
-              <span className="hidden sm:flex items-center gap-1 text-[10px] text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded-full">
-                <Image className="w-3 h-3" />
-                {scan.imageUrls.length}
+          <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5 flex-wrap">
+            {scan.bodyPart && (
+              <span className="inline-flex items-center gap-1">
+                <Stethoscope className="w-2.5 h-2.5" />
+                {scan.bodyPart}
               </span>
             )}
-            <button
-              onClick={() => setExpanded((v) => !v)}
-              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"
-              title={expanded ? 'Hide details' : 'View details'}
-            >
-              <Eye className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={onPrint}
-              disabled={printing}
-              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all disabled:opacity-40"
-              title="Print this scan"
-            >
-              <Printer className={`w-3.5 h-3.5 ${printing ? 'animate-pulse' : ''}`} />
-            </button>
-            <button
-              onClick={onSend}
-              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-              title="Send this result"
-            >
-              <MessageSquare className="w-3.5 h-3.5" />
-            </button>
-            {canEdit && (
-              <button
-                onClick={onEdit}
-                className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 transition-all"
-                title="Edit result"
-              >
-                <Edit className="w-3.5 h-3.5" />
-              </button>
+            {scan.bodyPart && <span className="opacity-40">·</span>}
+            <span className="inline-flex items-center gap-1">
+              <Clock className="w-2.5 h-2.5" />
+              {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
+            </span>
+            {imageCount > 0 && (
+              <>
+                <span className="opacity-40">·</span>
+                <span className="inline-flex items-center gap-1 text-indigo-600 font-medium">
+                  <ImageIcon className="w-2.5 h-2.5" />
+                  {imageCount} image{imageCount !== 1 ? 's' : ''}
+                </span>
+              </>
             )}
           </div>
+        </div>
+
+        <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={onPrint}
+            disabled={printing}
+            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50 transition-all disabled:opacity-40"
+            title="Print"
+          >
+            <Printer className={`w-3.5 h-3.5 ${printing ? 'animate-pulse' : ''}`} />
+          </button>
+          <button
+            onClick={onSend}
+            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
+            title="Send"
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
+          </button>
+          {canEdit && (
+            <button
+              onClick={onEdit}
+              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 transition-all"
+              title="Edit"
+            >
+              <Edit className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            onClick={() => setExpanded(v => !v)}
+            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all"
+            title={expanded ? 'Collapse' : 'Expand'}
+          >
+            {expanded ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+          </button>
         </div>
       </div>
 
       {expanded && (
-        <div className="p-4 space-y-3">
+        <div className="px-4 pb-4 pt-2 bg-[var(--bg-main)]/40 border-t border-[var(--border-color)] space-y-3">
           {scan.findings && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                Findings
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5 flex items-center gap-1.5">
+                <FileText className="w-3 h-3" /> Findings
               </p>
-              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.findings}</p>
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                {scan.findings}
+              </p>
             </div>
           )}
           {scan.impression && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                Impression
+            <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 mb-1.5 flex items-center gap-1.5">
+                <Sparkles className="w-3 h-3" /> Impression
               </p>
-              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.impression}</p>
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                {scan.impression}
+              </p>
             </div>
           )}
           {scan.result && typeof scan.result === 'string' && (
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                Notes
+            <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5 flex items-center gap-1.5">
+                <Info className="w-3 h-3" /> Notes
               </p>
-              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{scan.result}</p>
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
+                {scan.result}
+              </p>
             </div>
           )}
-          {scan.imageUrls?.length > 0 && (
+          {imageCount > 0 && (
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                Images ({scan.imageUrls.length})
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2 flex items-center gap-1.5">
+                <ImageIcon className="w-3 h-3" /> Images ({imageCount})
               </p>
               <div className="flex flex-wrap gap-2">
                 {scan.imageUrls.map((url: string, idx: number) => (
@@ -145,12 +180,19 @@ const ScanResultDisplay: React.FC<{
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-xs text-[var(--icon-cyan-text)] hover:underline border border-[var(--border-color)] rounded px-2 py-1"
+                    className="group relative flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 rounded-lg px-2.5 py-1.5 bg-[var(--bg-card)] transition-all"
                   >
-                    <Image className="w-3 h-3" /> Image {idx + 1}
+                    <ImageIcon className="w-3 h-3" />
+                    <span className="font-medium">Image {idx + 1}</span>
+                    <Maximize2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
                   </a>
                 ))}
               </div>
+            </div>
+          )}
+          {!scan.findings && !scan.impression && !scan.result && imageCount === 0 && (
+            <div className="text-center py-4">
+              <p className="text-xs text-[var(--text-tertiary)] italic">No result details recorded</p>
             </div>
           )}
         </div>
@@ -158,6 +200,32 @@ const ScanResultDisplay: React.FC<{
     </div>
   );
 };
+
+// ── Section wrapper for scan groups ──
+const ScanSection: React.FC<{
+  title: string;
+  count: number;
+  icon: React.ElementType;
+  accent: string;
+  children: React.ReactNode;
+  actions?: React.ReactNode;
+}> = ({ title, count, icon: Icon, accent, children, actions }) => (
+  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+    <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between gap-3">
+      <h3 className="font-semibold text-sm text-[var(--text-primary)] flex items-center gap-2">
+        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${accent}`}>
+          <Icon className="w-3.5 h-3.5" />
+        </div>
+        {title}
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+          {count}
+        </span>
+      </h3>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+    {children}
+  </div>
+);
 
 export default function ScansEntry() {
   const navigate = useNavigate();
@@ -179,14 +247,8 @@ export default function ScansEntry() {
   const [printingId, setPrintingId] = useState<string | null>(null);
 
   const {
-    attendances,
-    currentAttendance,
-    getAttendance,
-    getAttendances,
-    updateScanStatus,
-    removeScan,
-    canAddMedicalEntries,
-    calculateBill,
+    attendances, currentAttendance, getAttendance, getAttendances,
+    updateScanStatus, removeScan, canAddMedicalEntries, calculateBill,
   } = useAttendanceStore();
   const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
@@ -293,8 +355,7 @@ export default function ScansEntry() {
     if (!selectedAttendanceId) return;
     try {
       await updateScanStatus(selectedAttendanceId, scanId, {
-        status: 'in_progress',
-        performedById: user?.id || '',
+        status: 'in_progress', performedById: user?.id || '',
       });
       success('Status updated', 'Scan in progress');
       await getAttendance(selectedAttendanceId);
@@ -352,12 +413,9 @@ export default function ScansEntry() {
     return age;
   };
 
-  // ── PRINT: single scan ─────────────────────────────────────────────────────
+  // ── PRINT: single scan ──
   const handlePrintScan = async (scan: any) => {
-    if (!patient || !attendance) {
-      toastError('Error', 'Missing patient or attendance info');
-      return;
-    }
+    if (!patient || !attendance) { toastError('Error', 'Missing patient or attendance info'); return; }
     setPrintingId(scan.id);
     try {
       const scanData = {
@@ -372,7 +430,7 @@ export default function ScansEntry() {
           notes: scan.notes || '',
           priority: scan.priority || 'routine',
           scanType: scan.scanType,
-          ScanTemplate: scan.ScanTemplate,          // pass through for structured rendering
+          ScanTemplate: scan.ScanTemplate,
           ServiceCatalog: scan.ServiceCatalog,
         }],
         patient: { ...patient, fullName: getPatientName(patient) },
@@ -390,16 +448,10 @@ export default function ScansEntry() {
     }
   };
 
-  // ── PRINT: all completed scans ────────────────────────────────────────────
+  // ── PRINT: all completed scans ──
   const handlePrintAll = async () => {
-    if (!patient || !attendance) {
-      toastError('Error', 'Missing patient or attendance info');
-      return;
-    }
-    if (completedScans.length === 0) {
-      toastError('Nothing to print', 'No completed scans');
-      return;
-    }
+    if (!patient || !attendance) { toastError('Error', 'Missing patient or attendance info'); return; }
+    if (completedScans.length === 0) { toastError('Nothing to print', 'No completed scans'); return; }
     setPrintingId('all');
     try {
       const scanData = {
@@ -414,7 +466,7 @@ export default function ScansEntry() {
           notes: scan.notes || '',
           priority: scan.priority || 'routine',
           scanType: scan.scanType,
-          ScanTemplate: scan.ScanTemplate,          // pass through for structured rendering
+          ScanTemplate: scan.ScanTemplate,
           ServiceCatalog: scan.ServiceCatalog,
         })),
         patient: { ...patient, fullName: getPatientName(patient) },
@@ -447,7 +499,7 @@ export default function ScansEntry() {
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
           <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Scans Data...</h2>
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Scans Data…</h2>
         </div>
       </div>
     );
@@ -472,24 +524,27 @@ export default function ScansEntry() {
   }
 
   const patientFullName = getPatientName(patient);
+  const totalScans = scansList.length;
 
   return (
-    <div className="space-y-6 p-6">
-      {/* HEADER */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+    <div className="space-y-5 p-4 sm:p-6">
+      {/* ── HEADER ── */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/dashboard/scans')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
+            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
+            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>
-          <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Scan className="w-5 h-5 text-indigo-600" />
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm shadow-indigo-500/20">
+            <Scan className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Scans Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">{patientFullName}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">Scans Management</h1>
+            <p className="text-xs text-[var(--text-secondary)] truncate">
+              {patientFullName} · {totalScans} scan{totalScans !== 1 ? 's' : ''}
+            </p>
           </div>
         </div>
 
@@ -497,39 +552,46 @@ export default function ScansEntry() {
           <button
             onClick={() => setShowScanModal(true)}
             disabled={!canAddEntries}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-semibold disabled:opacity-50 shadow-sm shadow-indigo-500/20"
           >
             <Plus className="w-4 h-4" />
-            Request Scan
+            <span className="hidden sm:inline">Request Scan</span>
+            <span className="sm:hidden">New</span>
           </button>
           <button
             onClick={handlePrintAll}
             disabled={completedScans.length === 0 || printingId === 'all'}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
+            className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm font-medium"
+            title="Print all completed scans"
           >
             <Printer className={`w-4 h-4 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
-            Print All ({completedScans.length})
+            <span className="hidden sm:inline">Print All</span>
+            {completedScans.length > 0 && (
+              <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-main)] font-bold">
+                {completedScans.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
             disabled={completedScans.length === 0}
-            className="flex items-center gap-2 px-3 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all disabled:opacity-50 text-sm"
+            className="p-2 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-all disabled:opacity-50"
+            title="Send all results"
           >
             <MessageSquare className="w-4 h-4" />
-            Send All
           </button>
           <button
             onClick={loadData}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
+            title="Refresh"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
         </div>
       </div>
 
-      {/* SEND MODAL */}
+      {/* ── SEND MODAL ── */}
       <SendDocumentModal
         open={showSendResult}
         onClose={() => { setShowSendResult(false); setSendResultScan(null); }}
@@ -538,7 +600,7 @@ export default function ScansEntry() {
         entityId={sendResultScan?.id || selectedAttendanceId}
       />
 
-      {/* PATIENT / ATTENDANCE SELECTOR */}
+      {/* ── PATIENT / ATTENDANCE SELECTOR ── */}
       <PatientAttendanceSelector
         patients={[patient]}
         attendances={allAttendances}
@@ -556,141 +618,160 @@ export default function ScansEntry() {
       />
 
       {!selectedAttendanceId && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-8 text-center">
-          <Calendar className="w-12 h-12 text-yellow-600 mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--text-secondary)]">Please select an attendance from the dropdown above to manage scans.</p>
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-10 text-center shadow-sm">
+          <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Attendance Selected</h3>
+          <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto">
+            Select an attendance from the dropdown above to manage scans for this patient.
+          </p>
         </div>
       )}
 
-      {/* MAIN CONTENT */}
+      {/* ── MAIN CONTENT ── */}
       {selectedAttendanceId && attendance && (
         <>
           {/* Patient info bar */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+            <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shadow-sm">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 border border-indigo-200 flex items-center justify-center shadow-sm">
                   <User className="w-5 h-5 text-indigo-600" />
                 </div>
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-[var(--text-primary)] text-base">{patientFullName}</h3>
+                    <h3 className="font-bold text-[var(--text-primary)] text-base">{patientFullName}</h3>
                     <span className="text-xs text-[var(--text-secondary)]">
-                      {patient.gender === 'male' ? '👨' : '👩'} • {patient.age || calculateAge(patient.dateOfBirth)}y
+                      {patient.gender === 'male' ? '♂' : patient.gender === 'female' ? '♀' : '·'} ·{' '}
+                      {patient.age || calculateAge(patient.dateOfBirth)}y
                     </span>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded">#{patient.folderNumber}</span>
-                    <span>•</span>
-                    <span>{patient.contact}</span>
+                  <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
+                      <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
+                      {patient.folderNumber}
+                    </span>
+                    {patient.contact && (
+                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Phone className="w-2.5 h-2.5" />
+                        {patient.contact}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
                   <span className="text-xs font-mono text-[var(--text-secondary)]">
-                    📋 {attendance.attendanceNumber || 'New Visit'}
+                    #{attendance.attendanceNumber || 'New Visit'}
                   </span>
                 </div>
                 <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
                   <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                    📅 {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
+                    <Calendar className="w-3 h-3" />
+                    {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
                   </span>
                 </div>
-                <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                  attendance.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                  attendance.status === 'completed' ? 'bg-green-100 text-green-700' :
-                  'bg-gray-100 text-gray-700'
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                  attendance.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                  attendance.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                  'bg-gray-50 text-gray-700 border-gray-200'
                 }`}>
-                  {attendance.status}
+                  {attendance.status?.replace(/_/g, ' ')}
                 </span>
               </div>
             </div>
           </div>
 
+          {/* Status warning */}
           {!canUpdateScan && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-yellow-600" />
-              <p className="text-sm text-yellow-700">
-                This visit is <strong>{attendance.status}</strong>. Scans can be viewed but not processed.
-              </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-yellow-800 font-medium">
+                  Read-only view
+                </p>
+                <p className="text-xs text-yellow-700 mt-0.5">
+                  This visit is <strong>{attendance.status}</strong>. Scans can be viewed but not processed.
+                </p>
+              </div>
             </div>
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { count: requestedScans.length, label: 'Pending Scans', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
+              { count: requestedScans.length, label: 'Pending', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
               { count: inProgressScans.length, label: 'In Progress', color: 'text-purple-600', bg: 'bg-purple-100', Icon: Activity },
               { count: completedScans.length, label: 'Completed', color: 'text-green-600', bg: 'bg-green-100', Icon: CheckCircle },
-            ].map(s => (
-              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">{s.label}</p>
+            ].map(s => {
+              const Icon = s.Icon;
+              return (
+                <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center`}>
+                      <Icon className={`w-4.5 h-4.5 ${s.color}`} />
+                    </div>
                   </div>
-                  <div className={`w-10 h-10 ${s.bg} rounded-lg flex items-center justify-center`}>
-                    <s.Icon className={`w-5 h-5 ${s.color}`} />
-                  </div>
+                  <p className={`text-2xl font-bold ${s.color} leading-tight`}>{s.count}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* Pending scans */}
+          {/* Pending Scans */}
           {requestedScans.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-yellow-500" />
-                  Pending Scans ({requestedScans.length})
-                </h3>
-              </div>
+            <ScanSection
+              title="Pending Scans"
+              count={requestedScans.length}
+              icon={Clock}
+              accent="bg-yellow-100 text-yellow-600"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Scan Type</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Body Part</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Actions</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Scan Type</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Body Part</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Priority</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Requested</th>
+                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {requestedScans.map((scan) => (
-                      <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{scan.name}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
+                      <tr key={scan.id} className="hover:bg-indigo-50/30 transition-colors group">
                         <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                            scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
-                            'bg-blue-100 text-blue-700'
-                          }`}>
-                            {scan.priority}
-                          </span>
+                          <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
                         </td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                        <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
+                          {scan.bodyPart || '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <PriorityPill priority={scan.priority} />
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
                           {new Date(scan.requestedAt).toLocaleDateString()}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => handleMarkInProgress(scan.id)}
-                              className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-700 hover:text-white transition-all"
+                              disabled={!canUpdateScan}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                              Start Processing
+                              <Play className="w-3 h-3" />
+                              Start
                             </button>
                             {canUpdateScan && (
                               <button
                                 onClick={() => handleDeleteScan(scan.id)}
-                                className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg"
-                                title="Delete"
+                                className="p-1.5 text-[var(--text-tertiary)] hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                title="Delete scan request"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -700,41 +781,44 @@ export default function ScansEntry() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </ScanSection>
           )}
 
-          {/* In-progress scans */}
+          {/* In-Progress Scans */}
           {inProgressScans.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-purple-500" />
-                  In Progress ({inProgressScans.length})
-                </h3>
-              </div>
+            <ScanSection
+              title="In Progress"
+              count={inProgressScans.length}
+              icon={Activity}
+              accent="bg-purple-100 text-purple-600"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Scan Type</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Body Part</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Started On</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Actions</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Scan Type</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Body Part</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Started</th>
+                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {inProgressScans.map((scan) => (
-                      <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{scan.name}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      <tr key={scan.id} className="hover:bg-purple-50/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
                           {scan.updatedAt ? new Date(scan.updatedAt).toLocaleString() : '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right">
                           <button
                             onClick={() => handleEditResult(scan)}
-                            className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs hover:bg-green-700 hover:text-white transition-all"
+                            disabled={!canUpdateScan}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-600 hover:text-white transition-all disabled:opacity-50"
                           >
+                            <FileText className="w-3 h-3" />
                             Enter Result
                           </button>
                         </td>
@@ -743,36 +827,37 @@ export default function ScansEntry() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </ScanSection>
           )}
 
-          {/* Completed scans */}
+          {/* Completed Scans */}
           {completedScans.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  Completed Scans ({completedScans.length})
-                </h3>
-                <div className="flex items-center gap-2">
+            <ScanSection
+              title="Completed Scans"
+              count={completedScans.length}
+              icon={CheckCircle}
+              accent="bg-green-100 text-green-600"
+              actions={
+                <>
                   <button
                     onClick={handlePrintAll}
                     disabled={printingId === 'all'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] transition-all disabled:opacity-50"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] hover:text-indigo-600 hover:border-indigo-300 transition-all disabled:opacity-50"
                   >
-                    <Printer className={`w-3.5 h-3.5 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
-                    Print All
+                    <Printer className={`w-3 h-3 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
+                    <span className="hidden sm:inline">Print All</span>
                   </button>
                   <button
                     onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all"
                   >
-                    <MessageSquare className="w-3.5 h-3.5" /> Send All
+                    <MessageSquare className="w-3 h-3" />
+                    <span className="hidden sm:inline">Send All</span>
                   </button>
-                </div>
-              </div>
-
-              <div className="max-h-[600px] overflow-y-auto">
+                </>
+              }
+            >
+              <div>
                 {completedScans.map(scan => (
                   <ScanResultDisplay
                     key={scan.id}
@@ -781,25 +866,30 @@ export default function ScansEntry() {
                     onPrint={() => handlePrintScan(scan)}
                     onSend={() => { setSendResultScan(scan); setShowSendResult(true); }}
                     onEdit={() => handleEditResult(scan)}
-                    canEdit={canUpdateScan}
+                    canEdit={!!canUpdateScan}
                   />
                 ))}
               </div>
-            </div>
+            </ScanSection>
           )}
 
           {/* Empty state */}
           {scansList.length === 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
-              <Scan className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">No Scans</h3>
-              <p className="text-sm text-[var(--text-secondary)]">No scans have been requested for this visit</p>
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center shadow-sm">
+              <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Scan className="w-8 h-8 text-indigo-400" />
+              </div>
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Scans Yet</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto mb-4">
+                No scans have been requested for this visit.
+              </p>
               {canAddEntries && (
                 <button
                   onClick={() => setShowScanModal(true)}
-                  className="mt-3 text-indigo-600 text-sm hover:underline"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition-all shadow-sm shadow-indigo-500/20"
                 >
-                  Request a scan
+                  <Plus className="w-4 h-4" />
+                  Request First Scan
                 </button>
               )}
             </div>
@@ -807,7 +897,7 @@ export default function ScansEntry() {
         </>
       )}
 
-      {/* MODALS */}
+      {/* ── MODALS ── */}
       {selectedAttendanceId && (
         <ScanModal
           isOpen={showScanModal}

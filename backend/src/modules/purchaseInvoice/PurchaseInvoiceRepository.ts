@@ -7,39 +7,68 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
     super(prisma, 'invoice');
   }
 
-  async findAll(filters: any) {
-    const { supplierName, startDate, endDate, page = 1, limit = 1000 } = filters;
-    const where: any = {};
+  // ── Normalize Prisma Decimal → JS number for all numeric money/qty fields ──
+private normalizeInvoice(inv: any) {
+  if (!inv) return inv;
+  return {
+    ...inv,
+    totalAmount: toNumber(inv.totalAmount),
+    InvoiceItem: Array.isArray(inv.InvoiceItem)
+      ? inv.InvoiceItem.map((it: any) => ({
+          ...it,
+          quantity: toNumber(it.quantity),
+          unitCost: toNumber(it.unitCost),
+        }))
+      : inv.InvoiceItem,
+  };
+}
 
-    if (supplierName) where.supplierName = { contains: supplierName, mode: 'insensitive' };
-    if (startDate || endDate) {
-      where.invoiceDate = {};
-      if (startDate) where.invoiceDate.gte = startDate;
-      if (endDate) where.invoiceDate.lte = endDate;
+private normalizeInvoices(list: any[]) {
+  return Array.isArray(list) ? list.map((i) => this.normalizeInvoice(i)) : list;
+}
+
+async findAll(filters: any) {
+  const { supplierName, startDate, endDate, page = 1, limit = 1000 } = filters;
+  const where: any = {};
+
+  if (supplierName) where.supplierName = { contains: supplierName, mode: 'insensitive' };
+  if (startDate || endDate) {
+    where.invoiceDate = {};
+    if (startDate) where.invoiceDate.gte = startDate;
+    if (endDate) where.invoiceDate.lte = endDate;
+  }
+
+  const result = await this.findManyWithPagination({
+    where, page, limit: Math.min(limit, 1000), orderBy: { invoiceDate: 'desc' },
+    include: {
+      InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } } } },
+      StockTransaction: { include: { StockItem: { select: { name: true, drugCode: true } } } },
+      User: { select: { fullName: true, username: true } },
+      receivedAtDepartment: { select: { id: true, name: true } },
     }
+  });
 
-    return this.findManyWithPagination({
-      where, page, limit: Math.min(limit, 1000), orderBy: { invoiceDate: 'desc' },
-      include: {
-        InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } } } },
-        StockTransaction: { include: { StockItem: { select: { name: true, drugCode: true } } } },
-        User: { select: { fullName: true, username: true } },
-        receivedAtDepartment: { select: { id: true, name: true } } // ✅ NEW
-      }
-    });
-  }
+  // ✅ Normalize before returning
+  return {
+    ...result,
+    data: this.normalizeInvoices(result.data),
+  };
+}
 
-  async findByIdWithDetails(id: string) {
-    return this.getModel().findUnique({
-      where: { id },
-      include: {
-        InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true, currentStock: true, costPrice: true } } } },
-        StockTransaction: true,
-        User: { select: { fullName: true, username: true } },
-        receivedAtDepartment: { select: { id: true, name: true } } // ✅ NEW
-      }
-    });
-  }
+async findByIdWithDetails(id: string) {
+  const invoice = await this.getModel().findUnique({
+    where: { id },
+    include: {
+      InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true, currentStock: true, costPrice: true } } } },
+      StockTransaction: true,
+      User: { select: { fullName: true, username: true } },
+      receivedAtDepartment: { select: { id: true, name: true } },
+    }
+  });
+
+  // ✅ Normalize before returning
+  return this.normalizeInvoice(invoice);
+}
 
   async create(data: CreatePurchaseInvoiceDTO, createdById: string) {
     return this.prisma.$transaction(async (tx) => {

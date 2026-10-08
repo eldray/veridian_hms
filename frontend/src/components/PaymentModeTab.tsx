@@ -18,7 +18,7 @@ import {
 import { useToast } from '../store/toastStore';
 import type { PaymentMode, InsuranceDetails, InsuranceProvider } from '../types';
 import { useCorporateStore, type CorporateAccount } from '../store/corporateStore';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import NewAttendanceModal from './NewAttendanceModal';
 
 interface PaymentModeTabProps {
@@ -220,47 +220,97 @@ export default function PaymentModeTab({
   const { error: toastError, success } = useToast();
   const { currentEmployees, getCorporateEmployees } = useCorporateStore();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Stabilize the store function with a ref so it doesn't retrigger effects
+  // ─────────────────────────────────────────────────────────────────────────
+  const getCorporateEmployeesRef = useRef(getCorporateEmployees);
   useEffect(() => {
-    console.log('🔍 PaymentModeTab Debug:', {
-      insuranceProviders,
-      corporateAccounts,
-      providersCount: insuranceProviders.length,
-      corporateCount: corporateAccounts.length,
-      paymentMode,
-      isLoadingProviders,
-      isLoadingCorporate,
-    });
-  }, [insuranceProviders, corporateAccounts, paymentMode, isLoadingProviders, isLoadingCorporate]);
+    getCorporateEmployeesRef.current = getCorporateEmployees;
+  }, [getCorporateEmployees]);
 
-  const filteredCorporateEmployees = (currentEmployees || []).filter((employee: any) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Memoize derived safe objects so parent state changes don't recreate
+  // new object references on every render (which was feeding the loop).
+  // ─────────────────────────────────────────────────────────────────────────
+  const safeInsurance: InsuranceDetails = useMemo(
+    () =>
+      insuranceDetails || {
+        insuranceNumber: '',
+        providerId: '',
+        providerName: '',
+        startDate: '',
+        endDate: '',
+        isActive: false,
+      },
+    [insuranceDetails]
+  );
+
+  const safeCorporate: any = useMemo(
+    () =>
+      corporateDetails || {
+        accountId: '',
+        employeeId: '',
+        companyName: '',
+        employeeCode: '',
+      },
+    [corporateDetails]
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Memoize filtered lists so they don't create new array references
+  // on every render (which caused children to rerender unnecessarily).
+  // ─────────────────────────────────────────────────────────────────────────
+  const privateProviders = useMemo(
+    () => insuranceProviders.filter((p) => p.type === 'private' && p.isActive),
+    [insuranceProviders]
+  );
+
+  const activeCorporateAccounts = useMemo(
+    () => corporateAccounts.filter((c) => c.isActive !== false),
+    [corporateAccounts]
+  );
+
+  const filteredCorporateEmployees = useMemo(() => {
+    const list = currentEmployees || [];
     const query = employeeSearch.trim().toLowerCase();
-    if (!query) return true;
-    const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
-    const searchableText = [
-      fullName,
-      employee.employeeId || '',
-      employee.department || '',
-      employee.position || '',
-      employee.email || '',
-    ].join(' ').toLowerCase();
-    return searchableText.includes(query);
-  });
+    if (!query) return list;
+    return list.filter((employee: any) => {
+      const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
+      const searchableText = [
+        fullName,
+        employee.employeeId || '',
+        employee.department || '',
+        employee.position || '',
+        employee.email || '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return searchableText.includes(query);
+    });
+  }, [currentEmployees, employeeSearch]);
 
-  const safeInsurance: InsuranceDetails = insuranceDetails || {
-    insuranceNumber: '',
-    providerId: '',
-    providerName: '',
-    startDate: '',
-    endDate: '',
-    isActive: false,
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Single, guarded sync effect for accountId.
+  // Previously there were TWO effects that bounced state back and forth,
+  // causing an infinite render loop when corporate fields were updated.
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const accountId = corporateDetails?.accountId || '';
+    if (accountId && accountId !== selectedCorporateAccount) {
+      setSelectedCorporateAccount(accountId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [corporateDetails?.accountId]);
 
-  const safeCorporate: any = corporateDetails || {
-    accountId: '',
-    employeeId: '',
-    companyName: '',
-    employeeCode: '',
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Fetch employees only when the account actually changes.
+  // Use the ref to avoid re-running when the store function identity changes.
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (selectedCorporateAccount) {
+      void getCorporateEmployeesRef.current(selectedCorporateAccount);
+    }
+  }, [selectedCorporateAccount]);
 
   const updateInsuranceField = (field: string, value: any) => {
     onInsuranceDetailsChange({ ...safeInsurance, [field]: value });
@@ -271,30 +321,6 @@ export default function PaymentModeTab({
       onCorporateDetailsChange({ ...safeCorporate, [field]: value });
     }
   };
-
-  useEffect(() => {
-    if (selectedCorporateAccount) {
-      void getCorporateEmployees(selectedCorporateAccount);
-    }
-  }, [selectedCorporateAccount, getCorporateEmployees]);
-
-  useEffect(() => {
-    const accountId = corporateDetails?.accountId || safeCorporate.accountId || '';
-    if (accountId && (!selectedCorporateAccount || selectedCorporateAccount !== accountId)) {
-      setSelectedCorporateAccount(accountId);
-    }
-  }, [corporateDetails?.accountId, safeCorporate.accountId, selectedCorporateAccount]);
-
-  useEffect(() => {
-    if (!selectedCorporateAccount) return;
-    const matchedAccount = corporateAccounts.find((account: any) => account.id === selectedCorporateAccount);
-    if (matchedAccount && (!safeCorporate.companyName || safeCorporate.companyName !== matchedAccount.companyName)) {
-      updateCorporateField('companyName', matchedAccount.companyName);
-    }
-    if (!safeCorporate.accountId || safeCorporate.accountId !== selectedCorporateAccount) {
-      updateCorporateField('accountId', selectedCorporateAccount);
-    }
-  }, [selectedCorporateAccount, corporateAccounts, safeCorporate.accountId, safeCorporate.companyName]);
 
   const isInsuranceValid = () => {
     if (!safeInsurance.insuranceNumber || !safeInsurance.startDate || !safeInsurance.endDate)
@@ -388,17 +414,9 @@ export default function PaymentModeTab({
     }
   };
 
-  const privateProviders = insuranceProviders.filter(
-    (p) => p.type === 'private' && p.isActive
-  );
-
-  const activeCorporateAccounts = corporateAccounts.filter(
-    (c) => c.isActive !== false
-  );
-
   const activeMode = MODES.find((m) => m.key === paymentMode) ?? null;
   const canCreateAttendance =
-    paymentMode === 'cash' || 
+    paymentMode === 'cash' ||
     (paymentMode === 'nhis' && isInsuranceValid()) ||
     (paymentMode === 'private_insurance' && isInsuranceValid()) ||
     (paymentMode === 'corporate' && isCorporateValid());
@@ -1058,7 +1076,7 @@ function CorporateForm({
 }: any) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      
+
       {/* Corporate Account Selection */}
       <FormField label="Corporate Account *">
         {isLoadingCorporate ? (
@@ -1244,9 +1262,9 @@ function CorporateForm({
         </div>
 
         {showNewEmployeeForm ? (
-          <div style={{ 
-            background: 'var(--bg-main)', 
-            borderRadius: 8, 
+          <div style={{
+            background: 'var(--bg-main)',
+            borderRadius: 8,
             padding: 12,
             border: '0.5px solid var(--border-color)'
           }}>
@@ -1319,9 +1337,9 @@ function CorporateForm({
           <>
             {/* Display patient info that will be used */}
             {patientName && (
-              <div style={{ 
-                padding: '8px 10px', 
-                background: 'var(--bg-main)', 
+              <div style={{
+                padding: '8px 10px',
+                background: 'var(--bg-main)',
                 borderRadius: 6,
                 marginBottom: 8,
                 fontSize: 11,
