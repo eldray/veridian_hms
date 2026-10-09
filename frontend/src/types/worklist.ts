@@ -162,8 +162,6 @@ export interface MaternalWorklistItem extends BaseWorklistItem {
     bloodPressure?: string;
     temperature?: number;
     pulse?: number;
-    fetalHeartRate?: number;
-    fundalHeight?: number;
   };
 }
 

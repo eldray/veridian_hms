@@ -615,6 +615,7 @@ export default function Antenatal() {
   const [selectedPatientId, setSelectedPatientId]   = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [latestVitals, setLatestVitals]             = useState<any>(null);
+  const visitBP = (v: any) => v?.attendance?.Vitals?.[0]?.bloodPressure || (v?.attendanceId === selectedAttendanceId ? latestVitals?.bloodPressure : undefined) || v?.bloodPressure || '—';
   const [activeTab, setActiveTab]                   = useState<'clinical' | 'anc' | 'delivery' | 'postnatal' | 'family_planning' | 'vitals'>('clinical');
   const [modalType, setModalType]                   = useState<ModalType>(null);
   const [showNewAttendance, setShowNewAttendance]   = useState(false);
@@ -1488,8 +1489,8 @@ export default function Antenatal() {
                       {[
                         { icon: <Baby className="w-4 h-4 text-pink-500" />,   label: 'G/P',       value: `${currentRecord?.gravida||0}/${currentRecord?.para||0}` },
                         { icon: <Calendar className="w-4 h-4 text-purple-500" />, label: 'Weeks',  value: currentRecord?.gestationalAgeWeeks || '?' },
-                        { icon: <Heart className="w-4 h-4 text-red-500" />,   label: 'FHR (bpm)', value: latestVitals?.fetalHeartRate || '—' },
-                        { icon: <Ruler className="w-4 h-4 text-blue-500" />,  label: 'Fundal Ht', value: latestVitals?.fundalHeight ? `${latestVitals.fundalHeight}cm` : '—' },
+                        { icon: <Heart className="w-4 h-4 text-red-500" />,   label: 'FHR (bpm)', value: currentVisits[currentVisits.length-1]?.fetalHeartRate || '—' },
+                        { icon: <Ruler className="w-4 h-4 text-blue-500" />,  label: 'Fundal Ht', value: currentVisits[currentVisits.length-1]?.fundalHeight ? `${currentVisits[currentVisits.length-1].fundalHeight}cm` : '—' },
                         { icon: <TrendingUp className="w-4 h-4 text-[var(--icon-green-text)]" />, label: 'Visits', value: currentVisits.length },
                         { icon: <Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" />, label: 'TT2+', value: ttSummary.tt2Plus },
                       ].map((s, i) => (
@@ -1534,7 +1535,7 @@ export default function Antenatal() {
                       : (
                         <table className="w-full text-xs">
                           <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>#</TH><TH>Date</TH><TH>GA(wks)</TH><TH>Weight</TH><TH>BP</TH><TH>FHR</TH><TH>Fundal</TH><TH>IPTp</TH><TH>TT</TH><TH>ITN</TH><TH>Danger</TH><TH></TH></tr>
+                            <tr><TH>#</TH><TH>Date</TH><TH>GA(wks)</TH><TH>G/P</TH><TH>Weight</TH><TH>BP</TH><TH>FHR</TH><TH>Fundal</TH><TH>IPTp</TH><TH>TT</TH><TH>ITN</TH><TH>Danger</TH><TH></TH></tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border-color)]">
                             {currentVisits.map((v: any) => {
@@ -1544,8 +1545,9 @@ export default function Antenatal() {
                                   <TD>{v.visitNumber}{isCurrent && <span className="ml-1 text-[9px] text-pink-500">(now)</span>}</TD>
                                   <TD>{new Date(v.visitDate).toLocaleDateString()}</TD>
                                   <TD>{v.gestationalAgeWeeks || '—'}</TD>
+                                  <TD>{v.gravida != null || v.para != null ? `${v.gravida ?? '?'}/${v.para ?? '?'}` : '—'}</TD>
                                   <TD>{v.weight ? `${v.weight}kg` : '—'}</TD>
-                                  <TD>{v.bloodPressure || '—'}</TD>
+                                  <TD>{visitBP(v)}</TD>
                                   <TD>{v.fetalHeartRate || '—'}</TD>
                                   <TD>{v.fundalHeight ? `${v.fundalHeight}cm` : '—'}</TD>
                                   <TD>{v.iptpGiven ? `D${v.iptpDoseNumber}` : '—'}</TD>
@@ -1790,7 +1792,7 @@ export default function Antenatal() {
                     {latestVitals ? (
                       <table className="w-full text-xs">
                         <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                          <tr><TH>Date / Time</TH><TH>BP</TH><TH>Temp</TH><TH>Pulse</TH><TH>Weight</TH><TH>FHR</TH><TH>Fundal Ht</TH></tr>
+                          <tr><TH>Date / Time</TH><TH>BP</TH><TH>Temp</TH><TH>Pulse</TH><TH>Weight</TH></tr>
                         </thead>
                         <tbody>
                           <tr className="hover:bg-[var(--bg-main)] transition-colors">
@@ -1799,8 +1801,6 @@ export default function Antenatal() {
                             <TD>{latestVitals.temperature ? `${latestVitals.temperature}°C` : '—'}</TD>
                             <TD>{latestVitals.pulse || '—'}</TD>
                             <TD>{latestVitals.weight ? `${latestVitals.weight}kg` : '—'}</TD>
-                            <TD>{latestVitals.fetalHeartRate || '—'}</TD>
-                            <TD>{latestVitals.fundalHeight ? `${latestVitals.fundalHeight}cm` : '—'}</TD>
                           </tr>
                         </tbody>
                       </table>
@@ -1861,7 +1861,8 @@ export default function Antenatal() {
                           {[
                             { l: 'Date',   v: new Date(last.visitDate).toLocaleDateString() },
                             { l: 'Weight', v: last.weight ? `${last.weight}kg` : '—' },
-                            { l: 'BP',     v: last.bloodPressure || '—' },
+                            { l: 'BP',     v: visitBP(last) },
+                            { l: 'G / P',  v: `${last.gravida ?? '—'} / ${last.para ?? '—'}` },
                             { l: 'FHR',    v: last.fetalHeartRate || '—' },
                           ].map((r, i) => (
                             <div key={i} className="flex items-center justify-between mt-1">
@@ -2010,6 +2011,7 @@ export default function Antenatal() {
           bookingId={selectedBookingId}  // ← Note: uses bookingId, not patientId
           visitNumber={currentVisits.length+1}
           existingVisit={editingVisit}
+          booking={currentRecord}
         />
       )}
 
@@ -2097,7 +2099,8 @@ export default function Antenatal() {
             {[
               { l: 'Gestational Age', v: `${selectedVisit.gestationalAgeWeeks||'—'} weeks` },
               { l: 'Weight', v: selectedVisit.weight ? `${selectedVisit.weight}kg` : '—' },
-              { l: 'Blood Pressure', v: selectedVisit.bloodPressure || '—' },
+              { l: 'Blood Pressure (from Vitals)', v: visitBP(selectedVisit) },
+              { l: 'Gravida / Para', v: `${selectedVisit.gravida ?? '—'} / ${selectedVisit.para ?? '—'}` },
               { l: 'Fundal Height', v: selectedVisit.fundalHeight ? `${selectedVisit.fundalHeight}cm` : '—' },
               { l: 'Fetal Heart Rate', v: selectedVisit.fetalHeartRate ? `${selectedVisit.fetalHeartRate}bpm` : '—' },
               { l: 'Presentation', v: selectedVisit.presentation || '—' },

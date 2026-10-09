@@ -1336,9 +1336,13 @@ model ANCVisit {
   visitDate           DateTime
   gestationalAgeWeeks Int?
   gestationalAgeDays  Int?
+  // Obstetric history captured at each ANC visit (feeds maternity reports)
+  gravida             Int?
+  para                Int?
   weight              Float?
+  // DEPRECATED: BP is captured in Vitals. Column kept only so old visits keep their value.
   bloodPressure       String?
-  fundalHeight        Int?
+  fundalHeight        Float?
   fetalHeartRate      Int?
   fetalMovements      Boolean?
   presentation        String?
@@ -1603,7 +1607,8 @@ model StockBatch {
 
   stockItem StockItem @relation(fields: [stockItemId], references: [id])
 
-  @@unique([stockItemId, batchNumber])
+  // A batch number can exist in several departments at once (after a transfer/requisition split)
+  @@unique([stockItemId, batchNumber, departmentId])
   @@index([stockItemId, expiryDate])
   @@index([departmentId]) // ← Add index for department lookups
   @@index([departmentId, stockItemId]) // ← Composite index for inventory queries
@@ -1689,6 +1694,8 @@ model Requisition {
   requisitionNumber      String             @unique
   requestingDepartmentId String?
   requestingWardId       String?
+  // Department/store the items are requested FROM (the supplier)
+  supplyingDepartmentId  String?
   requestedById          String
   urgency                RequisitionUrgency @default(routine)
   requiredDate           DateTime?
@@ -1706,13 +1713,15 @@ model Requisition {
   approvedBy  User? @relation("Requisition_approvedBy", fields: [approvedById], references: [id])
   fulfilledBy User? @relation("Requisition_fulfilledBy", fields: [fulfilledById], references: [id])
 
-  departments      Department?        @relation(fields: [requestingDepartmentId], references: [id])
+  departments        Department?       @relation(fields: [requestingDepartmentId], references: [id])
+  supplyingDepartment Department?      @relation("RequisitionSupplier", fields: [supplyingDepartmentId], references: [id])
   ward             Ward?              @relation(fields: [requestingWardId], references: [id])
   RequisitionItem  RequisitionItem[]
   StockTransaction StockTransaction[]
 
   @@index([requestingWardId])
   @@index([requestingDepartmentId])
+  @@index([supplyingDepartmentId])
   @@index([status])
 }
 
@@ -1813,7 +1822,8 @@ model Department {
   stockTransactions StockTransaction[]
 
   // Existing
-  Requisitions Requisition[]
+  Requisitions         Requisition[]
+  SuppliedRequisitions Requisition[] @relation("RequisitionSupplier")
   users        User[]        @relation("DepartmentUsers")
   appointments Appointment[]
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
@@ -2960,6 +2970,8 @@ enum StockTransactionType {
   adjustment
   requisition
   sale
+  transfer_in
+  transfer_out
 }
 
 enum RequisitionStatus {

@@ -57,9 +57,10 @@ export interface CreateANCVisitInput {
   visitNumber: number;
   visitDate: Date;
   gestationalAgeWeeks?: number;
-  gestationalAgeDays?: number; 
+  gestationalAgeDays?: number;
+  gravida?: number;
+  para?: number;
   weight?: number;
-  bloodPressure?: string;
   fundalHeight?: number;
   fetalHeartRate?: number;
   fetalMovements?: boolean;

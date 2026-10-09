@@ -75,9 +75,6 @@ const VitalCard = ({ icon: Icon, label, value, unit, type, abnormal }: any) => {
       case 'spo2':
         if (value < 95) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'Low' };
         return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
-      case 'fetalHeartRate':
-        if (value < 110 || value > 160) return { color: 'text-red-600', bgColor: 'bg-red-50', message: 'Abnormal' };
-        return { color: 'text-green-600', bgColor: 'bg-green-50', message: 'Normal' };
       default:
         return { color: 'text-[var(--text-secondary)]', bgColor: 'bg-gray-100' };
     }
@@ -184,8 +181,7 @@ export default function VitalsEntry() {
     })()) ||
     (latestVitals.temperature !== undefined && (latestVitals.temperature > 38 || latestVitals.temperature < 35)) ||
     (latestVitals.pulse !== undefined && (latestVitals.pulse > 100 || latestVitals.pulse < 60)) ||
-    (latestVitals.spo2 !== undefined && latestVitals.spo2 < 95) ||
-    (isAntenatal && latestVitals.fetalHeartRate !== undefined && (latestVitals.fetalHeartRate < 110 || latestVitals.fetalHeartRate > 160))
+    (latestVitals.spo2 !== undefined && latestVitals.spo2 < 95)
   ) : false;
 
   // ============================================
@@ -371,7 +367,7 @@ export default function VitalsEntry() {
       setEditingVitals(null);
     } catch (err: any) {
       console.error('Save error:', err);
-      toastError('Save Failed', err.response?.data?.message || err.message || 'Failed to save vitals');
+      toastError('Save Failed', err.message || 'Failed to save vitals');
     } finally {
       setIsSubmitting(false);
     }
@@ -729,11 +725,6 @@ export default function VitalsEntry() {
           spo2: editingVitals.spo2,
           weight: editingVitals.weight,
           height: editingVitals.height,
-          fetalHeartRate: editingVitals.fetalHeartRate,
-          fundalHeight: editingVitals.fundalHeight,
-          presentingPart: editingVitals.presentingPart,
-          fetalMovement: editingVitals.fetalMovement,
-          oedema: editingVitals.oedema,
           notes: editingVitals.notes || '',
         } : undefined}
         isEditing={!!editingVitals}

@@ -10,11 +10,9 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async findAllWithFilters(filters: any) {
-    const { category, search, isActive, isMedication, page = 1, limit = 1000 } = filters;
+    const { category, search, page = 1, limit = 1000 } = filters;
     const where: any = {};
     if (category) where.category = category;
-    if (isActive !== undefined) where.isActive = isActive === true || isActive === 'true';
-    if (isMedication !== undefined) where.isMedication = isMedication === true || isMedication === 'true';
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -99,7 +97,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
       
       await tx.stockTransaction.create({
-        data: { stockItemId, transactionType: 'purchase', quantity, balanceAfter: updatedItem!.currentStock, reference: `BATCH-${batchNumber}`, notes: `Added batch ${batchNumber}`, performedBy: 'system' }
+        data: { stockItemId, transactionType: 'purchase', quantity, balanceAfter: updatedItem!.currentStock, reference: `BATCH-${batchNumber}`, notes: `Added batch ${batchNumber}`, performedBy: undefined }
       });
       return batch;
     });

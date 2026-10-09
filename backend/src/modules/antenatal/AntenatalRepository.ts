@@ -31,23 +31,23 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async getBookingById(id: string): Promise<any | null> {
-    return this.getModel().findUnique({ where: { id }, include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } } });
+    return this.getModel().findUnique({ where: { id }, include: { patient: true, visits: { orderBy: { visitNumber: 'asc' }, include: { attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } } } } });
   }
 
   async getBookingByAttendanceId(attendanceId: string): Promise<any | null> {
-    return this.getModel().findFirst({ where: { attendanceId }, include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } } });
+    return this.getModel().findFirst({ where: { attendanceId }, include: { patient: true, visits: { orderBy: { visitNumber: 'asc' }, include: { attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } } } } });
   }
 
   async getActiveBookingByPatientId(patientId: string): Promise<any | null> {
     let booking = await this.getModel().findFirst({
       where: { patientId, isActive: true, isCompleted: false },
-      include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } }
+      include: { patient: true, visits: { orderBy: { visitNumber: 'asc' }, include: { attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } } } }
     });
 
     if (!booking) {
       booking = await this.getModel().findFirst({
         where: { patientId }, orderBy: { bookingDate: 'desc' },
-        include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } }
+        include: { patient: true, visits: { orderBy: { visitNumber: 'asc' }, include: { attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } } } }
       });
     }
     return booking;
@@ -88,36 +88,79 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== ANC VISITS =====================
   async createVisit(data: CreateANCVisitInput): Promise<any> {
-    return this.prisma.aNCVisit.create({
-      data: {
-        bookingId: data.bookingId, attendanceId: data.attendanceId, visitNumber: data.visitNumber, visitDate: data.visitDate,
-        gestationalAgeWeeks: data.gestationalAgeWeeks, weight: data.weight, bloodPressure: data.bloodPressure,
-        fundalHeight: data.fundalHeight, fetalHeartRate: data.fetalHeartRate, fetalMovements: data.fetalMovements,
-        presentation: data.presentation, iptpGiven: data.iptpGiven || false, iptpDoseNumber: data.iptpDoseNumber,
-        iptpDrug: data.iptpDrug, ttGiven: data.ttGiven || false, ttDoseNumber: data.ttDoseNumber,
-        ironGiven: data.ironGiven || false, folateGiven: data.folateGiven || false, calciumGiven: data.calciumGiven || false,
-        malariaTestDone: data.malariaTestDone || false, malariaTestResult: data.malariaTestResult,
-        malariaTreatmentGiven: data.malariaTreatmentGiven || false, dangerSignsPresent: data.dangerSignsPresent || false,
-        dangerSignsList: data.dangerSignsList || [], referralMade: data.referralMade || false, referredTo: data.referredTo,
-        nextVisitDate: data.nextVisitDate, returnInstructions: data.returnInstructions, recordedById: data.recordedById
-      },
-      include: { recordedBy: { select: { fullName: true, role: true } } }
+    return this.prisma.$transaction(async (tx) => {
+      const visit = await tx.aNCVisit.create({
+        data: {
+          bookingId: data.bookingId, attendanceId: data.attendanceId, visitNumber: data.visitNumber, visitDate: data.visitDate,
+          gestationalAgeWeeks: data.gestationalAgeWeeks, gestationalAgeDays: data.gestationalAgeDays,
+          gravida: data.gravida, para: data.para, weight: data.weight,
+          fundalHeight: data.fundalHeight, fetalHeartRate: data.fetalHeartRate, fetalMovements: data.fetalMovements,
+          presentation: data.presentation, iptpGiven: data.iptpGiven || false, iptpDoseNumber: data.iptpDoseNumber,
+          iptpDrug: data.iptpDrug, ttGiven: data.ttGiven || false, ttDoseNumber: data.ttDoseNumber,
+          ironGiven: data.ironGiven || false, folateGiven: data.folateGiven || false, calciumGiven: data.calciumGiven || false,
+          malariaTestDone: data.malariaTestDone || false, malariaTestResult: data.malariaTestResult,
+          malariaTreatmentGiven: data.malariaTreatmentGiven || false, dangerSignsPresent: data.dangerSignsPresent || false,
+          dangerSignsList: data.dangerSignsList || [], referralMade: data.referralMade || false, referredTo: data.referredTo,
+          nextVisitDate: data.nextVisitDate, returnInstructions: data.returnInstructions, recordedById: data.recordedById
+        },
+        include: { recordedBy: { select: { fullName: true, role: true } } }
+      });
+      await this.syncBookingObstetricHistory(tx, data.bookingId, data.gravida, data.para);
+      return visit;
     });
+  }
+
+  /**
+   * Keep the booking's G/P in step with the latest value recorded at a visit, because the
+   * maternity (GHS) reports read parity from the booking.
+   */
+  private async syncBookingObstetricHistory(tx: any, bookingId: string, gravida?: number | null, para?: number | null) {
+    const patch: any = {};
+    if (gravida !== undefined && gravida !== null) patch.gravida = gravida;
+    if (para !== undefined && para !== null) patch.para = para;
+    if (Object.keys(patch).length === 0) return;
+    await tx.antenatalBooking.update({ where: { id: bookingId }, data: patch });
   }
 
   async getVisitsByBookingId(bookingId: string): Promise<any[]> {
     return this.prisma.aNCVisit.findMany({
       where: { bookingId }, orderBy: { visitNumber: 'asc' },
-      include: { recordedBy: { select: { fullName: true, role: true } }, booking: { include: { patient: true } } }
+      include: { recordedBy: { select: { fullName: true, role: true } }, booking: { include: { patient: true } }, attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } }
     });
   }
 
   async getVisitById(id: string): Promise<any | null> {
-    return this.prisma.aNCVisit.findUnique({ where: { id }, include: { booking: { include: { patient: true } }, recordedBy: { select: { fullName: true, role: true } } } });
+    return this.prisma.aNCVisit.findUnique({ where: { id }, include: { booking: { include: { patient: true } }, recordedBy: { select: { fullName: true, role: true } }, attendance: { select: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1, select: { bloodPressure: true, recordedAt: true } } } } } });
   }
 
+  /** Only columns that exist on ANCVisit are written (the form also sends UI-only fields). */
+  private static readonly VISIT_UPDATABLE = [
+    'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'gravida', 'para', 'weight', 'fundalHeight',
+    'fetalHeartRate', 'fetalMovements', 'presentation', 'oedema', 'oedemaGrade',
+    'urinalysisProtein', 'urinalysisGlucose', 'urinalysisBlood',
+    'iptpGiven', 'iptpDoseNumber', 'iptpDrug', 'ttGiven', 'ttDoseNumber',
+    'ironGiven', 'folateGiven', 'calciumGiven',
+    'malariaTestDone', 'malariaTestResult', 'malariaTreatmentGiven',
+    'dangerSignsPresent', 'dangerSignsList', 'referralMade', 'referredTo',
+    'nextVisitDate', 'returnInstructions'
+  ] as const;
+
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
-    return this.prisma.aNCVisit.update({ where: { id }, data, include: { recordedBy: { select: { fullName: true, role: true } } } });
+    const clean: any = {};
+    for (const key of AntenatalRepository.VISIT_UPDATABLE) {
+      if ((data as any)[key] !== undefined) clean[key] = (data as any)[key];
+    }
+    if (clean.visitDate) clean.visitDate = new Date(clean.visitDate);
+    if (clean.nextVisitDate) clean.nextVisitDate = new Date(clean.nextVisitDate);
+
+    return this.prisma.$transaction(async (tx) => {
+      const visit = await tx.aNCVisit.update({
+        where: { id }, data: clean,
+        include: { recordedBy: { select: { fullName: true, role: true } } }
+      });
+      await this.syncBookingObstetricHistory(tx, visit.bookingId, clean.gravida, clean.para);
+      return visit;
+    });
   }
 
   async deleteVisit(id: string): Promise<void> {

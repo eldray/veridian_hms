@@ -113,6 +113,10 @@ export class AntenatalController extends BaseController {
     body('attendanceId').notEmpty().withMessage('Attendance ID required'),
     body('visitNumber').isInt({ min: 1 }).withMessage('Valid visit number required'),
     body('visitDate').isISO8601().withMessage('Valid visit date required'),
+    body('gravida').optional().isInt({ min: 0 }).withMessage('Gravida must be 0 or more'),
+    body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
+    body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
+    body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
@@ -126,7 +130,9 @@ export class AntenatalController extends BaseController {
   updateANCVisit = [
     body('gestationalAgeWeeks').optional().isInt({ min: 0, max: 42 }),
     body('weight').optional().isFloat({ min: 0 }),
-    body('bloodPressure').optional().isString(),
+    body('gravida').optional().isInt({ min: 0 }).withMessage('Gravida must be 0 or more'),
+    body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
+    body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
     body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
     body('iptpGiven').optional().isBoolean(),
     body('iptpDoseNumber').optional().isInt({ min: 1, max: 10 }),

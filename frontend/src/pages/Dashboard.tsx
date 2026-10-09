@@ -62,22 +62,17 @@ const getSeniorityBadge = (seniority: Seniority) => {
   );
 };
 
-// ── helper: is a stat "active" (non-zero) for alerts filtering ─────────────
-
 const isStatActive = (key: StatKey, stats: DashboardStats): boolean => {
   const meta = STAT_CATALOG[key];
   if (!meta) return false;
   const v = meta.value(stats);
   if (typeof v === 'number') return v > 0;
   if (typeof v === 'string') {
-    // Currency strings like "₵0.00" — parse digits
     const num = Number(v.replace(/[^0-9.-]/g, ''));
     return Number.isFinite(num) && num > 0;
   }
   return false;
 };
-
-// ── Date toggle ────────────────────────────────────────────────────────────
 
 const PRESETS: { key: DatePreset; label: string }[] = [
   { key: 'today', label: 'Today' },
@@ -85,6 +80,9 @@ const PRESETS: { key: DatePreset; label: string }[] = [
   { key: 'month', label: 'This month' },
   { key: 'custom', label: 'Custom' },
 ];
+
+// ── Date toggle ────────────────────────────────────────────────────────────
+// FIX: Only show the range chip when in custom mode (dedupes "Today" label)
 
 function DateToggle({
   preset, dateRange, onChange,
@@ -120,61 +118,84 @@ function DateToggle({
 
   const rangeLabel = preset === 'custom'
     ? `${fmtDate(dateRange.startDate)} – ${fmtDate(dateRange.endDate)}`
-    : PRESETS.find(p => p.key === preset)?.label ?? 'Today';
+    : null;
 
   return (
     <div className="relative flex items-center gap-1" ref={popRef}>
-      <div className="flex items-center gap-0.5 rounded-lg border p-0.5"
-        style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+      <div
+        className="flex items-center gap-0.5 rounded-lg border p-0.5"
+        style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+      >
         {PRESETS.map(({ key, label }) => (
           <button
             key={key}
             onClick={() => handlePreset(key)}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              preset === key ? 'text-white shadow-sm' : 'hover:bg-[var(--bg-card)]'
-            }`}
-            style={preset === key
-              ? { background: 'var(--icon-cyan-text)', color: '#fff' }
-              : { color: 'var(--text-secondary)' }}
+            className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+            style={
+              preset === key
+                ? { background: 'var(--icon-cyan-text)', color: '#fff' }
+                : { color: 'var(--text-secondary)' }
+            }
           >
             {label}
           </button>
         ))}
       </div>
 
-      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
-        style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
-        <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
-        <span style={{ color: 'var(--text-primary)' }}>{rangeLabel}</span>
-      </div>
+      {rangeLabel && (
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+        >
+          <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
+          <span style={{ color: 'var(--text-primary)' }}>{rangeLabel}</span>
+        </div>
+      )}
 
       {showCustom && (
-        <div className="absolute top-full right-0 mt-2 z-50 rounded-xl border shadow-lg p-4 w-72"
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div
+          className="absolute top-full right-0 mt-2 z-50 rounded-xl border shadow-lg p-4 w-72"
+          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+        >
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Custom range</p>
-            <button onClick={() => setShowCustom(false)}
-              className="p-1 rounded hover:bg-[var(--bg-main)] transition-colors">
-              <X className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
+            <button
+              onClick={() => setShowCustom(false)}
+              aria-label="Close custom date range"
+              className="p-1 rounded transition-colors"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
 
           <div className="space-y-3">
             <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1"
-                style={{ color: 'var(--text-tertiary)' }}>From</label>
-              <input type="date" value={draft.startDate} max={draft.endDate || today()}
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                From
+              </label>
+              <input
+                type="date"
+                value={draft.startDate}
+                max={draft.endDate || today()}
                 onChange={e => setDraft(d => ({ ...d, startDate: e.target.value }))}
                 className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+              />
             </div>
             <div>
-              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1"
-                style={{ color: 'var(--text-tertiary)' }}>To</label>
-              <input type="date" value={draft.endDate} min={draft.startDate} max={today()}
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: 'var(--text-tertiary)' }}>
+                To
+              </label>
+              <input
+                type="date"
+                value={draft.endDate}
+                min={draft.startDate}
+                max={today()}
                 onChange={e => setDraft(d => ({ ...d, endDate: e.target.value }))}
                 className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }} />
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+              />
             </div>
 
             <div className="flex flex-wrap gap-1.5 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
@@ -184,7 +205,8 @@ function DateToggle({
                 { label: 'Last 30 days', days: 30 },
                 { label: 'Last 90 days', days: 90 },
               ].map(({ label, days }) => (
-                <button key={days}
+                <button
+                  key={days}
                   onClick={() => {
                     const end = new Date();
                     const start = new Date();
@@ -194,17 +216,20 @@ function DateToggle({
                       endDate: end.toISOString().split('T')[0],
                     });
                   }}
-                  className="px-2 py-1 text-[10px] rounded-md border transition-colors hover:bg-[var(--bg-main)]"
-                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+                  className="px-2 py-1 text-[10px] rounded-md border transition-colors"
+                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                >
                   {label}
                 </button>
               ))}
             </div>
 
-            <button onClick={applyCustom}
+            <button
+              onClick={applyCustom}
               disabled={!draft.startDate || !draft.endDate || draft.startDate > draft.endDate}
               className="w-full py-2 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
-              style={{ background: 'var(--icon-cyan-text)' }}>
+              style={{ background: 'var(--icon-cyan-text)' }}
+            >
               Apply range
             </button>
           </div>
@@ -217,13 +242,7 @@ function DateToggle({
 // ── Stat group section ─────────────────────────────────────────────────────
 
 function StatGroupSection({
-  group,
-  collapsed,
-  onToggle,
-  stats,
-  loading,
-  visitLabel,
-  revLabel,
+  group, collapsed, onToggle, stats, loading, visitLabel, revLabel,
 }: {
   group: StatGroup;
   collapsed: boolean;
@@ -240,14 +259,10 @@ function StatGroupSection({
 
   return (
     <div className="flex flex-col gap-2">
-      {/* Group header with toggle */}
       <div className="flex items-center justify-between px-1">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-4 h-4" style={{ color: 'var(--icon-cyan-text)' }} />}
-          <span
-            className="text-xs font-bold uppercase tracking-wider"
-            style={{ color: 'var(--text-tertiary)' }}
-          >
+          <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
             {group.label}
           </span>
           <span
@@ -259,23 +274,16 @@ function StatGroupSection({
         </div>
         <button
           onClick={onToggle}
-          className="p-1 rounded hover:bg-[var(--bg-main)] transition-colors"
-          title={collapsed ? 'Expand' : 'Collapse'}
+          aria-label={collapsed ? 'Expand section' : 'Collapse section'}
+          className="p-1 rounded transition-colors"
+          style={{ color: 'var(--text-tertiary)' }}
         >
-          {collapsed ? (
-            <ChevronDown className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-          ) : (
-            <ChevronUp className="w-3.5 h-3.5" style={{ color: 'var(--text-tertiary)' }} />
-          )}
+          {collapsed ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronUp className="w-3.5 h-3.5" />}
         </button>
       </div>
 
-      {/* Cards */}
       {!collapsed && (
-        <div
-          className="grid gap-3"
-          style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
-        >
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
           {statCards.map(s => (
             <StatCard
               key={s.key}
@@ -299,13 +307,10 @@ function StatGroupSection({
   );
 }
 
-// ── Stat tabs (new) ────────────────────────────────────────────────────────
+// ── Stat tabs ──────────────────────────────────────────────────────────────
 
 function StatTabs({
-  groups,
-  activeKey,
-  onSelect,
-  stats,
+  groups, activeKey, onSelect, stats,
 }: {
   groups: StatGroup[];
   activeKey: string;
@@ -313,13 +318,15 @@ function StatTabs({
   stats: DashboardStats;
 }) {
   return (
-    <div className="flex items-center gap-1 flex-wrap rounded-lg border p-0.5"
-      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+    <div
+      className="flex items-center gap-1 flex-wrap rounded-lg border p-0.5"
+      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+    >
       {groups.map(g => {
         const Icon = g.icon;
         const isActive = activeKey === g.key;
 
-        // For alertsOnly groups, count how many cards are non-zero
+        // Only alertsOnly groups get a badge (representing actionable items)
         let badgeCount: number | null = null;
         if (g.alertsOnly) {
           badgeCount = g.cards.filter(k => isStatActive(k, stats)).length;
@@ -329,12 +336,12 @@ function StatTabs({
           <button
             key={g.key}
             onClick={() => onSelect(g.key)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              isActive ? 'text-white shadow-sm' : 'hover:bg-[var(--bg-card)]'
-            }`}
-            style={isActive
-              ? { background: 'var(--icon-cyan-text)', color: '#fff' }
-              : { color: 'var(--text-secondary)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+            style={
+              isActive
+                ? { background: 'var(--icon-cyan-text)', color: '#fff' }
+                : { color: 'var(--text-secondary)' }
+            }
           >
             {Icon && <Icon className="w-3.5 h-3.5" />}
             <span>{g.label}</span>
@@ -401,21 +408,13 @@ export default function Dashboard() {
     });
   };
 
-  // Build stat groups — use cardGroups if present, else wrap `cards` in a single group
   const statGroups: StatGroup[] =
     config.cardGroups && config.cardGroups.length > 0
       ? config.cardGroups
-      : [{
-          key: 'all',
-          label: '',
-          icon: () => null,
-          cards: config.cards || [],
-        }];
+      : [{ key: 'all', label: '', icon: () => null, cards: config.cards || [] }];
 
-  // Whether we should show the tab bar (more than 1 group)
   const showTabs = statGroups.length > 1;
 
-  // Active tab state — persisted per role, defaults to group with defaultActive or first
   const defaultTabKey = (() => {
     const def = statGroups.find(g => g.defaultActive) ?? statGroups[0];
     return def?.key ?? '';
@@ -429,7 +428,6 @@ export default function Dashboard() {
     return defaultTabKey;
   });
 
-  // Keep active tab valid if role/config changes
   useEffect(() => {
     if (!statGroups.some(g => g.key === activeTab)) {
       setActiveTab(defaultTabKey);
@@ -443,12 +441,9 @@ export default function Dashboard() {
   };
 
   const currentRequestId = useRef(0);
-  const refreshingRef = useRef(false);
 
   const loadData = useCallback(async () => {
-    if (refreshingRef.current) return;
     const requestId = ++currentRequestId.current;
-    refreshingRef.current = true;
     setIsLoading(true);
     setRefreshing(true);
     setErrors([]);
@@ -519,7 +514,6 @@ export default function Dashboard() {
       }
     } finally {
       if (currentRequestId.current === requestId) {
-        refreshingRef.current = false;
         setIsLoading(false);
         setRefreshing(false);
       }
@@ -560,8 +554,7 @@ export default function Dashboard() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
-        <div className="text-center p-8 rounded-2xl border"
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className="text-center p-8 rounded-2xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
           <AlertCircle className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--icon-cyan-text)' }} />
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Session expired</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Please log in to access the dashboard.</p>
@@ -583,19 +576,13 @@ export default function Dashboard() {
       : preset === 'month' ? "Month's Revenue"
         : "Revenue";
 
-  // ── Compute which groups to render ───────────────────────────────────────
-  // If tabs are shown, only the active group renders.
-  // If not (single group / legacy), render it as before.
   const visibleGroups: StatGroup[] = showTabs
     ? statGroups.filter(g => g.key === activeTab)
     : statGroups;
 
-  // For alertsOnly groups, filter out zero-value cards
   const applyGroupFilter = (group: StatGroup): StatGroup => {
     if (!group.alertsOnly) return group;
     const filtered = group.cards.filter(k => isStatActive(k, stats));
-    // If nothing is active, show the full list so the tab isn't blank —
-    // but we'll render an "all clear" message in that case below.
     return { ...group, cards: filtered };
   };
 
@@ -608,15 +595,16 @@ export default function Dashboard() {
 
   return (
     <DashboardDateContext.Provider value={{ preset, dateRange }}>
-      <div className="p-4 lg:p-6"
+      <div
+        className="p-4 lg:p-6"
         style={{
           minHeight: '100vh',
           background: 'var(--bg-main)',
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem',
-        }}>
-
+        }}
+      >
         {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
           <div>
@@ -633,9 +621,12 @@ export default function Dashboard() {
 
           <div className="flex items-center gap-2 flex-wrap">
             <DateToggle preset={preset} dateRange={dateRange} onChange={handleDateChange} />
-            <button onClick={loadData} disabled={refreshing}
+            <button
+              onClick={loadData}
+              disabled={refreshing}
               className="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all disabled:opacity-50"
-              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}>
+              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+            >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               {refreshing ? 'Refreshing…' : 'Refresh'}
             </button>
@@ -644,30 +635,32 @@ export default function Dashboard() {
 
         {/* Error banner */}
         {errors.length > 0 && (
-          <div className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0"
-            style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}>
+          <div
+            className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0"
+            style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}
+          >
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4" style={{ color: 'var(--icon-yellow-text)' }} />
               <p className="text-sm" style={{ color: 'var(--icon-yellow-text)' }}>{errors.join(', ')}</p>
             </div>
-            <button onClick={loadData}
+            <button
+              onClick={loadData}
               className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-80"
-              style={{ background: 'var(--icon-yellow-text)' }}>Retry</button>
+              style={{ background: 'var(--icon-yellow-text)' }}
+            >
+              Retry
+            </button>
           </div>
         )}
 
-        {/* ── Main grid: left content + sticky right sidebar ───── */}
+        {/* Main grid: content + sticky sidebar */}
         <div
-          className="grid gap-4"
-          style={{
-            gridTemplateColumns: 'minmax(0, 1fr) 320px',
-            alignItems: 'start',
-          }}
+          className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]"
+          style={{ alignItems: 'start' }}
         >
           {/* LEFT / MAIN */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-
-            {/* KPI cards — tabs when multiple groups, else single section */}
+            {/* KPI cards */}
             <div className="flex flex-col gap-3">
               {showTabs && (
                 <StatTabs
@@ -679,13 +672,13 @@ export default function Dashboard() {
               )}
 
               {alertsAllClear && !isLoading ? (
-                <div className="rounded-xl border px-4 py-6 flex items-center gap-3"
-                  style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}>
+                <div
+                  className="rounded-xl border px-4 py-6 flex items-center gap-3"
+                  style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}
+                >
                   <span className="text-2xl">✅</span>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: 'var(--icon-green-text)' }}>
-                      All clear
-                    </p>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--icon-green-text)' }}>All clear</p>
                     <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
                       No alerts requiring attention right now.
                     </p>
@@ -707,17 +700,18 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Primary panels grid */}
+            {/* Primary panels — FIX: auto-size rows */}
             {config.primaryPanels.length > 0 && (
               <div
                 className="grid gap-4"
                 style={{
                   gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gridAutoRows: '340px',
+                  gridAutoRows: 'minmax(280px, max-content)',
+                  alignItems: 'start',
                 }}
               >
                 {config.primaryPanels.map((spec, idx) => (
-                  <div key={idx} className="min-h-0 min-w-0">
+                  <div key={idx} className="min-h-0 min-w-0" style={{ minHeight: 280 }}>
                     {renderPanel(spec, `primary-${idx}`)}
                   </div>
                 ))}
@@ -725,31 +719,40 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* RIGHT / SIDEBAR — Recent Activity pinned */}
-          <div style={{ position: 'sticky', top: '1rem', height: 'calc(100vh - 8rem)' }}>
+          {/* RIGHT / SIDEBAR — sticky on desktop, static on mobile */}
+          <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
             {renderPanel(config.sidebarPanel, 'sidebar')}
           </div>
         </div>
 
         {/* Quick actions */}
         {quickActions.length > 0 && (
-          <div className="rounded-xl border flex-shrink-0"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
-            <div className="px-5 py-3 border-b"
-              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
+          <div
+            className="rounded-xl border flex-shrink-0"
+            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+          >
+            <div
+              className="px-5 py-3 border-b"
+              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
+            >
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Frequent operations</p>
             </div>
-            <div className="p-4"
+            <div
+              className="p-4"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
                 gap: '0.75rem',
-              }}>
+              }}
+            >
               {quickActions.map(a => (
-                <Link key={a.key} to={a.path}
+                <Link
+                  key={a.key}
+                  to={a.path}
                   className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all hover:shadow-sm"
-                  style={{ background: a.bg, borderColor: 'var(--border-color)', color: a.color }}>
+                  style={{ background: a.bg, borderColor: 'var(--border-color)', color: a.color }}
+                >
                   <a.icon className="w-5 h-5" style={{ color: a.color }} />
                   <span className="text-xs font-medium text-center leading-tight" style={{ color: a.color }}>
                     {a.label}

@@ -908,56 +908,104 @@ export const seedCoreData = async (force: boolean = false) => {
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
 
-    // ── STEP 12b: Opening stock into Main Store ───────────────
-    const mainStore = await prisma.department.findFirst({ where: { name: 'Main Store' } });
-    if (!mainStore) {
-      console.warn('⚠️ Main Store department not found, skipping stock placement');
-    } else {
-      const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
-      let placedCount = 0;
+    // ── STEP 12b: Opening stock, placed by DEPARTMENT ─────────
+    // Default: every item is split between the Pharmacy (dispensing stock) and the Main Store (warehouse).
+    // Per-item override in the JSON data files:
+    //   "department": "Laboratory"                              -> all stock goes to that department
+    //   "stockLocations": [{ "department": "Pharmacy", "quantity": 30 }, { "department": "Main Store", "quantity": 70 }]
+    // The department quantities always add up to the item's currentStock.
+    const DEFAULT_STOCK_SPLIT = [
+      { department: 'Pharmacy', share: 0.4 },
+      { department: 'Main Store', share: 0.6 },
+    ];
+    const deptByName = new Map<string, any>();
+    const getDept = async (name: string) => {
+      if (!deptByName.has(name)) {
+        deptByName.set(name, await prisma.department.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } }));
+      }
+      return deptByName.get(name);
+    };
 
-      for (const [, stockItem] of stockItemMap) {
-        const quantity = stockItem.currentStock ?? 0;
+    const missing = [];
+    for (const d of DEFAULT_STOCK_SPLIT) if (!(await getDept(d.department))) missing.push(d.department);
+    if (missing.length) {
+      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}. Items will only be placed in the departments that exist.`);
+    }
+
+    const sourceByDrugCode = new Map<string, any>();
+    for (const file of stockFiles) {
+      const items = readJSON(file);
+      if (Array.isArray(items)) for (const it of items) if (it?.drugCode) sourceByDrugCode.set(it.drugCode, it);
+    }
+
+    const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
+    let placedCount = 0;
+    const perDepartment: Record<string, number> = {};
+
+    for (const [drugCode, stockItem] of stockItemMap) {
+      const total = stockItem.currentStock ?? 0;
+      if (total <= 0) continue;
+      const source = sourceByDrugCode.get(drugCode) || {};
+
+      // Work out [{ dept, quantity }] for this item
+      let plan: Array<{ dept: any; quantity: number }> = [];
+      if (Array.isArray(source.stockLocations) && source.stockLocations.length > 0) {
+        for (const loc of source.stockLocations) {
+          const dept = await getDept(loc.department);
+          if (!dept) { console.warn(`⚠️ ${drugCode}: department "${loc.department}" not found, skipped`); continue; }
+          plan.push({ dept, quantity: Math.max(0, Math.floor(loc.quantity ?? 0)) });
+        }
+      } else if (source.department) {
+        const dept = await getDept(source.department);
+        if (dept) plan.push({ dept, quantity: total });
+        else console.warn(`⚠️ ${drugCode}: department "${source.department}" not found, using default split`);
+      }
+      if (plan.length === 0) {
+        const targets = [];
+        for (const d of DEFAULT_STOCK_SPLIT) {
+          const dept = await getDept(d.department);
+          if (dept) targets.push({ dept, share: d.share });
+        }
+        let allocated = 0;
+        plan = targets.map((t, i) => {
+          const quantity = i === targets.length - 1 ? total - allocated : Math.floor(total * t.share);
+          allocated += quantity;
+          return { dept: t.dept, quantity };
+        });
+      }
+
+      for (const { dept, quantity } of plan) {
         if (quantity <= 0) continue;
         try {
           await prisma.stockBatch.upsert({
-            where: { stockItemId_batchNumber: { stockItemId: stockItem.id, batchNumber: 'OPENING' } },
+            where: { stockItemId_batchNumber_departmentId: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id } },
             create: {
-              stockItemId: stockItem.id,
-              batchNumber: 'OPENING',
-              expiryDate: openingExpiry,
-              quantity,
-              costPrice: stockItem.costPrice,
-              departmentId: mainStore.id,
-              isActive: true,
+              stockItemId: stockItem.id, batchNumber: 'OPENING', expiryDate: openingExpiry, quantity,
+              costPrice: stockItem.costPrice, departmentId: dept.id, isActive: true,
             },
-            update: { quantity, departmentId: mainStore.id },
+            update: { quantity, isActive: true },
           });
 
           const existingTxn = await prisma.stockTransaction.findFirst({
-            where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE' },
+            where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE', departmentId: dept.id },
           });
           if (!existingTxn) {
             await prisma.stockTransaction.create({
               data: {
-                stockItemId: stockItem.id,
-                transactionType: 'purchase',
-                quantity,
-                balanceAfter: quantity,
-                reference: 'OPENING-BALANCE',
-                notes: 'Opening stock balance (seed)',
-                performedBy: adminId,
-                departmentId: mainStore.id,
+                stockItemId: stockItem.id, transactionType: 'purchase', quantity, balanceAfter: quantity,
+                reference: 'OPENING-BALANCE', notes: `Opening stock balance (seed) - ${dept.name}`,
+                performedBy: adminId, departmentId: dept.id,
               },
             });
           }
+          perDepartment[dept.name] = (perDepartment[dept.name] || 0) + 1;
           placedCount++;
         } catch (error: any) {
-          console.error(`❌ Stock placement for ${stockItem.drugCode}:`, error.message);
+          console.error(`❌ Stock placement for ${stockItem.drugCode} in ${dept.name}:`, error.message);
         }
       }
-      console.log(`✅ Placed ${placedCount} stock items into Main Store (opening batches + transactions)`);
     }
+    console.log(`✅ Placed opening stock: ${placedCount} batches (${Object.entries(perDepartment).map(([n, c]) => `${n}: ${c}`).join(', ')})`);
 
     // ── STEP 13: Service catalog ──────────────────────────────
     console.log('🔄 Creating unified service catalog with pricing...');

@@ -29,7 +29,6 @@ export class EncounterService extends BaseService {
   // CREATE ENCOUNTER (WRAPPED IN ATOMIC TRANSACTION)
   // ============================================
   async createEncounter(data: CreateEncounterDTO, userId: string) {
-    userId = await this.repository.requireActorId(userId);
     if (data.paymentMode === 'nhis' && !data.nhisCCC) throw new ValidationError('NHIS CCC number is required for NHIS payments');
     if (data.paymentMode === 'corporate' && !data.corporateAccountId) throw new ValidationError('Corporate Account ID is required');
 
@@ -75,8 +74,7 @@ export class EncounterService extends BaseService {
           paymentMode: data.paymentMode,
           nhisCCC: data.nhisCCC,
           insuranceProviderId,
-          complaints: data.complaints ?? data.complaint ?? '',
-          medicalNotes: data.medicalNotes || '',
+          medicalNotes: data.complaint || '', // Mapped from schema fix
           encounterCategory,
           status: 'pending',
           createdById: userId,
@@ -141,6 +139,7 @@ export class EncounterService extends BaseService {
       await tx.aNCVisit.create({
         data: {
           bookingId: existingBooking.id, attendanceId: encounterId, visitNumber: visitCount + 1, visitDate: attendance?.dateTime || new Date(), recordedById: userId,
+          gravida: existingBooking.gravida, para: existingBooking.para,
           iptpGiven: false, ttGiven: false, ironGiven: false, folateGiven: false, calciumGiven: false,
           malariaTestDone: false, malariaTreatmentGiven: false, dangerSignsPresent: false, referralMade: false, oedema: false, dangerSignsList: []
         }
@@ -319,7 +318,7 @@ export class EncounterService extends BaseService {
   }
 
   async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
-  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data, userId); }
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data); }
   async updateEncounterStatus(id: string, status: string) { return this.repository.updateStatus(id, status); }
   async deleteEncounter(id: string) { return this.repository.delete(id); }
   
@@ -338,29 +337,19 @@ export class EncounterService extends BaseService {
   async removeMedication(id: string, medId: string) { return this.repository.removeMedication(id, medId); }
   
   async addLabTest(id: string, data: AddLabTestDTO, userId: string) { return this.repository.addLabTest(id, data, userId); }
-  async updateLabTestStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
+  async updateLabTestStatus(id: string, status: string, results: any, userId?: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
   async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
   
   async addScan(id: string, data: AddScanDTO, userId: string) { return this.repository.addScan(id, data, userId); }
-  async updateScanStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateScanStatus(id, status, results, userId); }
+  async updateScanStatus(id: string, status: string, results: any) { return this.repository.updateScanStatus(id, status, results); }
   async removeScan(id: string, scanId: string) { return this.repository.removeScan(id, scanId); }
   
   async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
-  async updateProcedureStatus(id: string, status: string, data: any, userId: string) { return this.repository.updateProcedureStatus(id, status, data, userId); }
+  async updateProcedureStatus(id: string, status: string, data: any) { return this.repository.updateProcedureStatus(id, status, data); }
   async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
   async removeService(id: string, servId: string) { return this.repository.removeService(id, servId); }
-  async getConsumableUses(id: string) { return this.repository.getConsumableUses(id); }
-  async recordConsumableUse(id: string, data: { stockItemId: string; quantity: number; notes?: string }, userId: string) {
-    return this.repository.recordConsumableUse(id, data.stockItemId, data.quantity, data.notes, userId);
-  }
-  async updateConsumableUse(id: string, transactionId: string, data: { stockItemId: string; quantity: number; notes?: string }, userId: string) {
-    return this.repository.updateConsumableUse(id, transactionId, data.stockItemId, data.quantity, data.notes, userId);
-  }
-  async deleteConsumableUse(id: string, transactionId: string, userId: string) {
-    return this.repository.deleteConsumableUse(id, transactionId, userId);
-  }
 
   // Admissions & IPD
   async getAllAdmissions(filters: any) { return this.repository.getAllAdmissions(filters); }

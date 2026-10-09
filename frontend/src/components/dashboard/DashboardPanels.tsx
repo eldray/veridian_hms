@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Clock, Stethoscope, Shield, Hospital, CreditCard, Heart, FileText,
-  DollarSign, Package, ClipboardList, AlertCircle, ChevronRight,
+  Coins, Package, ClipboardList, AlertCircle, ChevronRight,
   Activity, FlaskConical, ScanLine, Users, Baby, UserPlus,
   CheckCircle, Bed, Calendar, Pill, AlertTriangle,
 } from 'lucide-react';
@@ -16,7 +16,7 @@ import {
   getLabReport, getScanReport,
   getPatients, getReferrals, getAppointments,
   getExpiryReport, getAntenatalRecords,
-  getLeaves, getShifts, getAllUsers, getBills, getBeds, getWards,
+  getLeaves, getShifts, getAllUsers, getBills, getBeds,
 } from '../../api';
 import { getMarDoses, type MarDose } from '../../api/nursing';
 import {
@@ -43,8 +43,11 @@ export const StatCard = ({
   to: string; label: string; value: React.ReactNode; sub?: string;
   Icon: React.ComponentType<any>; bg: string; color: string; loading: boolean;
 }) => (
-  <Link to={to} className="rounded-xl p-4 border transition-all hover:shadow-sm"
-    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+  <Link
+    to={to}
+    className="rounded-xl p-4 border transition-all hover:shadow-sm"
+    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+  >
     <div className="flex items-center justify-between mb-2">
       <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{label}</span>
       <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: bg }}>
@@ -70,10 +73,20 @@ const PanelShell = ({
   title: string; subtitle?: string; Icon?: React.ComponentType<any>;
   iconColor?: string; badge?: React.ReactNode; children: React.ReactNode;
 }) => (
-  <div className="rounded-xl border flex flex-col"
-    style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-    <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
-      style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
+  <div
+    className="rounded-xl border flex flex-col"
+    style={{
+      background: 'var(--bg-card)',
+      borderColor: 'var(--border-color)',
+      height: '100%',
+      minHeight: 0,
+      overflow: 'hidden',
+    }}
+  >
+    <div
+      className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0"
+      style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
+    >
       <div className="flex items-center gap-2 min-w-0">
         {Icon && <Icon className="w-4 h-4 flex-shrink-0" style={{ color: iconColor || 'var(--text-secondary)' }} />}
         <div className="min-w-0">
@@ -83,13 +96,22 @@ const PanelShell = ({
       </div>
       {badge}
     </div>
-    <div className="flex-1 overflow-y-auto p-3" style={{ minHeight: 0 }}>{children}</div>
+    <div
+      className="flex-1 overflow-y-auto p-3"
+      style={{ minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) var(--bg-main)' }}
+    >
+      {children}
+    </div>
   </div>
 );
 
 const CountBadge = ({ n }: { n: number }) => (
-  <div className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
-    style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>{n}</div>
+  <div
+    className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-semibold"
+    style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+  >
+    {n}
+  </div>
 );
 
 const ListSkeleton = ({ rows = 5, h = 'h-14' }: { rows?: number; h?: string }) => (
@@ -110,11 +132,13 @@ const EmptyState = ({ Icon, text }: { Icon: React.ComponentType<any>; text: stri
 const MetricTile = ({ label, value, color, Icon }: {
   label: string; value: React.ReactNode; color: string; Icon: React.ComponentType<any>;
 }) => (
-  <div className="rounded-lg px-3 py-2.5 border"
-    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+  <div
+    className="rounded-lg px-3 py-2.5 border"
+    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+  >
     <div className="flex items-center gap-1.5 mb-1">
       <Icon className="w-3 h-3" style={{ color }} />
-      <p className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
+      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>{label}</p>
     </div>
     <p className="text-lg font-bold leading-none" style={{ color }}>{value}</p>
   </div>
@@ -155,7 +179,9 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
         const list: any[] = Array.isArray(payload?.data) ? payload.data
           : Array.isArray(payload) ? payload : [];
         setItems(list);
-        setPending(payload?.pending ?? payload?.total ?? list.length);
+        // FIX: never show 0 when there are items in the list
+        const serverPending = Number(payload?.pending ?? payload?.total ?? 0) || 0;
+        setPending(Math.max(serverPending, list.length));
       })
       .catch(() => { if (active) { setItems([]); setPending(0); } })
       .finally(() => { if (active) setLoading(false); });
@@ -163,13 +189,21 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
   }, [kind]);
 
   return (
-    <PanelShell title={meta.title} subtitle={meta.subtitle} Icon={meta.Icon} iconColor={meta.color}
+    <PanelShell
+      title={meta.title}
+      subtitle={meta.subtitle}
+      Icon={meta.Icon}
+      iconColor={meta.color}
       badge={
-        <Link to={meta.viewAllTo} className="flex items-center gap-1 text-xs font-medium"
-          style={{ color: 'var(--icon-cyan-text)' }}>
+        <Link
+          to={meta.viewAllTo}
+          className="flex items-center gap-1 text-xs font-medium"
+          style={{ color: 'var(--icon-cyan-text)' }}
+        >
           View all <ChevronRight className="w-3 h-3" />
         </Link>
-      }>
+      }
+    >
       {loading ? <ListSkeleton /> : items.length === 0 ? (
         <EmptyState Icon={meta.Icon} text={meta.emptyText} />
       ) : (
@@ -184,28 +218,36 @@ export function WorklistPanel({ kind }: { kind: WorklistKind }) {
               const loc = it.location?.ward
                 ? `${it.location.ward}${it.location.bed ? ` · ${it.location.bed}` : ''}` : null;
               return (
-                <Link key={it.id || it.attendanceId}
+                <Link
+                  key={it.id || it.attendanceId}
                   to={`${meta.itemLinkBase}${it.attendanceId || it.id}`}
                   className="flex flex-col gap-1.5 p-3 rounded-lg border transition-all hover:shadow-sm"
-                  style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                  style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--text-primary)' }}>
                       {patientFullName(it)}
                     </p>
                     {pr && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase flex-shrink-0"
-                        style={{ background: pr.bg, color: pr.color }}>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase flex-shrink-0"
+                        style={{ background: pr.bg, color: pr.color }}
+                      >
                         {it.priority}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
-                        style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}>
+                      <span
+                        className="font-mono text-[10px] px-1.5 py-0.5 rounded flex-shrink-0"
+                        style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
+                      >
                         {it.patient?.folderNumber || '—'}
                       </span>
-                      {loc && <span className="text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>{loc}</span>}
+                      {loc && (
+                        <span className="text-[10px] truncate" style={{ color: 'var(--text-tertiary)' }}>{loc}</span>
+                      )}
                     </div>
                     {typeof it.waitTime === 'number' && it.waitTime > 0 && (
                       <div className="flex items-center gap-0.5 flex-shrink-0">
@@ -250,9 +292,12 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
             const ss = getStatusStyle(att.status || 'pending');
             const status = att.status || 'pending';
             return (
-              <Link key={att.id} to={`/dashboard/attendance/${att.id}`}
-                className="flex flex-col gap-1.5 p-3 rounded-lg border transition-all"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+              <Link
+                key={att.id}
+                to={`/dashboard/attendance/${att.id}`}
+                className="flex flex-col gap-1.5 p-3 rounded-lg border transition-all hover:shadow-sm"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-xs font-semibold truncate flex-1" style={{ color: 'var(--text-primary)' }}>
                     {patientFullName(att)}
@@ -266,8 +311,10 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                 </div>
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-[10px] px-1.5 py-0.5 rounded"
-                      style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}>
+                    <span
+                      className="font-mono text-[10px] px-1.5 py-0.5 rounded"
+                      style={{ background: 'var(--bg-card)', color: 'var(--text-tertiary)' }}
+                    >
                       {patient.folderNumber || '—'}
                     </span>
                     <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
@@ -275,8 +322,10 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: ss.bg, color: ss.color }}>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: ss.bg, color: ss.color }}
+                    >
                       {status.charAt(0).toUpperCase() + status.slice(1)}
                     </span>
                     <div className="flex items-center gap-0.5">
@@ -297,10 +346,13 @@ export function RecentActivity({ items, loading }: { items: any[]; loading: bool
 }
 
 // ============================================
-// TOP DIAGNOSES
+// TOP DIAGNOSES — FIX: single-item bar
 // ============================================
 
 export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolean }) {
+  const showBar = items.length > 1;
+  const maxCount = Math.max(...items.map((t) => t?.patients ?? 0), 1);
+
   return (
     <PanelShell title="Top Diagnoses" subtitle="Last 30 days" Icon={Heart} iconColor="var(--icon-red-text)">
       {loading ? <ListSkeleton rows={5} h="h-10" /> : items.length === 0 ? (
@@ -308,10 +360,17 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
       ) : (
         <div className="space-y-2">
           {items.slice(0, 5).map((t, i) => (
-            <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg"
-              style={{ background: 'var(--bg-main)' }}>
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
-                style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}>{i + 1}</div>
+            <div
+              key={i}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg"
+              style={{ background: 'var(--bg-main)' }}
+            >
+              <div
+                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+              >
+                {i + 1}
+              </div>
               <div className="flex-1 min-w-0">
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{t.disease}</span>
                 {t.icdCode && t.icdCode !== '—' && (
@@ -319,13 +378,17 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
                 )}
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                  <div className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(100, (t.patients / (items[0]?.patients || 1)) * 100)}%`,
-                      background: 'var(--icon-cyan-text)'
-                    }} />
-                </div>
+                {showBar && (
+                  <div className="w-16 h-2 rounded-full overflow-hidden" style={{ background: 'var(--bg-card)' }}>
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.min(100, (t.patients / maxCount) * 100)}%`,
+                        background: 'var(--icon-cyan-text)',
+                      }}
+                    />
+                  </div>
+                )}
                 <span className="text-xs font-semibold" style={{ color: 'var(--icon-cyan-text)' }}>
                   {t.patients}
                 </span>
@@ -339,23 +402,26 @@ export function TopDiagnoses({ items, loading }: { items: any[]; loading: boolea
 }
 
 // ============================================
-// FINANCE SUMMARY
+// FINANCE SUMMARY — FIX: currency icon
 // ============================================
 
 export function FinanceSummary({ stats, loading }: { stats: DashboardStats; loading: boolean }) {
   const tiles = [
-    { label: "Today's Revenue", value: `₵${Number(stats.totalRevenue).toFixed(2)}`, Icon: DollarSign, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', to: '/dashboard/billing' },
+    { label: "Today's Revenue", value: `₵${Number(stats.totalRevenue).toFixed(2)}`, Icon: Coins, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', to: '/dashboard/billing' },
     { label: 'Pending Bills', value: stats.pendingBills, Icon: FileText, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', to: '/dashboard/billing' },
     { label: 'Pending Claims', value: stats.pendingClaims, Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', to: '/dashboard/insurance-claims' },
   ];
   return (
-    <PanelShell title="Finance Summary" subtitle="Today" Icon={DollarSign} iconColor="var(--icon-green-text)">
+    <PanelShell title="Finance Summary" subtitle="Today" Icon={Coins} iconColor="var(--icon-green-text)">
       {loading ? <ListSkeleton rows={3} h="h-16" /> : (
         <div className="space-y-2">
           {tiles.map((t) => (
-            <Link key={t.label} to={t.to}
+            <Link
+              key={t.label}
+              to={t.to}
               className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-sm"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: t.bg }}>
                   <t.Icon className="w-4 h-4" style={{ color: t.color }} />
@@ -395,9 +461,12 @@ export function StockAlerts({ lowStock, loading }: { lowStock: number; loading: 
       {loading ? <ListSkeleton rows={2} h="h-16" /> : (
         <div className="space-y-2">
           {rows.map((r) => (
-            <Link key={r.label} to={r.to}
+            <Link
+              key={r.label}
+              to={r.to}
               className="flex items-center justify-between p-3 rounded-lg border transition-all hover:shadow-sm"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: r.bg }}>
                   <r.Icon className="w-4 h-4" style={{ color: r.color }} />
@@ -445,8 +514,13 @@ export function NurseSummary() {
   }, 0);
 
   return (
-    <PanelShell title="Ward Summary" subtitle="Admitted patients today" Icon={Bed} iconColor="var(--icon-green-text)"
-      badge={<CountBadge n={admitted.length} />}>
+    <PanelShell
+      title="Ward Summary"
+      subtitle="Admitted patients today"
+      Icon={Bed}
+      iconColor="var(--icon-green-text)"
+      badge={<CountBadge n={admitted.length} />}
+    >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
@@ -456,8 +530,9 @@ export function NurseSummary() {
           </div>
 
           <div className="pt-1">
-            <p className="text-[9px] font-semibold uppercase tracking-wider mb-2"
-              style={{ color: 'var(--text-tertiary)' }}>Admitted patients</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: 'var(--text-tertiary)' }}>
+              Admitted patients
+            </p>
             {admitted.length === 0 ? (
               <p className="text-xs text-center py-4" style={{ color: 'var(--text-tertiary)' }}>No admitted patients</p>
             ) : (
@@ -468,25 +543,33 @@ export function NurseSummary() {
                   const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
                   const ward = a.Ward?.wardName || a.ward?.wardName || '';
                   return (
-                    <Link key={a.id} to={`/dashboard/nursing`}
+                    <Link
+                      key={a.id}
+                      to="/dashboard/nursing"
                       className="flex items-center justify-between px-3 py-2 rounded-lg border"
-                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                    >
                       <div className="min-w-0">
                         <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                         <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                           {p.folderNumber || '—'}{ward ? ` · ${ward}` : ''}
                         </p>
                       </div>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 ml-2"
-                        style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}>
+                      <span
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 ml-2"
+                        style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}
+                      >
                         Bed {bed}
                       </span>
                     </Link>
                   );
                 })}
                 {admitted.length > 6 && (
-                  <Link to="/dashboard/nursing" className="block text-center text-xs py-1"
-                    style={{ color: 'var(--icon-cyan-text)' }}>
+                  <Link
+                    to="/dashboard/nursing"
+                    className="block text-center text-xs py-1"
+                    style={{ color: 'var(--icon-cyan-text)' }}
+                  >
                     +{admitted.length - 6} more →
                   </Link>
                 )}
@@ -536,16 +619,18 @@ export function MidwifeSummary() {
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div>
-            <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-              style={{ color: 'var(--text-tertiary)' }}>Antenatal</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+              Antenatal
+            </p>
             <div className="grid grid-cols-2 gap-2">
               <MetricTile label="ANC Bookings" value={ancTotal} color="var(--icon-cyan-text)" Icon={Users} />
               <MetricTile label="Visits Today" value={ancToday} color="var(--icon-green-text)" Icon={Calendar} />
             </div>
           </div>
           <div className="border-t pt-3" style={{ borderColor: 'var(--border-color)' }}>
-            <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-              style={{ color: 'var(--text-tertiary)' }}>Deliveries</p>
+            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+              Deliveries
+            </p>
             <div className="grid grid-cols-3 gap-2">
               <MetricTile label="Total" value={delTotal} color="var(--icon-purple-text)" Icon={Baby} />
               <MetricTile label="Live Births" value={liveTotal} color="var(--icon-green-text)" Icon={CheckCircle} />
@@ -553,9 +638,11 @@ export function MidwifeSummary() {
             </div>
           </div>
           <div className="border-t pt-2" style={{ borderColor: 'var(--border-color)' }}>
-            <Link to="/dashboard/antenatal"
+            <Link
+              to="/dashboard/antenatal"
               className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-              style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+              style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}
+            >
               Open Antenatal Module <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
@@ -590,8 +677,13 @@ export function LabSummary() {
   const topTests = report?.topTests || [];
 
   return (
-    <PanelShell title="Lab Summary" subtitle="Today's test activity" Icon={FlaskConical} iconColor="var(--icon-purple-text)"
-      badge={<CountBadge n={total} />}>
+    <PanelShell
+      title="Lab Summary"
+      subtitle="Today's test activity"
+      Icon={FlaskConical}
+      iconColor="var(--icon-purple-text)"
+      badge={<CountBadge n={total} />}
+    >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
@@ -601,32 +693,39 @@ export function LabSummary() {
           </div>
 
           {avgTAT > 0 && (
-            <div className="px-3 py-2 rounded-lg border text-xs"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+            <div
+              className="px-3 py-2 rounded-lg border text-xs"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+            >
               Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
             </div>
           )}
 
           {topTests.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>Top tests today</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                Top tests today
+              </p>
               <div className="space-y-1.5">
                 {topTests.slice(0, 4).map((t: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                    style={{ background: 'var(--bg-main)' }}>
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                    style={{ background: 'var(--bg-main)' }}
+                  >
                     <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{t.testName}</span>
-                    <span className="text-xs font-semibold flex-shrink-0 ml-2"
-                      style={{ color: 'var(--icon-purple-text)' }}>{t.count}</span>
+                    <span className="text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-purple-text)' }}>{t.count}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <Link to="/dashboard/laboratory"
+          <Link
+            to="/dashboard/laboratory"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-purple-text)', background: 'var(--icon-purple-bg)' }}>
+            style={{ color: 'var(--icon-purple-text)', background: 'var(--icon-purple-bg)' }}
+          >
             Open Lab Worklist <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -660,8 +759,13 @@ export function ScanSummary() {
   const topScans = report?.topScans || [];
 
   return (
-    <PanelShell title="Scan Summary" subtitle="Today's radiology activity" Icon={ScanLine} iconColor="var(--icon-cyan-text)"
-      badge={<CountBadge n={total} />}>
+    <PanelShell
+      title="Scan Summary"
+      subtitle="Today's radiology activity"
+      Icon={ScanLine}
+      iconColor="var(--icon-cyan-text)"
+      badge={<CountBadge n={total} />}
+    >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
@@ -671,32 +775,39 @@ export function ScanSummary() {
           </div>
 
           {avgTAT > 0 && (
-            <div className="px-3 py-2 rounded-lg border text-xs"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>
+            <div
+              className="px-3 py-2 rounded-lg border text-xs"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+            >
               Avg turnaround: <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>{avgTAT} min</span>
             </div>
           )}
 
           {topScans.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>Top scans today</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                Top scans today
+              </p>
               <div className="space-y-1.5">
                 {topScans.slice(0, 4).map((s: any, i: number) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                    style={{ background: 'var(--bg-main)' }}>
+                  <div
+                    key={i}
+                    className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                    style={{ background: 'var(--bg-main)' }}
+                  >
                     <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{s.scanName}</span>
-                    <span className="text-xs font-semibold flex-shrink-0 ml-2"
-                      style={{ color: 'var(--icon-cyan-text)' }}>{s.count}</span>
+                    <span className="text-xs font-semibold flex-shrink-0 ml-2" style={{ color: 'var(--icon-cyan-text)' }}>{s.count}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <Link to="/dashboard/scans"
+          <Link
+            to="/dashboard/scans"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}
+          >
             Open Radiology Worklist <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -760,7 +871,12 @@ export function RecordsSummary() {
   }, []);
 
   return (
-    <PanelShell title="Records Summary" subtitle="Today's registrations & activity" Icon={FileText} iconColor="var(--icon-cyan-text)">
+    <PanelShell
+      title="Records Summary"
+      subtitle="Today's registrations & activity"
+      Icon={FileText}
+      iconColor="var(--icon-cyan-text)"
+    >
       {loading ? <ListSkeleton rows={4} h="h-10" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-2">
@@ -772,18 +888,23 @@ export function RecordsSummary() {
 
           {recentPats.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>Recently registered</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                Recently registered
+              </p>
               <div className="space-y-1.5">
                 {recentPats.map((p, i) => {
                   const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
                   return (
-                    <Link key={p.id || i} to={`/dashboard/patients/${p.id}`}
+                    <Link
+                      key={p.id || i}
+                      to={`/dashboard/patients/${p.id}`}
                       className="flex items-center justify-between px-3 py-1.5 rounded-lg border"
-                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                    >
                       <span className="text-xs truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
-                      <span className="font-mono text-[10px] flex-shrink-0 ml-2"
-                        style={{ color: 'var(--text-tertiary)' }}>{p.folderNumber}</span>
+                      <span className="font-mono text-[10px] flex-shrink-0 ml-2" style={{ color: 'var(--text-tertiary)' }}>
+                        {p.folderNumber}
+                      </span>
                     </Link>
                   );
                 })}
@@ -791,9 +912,11 @@ export function RecordsSummary() {
             </div>
           )}
 
-          <Link to="/dashboard/patients/register"
+          <Link
+            to="/dashboard/patients/register"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}
+          >
             Register New Patient <UserPlus className="w-3 h-3" />
           </Link>
         </div>
@@ -803,7 +926,7 @@ export function RecordsSummary() {
 }
 
 // ============================================
-// MEDS DUE PANEL (Nurse)
+// MEDS DUE PANEL
 // ============================================
 
 export function MedsDuePanel() {
@@ -834,9 +957,9 @@ export function MedsDuePanel() {
       {loading ? <ListSkeleton rows={3} h="h-12" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="Due"    value={due}    color="var(--icon-cyan-text)"   Icon={Clock} />
-            <MetricTile label="Late"   value={late}   color="var(--icon-orange-text)" Icon={AlertCircle} />
-            <MetricTile label="Missed" value={missed} color="var(--icon-red-text)"    Icon={AlertTriangle} />
+            <MetricTile label="Due" value={due} color="var(--icon-cyan-text)" Icon={Clock} />
+            <MetricTile label="Late" value={late} color="var(--icon-orange-text)" Icon={AlertCircle} />
+            <MetricTile label="Missed" value={missed} color="var(--icon-red-text)" Icon={AlertTriangle} />
           </div>
 
           {doses.length === 0 ? (
@@ -845,24 +968,26 @@ export function MedsDuePanel() {
             </p>
           ) : (
             <div className="space-y-1.5">
-              <p className="text-[9px] font-semibold uppercase tracking-wider"
-                style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
                 Next up
               </p>
               {doses.slice(0, 5).map((dose) => {
                 const ss = getStatusStyle(dose.status);
                 return (
-                  <Link key={dose.id}
+                  <Link
+                    key={dose.id}
                     to={`/dashboard/nursing/patient/${dose.medication.attendanceId}`}
                     className="block p-2 rounded-lg border transition-all hover:shadow-sm"
-                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                  >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-semibold truncate"
-                        style={{ color: 'var(--text-primary)' }}>
+                      <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                         {dose.medication.name}
                       </span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0"
-                        style={{ background: ss.bg, color: ss.color }}>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0"
+                        style={{ background: ss.bg, color: ss.color }}
+                      >
                         {dose.status}
                       </span>
                     </div>
@@ -875,9 +1000,11 @@ export function MedsDuePanel() {
             </div>
           )}
 
-          <Link to="/dashboard/nursing"
+          <Link
+            to="/dashboard/nursing"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-orange-text)', background: 'var(--icon-orange-bg)' }}>
+            style={{ color: 'var(--icon-orange-text)', background: 'var(--icon-orange-bg)' }}
+          >
             Open Nursing Workspace <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -887,7 +1014,7 @@ export function MedsDuePanel() {
 }
 
 // ============================================
-// EXPIRING STOCK PANEL (Pharmacist)
+// EXPIRING STOCK PANEL
 // ============================================
 
 export function ExpiringStockPanel() {
@@ -924,14 +1051,16 @@ export function ExpiringStockPanel() {
               (new Date(it.expiryDate).getTime() - Date.now()) / 86400000
             );
             const urgency = days <= 7
-              ? { bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)' }
+              ? { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' }
               : days <= 14
               ? { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' }
               : { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' };
             return (
-              <div key={it.id || i}
+              <div
+                key={it.id || i}
                 className="flex items-center justify-between p-2 rounded-lg border"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
                 <div className="min-w-0">
                   <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>
                     {it.name || it.itemName || 'Unnamed'}
@@ -940,16 +1069,21 @@ export function ExpiringStockPanel() {
                     Qty {it.quantity ?? it.currentStock ?? 0} · Expires {new Date(it.expiryDate).toLocaleDateString()}
                   </p>
                 </div>
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
-                  style={{ background: urgency.bg, color: urgency.color }}>
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full shrink-0"
+                  style={{ background: urgency.bg, color: urgency.color }}
+                >
                   {days}d
                 </span>
               </div>
             );
           })}
           {items.length > 8 && (
-            <Link to="/dashboard/stock?filter=expiring"
-              className="block text-center text-xs py-1" style={{ color: 'var(--icon-cyan-text)' }}>
+            <Link
+              to="/dashboard/stock?filter=expiring"
+              className="block text-center text-xs py-1"
+              style={{ color: 'var(--icon-cyan-text)' }}
+            >
               +{items.length - 8} more →
             </Link>
           )}
@@ -960,7 +1094,7 @@ export function ExpiringStockPanel() {
 }
 
 // ============================================
-// CRITICAL RESULTS PANEL (Lab Tech)
+// CRITICAL RESULTS PANEL — FIX: left-border instead of full red bg
 // ============================================
 
 export function CriticalResultsPanel() {
@@ -995,16 +1129,21 @@ export function CriticalResultsPanel() {
       ) : (
         <div className="space-y-1.5">
           {items.slice(0, 8).map((t: any, i: number) => (
-            <Link key={t.id || i}
+            <Link
+              key={t.id || i}
               to={`/dashboard/laboratory/${t.id}`}
-              className="block p-2 rounded-lg border"
-              style={{ background: 'var(--icon-red-bg)', borderColor: 'var(--border-color)' }}>
+              className="block p-2.5 rounded-lg border transition-all hover:shadow-sm"
+              style={{
+                background: 'var(--bg-main)',
+                borderColor: 'var(--border-color)',
+                borderLeft: '3px solid var(--icon-red-text)',
+              }}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold truncate"
-                  style={{ color: 'var(--icon-red-text)' }}>
+                <span className="text-xs font-semibold truncate" style={{ color: 'var(--icon-red-text)' }}>
                   {t.testName || t.name || 'Critical result'}
                 </span>
-                <span className="text-[10px] shrink-0" style={{ color: 'var(--icon-red-text)' }}>
+                <span className="text-[10px] shrink-0" style={{ color: 'var(--text-tertiary)' }}>
                   {fmtTime(t.completedAt || t.createdAt)}
                 </span>
               </div>
@@ -1020,7 +1159,7 @@ export function CriticalResultsPanel() {
 }
 
 // ============================================
-// HIGH-RISK ANC PANEL (Midwife)
+// HIGH-RISK ANC PANEL
 // ============================================
 
 export function HighRiskANCPanel() {
@@ -1055,24 +1194,18 @@ export function HighRiskANCPanel() {
   const low = byRisk.low ?? 0;
 
   return (
-    <PanelShell
-      title="ANC Risk Overview"
-      subtitle="Active pregnancies"
-      Icon={Baby}
-      iconColor="var(--icon-red-text)"
-    >
+    <PanelShell title="ANC Risk Overview" subtitle="Active pregnancies" Icon={Baby} iconColor="var(--icon-red-text)">
       {loading ? <ListSkeleton rows={3} h="h-12" /> : (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricTile label="High"   value={high}   color="var(--icon-red-text)"    Icon={AlertTriangle} />
+            <MetricTile label="High" value={high} color="var(--icon-red-text)" Icon={AlertTriangle} />
             <MetricTile label="Medium" value={medium} color="var(--icon-orange-text)" Icon={AlertCircle} />
-            <MetricTile label="Low"    value={low}    color="var(--icon-green-text)"  Icon={CheckCircle} />
+            <MetricTile label="Low" value={low} color="var(--icon-green-text)" Icon={CheckCircle} />
           </div>
 
           {list.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
                 High-risk mothers
               </p>
               <div className="space-y-1.5">
@@ -1081,19 +1214,22 @@ export function HighRiskANCPanel() {
                   const name = p.name || p.fullName ||
                     `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
                   return (
-                    <Link key={r.id || i}
+                    <Link
+                      key={r.id || i}
                       to={`/dashboard/maternal/${r.attendanceId || r.id}`}
                       className="flex items-center justify-between p-2 rounded-lg border"
-                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                    >
                       <div className="min-w-0">
-                        <p className="text-xs font-medium truncate"
-                          style={{ color: 'var(--text-primary)' }}>{name}</p>
+                        <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                         <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                           {p.folderNumber || '—'} · G{r.gravida ?? '?'} P{r.para ?? '?'}
                         </p>
                       </div>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0"
-                        style={{ background: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' }}>
+                      <span
+                        className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0"
+                        style={{ background: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' }}
+                      >
                         High
                       </span>
                     </Link>
@@ -1103,9 +1239,11 @@ export function HighRiskANCPanel() {
             </div>
           )}
 
-          <Link to="/dashboard/antenatal?filter=high_risk"
+          <Link
+            to="/dashboard/antenatal?filter=high_risk"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-red-text)', background: 'var(--icon-red-bg)' }}>
+            style={{ color: 'var(--icon-red-text)', background: 'var(--icon-red-bg)' }}
+          >
             Open Antenatal <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -1115,7 +1253,7 @@ export function HighRiskANCPanel() {
 }
 
 // ============================================
-// BILLING AGING PANEL (Accounts)
+// BILLING AGING PANEL
 // ============================================
 
 export function BillingAgingPanel() {
@@ -1164,7 +1302,7 @@ export function BillingAgingPanel() {
     <PanelShell
       title="Receivables Aging"
       subtitle={`Total outstanding: ${fmtCcy(total)}`}
-      Icon={DollarSign}
+      Icon={Coins}
       iconColor="var(--icon-green-text)"
     >
       {loading ? <ListSkeleton rows={4} h="h-12" /> : (
@@ -1175,16 +1313,19 @@ export function BillingAgingPanel() {
                 <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>{r.label}</span>
                 <span className="text-xs font-semibold" style={{ color: r.color }}>{fmtCcy(r.value)}</span>
               </div>
-              <div className="w-full rounded-full overflow-hidden"
-                style={{ height: 5, background: 'var(--bg-main)' }}>
-                <div className="h-full rounded-full"
-                  style={{ width: `${(r.value / maxVal) * 100}%`, background: r.color, transition: 'width .3s' }} />
+              <div className="w-full rounded-full overflow-hidden" style={{ height: 5, background: 'var(--bg-main)' }}>
+                <div
+                  className="h-full rounded-full"
+                  style={{ width: `${(r.value / maxVal) * 100}%`, background: r.color, transition: 'width .3s' }}
+                />
               </div>
             </div>
           ))}
-          <Link to="/dashboard/billing"
+          <Link
+            to="/dashboard/billing"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 mt-2 rounded-lg"
-            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}
+          >
             Open Billing <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -1221,9 +1362,7 @@ export function HRWorklistPanel() {
       Icon={FileText}
       iconColor="var(--icon-yellow-text)"
       badge={
-        <Link to="/dashboard/leaves"
-          className="flex items-center gap-1 text-xs font-medium"
-          style={{ color: 'var(--icon-cyan-text)' }}>
+        <Link to="/dashboard/leaves" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--icon-cyan-text)' }}>
           View all <ChevronRight className="w-3 h-3" />
         </Link>
       }
@@ -1233,20 +1372,23 @@ export function HRWorklistPanel() {
       ) : (
         <div className="space-y-2">
           {leaves.slice(0, 6).map((leave: any) => (
-            <Link key={leave.id}
+            <Link
+              key={leave.id}
               to="/dashboard/leaves"
               className="block p-2.5 rounded-lg border transition-all hover:shadow-sm"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold truncate"
-                  style={{ color: 'var(--text-primary)' }}>
+                <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                   {leave.user?.fullName || leave.userName || 'Staff'}
                 </span>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase"
+                <span
+                  className="text-[10px] px-1.5 py-0.5 rounded-full font-bold shrink-0 uppercase"
                   style={{
                     background: leave.leaveType === 'sick' ? 'var(--icon-red-bg)' : 'var(--icon-cyan-bg)',
                     color: leave.leaveType === 'sick' ? 'var(--icon-red-text)' : 'var(--icon-cyan-text)',
-                  }}>
+                  }}
+                >
                   {leave.leaveType || 'leave'}
                 </span>
               </div>
@@ -1317,29 +1459,33 @@ export function HRSummaryPanel() {
 
           {topRoles.length > 0 && (
             <div>
-              <p className="text-[9px] font-semibold uppercase tracking-wider mb-1.5"
-                style={{ color: 'var(--text-tertiary)' }}>
+              <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: 'var(--text-tertiary)' }}>
                 By role
               </p>
               <div className="space-y-1.5">
                 {topRoles.map(([role, count]) => (
-                  <div key={role}
+                  <div
+                    key={role}
                     className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                    style={{ background: 'var(--bg-main)' }}>
+                    style={{ background: 'var(--bg-main)' }}
+                  >
                     <span className="text-xs capitalize truncate" style={{ color: 'var(--text-primary)' }}>
                       {role.replace('_', ' ')}
                     </span>
-                    <span className="text-xs font-semibold shrink-0"
-                      style={{ color: 'var(--icon-cyan-text)' }}>{count}</span>
+                    <span className="text-xs font-semibold shrink-0" style={{ color: 'var(--icon-cyan-text)' }}>
+                      {count}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          <Link to="/dashboard/users"
+          <Link
+            to="/dashboard/users"
             className="flex items-center justify-center gap-1.5 text-xs font-medium py-1.5 rounded-lg"
-            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}>
+            style={{ color: 'var(--icon-cyan-text)', background: 'var(--icon-cyan-bg)' }}
+          >
             Open User Management <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
@@ -1349,7 +1495,7 @@ export function HRSummaryPanel() {
 }
 
 // ============================================
-// PAYMENT MODE PANEL (Linear breakdown)
+// PAYMENT MODE PANEL
 // ============================================
 
 export function PaymentModePanel() {
@@ -1378,9 +1524,9 @@ export function PaymentModePanel() {
   }, []);
 
   const rows = [
-    { key: 'cash',              label: 'Cash',              value: data.cash,              Icon: CreditCard, color: 'var(--icon-green-text)',  bg: 'var(--icon-green-bg)' },
-    { key: 'nhis',              label: 'NHIS',              value: data.nhis,              Icon: Shield,     color: 'var(--icon-cyan-text)',   bg: 'var(--icon-cyan-bg)' },
-    { key: 'private_insurance', label: 'Private Insurance', value: data.private_insurance, Icon: Hospital,   color: 'var(--icon-purple-text)', bg: 'var(--icon-purple-bg)' },
+    { key: 'cash', label: 'Cash', value: data.cash, Icon: CreditCard, color: 'var(--icon-green-text)', bg: 'var(--icon-green-bg)' },
+    { key: 'nhis', label: 'NHIS', value: data.nhis, Icon: Shield, color: 'var(--icon-cyan-text)', bg: 'var(--icon-cyan-bg)' },
+    { key: 'private_insurance', label: 'Private Insurance', value: data.private_insurance, Icon: Hospital, color: 'var(--icon-purple-text)', bg: 'var(--icon-purple-bg)' },
   ];
   const max = Math.max(...rows.map(r => r.value), 1);
 
@@ -1398,22 +1544,18 @@ export function PaymentModePanel() {
             <div key={r.key}>
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md flex items-center justify-center"
-                    style={{ background: r.bg }}>
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ background: r.bg }}>
                     <r.Icon className="w-3 h-3" style={{ color: r.color }} />
                   </div>
-                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {r.label}
-                  </span>
+                  <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>{r.label}</span>
                 </div>
-                <span className="text-sm font-bold" style={{ color: r.color }}>
-                  {r.value}
-                </span>
+                <span className="text-sm font-bold" style={{ color: r.color }}>{r.value}</span>
               </div>
-              <div className="w-full rounded-full overflow-hidden"
-                style={{ height: 6, background: 'var(--bg-main)' }}>
-                <div className="h-full rounded-full transition-all"
-                  style={{ width: `${(r.value / max) * 100}%`, background: r.color }} />
+              <div className="w-full rounded-full overflow-hidden" style={{ height: 6, background: 'var(--bg-main)' }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{ width: `${(r.value / max) * 100}%`, background: r.color }}
+                />
               </div>
             </div>
           ))}
@@ -1430,7 +1572,7 @@ export function PaymentModePanel() {
 }
 
 // ============================================
-// WARD OCCUPANCY PANEL
+// WARD OCCUPANCY PANEL — FIX: tile colors on card bg
 // ============================================
 
 export function WardOccupancyPanel() {
@@ -1439,7 +1581,7 @@ export function WardOccupancyPanel() {
 
   useEffect(() => {
     let active = true;
-    Promise.allSettled([getBeds(), getWards()])
+    Promise.allSettled([getBeds()])
       .then(([bedsRes]) => {
         if (!active) return;
         const bedsRaw: any = bedsRes.status === 'fulfilled' ? bedsRes.value : [];
@@ -1453,6 +1595,7 @@ export function WardOccupancyPanel() {
   }, []);
 
   const pct = data.total ? Math.round((data.occupied / data.total) * 100) : 0;
+  const barColor = pct > 85 ? 'var(--icon-red-text)' : pct > 60 ? 'var(--icon-orange-text)' : 'var(--icon-green-text)';
 
   return (
     <PanelShell
@@ -1466,41 +1609,38 @@ export function WardOccupancyPanel() {
         <div className="space-y-4">
           <div>
             <div className="flex items-baseline justify-between mb-2">
-              <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                {pct}%
-              </span>
+              <span className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>{pct}%</span>
               <span className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
                 {data.occupied} of {data.total} beds
               </span>
             </div>
-            <div className="w-full rounded-full overflow-hidden"
-              style={{ height: 10, background: 'var(--bg-main)' }}>
-              <div className="h-full rounded-full transition-all"
-                style={{
-                  width: `${pct}%`,
-                  background: pct > 85 ? 'var(--icon-red-text)' : pct > 60 ? 'var(--icon-orange-text)' : 'var(--icon-green-text)',
-                }} />
+            <div className="w-full rounded-full overflow-hidden" style={{ height: 10, background: 'var(--bg-main)' }}>
+              <div
+                className="h-full rounded-full transition-all"
+                style={{ width: `${pct}%`, background: barColor }}
+              />
             </div>
           </div>
 
+          {/* FIX: light tile bg, only text/accent colored */}
           <div className="grid grid-cols-2 gap-2">
-            <div className="rounded-lg px-3 py-2 border"
-              style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}>
-              <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--icon-green-text)' }}>
+            <div
+              className="rounded-lg px-3 py-2.5 border"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
+              <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--icon-green-text)' }}>
                 Available
               </p>
-              <p className="text-xl font-bold" style={{ color: 'var(--icon-green-text)' }}>
-                {data.available}
-              </p>
+              <p className="text-xl font-bold" style={{ color: 'var(--icon-green-text)' }}>{data.available}</p>
             </div>
-            <div className="rounded-lg px-3 py-2 border"
-              style={{ background: 'var(--icon-purple-bg)', borderColor: 'var(--border-color)' }}>
-              <p className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--icon-purple-text)' }}>
+            <div
+              className="rounded-lg px-3 py-2.5 border"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
+              <p className="text-[10px] uppercase tracking-wide font-semibold" style={{ color: 'var(--icon-purple-text)' }}>
                 Occupied
               </p>
-              <p className="text-xl font-bold" style={{ color: 'var(--icon-purple-text)' }}>
-                {data.occupied}
-              </p>
+              <p className="text-xl font-bold" style={{ color: 'var(--icon-purple-text)' }}>{data.occupied}</p>
             </div>
           </div>
         </div>
@@ -1537,8 +1677,7 @@ export function RecentAdmissionsPanel() {
       Icon={Bed}
       iconColor="var(--icon-green-text)"
       badge={
-        <Link to="/dashboard/admissions" className="flex items-center gap-1 text-xs font-medium"
-          style={{ color: 'var(--icon-cyan-text)' }}>
+        <Link to="/dashboard/admissions" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--icon-cyan-text)' }}>
           View all <ChevronRight className="w-3 h-3" />
         </Link>
       }
@@ -1553,14 +1692,18 @@ export function RecentAdmissionsPanel() {
             const ward = a.Ward?.wardName || a.ward?.wardName || '—';
             const bed = a.Bed?.bedNumber || a.bed?.bedNumber || '—';
             return (
-              <Link key={a.id} to={`/dashboard/admissions/${a.id}`}
+              <Link
+                key={a.id}
+                to={`/dashboard/admissions/${a.id}`}
                 className="block p-2 rounded-lg border transition-all hover:shadow-sm"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs font-semibold truncate"
-                    style={{ color: 'var(--text-primary)' }}>{name}</span>
-                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
-                    style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}>
+                  <span className="text-xs font-semibold truncate" style={{ color: 'var(--text-primary)' }}>{name}</span>
+                  <span
+                    className="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                    style={{ background: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' }}
+                  >
                     {bed}
                   </span>
                 </div>
@@ -1610,17 +1753,12 @@ export function VitalsSnapshotPanel() {
   }, []);
 
   return (
-    <PanelShell
-      title="Vitals Overview"
-      subtitle="Today"
-      Icon={Activity}
-      iconColor="var(--icon-orange-text)"
-    >
+    <PanelShell title="Vitals Overview" subtitle="Today" Icon={Activity} iconColor="var(--icon-orange-text)">
       {loading ? <ListSkeleton rows={2} h="h-16" /> : (
         <div className="grid grid-cols-3 gap-2">
-          <MetricTile label="Taken"    value={data.taken}    color="var(--icon-green-text)"  Icon={CheckCircle} />
-          <MetricTile label="Overdue"  value={data.overdue}  color="var(--icon-red-text)"    Icon={AlertTriangle} />
-          <MetricTile label="Pending"  value={data.pending}  color="var(--icon-orange-text)" Icon={Clock} />
+          <MetricTile label="Taken" value={data.taken} color="var(--icon-green-text)" Icon={CheckCircle} />
+          <MetricTile label="Overdue" value={data.overdue} color="var(--icon-red-text)" Icon={AlertTriangle} />
+          <MetricTile label="Pending" value={data.pending} color="var(--icon-orange-text)" Icon={Clock} />
         </div>
       )}
     </PanelShell>
@@ -1655,36 +1793,36 @@ export function RecentPaymentsPanel() {
     <PanelShell
       title="Recent Payments"
       subtitle="Latest collections"
-      Icon={DollarSign}
+      Icon={Coins}
       iconColor="var(--icon-green-text)"
       badge={
-        <Link to="/dashboard/billing" className="flex items-center gap-1 text-xs font-medium"
-          style={{ color: 'var(--icon-cyan-text)' }}>
+        <Link to="/dashboard/billing" className="flex items-center gap-1 text-xs font-medium" style={{ color: 'var(--icon-cyan-text)' }}>
           View all <ChevronRight className="w-3 h-3" />
         </Link>
       }
     >
       {loading ? <ListSkeleton rows={4} h="h-12" /> : items.length === 0 ? (
-        <EmptyState Icon={DollarSign} text="No payments recorded" />
+        <EmptyState Icon={Coins} text="No payments recorded" />
       ) : (
         <div className="space-y-1.5">
           {items.map((b: any) => {
             const p = b.patient || b.Patient || {};
             const name = p.name || p.fullName || `${p.surname || ''} ${p.otherNames || ''}`.trim() || 'Unknown';
             return (
-              <Link key={b.id} to={`/dashboard/billing`}
+              <Link
+                key={b.id}
+                to="/dashboard/billing"
                 className="flex items-center justify-between gap-2 p-2 rounded-lg border transition-all hover:shadow-sm"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
                 <div className="min-w-0">
-                  <p className="text-xs font-medium truncate"
-                    style={{ color: 'var(--text-primary)' }}>{name}</p>
+                  <p className="text-xs font-medium truncate" style={{ color: 'var(--text-primary)' }}>{name}</p>
                   <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
                     {b.paymentMode === 'nhis' ? 'NHIS' :
                      b.paymentMode === 'private_insurance' ? 'Insurance' : 'Cash'}
                   </p>
                 </div>
-                <span className="text-xs font-bold shrink-0"
-                  style={{ color: 'var(--icon-green-text)' }}>
+                <span className="text-xs font-bold shrink-0" style={{ color: 'var(--icon-green-text)' }}>
                   {fmtCcy(b.paidAmount)}
                 </span>
               </Link>

@@ -1,6 +1,7 @@
 // src/pages/RequisitionManagement.tsx - COMPLETE FIXED VERSION
-import { useEffect, useState } from 'react';
-import Select from 'react-select';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import AsyncSelect from 'react-select/async';
+import { lookupRequisitionStock, getRequisition as apiGetRequisition, type RequisitionStockLookupItem } from '../api';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useDepartmentStore } from '../store/departmentStore';
@@ -45,6 +46,18 @@ interface RequisitionItem {
     unitOfMeasure: string;
     currentStock: number;
   };
+  /** Live quantities at the supplying / requesting department (detail view) */
+  supplierQty?: number;
+  requesterQty?: number;
+}
+
+/** A line being edited in the create form */
+interface FormLine {
+  stockItemId: string;
+  quantityRequested: number;
+  purpose: string;
+  /** Picked item with its quantities at the supplier / at us (UI only, not sent) */
+  picked?: RequisitionStockLookupItem | null;
 }
 
 interface Requisition {
@@ -52,6 +65,8 @@ interface Requisition {
   requisitionNumber: string;
   requestingDepartmentId?: string | null;
   requestingWardId?: string | null;
+  supplyingDepartmentId?: string | null;
+  supplyingDepartment?: { id?: string; name: string } | null;
   requestedById: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -104,24 +119,78 @@ export default function RequisitionManagement() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
+  const myDepartmentId = user?.departmentId || '';
+  const myDepartmentName = departments.find(d => d.id === myDepartmentId)?.name || (user as any)?.department?.name || '';
+
+  const emptyLine = (): FormLine => ({ stockItemId: '', quantityRequested: 1, purpose: '', picked: null });
+
   const [formData, setFormData] = useState({
     requesterType: 'department' as 'department' | 'ward',
-    requestingDepartmentId: '',
+    // Requests always come from the user's own department unless they pick a ward.
+    // (Admins without a department can pick one.)
+    requestingDepartmentId: myDepartmentId,
     requestingWardId: '',
+    supplyingDepartmentId: '',
     purpose: '',
     urgency: 'routine' as 'routine' | 'urgent' | 'emergency',
     requiredDate: '',
     notes: '',
-    requisitionItems: [{
-      stockItemId: '',
-      quantityRequested: 1,
-      purpose: ''
-    }]
+    requisitionItems: [emptyLine()] as FormLine[]
   });
+
+  // Departments we can request FROM: everything except our own department. Stores first.
+  const supplierOptions = useMemo(() => {
+    const ownId = formData.requesterType === 'department' ? formData.requestingDepartmentId : myDepartmentId;
+    return departments
+      .filter(d => d.isActive !== false && d.id !== ownId)
+      .sort((a, b) => {
+        const rank = (d: any) => (d.isStore ? 0 : /pharmacy/i.test(d.name) ? 1 : 2);
+        return rank(a) - rank(b) || a.name.localeCompare(b.name);
+      });
+  }, [departments, formData.requesterType, formData.requestingDepartmentId, myDepartmentId]);
+
+  const supplierName = departments.find(d => d.id === formData.supplyingDepartmentId)?.name || 'supplier';
+  const requesterDeptId = formData.requesterType === 'department' ? formData.requestingDepartmentId : myDepartmentId;
+  const requesterDeptName = departments.find(d => d.id === requesterDeptId)?.name || myDepartmentName || 'Your department';
+
+  // Debounced server-side item search (so we never load the whole catalogue into a dropdown)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const loadItemOptions = (input: string) =>
+    new Promise<RequisitionStockLookupItem[]>((resolve) => {
+      if (!formData.supplyingDepartmentId) return resolve([]);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      searchTimer.current = setTimeout(async () => {
+        try {
+          resolve(await lookupRequisitionStock({
+            supplierDepartmentId: formData.supplyingDepartmentId,
+            requesterDepartmentId: requesterDeptId || undefined,
+            q: input,
+            limit: 25
+          }));
+        } catch (err) {
+          console.error('Item lookup failed:', err);
+          toastError('Search failed', 'Could not search items. Please try again.');
+          resolve([]);
+        }
+      }, 250);
+    });
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Pre-select a sensible supplier (the Main Store, else the first option) once departments are known
+  useEffect(() => {
+    if (!showForm || formData.supplyingDepartmentId || supplierOptions.length === 0) return;
+    setFormData(prev => ({ ...prev, supplyingDepartmentId: supplierOptions[0].id }));
+  }, [showForm, supplierOptions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keep the requester in step with the logged-in user's department
+  useEffect(() => {
+    if (!formData.requestingDepartmentId && myDepartmentId) {
+      setFormData(prev => ({ ...prev, requestingDepartmentId: myDepartmentId }));
+    }
+  }, [myDepartmentId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     try {
@@ -168,33 +237,46 @@ export default function RequisitionManagement() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Validate requester (a department OR a ward is required by backend)
+
     const isWard = formData.requesterType === 'ward';
     if (isWard && !formData.requestingWardId) {
       toastError('Validation', 'Please select a requesting ward');
       return;
     }
     if (!isWard && !formData.requestingDepartmentId) {
-      toastError('Validation', 'Please select a requesting department');
+      toastError('Validation', 'Your account has no department. Ask an administrator to assign one, or request for a ward.');
+      return;
+    }
+    if (!formData.supplyingDepartmentId) {
+      toastError('Validation', 'Please select the department/store you are requesting from');
       return;
     }
 
-    // Validate at least one item
     const validItems = formData.requisitionItems.filter(item => item.stockItemId && item.quantityRequested > 0);
     if (validItems.length === 0) {
-      toastError('Validation', 'Please add at least one valid requisition item');
+      toastError('Validation', 'Please add at least one item');
       return;
+    }
+
+    // Heads-up when asking for more than the supplier currently holds
+    const short = validItems.filter(i => i.picked && i.quantityRequested > i.picked.supplierQty);
+    if (short.length > 0) {
+      const list = short.map(i => `• ${i.picked!.name}: asking ${i.quantityRequested}, ${supplierName} has ${i.picked!.supplierQty}`).join('\n');
+      if (!window.confirm(`${supplierName} does not currently hold enough of:\n\n${list}\n\nSubmit anyway?`)) return;
     }
 
     try {
-      // Send only the relevant requester id; requesterType is UI-only
-      const { requesterType, requestingDepartmentId, requestingWardId, ...rest } = formData;
       const submitData = {
-        ...rest,
-        requestingDepartmentId: isWard ? undefined : requestingDepartmentId,
-        requestingWardId: isWard ? requestingWardId : undefined,
-        requisitionItems: validItems
+        requestingDepartmentId: isWard ? undefined : formData.requestingDepartmentId,
+        requestingWardId: isWard ? formData.requestingWardId : undefined,
+        supplyingDepartmentId: formData.supplyingDepartmentId,
+        purpose: formData.purpose,
+        urgency: formData.urgency,
+        requiredDate: formData.requiredDate || undefined,
+        notes: formData.notes,
+        requisitionItems: validItems.map(({ stockItemId, quantityRequested, purpose }) => ({
+          stockItemId, quantityRequested, purpose: purpose || undefined
+        }))
       };
       await createRequisition(submitData);
       success('Created', 'Requisition created successfully');
@@ -203,7 +285,7 @@ export default function RequisitionManagement() {
       await loadData();
     } catch (error: any) {
       console.error('Failed to create requisition:', error);
-      toastError('Save failed', error.message || 'Could not create requisition');
+      toastError('Save failed', error?.response?.data?.message || error.message || 'Could not create requisition');
     }
   };
 
@@ -220,7 +302,7 @@ export default function RequisitionManagement() {
       await loadData();
     } catch (error: any) {
       console.error(`Failed to ${status} requisition:`, error);
-      toastError('Action failed', error.message || `Could not ${status} requisition`);
+      toastError('Action failed', error?.response?.data?.message || error.message || `Could not ${status} requisition`);
     }
   };
 
@@ -232,54 +314,48 @@ export default function RequisitionManagement() {
       await loadData();
     } catch (error: any) {
       console.error('Failed to delete requisition:', error);
-      toastError('Delete failed', error.message || 'Could not delete requisition');
+      toastError('Delete failed', error?.response?.data?.message || error.message || 'Could not delete requisition');
     }
   };
 
   const resetForm = () => {
     setFormData({
       requesterType: 'department',
-      requestingDepartmentId: user?.departmentId || '',
+      requestingDepartmentId: myDepartmentId,
       requestingWardId: '',
+      supplyingDepartmentId: '',
       purpose: '',
       urgency: 'routine',
       requiredDate: '',
       notes: '',
-      requisitionItems: [{
-        stockItemId: '',
-        quantityRequested: 1,
-        purpose: ''
-      }]
+      requisitionItems: [emptyLine()]
     });
   };
 
   const addRequisitionItem = () => {
-    setFormData(prev => ({
-      ...prev,
-      requisitionItems: [
-        ...prev.requisitionItems,
-        {
-          stockItemId: '',
-          quantityRequested: 1,
-          purpose: ''
-        }
-      ]
-    }));
+    setFormData(prev => ({ ...prev, requisitionItems: [...prev.requisitionItems, emptyLine()] }));
   };
 
   const removeRequisitionItem = (index: number) => {
     setFormData(prev => ({
       ...prev,
-      requisitionItems: prev.requisitionItems.filter((_, i) => i !== index)
+      requisitionItems: prev.requisitionItems.length > 1 ? prev.requisitionItems.filter((_, i) => i !== index) : [emptyLine()]
     }));
   };
 
-  const updateRequisitionItem = (index: number, field: string, value: any) => {
+  const updateRequisitionItem = (index: number, patch: Partial<FormLine>) => {
     setFormData(prev => ({
       ...prev,
-      requisitionItems: prev.requisitionItems.map((item, i) =>
-        i === index ? { ...item, [field]: value } : item
-      )
+      requisitionItems: prev.requisitionItems.map((item, i) => (i === index ? { ...item, ...patch } : item))
+    }));
+  };
+
+  // Changing the supplier invalidates the quantities we showed, so start the item list fresh
+  const changeSupplier = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      supplyingDepartmentId: id,
+      requisitionItems: prev.requisitionItems.some(i => i.stockItemId) ? [emptyLine()] : prev.requisitionItems
     }));
   };
 
@@ -354,24 +430,30 @@ export default function RequisitionManagement() {
     }
   };
 
-  const canEdit = (requisition: Requisition) => {
-    return requisition.status === 'draft' && requisition.requestedById === user?.id;
-  };
+  const isRequesterSide = (r: Requisition) =>
+    r.requestedById === user?.id || (!!user?.departmentId && user.departmentId === r.requestingDepartmentId);
+  // The supplying department approves/fulfils. Admins always can. Old requisitions (no supplier) fall back to pharmacist/admin.
+  const isSupplierSide = (r: Requisition) =>
+    hasRole(['admin']) || (r.supplyingDepartmentId ? user?.departmentId === r.supplyingDepartmentId : isAdmin);
 
-  const canSubmit = (requisition: Requisition) => {
-    return requisition.status === 'draft' && requisition.requestedById === user?.id;
-  };
+  const canEdit = (requisition: Requisition) => requisition.status === 'draft' && requisition.requestedById === user?.id;
+  const canSubmit = (requisition: Requisition) => requisition.status === 'draft' && isRequesterSide(requisition);
+  const canApprove = (requisition: Requisition) => requisition.status === 'submitted' && isSupplierSide(requisition);
+  const canFulfill = (requisition: Requisition) => requisition.status === 'approved' && isSupplierSide(requisition);
+  const canDelete = (requisition: Requisition) =>
+    (requisition.status === 'draft' && requisition.requestedById === user?.id) || hasRole(['admin']);
 
-  const canApprove = (requisition: Requisition) => {
-    return requisition.status === 'submitted' && isAdmin;
-  };
-
-  const canFulfill = (requisition: Requisition) => {
-    return requisition.status === 'approved' && isAdmin;
-  };
-
-  const canDelete = (requisition: Requisition) => {
-    return (requisition.status === 'draft' && requisition.requestedById === user?.id) || isAdmin;
+  // Open the detail view with live supplier/requester quantities
+  const openDetails = async (requisition: Requisition) => {
+    setSelectedRequisition(requisition);
+    setShowDetailModal(true);
+    try {
+      const res: any = await apiGetRequisition(requisition.id);
+      const full = res?.data ?? res;
+      if (full?.RequisitionItem) setSelectedRequisition(prev => (prev && prev.id === requisition.id ? { ...prev, ...full } : prev));
+    } catch (err) {
+      console.error('Could not load requisition details:', err);
+    }
   };
 
   // Clear all filters
@@ -681,7 +763,7 @@ export default function RequisitionManagement() {
                             {requisition.purpose || 'No purpose specified'}
                           </div>
                           <div className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                            {requisition.departments?.name || requisition.ward?.wardName || 'Requester not specified'}
+                            {requisition.departments?.name || requisition.ward?.wardName || 'Requester not specified'}{requisition.supplyingDepartment?.name ? ` → ${requisition.supplyingDepartment.name}` : ''}
                           </div>
                         </td>
                         <td className="px-4 py-3 text-center">
@@ -721,8 +803,7 @@ export default function RequisitionManagement() {
                             {/* View Details */}
                             <button
                               onClick={() => {
-                                setSelectedRequisition(requisition);
-                                setShowDetailModal(true);
+                                openDetails(requisition);
                               }}
                               className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-colors"
                               title="View Details"
@@ -867,52 +948,75 @@ export default function RequisitionManagement() {
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
               {/* Requisition Header */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-3">
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Requesting from *
-                  </label>
-                  {/* Requester type toggle: Department or Ward */}
-                  <div className="inline-flex mb-2 rounded-lg border border-[var(--border-color)] overflow-hidden">
-                    {(['department', 'ward'] as const).map(type => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => setFormData({ ...formData, requesterType: type })}
-                        className={`px-4 py-1.5 text-sm capitalize transition-colors ${
-                          formData.requesterType === type
-                            ? 'bg-[var(--icon-cyan-text)] text-white'
-                            : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
-                        }`}
+                {/* WHO is requesting: always the user's own department (or a ward) */}
+                <div className="md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Requesting for *</label>
+                    <div className="inline-flex mb-2 rounded-lg border border-[var(--border-color)] overflow-hidden">
+                      {(['department', 'ward'] as const).map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, requesterType: type })}
+                          className={`px-4 py-1.5 text-sm transition-colors ${
+                            formData.requesterType === type
+                              ? 'bg-[var(--icon-cyan-text)] text-white'
+                              : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
+                          }`}
+                        >
+                          {type === 'department' ? 'My department' : 'A ward'}
+                        </button>
+                      ))}
+                    </div>
+                    {formData.requesterType === 'department' ? (
+                      myDepartmentId || hasRole(['admin']) === false ? (
+                        <div className="px-3 py-2 text-sm rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]">
+                          {myDepartmentName || 'Your department'}
+                          <span className="ml-2 text-xs text-[var(--text-tertiary)]">(your department)</span>
+                        </div>
+                      ) : (
+                        <select
+                          required
+                          value={formData.requestingDepartmentId}
+                          onChange={e => setFormData({ ...formData, requestingDepartmentId: e.target.value })}
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                        >
+                          <option value="">Select department...</option>
+                          {departments.map(dept => (
+                            <option key={dept.id} value={dept.id}>{dept.name}</option>
+                          ))}
+                        </select>
+                      )
+                    ) : (
+                      <select
+                        required
+                        value={formData.requestingWardId}
+                        onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
+                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
                       >
-                        {type}
-                      </button>
-                    ))}
+                        <option value="">Select ward...</option>
+                        {wards.map(ward => (
+                          <option key={ward.id} value={ward.id}>{ward.wardName}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
-                  {formData.requesterType === 'department' ? (
+
+                  {/* WHERE the goods come from */}
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Request from (department / store) *</label>
                     <select
                       required
-                      value={formData.requestingDepartmentId}
-                      onChange={e => setFormData({ ...formData, requestingDepartmentId: e.target.value })}
-                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                      value={formData.supplyingDepartmentId}
+                      onChange={e => changeSupplier(e.target.value)}
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm md:mt-[38px]"
                     >
-                      <option value="">Select department...</option>
-                      {departments.map(dept => (
-                        <option key={dept.id} value={dept.id}>{dept.name}</option>
+                      <option value="">Select supplying department...</option>
+                      {supplierOptions.map(dept => (
+                        <option key={dept.id} value={dept.id}>{dept.name}{(dept as any).isStore ? ' (store)' : ''}</option>
                       ))}
                     </select>
-                  ) : (
-                    <select
-                      required
-                      value={formData.requestingWardId}
-                      onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
-                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-                    >
-                      <option value="">Select ward...</option>
-                      {wards.map(ward => (
-                        <option key={ward.id} value={ward.id}>{ward.wardName}</option>
-                      ))}
-                    </select>
-                  )}
+                  </div>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
@@ -970,91 +1074,126 @@ export default function RequisitionManagement() {
                 </div>
                 
                 <div className="space-y-3">
+                  {!formData.supplyingDepartmentId && (
+                    <div className="text-xs text-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)] rounded-lg px-3 py-2">
+                      Choose the department/store you are requesting from first, then search for items.
+                    </div>
+                  )}
                   {formData.requisitionItems.map((item, index) => {
-                    // Filter stock items for this select
-                    const availableStockItems = stockItems.filter(i => i.isActive).map(stockItem => ({
-                      value: stockItem.id,
-                      label: `${stockItem.name} (${stockItem.currentStock} ${stockItem.unitOfMeasure} available)`,
-                      currentStock: stockItem.currentStock,
-                      unitOfMeasure: stockItem.unitOfMeasure
-                    }));
+                    const picked = item.picked;
+                    const over = !!picked && item.quantityRequested > picked.supplierQty;
+                    const chosenIds = new Set(formData.requisitionItems.map(l => l.stockItemId).filter(Boolean));
 
                     return (
-                      <div key={index} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-end p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
-                        <div className="md:col-span-5">
-                          <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                            Stock Item *
-                          </label>
-                          <Select
-                            required
-                            value={availableStockItems.find(opt => opt.value === item.stockItemId)}
-                            onChange={(selected: any) => updateRequisitionItem(index, 'stockItemId', selected?.value || '')}
-                            options={availableStockItems}
-                            placeholder="Search and select item..."
-                            isClearable
-                            isSearchable
-                            className="text-sm"
-                            classNamePrefix="react-select"
-                            styles={{
-                              control: (base) => ({
-                                ...base,
-                                backgroundColor: 'var(--bg-card)',
-                                borderColor: 'var(--border-color)',
-                                minHeight: '40px',
-                                fontSize: '14px'
-                              }),
-                              option: (base) => ({
-                                ...base,
-                                fontSize: '14px'
-                              }),
-                              menu: (base) => ({
-                                ...base,
-                                zIndex: 9999
-                              })
-                            }}
-                          />
-                        </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                          Quantity *
-                        </label>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          required 
-                          value={item.quantityRequested}
-                          onChange={e => updateRequisitionItem(index, 'quantityRequested', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                        />
-                      </div>
-                      <div className="md:col-span-3">
-                        <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                          Purpose (optional)
-                        </label>
-                        <div className="flex gap-2">
-                          <input 
-                            type="text" 
-                            placeholder="Reason for this item"
-                            value={item.purpose}
-                            onChange={e => updateRequisitionItem(index, 'purpose', e.target.value)}
-                            className="flex-1 px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
-                          />
-                          {formData.requisitionItems.length > 1 && (
+                      <div key={index} className="p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] space-y-2">
+                        <div className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start">
+                          <div className="md:col-span-7">
+                            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Item *</label>
+                            <AsyncSelect<RequisitionStockLookupItem, false>
+                              key={`${formData.supplyingDepartmentId}-${index}`}
+                              cacheOptions={false}
+                              defaultOptions
+                              isDisabled={!formData.supplyingDepartmentId}
+                              loadOptions={loadItemOptions}
+                              value={picked || null}
+                              onChange={(sel) => updateRequisitionItem(index, { stockItemId: sel?.id || '', picked: sel || null })}
+                              getOptionValue={(o) => o.id}
+                              getOptionLabel={(o) => `${o.name}${o.strength && o.strength !== 'N/A' ? ' ' + o.strength : ''}`}
+                              isOptionDisabled={(o) => chosenIds.has(o.id) && o.id !== item.stockItemId}
+                              formatOptionLabel={(o, meta) => (
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <div className="truncate">{o.name}{o.strength && o.strength !== 'N/A' ? ` ${o.strength}` : ''}</div>
+                                    <div className="text-[11px] opacity-60">{o.drugCode} · {o.unitOfMeasure}</div>
+                                  </div>
+                                  {meta.context === 'menu' && (
+                                    <div className="text-right text-[11px] shrink-0">
+                                      <div className={o.supplierQty > 0 ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+                                        {supplierName}: {o.supplierQty}
+                                      </div>
+                                      <div className="opacity-70">You: {o.requesterQty}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              placeholder={formData.supplyingDepartmentId ? 'Type to search by name or code...' : 'Select the supplying department first'}
+                              noOptionsMessage={({ inputValue }) => (inputValue ? `No items match "${inputValue}"` : 'Type to search items')}
+                              loadingMessage={() => 'Searching...'}
+                              isClearable
+                              className="text-sm"
+                              classNamePrefix="react-select"
+                              styles={{
+                                control: (base) => ({ ...base, backgroundColor: 'var(--bg-card)', borderColor: 'var(--border-color)', minHeight: '40px', fontSize: '14px' }),
+                                option: (base) => ({ ...base, fontSize: '14px' }),
+                                menu: (base) => ({ ...base, zIndex: 9999, minWidth: 380 }),
+                                singleValue: (base) => ({ ...base, color: 'var(--text-primary)' }),
+                                input: (base) => ({ ...base, color: 'var(--text-primary)' })
+                              }}
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                              Quantity *{picked ? ` (${picked.unitOfMeasure})` : ''}
+                            </label>
+                            <input
+                              type="number"
+                              min="1"
+                              step="1"
+                              required
+                              value={item.quantityRequested}
+                              onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
+                              className={`w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm ${over ? 'border-red-400' : 'border-[var(--border-color)]'}`}
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex md:justify-end md:pt-6">
                             <button
                               type="button"
                               onClick={() => removeRequisitionItem(index)}
                               className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-colors"
+                              title="Remove item"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
-                          )}
                           </div>
                         </div>
+
+                        {/* Quantities at both ends */}
+                        {picked && (
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span className={`px-2 py-1 rounded-md font-medium ${picked.supplierQty > 0 ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'}`}>
+                              {supplierName} has: {picked.supplierQty} {picked.unitOfMeasure}
+                            </span>
+                            <span className="px-2 py-1 rounded-md bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] font-medium">
+                              {requesterDeptName} has: {picked.requesterQty} {picked.unitOfMeasure}
+                            </span>
+                            {picked.requesterQty <= picked.reorderLevel && (
+                              <span className="px-2 py-1 rounded-md bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">Below reorder level ({picked.reorderLevel})</span>
+                            )}
+                            {over && (
+                              <span className="px-2 py-1 rounded-md bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] font-medium">
+                                Only {picked.supplierQty} available - you are asking for {item.quantityRequested}
+                              </span>
+                            )}
+                            {!over && item.quantityRequested > 0 && (
+                              <span className="text-[var(--text-secondary)]">
+                                After receiving: {picked.requesterQty + item.quantityRequested} {picked.unitOfMeasure}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <input
+                          type="text"
+                          placeholder="Reason for this item (optional)"
+                          value={item.purpose}
+                          onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                        />
                       </div>
                     );
                   })}
                 </div>
-                
+
                 {formData.requisitionItems.length === 0 && (
                   <div className="text-center py-6 text-[var(--text-secondary)] text-sm border border-dashed border-[var(--border-color)] rounded-lg">
                     <Package className="w-8 h-8 mx-auto mb-2 text-[var(--text-tertiary)]" />
@@ -1130,6 +1269,10 @@ export default function RequisitionManagement() {
                   <p className="text-sm text-[var(--text-primary)] mt-0.5">{selectedRequisition.departments?.name || selectedRequisition.ward?.wardName || '—'}</p>
                 </div>
                 <div>
+                  <p className="text-xs text-[var(--text-secondary)]">Requested from</p>
+                  <p className="text-sm text-[var(--text-primary)] mt-0.5">{selectedRequisition.supplyingDepartment?.name || '—'}</p>
+                </div>
+                <div>
                   <p className="text-xs text-[var(--text-secondary)]">Requested By</p>
                   <p className="text-sm text-[var(--text-primary)] mt-0.5">
                     {selectedRequisition.User_Requisition_requestedByIdToUser?.fullName || 'Unknown'}
@@ -1154,16 +1297,28 @@ export default function RequisitionManagement() {
                         <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Requested</th>
                         <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Approved</th>
                         <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Fulfilled</th>
+                        {selectedRequisition.supplyingDepartmentId && selectedRequisition.status !== 'fulfilled' && selectedRequisition.status !== 'cancelled' && (
+                          <>
+                            <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">At {selectedRequisition.supplyingDepartment?.name || 'supplier'}</th>
+                            <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">At {selectedRequisition.departments?.name || 'requester'}</th>
+                          </>
+                        )}
                         <th className="px-4 py-2 text-left text-xs text-[var(--text-secondary)]">Purpose</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--border-color)]">
                       {selectedRequisition.RequisitionItem?.map((item, idx) => (
                         <tr key={idx}>
-                          <td className="px-4 py-2 text-[var(--text-primary)]">{getStockItemName(item.stockItemId)}</td>
+                          <td className="px-4 py-2 text-[var(--text-primary)]">{item.StockItem?.name || getStockItemName(item.stockItemId)}</td>
                           <td className="px-4 py-2 text-center text-[var(--text-primary)]">{item.quantityRequested}</td>
                           <td className="px-4 py-2 text-center text-[var(--text-primary)]">{item.quantityApproved || '—'}</td>
                           <td className="px-4 py-2 text-center text-[var(--text-primary)]">{item.quantityFulfilled || '—'}</td>
+                          {selectedRequisition.supplyingDepartmentId && selectedRequisition.status !== 'fulfilled' && selectedRequisition.status !== 'cancelled' && (
+                            <>
+                              <td className={`px-4 py-2 text-center font-medium ${(item.supplierQty ?? 0) >= (item.quantityApproved ?? item.quantityRequested) ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>{item.supplierQty ?? '—'}</td>
+                              <td className="px-4 py-2 text-center text-[var(--text-primary)]">{item.requesterQty ?? '—'}</td>
+                            </>
+                          )}
                           <td className="px-4 py-2 text-[var(--text-secondary)]">{item.purpose || '—'}</td>
                         </tr>
                       ))}

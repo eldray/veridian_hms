@@ -8,7 +8,6 @@ import type {
   Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
   Seniority  // ✅ ADD THIS
 } from '../types';
-import type { NewbornRecord } from '../store/deliveryStore';
 
 // ============================================
 // TYPES
@@ -68,6 +67,8 @@ export interface Requisition {
   requisitionNumber: string;
   requestingDepartmentId?: string | null;
   requestingWardId?: string | null;
+  supplyingDepartmentId?: string | null;
+  supplyingDepartment?: { id?: string; name: string } | null;
   departments?: { id?: string; name: string } | null;
   ward?: { id?: string; wardName: string } | null;
   requestedById: string;
@@ -117,8 +118,9 @@ export interface AntenatalBookingData {
 export interface ANCVisitData {
   encounterId: string;
   gestationalAgeWeeks?: number;
+  gravida?: number;
+  para?: number;
   weight?: number;
-  bloodPressure?: string;
   fundalHeight?: number;
   fetalHeartRate?: number;
   fetalMovements?: boolean;
@@ -1369,33 +1371,6 @@ export const removeServiceFromEncounter = async (encounterId: string, serviceId:
   return response.data;
 };
 
-export const getEncounterConsumableUses = async (encounterId: string) => {
-  const response = await api.get(`/encounters/${encounterId}/consumables`);
-  return response.data;
-};
-
-export const recordEncounterConsumableUse = async (
-  encounterId: string,
-  data: { stockItemId: string; quantity: number; notes?: string },
-) => {
-  const response = await api.post(`/encounters/${encounterId}/consumables`, data);
-  return response.data;
-};
-
-export const updateEncounterConsumableUse = async (
-  encounterId: string,
-  transactionId: string,
-  data: { stockItemId: string; quantity: number; notes?: string },
-) => {
-  const response = await api.patch(`/encounters/${encounterId}/consumables/${transactionId}`, data);
-  return response.data;
-};
-
-export const deleteEncounterConsumableUse = async (encounterId: string, transactionId: string) => {
-  const response = await api.delete(`/encounters/${encounterId}/consumables/${transactionId}`);
-  return response.data;
-};
-
 // Bed Assignment
 export const assignBedToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
@@ -1463,6 +1438,66 @@ export const getEncounterStats = async (filters?: any) => {
   const response = await api.get(`/encounters/stats${params.toString() ? `?${params}` : ''}`);
   return response.data;
 };
+
+// ──────────────────────────────────────────────
+// ENCOUNTER CONSUMABLE USES
+// ──────────────────────────────────────────────
+
+/**
+ * List consumables recorded against an encounter.
+ * Backend: GET /encounters/:id/consumables
+ */
+export const getEncounterConsumableUses = async (encounterId: string) => {
+  const response = await api.get(`/encounters/${encounterId}/consumables`);
+  return response.data?.data ?? response.data ?? [];
+};
+
+/**
+ * Record a consumable used during an encounter. Stock is decremented atomically.
+ * Backend: POST /encounters/:id/consumables
+ * Body: { stockItemId: string; quantity: number; notes?: string }
+ */
+export const recordEncounterConsumableUse = async (
+  encounterId: string,
+  data: { stockItemId: string; quantity: number; notes?: string },
+) => {
+  const response = await api.post(`/encounters/${encounterId}/consumables`, data);
+  return response.data?.data ?? response.data;
+};
+
+/**
+ * Edit an existing consumable use (reverses old, applies new).
+ * Backend: PATCH /encounters/:id/consumables/:transactionId
+ * Body: { stockItemId: string; quantity: number; notes?: string }
+ */
+export const updateEncounterConsumableUse = async (
+  encounterId: string,
+  transactionId: string,
+  data: { stockItemId: string; quantity: number; notes?: string },
+) => {
+  const response = await api.patch(
+    `/encounters/${encounterId}/consumables/${transactionId}`,
+    data,
+  );
+  return response.data?.data ?? response.data;
+};
+
+/**
+ * Remove a consumable use (stock is restored atomically).
+ * Backend: DELETE /encounters/:id/consumables/:transactionId
+ */
+export const deleteEncounterConsumableUse = async (
+  encounterId: string,
+  transactionId: string,
+) => {
+  const response = await api.delete(
+    `/encounters/${encounterId}/consumables/${transactionId}`,
+  );
+  return response.data;
+};
+
+
+
 
 // NHIS Claim Validation
 export const validateNHISClaim = (encounterId: string) =>
@@ -1542,15 +1577,63 @@ export const updateBillStatus = (billId: string, data: any) =>
 export const getBillStatistics = () =>
   api.get('/bills/statistics').then(r => r.data);
 
-export const getBillingCollections = (filters: { dateFrom: string; dateTo: string }) =>
-  api.get('/billing/collections', { params: filters }).then(r => r.data?.data || r.data);
-
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>
   api.get(`/bills/${billId}/line-items`).then(r => r.data);
 
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
   api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
+
+
+// ──────────────────────────────────────────────
+// BILLING COLLECTIONS (actual payments in a date window)
+// ──────────────────────────────────────────────
+
+export interface BillingCollectionItem {
+  id: string;
+  description: string;
+  quantity: number;
+  serviceCategory: string;
+  serviceType: string;
+  amount: number;
+}
+
+export interface BillingCollectionPayment {
+  id: string;
+  transactionDate: string;
+  amount: number;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
+  collector: { id: string; fullName: string; username: string };
+  bill: {
+    id: string;
+    billNumber: string;
+    patient: { surname: string; otherNames: string; folderNumber: string };
+  };
+  items: BillingCollectionItem[];
+}
+
+export interface BillingCollectionsReport {
+  totalAmount: number;
+  paymentCount: number;
+  payments: BillingCollectionPayment[];
+}
+
+export const getBillingCollections = async (filters: {
+  dateFrom: string;
+  dateTo: string;
+}): Promise<BillingCollectionsReport> => {
+  const response = await api.get('/billing/collections', { params: filters });
+  // Backend wraps in { success, data: { totalAmount, paymentCount, payments } }
+  const payload = response.data?.data ?? response.data;
+  return {
+    totalAmount: Number(payload?.totalAmount || 0),
+    paymentCount: Number(payload?.paymentCount || 0),
+    payments: Array.isArray(payload?.payments) ? payload.payments : [],
+  };
+};
+
 
 // ──────────────────────────────────────────────
 // WAIVERS
@@ -1868,18 +1951,7 @@ export const deletePurchaseInvoice = (id: string) =>
 // ──────────────────────────────────────────────
 
 export const getStockItems = (filters?: any) =>
-  api.get('/stock-items', { params: filters }).then(r => {
-    const response = r.data;
-    const items = response?.success && Array.isArray(response.data?.data)
-      ? response.data.data
-      : Array.isArray(response?.data)
-        ? response.data
-        : Array.isArray(response)
-          ? response
-          : [];
-    const pagination = response?.meta || response?.pagination || response?.data?.pagination || null;
-    return { data: items, pagination, total: pagination?.total ?? response?.total };
-  });
+  api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
 
 export const getStockItem = (id: string) =>
   api.get(`/stock-items/${id}`).then(r => r.data);
@@ -1952,6 +2024,28 @@ export const getLowStockAlerts = () =>
 
 export const getRequisitions = (filters?: any) =>
   api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
+
+export interface RequisitionStockLookupItem {
+  id: string;
+  name: string;
+  drugCode: string;
+  strength: string;
+  category: string;
+  unitOfMeasure: string;
+  supplierQty: number;
+  requesterQty: number;
+  reorderLevel: number;
+}
+
+/** Search stock items with the supplying department's (and our own) usable quantities */
+export const lookupRequisitionStock = (params: {
+  supplierDepartmentId: string;
+  requesterDepartmentId?: string;
+  q?: string;
+  limit?: number;
+  inStockOnly?: boolean;
+}) =>
+  api.get('/requisitions/stock-lookup', { params }).then(r => (r.data?.data ?? r.data) as RequisitionStockLookupItem[]);
 
 export const getRequisition = (id: string) =>
   api.get(`/requisitions/${id}`).then(r => r.data);
@@ -3669,16 +3763,19 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
   addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
-  addServiceToEncounter, removeServiceFromEncounter, getEncounterConsumableUses, recordEncounterConsumableUse,
-  updateEncounterConsumableUse, deleteEncounterConsumableUse, assignBedToEncounter,
+  addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
   addProgressNoteToEncounter, removeProgressNoteFromEncounter,
   getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
+  getEncounterConsumableUses,
+  recordEncounterConsumableUse,
+  updateEncounterConsumableUse,
+  deleteEncounterConsumableUse,
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
-  getBillLineItems, voidBillLineItem,
+  getBillLineItems, voidBillLineItem, getBillingCollections, 
 
   // Waivers
   createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
@@ -3712,7 +3809,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getPurchaseInvoices, getPurchaseInvoice, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice,
 
   // Requisitions
-  getRequisitions, getRequisition, createRequisition, updateRequisition, deleteRequisition,
+  getRequisitions, getRequisition, lookupRequisitionStock, createRequisition, updateRequisition, deleteRequisition,
   updateRequisitionStatus, submitRequisition, approveRequisition, fulfillRequisition, cancelRequisition, approveRequisitionItems,
 
   // Referrals

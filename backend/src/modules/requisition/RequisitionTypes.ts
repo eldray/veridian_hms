@@ -16,6 +16,8 @@ export interface ApprovedItemDTO {
 export interface CreateRequisitionDTO {
   requestingDepartmentId?: string;
   requestingWardId?: string;
+  /** Department/store the items are requested FROM */
+  supplyingDepartmentId?: string;
   purpose?: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -41,6 +43,7 @@ export interface ApproveRequisitionItemsDTO {
 export interface RequisitionQueryParams {
   departmentId?: string;
   wardId?: string;
+  supplyingDepartmentId?: string;
   status?: string;
   urgency?: string;
   page?: number;
@@ -52,6 +55,8 @@ export interface RequisitionResponse {
   requisitionNumber: string;
   requestingDepartmentId: string | null;
   requestingWardId: string | null;
+  supplyingDepartmentId: string | null;
+  supplyingDepartment: { id: string; name: string } | null;
   departments: {
     id: string;
     name: string;
@@ -116,4 +121,26 @@ export interface PaginationInfo {
 export interface GetRequisitionsResponse {
   requisitions: RequisitionResponse[];
   pagination: PaginationInfo;
+}
+
+export interface StockLookupParams {
+  supplierDepartmentId: string;
+  requesterDepartmentId?: string;
+  q?: string;
+  limit?: number;
+  inStockOnly?: boolean;
+}
+
+export interface StockLookupItem {
+  id: string;
+  name: string;
+  drugCode: string;
+  strength: string;
+  category: string;
+  unitOfMeasure: string;
+  /** Usable (non-expired) quantity held by the supplying department */
+  supplierQty: number;
+  /** Usable quantity the requesting department already holds */
+  requesterQty: number;
+  reorderLevel: number;
 }
