@@ -232,3 +232,50 @@
 {"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-09 00:57:12"}
 {"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-09 00:57:12"}
 {"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-09 00:57:12"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-09 23:36:16"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-09 23:36:16"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-09, end=2026-10-09]","service":"DashboardService","timestamp":"2026-10-09 23:36:17"}
+{"endDate":"2026-10-09T23:59:59.999Z","level":"info","message":"Generating lab report","service":"ClinicalReportsService","startDate":"2026-10-09T00:00:00.000Z","timestamp":"2026-10-09 23:36:19"}
+{"level":"info","message":"Generating scan report","service":"ClinicalReportsService","timestamp":"2026-10-09 23:36:20"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-09 23:36:22"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-09 23:36:23"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-09 23:36:23"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-09 23:36:24"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-09 23:36:24"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-09 23:36:24"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-09 23:36:24"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-09 23:36:24"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-09 23:49:07"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-09 23:49:07"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-09 23:49:07"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-09 23:49:07"}
+{"departmentId":"cmv03j3sz0008w16k2v482p7q","level":"info","message":"Creating new requisition","service":"RequisitionService","supplierId":"cmv03j3tg000cw16ksl35by52","timestamp":"2026-10-09 23:50:19","urgency":"routine"}
+{"level":"info","message":"Requisition created successfully","requisitionId":"cmv1mbk8o0003w1scpkb884jm","requisitionNumber":"REQ-1001","service":"RequisitionService","timestamp":"2026-10-09 23:50:20"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-09 23:50:20"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-09 23:50:20"}
+{"id":"cmv1mbk8o0003w1scpkb884jm","level":"info","message":"Deleting requisition","service":"RequisitionService","timestamp":"2026-10-09 23:50:37"}
+{"id":"cmv1mbk8o0003w1scpkb884jm","level":"info","message":"Requisition deleted successfully","service":"RequisitionService","timestamp":"2026-10-09 23:50:37"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-09 23:50:37"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-09 23:50:37"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:12:01"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:12:01"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:12:01"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:12:01"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:19:38"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:19:38"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:19:38"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:19:38"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:30:40"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:30:40"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:30:40"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:30:40"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:35:27"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:35:27"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:35:27"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":200,"page":1},"service":"RequisitionService","timestamp":"2026-10-10 00:35:27"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-10 00:39:40"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-10 00:39:41"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:39:41"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-10 00:39:41"}
+{"filters":{"hasAvailableBeds":false},"level":"info","message":"Fetching wards","service":"WardService","timestamp":"2026-10-10 00:39:41"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-10 00:39:41"}
