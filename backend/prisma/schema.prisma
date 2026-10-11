@@ -4,7 +4,9 @@ datasource db {
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // "windows" is needed so the Windows installer carries the Windows query engine even when it is built on Linux/macOS
+  binaryTargets = ["native", "windows"]
 }
 
 // ============================================================

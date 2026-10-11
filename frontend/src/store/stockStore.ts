@@ -245,7 +245,7 @@ getStockItems: async (filters = {}) => {
   try {
     const allItems: StockItem[] = [];
     let currentPage = 1;
-    const limit = 100;
+    const limit = 500; // Request up to 500 per page
     let hasMore = true;
     let totalItems = 0;
     
@@ -291,15 +291,22 @@ getStockItems: async (filters = {}) => {
       allItems.push(...normalizedItems as StockItem[]);
       
       // ✅ Get total from pagination
-      totalItems = response?.pagination?.total ||
+      totalItems = response?.pagination?.total || 
                    response?.data?.pagination?.total || 
-                   response?.meta?.total ||
                    response?.total || 
                    items.length;
       
       // ✅ Check if we have more pages
       const itemsFetched = items.length;
-      hasMore = allItems.length < totalItems && itemsFetched === limit;
+      // Stop only when everything is loaded or a page comes back empty. Do NOT compare with the requested
+      // limit: the server may cap the page size below it (e.g. 100), which used to stop loading after page 1.
+      hasMore = allItems.length < totalItems && itemsFetched > 0;
+      
+      // ✅ Safety: Don't make more than 20 requests
+      if (currentPage > 100) {
+        console.warn('⚠️ Reached maximum page limit (100), stopping pagination');
+        break;
+      }
       
       currentPage++;
     }
@@ -663,10 +670,10 @@ getStockItems: async (filters = {}) => {
         allRequisitions.push(...(requisitions as Requisition[]));
         
         const total = response?.pagination?.total || response?.total || requisitions.length;
-        hasMore = allRequisitions.length < total && requisitions.length === limit;
+        hasMore = allRequisitions.length < total && requisitions.length > 0;
         currentPage++;
         
-        if (currentPage > 10) break;
+        if (currentPage > 50) break;
       }
       
       set({ 
@@ -853,10 +860,10 @@ getStockItems: async (filters = {}) => {
         allInvoices.push(...(invoices as PurchaseInvoice[]));
         
         const total = response?.pagination?.total || response?.total || invoices.length;
-        hasMore = allInvoices.length < total && invoices.length === limit;
+        hasMore = allInvoices.length < total && invoices.length > 0;
         currentPage++;
         
-        if (currentPage > 10) break;
+        if (currentPage > 50) break;
       }
       
       set({ 

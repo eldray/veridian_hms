@@ -26,6 +26,10 @@ try {
     
     // Backend control
     restartBackend: () => ipcRenderer.invoke('restart-backend'),
+    retryStartup: () => ipcRenderer.invoke('app:retry'),
+    openDatabaseSettings: () => ipcRenderer.invoke('app:open-settings'),
+    openLogs: () => ipcRenderer.invoke('app:open-logs'),
+    getDBInfo: () => ipcRenderer.invoke('get-db-info'),
     
     // Event listeners
     onBackendReady: (callback) => safeIpcHandler('backend-ready', callback),

@@ -25,7 +25,8 @@
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "bundle": "node scripts/bundle.mjs dist-bundle"
   },
   "keywords": [
     "hospital",
@@ -80,6 +81,7 @@
     "@types/winston": "^2.4.4",
     "@types/xlsx": "^0.0.35",
     "@vitest/coverage-v8": "^3.2.4",
+    "esbuild": "^0.28.1",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "ts-morph": "^27.0.2",

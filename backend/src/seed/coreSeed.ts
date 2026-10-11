@@ -27,7 +27,9 @@ const prisma = new PrismaClient();
 // Helpers
 // ─────────────────────────────────────────────────────────────
 const readJSON = (fileName: string) => {
-  const filePath = path.join(__dirname, '..', 'data', fileName);
+  // SEED_DATA_DIR lets the packaged desktop app point at the data files it ships next to the bundle
+  const dataDir = process.env.SEED_DATA_DIR || path.join(__dirname, '..', 'data');
+  const filePath = path.join(dataDir, fileName);
   if (!fs.existsSync(filePath)) {
     console.warn(`⚠️ File not found: ${filePath}`);
     return null;

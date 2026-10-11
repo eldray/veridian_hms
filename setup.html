@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+  <title>Veridian HMS - Database setup</title>
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --text:#1f2933; --muted:#616e7c; --border:#cbd2d9; --accent:#0e7490; --accent-dark:#155e75; --err:#b42318; --ok:#067647; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --border:#374151; --accent:#22a6c4; --accent-dark:#0e7490; --err:#f97066; --ok:#47cd89; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: 'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+    main { padding:24px 28px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    p.lead { color:var(--muted); margin:0 0 18px; line-height:1.45; }
+    fieldset { border:1px solid var(--border); background:var(--card); border-radius:10px; padding:14px 16px 6px; margin:0 0 16px; }
+    legend { padding:0 6px; font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+    label { display:block; margin:0 0 12px; font-weight:500; }
+    label small { display:block; font-weight:400; color:var(--muted); margin-top:2px; }
+    input { width:100%; margin-top:4px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font-size:14px; }
+    input:focus { outline:2px solid var(--accent); border-color:transparent; }
+    .row { display:grid; grid-template-columns: 1fr 110px; gap:12px; }
+    .actions { display:flex; gap:10px; margin-top:4px; }
+    button { padding:9px 16px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; cursor:pointer; }
+    button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; flex:1; }
+    button.primary:hover:not(:disabled) { background:var(--accent-dark); }
+    button:disabled { opacity:.55; cursor:default; }
+    #msg { margin-top:14px; padding:10px 12px; border-radius:6px; line-height:1.4; display:none; white-space:pre-wrap; }
+    #msg.err { display:block; background:rgba(180,35,24,.1); color:var(--err); border:1px solid var(--err); }
+    #msg.ok { display:block; background:rgba(6,118,71,.1); color:var(--ok); border:1px solid var(--ok); }
+    #msg.busy { display:block; background:var(--card); color:var(--text); border:1px solid var(--border); }
+    .hint { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.45; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Database setup</h1>
+  <p class="lead">Veridian HMS stores its data in PostgreSQL. Enter the connection details of the PostgreSQL server for this hospital (on this PC, or the hospital server).</p>
+
+  <form id="form" autocomplete="off">
+    <fieldset>
+      <legend>PostgreSQL server</legend>
+      <div class="row">
+        <label>Server (host)<input id="host" value="localhost" required /></label>
+        <label>Port<input id="port" type="number" value="5432" min="1" max="65535" required /></label>
+      </div>
+      <label>Database name<small>Created automatically if it does not exist.</small><input id="database" value="veridian_hms" required pattern="[A-Za-z0-9_]+" /></label>
+      <label>User<input id="user" value="postgres" required /></label>
+      <label>Password<small id="pwhint"></small><input id="password" type="password" /></label>
+    </fieldset>
+
+    <fieldset id="adminBox">
+      <legend>Administrator account (new database only)</legend>
+      <label>Administrator password<small>Used for the "admin" login. At least 8 characters.</small><input id="adminPassword" type="password" minlength="8" /></label>
+      <label>Repeat administrator password<input id="adminPassword2" type="password" minlength="8" /></label>
+    </fieldset>
+
+    <div class="actions">
+      <button type="button" id="test">Test connection</button>
+      <button type="submit" id="save" class="primary">Save and continue</button>
+    </div>
+  </form>
+
+  <div id="msg"></div>
+  <p class="hint">PostgreSQL is not installed by Veridian HMS. If it is not installed yet, install PostgreSQL 14 or newer first, then come back here. Your settings are stored on this PC only, and the password is encrypted with your Windows account.</p>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const params = new URLSearchParams(location.search);
+  const firstRun = params.get('firstRun') === '1';
+  let hasStoredPassword = false;
+  let needsAdmin = true;
+
+  function show(kind, text) { const m = $('msg'); m.className = kind; m.textContent = text; }
+  function readDb() { return { host: $('host').value.trim(), port: Number($('port').value), database: $('database').value.trim(), user: $('user').value.trim(), password: $('password').value }; }
+  function setBusy(busy) { ['test', 'save'].forEach((id) => ($(id).disabled = busy)); }
+
+  window.setupAPI.onProgress((text) => show('busy', text));
+
+  window.setupAPI.getSettings().then((s) => {
+    $('host').value = s.host; $('port').value = s.port; $('database').value = s.database; $('user').value = s.user;
+    hasStoredPassword = s.hasPassword;
+    needsAdmin = !s.bootstrapDone;
+    $('pwhint').textContent = s.hasPassword ? 'Leave blank to keep the saved password.' : '';
+    $('adminBox').style.display = needsAdmin ? '' : 'none';
+    if (!firstRun) $('save').textContent = 'Save and restart';
+  });
+
+  $('test').addEventListener('click', async () => {
+    setBusy(true); show('busy', 'Testing connection...');
+    const r = await window.setupAPI.testConnection(readDb());
+    show(r.ok ? 'ok' : 'err', r.message);
+    setBusy(false);
+  });
+
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (needsAdmin) {
+      const a = $('adminPassword').value;
+      if (a.length > 0 || firstRun) {
+        if (a.length < 8) return show('err', 'The administrator password must be at least 8 characters.');
+        if (a !== $('adminPassword2').value) return show('err', 'The two administrator passwords do not match.');
+      }
+    }
+    setBusy(true); show('busy', 'Working...');
+    const r = await window.setupAPI.save({ db: readDb(), adminPassword: $('adminPassword').value });
+    if (!r.ok) { show('err', r.message); setBusy(false); }
+    // on success the main process closes this window
+  });
+</script>
+</body>
+</html>

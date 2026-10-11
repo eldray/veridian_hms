@@ -1,221 +1,74 @@
 #!/usr/bin/env node
-// build-win.js — Full Windows Installer Build Script
-// Run with: node build-win.js
-// Output:   release/VeridianHMS-Setup-<version>-x64.exe
+// build-win.js - builds the Windows installer.
+//   node build-win.js          -> release/VeridianHMS-Setup-<version>-x64.exe
+//   node build-win.js --dir    -> unpacked app only (fast check, no installer)
+// Run on Windows (or any OS with network access to npm, Prisma and electron-builder downloads).
 
 const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
 const ROOT = __dirname;
-const BACKEND_DIR = path.join(ROOT, 'backend');
-const FRONTEND_DIR = path.join(ROOT, 'frontend');
-const BACKEND_DIST = path.join(BACKEND_DIR, 'dist');
-const FRONTEND_DIST = path.join(FRONTEND_DIR, 'dist');
-const BUILD_BACKEND = path.join(ROOT, 'build', 'backend');
-const RELEASE_DIR = path.join(ROOT, 'release');
+const BACKEND = path.join(ROOT, 'backend');
+const FRONTEND = path.join(ROOT, 'frontend');
+const STAGE = path.join(ROOT, 'build', 'backend');
+const dirOnly = process.argv.includes('--dir');
+const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function log(emoji, msg) {
-  console.log(`\n${emoji}  ${msg}`);
+function step(msg) { console.log(`\n=== ${msg}`); }
+function run(cmd, cwd = ROOT, env = {}) {
+  console.log(`  > ${cmd}`);
+  execSync(cmd, { cwd, stdio: 'inherit', env: { ...process.env, ...env } });
 }
+function rm(p) { fs.rmSync(p, { recursive: true, force: true }); }
+function copyDir(src, dest) { fs.cpSync(src, dest, { recursive: true }); }
+function need(p, hint) { if (!fs.existsSync(p)) { console.error(`Missing ${path.relative(ROOT, p)}. ${hint}`); process.exit(1); } }
 
-function run(cmd, cwd = ROOT, label = '') {
-  console.log(`\n  ▶ ${label || cmd}`);
-  execSync(cmd, { cwd, stdio: 'inherit', shell: true });
-}
+need(path.join(BACKEND, 'package.json'), 'Run this from the project root.');
+need(path.join(ROOT, 'build', 'icon.ico'), 'The installer icon is required.');
 
-function rmrf(dir) {
-  if (fs.existsSync(dir)) {
-    fs.rmSync(dir, { recursive: true, force: true });
-    console.log(`  🗑  Removed: ${path.relative(ROOT, dir)}`);
-  }
-}
+step('1/7 Installing dependencies');
+run('npm install', ROOT);
+run('npm ci || npm install', BACKEND);
+run('npm ci || npm install', FRONTEND);
 
-function copyDir(src, dest, exclude = []) {
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-  for (const entry of entries) {
-    if (exclude.some(ex => entry.name === ex || entry.name.endsWith(ex))) continue;
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) {
-      copyDir(srcPath, destPath, exclude);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-    }
-  }
-}
+step('2/7 Building the frontend');
+run('npm run build', FRONTEND);
+need(path.join(FRONTEND, 'dist', 'index.html'), 'Frontend build produced no index.html.');
 
-// ─── STEP 0: Pre-flight checks ───────────────────────────────────────────────
-log('🔍', 'Running pre-flight checks...');
+step('3/7 Bundling the backend (esbuild)');
+rm(STAGE);
+fs.mkdirSync(STAGE, { recursive: true });
+run(`node scripts/bundle.mjs "${STAGE}"`, BACKEND);
+need(path.join(STAGE, 'server.mjs'), 'Backend bundle failed.');
+need(path.join(STAGE, 'bootstrap.mjs'), 'Bootstrap bundle failed.');
 
-if (!fs.existsSync(path.join(BACKEND_DIR, 'package.json'))) {
-  console.error('❌ backend/package.json not found. Are you in the project root?');
-  process.exit(1);
-}
-if (!fs.existsSync(path.join(FRONTEND_DIR, 'package.json'))) {
-  console.error('❌ frontend/package.json not found.');
-  process.exit(1);
-}
-if (!fs.existsSync(path.join(ROOT, 'main.cjs'))) {
-  console.error('❌ main.cjs not found.');
-  process.exit(1);
-}
-if (!fs.existsSync(path.join(ROOT, 'node_modules', 'electron'))) {
-  console.error('❌ Electron not installed. Run: npm install');
-  process.exit(1);
-}
+step('4/7 Installing production dependencies for the backend');
+const pkg = JSON.parse(fs.readFileSync(path.join(BACKEND, 'package.json'), 'utf8'));
+fs.writeFileSync(path.join(STAGE, 'package.json'), JSON.stringify({
+  name: 'veridian-backend', version: pkg.version || '1.0.0', private: true, type: 'module',
+  dependencies: pkg.dependencies,
+}, null, 2));
+if (fs.existsSync(path.join(BACKEND, 'package-lock.json'))) fs.copyFileSync(path.join(BACKEND, 'package-lock.json'), path.join(STAGE, 'package-lock.json'));
+run(`${npm} install --omit=dev --no-audit --no-fund --ignore-scripts`, STAGE);
 
-console.log('  ✅ All pre-flight checks passed');
+step('5/7 Generating the Prisma client (Windows engine) and database script');
+fs.mkdirSync(path.join(STAGE, 'prisma'), { recursive: true });
+fs.copyFileSync(path.join(BACKEND, 'prisma', 'schema.prisma'), path.join(STAGE, 'prisma', 'schema.prisma'));
+run('npx prisma generate --schema prisma/schema.prisma', STAGE);
+fs.mkdirSync(path.join(STAGE, 'sql'), { recursive: true });
+// The repo ignores prisma/migrations, so the full schema is generated as one SQL script.
+const sql = execSync('npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script', { cwd: STAGE, encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 });
+if (!/CREATE TABLE/i.test(sql)) { console.error('Generated database script has no tables.'); process.exit(1); }
+fs.writeFileSync(path.join(STAGE, 'sql', '0001_schema.sql'), sql);
+console.log(`  schema script: ${(sql.length / 1024).toFixed(0)} KB`);
 
-// ─── STEP 1: Clean previous build artifacts ──────────────────────────────────
-log('🧹', 'Cleaning previous build artifacts...');
-rmrf(path.join(ROOT, 'release'));
-rmrf(path.join(ROOT, 'build', 'backend'));
-rmrf(BACKEND_DIST);
-rmrf(FRONTEND_DIST);
+step('6/7 Copying seed data');
+copyDir(path.join(BACKEND, 'src', 'data'), path.join(STAGE, 'data'));
+rm(path.join(STAGE, 'prisma')); // client already generated; the schema file is not needed at run time
 
-// ─── STEP 2: Install backend dependencies (production only) ──────────────────
-log('📦', 'Installing backend production dependencies...');
-if (!fs.existsSync(path.join(BACKEND_DIR, 'node_modules'))) {
-  run('npm install', BACKEND_DIR, 'npm install (backend)');
-}
-// Ensure prisma client is generated
-log('🔧', 'Generating Prisma client...');
-run('npx prisma generate', BACKEND_DIR, 'prisma generate');
+step('7/7 Packaging with electron-builder');
+rm(path.join(ROOT, 'release'));
+run(`npx electron-builder --win ${dirOnly ? '--dir' : 'nsis'} --x64 --publish never`, ROOT, { CSC_IDENTITY_AUTO_DISCOVERY: 'false' });
 
-// ─── STEP 3: Compile backend TypeScript ──────────────────────────────────────
-log('🏗 ', 'Compiling backend TypeScript → JavaScript...');
-run('npx tsc --project tsconfig.json', BACKEND_DIR, 'tsc (backend)');
-
-if (!fs.existsSync(path.join(BACKEND_DIST, 'server.js'))) {
-  console.error('❌ Backend compilation failed — dist/server.js not found');
-  process.exit(1);
-}
-console.log('  ✅ Backend compiled → backend/dist/');
-
-// ─── STEP 4: Install frontend dependencies ───────────────────────────────────
-log('📦', 'Installing frontend dependencies...');
-if (!fs.existsSync(path.join(FRONTEND_DIR, 'node_modules'))) {
-  run('npm install', FRONTEND_DIR, 'npm install (frontend)');
-}
-
-// ─── STEP 5: Build frontend (Vite) ───────────────────────────────────────────
-log('⚛ ', 'Building frontend (Vite)...');
-run('npm run build', FRONTEND_DIR, 'vite build');
-
-if (!fs.existsSync(path.join(FRONTEND_DIST, 'index.html'))) {
-  console.error('❌ Frontend build failed — dist/index.html not found');
-  process.exit(1);
-}
-console.log('  ✅ Frontend built → frontend/dist/');
-
-// ─── STEP 6: Stage compiled backend + node_modules for packaging ─────────────
-log('📋', 'Staging compiled backend for packaging...');
-
-// Copy compiled JS output
-copyDir(BACKEND_DIST, BUILD_BACKEND, []);
-
-// Copy backend node_modules (runtime deps only — devDeps excluded via npm ci)
-const backendNM = path.join(BACKEND_DIR, 'node_modules');
-const buildNM = path.join(BUILD_BACKEND, 'node_modules');
-if (fs.existsSync(backendNM)) {
-  log('📋', 'Copying backend node_modules (this may take a moment)...');
-  copyDir(backendNM, buildNM, ['.cache', '.yarn-integrity']);
-}
-
-// Copy backend .env if it exists (users must configure their DB credentials)
-const backendEnv = path.join(BACKEND_DIR, '.env');
-const buildEnv = path.join(BUILD_BACKEND, '.env');
-if (fs.existsSync(backendEnv)) {
-  fs.copyFileSync(backendEnv, buildEnv);
-  console.log('  ✅ Copied backend/.env → build/backend/.env');
-} else {
-  console.log('  ⚠️  No backend/.env found — users must configure it after install');
-}
-
-// Copy Prisma schema & migrations (needed for prisma migrate deploy in production)
-const prismaDir = path.join(BACKEND_DIR, 'prisma');
-const buildPrisma = path.join(BUILD_BACKEND, 'prisma');
-if (fs.existsSync(prismaDir)) {
-  copyDir(prismaDir, buildPrisma, []);
-  console.log('  ✅ Copied prisma/ schema and migrations');
-}
-
-// Copy uploads folder structure (empty, just for the directory)
-const uploadsDir = path.join(BUILD_BACKEND, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-console.log('  ✅ Backend staged → build/backend/');
-
-// ─── STEP 7: Write a production server.js entry wrapper ──────────────────────
-// The compiled dist/server.js uses ESM imports but we need a CJS bridge
-// for the electron main.cjs spawner to call `node server.js`
-log('📝', 'Writing production backend entry wrapper...');
-
-const serverWrapperPath = path.join(BUILD_BACKEND, 'server.js');
-const serverWrapper = `// Production entry point for Electron packaging
-// This wraps the compiled ESM TypeScript output
-import('./server.js').catch(err => {
-  console.error('Failed to start backend server:', err);
-  process.exit(1);
-});
-`;
-
-// Check if dist/server.js already exists from tsc output
-// If so, rename it and create a CJS wrapper
-const compiledServer = path.join(BUILD_BACKEND, 'server.js');
-if (fs.existsSync(compiledServer)) {
-  // tsc already outputs server.js — check if it has import/export (ESM)
-  const content = fs.readFileSync(compiledServer, 'utf8');
-  const isESM = content.includes('import ') || content.includes('export ');
-  if (isESM) {
-    // Rename compiled output and create a CJS bootstrap
-    fs.renameSync(compiledServer, path.join(BUILD_BACKEND, 'server.mjs'));
-    fs.writeFileSync(compiledServer, `// CJS bootstrap for Electron\nrequire = require('module').createRequire(import.meta.url);\nimport('./server.mjs').catch(e => { console.error(e); process.exit(1); });\n`);
-  }
-}
-
-console.log('  ✅ Backend entry point ready');
-
-// ─── STEP 8: Package with electron-builder ───────────────────────────────────
-log('📦', 'Packaging with electron-builder (Windows NSIS installer)...');
-log('⏳', 'This will take several minutes...');
-
-run(
-  'npx electron-builder --win --x64 --config electron-builder.yml',
-  ROOT,
-  'electron-builder --win --x64'
-);
-
-// ─── STEP 9: Report results ───────────────────────────────────────────────────
-log('🔍', 'Checking output...');
-
-if (!fs.existsSync(RELEASE_DIR)) {
-  console.error('❌ Release directory not created — build may have failed');
-  process.exit(1);
-}
-
-const releaseFiles = fs.readdirSync(RELEASE_DIR).filter(f =>
-  f.endsWith('.exe') || f.endsWith('.zip') || f.endsWith('.yml')
-);
-
-console.log('\n');
-console.log('═'.repeat(60));
-console.log('  ✅  BUILD SUCCESSFUL!');
-console.log('═'.repeat(60));
-console.log('\n  📁 Output directory: release/');
-releaseFiles.forEach(f => {
-  const stats = fs.statSync(path.join(RELEASE_DIR, f));
-  const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
-  const isExe = f.endsWith('.exe');
-  console.log(`  ${isExe ? '🎉' : '📄'} ${f}  (${sizeMB} MB)`);
-});
-console.log('\n  ⚠️  IMPORTANT: The installer does NOT include PostgreSQL.');
-console.log('     Users must have PostgreSQL installed and configured.');
-console.log('     Database credentials go in: backend/.env inside the install dir.');
-console.log('═'.repeat(60));
-console.log('');
+console.log(`\nDone. Output in ${path.join(ROOT, 'release')}`);

@@ -376,7 +376,7 @@ const wantsMoreThanOnePage = (filters?: any) => Number(filters?.limit) > API_PAG
 // GENERIC RESPONSE HANDLER
 // ============================================
 
-const handleResponse = <T>(response: any): T[] => {
+const extractListItems = <T>(response: any): T[] => {
   // ✅ Handle notification responses (MUST be FIRST)
   if (response?.data?.notifications && Array.isArray(response.data.notifications)) {
     return response.data.notifications as T[];
@@ -418,6 +418,27 @@ const handleResponse = <T>(response: any): T[] => {
   }
 
   return [] as T[];
+};
+
+/**
+ * Returns the list rows as an array, and attaches the server's paging info as non-enumerable
+ * `pagination` / `total` properties. Callers that walk pages (stock, requisitions, invoices ...)
+ * read `response.pagination.total`; without it they believed the first page was everything and
+ * lists stopped at the server's page size (100).
+ */
+const handleResponse = <T>(response: any): T[] => {
+  const items = extractListItems<T>(response);
+  const meta = readPagination(response);
+  if (Array.isArray(items) && meta) {
+    try {
+      Object.defineProperty(items, 'pagination', {
+        value: { ...meta, totalPages: meta.pages },
+        enumerable: false, configurable: true, writable: true,
+      });
+      Object.defineProperty(items, 'total', { value: meta.total, enumerable: false, configurable: true, writable: true });
+    } catch { /* frozen array: ignore */ }
+  }
+  return items;
 };
 
 // Date conversion helper
@@ -1371,6 +1392,60 @@ export const removeServiceFromEncounter = async (encounterId: string, serviceId:
   return response.data;
 };
 
+
+// Consumable Operations (non-medication stock used during the visit)
+export const recordEncounterConsumableUse = async (
+  encounterId: string,
+  data: { stockItemId: string; quantity: number; notes?: string }
+) => {
+  const response = await api.post(`/encounters/${encounterId}/consumables`, data);
+  return response.data?.data ?? response.data;
+};
+
+export const updateEncounterConsumableUse = async (
+  encounterId: string,
+  consumableUseId: string,
+  data: { stockItemId?: string; quantity?: number; notes?: string }
+) => {
+  const response = await api.patch(
+    `/encounters/${encounterId}/consumables/${consumableUseId}`,
+    data
+  );
+  return response.data?.data ?? response.data;
+};
+
+export const removeEncounterConsumableUse = async (
+  encounterId: string,
+  consumableUseId: string
+) => {
+  const response = await api.delete(`/encounters/${encounterId}/consumables/${consumableUseId}`);
+  return response.data;
+};
+
+export const getEncounterConsumables = async (encounterId: string) => {
+  const response = await api.get(`/encounters/${encounterId}/consumables`);
+  return response.data?.data ?? response.data ?? [];
+};
+
+/** Delete a consumable use (restores stock server-side) — used by DispensePatient.tsx */
+export const deleteEncounterConsumableUse = async (
+  encounterId: string,
+  consumableUseId: string
+) => {
+  const response = await api.delete(
+    `/encounters/${encounterId}/consumables/${consumableUseId}`
+  );
+  return response.data;
+};
+
+export const getEncounterConsumableUses = async (encounterId: string) => {
+  const response = await api.get(`/encounters/${encounterId}/consumables`);
+  return response.data?.data ?? response.data ?? [];
+};
+
+export const getEncounterConsumableUse = getEncounterConsumableUses;
+
+
 // Bed Assignment
 export const assignBedToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
@@ -1438,66 +1513,6 @@ export const getEncounterStats = async (filters?: any) => {
   const response = await api.get(`/encounters/stats${params.toString() ? `?${params}` : ''}`);
   return response.data;
 };
-
-// ──────────────────────────────────────────────
-// ENCOUNTER CONSUMABLE USES
-// ──────────────────────────────────────────────
-
-/**
- * List consumables recorded against an encounter.
- * Backend: GET /encounters/:id/consumables
- */
-export const getEncounterConsumableUses = async (encounterId: string) => {
-  const response = await api.get(`/encounters/${encounterId}/consumables`);
-  return response.data?.data ?? response.data ?? [];
-};
-
-/**
- * Record a consumable used during an encounter. Stock is decremented atomically.
- * Backend: POST /encounters/:id/consumables
- * Body: { stockItemId: string; quantity: number; notes?: string }
- */
-export const recordEncounterConsumableUse = async (
-  encounterId: string,
-  data: { stockItemId: string; quantity: number; notes?: string },
-) => {
-  const response = await api.post(`/encounters/${encounterId}/consumables`, data);
-  return response.data?.data ?? response.data;
-};
-
-/**
- * Edit an existing consumable use (reverses old, applies new).
- * Backend: PATCH /encounters/:id/consumables/:transactionId
- * Body: { stockItemId: string; quantity: number; notes?: string }
- */
-export const updateEncounterConsumableUse = async (
-  encounterId: string,
-  transactionId: string,
-  data: { stockItemId: string; quantity: number; notes?: string },
-) => {
-  const response = await api.patch(
-    `/encounters/${encounterId}/consumables/${transactionId}`,
-    data,
-  );
-  return response.data?.data ?? response.data;
-};
-
-/**
- * Remove a consumable use (stock is restored atomically).
- * Backend: DELETE /encounters/:id/consumables/:transactionId
- */
-export const deleteEncounterConsumableUse = async (
-  encounterId: string,
-  transactionId: string,
-) => {
-  const response = await api.delete(
-    `/encounters/${encounterId}/consumables/${transactionId}`,
-  );
-  return response.data;
-};
-
-
-
 
 // NHIS Claim Validation
 export const validateNHISClaim = (encounterId: string) =>
@@ -1584,57 +1599,6 @@ export const getBillLineItems = (billId: string) =>
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
   api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
 
-
-// ──────────────────────────────────────────────
-// BILLING COLLECTIONS (actual payments in a date window)
-// ──────────────────────────────────────────────
-
-export interface BillingCollectionItem {
-  id: string;
-  description: string;
-  quantity: number;
-  serviceCategory: string;
-  serviceType: string;
-  amount: number;
-}
-
-export interface BillingCollectionPayment {
-  id: string;
-  transactionDate: string;
-  amount: number;
-  paymentMethod: string;
-  reference: string | null;
-  notes: string | null;
-  collector: { id: string; fullName: string; username: string };
-  bill: {
-    id: string;
-    billNumber: string;
-    patient: { surname: string; otherNames: string; folderNumber: string };
-  };
-  items: BillingCollectionItem[];
-}
-
-export interface BillingCollectionsReport {
-  totalAmount: number;
-  paymentCount: number;
-  payments: BillingCollectionPayment[];
-}
-
-export const getBillingCollections = async (filters: {
-  dateFrom: string;
-  dateTo: string;
-}): Promise<BillingCollectionsReport> => {
-  const response = await api.get('/billing/collections', { params: filters });
-  // Backend wraps in { success, data: { totalAmount, paymentCount, payments } }
-  const payload = response.data?.data ?? response.data;
-  return {
-    totalAmount: Number(payload?.totalAmount || 0),
-    paymentCount: Number(payload?.paymentCount || 0),
-    payments: Array.isArray(payload?.payments) ? payload.payments : [],
-  };
-};
-
-
 // ──────────────────────────────────────────────
 // WAIVERS
 // ──────────────────────────────────────────────
@@ -1695,6 +1659,54 @@ export const deleteWaiver = (id: string) =>
 export const applyWaiverToBill = (billId: string, waiverId: string) =>
   api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
 
+
+// ──────────────────────────────────────────────
+// BILLING COLLECTIONS REPORT
+// ──────────────────────────────────────────────
+
+export interface BillingCollectionItem {
+  id: string;
+  description: string;
+  serviceCategory: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface BillingCollectionPayment {
+  id: string;
+  reference: string;
+  transactionDate: string;
+  amount: number;
+  paymentMethod: string;
+  bill: {
+    billNumber: string;
+    patient: {
+      surname: string;
+      otherNames: string;
+      folderNumber: string;
+    };
+  };
+  collector: {
+    id: string;
+    fullName: string;
+    username: string;
+  };
+  items: BillingCollectionItem[];
+}
+
+export interface BillingCollectionsReport {
+  totalAmount: number;
+  paymentCount: number;
+  payments: BillingCollectionPayment[];
+}
+
+export const getBillingCollections = async (params?: {
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<BillingCollectionsReport> => {
+  const response = await api.get('/billing/collections', { params });
+  return response.data?.data ?? response.data;
+};
 
 // ============================================
 // ADMISSIONS API ENDPOINTS
@@ -3767,15 +3779,19 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
   addProgressNoteToEncounter, removeProgressNoteFromEncounter,
   getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
-  getEncounterConsumableUses,
-  recordEncounterConsumableUse,
-  updateEncounterConsumableUse,
-  deleteEncounterConsumableUse,
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
-  getBillLineItems, voidBillLineItem, getBillingCollections, 
+  getBillLineItems, voidBillLineItem, getBillingCollections,
+
+  // Consumables (non-medication stock used during the visit)   ← add these
+  recordEncounterConsumableUse,
+  updateEncounterConsumableUse,
+  removeEncounterConsumableUse,
+  getEncounterConsumables,
+  deleteEncounterConsumableUse,
+
 
   // Waivers
   createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
