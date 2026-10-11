@@ -1,4 +1,4 @@
-// src/pages/Antenatal.tsx - FULLY UPDATED VERSION
+// src/pages/Antenatal.tsx — restructured
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
@@ -30,11 +30,12 @@ import {
   Scan, FileText, Activity, AlertCircle, Plus, Trash2, Edit, User, Calendar,
   Baby, Heart, Droplet, Shield, CheckCircle, Clock, AlertTriangle, Syringe,
   Ruler, Weight, TrendingUp, Eye, Hospital, Users, Bed, Building2, Moon, Sun,
-  ClipboardList, ShieldCheck,
+  ClipboardList, ArrowRight, Gauge, Thermometer, Wind, Droplets,
 } from 'lucide-react';
 
 const getEntityId = (e: { id?: string; _id?: string } | null) => e?._id || e?.id;
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'anc_booking' | null;
+type TabKey = 'clinical' | 'anc' | 'delivery' | 'postnatal' | 'vitals';
 
 function calculateAge(dob: Date): number {
   if (!dob) return 0;
@@ -47,13 +48,13 @@ function calculateAge(dob: Date): number {
 // ── Shared primitives ─────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   const map: Record<string, string> = {
-    pending:    'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    requested:  'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    scheduled:  'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
+    pending: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
+    requested: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
+    scheduled: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
     prescribed: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-    completed:  'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    cancelled:  'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-    dispensed:  'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    completed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    cancelled: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+    dispensed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
   };
   return (
     <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status?.toLowerCase()] ?? 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
@@ -64,9 +65,9 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 const RiskBadge: React.FC<{ risk: string }> = ({ risk }) => {
   const map: Record<string, string> = {
-    low:    'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+    low: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
     medium: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    high:   'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+    high: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
   };
   return (
     <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${map[risk?.toLowerCase()] ?? map.low}`}>
@@ -140,6 +141,13 @@ const NoteCard: React.FC<{ author: string; date?: string; text?: string }> = ({ 
   </div>
 );
 
+const Col: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({ label, children, className = '' }) => (
+  <div className={`min-w-0 ${className}`}>
+    <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] leading-tight mb-0.5">{label}</p>
+    <div className="leading-tight">{children}</div>
+  </div>
+);
+
 // ── Modal shell ───────────────────────────────────────────────────────────────
 const ModalShell: React.FC<{ title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; footer?: React.ReactNode; maxW?: string }> =
   ({ title, subtitle, onClose, children, footer, maxW = 'max-w-2xl' }) => (
@@ -169,240 +177,7 @@ const DetailRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label,
   </div>
 );
 
-// ═════════════════════════════════════════════════════════════════════════════
-// ─── Family Planning Modal ───────────────────────────────────────────────────
-const FamilyPlanningModal: React.FC<{
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-  attendanceId: string;
-  patientId: string;
-  existingRecord?: any;
-}> = ({ isOpen, onClose, onSuccess, attendanceId, patientId, existingRecord }) => {
-  const { success, error: toastError } = useToast();
-  const { user } = useAuthStore();
-  const { updateAttendance } = useAttendanceStore();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    familyPlanningDiscussed: false,
-    familyPlanningMethodAccepted: '',
-    fpCounsellingGiven: false,
-    fpMethodProvided: '',
-    sideEffects: '',
-    nextFollowUp: '',
-    notes: '',
-  });
-
-  const FP_METHODS = [
-    { value: 'pills_coc', label: 'Combined Oral Pills (COC)' },
-    { value: 'pills_pop', label: 'Progestin-Only Pills (POP)' },
-    { value: 'injectable_dmpa', label: 'Injectable (DMPA)' },
-    { value: 'injectable_net_en', label: 'Injectable (NET-EN)' },
-    { value: 'implant_implanon', label: 'Implant (Implanon)' },
-    { value: 'implant_jadelle', label: 'Implant (Jadelle)' },
-    { value: 'iud_copper', label: 'IUD (Copper)' },
-    { value: 'iud_hormonal', label: 'IUD (Hormonal)' },
-    { value: 'condom_male', label: 'Male Condom' },
-    { value: 'condom_female', label: 'Female Condom' },
-    { value: 'female_sterilization', label: 'Female Sterilization' },
-    { value: 'lam', label: 'Lactational Amenorrhea (LAM)' },
-    { value: 'withdrawal', label: 'Withdrawal' },
-    { value: 'calendar', label: 'Calendar/Rhythm' },
-    { value: 'emergency_contraception', label: 'Emergency Contraception' },
-  ];
-
-  useEffect(() => {
-    if (existingRecord) {
-      setFormData({
-        familyPlanningDiscussed: existingRecord.familyPlanningDiscussed || false,
-        familyPlanningMethodAccepted: existingRecord.familyPlanningMethodAccepted || '',
-        fpCounsellingGiven: existingRecord.fpCounsellingGiven || false,
-        fpMethodProvided: existingRecord.fpMethodProvided || '',
-        sideEffects: existingRecord.sideEffects || '',
-        nextFollowUp: existingRecord.nextFollowUp?.split('T')[0] || '',
-        notes: existingRecord.notes || '',
-      });
-    }
-  }, [existingRecord]);
-
-  const handleChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
-      const data = {
-        familyPlanningDiscussed: formData.familyPlanningDiscussed,
-        familyPlanningMethodAccepted: formData.familyPlanningMethodAccepted || undefined,
-        fpCounsellingGiven: formData.fpCounsellingGiven,
-        fpMethodProvided: formData.fpMethodProvided || undefined,
-        sideEffects: formData.sideEffects || undefined,
-        nextFollowUp: formData.nextFollowUp || undefined,
-        notes: formData.notes || undefined,
-        updatedById: user?.id,
-      };
-
-      await updateAttendance(attendanceId, data);
-      success('Saved', 'Family planning record saved successfully');
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      toastError('Error', err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="sticky top-0 bg-[var(--bg-card)] px-6 py-4 border-b flex justify-between items-center z-10">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-purple-600" />
-              <h2 className="text-lg font-bold">{existingRecord ? 'Edit Family Planning Record' : 'Add Family Planning Record'}</h2>
-            </div>
-            <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded"><X className="w-5 h-5" /></button>
-          </div>
-
-          <form onSubmit={handleSubmit} className="p-6 space-y-5">
-            {/* Counselling Section */}
-            <div className="border rounded-lg p-4 bg-purple-50/30 border-purple-200">
-              <h4 className="font-semibold mb-3 flex items-center gap-2 text-purple-700">
-                <ShieldCheck className="w-4 h-4" />
-                Family Planning Counselling
-              </h4>
-              <div className="space-y-3">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.familyPlanningDiscussed}
-                    onChange={(e) => handleChange('familyPlanningDiscussed', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm font-medium">Family Planning Discussed</span>
-                </label>
-
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={formData.fpCounsellingGiven}
-                    onChange={(e) => handleChange('fpCounsellingGiven', e.target.checked)}
-                    className="rounded"
-                  />
-                  <span className="text-sm font-medium">FP Counselling Given</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Method Selection */}
-            {formData.familyPlanningDiscussed && (
-              <div className="border rounded-lg p-4">
-                <h4 className="font-semibold mb-3">Method Selection</h4>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Method Accepted</label>
-                    <select
-                      value={formData.familyPlanningMethodAccepted}
-                      onChange={(e) => handleChange('familyPlanningMethodAccepted', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Select method</option>
-                      <optgroup label="Modern Methods">
-                        {FP_METHODS.slice(0, 11).map(m => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Traditional Methods">
-                        {FP_METHODS.slice(11, 14).map(m => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </optgroup>
-                      <optgroup label="Emergency">
-                        {FP_METHODS.slice(14).map(m => (
-                          <option key={m.value} value={m.value}>{m.label}</option>
-                        ))}
-                      </optgroup>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Method Provided Today</label>
-                    <select
-                      value={formData.fpMethodProvided}
-                      onChange={(e) => handleChange('fpMethodProvided', e.target.value)}
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                    >
-                      <option value="">Not provided today</option>
-                      {FP_METHODS.map(m => (
-                        <option key={m.value} value={m.value}>{m.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Side Effects & Follow-up */}
-            <div className="border rounded-lg p-4">
-              <h4 className="font-semibold mb-3">Follow-up & Side Effects</h4>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Side Effects Reported</label>
-                  <textarea
-                    rows={2}
-                    value={formData.sideEffects}
-                    onChange={(e) => handleChange('sideEffects', e.target.value)}
-                    placeholder="e.g., Nausea, headache, spotting..."
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Next Follow-up Date</label>
-                  <input
-                    type="date"
-                    value={formData.nextFollowUp}
-                    onChange={(e) => handleChange('nextFollowUp', e.target.value)}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-sm font-medium mb-1">Additional Notes</label>
-              <textarea
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => handleChange('notes', e.target.value)}
-                placeholder="Any additional observations or instructions..."
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg"
-              />
-            </div>
-
-            {/* Footer Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <button type="button" onClick={onClose} className="px-4 py-2 border rounded-lg hover:bg-[var(--bg-main)]">Cancel</button>
-              <button type="submit" disabled={loading} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50">
-                {loading ? 'Saving...' : (existingRecord ? 'Update' : 'Save')}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ═════════════════════════════════════════════════════════════════════════════
-// ─── Bed/Ward Selection Modal for Antenatal ─────────────────────────────────
+// ── Bed/Ward Selection Modal for Antenatal ────────────────────────────────────
 const BedWardSelectionModalAntenatal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
@@ -501,11 +276,10 @@ const BedWardSelectionModalAntenatal: React.FC<{
                       <button
                         key={ward.id}
                         onClick={() => { setSelectedWardId(ward.id); setSelectedWardName(ward.wardName); }}
-                        className={`p-3 rounded-lg border text-left transition-all ${
-                          isSelected 
-                            ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
-                            : 'border-[var(--border-color)] hover:border-pink-300 hover:bg-[var(--bg-main)]'
-                        }`}
+                        className={`p-3 rounded-lg border text-left transition-all ${isSelected
+                          ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
+                          : 'border-[var(--border-color)] hover:border-pink-300 hover:bg-[var(--bg-main)]'
+                          }`}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-semibold text-[var(--text-primary)]">{ward.wardName}</span>
@@ -545,11 +319,10 @@ const BedWardSelectionModalAntenatal: React.FC<{
                         <button
                           key={bed.id}
                           onClick={() => { setSelectedBedId(bed.id); setSelectedBedNumber(bed.bedNumber); }}
-                          className={`p-2 rounded-lg border text-center transition-all ${
-                            selectedBedId === bed.id
-                              ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
-                              : 'border-[var(--border-color)] hover:border-pink-300 hover:bg-[var(--bg-main)]'
-                          }`}
+                          className={`p-2 rounded-lg border text-center transition-all ${selectedBedId === bed.id
+                            ? 'border-pink-500 bg-pink-50 ring-1 ring-pink-500'
+                            : 'border-[var(--border-color)] hover:border-pink-300 hover:bg-[var(--bg-main)]'
+                            }`}
                         >
                           <Bed className="w-4 h-4 mx-auto mb-1 text-[var(--text-secondary)]" />
                           <span className="text-xs font-semibold text-[var(--text-primary)]">Bed {bed.bedNumber}</span>
@@ -567,7 +340,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
           <button
             onClick={handleConfirm}
             disabled={!selectedWardId || !selectedBedId || isLoading}
-            className="flex-1 py-2 rounded-lg text-sm font-semibold bg-pink-500 text-white 
+            className="flex-1 py-2 rounded-lg text-sm font-semibold bg-pink-500 text-white
               hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
             {isLoading ? 'Processing...' : 'Confirm Admission'}
@@ -600,41 +373,46 @@ export default function Antenatal() {
   const { diagnoses, labTestTemplates, procedureTemplates, scanTemplates,
     getDiagnoses, getLabTestTemplates, getProcedureTemplates, getScanTemplates } = useMedicalServicesStore();
   const { stockItems, getStockItems } = useStockStore();
-  
+
   const { currentRecord, currentVisits, getActiveAntenatalRecordByPatient, getANCVisitsByAntenatalRecord,
     registerAntenatalBooking, recordANCVisit, updateANCVisit, deleteANCVisit, isLoading: ancLoading } = useAntenatalStore();
-  
+
   const { deliveries, getDeliveryRecords, deleteDeliveryRecord } = useDeliveryStore();
   const { postnatalRecords, getPostnatalRecords, deletePostnatalRecord } = usePostnatalStore();
-  
+
   const { updateBed } = useWardStore();
   const { createAdmission, getAdmissions } = useAdmissionStore();
 
-  const [isLoading, setIsLoading]                   = useState(true);
-  const [refreshing, setRefreshing]                 = useState(false);
-  const [selectedPatientId, setSelectedPatientId]   = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
-  const [latestVitals, setLatestVitals]             = useState<any>(null);
-  const visitBP = (v: any) => v?.attendance?.Vitals?.[0]?.bloodPressure || (v?.attendanceId === selectedAttendanceId ? latestVitals?.bloodPressure : undefined) || v?.bloodPressure || '—';
-  const [activeTab, setActiveTab]                   = useState<'clinical' | 'anc' | 'delivery' | 'postnatal' | 'family_planning' | 'vitals'>('clinical');
-  const [modalType, setModalType]                   = useState<ModalType>(null);
-  const [showNewAttendance, setShowNewAttendance]   = useState(false);
+  const [latestVitals, setLatestVitals] = useState<any>(null);
+  const [allVitals, setAllVitals] = useState<any[]>([]);
 
-  const [showANCVisitModal, setShowANCVisitModal]   = useState(false);
-  const [selectedBookingId, setSelectedBookingId]   = useState('');
-  const [editingVisit, setEditingVisit]             = useState<any>(null);
-  const [showDeliveryModal, setShowDeliveryModal]   = useState(false);
-  const [editingDelivery, setEditingDelivery]       = useState<any>(null);
+  const visitBP = (v: any) =>
+    v?.attendance?.Vitals?.[0]?.bloodPressure
+    || (v?.attendanceId === selectedAttendanceId ? latestVitals?.bloodPressure : undefined)
+    || v?.bloodPressure
+    || '—';
+
+  const [activeTab, setActiveTab] = useState<TabKey>('clinical');
+  const [modalType, setModalType] = useState<ModalType>(null);
+  const [showNewAttendance, setShowNewAttendance] = useState(false);
+
+  const [showANCVisitModal, setShowANCVisitModal] = useState(false);
+  const [selectedBookingId, setSelectedBookingId] = useState('');
+  const [editingVisit, setEditingVisit] = useState<any>(null);
+  const [showDeliveryModal, setShowDeliveryModal] = useState(false);
+  const [editingDelivery, setEditingDelivery] = useState<any>(null);
   const [showPostnatalModal, setShowPostnatalModal] = useState(false);
-  const [editingPostnatal, setEditingPostnatal]     = useState<any>(null);
-  const [showFamilyPlanningModal, setShowFamilyPlanningModal] = useState(false);
-  const [editingFP, setEditingFP]                   = useState<any>(null);
+  const [editingPostnatal, setEditingPostnatal] = useState<any>(null);
 
-  const [selectedVisit, setSelectedVisit]           = useState<any>(null);
-  const [showVisitDetails, setShowVisitDetails]     = useState(false);
-  const [selectedDelivery, setSelectedDelivery]     = useState<any>(null);
+  const [selectedVisit, setSelectedVisit] = useState<any>(null);
+  const [showVisitDetails, setShowVisitDetails] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<any>(null);
   const [showDeliveryDetails, setShowDeliveryDetails] = useState(false);
-  const [selectedPostnatal, setSelectedPostnatal]   = useState<any>(null);
+  const [selectedPostnatal, setSelectedPostnatal] = useState<any>(null);
   const [showPostnatalDetails, setShowPostnatalDetails] = useState(false);
 
   const [physicianNoteText, setPhysicianNoteText] = useState('');
@@ -648,30 +426,44 @@ export default function Antenatal() {
   const [isProcessingAdmission, setIsProcessingAdmission] = useState(false);
 
   const antenatalAttendances = useMemo(() => attendances.filter(a => a.attendanceType === 'antenatal'), [attendances]);
-  const deliveryAttendances  = useMemo(() => attendances.filter(a => a.attendanceType === 'delivery'),  [attendances]);
+  const deliveryAttendances = useMemo(() => attendances.filter(a => a.attendanceType === 'delivery'), [attendances]);
   const postnatalAttendances = useMemo(() => attendances.filter(a => a.attendanceType === 'postnatal'), [attendances]);
 
   const getCurrentAttendances = () => {
-    if (activeTab === 'anc')      return antenatalAttendances;
+    if (activeTab === 'anc') return antenatalAttendances;
     if (activeTab === 'delivery') return deliveryAttendances;
-    if (activeTab === 'postnatal')return postnatalAttendances;
+    if (activeTab === 'postnatal') return postnatalAttendances;
     return attendances;
   };
 
-  const selectedPatient  = patients.find(p => getEntityId(p) === selectedPatientId)
+  const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId)
     || (currentAttendance as any)?.Patient || null;
-  const canAddEntries    = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
   const hasActiveBooking = currentRecord?.isActive === true && currentRecord?.isCompleted === false;
+const attendanceType = currentAttendance?.attendanceType;
 
-  const diagnosesList   = currentAttendance?.AttendanceDiagnosis || [];
-  const labTestsList    = currentAttendance?.LabTest || [];
-  const proceduresList  = currentAttendance?.Procedure || [];
+// The pregnancy card only makes sense for ANC, delivery and postnatal visits —
+// and only shows the "create record" prompt for ANC / delivery, not PNC.
+const shouldShowPregnancyCard =
+  attendanceType === 'antenatal' ||
+  attendanceType === 'delivery' ||
+  (attendanceType === 'postnatal' && hasActiveBooking);
+
+// When the card renders but there's no booking, only allow the create prompt
+// on ANC / delivery visits.
+const shouldOfferCreateRecord =
+  !hasActiveBooking &&
+  (attendanceType === 'antenatal' || attendanceType === 'delivery');
+  
+  const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
+  const labTestsList = currentAttendance?.LabTest || [];
+  const proceduresList = currentAttendance?.Procedure || [];
   const medicationsList = currentAttendance?.Medication || [];
-  const scansList       = currentAttendance?.Scan || [];
-  const prescribedMeds  = medicationsList.filter((m: any) => m.status === 'prescribed');
-  const dispensedMeds   = medicationsList.filter((m: any) => m.status === 'dispensed');
-  const requestedScans  = scansList.filter((s: any) => s.status === 'requested' || s.status === 'scheduled');
-  const completedScans  = scansList.filter((s: any) => s.status === 'completed');
+  const scansList = currentAttendance?.Scan || [];
+  const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescribed');
+  const dispensedMeds = medicationsList.filter((m: any) => m.status === 'dispensed');
+  const requestedScans = scansList.filter((s: any) => s.status === 'requested' || s.status === 'scheduled');
+  const completedScans = scansList.filter((s: any) => s.status === 'completed');
 
   const currentAttendanceVisit = useMemo(
     () => currentVisits.find(v => v.attendanceId === selectedAttendanceId),
@@ -714,11 +506,11 @@ export default function Antenatal() {
         getDeliveryRecords(),
         getPostnatalRecords(),
       ]);
-    } catch (err: any) { 
-      toastError('Load failed', err.message); 
-    } finally { 
-      setRefreshing(false); 
-      setIsLoading(false); 
+    } catch (err: any) {
+      toastError('Load failed', err.message);
+    } finally {
+      setRefreshing(false);
+      setIsLoading(false);
     }
   };
 
@@ -726,13 +518,9 @@ export default function Antenatal() {
 
   useEffect(() => {
     if (!urlAttendanceId) return;
-    // Select the route attendance; the detail effect below loads it once, even when
-    // it is not present in the paginated global list.
     setSelectedAttendanceId(urlAttendanceId);
     const known = attendances.find(a => a.id === urlAttendanceId || (a as any)._id === urlAttendanceId);
-    if (known?.patientId) {
-      setSelectedPatientId(known.patientId);
-    }
+    if (known?.patientId) setSelectedPatientId(known.patientId);
   }, [urlAttendanceId, attendances]);
 
   useEffect(() => {
@@ -760,14 +548,26 @@ export default function Antenatal() {
   }, [selectedAttendanceId, getAttendance, addToast]);
 
   useEffect(() => {
+    if (!selectedAttendanceId) return;
+    getVitalsByAttendance(selectedAttendanceId)
+      .then((v: any[]) => {
+        const list = Array.isArray(v) ? v : [];
+        setAllVitals(list);
+        setLatestVitals(list.length ? list[list.length - 1] : null);
+      })
+      .catch(() => { setAllVitals([]); setLatestVitals(null); });
+  }, [selectedAttendanceId]);
+
+  useEffect(() => {
     if (!selectedPatientId) {
       setSelectedAttendanceId('');
       setLatestVitals(null);
+      setAllVitals([]);
       return;
     }
-    getActiveAntenatalRecordByPatient(selectedPatientId).catch(() => {});
-    getDeliveryRecords({ patientId: selectedPatientId }).catch(() => {});
-    getPostnatalRecords({ patientId: selectedPatientId }).catch(() => {});
+    getActiveAntenatalRecordByPatient(selectedPatientId).catch(() => { });
+    getDeliveryRecords({ patientId: selectedPatientId }).catch(() => { });
+    getPostnatalRecords({ patientId: selectedPatientId }).catch(() => { });
   }, [selectedPatientId]);
 
   useEffect(() => {
@@ -777,8 +577,8 @@ export default function Antenatal() {
   useEffect(() => {
     if (!currentAttendance?.attendanceType) return;
     const t = currentAttendance.attendanceType;
-    if (t === 'antenatal')  setActiveTab('anc');
-    else if (t === 'delivery')  setActiveTab('delivery');
+    if (t === 'antenatal') setActiveTab('anc');
+    else if (t === 'delivery') setActiveTab('delivery');
     else if (t === 'postnatal') setActiveTab('postnatal');
     else setActiveTab('clinical');
   }, [currentAttendance?.attendanceType, selectedAttendanceId]);
@@ -793,11 +593,11 @@ export default function Antenatal() {
     if (!selectedAttendanceId) return;
     try {
       const fn: Record<string, () => Promise<void>> = {
-        diagnosis:  () => removeDiagnosis(selectedAttendanceId, id),
-        lab:        () => removeLabTest(selectedAttendanceId, id),
-        procedure:  () => removeProcedure(selectedAttendanceId, id),
+        diagnosis: () => removeDiagnosis(selectedAttendanceId, id),
+        lab: () => removeLabTest(selectedAttendanceId, id),
+        procedure: () => removeProcedure(selectedAttendanceId, id),
         medication: () => removeMedication(selectedAttendanceId, id),
-        scan:       () => removeScan(selectedAttendanceId, id),
+        scan: () => removeScan(selectedAttendanceId, id),
       };
       await fn[type]?.();
       success('Removed', 'Item deleted');
@@ -816,44 +616,44 @@ export default function Antenatal() {
 
   const handleDeleteANCVisit = async (id: string) => {
     if (!window.confirm('Delete this ANC visit?')) return;
-    try { 
-      await deleteANCVisit(id); 
-      if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id); 
-      success('Deleted', 'Visit removed'); 
-    } catch (err: any) { 
-      toastError('Delete failed', err.message); 
+    try {
+      await deleteANCVisit(id);
+      if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
+      success('Deleted', 'Visit removed');
+    } catch (err: any) {
+      toastError('Delete failed', err.message);
     }
   };
 
   const handleDeleteDeliveryRecord = async (id: string) => {
     if (!window.confirm('Delete this delivery record?')) return;
-    try { 
-      await deleteDeliveryRecord(id); 
-      await getDeliveryRecords({ patientId: selectedPatientId }); 
-      success('Deleted', 'Delivery removed'); 
-    } catch (err: any) { 
-      toastError('Delete failed', err.message); 
+    try {
+      await deleteDeliveryRecord(id);
+      await getDeliveryRecords({ patientId: selectedPatientId });
+      success('Deleted', 'Delivery removed');
+    } catch (err: any) {
+      toastError('Delete failed', err.message);
     }
   };
 
   const handleDeletePostnatalRecord = async (id: string) => {
     if (!window.confirm('Delete this postnatal record?')) return;
-    try { 
-      await deletePostnatalRecord(id); 
-      await getPostnatalRecords({ patientId: selectedPatientId }); 
-      success('Deleted', 'Record removed'); 
-    } catch (err: any) { 
-      toastError('Delete failed', err.message); 
+    try {
+      await deletePostnatalRecord(id);
+      await getPostnatalRecords({ patientId: selectedPatientId });
+      success('Deleted', 'Record removed');
+    } catch (err: any) {
+      toastError('Delete failed', err.message);
     }
   };
 
   const handleRegisterAntenatalBooking = async (data: any) => {
-    if (!selectedPatientId || !selectedAttendanceId) { 
-      toastError('Error', 'Select patient and attendance first'); 
-      return; 
+    if (!selectedPatientId || !selectedAttendanceId) {
+      toastError('Error', 'Select patient and attendance first');
+      return;
     }
     try {
-      await registerAntenatalBooking({ 
+      await registerAntenatalBooking({
         patientId: selectedPatientId,
         attendanceId: selectedAttendanceId,
         gravida: data.gravida,
@@ -865,8 +665,8 @@ export default function Antenatal() {
       setModalType(null);
       success('Registered', 'Pregnancy record created');
       await getActiveAntenatalRecordByPatient(selectedPatientId);
-    } catch (err: any) { 
-      toastError('Registration failed', err.message); 
+    } catch (err: any) {
+      toastError('Registration failed', err.message);
     }
   };
 
@@ -877,15 +677,14 @@ export default function Antenatal() {
     setTimeout(async () => {
       const att = await getAttendance(newId);
       if (!att) return;
-  
-      // ── same pattern as AttendanceDetails.tsx ──
-      const patientId = att.patient?.id 
+
+      const patientId = att.patient?.id
         || att.patient?._id
         || (typeof att.patientId === 'object' ? att.patientId?.id : att.patientId)
         || selectedPatientId;
-  
+
       if (patientId) setSelectedPatientId(patientId);
-  
+
       if (att.attendanceType === 'antenatal') {
         setActiveTab('anc');
         const record = await getActiveAntenatalRecordByPatient(patientId).catch(() => null);
@@ -924,7 +723,7 @@ export default function Antenatal() {
       await getAttendance(selectedAttendanceId);
     } catch (err: any) { toastError('Save failed', err.message); }
   };
-  
+
   const handleSaveTreatmentNote = async () => {
     if (!selectedAttendanceId || !treatmentPlan.trim()) return;
     const newNote = {
@@ -946,7 +745,7 @@ export default function Antenatal() {
   };
 
   // ─── MATERNAL ADMISSION HANDLERS ───────────────────────────────────────────
-  
+
   const handleAdmitForObservation = () => {
     setPendingAdmissionType('antenatal_observation');
     setShowBedWardModal(true);
@@ -954,7 +753,7 @@ export default function Antenatal() {
 
   const executeAntenatalAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessingAdmission(true);
     try {
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
@@ -992,7 +791,7 @@ export default function Antenatal() {
 
   const executeDeliveryAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessingAdmission(true);
     try {
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
@@ -1017,6 +816,7 @@ export default function Antenatal() {
       await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
+      setActiveTab('delivery');
     } catch (err: any) {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
@@ -1031,7 +831,7 @@ export default function Antenatal() {
 
   const executePostpartumAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
-    
+
     setIsProcessingAdmission(true);
     try {
       await updateBed(bedId, { isOccupied: true, currentPatientId: selectedPatientId });
@@ -1056,6 +856,7 @@ export default function Antenatal() {
       await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
+      setActiveTab('postnatal');
     } catch (err: any) {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
@@ -1069,17 +870,16 @@ export default function Antenatal() {
 
     if (status === 'admitted') {
       return (
-        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-          admissionType === 'antenatal_observation' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
+        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold ${admissionType === 'antenatal_observation' ? 'bg-purple-100 text-purple-700 border border-purple-300' :
           admissionType === 'delivery' ? 'bg-green-100 text-green-700 border border-green-300' :
-          admissionType === 'postpartum_observation' ? 'bg-cyan-100 text-cyan-700 border border-cyan-300' :
-          'bg-pink-100 text-pink-700 border border-pink-300'
-        }`}>
-          <Hospital className="w-3 h-3" /> 
+            admissionType === 'postpartum_observation' ? 'bg-cyan-100 text-cyan-700 border border-cyan-300' :
+              'bg-pink-100 text-pink-700 border border-pink-300'
+          }`}>
+          <Hospital className="w-3 h-3" />
           {admissionType === 'antenatal_observation' ? 'ANTENATAL OBSERVATION' :
-           admissionType === 'delivery' ? 'IN LABOR / DELIVERY' :
-           admissionType === 'postpartum_observation' ? 'POSTPARTUM OBSERVATION' :
-           'ADMITTED'}
+            admissionType === 'delivery' ? 'IN LABOR / DELIVERY' :
+              admissionType === 'postpartum_observation' ? 'POSTPARTUM OBSERVATION' :
+                'ADMITTED'}
         </span>
       );
     }
@@ -1115,6 +915,42 @@ export default function Antenatal() {
     return null;
   };
 
+  // ── Quick-switch logic ────────────────────────────────────────────────────
+  const deliveryForCurrentVisit = useMemo(
+    () => deliveries.find((d: any) => d.attendanceId === selectedAttendanceId),
+    [deliveries, selectedAttendanceId]
+  );
+  const postnatalForCurrentVisit = useMemo(
+    () => postnatalRecords.find((p: any) => p.attendanceId === selectedAttendanceId),
+    [postnatalRecords, selectedAttendanceId]
+  );
+
+  const showDeliveryQuickSwitch =
+    !!selectedAttendanceId &&
+    (currentAttendance?.attendanceType === 'antenatal' || currentAttendance?.attendanceType === 'delivery') &&
+    currentAttendance?.status !== 'discharged' &&
+    currentAttendance?.status !== 'completed';
+
+  const showPostnatalQuickSwitch =
+    !!selectedAttendanceId &&
+    (currentAttendance?.attendanceType === 'delivery' || currentAttendance?.attendanceType === 'postnatal') &&
+    !!deliveryForCurrentVisit &&
+    !postnatalForCurrentVisit &&
+    currentAttendance?.status !== 'discharged' &&
+    currentAttendance?.status !== 'completed';
+
+  const goToDeliveryTab = () => {
+    setActiveTab('delivery');
+    setEditingDelivery(null);
+    setShowDeliveryModal(true);
+  };
+
+  const goToPostnatalTab = () => {
+    setActiveTab('postnatal');
+    setEditingPostnatal(null);
+    setShowPostnatalModal(true);
+  };
+
   if (isLoading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="text-center">
@@ -1125,20 +961,25 @@ export default function Antenatal() {
   );
 
   const tabs = [
-    { key: 'clinical',  label: 'Clinical',  icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length + labTestsList.length + medicationsList.length, always: true },
-    ...(currentAttendance?.attendanceType === 'antenatal'  ? [{ key: 'anc',      label: 'ANC Visits', icon: <Baby     className="w-3.5 h-3.5" />, count: currentVisits.length,                                                           always: false }] : []),
-    ...(currentAttendance?.attendanceType === 'delivery'   ? [{ key: 'delivery', label: 'Delivery',   icon: <Hospital className="w-3.5 h-3.5" />, count: deliveries.filter((d:any) => d.attendanceId === selectedAttendanceId).length,    always: false }] : []),
-    ...(currentAttendance?.attendanceType === 'postnatal'  ? [{ key: 'postnatal',label: 'Postnatal',  icon: <Heart    className="w-3.5 h-3.5" />, count: postnatalRecords.filter((p:any) => p.attendanceId === selectedAttendanceId).length, always: false }] : []),
-    { key: 'family_planning', label: 'Family Planning', icon: <ShieldCheck className="w-3.5 h-3.5" />, count: currentAttendance?.familyPlanningDiscussed ? 1 : 0, always: true },
-    { key: 'vitals',   label: 'Vitals',    icon: <Activity className="w-3.5 h-3.5" />, count: undefined, always: true },
-  ] as const;
+    { key: 'clinical' as TabKey, label: 'Clinical', icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length + labTestsList.length + medicationsList.length, always: true },
+    ...(currentAttendance?.attendanceType === 'antenatal'
+      ? [{ key: 'anc' as TabKey, label: 'ANC Visits', icon: <Baby className="w-3.5 h-3.5" />, count: currentVisits.length, always: false }]
+      : []),
+    ...(currentAttendance?.attendanceType === 'delivery'
+      ? [{ key: 'delivery' as TabKey, label: 'Delivery', icon: <Hospital className="w-3.5 h-3.5" />, count: deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length, always: false }]
+      : []),
+    ...(currentAttendance?.attendanceType === 'postnatal'
+      ? [{ key: 'postnatal' as TabKey, label: 'Postnatal', icon: <Heart className="w-3.5 h-3.5" />, count: postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length, always: false }]
+      : []),
+    { key: 'vitals' as TabKey, label: 'Vitals', icon: <Activity className="w-3.5 h-3.5" />, count: undefined, always: true },
+  ];
 
   const paymentCls = currentAttendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
     : currentAttendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
-    : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
+      : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
   const paymentLabel = currentAttendance?.paymentMode === 'nhis' ? 'NHIS'
     : currentAttendance?.paymentMode === 'private_insurance' ? 'PRIVATE INS.'
-    : 'CASH';
+      : 'CASH';
 
   return (
     <div className="space-y-4">
@@ -1158,7 +999,7 @@ export default function Antenatal() {
             </div>
             <div>
               <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Maternal Health</h1>
-              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Antenatal · Delivery · Postnatal · Family Planning</p>
+              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Antenatal · Delivery · Postnatal</p>
             </div>
           </div>
         </div>
@@ -1190,13 +1031,11 @@ export default function Antenatal() {
         <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                activeTab === 'delivery' ? 'bg-[var(--icon-green-bg)]' : activeTab === 'postnatal' ? 'bg-[var(--icon-cyan-bg)]' : activeTab === 'family_planning' ? 'bg-purple-100' : 'bg-pink-100'
-              }`}>
-                {activeTab === 'delivery'  ? <Hospital className="w-5 h-5 text-[var(--icon-green-text)]" />
-                : activeTab === 'postnatal' ? <Heart    className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                : activeTab === 'family_planning' ? <ShieldCheck className="w-5 h-5 text-purple-600" />
-                : <Baby className="w-5 h-5 text-pink-600" />}
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${activeTab === 'delivery' ? 'bg-[var(--icon-green-bg)]' : activeTab === 'postnatal' ? 'bg-[var(--icon-cyan-bg)]' : 'bg-pink-100'
+                }`}>
+                {activeTab === 'delivery' ? <Hospital className="w-5 h-5 text-[var(--icon-green-text)]" />
+                  : activeTab === 'postnatal' ? <Heart className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+                    : <Baby className="w-5 h-5 text-pink-600" />}
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1226,20 +1065,35 @@ export default function Antenatal() {
         </div>
       )}
 
-      {/* ── VITALS STRIP ──────────────────────────────────────────────────── */}
-      {currentAttendance && latestVitals && <VitalsDisplay vitals={latestVitals} />}
-
-      {/* ── NO BOOKING BANNER ─────────────────────────────────────────────── */}
-      {activeTab === 'anc' && selectedPatient && !hasActiveBooking && (
-        <div className="flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)] flex-wrap">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] flex-shrink-0" />
-            <span className="text-xs font-medium text-[var(--icon-yellow-text)]">No active pregnancy record. Create one to track ANC data.</span>
-          </div>
-          <button onClick={() => setModalType('anc_booking')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 transition-all">
-            <Plus className="w-3 h-3" /> Create Record
-          </button>
+      {/* ── VITALS STRIP (always visible, matching MedicalEntries) ────────── */}
+      {currentAttendance && (
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-3"
+          style={{ boxShadow: 'var(--shadow-sm)' }}>
+          {latestVitals ? (
+            <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-9 gap-2">
+              {[
+                { icon: <Gauge className="w-3.5 h-3.5 text-blue-500" />, value: latestVitals.bloodPressure || '—', label: 'BP' },
+                { icon: <Thermometer className="w-3.5 h-3.5 text-orange-500" />, value: latestVitals.temperature ? `${latestVitals.temperature}°` : '—', label: 'Temp' },
+                { icon: <Heart className="w-3.5 h-3.5 text-red-500" />, value: latestVitals.pulse || '—', label: 'Pulse' },
+                { icon: <Wind className="w-3.5 h-3.5 text-teal-500" />, value: latestVitals.respiration || '—', label: 'Resp' },
+                { icon: <Droplets className="w-3.5 h-3.5 text-sky-500" />, value: latestVitals.spo2 ? `${latestVitals.spo2}%` : '—', label: 'SpO₂' },
+                { icon: <Weight className="w-3.5 h-3.5 text-amber-500" />, value: latestVitals.weight ? `${latestVitals.weight}kg` : '—', label: 'Weight' },
+                { icon: <Ruler className="w-3.5 h-3.5 text-cyan-500" />, value: latestVitals.height ? `${latestVitals.height}cm` : '—', label: 'Height' },
+                { icon: <Activity className="w-3.5 h-3.5 text-violet-500" />, value: latestVitals.bmi || '—', label: 'BMI' },
+                { icon: <Activity className="w-3.5 h-3.5 text-indigo-500" />, value: latestVitals.muac || '—', label: 'MUAC' },
+              ].map((v, i) => (
+                <div key={i} className="flex flex-col items-center gap-0.5">
+                  {v.icon}
+                  <span className="text-xs font-bold leading-tight text-[var(--text-primary)]">{v.value}</span>
+                  <span className="text-[9px] text-[var(--text-tertiary)] leading-tight">{v.label}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2 py-2 text-[11px] text-[var(--text-tertiary)]">
+              <Activity className="w-3.5 h-3.5" /> No vitals recorded for this visit yet
+            </div>
+          )}
         </div>
       )}
 
@@ -1250,25 +1104,159 @@ export default function Antenatal() {
           {/* LEFT */}
           <div className="flex-1 min-w-0 space-y-4">
 
-            {/* Tab bar */}
+            {/* Current Pregnancy card (full width, above tabs) */}
+            {selectedPatient && shouldShowPregnancyCard && (
+  <SectionCard
+    icon={<Baby className="w-4 h-4 text-pink-600" />}
+    title="Current Pregnancy"
+    count={hasActiveBooking ? 1 : 0}
+    countCls="bg-pink-100 text-pink-700"
+    action={hasActiveBooking
+      ? <RiskBadge risk={currentRecord?.riskLevel || 'low'} />
+      : undefined}
+    maxH="max-h-none"
+  >
+                {hasActiveBooking ? (
+                  <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Left: pregnancy summary */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { l: 'Gravida / Para', v: `${currentRecord?.gravida ?? 0} / ${currentRecord?.para ?? 0}` },
+                        { l: 'Gestation', v: currentRecord?.gestationalAgeWeeks ? `${currentRecord.gestationalAgeWeeks} wks` : 'N/A' },
+                        { l: 'LMP', v: currentRecord?.lmp ? new Date(currentRecord.lmp).toLocaleDateString() : 'N/A' },
+                        { l: 'EDD', v: getEDDDisplay() },
+                        { l: 'Blood Group', v: currentRecord?.bloodGroup || 'Not recorded' },
+                        { l: 'Prev. C-Section', v: currentRecord?.previousCSection ? 'Yes' : 'No' },
+                      ].map((r, i) => (
+                        <div key={i} className="bg-[var(--bg-main)] rounded-lg p-2.5 border border-[var(--border-color)]">
+                          <p className="text-[10px] text-[var(--text-tertiary)]">{r.l}</p>
+                          <p className="text-xs font-semibold text-[var(--text-primary)] mt-0.5">{r.v}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Right: last visit + IPTp/TT pills */}
+                    <div className="space-y-3">
+                      {currentVisits.length > 0 && (() => {
+                        const last = currentVisits[currentVisits.length - 1];
+                        return (
+                          <div className="bg-[var(--bg-main)] rounded-lg p-3 border border-[var(--border-color)]">
+                            <p className="text-[10px] font-bold text-pink-500 uppercase tracking-wider mb-2">
+                              Last Visit (#{last.visitNumber}, {new Date(last.visitDate).toLocaleDateString()})
+                            </p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                              <div><span className="text-[var(--text-tertiary)]">Weight:</span> <span className="font-semibold text-[var(--text-primary)]">{last.weight ? `${last.weight}kg` : '—'}</span></div>
+                              <div><span className="text-[var(--text-tertiary)]">BP:</span> <span className="font-semibold text-[var(--text-primary)]">{visitBP(last)}</span></div>
+                              <div><span className="text-[var(--text-tertiary)]">FHR:</span> <span className="font-semibold text-[var(--text-primary)]">{last.fetalHeartRate || '—'}</span></div>
+                              <div><span className="text-[var(--text-tertiary)]">G/P:</span> <span className="font-semibold text-[var(--text-primary)]">{last.gravida ?? '—'}/{last.para ?? '—'}</span></div>
+                            </div>
+                            {last.dangerSignsPresent && (
+                              <div className="mt-2 px-2 py-1 rounded-lg text-[10px] font-bold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
+                                ⚠ Danger signs recorded
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 border border-[var(--icon-cyan-text)]/20">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Syringe className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
+                            <span className="text-[10px] font-bold text-[var(--icon-cyan-text)] uppercase tracking-wider">IPTp</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {(['dose1', 'dose2', 'dose3', 'dose4', 'dose5'] as const).map((k, i) => (
+                              <div key={k} className="text-center">
+                                <p className="text-xs font-bold text-[var(--icon-cyan-text)]">{iptpSummary[k]}</p>
+                                <p className="text-[9px] text-[var(--text-secondary)]">D{i + 1}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-3 border border-[var(--icon-purple-text)]/20">
+                          <div className="flex items-center gap-1.5 mb-2">
+                            <Shield className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" />
+                            <span className="text-[10px] font-bold text-[var(--icon-purple-text)] uppercase tracking-wider">TT</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {(['dose1', 'dose2', 'dose3'] as const).map((k, i) => (
+                              <div key={k} className="text-center">
+                                <p className="text-xs font-bold text-[var(--icon-purple-text)]">{ttSummary[k]}</p>
+                                <p className="text-[9px] text-[var(--text-secondary)]">D{i + 1}</p>
+                              </div>
+                            ))}
+                            <div className="text-center ml-2 pl-2 border-l border-[var(--border-color)]">
+                              <p className="text-xs font-bold text-[var(--icon-green-text)]">{ttSummary.tt2Plus}</p>
+                              <p className="text-[9px] text-[var(--text-secondary)]">TT2+</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : shouldOfferCreateRecord ? (
+                  <div className="p-4">
+                    <div className="flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl border border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)] flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4 text-[var(--icon-yellow-text)] flex-shrink-0" />
+                        <span className="text-xs font-medium text-[var(--icon-yellow-text)]">
+                          No active pregnancy record. Create one to track ANC data.
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setModalType('anc_booking')}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 transition-all"
+                      >
+                        <Plus className="w-3 h-3" /> Create Record
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <EmptySlate
+                    icon={<Baby className="w-9 h-9" />}
+                    label="No pregnancy record on file"
+                  />
+                )}
+              </SectionCard>
+            )}
+
+            {/* Tab bar + quick-switch pills */}
             <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="flex border-b border-[var(--border-color)] px-1 overflow-x-auto">
-                {tabs.map(tab => {
-                  const isActive = activeTab === tab.key;
-                  return (
-                    <button key={tab.key} onClick={() => setActiveTab(tab.key as any)}
-                      className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${
-                        isActive
+              <div className="flex items-center justify-between border-b border-[var(--border-color)] px-1 overflow-x-auto">
+                <div className="flex">
+                  {tabs.map(tab => {
+                    const isActive = activeTab === tab.key;
+                    return (
+                      <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                        className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
                           ? 'border-pink-500 text-pink-600'
                           : 'border-transparent text-[var(--text-secondary)] hover:text-pink-500'
-                      }`}>
-                      {tab.icon}{tab.label}
-                      {tab.count !== undefined && tab.count > 0 && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">{tab.count}</span>
-                      )}
+                          }`}>
+                        {tab.icon}{tab.label}
+                        {tab.count !== undefined && tab.count > 0 && (
+                          <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">{tab.count}</span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-1.5 pr-2 shrink-0">
+                  {showDeliveryQuickSwitch && activeTab !== 'delivery' && (
+                    <button onClick={goToDeliveryTab}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold
+                        bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all whitespace-nowrap">
+                      <Hospital className="w-3 h-3" /> Record Delivery <ArrowRight className="w-3 h-3" />
                     </button>
-                  );
-                })}
+                  )}
+                  {showPostnatalQuickSwitch && activeTab !== 'postnatal' && (
+                    <button onClick={goToPostnatalTab}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold
+                        bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all whitespace-nowrap">
+                      <Heart className="w-3 h-3" /> Record Postnatal <ArrowRight className="w-3 h-3" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* ── CLINICAL TAB ── */}
@@ -1290,8 +1278,8 @@ export default function Antenatal() {
                               const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
                               const cfg: Record<string, { label: string; cls: string }> = {
                                 provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-                                primary:     { label: 'Primary',     cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-                                additional:  { label: 'Additional',  cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+                                primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                                additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
                               };
                               const c = cfg[t] ?? cfg.additional;
                               return (
@@ -1347,10 +1335,9 @@ export default function Antenatal() {
                             {labTestsList.map((t: any) => (
                               <tr key={t.id} className="hover:bg-[var(--bg-main)] transition-colors">
                                 <TDp>{t.ServiceCatalog?.name || t.name}</TDp>
-                                <TD><span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                  t.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
+                                <TD><span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${t.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
                                   : t.priority === 'urgent' ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
-                                  : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'}`}>{t.priority || 'routine'}</span></TD>
+                                    : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'}`}>{t.priority || 'routine'}</span></TD>
                                 <TD><StatusBadge status={t.status} /></TD>
                                 <TD>{t.requestedAt ? new Date(t.requestedAt).toLocaleDateString() : t.createdAt ? new Date(t.createdAt).toLocaleDateString() : '—'}</TD>
                                 <TD>{canAddEntries && t.status === 'requested' && <DelBtn onClick={() => handleDeleteItem('lab', t.id)} />}</TD>
@@ -1487,10 +1474,10 @@ export default function Antenatal() {
                   {hasActiveBooking && (
                     <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
                       {[
-                        { icon: <Baby className="w-4 h-4 text-pink-500" />,   label: 'G/P',       value: `${currentRecord?.gravida||0}/${currentRecord?.para||0}` },
-                        { icon: <Calendar className="w-4 h-4 text-purple-500" />, label: 'Weeks',  value: currentRecord?.gestationalAgeWeeks || '?' },
-                        { icon: <Heart className="w-4 h-4 text-red-500" />,   label: 'FHR (bpm)', value: currentVisits[currentVisits.length-1]?.fetalHeartRate || '—' },
-                        { icon: <Ruler className="w-4 h-4 text-blue-500" />,  label: 'Fundal Ht', value: currentVisits[currentVisits.length-1]?.fundalHeight ? `${currentVisits[currentVisits.length-1].fundalHeight}cm` : '—' },
+                        { icon: <Baby className="w-4 h-4 text-pink-500" />, label: 'G/P', value: `${currentRecord?.gravida || 0}/${currentRecord?.para || 0}` },
+                        { icon: <Calendar className="w-4 h-4 text-purple-500" />, label: 'Weeks', value: currentRecord?.gestationalAgeWeeks || '?' },
+                        { icon: <Heart className="w-4 h-4 text-red-500" />, label: 'FHR (bpm)', value: currentVisits[currentVisits.length - 1]?.fetalHeartRate || '—' },
+                        { icon: <Ruler className="w-4 h-4 text-blue-500" />, label: 'Fundal Ht', value: currentVisits[currentVisits.length - 1]?.fundalHeight ? `${currentVisits[currentVisits.length - 1].fundalHeight}cm` : '—' },
                         { icon: <TrendingUp className="w-4 h-4 text-[var(--icon-green-text)]" />, label: 'Visits', value: currentVisits.length },
                         { icon: <Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" />, label: 'TT2+', value: ttSummary.tt2Plus },
                       ].map((s, i) => (
@@ -1498,21 +1485,6 @@ export default function Antenatal() {
                           <div className="flex justify-center mb-1">{s.icon}</div>
                           <p className="text-sm font-bold text-[var(--text-primary)]">{s.value}</p>
                           <p className="text-[10px] text-[var(--text-tertiary)]">{s.label}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {hasActiveBooking && currentVisits.length > 0 && (
-                    <div className="flex items-center gap-4 px-4 py-3 rounded-xl border border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]">
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Syringe className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                        <span className="text-xs font-bold text-[var(--icon-cyan-text)]">IPTp</span>
-                      </div>
-                      {['IPTp-1','IPTp-2','IPTp-3','IPTp-4','IPTp-5+'].map((label, i) => (
-                        <div key={i} className="text-center">
-                          <p className="text-xs font-bold text-[var(--icon-cyan-text)]">{Object.values(iptpSummary)[i]}</p>
-                          <p className="text-[10px] text-[var(--text-secondary)]">{label}</p>
                         </div>
                       ))}
                     </div>
@@ -1528,59 +1500,76 @@ export default function Antenatal() {
                         <Edit className="w-3 h-3" /> Edit Visit
                       </button>
                     )}
-                    maxH="max-h-96"
+                    maxH="max-h-none"
                   >
                     {currentVisits.length === 0
                       ? <EmptySlate icon={<Baby className="w-9 h-9" />} label="No ANC visits recorded yet" />
                       : (
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>#</TH><TH>Date</TH><TH>GA(wks)</TH><TH>G/P</TH><TH>Weight</TH><TH>BP</TH><TH>FHR</TH><TH>Fundal</TH><TH>IPTp</TH><TH>TT</TH><TH>ITN</TH><TH>Danger</TH><TH></TH></tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {currentVisits.map((v: any) => {
-                              const isCurrent = v.attendanceId === selectedAttendanceId;
-                              return (
-                                <tr key={v.id} className={`hover:bg-[var(--bg-main)] transition-colors ${isCurrent ? 'bg-pink-50/20' : ''}`}>
-                                  <TD>{v.visitNumber}{isCurrent && <span className="ml-1 text-[9px] text-pink-500">(now)</span>}</TD>
-                                  <TD>{new Date(v.visitDate).toLocaleDateString()}</TD>
-                                  <TD>{v.gestationalAgeWeeks || '—'}</TD>
-                                  <TD>{v.gravida != null || v.para != null ? `${v.gravida ?? '?'}/${v.para ?? '?'}` : '—'}</TD>
-                                  <TD>{v.weight ? `${v.weight}kg` : '—'}</TD>
-                                  <TD>{visitBP(v)}</TD>
-                                  <TD>{v.fetalHeartRate || '—'}</TD>
-                                  <TD>{v.fundalHeight ? `${v.fundalHeight}cm` : '—'}</TD>
-                                  <TD>{v.iptpGiven ? `D${v.iptpDoseNumber}` : '—'}</TD>
-                                  <TD>{v.ttGiven ? `D${v.ttDoseNumber}` : '—'}</TD>
-                                  <TD>{v.itnGiven ? '✓' : '—'}</TD>
-                                  <TD>{v.dangerSignsPresent ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : '—'}</TD>
-                                  <TD>
-                                    <div className="flex gap-0.5">
-                                      <button onClick={() => { setSelectedVisit(v); setShowVisitDetails(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3 h-3" /></button>
-                                      <button onClick={() => { setEditingVisit(v); setSelectedBookingId(currentRecord?.id||''); setShowANCVisitModal(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3 h-3" /></button>
-                                      <button onClick={() => handleDeleteANCVisit(v.id)} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3 h-3" /></button>
-                                    </div>
-                                  </TD>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                        <div className="divide-y divide-[var(--border-color)]">
+                          {currentVisits.map((v: any) => {
+                            const isCurrent = v.attendanceId === selectedAttendanceId;
+                            const danger = !!v.dangerSignsPresent;
+                            return (
+                              <div key={v.id} className={`relative px-4 py-3 hover:bg-[var(--bg-main)] transition-colors ${isCurrent ? 'bg-pink-50/20' : ''}`}>
+                                {danger && <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[var(--icon-red-text)] opacity-70" />}
+
+                                <div className="flex items-start justify-between gap-3 mb-2">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <span className="text-xs font-bold text-[var(--text-primary)]">Visit #{v.visitNumber}</span>
+                                    <span className="text-[11px] text-[var(--text-tertiary)]">·</span>
+                                    <span className="text-[11px] text-[var(--text-secondary)]">{new Date(v.visitDate).toLocaleDateString()}</span>
+                                    {isCurrent && <span className="text-[9px] font-bold text-pink-500">(now)</span>}
+                                  </div>
+                                  <div className="flex gap-0.5 shrink-0">
+                                    <button onClick={() => { setSelectedVisit(v); setShowVisitDetails(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => { setEditingVisit(v); setSelectedBookingId(currentRecord?.id || ''); setShowANCVisitModal(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                    <button onClick={() => handleDeleteANCVisit(v.id)} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                                  <Col label="GA"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.gestationalAgeWeeks ? `${v.gestationalAgeWeeks}wks` : '—'}</p></Col>
+                                  <Col label="G/P"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.gravida != null || v.para != null ? `${v.gravida ?? '?'}/${v.para ?? '?'}` : '—'}</p></Col>
+                                  <Col label="Weight"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.weight ? `${v.weight}kg` : '—'}</p></Col>
+                                  <Col label="BP"><p className="text-xs font-semibold text-[var(--text-primary)]">{visitBP(v)}</p></Col>
+                                  <Col label="FHR"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.fetalHeartRate || '—'}</p></Col>
+                                  <Col label="Fundal"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.fundalHeight ? `${v.fundalHeight}cm` : '—'}</p></Col>
+                                  <Col label="IPTp"><p className="text-xs font-semibold text-[var(--icon-cyan-text)]">{v.iptpGiven ? `D${v.iptpDoseNumber}` : '—'}</p></Col>
+                                  <Col label="TT"><p className="text-xs font-semibold text-[var(--icon-purple-text)]">{v.ttGiven ? `D${v.ttDoseNumber}` : '—'}</p></Col>
+                                  <Col label="ITN"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.itnGiven ? '✓' : '—'}</p></Col>
+                                  <Col label="Malaria"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.malariaTestDone ? (v.malariaTestResult || 'Done') : '—'}</p></Col>
+                                  <Col label="Danger"><p className={`text-xs font-semibold ${danger ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-primary)]'}`}>{danger ? 'Yes' : '—'}</p></Col>
+                                  <Col label="Referral"><p className="text-xs font-semibold text-[var(--text-primary)]">{v.referralMade ? 'Yes' : '—'}</p></Col>
+                                </div>
+
+                                {danger && v.dangerSignsList?.length > 0 && (
+                                  <div className="mt-2 px-2 py-1 rounded-lg text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
+                                    ⚠ {v.dangerSignsList.join(', ')}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       )}
                   </SectionCard>
 
                   {currentVisits.length > 0 && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {[
-                        { icon: <AlertTriangle className="w-4 h-4 text-[var(--icon-yellow-text)]" />, title: 'Malaria in Pregnancy', rows: [
-                          { l: 'Tested', v: currentVisits.filter((v:any)=>v.malariaTestDone).length },
-                          { l: 'Positive', v: currentVisits.filter((v:any)=>v.malariaTestResult==='Positive').length, danger: true },
-                          { l: 'Treated', v: currentVisits.filter((v:any)=>v.malariaTreatmentGiven).length },
-                        ]},
-                        { icon: <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)]" />, title: 'Danger Signs & Referrals', rows: [
-                          { l: 'Danger Signs', v: currentVisits.filter((v:any)=>v.dangerSignsPresent).length, danger: true },
-                          { l: 'Referrals', v: currentVisits.filter((v:any)=>v.referralMade).length },
-                        ]},
+                        {
+                          icon: <AlertTriangle className="w-4 h-4 text-[var(--icon-yellow-text)]" />, title: 'Malaria in Pregnancy', rows: [
+                            { l: 'Tested', v: currentVisits.filter((v: any) => v.malariaTestDone).length },
+                            { l: 'Positive', v: currentVisits.filter((v: any) => v.malariaTestResult === 'Positive').length, danger: true },
+                            { l: 'Treated', v: currentVisits.filter((v: any) => v.malariaTreatmentGiven).length },
+                          ]
+                        },
+                        {
+                          icon: <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)]" />, title: 'Danger Signs & Referrals', rows: [
+                            { l: 'Danger Signs', v: currentVisits.filter((v: any) => v.dangerSignsPresent).length, danger: true },
+                            { l: 'Referrals', v: currentVisits.filter((v: any) => v.referralMade).length },
+                          ]
+                        },
                       ].map(card => (
                         <div key={card.title} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                           <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
@@ -1604,37 +1593,50 @@ export default function Antenatal() {
 
               {/* ── DELIVERY TAB ── */}
               {activeTab === 'delivery' && (
-                <div className="p-4">
+                <div className="p-4 space-y-4">
+                  {deliveryForCurrentVisit && !postnatalForCurrentVisit && (
+                    <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)] flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)] flex-shrink-0" />
+                        <span className="text-xs font-medium text-[var(--icon-cyan-text)]">Delivery recorded — record the postnatal examination to complete the visit.</span>
+                      </div>
+                      <button onClick={goToPostnatalTab}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all">
+                        <Heart className="w-3 h-3" /> Record Postnatal <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+
                   <SectionCard icon={<Hospital className="w-4 h-4 text-[var(--icon-green-text)]" />} title="Delivery Records"
-                    count={deliveries.filter((d:any) => d.attendanceId === selectedAttendanceId).length}
+                    count={deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length}
                     countCls="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
                     action={<AddBtn onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} label="Add" />}
                     maxH="max-h-[600px]">
-                    {deliveries.filter((d:any) => d.attendanceId === selectedAttendanceId).length === 0
+                    {deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).length === 0
                       ? <EmptySlate icon={<Hospital className="w-9 h-9" />} label="No delivery records for this visit"
-                          action={<button onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">Add Record</button>} />
+                        action={<button onClick={() => { setEditingDelivery(null); setShowDeliveryModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">Add Record</button>} />
                       : <div className="divide-y divide-[var(--border-color)]">
-                          {deliveries.filter((d:any) => d.attendanceId === selectedAttendanceId).map((d: any) => (
-                            <div key={d.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-[var(--text-primary)]">Delivery — {new Date(d.deliveryDate).toLocaleDateString()}</p>
-                                  <div className="flex flex-wrap gap-2 mt-1.5">
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">{d.deliveryType?.replace(/_/g,' ')}</span>
-                                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{d.deliveryOutcome?.replace(/_/g,' ')}</span>
-                                    {d.birthWeight && <span className="text-[10px] text-[var(--text-tertiary)]">Wt: {d.birthWeight}g</span>}
-                                    {d.gestationWeeks && <span className="text-[10px] text-[var(--text-tertiary)]">{d.gestationWeeks}wks</span>}
-                                  </div>
-                                </div>
-                                <div className="flex gap-0.5">
-                                  <button onClick={() => { setSelectedDelivery(d); setShowDeliveryDetails(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => { setEditingDelivery(d); setShowDeliveryModal(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => handleDeleteDeliveryRecord(d.id)} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {deliveries.filter((d: any) => d.attendanceId === selectedAttendanceId).map((d: any) => (
+                          <div key={d.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-[var(--text-primary)]">Delivery — {new Date(d.deliveryDate).toLocaleDateString()}</p>
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">{d.deliveryType?.replace(/_/g, ' ')}</span>
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{d.deliveryOutcome?.replace(/_/g, ' ')}</span>
+                                  {d.birthWeight && <span className="text-[10px] text-[var(--text-tertiary)]">Wt: {d.birthWeight}g</span>}
+                                  {d.gestationWeeks && <span className="text-[10px] text-[var(--text-tertiary)]">{d.gestationWeeks}wks</span>}
                                 </div>
                               </div>
+                              <div className="flex gap-0.5">
+                                <button onClick={() => { setSelectedDelivery(d); setShowDeliveryDetails(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { setEditingDelivery(d); setShowDeliveryModal(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeleteDeliveryRecord(d.id)} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
                             </div>
-                          ))}
-                        </div>}
+                          </div>
+                        ))}
+                      </div>}
                   </SectionCard>
                 </div>
               )}
@@ -1643,168 +1645,73 @@ export default function Antenatal() {
               {activeTab === 'postnatal' && (
                 <div className="p-4">
                   <SectionCard icon={<Heart className="w-4 h-4 text-[var(--icon-cyan-text)]" />} title="Postnatal Examinations"
-                    count={postnatalRecords.filter((p:any) => p.attendanceId === selectedAttendanceId).length}
+                    count={postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length}
                     action={<AddBtn onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} label="Add" />}
                     maxH="max-h-[600px]">
-                    {postnatalRecords.filter((p:any) => p.attendanceId === selectedAttendanceId).length === 0
+                    {postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length === 0
                       ? <EmptySlate icon={<Heart className="w-9 h-9" />} label="No postnatal examinations for this visit"
-                          action={<button onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Add Exam</button>} />
+                        action={<button onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Add Exam</button>} />
                       : <div className="divide-y divide-[var(--border-color)]">
-                          {postnatalRecords.filter((p:any) => p.attendanceId === selectedAttendanceId).map((pn: any) => (
-                            <div key={pn.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-bold text-[var(--text-primary)]">Postnatal Day {pn.dayNumber}</p>
-                                  <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{new Date(pn.examinationDate).toLocaleString()}</p>
-                                  <div className="flex flex-wrap gap-2 mt-1.5">
-                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${pn.maternalCondition === 'good' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : pn.maternalCondition === 'fair' ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'}`}>
-                                      Maternal: {pn.maternalCondition}
-                                    </span>
-                                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${pn.breastfeedingStatus === 'exclusive' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>
-                                      BF: {pn.breastfeedingStatus}
-                                    </span>
-                                  </div>
-                                </div>
-                                <div className="flex gap-0.5">
-                                  <button onClick={() => { setSelectedPostnatal(pn); setShowPostnatalDetails(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => { setEditingPostnatal(pn); setShowPostnatalModal(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                                  <button onClick={() => handleDeletePostnatalRecord(pn.id)} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                        {postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).map((pn: any) => (
+                          <div key={pn.id} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-bold text-[var(--text-primary)]">Postnatal Day {pn.dayNumber}</p>
+                                <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{new Date(pn.examinationDate).toLocaleString()}</p>
+                                <div className="flex flex-wrap gap-2 mt-1.5">
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${pn.maternalCondition === 'good' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : pn.maternalCondition === 'fair' ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'}`}>
+                                    Maternal: {pn.maternalCondition}
+                                  </span>
+                                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${pn.breastfeedingStatus === 'exclusive' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>
+                                    BF: {pn.breastfeedingStatus}
+                                  </span>
                                 </div>
                               </div>
+                              <div className="flex gap-0.5">
+                                <button onClick={() => { setSelectedPostnatal(pn); setShowPostnatalDetails(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => { setEditingPostnatal(pn); setShowPostnatalModal(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => handleDeletePostnatalRecord(pn.id)} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                              </div>
                             </div>
-                          ))}
-                        </div>}
+                          </div>
+                        ))}
+                      </div>}
                   </SectionCard>
                 </div>
               )}
 
-              {/* ── FAMILY PLANNING TAB ── */}
-              {activeTab === 'family_planning' && (
-                <div className="p-4 space-y-4">
-                  <SectionCard 
-                    icon={<ShieldCheck className="w-4 h-4 text-purple-600" />} 
-                    title="Family Planning Services"
-                    action={canAddEntries && (
-                      <button 
-                        onClick={() => { setEditingFP(currentAttendance); setShowFamilyPlanningModal(true); }}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
-                          bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all">
-                        <Edit className="w-3 h-3" /> {currentAttendance?.familyPlanningDiscussed ? 'Edit' : 'Add'} FP Record
-                      </button>
-                    )}
-                  >
-                    {currentAttendance?.familyPlanningDiscussed ? (
-                      <div className="p-4 space-y-4">
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                          <div className="bg-purple-50 rounded-lg p-3 border border-purple-200 text-center">
-                            <ShieldCheck className="w-5 h-5 text-purple-600 mx-auto mb-1" />
-                            <p className="text-xs font-bold text-purple-700">FP Discussed</p>
-                            <p className="text-[10px] text-purple-600">Yes</p>
-                          </div>
-                          <div className="bg-green-50 rounded-lg p-3 border border-green-200 text-center">
-                            <CheckCircle className="w-5 h-5 text-green-600 mx-auto mb-1" />
-                            <p className="text-xs font-bold text-green-700">Counselling</p>
-                            <p className="text-[10px] text-green-600">{currentAttendance.fpCounsellingGiven ? 'Given' : 'Not Given'}</p>
-                          </div>
-                          <div className="bg-blue-50 rounded-lg p-3 border border-blue-200 text-center">
-                            <Calendar className="w-5 h-5 text-blue-600 mx-auto mb-1" />
-                            <p className="text-xs font-bold text-blue-700">Next Follow-up</p>
-                            <p className="text-[10px] text-blue-600">
-                              {currentAttendance.nextFollowUp ? new Date(currentAttendance.nextFollowUp).toLocaleDateString() : 'Not set'}
-                            </p>
-                          </div>
-                          <div className="bg-cyan-50 rounded-lg p-3 border border-cyan-200 text-center">
-                            <Pill className="w-5 h-5 text-cyan-600 mx-auto mb-1" />
-                            <p className="text-xs font-bold text-cyan-700">Method</p>
-                            <p className="text-[10px] text-cyan-600 truncate">
-                              {currentAttendance.familyPlanningMethodAccepted?.replace(/_/g, ' ') || 'Not selected'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="border rounded-lg p-3">
-                            <h4 className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1">
-                              <ShieldCheck className="w-3.5 h-3.5 text-purple-600" />
-                              Method Details
-                            </h4>
-                            <div className="space-y-2 text-xs">
-                              <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Method Accepted:</span>
-                                <span className="font-medium text-[var(--text-primary)]">
-                                  {currentAttendance.familyPlanningMethodAccepted?.replace(/_/g, ' ') || '—'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span className="text-[var(--text-secondary)]">Method Provided:</span>
-                                <span className="font-medium text-[var(--text-primary)]">
-                                  {currentAttendance.fpMethodProvided?.replace(/_/g, ' ') || 'Not provided today'}
-                                </span>
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="border rounded-lg p-3">
-                            <h4 className="text-xs font-bold text-[var(--text-primary)] mb-2 flex items-center gap-1">
-                              <AlertCircle className="w-3.5 h-3.5 text-orange-600" />
-                              Side Effects & Notes
-                            </h4>
-                            <div className="space-y-2 text-xs">
-                              <div>
-                                <span className="text-[var(--text-secondary)]">Side Effects:</span>
-                                <p className="font-medium text-[var(--text-primary)] mt-0.5">
-                                  {currentAttendance.sideEffects || 'None reported'}
-                                </p>
-                              </div>
-                              {currentAttendance.notes && (
-                                <div>
-                                  <span className="text-[var(--text-secondary)]">Notes:</span>
-                                  <p className="font-medium text-[var(--text-primary)] mt-0.5 whitespace-pre-wrap">
-                                    {currentAttendance.notes}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <EmptySlate 
-                        icon={<ShieldCheck className="w-9 h-9" />} 
-                        label="No family planning record for this visit"
-                        action={
-                          <button 
-                            onClick={() => { setEditingFP(null); setShowFamilyPlanningModal(true); }}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all">
-                            Add FP Record
-                          </button>
-                        }
-                      />
-                    )}
-                  </SectionCard>
-                </div>
-              )}
-
-              {/* ── VITALS TAB ── */}
+              {/* ── VITALS TAB (history table) ── */}
               {activeTab === 'vitals' && (
                 <div className="p-4">
-                  <SectionCard icon={<Activity className="w-4 h-4 text-pink-500" />} title="Latest Vitals" maxH="max-h-96">
-                    {latestVitals ? (
-                      <table className="w-full text-xs">
-                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                          <tr><TH>Date / Time</TH><TH>BP</TH><TH>Temp</TH><TH>Pulse</TH><TH>Weight</TH></tr>
-                        </thead>
-                        <tbody>
-                          <tr className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TD>{new Date(latestVitals.recordedAt).toLocaleString()}</TD>
-                            <TD>{latestVitals.bloodPressure || '—'}</TD>
-                            <TD>{latestVitals.temperature ? `${latestVitals.temperature}°C` : '—'}</TD>
-                            <TD>{latestVitals.pulse || '—'}</TD>
-                            <TD>{latestVitals.weight ? `${latestVitals.weight}kg` : '—'}</TD>
-                          </tr>
-                        </tbody>
-                      </table>
-                    ) : <EmptySlate icon={<Activity className="w-8 h-8" />} label="No vitals recorded" />}
+                  <SectionCard icon={<Activity className="w-4 h-4 text-pink-500" />} title="Vitals History" count={allVitals.length} maxH="max-h-[600px]">
+                    {allVitals.length === 0
+                      ? <EmptySlate icon={<Activity className="w-8 h-8" />} label="No vitals recorded for this visit" />
+                      : (
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <tr>
+                              <TH>Date / Time</TH><TH>BP</TH><TH>Temp</TH><TH>Pulse</TH><TH>Resp</TH>
+                              <TH>SpO₂</TH><TH>Weight</TH><TH>Height</TH><TH>BMI</TH><TH>MUAC</TH>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--border-color)]">
+                            {[...allVitals].reverse().map((v: any) => (
+                              <tr key={v.id || v.recordedAt} className="hover:bg-[var(--bg-main)] transition-colors">
+                                <TD>{new Date(v.recordedAt || v.createdAt).toLocaleString()}</TD>
+                                <TD className="font-semibold">{v.bloodPressure || '—'}</TD>
+                                <TD>{v.temperature ? `${v.temperature}°C` : '—'}</TD>
+                                <TD>{v.pulse || '—'}</TD>
+                                <TD>{v.respiration || '—'}</TD>
+                                <TD>{v.spo2 ? `${v.spo2}%` : '—'}</TD>
+                                <TD>{v.weight ? `${v.weight}kg` : '—'}</TD>
+                                <TD>{v.height ? `${v.height}cm` : '—'}</TD>
+                                <TD>{v.bmi || '—'}</TD>
+                                <TD>{v.muac || '—'}</TD>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
                   </SectionCard>
                 </div>
               )}
@@ -1822,74 +1729,10 @@ export default function Antenatal() {
                 boxShadow: 'var(--shadow-sm)',
               }}
             >
+              {/* ── PHYSICIAN NOTES ── */}
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-                <Baby className="w-4 h-4 text-pink-500" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Pregnancy Overview</span>
-              </div>
-
-              <div
-                className="overflow-y-auto p-3 space-y-3 bg-[var(--bg-main)]"
-                style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-              >
-                {hasActiveBooking ? (
-                  <>
-                    <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)] space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-pink-500 uppercase tracking-wider">Current Pregnancy</span>
-                        <RiskBadge risk={currentRecord?.riskLevel || 'low'} />
-                      </div>
-                      {[
-                        { l: 'Gravida / Para', v: `${currentRecord?.gravida||0} / ${currentRecord?.para||0}` },
-                        { l: 'Gestation',      v: currentRecord?.gestationalAgeWeeks ? `${currentRecord.gestationalAgeWeeks} wks` : 'N/A' },
-                        { l: 'LMP',            v: currentRecord?.lmp ? new Date(currentRecord.lmp).toLocaleDateString() : 'N/A' },
-                        { l: 'EDD',            v: getEDDDisplay() },
-                        { l: 'Blood Group',    v: currentRecord?.bloodGroup || 'Not recorded' },
-                        { l: 'Prev. C-Section',v: currentRecord?.previousCSection ? 'Yes' : 'No' },
-                      ].map((r, i) => (
-                        <div key={i} className="flex items-center justify-between pt-1.5 border-t border-[var(--border-color)] first:border-0 first:pt-0">
-                          <span className="text-[10px] text-[var(--text-tertiary)]">{r.l}</span>
-                          <span className="text-[11px] font-semibold text-[var(--text-primary)]">{r.v}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    {currentVisits.length > 0 && (() => {
-                      const last = currentVisits[currentVisits.length - 1];
-                      return (
-                        <div className="bg-[var(--bg-card)] rounded-lg p-3 border border-[var(--border-color)]">
-                          <p className="text-[10px] font-bold text-pink-500 uppercase tracking-wider mb-2">Last Visit (#{last.visitNumber})</p>
-                          {[
-                            { l: 'Date',   v: new Date(last.visitDate).toLocaleDateString() },
-                            { l: 'Weight', v: last.weight ? `${last.weight}kg` : '—' },
-                            { l: 'BP',     v: visitBP(last) },
-                            { l: 'G / P',  v: `${last.gravida ?? '—'} / ${last.para ?? '—'}` },
-                            { l: 'FHR',    v: last.fetalHeartRate || '—' },
-                          ].map((r, i) => (
-                            <div key={i} className="flex items-center justify-between mt-1">
-                              <span className="text-[10px] text-[var(--text-tertiary)]">{r.l}</span>
-                              <span className="text-[11px] font-semibold text-[var(--text-primary)]">{r.v}</span>
-                            </div>
-                          ))}
-                          {last.dangerSignsPresent && (
-                            <div className="mt-2 px-2 py-1 rounded-lg text-[10px] font-bold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
-                              ⚠ Danger signs recorded
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <p className="text-center text-[11px] text-[var(--text-tertiary)] pt-8">No active pregnancy record</p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
-                <div className="flex-1 h-px bg-[var(--border-color)]" />
-                <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                  <ClipboardList className="w-3 h-3" /> Clinical Notes
-                </span>
-                <div className="flex-1 h-px bg-[var(--border-color)]" />
+                <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Clinical Notes</span>
               </div>
 
               <div
@@ -1901,7 +1744,7 @@ export default function Antenatal() {
                     <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
                   ))
                 ) : (
-                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-4">No clinical notes yet</p>
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No clinical notes yet</p>
                 )}
               </div>
 
@@ -1910,7 +1753,7 @@ export default function Antenatal() {
                   <textarea
                     value={physicianNoteText}
                     onChange={e => setPhysicianNoteText(e.target.value)}
-                    rows={2}
+                    rows={3}
                     placeholder="Add clinical note…"
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                       focus:outline-none focus:ring-1 focus:ring-pink-400 resize-none
@@ -1919,7 +1762,7 @@ export default function Antenatal() {
                   <button
                     onClick={handleSavePhysicianNote}
                     disabled={!physicianNoteText.trim()}
-                    className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold
+                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
                       bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40 transition-all"
                   >
                     Add Note
@@ -1927,6 +1770,7 @@ export default function Antenatal() {
                 </div>
               )}
 
+              {/* ── DIVIDER ── */}
               <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
                 <div className="flex-1 h-px bg-[var(--border-color)]" />
                 <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
@@ -1944,7 +1788,7 @@ export default function Antenatal() {
                     <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
                   ))
                 ) : (
-                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-4">No treatment notes yet</p>
+                  <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
                 )}
               </div>
 
@@ -1953,7 +1797,7 @@ export default function Antenatal() {
                   <textarea
                     value={treatmentPlan}
                     onChange={e => setTreatmentPlan(e.target.value)}
-                    rows={2}
+                    rows={3}
                     placeholder="Add treatment note…"
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                       focus:outline-none focus:ring-1 focus:ring-pink-400 resize-none
@@ -1962,7 +1806,7 @@ export default function Antenatal() {
                   <button
                     onClick={handleSaveTreatmentNote}
                     disabled={!treatmentPlan.trim()}
-                    className="mt-1.5 w-full py-1.5 rounded-lg text-xs font-semibold
+                    className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
                       bg-pink-500 text-white hover:bg-pink-600 disabled:opacity-40 transition-all"
                   >
                     Add Note
@@ -1992,67 +1836,56 @@ export default function Antenatal() {
         <NewAttendanceModal patientId={selectedPatientId} onSuccess={handleAttendanceCreated} onClose={() => setShowNewAttendance(false)} isEditMode={false} />
       )}
 
-      <DiagnosisModal  isOpen={modalType==='diagnosis'}  onClose={()=>setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} diagnoses={diagnoses}          canAdd={canAddEntries} userId={user?.id} />
-      <LabTestModal    isOpen={modalType==='lab'}         onClose={()=>setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} labTests={labTestTemplates}   canAdd={canAddEntries} userId={user?.id} />
-      <ProcedureModal  isOpen={modalType==='procedure'}   onClose={()=>setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} procedures={procedureTemplates} canAdd={canAddEntries} userId={user?.id} />
-      <MedicationModal isOpen={modalType==='medication'}  onClose={()=>setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} stockItems={stockItems}       canAdd={canAddEntries} userId={user?.id} />
-      <ScanModal       isOpen={modalType==='scan'}        onClose={()=>setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} scans={scanTemplates}         canAdd={canAddEntries} userId={user?.id} />
+      <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries} userId={user?.id} />
+      <LabTestModal isOpen={modalType === 'lab'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} labTests={labTestTemplates} canAdd={canAddEntries} userId={user?.id} />
+      <ProcedureModal isOpen={modalType === 'procedure'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} procedures={procedureTemplates} canAdd={canAddEntries} userId={user?.id} />
+      <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} userId={user?.id} />
+      <ScanModal isOpen={modalType === 'scan'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} scans={scanTemplates} canAdd={canAddEntries} userId={user?.id} />
 
       {showANCVisitModal && selectedBookingId && selectedAttendanceId && (
-        <ANCVisitModal  // ← This stays as ANCVisitModal
+        <ANCVisitModal
           isOpen={showANCVisitModal}
-          onClose={()=>setShowANCVisitModal(false)}
-          onSuccess={()=>{
+          onClose={() => setShowANCVisitModal(false)}
+          onSuccess={() => {
             setShowANCVisitModal(false);
-            if(currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
+            if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
             loadData();
           }}
           attendanceId={selectedAttendanceId}
-          bookingId={selectedBookingId}  // ← Note: uses bookingId, not patientId
-          visitNumber={currentVisits.length+1}
+          bookingId={selectedBookingId}
+          visitNumber={currentVisits.length + 1}
           existingVisit={editingVisit}
           booking={currentRecord}
         />
       )}
 
       {showDeliveryModal && selectedAttendanceId && (
-        <DeliveryModal isOpen={showDeliveryModal} onClose={()=>setShowDeliveryModal(false)}
-          onSuccess={()=>{setShowDeliveryModal(false); getDeliveryRecords({patientId:selectedPatientId}); loadData();}}
+        <DeliveryModal isOpen={showDeliveryModal} onClose={() => setShowDeliveryModal(false)}
+          onSuccess={() => { setShowDeliveryModal(false); getDeliveryRecords({ patientId: selectedPatientId }); loadData(); }}
           attendanceId={selectedAttendanceId} patientId={selectedPatientId} existingDelivery={editingDelivery} />
       )}
 
       {showPostnatalModal && selectedAttendanceId && (
-        <PostnatalModal isOpen={showPostnatalModal} onClose={()=>setShowPostnatalModal(false)}
-          onSuccess={()=>{setShowPostnatalModal(false); getPostnatalRecords({patientId:selectedPatientId}); loadData();}}
+        <PostnatalModal isOpen={showPostnatalModal} onClose={() => setShowPostnatalModal(false)}
+          onSuccess={() => { setShowPostnatalModal(false); getPostnatalRecords({ patientId: selectedPatientId }); loadData(); }}
           attendanceId={selectedAttendanceId} patientId={selectedPatientId} existingPostnatal={editingPostnatal} />
-      )}
-
-      {showFamilyPlanningModal && selectedAttendanceId && (
-        <FamilyPlanningModal 
-          isOpen={showFamilyPlanningModal} 
-          onClose={()=>setShowFamilyPlanningModal(false)}
-          onSuccess={()=>{setShowFamilyPlanningModal(false); getAttendance(selectedAttendanceId); loadData();}}
-          attendanceId={selectedAttendanceId} 
-          patientId={selectedPatientId} 
-          existingRecord={editingFP} 
-        />
       )}
 
       {/* ANC Booking Modal */}
       {modalType === 'anc_booking' && selectedAttendanceId && (
-        <ANCBookingModal  // ← CHANGE THIS to ANCBookingModal
+        <ANCBookingModal
           isOpen={true}
           onClose={() => setModalType(null)}
           onSuccess={() => {
             setModalType(null);
-            const pid = currentAttendance?.patientId 
+            const pid = currentAttendance?.patientId
               || (typeof currentAttendance?.patient === 'object' ? currentAttendance?.patient?.id : null)
               || selectedPatientId;
             if (pid) getActiveAntenatalRecordByPatient(pid);
             loadData();
           }}
           patientId={
-            currentAttendance?.patientId 
+            currentAttendance?.patientId
             || (typeof currentAttendance?.patient === 'object' ? currentAttendance?.patient?.id : null)
             || selectedPatientId
             || ''
@@ -2060,6 +1893,7 @@ export default function Antenatal() {
           attendanceId={selectedAttendanceId}
         />
       )}
+
       {/* Bed/Ward Selection Modal for Maternal Admissions */}
       <BedWardSelectionModalAntenatal
         isOpen={showBedWardModal}
@@ -2091,13 +1925,13 @@ export default function Antenatal() {
           footer={
             <div className="flex gap-3 justify-end">
               <button onClick={() => setShowVisitDetails(false)} className="px-4 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">Close</button>
-              <button onClick={() => { setShowVisitDetails(false); setEditingVisit(selectedVisit); setSelectedBookingId(currentRecord?.id||''); setShowANCVisitModal(true); }}
+              <button onClick={() => { setShowVisitDetails(false); setEditingVisit(selectedVisit); setSelectedBookingId(currentRecord?.id || ''); setShowANCVisitModal(true); }}
                 className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">Edit Visit</button>
             </div>
           }>
           <div className="grid grid-cols-2 gap-4">
             {[
-              { l: 'Gestational Age', v: `${selectedVisit.gestationalAgeWeeks||'—'} weeks` },
+              { l: 'Gestational Age', v: `${selectedVisit.gestationalAgeWeeks || '—'} weeks` },
               { l: 'Weight', v: selectedVisit.weight ? `${selectedVisit.weight}kg` : '—' },
               { l: 'Blood Pressure (from Vitals)', v: visitBP(selectedVisit) },
               { l: 'Gravida / Para', v: `${selectedVisit.gravida ?? '—'} / ${selectedVisit.para ?? '—'}` },
@@ -2108,7 +1942,7 @@ export default function Antenatal() {
               { l: 'TT Given', v: selectedVisit.ttGiven ? `Yes (Dose ${selectedVisit.ttDoseNumber})` : 'No' },
               { l: 'ITN Given', v: selectedVisit.itnGiven ? 'Yes' : 'No' },
               { l: 'Iron/Folate', v: selectedVisit.ironGiven || selectedVisit.folateGiven ? 'Yes' : 'No' },
-              { l: 'Malaria Test', v: selectedVisit.malariaTestDone ? `Done (${selectedVisit.malariaTestResult||'—'})` : 'Not done' },
+              { l: 'Malaria Test', v: selectedVisit.malariaTestDone ? `Done (${selectedVisit.malariaTestResult || '—'})` : 'Not done' },
               { l: 'Malaria Treated', v: selectedVisit.malariaTreatmentGiven ? 'Yes' : 'No' },
               { l: 'Danger Signs', v: selectedVisit.dangerSignsPresent ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : 'No' },
               { l: 'Referral Made', v: selectedVisit.referralMade ? 'Yes' : 'No' },
@@ -2144,14 +1978,14 @@ export default function Antenatal() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { l: 'Delivery Type',    v: selectedDelivery.deliveryType?.replace(/_/g,' ') },
-                { l: 'Outcome',          v: selectedDelivery.deliveryOutcome?.replace(/_/g,' ') },
-                { l: 'Birth Weight',     v: selectedDelivery.birthWeight ? `${selectedDelivery.birthWeight}g` : null },
-                { l: 'Gestation Weeks',  v: selectedDelivery.gestationWeeks ? `${selectedDelivery.gestationWeeks}wks` : null },
-                { l: 'No. of Babies',    v: selectedDelivery.numberOfBabies || 1 },
-                { l: 'Blood Loss (ml)',  v: selectedDelivery.bloodLoss },
-                { l: 'APGAR Score',      v: selectedDelivery.apgarScore },
-                { l: 'Attendant',        v: selectedDelivery.attendant },
+                { l: 'Delivery Type', v: selectedDelivery.deliveryType?.replace(/_/g, ' ') },
+                { l: 'Outcome', v: selectedDelivery.deliveryOutcome?.replace(/_/g, ' ') },
+                { l: 'Birth Weight', v: selectedDelivery.birthWeight ? `${selectedDelivery.birthWeight}g` : null },
+                { l: 'Gestation Weeks', v: selectedDelivery.gestationWeeks ? `${selectedDelivery.gestationWeeks}wks` : null },
+                { l: 'No. of Babies', v: selectedDelivery.numberOfBabies || 1 },
+                { l: 'Blood Loss (ml)', v: selectedDelivery.bloodLoss },
+                { l: 'APGAR Score', v: selectedDelivery.apgarScore },
+                { l: 'Attendant', v: selectedDelivery.attendant },
                 { l: 'Postpartum Haemorrhage', v: selectedDelivery.postpartumHaemorrhage ? <span className="text-[var(--icon-red-text)] font-bold">Yes</span> : 'No' },
                 { l: 'Est. Blood Loss', v: selectedDelivery.estimatedBloodLoss ? `${selectedDelivery.estimatedBloodLoss}ml` : '—' },
                 { l: 'Family Planning Discussed', v: selectedDelivery.familyPlanningDiscussed ? 'Yes' : 'No' },
@@ -2170,7 +2004,7 @@ export default function Antenatal() {
                 <p className="text-xs text-[var(--icon-red-text)]">{selectedDelivery.maternalComplications.join(', ')}</p>
               </div>
             )}
-          
+
             {selectedDelivery.Newborn?.length > 0 && (
               <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
                 <p className="text-xs font-bold text-[var(--text-primary)] mb-2">Newborns ({selectedDelivery.Newborn.length})</p>
@@ -2181,13 +2015,13 @@ export default function Antenatal() {
                       <div className="grid grid-cols-2 gap-2 text-xs">
                         <div><span className="text-[var(--text-tertiary)]">Gender:</span> <span className="font-medium text-[var(--text-primary)]">{baby.gender}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Birth Weight:</span> <span className="font-medium text-[var(--text-primary)]">{baby.birthWeight}g</span></div>
-                        <div><span className="text-[var(--text-tertiary)]">APGAR 1min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore1min||'—'}</span></div>
-                        <div><span className="text-[var(--text-tertiary)]">APGAR 5min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore5min||'—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">APGAR 1min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore1min || '—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">APGAR 5min:</span> <span className="font-medium text-[var(--text-primary)]">{baby.apgarScore5min || '—'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Resuscitation:</span> <span className={`font-medium ${baby.resuscitation ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>{baby.resuscitation ? 'Yes' : 'No'}</span></div>
-                        <div><span className="text-[var(--text-tertiary)]">Outcome:</span> <span className="font-medium text-[var(--text-primary)]">{baby.outcome?.replace(/_/g,' ')}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Outcome:</span> <span className="font-medium text-[var(--text-primary)]">{baby.outcome?.replace(/_/g, ' ')}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">BF 30min:</span> <span className={`font-medium ${baby.breastfeedingWithin30Min ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.breastfeedingWithin30Min ? 'Yes' : 'No'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Eye Prophylaxis:</span> <span className={`font-medium ${baby.eyeProphylaxisGiven ? 'text-[var(--icon-green-text)]' : 'text-[var(--text-secondary)]'}`}>{baby.eyeProphylaxisGiven ? 'Yes' : 'No'}</span></div>
-                        <div><span className="text-[var(--text-tertiary)]">Cord Care:</span> <span className="font-medium text-[var(--text-primary)]">{baby.cordCareMethod?.replace(/_/g,' ') || '—'}</span></div>
+                        <div><span className="text-[var(--text-tertiary)]">Cord Care:</span> <span className="font-medium text-[var(--text-primary)]">{baby.cordCareMethod?.replace(/_/g, ' ') || '—'}</span></div>
                         <div><span className="text-[var(--text-tertiary)]">Follow-up Weight:</span> <span className="font-medium text-[var(--text-primary)]">{baby.babyWeightAt6to10Days ? `${baby.babyWeightAt6to10Days}g` : '—'}</span></div>
                       </div>
                       {baby.congenitalAnomalies?.length > 0 && (
@@ -2222,23 +2056,23 @@ export default function Antenatal() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               {[
-                { l: 'Day Number',       v: selectedPostnatal.dayNumber },
-                { l: 'Maternal Status',  v: selectedPostnatal.maternalCondition },
-                { l: 'Breastfeeding',    v: selectedPostnatal.breastfeedingStatus },
-                { l: 'Lochia',           v: selectedPostnatal.lochia },
-                { l: 'Uterus Involution',v: selectedPostnatal.uterusInvolution },
-                { l: 'Blood Pressure',   v: selectedPostnatal.bloodPressure },
-                { l: 'Temperature',      v: selectedPostnatal.temperature ? `${selectedPostnatal.temperature}°C` : null },
-                { l: 'Pulse',            v: selectedPostnatal.pulse },
+                { l: 'Day Number', v: selectedPostnatal.dayNumber },
+                { l: 'Maternal Status', v: selectedPostnatal.maternalCondition },
+                { l: 'Breastfeeding', v: selectedPostnatal.breastfeedingStatus },
+                { l: 'Lochia', v: selectedPostnatal.lochia },
+                { l: 'Uterus Involution', v: selectedPostnatal.uterusInvolution },
+                { l: 'Blood Pressure', v: selectedPostnatal.bloodPressure },
+                { l: 'Temperature', v: selectedPostnatal.temperature ? `${selectedPostnatal.temperature}°C` : null },
+                { l: 'Pulse', v: selectedPostnatal.pulse },
                 { l: 'Baby Condition', v: selectedPostnatal.babyCondition },
                 { l: 'Baby Weight', v: selectedPostnatal.babyWeight ? `${selectedPostnatal.babyWeight}kg` : '—' },
                 { l: 'Baby Temperature', v: selectedPostnatal.babyTemperature ? `${selectedPostnatal.babyTemperature}°C` : '—' },
                 { l: 'Cord Condition', v: selectedPostnatal.cordCondition },
-                { l: 'Jaundice', v: selectedPostnatal.jaundice ? `Yes (${selectedPostnatal.jaundiceSeverity||'—'})` : 'No' },
+                { l: 'Jaundice', v: selectedPostnatal.jaundice ? `Yes (${selectedPostnatal.jaundiceSeverity || '—'})` : 'No' },
                 { l: 'BCG Given', v: selectedPostnatal.bcgGiven ? 'Yes' : 'No' },
                 { l: 'OPV0 Given', v: selectedPostnatal.opv0Given ? 'Yes' : 'No' },
                 { l: 'HepB0 Given', v: selectedPostnatal.hepB0Given ? 'Yes' : 'No' },
-                { l: 'Family Planning', v: selectedPostnatal.familyPlanningDiscussed ? `Yes (${selectedPostnatal.familyPlanningMethodAccepted||'—'})` : 'No' },
+                { l: 'Family Planning', v: selectedPostnatal.familyPlanningDiscussed ? `Yes (${selectedPostnatal.familyPlanningMethodAccepted || '—'})` : 'No' },
                 { l: 'Exclusive BF at Discharge', v: selectedPostnatal.exclusiveBFAtDischarge ? <span className="text-[var(--icon-green-text)] font-bold">Yes</span> : 'No' },
                 { l: 'Male Partner Present', v: selectedPostnatal.malePartnerPresentPNC ? <span className="text-[var(--icon-cyan-text)] font-bold">Yes</span> : 'No' },
               ].map(r => r.v !== null && <DetailRow key={r.l} label={r.l} value={r.v} />)}
@@ -2255,7 +2089,7 @@ export default function Antenatal() {
                 <p className="text-xs text-[var(--icon-red-text)]">{selectedPostnatal.maternalComplications.join(', ')}</p>
               </div>
             )}
-          
+
             {(selectedPostnatal.maternalDangerSigns?.length > 0 || selectedPostnatal.babyDangerSigns?.length > 0) && (
               <div className="px-3 py-2.5 rounded-lg border border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)]">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-orange-text)] mb-1">⚠ Danger Signs</p>
@@ -2267,13 +2101,13 @@ export default function Antenatal() {
                 )}
               </div>
             )}
-          
+
             {selectedPostnatal.nextVisitDate && (
               <div className="mt-2">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">Next Visit</p>
                 <p className="text-xs text-[var(--text-primary)]">
-                  {new Date(selectedPostnatal.nextVisitDate).toLocaleDateString()} 
-                  {selectedPostnatal.nextVisitType && ` (${selectedPostnatal.nextVisitType.replace(/_/g,' ')})`}
+                  {new Date(selectedPostnatal.nextVisitDate).toLocaleDateString()}
+                  {selectedPostnatal.nextVisitType && ` (${selectedPostnatal.nextVisitType.replace(/_/g, ' ')})`}
                 </p>
               </div>
             )}
