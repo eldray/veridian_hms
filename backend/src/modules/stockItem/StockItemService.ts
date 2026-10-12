@@ -2,8 +2,11 @@ import { PrismaClient, StockTransactionType, RequisitionStatus } from '@prisma/c
 import { BaseService } from '../../shared/base/BaseService';
 import { StockItemRepository } from './StockItemRepository';
 import { getCounterService } from '../../services/CounterService';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+
+const slugPart = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 export class StockItemService extends BaseService {
   private repo: StockItemRepository;
@@ -15,11 +18,45 @@ export class StockItemService extends BaseService {
     this.repo = new StockItemRepository(prisma);
   }
 
+  // Builds a readable unique code in the same style as the seed data, e.g. "GLOVES-BOX" or "SYRINGE-5ML-2"
+  private async generateDrugCode(name: string, strength?: string): Promise<string> {
+    const namePart = slugPart(name);
+    const strengthPart = slugPart(strength || '');
+    // Only append the strength when the name doesn't already contain it ("Syringe 5ml" + "5ml" -> SYRINGE-5ML)
+    const parts = strengthPart && !namePart.includes(strengthPart) ? [namePart, strengthPart] : [namePart];
+    const base = parts.filter(Boolean).join('-').slice(0, 40).replace(/-+$/, '') || 'ITEM';
+    let code = base;
+    for (let i = 2; await this.prisma.stockItem.findUnique({ where: { drugCode: code }, select: { id: true } }); i++) {
+      code = `${base}-${i}`;
+    }
+    return code;
+  }
+
   async create(data: any) {
-    this.logInfo('Creating stock item', { name: data.name });
+    const name = String(data.name ?? '').trim();
+    const category = String(data.category ?? '').trim();
+    const unitOfMeasure = String(data.unitOfMeasure ?? '').trim();
+    const strength = String(data.strength ?? '').trim();
+    const costPrice = Number(data.costPrice ?? 0);
+
+    if (!name) throw new ValidationError('Name is required');
+    if (!category) throw new ValidationError('Category is required');
+    if (!unitOfMeasure) throw new ValidationError('Unit of measure is required');
+    if (!Number.isFinite(costPrice) || costPrice < 0) throw new ValidationError('Cost price must be a number that is 0 or more');
+
+    // drugCode is required + unique in the schema: use the one supplied, otherwise generate it
+    let drugCode = String(data.drugCode ?? '').trim().toUpperCase();
+    if (drugCode) {
+      const existing = await this.prisma.stockItem.findUnique({ where: { drugCode }, select: { id: true } });
+      if (existing) throw new ConflictError(`Drug code "${drugCode}" is already in use`);
+    } else {
+      drugCode = await this.generateDrugCode(name, strength);
+    }
+
+    this.logInfo('Creating stock item', { name, drugCode });
     const item = await this.repo.create({
-      name: data.name, category: data.category, description: data.description, strength: data.strength, unitOfMeasure: data.unitOfMeasure, drugCode: data.drugCode,
-      reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice: data.costPrice, isNHISCovered: data.isNHISCovered ?? true,
+      name, category, description: data.description, strength, unitOfMeasure, drugCode,
+      reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice, isNHISCovered: data.isNHISCovered ?? true,
       isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
       supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
       tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
@@ -34,7 +71,7 @@ export class StockItemService extends BaseService {
   async getAll(filters: any) { return this.repo.findAllWithFilters(filters); }
   async getById(id: string) {
     const item = await this.repo.findByIdWithRelations(id);
-    if (!item) throw new Error('Stock item not found');
+    if (!item) throw new NotFoundError('Stock item not found');
     return item;
   }
 
@@ -44,8 +81,13 @@ export class StockItemService extends BaseService {
   }
 
   async deleteStockItem(id: string) {
+    const existing = await this.prisma.stockItem.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new NotFoundError('Stock item not found');
+
     const hasDeps = await this.repo.hasDependencies(id);
-    if (hasDeps) throw new Error('Cannot delete stock item with associated records (medications, transactions, batches, etc.)');
+    if (hasDeps) {
+      throw new ConflictError('This item cannot be deleted because it has stock history (batches, transactions, prescriptions, invoices, requisitions or transfers). Mark it as inactive instead.');
+    }
     await this.repo.delete(id);
     return { message: 'Stock item deleted successfully' };
   }

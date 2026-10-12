@@ -1,5 +1,5 @@
 // src/pages/Antenatal.tsx — restructured
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
 import { useDeliveryStore } from '../store/deliveryStore';
@@ -460,10 +460,11 @@ const shouldOfferCreateRecord =
   const proceduresList = currentAttendance?.Procedure || [];
   const medicationsList = currentAttendance?.Medication || [];
   const scansList = currentAttendance?.Scan || [];
-  const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescribed');
+const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescribed' || m.status === 'dispensed');
   const dispensedMeds = medicationsList.filter((m: any) => m.status === 'dispensed');
   const requestedScans = scansList.filter((s: any) => s.status === 'requested' || s.status === 'scheduled');
   const completedScans = scansList.filter((s: any) => s.status === 'completed');
+  const userTouchedTab = useRef(false);
 
   const currentAttendanceVisit = useMemo(
     () => currentVisits.find(v => v.attendanceId === selectedAttendanceId),
@@ -558,30 +559,36 @@ const shouldOfferCreateRecord =
       .catch(() => { setAllVitals([]); setLatestVitals(null); });
   }, [selectedAttendanceId]);
 
-  useEffect(() => {
-    if (!selectedPatientId) {
-      setSelectedAttendanceId('');
-      setLatestVitals(null);
-      setAllVitals([]);
-      return;
-    }
-    getActiveAntenatalRecordByPatient(selectedPatientId).catch(() => { });
-    getDeliveryRecords({ patientId: selectedPatientId }).catch(() => { });
-    getPostnatalRecords({ patientId: selectedPatientId }).catch(() => { });
-  }, [selectedPatientId]);
+useEffect(() => {
+  if (!selectedPatientId) {
+    setSelectedAttendanceId('');
+    setLatestVitals(null);
+    return;
+  }
+  getActiveAntenatalRecordByPatient(selectedPatientId).catch((err) => {
+    console.error('Failed to load active antenatal record:', err);
+  });
+  getDeliveryRecords({ patientId: selectedPatientId }).catch(() => {});
+  getPostnatalRecords({ patientId: selectedPatientId }).catch(() => {});
+}, [selectedPatientId]);
 
   useEffect(() => {
     if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
   }, [currentRecord?.id]);
 
-  useEffect(() => {
-    if (!currentAttendance?.attendanceType) return;
-    const t = currentAttendance.attendanceType;
-    if (t === 'antenatal') setActiveTab('anc');
-    else if (t === 'delivery') setActiveTab('delivery');
-    else if (t === 'postnatal') setActiveTab('postnatal');
-    else setActiveTab('clinical');
-  }, [currentAttendance?.attendanceType, selectedAttendanceId]);
+useEffect(() => {
+  if (!currentAttendance?.attendanceType) return;
+  if (userTouchedTab.current) return;
+  const t = currentAttendance.attendanceType;
+  if (t === 'antenatal') setActiveTab('anc');
+  else if (t === 'delivery') setActiveTab('delivery');
+  else if (t === 'postnatal') setActiveTab('postnatal');
+  else setActiveTab('clinical');
+}, [currentAttendance?.attendanceType, selectedAttendanceId]);
+
+useEffect(() => {
+  userTouchedTab.current = false;
+}, [selectedAttendanceId]);
 
   useEffect(() => {
     if (!selectedPatientId) setActiveTab('clinical');
@@ -1228,7 +1235,7 @@ const shouldOfferCreateRecord =
                   {tabs.map(tab => {
                     const isActive = activeTab === tab.key;
                     return (
-                      <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                      <button key={tab.key} onClick={() => { userTouchedTab.current = true; setActiveTab(tab.key); }} 
                         className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
                           ? 'border-pink-500 text-pink-600'
                           : 'border-transparent text-[var(--text-secondary)] hover:text-pink-500'
@@ -1379,48 +1386,100 @@ const shouldOfferCreateRecord =
                     </SectionCard>
                   </div>
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SectionCard icon={<Pill className="w-4 h-4 text-[var(--icon-green-text)]" />} title="Prescribed"
-                      count={prescribedMeds.length} countCls="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
-                      action={canAddEntries && <AddBtn onClick={() => setModalType('medication')} label="Prescribe" />}>
-                      {prescribedMeds.length === 0 ? <EmptySlate icon={<Pill className="w-8 h-8" />} label="No medications prescribed" /> : (
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>Medication</TH><TH>Dosage</TH><TH>Freq.</TH><TH>Status</TH><TH></TH></tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {prescribedMeds.map((m: any) => (
-                              <tr key={m.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <TDp>{m.name}</TDp><TD>{m.dosage || '—'}</TD><TD>{m.frequency || '—'}</TD>
-                                <TD><StatusBadge status={m.status} /></TD>
-                                <TD>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('medication', m.id)} />}</TD>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </SectionCard>
+{/* ── MEDICATIONS: Prescribed | Dispensed ─────────────────────── */}
+<div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+  {/* Prescribed */}
+  <SectionCard
+    icon={<Pill className="w-4 h-4 text-[var(--icon-green-text)]" />}
+    title="Prescribed"
+    count={prescribedMeds.length}
+    countCls="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
+    action={canAddEntries && <AddBtn onClick={() => setModalType('medication')} label="Prescribe" />}
+  >
+    {prescribedMeds.length === 0 ? (
+      <EmptySlate icon={<Pill className="w-8 h-8" />} label="No medications prescribed" />
+    ) : (
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+          <tr>
+            <TH>Medication</TH>
+            <TH>Dosage</TH>
+            <TH>Freq.</TH>
+            <TH>Duration</TH>
+            <TH className="text-right">Qty</TH>
+            <TH></TH>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-color)]">
+          {prescribedMeds.map((m: any) => (
+            <tr key={m.id} className="hover:bg-[var(--bg-main)] transition-colors">
+              <TDp>
+                {m.name}
+                {m.instructions && (
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{m.instructions}</p>
+                )}
+              </TDp>
+              <TD>{m.dosage || '—'}</TD>
+              <TD>{m.frequency || '—'}</TD>
+              <TD>{m.duration || '—'}</TD>
+              <TD className="text-right font-semibold text-[var(--text-primary)]">
+                {m.quantity ?? '—'}
+              </TD>
+              <TD>
+                {canAddEntries && (
+                  <DelBtn onClick={() => handleDeleteItem('medication', m.id)} />
+                )}
+              </TD>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </SectionCard>
 
-                    <SectionCard icon={<CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />} title="Dispensed"
-                      count={dispensedMeds.length}>
-                      {dispensedMeds.length === 0 ? <EmptySlate icon={<CheckCircle className="w-8 h-8" />} label="No medications dispensed yet" /> : (
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>Medication</TH><TH>Qty</TH><TH>Total</TH><TH>Date</TH></tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {dispensedMeds.map((m: any) => (
-                              <tr key={m.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <TDp>{m.name}</TDp><TD>{m.quantity}</TD>
-                                <TD>GHS {((m.unitCost || 0) * m.quantity).toFixed(2)}</TD>
-                                <TD>{m.dispensedAt ? new Date(m.dispensedAt).toLocaleDateString() : '—'}</TD>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      )}
-                    </SectionCard>
-                  </div>
+  {/* Dispensed */}
+  <SectionCard
+    icon={<CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+    title="Dispensed"
+    count={dispensedMeds.length}
+    countCls="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]"
+  >
+    {dispensedMeds.length === 0 ? (
+      <EmptySlate icon={<CheckCircle className="w-8 h-8" />} label="No medications dispensed yet" />
+    ) : (
+      <table className="w-full text-xs">
+        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+          <tr>
+            <TH>Medication</TH>
+            <TH>Dosage</TH>
+            <TH>Freq.</TH>
+            <TH className="text-right">Qty</TH>
+            <TH className="text-right">Total</TH>
+            <TH>Date</TH>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[var(--border-color)]">
+          {dispensedMeds.map((m: any) => (
+            <tr key={m.id} className="hover:bg-[var(--bg-main)] transition-colors">
+              <TDp>{m.name}</TDp>
+              <TD>{m.dosage || '—'}</TD>
+              <TD>{m.frequency || '—'}</TD>
+              <TD className="text-right font-semibold text-[var(--text-primary)]">
+                {m.quantity ?? '—'}
+              </TD>
+              <TD className="text-right">
+                GHS {((m.dispensedUnitCost ?? m.unitCost ?? 0) * (m.quantity || 0)).toFixed(2)}
+              </TD>
+              <TD>
+                {m.dispensedAt ? new Date(m.dispensedAt).toLocaleDateString() : '—'}
+              </TD>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </SectionCard>
+</div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <SectionCard icon={<Scan className="w-4 h-4 text-[var(--icon-purple-text)]" />} title="Scans Requested"
@@ -1846,11 +1905,20 @@ const shouldOfferCreateRecord =
         <ANCVisitModal
           isOpen={showANCVisitModal}
           onClose={() => setShowANCVisitModal(false)}
-          onSuccess={() => {
-            setShowANCVisitModal(false);
-            if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
-            loadData();
-          }}
+onSuccess={async () => {
+  setShowANCVisitModal(false);
+  // Re-fetch the active record first to make sure currentRecord.id is fresh,
+  // then fetch its visits. This guarantees the list reflects the visit you just saved.
+  const pid = selectedPatientId;
+  const fresh = pid
+    ? await getActiveAntenatalRecordByPatient(pid).catch(() => null)
+    : null;
+  const recordId = fresh?.id || currentRecord?.id;
+  if (recordId) {
+    await getANCVisitsByAntenatalRecord(recordId);
+  }
+  await loadData();
+}}
           attendanceId={selectedAttendanceId}
           bookingId={selectedBookingId}
           visitNumber={currentVisits.length + 1}
@@ -1876,13 +1944,16 @@ const shouldOfferCreateRecord =
         <ANCBookingModal
           isOpen={true}
           onClose={() => setModalType(null)}
-          onSuccess={() => {
+          onSuccess={async () => {
             setModalType(null);
             const pid = currentAttendance?.patientId
               || (typeof currentAttendance?.patient === 'object' ? currentAttendance?.patient?.id : null)
               || selectedPatientId;
-            if (pid) getActiveAntenatalRecordByPatient(pid);
-            loadData();
+            if (pid) {
+              const record = await getActiveAntenatalRecordByPatient(pid).catch(() => null);
+              if (record?.id) await getANCVisitsByAntenatalRecord(record.id);
+            }
+            await loadData();
           }}
           patientId={
             currentAttendance?.patientId

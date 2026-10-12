@@ -56,11 +56,18 @@ export default function StockManagement() {
   const [itemsPerPage, setItemsPerPage] = useState(9);
   const [viewMode, setViewMode] = useState<'grid' | 'line'>('line');
 
+  // Admins and pharmacists can add/edit stock; only admins can delete (matches the backend route)
   const isAdmin = hasRole(['admin', 'pharmacist']);
+  const canDelete = hasRole(['admin', 'super_admin']);
+
+  // Show the server's message (e.g. "Drug code already in use") instead of axios' generic one
+  const apiError = (err: any, fallback: string): string =>
+    err?.response?.data?.message || err?.message || fallback;
 
   // Form data aligned with StockItem schema
   const [formData, setFormData] = useState({
     name: '',
+    drugCode: '',
     category: 'medication',
     description: '',
     strength: '',
@@ -154,8 +161,11 @@ export default function StockManagement() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Blank drugCode: the server generates one on create, and keeps the existing one on edit
+      const { drugCode, ...rest } = formData;
       const submitData = {
-        ...formData,
+        ...rest,
+        ...(drugCode.trim() ? { drugCode: drugCode.trim().toUpperCase() } : {}),
         reorderLevel: Number(formData.reorderLevel),
         costPrice: Number(formData.costPrice)
       };
@@ -172,7 +182,7 @@ export default function StockManagement() {
       resetForm();
       await loadAllData();
     } catch (err: any) {
-      toastError('Save failed', err.message || 'Could not save stock item');
+      toastError('Save failed', apiError(err, 'Could not save stock item'));
     }
   };
 
@@ -190,7 +200,7 @@ export default function StockManagement() {
       resetTransactionForm();
       await loadAllData();
     } catch (err: any) {
-      toastError('Transaction failed', err.message || 'Could not record transaction');
+      toastError('Transaction failed', apiError(err, 'Could not record transaction'));
     }
   };
 
@@ -198,6 +208,7 @@ export default function StockManagement() {
     setEditingItem(item);
     setFormData({
       name: item.name,
+      drugCode: item.drugCode || '',
       category: item.category,
       description: item.description || '',
       strength: item.strength || '',
@@ -214,19 +225,21 @@ export default function StockManagement() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!canDelete) return;
     if (!window.confirm('Delete this item? This action cannot be undone.')) return;
     try {
       await deleteStockItem(id);
       success('Deleted', 'Item removed successfully');
       await loadAllData();
     } catch (err: any) {
-      toastError('Delete failed', err.message || 'Could not delete item');
+      toastError('Delete failed', apiError(err, 'Could not delete item'));
     }
   };
 
   const resetForm = () => {
     setFormData({
       name: '',
+      drugCode: '',
       category: 'medication',
       description: '',
       strength: '',
@@ -628,13 +641,15 @@ export default function StockManagement() {
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleDelete(item.id)}
-                        className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
-                        title="Delete"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -717,13 +732,15 @@ export default function StockManagement() {
                         >
                           <Edit className="w-3.5 h-3.5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
+                            title="Delete"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -813,10 +830,21 @@ export default function StockManagement() {
                     required 
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
                   />
                 </div>
-                
+
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Drug / Item Code</label>
+                  <input
+                    type="text"
+                    placeholder="Leave blank to auto-generate"
+                    value={formData.drugCode}
+                    onChange={e => setFormData({ ...formData, drugCode: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Category *</label>
                   <select 

@@ -43,10 +43,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async hasDependencies(id: string) {
     const item = await this.getModel().findUnique({
       where: { id },
-      include: { Medication: { take: 1 }, StockTransaction: { take: 1 }, InvoiceItem: { take: 1 }, RequisitionItem: { take: 1 }, StockBatch: { take: 1 } }
+      include: { Medication: { take: 1 }, StockTransaction: { take: 1 }, InvoiceItem: { take: 1 }, RequisitionItem: { take: 1 }, StockBatch: { take: 1 }, transferItems: { take: 1 } }
     });
     if (!item) throw new Error('Stock item not found');
-    return item.Medication.length > 0 || item.StockTransaction.length > 0 || item.InvoiceItem.length > 0 || item.RequisitionItem.length > 0 || item.StockBatch.length > 0;
+    return item.Medication.length > 0 || item.StockTransaction.length > 0 || item.InvoiceItem.length > 0 || item.RequisitionItem.length > 0 || item.StockBatch.length > 0 || item.transferItems.length > 0;
   }
 
   // ✅ PRODUCTION FIX: Thread-safe inventory update using atomic decrement
@@ -97,7 +97,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
       
       await tx.stockTransaction.create({
-        data: { stockItemId, transactionType: 'purchase', quantity, balanceAfter: updatedItem!.currentStock, reference: `BATCH-${batchNumber}`, notes: `Added batch ${batchNumber}`, performedBy: undefined }
+        data: { stockItemId, transactionType: 'purchase', quantity, balanceAfter: updatedItem!.currentStock, reference: `BATCH-${batchNumber}`, notes: `Added batch ${batchNumber}`, performedBy: 'system' }
       });
       return batch;
     });
