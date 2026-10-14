@@ -603,6 +603,52 @@ function createWindow() {
     mainWindow.focus();
   });
   mainWindow.on('closed', () => { mainWindow = null; });
+
+  // ---- Self-recovery: a frozen page used to need a full quit + restart ----
+  const wc = mainWindow.webContents;
+  const isAppUrl = (u) => typeof u === 'string' && (u.startsWith(`http://127.0.0.1:${activePort}`) || u.startsWith('http://localhost:3000'));
+
+  // F5 / Ctrl+F5 / Ctrl+Shift+R reload even if the menu is hidden
+  wc.on('before-input-event', (event, input) => {
+    if (input.type !== 'keyDown') return;
+    const key = input.key.toLowerCase();
+    if (key === 'f5' || (key === 'r' && (input.control || input.meta) && input.shift)) {
+      event.preventDefault();
+      input.control || input.shift ? wc.reloadIgnoringCache() : wc.reload();
+    }
+  });
+
+  // The page process hung: wait a little, then kill and reload it instead of leaving a dead window
+  let hangTimer = null;
+  wc.on('unresponsive', () => {
+    log('Window is unresponsive');
+    clearTimeout(hangTimer);
+    hangTimer = setTimeout(() => {
+      log('Window still unresponsive after 15s: restarting its page process');
+      try { wc.forcefullyCrashRenderer(); } catch (e) { log('forcefullyCrashRenderer failed:', e.message); }
+    }, 15_000);
+  });
+  wc.on('responsive', () => { clearTimeout(hangTimer); });
+
+  // The page process crashed or was killed (out of memory etc.): reload the app page
+  wc.on('render-process-gone', (_e, details) => {
+    clearTimeout(hangTimer);
+    log(`Page process gone (${details.reason}, exit ${details.exitCode})`);
+    if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
+    if (backendReady) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(`http://127.0.0.1:${activePort}`).catch(() => {}); }, 500);
+    else showStatusPage('error', 'The page stopped working and the server is not running.');
+  });
+
+  // The app page failed to load (backend busy or briefly unreachable): retry instead of staying blank
+  let loadRetries = 0;
+  wc.on('did-fail-load', (_e, code, desc, url, isMainFrame) => {
+    if (!isMainFrame || code === -3 /* aborted: a newer navigation replaced it */ || !isAppUrl(url)) return;
+    log(`Page failed to load (${code} ${desc})`);
+    if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
+    if (loadRetries++ < 5) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url).catch(() => {}); }, 1500 * loadRetries);
+    else showStatusPage('error', 'The page could not be loaded from the server.\n\nUse File > Restart server.');
+  });
+  wc.on('did-finish-load', () => { if (isAppUrl(wc.getURL())) loadRetries = 0; });
 }
 
 function createMenu() {

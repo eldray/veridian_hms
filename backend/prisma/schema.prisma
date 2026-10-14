@@ -788,6 +788,7 @@ model Ward {
   dailyCashRate         Decimal  @default(0) @db.Decimal(15, 2)
   dailyNHISRate         Decimal  @default(0) @db.Decimal(15, 2)
   dailyInsuranceRate    Decimal  @default(0) @db.Decimal(15, 2)
+  dailyCorporateRate    Decimal  @default(0) @db.Decimal(15, 2) // 0 = fall back to the corporate account discount off cash, else cash
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 

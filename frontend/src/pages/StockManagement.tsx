@@ -74,6 +74,11 @@ export default function StockManagement() {
     unitOfMeasure: '',
     reorderLevel: 10,
     costPrice: 0,
+    // Patient prices as text so "blank" (keep / use the default) differs from 0
+    cashPrice: '',
+    nhisPrice: '',
+    insurancePrice: '',
+    corporatePrice: '',
     supplier: '',
     batchNumber: '',
     expiryDate: '',
@@ -162,9 +167,15 @@ export default function StockManagement() {
     e.preventDefault();
     try {
       // Blank drugCode: the server generates one on create, and keeps the existing one on edit
-      const { drugCode, ...rest } = formData;
+      const { drugCode, cashPrice, nhisPrice, insurancePrice, corporatePrice, ...rest } = formData;
+      // Only send the patient prices that were filled in; the server keeps the rest as they are
+      const priceFields: Record<string, number> = {};
+      (Object.entries({ cashPrice, nhisPrice, insurancePrice, corporatePrice }) as [string, string][]).forEach(([k, v]) => {
+        if (String(v).trim() !== '') priceFields[k] = Number(v);
+      });
       const submitData = {
         ...rest,
+        ...priceFields,
         ...(drugCode.trim() ? { drugCode: drugCode.trim().toUpperCase() } : {}),
         reorderLevel: Number(formData.reorderLevel),
         costPrice: Number(formData.costPrice)
@@ -206,9 +217,15 @@ export default function StockManagement() {
 
   const handleEdit = (item: StockItem) => {
     setEditingItem(item);
+    const currentPrice = item.ServiceCatalog?.[0]?.pricing?.[0];
+    const priceText = (v: unknown) => (currentPrice && v !== undefined && v !== null ? String(Number(v)) : '');
     setFormData({
       name: item.name,
       drugCode: item.drugCode || '',
+      cashPrice: priceText(currentPrice?.cashPrice),
+      nhisPrice: priceText(currentPrice?.nhisPrice),
+      insurancePrice: priceText(currentPrice?.insurancePrice),
+      corporatePrice: priceText(currentPrice?.corporatePrice),
       category: item.category,
       description: item.description || '',
       strength: item.strength || '',
@@ -240,6 +257,10 @@ export default function StockManagement() {
     setFormData({
       name: '',
       drugCode: '',
+      cashPrice: '',
+      nhisPrice: '',
+      insurancePrice: '',
+      corporatePrice: '',
       category: 'medication',
       description: '',
       strength: '',
@@ -904,10 +925,38 @@ export default function StockManagement() {
                     required 
                     value={formData.costPrice} 
                     onChange={e => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
                   />
                 </div>
-                
+
+                {/* Patient prices: what each payer is charged. Blank on a new item = cash is cost + 20%, insurance = cash;
+                    a blank NHIS or corporate price is billed at the cash price (or the corporate account's discount). */}
+                <div className="md:col-span-2">
+                  <p className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    Patient prices (₵) <span className="font-normal">— leave NHIS / Corporate blank to bill at the cash price</span>
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {([
+                      ['cashPrice', 'Cash'],
+                      ['nhisPrice', 'NHIS'],
+                      ['insurancePrice', 'Insurance'],
+                      ['corporatePrice', 'Corporate']
+                    ] as const).map(([key, label]) => (
+                      <div key={key}>
+                        <label className="block text-[11px] text-[var(--text-secondary)] mb-1">{label}</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData[key]}
+                          onChange={e => setFormData({ ...formData, [key]: e.target.value })}
+                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Supplier</label>
                   <input 

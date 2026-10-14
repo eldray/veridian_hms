@@ -884,9 +884,10 @@ export interface Ward {
   dailyCashRate: number;
   dailyNHISRate: number;
   dailyInsuranceRate: number;
+  dailyCorporateRate: number;
   createdAt: string;
   updatedAt: string;
-  
+
   beds: Bed[];
   admissions: Admission[];
 }
@@ -1201,6 +1202,17 @@ export interface StockItem {
   expiryDate: string | null;
   isActive: boolean;
   isMedication: boolean;
+  /** Catalog entry holding the item's current patient prices (Prisma Decimals arrive as strings) */
+  ServiceCatalog?: Array<{
+    id: string;
+    code: string;
+    pricing: Array<{
+      cashPrice: number | string;
+      nhisPrice: number | string;
+      insurancePrice: number | string;
+      corporatePrice: number | string;
+    }>;
+  }>;
   createdAt: string;
   updatedAt: string;
 }

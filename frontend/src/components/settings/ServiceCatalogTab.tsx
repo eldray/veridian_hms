@@ -56,8 +56,11 @@ export default function ServiceCatalogTab() {
     cashPrice: 0,
     insurancePrice: 0,
     nhisPrice: 0,
+    corporatePrice: 0,
     unit: 'Each',
     requiresAuthorization: false,
+    isNHISCovered: true,
+    isPrivateInsuranceExempted: false,
     tariffCode: '',
     vatRate: 0,
     isTaxable: true,
@@ -183,12 +186,16 @@ export default function ServiceCatalogTab() {
     setFormLoading(true);
     
     try {
+      // The API field is nhisRequiresAuth (the form's requiresAuthorization was silently ignored)
+      const { requiresAuthorization, ...rest } = formData;
+      const payload = { ...rest, nhisRequiresAuth: requiresAuthorization };
+
       if (editingItem) {
         if (!editingItem.id) throw new Error('Missing service ID');
-        await updateServiceCatalogItem(editingItem.id, formData);
+        await updateServiceCatalogItem(editingItem.id, payload);
         success('Service Updated', `${formData.name} has been updated`);
       } else {
-        await createServiceCatalogItem(formData);
+        await createServiceCatalogItem(payload);
         success('Service Created', `${formData.name} has been added`);
       }
       
@@ -221,8 +228,11 @@ export default function ServiceCatalogTab() {
       cashPrice: item.pricing?.cashPrice || 0,
       insurancePrice: item.pricing?.insurancePrice || 0,
       nhisPrice: item.pricing?.nhisPrice || 0,
+      corporatePrice: item.pricing?.corporatePrice || 0,
       unit: item.unit || 'Each',
       requiresAuthorization: item.nhisRequiresAuth || false,
+      isNHISCovered: item.isNHISCovered !== false,
+      isPrivateInsuranceExempted: item.isPrivateInsuranceExempted === true,
       tariffCode: item.tariffCode || '',
       vatRate: item.pricing?.vatRate || 0,
       isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true,
@@ -251,8 +261,9 @@ export default function ServiceCatalogTab() {
   const resetForm = () => {
     setFormData({
       name: '', code: '', nhisServiceCode: '', description: '', serviceType: 'consultation',
-      serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, unit: 'Each',
-      requiresAuthorization: false, tariffCode: '', vatRate: 0, isTaxable: true
+      serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, corporatePrice: 0, unit: 'Each',
+      requiresAuthorization: false, isNHISCovered: true, isPrivateInsuranceExempted: false,
+      tariffCode: '', vatRate: 0, isTaxable: true
     });
   };
 
@@ -262,16 +273,27 @@ export default function ServiceCatalogTab() {
     resetForm();
   };
 
-  const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis') => {
+  const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const pricing = service.pricing;
     if (pricing) {
       switch (priceType) {
-        case 'cash': return pricing.cashPrice || 0;
-        case 'insurance': return pricing.insurancePrice || 0;
-        case 'nhis': return pricing.nhisPrice || 0;
+        case 'cash': return Number(pricing.cashPrice) || 0;
+        case 'insurance': return Number(pricing.insurancePrice) || 0;
+        case 'nhis': return Number(pricing.nhisPrice) || 0;
+        case 'corporate': return Number(pricing.corporatePrice) || 0;
       }
     }
     return 0;
+  };
+
+  // What the patient is actually billed for each payer, mirroring the billing rules:
+  // NHIS uncovered / no NHIS price -> cash; insurance exempt / no price -> cash; corporate with no price -> cash
+  const getPriceText = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
+    const value = getPriceDisplay(service, priceType);
+    if (priceType === 'nhis' && service.isNHISCovered === false) return 'Cash rate';
+    if (priceType === 'insurance' && service.isPrivateInsuranceExempted) return 'Cash rate';
+    if (priceType !== 'cash' && value === 0) return 'Cash rate';
+    return `GHS ${value.toFixed(2)}`;
   };
 
   const getServiceIcon = (type: string) => {
@@ -665,18 +687,22 @@ export default function ServiceCatalogTab() {
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-2 pt-3 border-t border-gray-100">
+                      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
                         <div className="bg-green-50 rounded-lg p-2 text-center">
                           <p className="text-xs text-gray-500 mb-1">Cash</p>
-                          <p className="font-bold text-green-600">GHS {getPriceDisplay(service, 'cash').toFixed(2)}</p>
-                        </div>
-                        <div className="bg-purple-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1">Insurance</p>
-                          <p className="font-bold text-purple-600">GHS {getPriceDisplay(service, 'insurance').toFixed(2)}</p>
+                          <p className="font-bold text-sm text-green-600">{getPriceText(service, 'cash')}</p>
                         </div>
                         <div className="bg-cyan-50 rounded-lg p-2 text-center">
                           <p className="text-xs text-gray-500 mb-1">NHIS</p>
-                          <p className="font-bold text-cyan-600">GHS {getPriceDisplay(service, 'nhis').toFixed(2)}</p>
+                          <p className="font-bold text-sm text-cyan-600">{getPriceText(service, 'nhis')}</p>
+                        </div>
+                        <div className="bg-purple-50 rounded-lg p-2 text-center">
+                          <p className="text-xs text-gray-500 mb-1">Insurance</p>
+                          <p className="font-bold text-sm text-purple-600">{getPriceText(service, 'insurance')}</p>
+                        </div>
+                        <div className="bg-amber-50 rounded-lg p-2 text-center">
+                          <p className="text-xs text-gray-500 mb-1">Corporate</p>
+                          <p className="font-bold text-sm text-amber-600">{getPriceText(service, 'corporate')}</p>
                         </div>
                       </div>
                     </div>
@@ -714,8 +740,9 @@ export default function ServiceCatalogTab() {
                       <th className="text-left p-3 text-xs font-semibold text-gray-600">Code</th>
                       <th className="text-left p-3 text-xs font-semibold text-gray-600">NHIS Code</th>
                       <th className="text-right p-3 text-xs font-semibold text-gray-600">Cash (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Insurance (GHS)</th>
                       <th className="text-right p-3 text-xs font-semibold text-gray-600">NHIS (GHS)</th>
+                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Insurance (GHS)</th>
+                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Corporate (GHS)</th>
                       <th className="text-center p-3 text-xs font-semibold text-gray-600">Actions</th>
                     </tr>
                   </thead>
@@ -733,9 +760,10 @@ export default function ServiceCatalogTab() {
                         </td>
                         <td className="p-3 font-mono text-xs text-gray-600">{service.code}</td>
                         <td className="p-3 font-mono text-xs text-cyan-600">{service.nhisServiceCode || '-'}</td>
-                        <td className="p-3 text-right font-medium text-green-600">GHS {getPriceDisplay(service, 'cash').toFixed(2)}</td>
-                        <td className="p-3 text-right font-medium text-purple-600">GHS {getPriceDisplay(service, 'insurance').toFixed(2)}</td>
-                        <td className="p-3 text-right font-medium text-cyan-600">GHS {getPriceDisplay(service, 'nhis').toFixed(2)}</td>
+                        <td className="p-3 text-right font-medium text-green-600">{getPriceText(service, 'cash')}</td>
+                        <td className="p-3 text-right font-medium text-cyan-600">{getPriceText(service, 'nhis')}</td>
+                        <td className="p-3 text-right font-medium text-purple-600">{getPriceText(service, 'insurance')}</td>
+                        <td className="p-3 text-right font-medium text-amber-600">{getPriceText(service, 'corporate')}</td>
                         <td className="p-3 text-center">
                           <div className="flex justify-center gap-2">
                             <button 
@@ -824,20 +852,28 @@ export default function ServiceCatalogTab() {
               
               <div>
                 <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">Pricing</label>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="bg-green-50 rounded-lg p-3 text-center">
                     <p className="text-xs text-green-600 mb-1">Cash Price</p>
-                    <p className="text-xl font-bold text-green-700">GHS {getPriceDisplay(selectedService, 'cash').toFixed(2)}</p>
-                  </div>
-                  <div className="bg-purple-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-purple-600 mb-1">Insurance Price</p>
-                    <p className="text-xl font-bold text-purple-700">GHS {getPriceDisplay(selectedService, 'insurance').toFixed(2)}</p>
+                    <p className="text-lg font-bold text-green-700">{getPriceText(selectedService, 'cash')}</p>
                   </div>
                   <div className="bg-cyan-50 rounded-lg p-3 text-center">
                     <p className="text-xs text-cyan-600 mb-1">NHIS Price</p>
-                    <p className="text-xl font-bold text-cyan-700">GHS {getPriceDisplay(selectedService, 'nhis').toFixed(2)}</p>
+                    <p className="text-lg font-bold text-cyan-700">{getPriceText(selectedService, 'nhis')}</p>
+                  </div>
+                  <div className="bg-purple-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-purple-600 mb-1">Insurance Price</p>
+                    <p className="text-lg font-bold text-purple-700">{getPriceText(selectedService, 'insurance')}</p>
+                  </div>
+                  <div className="bg-amber-50 rounded-lg p-3 text-center">
+                    <p className="text-xs text-amber-600 mb-1">Corporate Price</p>
+                    <p className="text-lg font-bold text-amber-700">{getPriceText(selectedService, 'corporate')}</p>
                   </div>
                 </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  "Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price.
+                  Corporate accounts with a discount % get that discount off cash instead.
+                </p>
               </div>
               
               <div className="flex gap-3 pt-2">
@@ -956,11 +992,21 @@ export default function ServiceCatalogTab() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">NHIS Price</label>
-                  <input 
-                    type="number" step="0.01" value={formData.nhisPrice}
+                  <input
+                    type="number" step="0.01" min="0" value={formData.nhisPrice}
                     onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                   />
+                  <p className="text-xs text-gray-400 mt-1">0 = bill at the cash price</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Corporate Price</label>
+                  <input
+                    type="number" step="0.01" min="0" value={formData.corporatePrice}
+                    onChange={e => setFormData({ ...formData, corporatePrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">0 = cash price (less the account discount, if any)</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Tariff Code</label>
@@ -989,9 +1035,25 @@ export default function ServiceCatalogTab() {
                 />
               </div>
 
-              <div className="flex gap-4">
+              <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">
-                  <input 
+                  <input
+                    type="checkbox" checked={formData.isNHISCovered}
+                    onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })}
+                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">Covered by NHIS</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox" checked={formData.isPrivateInsuranceExempted}
+                    onChange={e => setFormData({ ...formData, isPrivateInsuranceExempted: e.target.checked })}
+                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">Excluded from private insurance</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
                     type="checkbox" checked={formData.requiresAuthorization}
                     onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
                     className="rounded border-gray-300 text-cyan-600 w-4 h-4"

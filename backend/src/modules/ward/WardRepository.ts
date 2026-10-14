@@ -1,6 +1,7 @@
 import { PrismaClient, Ward, PaymentMode } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreateWardDTO, UpdateWardDTO, WardFilters, Bed } from './WardTypes';
+import { resolveWardDailyRate } from '../../utils/pricing';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -55,7 +56,7 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
         Ward: {
           select: {
             id: true, wardName: true, wardType: true, isActive: true,
-            dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true,
+            dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true, dailyCorporateRate: true,
             vatRate: true, isTaxable: true, isNHISCovered: true, isPrivateInsExempted: true
           }
         }
@@ -100,23 +101,16 @@ export class WardRepository extends BaseRepository<Ward, CreateWardDTO, UpdateWa
   async calculateWardCharge(wardId: string, numberOfDays: number, paymentMode: PaymentMode) {
     const ward = await this.getModel().findUnique({
       where: { id: wardId },
-      select: { dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true, vatRate: true, isTaxable: true }
+      select: {
+        dailyCashRate: true, dailyNHISRate: true, dailyInsuranceRate: true, dailyCorporateRate: true,
+        isNHISCovered: true, isPrivateInsExempted: true, vatRate: true, isTaxable: true
+      }
     });
 
     if (!ward) throw new Error('Ward not found');
 
-    // ✅ FIXED: Safely parse Decimals before math
-    const cashRate = toNumber(ward.dailyCashRate);
-    const nhisRate = toNumber(ward.dailyNHISRate);
-    const insRate = toNumber(ward.dailyInsuranceRate);
-
-    let dailyRate: number;
-    switch (paymentMode) {
-      case 'nhis': dailyRate = nhisRate || cashRate * 0.8; break;
-      case 'private_insurance': dailyRate = insRate || cashRate * 0.9; break;
-      case 'corporate': dailyRate = insRate || cashRate * 0.85; break;
-      case 'cash': default: dailyRate = cashRate; break;
-    }
+    // Same rules as services (utils/pricing.ts): a missing or uncovered payer rate means the cash rate, no invented discounts
+    const dailyRate = resolveWardDailyRate(ward, paymentMode);
 
     const subtotal = dailyRate * numberOfDays;
     const vatAmount = ward.isTaxable ? subtotal * (toNumber(ward.vatRate) / 100) : 0;

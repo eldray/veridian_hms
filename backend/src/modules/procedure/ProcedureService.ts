@@ -97,7 +97,8 @@ export class ProcedureService extends BaseService {
         serviceCatalogId: created.id,
         cashPrice: data.cashPrice,
         nhisPrice: data.nhisPrice || 0,
-        insurancePrice: data.insurancePrice,
+        insurancePrice: data.insurancePrice ?? data.cashPrice,
+        corporatePrice: data.corporatePrice || 0, // 0 = use the corporate fallback (account discount off cash, else cash)
         vatRate: data.vatRate || 0,
         isTaxable: data.isTaxable !== undefined ? data.isTaxable : true
       });
@@ -140,17 +141,19 @@ export class ProcedureService extends BaseService {
       delete updateData.cashPrice;
       delete updateData.nhisPrice;
       delete updateData.insurancePrice;
+      delete updateData.corporatePrice;
       delete updateData.vatRate;
       delete updateData.isTaxable;
-      
+
       const template = await repo.updateTemplate(id, updateData);
 
       // Update pricing if provided
-      if (data.cashPrice !== undefined || data.nhisPrice !== undefined || data.insurancePrice !== undefined) {
+      if (data.cashPrice !== undefined || data.nhisPrice !== undefined || data.insurancePrice !== undefined || data.corporatePrice !== undefined || data.vatRate !== undefined || data.isTaxable !== undefined) {
         const pricingData: any = {};
         if (data.cashPrice !== undefined) pricingData.cashPrice = data.cashPrice;
         if (data.nhisPrice !== undefined) pricingData.nhisPrice = data.nhisPrice;
         if (data.insurancePrice !== undefined) pricingData.insurancePrice = data.insurancePrice;
+        if (data.corporatePrice !== undefined) pricingData.corporatePrice = data.corporatePrice;
         if (data.vatRate !== undefined) pricingData.vatRate = data.vatRate;
         if (data.isTaxable !== undefined) pricingData.isTaxable = data.isTaxable;
 

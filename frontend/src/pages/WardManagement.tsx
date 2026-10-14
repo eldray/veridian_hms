@@ -48,6 +48,7 @@ interface WardFormState {
   dailyCashRate: number;
   dailyNHISRate: number;
   dailyInsuranceRate: number;
+  dailyCorporateRate: number;
   vatRate: number;
   isTaxable: boolean;
   isNHISCovered: boolean;
@@ -67,6 +68,7 @@ const EMPTY_WARD_FORM: WardFormState = {
   dailyCashRate: 150,
   dailyNHISRate: 120,
   dailyInsuranceRate: 135,
+  dailyCorporateRate: 0, // 0 = bill corporate patients at the cash rate (or the account discount)
   vatRate: 15,
   isTaxable: true,
   isNHISCovered: true,
@@ -410,6 +412,7 @@ export default function WardManagement() {
       dailyCashRate: ward.dailyCashRate || 0,
       dailyNHISRate: ward.dailyNHISRate || 0,
       dailyInsuranceRate: ward.dailyInsuranceRate || 0,
+      dailyCorporateRate: Number(ward.dailyCorporateRate) || 0,
       vatRate: ward.vatRate || 0,
       isTaxable: ward.isTaxable ?? true,
       isNHISCovered: ward.isNHISCovered ?? true,
@@ -1254,6 +1257,7 @@ export default function WardManagement() {
                   { label: 'Daily Cash Rate', value: formatCurrency(selectedWard.dailyCashRate), color: 'var(--icon-cyan-text)', bg: 'var(--icon-cyan-bg)' },
                   { label: 'Daily NHIS Rate', value: formatCurrency(selectedWard.dailyNHISRate), color: 'var(--icon-purple-text)', bg: 'var(--icon-purple-bg)' },
                   { label: 'Daily Insurance Rate', value: formatCurrency(selectedWard.dailyInsuranceRate), color: 'var(--icon-green-text)', bg: 'var(--icon-green-bg)' },
+                  { label: 'Daily Corporate Rate', value: formatCurrency(selectedWard.dailyCorporateRate), color: 'var(--icon-cyan-text)', bg: 'var(--icon-cyan-bg)' },
                   { label: 'VAT Rate', value: `${selectedWard.vatRate || 0}%`, color: 'var(--icon-orange-text)', bg: 'var(--icon-orange-bg)' },
                 ].map(item => (
                   <div key={item.label} className="p-3 rounded-lg border" style={{ background: item.bg, borderColor: 'var(--border-color)' }}>
@@ -1445,6 +1449,17 @@ export default function WardManagement() {
                   value={wardFormData.dailyInsuranceRate}
                   onChange={(v) => setWardFormData({ ...wardFormData, dailyInsuranceRate: parseNumericInput(v, 0) })}
                 />
+              </div>
+              <div>
+                <FieldLabel>Daily Corporate Rate</FieldLabel>
+                <TextInput
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  value={wardFormData.dailyCorporateRate}
+                  onChange={(v) => setWardFormData({ ...wardFormData, dailyCorporateRate: parseNumericInput(v, 0) })}
+                />
+                <p className="text-[11px] mt-1" style={{ color: 'var(--text-secondary)' }}>0 = bill at the cash rate (or the account discount)</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-4">

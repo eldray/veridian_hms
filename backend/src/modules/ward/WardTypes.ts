@@ -17,6 +17,7 @@ export interface Ward {
   dailyCashRate: any; // Decimal
   dailyNHISRate: any; // Decimal
   dailyInsuranceRate: any; // Decimal
+  dailyCorporateRate: any; // Decimal (0 = fall back to the corporate discount off cash, else cash)
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -39,6 +40,7 @@ export interface CreateWardDTO {
   dailyCashRate: number;
   dailyNHISRate?: number;
   dailyInsuranceRate?: number;
+  dailyCorporateRate?: number;
   isNHISCovered?: boolean;
   nhisRequiresAuth?: boolean;
   isPrivateInsExempted?: boolean;

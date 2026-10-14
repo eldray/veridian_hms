@@ -30,6 +30,7 @@ export interface CreateScanTemplateDTO {
   cashPrice: number;
   nhisPrice?: number;
   insurancePrice: number;
+  corporatePrice?: number;
   vatRate?: number;
   isTaxable?: boolean;
   resultTemplate?: any[];
@@ -54,6 +55,7 @@ export interface UpdateScanTemplateDTO {
   cashPrice?: number;
   nhisPrice?: number;
   insurancePrice?: number;
+  corporatePrice?: number;
   vatRate?: number;
   isTaxable?: boolean;
   resultTemplate?: any[];
@@ -88,6 +90,7 @@ export interface ScanTemplateResponse {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
+    corporatePrice: number;
     vatRate: number;
     isTaxable: boolean;
     effectiveDate: Date;

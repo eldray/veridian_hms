@@ -1,6 +1,7 @@
 import { PrismaClient, BillStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
+import { resolveUnitPrice } from '../../utils/pricing';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -313,20 +314,17 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     const price = service?.pricing?.[0]; 
     if (!price) return 100; // Default fallback
 
-    switch (paymentMode) {
-      case 'cash': return toNumber(price.cashPrice);
-      case 'nhis': return toNumber(price.nhisPrice);
-      case 'private_insurance': return toNumber(price.insurancePrice);
-      case 'corporate':
-        if (toNumber(price.corporatePrice) > 0) return toNumber(price.corporatePrice);
-        if (corporateAccountId) {
-          const corporate = await this.prisma.corporateAccount.findUnique({ where: { id: corporateAccountId } });
-          if (corporate && toNumber(corporate.discountPercentage) > 0) {
-            return toNumber(price.cashPrice) * (1 - toNumber(corporate.discountPercentage) / 100);
-          }
-        }
-        return toNumber(price.cashPrice);
-      default: return toNumber(price.cashPrice);
+    // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
+    let corporateDiscountPercent = 0;
+    if (paymentMode === 'corporate' && toNumber(price.corporatePrice) <= 0 && corporateAccountId) {
+      const corporate = await this.prisma.corporateAccount.findUnique({ where: { id: corporateAccountId } });
+      corporateDiscountPercent = toNumber(corporate?.discountPercentage);
     }
+
+    return resolveUnitPrice(price, paymentMode, {
+      isNHISCovered: service?.isNHISCovered,
+      isPrivateInsuranceExempted: service?.isPrivateInsuranceExempted,
+      corporateDiscountPercent
+    });
   }
 }

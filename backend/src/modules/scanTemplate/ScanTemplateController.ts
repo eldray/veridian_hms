@@ -61,6 +61,7 @@ export class ScanTemplateController {
     body('cashPrice').isFloat({ min: 0 }).withMessage('Cash price must be a non-negative number'),
     body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
     body('insurancePrice').isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
+    body('corporatePrice').optional().isFloat({ min: 0 }).withMessage('Corporate price must be a non-negative number'),
 
     asyncHandler(async (req: Request, res: Response) => {
       const errors = validationResult(req);
@@ -87,6 +88,7 @@ export class ScanTemplateController {
     body('cashPrice').optional().isFloat({ min: 0 }).withMessage('Cash price must be a non-negative number'),
     body('nhisPrice').optional().isFloat({ min: 0 }).withMessage('NHIS price must be a non-negative number'),
     body('insurancePrice').optional().isFloat({ min: 0 }).withMessage('Insurance price must be a non-negative number'),
+    body('corporatePrice').optional().isFloat({ min: 0 }).withMessage('Corporate price must be a non-negative number'),
 
     asyncHandler(async (req: Request, res: Response) => {
       const errors = validationResult(req);

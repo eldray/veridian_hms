@@ -1,4 +1,4 @@
-// src/pages/Referrals.tsx — Enhanced UI/UX
+// src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
@@ -26,6 +26,7 @@ import {
   Search, X, Info, MapPin, Calendar, FileText,
   Phone, User, ClipboardList, Target, TrendingUp,
   ChevronDown, Check, BadgeCheck, Hash, AlertTriangle,
+  ChevronLeft, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -122,6 +123,151 @@ const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Pagination
+// ═════════════════════════════════════════════════════════════════════════════
+interface PaginationProps {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalItems: number;
+  startIndex: number;
+  endIndex: number;
+  onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  pageSizeOptions: number[];
+}
+
+const Pagination: React.FC<PaginationProps> = ({
+  currentPage,
+  totalPages,
+  pageSize,
+  totalItems,
+  startIndex,
+  endIndex,
+  onPageChange,
+  onPageSizeChange,
+  pageSizeOptions,
+}) => {
+  if (totalItems === 0) return null;
+
+  // Compact page window: 1 … 4 5 [6] 7 8 … 20
+  const pageWindow = useMemo(() => {
+    const pages: (number | 'ellipsis-l' | 'ellipsis-r')[] = [];
+    const add = (p: number | 'ellipsis-l' | 'ellipsis-r') => pages.push(p);
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) add(i);
+      return pages;
+    }
+
+    add(1);
+    if (currentPage > 4) add('ellipsis-l');
+
+    const from = Math.max(2, currentPage - 1);
+    const to = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = from; i <= to; i++) add(i);
+
+    if (currentPage < totalPages - 3) add('ellipsis-r');
+    add(totalPages);
+
+    return pages;
+  }, [currentPage, totalPages]);
+
+  const navBtn =
+    'inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-semibold transition-all border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed';
+
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)]">
+      {/* Left: count + page size */}
+      <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+        <span>
+          Showing <b className="text-[var(--text-primary)]">{startIndex + 1}</b>–
+          <b className="text-[var(--text-primary)]">{Math.min(endIndex, totalItems)}</b> of{' '}
+          <b className="text-[var(--text-primary)]">{totalItems}</b>
+        </span>
+
+        <span className="hidden sm:inline text-[var(--border-color)]">·</span>
+
+        <label className="hidden sm:flex items-center gap-1.5">
+          <span>Per page</span>
+          <select
+            value={pageSize}
+            onChange={e => onPageSizeChange(parseInt(e.target.value, 10))}
+            className="px-2 py-1 text-xs border border-[var(--border-color)] rounded-md bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500"
+          >
+            {pageSizeOptions.map(sz => (
+              <option key={sz} value={sz}>{sz}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      {/* Right: page buttons */}
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          className={navBtn}
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          title="First page"
+        >
+          <ChevronsLeft className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          className={navBtn}
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          title="Previous"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+        </button>
+
+        {pageWindow.map((p, i) =>
+          typeof p === 'number' ? (
+            <button
+              key={`p-${p}`}
+              type="button"
+              onClick={() => onPageChange(p)}
+              className={`inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-bold transition-all border ${
+                p === currentPage
+                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm shadow-cyan-500/20'
+                  : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'
+              }`}
+            >
+              {p}
+            </button>
+          ) : (
+            <span key={`e-${i}`} className="px-1 text-[var(--text-tertiary)] text-xs">
+              …
+            </span>
+          ),
+        )}
+
+        <button
+          type="button"
+          className={navBtn}
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          title="Next"
+        >
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+        <button
+          type="button"
+          className={navBtn}
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          title="Last page"
+        >
+          <ChevronsRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ═════════════════════════════════════════════════════════════════════════════
 // Main page
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -155,6 +301,14 @@ export default function Referrals() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
 
+  // ── Pagination state ───────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(() => {
+    const saved = localStorage.getItem('referralsPageSize');
+    return saved ? parseInt(saved, 10) : 20;
+  });
+  const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
   const [selectedPatientId,    setSelectedPatientId]    = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
 
@@ -182,6 +336,10 @@ export default function Referrals() {
   useEffect(() => {
     localStorage.setItem('referralsViewMode', viewMode);
   }, [viewMode]);
+
+  useEffect(() => {
+    localStorage.setItem('referralsPageSize', String(pageSize));
+  }, [pageSize]);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
   const loadData = async (force = false) => {
@@ -223,6 +381,11 @@ export default function Referrals() {
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
+
+  // Reset to page 1 whenever the filter set changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, filterType, filterUrgency, searchQuery, pageSize]);
 
   // ── Create referral ────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -360,6 +523,21 @@ export default function Referrals() {
     }
     return list;
   }, [referrals, filterUrgency, searchQuery]);
+
+  // ── Pagination slice ───────────────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(displayedReferrals.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedReferrals = useMemo(
+    () => displayedReferrals.slice(startIndex, endIndex),
+    [displayedReferrals, startIndex, endIndex],
+  );
+
+  // Clamp currentPage if filters shrink the list below it
+  useEffect(() => {
+    if (currentPage > totalPages) setCurrentPage(totalPages);
+  }, [currentPage, totalPages]);
 
   // Reference number generator for the create modal preview
   const previewRefNo = useMemo(() => {
@@ -649,6 +827,7 @@ export default function Referrals() {
               )}
               <span className="ml-auto text-xs text-[var(--text-tertiary)]">
                 {displayedReferrals.length} of {referrals.length}
+                {displayedReferrals.length > pageSize && <> · page {safePage}/{totalPages}</>}
               </span>
             </div>
           )}
@@ -683,7 +862,7 @@ export default function Referrals() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
-                {displayedReferrals.map(ref => (
+                {paginatedReferrals.map(ref => (
                   <tr key={ref.id} className="hover:bg-cyan-50/30 transition-colors group">
                     <td className="px-4 py-3">
                       <span className="font-mono text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-main)] px-2 py-1 rounded">
@@ -775,132 +954,160 @@ export default function Referrals() {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination footer */}
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={displayedReferrals.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+          />
         </div>
       ) : (
         /* ═══════ CARDS VIEW ═══════ */
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {displayedReferrals.map(ref => (
-            <div
-              key={ref.id}
-              className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-cyan-400 hover:shadow-lg transition-all overflow-hidden group flex flex-col"
-            >
-              {/* Header */}
-              <div className="p-4 pb-3 border-b border-[var(--border-color)] bg-gradient-to-r from-gray-50 to-white">
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <TypeBadge type={ref.referralType} size="md" />
-                  <UrgencyBadge urgency={ref.urgency} size="md" />
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+            {paginatedReferrals.map(ref => (
+              <div
+                key={ref.id}
+                className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-cyan-400 hover:shadow-lg transition-all overflow-hidden group flex flex-col"
+              >
+                {/* Header */}
+                <div className="p-4 pb-3 border-b border-[var(--border-color)] bg-gradient-to-r from-gray-50 to-white">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <TypeBadge type={ref.referralType} size="md" />
+                    <UrgencyBadge urgency={ref.urgency} size="md" />
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-100 to-cyan-50 border border-cyan-200 flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-cyan-700">
+                        {initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">
+                        {ref.patient?.surname} {ref.patient?.otherNames}
+                      </p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] font-mono">
+                        {ref.patient?.folderNumber}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-100 to-cyan-50 border border-cyan-200 flex items-center justify-center flex-shrink-0">
-                    <span className="text-xs font-bold text-cyan-700">
-                      {initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}
+
+                {/* Body */}
+                <div className="p-4 space-y-3 flex-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--text-tertiary)] flex items-center gap-1">
+                      <Hash className="w-3 h-3" /> Ref No.
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
+                      {ref.referralNumber}
                     </span>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                      {ref.patient?.surname} {ref.patient?.otherNames}
+
+                  <div>
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
+                      {ref.referralType === 'outgoing' ? 'Referred To' : 'Referred From'}
                     </p>
-                    <p className="text-[10px] text-[var(--text-tertiary)] font-mono">
-                      {ref.patient?.folderNumber}
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate flex items-center gap-1.5">
+                      <Building className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
+                      {ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}
+                    </p>
+                    {(ref.referredToDoctor || ref.referredFromDoctor) && (
+                      <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5 flex items-center gap-1.5">
+                        <Stethoscope className="w-3 h-3 text-[var(--text-tertiary)]" />
+                        Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
+                      Reason
+                    </p>
+                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
+                      {ref.referralReason}
                     </p>
                   </div>
-                </div>
-              </div>
 
-              {/* Body */}
-              <div className="p-4 space-y-3 flex-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-[var(--text-tertiary)] flex items-center gap-1">
-                    <Hash className="w-3 h-3" /> Ref No.
-                  </span>
-                  <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
-                    {ref.referralNumber}
-                  </span>
+                  <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] pt-2">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(ref.referralDate).toLocaleDateString()}
+                  </div>
                 </div>
 
-                <div>
-                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
-                    {ref.referralType === 'outgoing' ? 'Referred To' : 'Referred From'}
-                  </p>
-                  <p className="text-sm font-semibold text-[var(--text-primary)] truncate flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                    {ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}
-                  </p>
-                  {(ref.referredToDoctor || ref.referredFromDoctor) && (
-                    <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5 flex items-center gap-1.5">
-                      <Stethoscope className="w-3 h-3 text-[var(--text-tertiary)]" />
-                      Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
-                    Reason
-                  </p>
-                  <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                    {ref.referralReason}
-                  </p>
-                </div>
-
-                <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] pt-2">
-                  <Calendar className="w-3 h-3" />
-                  {new Date(ref.referralDate).toLocaleDateString()}
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="px-4 py-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between gap-2">
-                <StatusBadge status={ref.status} />
-                <div className="flex items-center gap-0.5">
-                  {ref.referralType === 'outgoing' && (
-                    <button
-                      onClick={() => handlePrintLetter(ref)}
-                      disabled={printingId === ref.id}
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
-                      title="Print referral letter"
-                    >
-                      <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
-                    </button>
-                  )}
-                  <button
-                    onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
-                    className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-                    title="Send referral"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5" />
-                  </button>
-                  {ref.status === 'pending' && (
-                    <>
+                {/* Footer */}
+                <div className="px-4 py-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between gap-2">
+                  <StatusBadge status={ref.status} />
+                  <div className="flex items-center gap-0.5">
+                    {ref.referralType === 'outgoing' && (
                       <button
-                        onClick={() => handleStatusUpdate(ref.id, 'accepted')}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
-                        title="Accept"
+                        onClick={() => handlePrintLetter(ref)}
+                        disabled={printingId === ref.id}
+                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
+                        title="Print referral letter"
+                      >
+                        <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
+                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
+                      title="Send referral"
+                    >
+                      <MessageSquare className="w-3.5 h-3.5" />
+                    </button>
+                    {ref.status === 'pending' && (
+                      <>
+                        <button
+                          onClick={() => handleStatusUpdate(ref.id, 'accepted')}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
+                          title="Accept"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleStatusUpdate(ref.id, 'cancelled')}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"
+                          title="Cancel"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                    {ref.status === 'accepted' && (
+                      <button
+                        onClick={() => handleStatusUpdate(ref.id, 'completed')}
+                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
+                        title="Complete"
                       >
                         <CheckCircle className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        onClick={() => handleStatusUpdate(ref.id, 'cancelled')}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"
-                        title="Cancel"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                      </button>
-                    </>
-                  )}
-                  {ref.status === 'accepted' && (
-                    <button
-                      onClick={() => handleStatusUpdate(ref.id, 'completed')}
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
-                      title="Complete"
-                    >
-                      <CheckCircle className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
+
+          {/* Pagination footer */}
+          <Pagination
+            currentPage={safePage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={displayedReferrals.length}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+          />
         </div>
       )}
 

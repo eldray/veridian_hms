@@ -1,4 +1,4 @@
-import { PrismaClient, StockTransactionType, RequisitionStatus } from '@prisma/client';
+import { PrismaClient, StockTransactionType, RequisitionStatus, ServiceType, ServiceCategory } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { StockItemRepository } from './StockItemRepository';
 import { getCounterService } from '../../services/CounterService';
@@ -7,6 +7,16 @@ import { ConflictError, NotFoundError, ValidationError } from '../../utils/error
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
 const slugPart = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+
+type PriceInput = { cashPrice?: any; nhisPrice?: any; insurancePrice?: any; corporatePrice?: any };
+
+/** Blank / missing -> undefined (keep the current value); otherwise a number that must be 0 or more. */
+const optionalMoney = (label: string, v: any): number | undefined => {
+  if (v === undefined || v === null || v === '') return undefined;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) throw new ValidationError(`${label} must be a number that is 0 or more`);
+  return n;
+};
 
 export class StockItemService extends BaseService {
   private repo: StockItemRepository;
@@ -32,7 +42,78 @@ export class StockItemService extends BaseService {
     return code;
   }
 
-  async create(data: any) {
+  /**
+   * Keeps the item's service-catalog entry and its four-payer price row (cash / NHIS / insurance / corporate)
+   * in step with the stock item. A prescription needs a catalog entry (serviceCatalogId), so every stock
+   * item must have one. Only the prices that are supplied change; the others keep their current value.
+   * First save: cash defaults to cost + 20% (the markup the NHIS import uses), insurance to cash, NHIS and
+   * corporate to 0 (0 = billed at the cash price, or at the corporate account's discount off cash).
+   */
+  private async savePatientPrices(tx: any, item: any, input: PriceInput, userId?: string) {
+    const cashIn = optionalMoney('Cash price', input.cashPrice);
+    const nhisIn = optionalMoney('NHIS price', input.nhisPrice);
+    const insIn = optionalMoney('Insurance price', input.insurancePrice);
+    const corpIn = optionalMoney('Corporate price', input.corporatePrice);
+
+    let catalog = await tx.serviceCatalog.findFirst({ where: { stockItemId: item.id }, orderBy: { createdAt: 'asc' } });
+    const current = catalog
+      ? await tx.servicePricing.findFirst({ where: { serviceCatalogId: catalog.id, isActive: true }, orderBy: { effectiveDate: 'desc' } })
+      : null;
+
+    const cost = toNumber(item.costPrice);
+    const cash = cashIn ?? (current ? toNumber(current.cashPrice) : Math.round(cost * 1.2 * 100) / 100);
+    const nhis = nhisIn ?? (current ? toNumber(current.nhisPrice) : 0);
+    const insurance = insIn ?? (current ? toNumber(current.insurancePrice) : cash);
+    const corporate = corpIn ?? (current ? toNumber(current.corporatePrice) : 0);
+
+    const flags = {
+      name: item.name,
+      isActive: item.isActive,
+      tariffCode: item.tariffCode ?? null,
+      isNHISCovered: item.isNHISCovered !== false && nhis > 0,
+      isPrivateInsuranceExempted: item.isPrivateInsExempted === true,
+      nhisRequiresAuth: item.nhisRequiresAuth === true,
+      privateInsRequiresAuth: item.privateInsRequiresAuth === true
+    };
+
+    if (!catalog) {
+      catalog = await tx.serviceCatalog.create({
+        data: {
+          ...flags,
+          code: `MED-${item.drugCode}`,
+          serviceType: ServiceType.medication,
+          serviceCategory: ServiceCategory.pharmacy,
+          subType: item.category || 'medication',
+          nhisServiceCode: item.drugCode,
+          unit: item.unitOfMeasure || 'Each',
+          isPending: false,
+          stockItemId: item.id,
+          createdById: userId ?? null
+        }
+      });
+    } else {
+      await tx.serviceCatalog.update({ where: { id: catalog.id }, data: flags });
+    }
+
+    const changed = !current
+      || toNumber(current.cashPrice) !== cash || toNumber(current.nhisPrice) !== nhis
+      || toNumber(current.insurancePrice) !== insurance || toNumber(current.corporatePrice) !== corporate;
+
+    if (changed) {
+      // Historical pricing: expire the old row, create a new one that holds all four prices
+      await tx.servicePricing.updateMany({ where: { serviceCatalogId: catalog.id, isActive: true }, data: { isActive: false, expiryDate: new Date() } });
+      await tx.servicePricing.create({
+        data: {
+          serviceCatalogId: catalog.id,
+          cashPrice: cash, nhisPrice: nhis, insurancePrice: insurance, corporatePrice: corporate,
+          vatRate: item.vatRate ?? 0, isTaxable: item.isTaxable ?? true,
+          isActive: true, effectiveDate: new Date()
+        }
+      });
+    }
+  }
+
+  async create(data: any, userId?: string) {
     const name = String(data.name ?? '').trim();
     const category = String(data.category ?? '').trim();
     const unitOfMeasure = String(data.unitOfMeasure ?? '').trim();
@@ -54,12 +135,17 @@ export class StockItemService extends BaseService {
     }
 
     this.logInfo('Creating stock item', { name, drugCode });
-    const item = await this.repo.create({
-      name, category, description: data.description, strength, unitOfMeasure, drugCode,
-      reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice, isNHISCovered: data.isNHISCovered ?? true,
-      isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
-      supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
-      tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
+    // Stock item + its catalog entry and prices are saved together, so an item is never left without a price
+    const item = await this.prisma.$transaction(async (tx) => {
+      const created = await this.repo.create({
+        name, category, description: data.description, strength, unitOfMeasure, drugCode,
+        reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice, isNHISCovered: data.isNHISCovered ?? true,
+        isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
+        supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
+        tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
+      }, tx);
+      await this.savePatientPrices(tx, created, data, userId);
+      return created;
     });
 
     if (data.batchNumber && data.expiryDate && data.quantityReceived) {
@@ -75,9 +161,14 @@ export class StockItemService extends BaseService {
     return item;
   }
 
-  async update(id: string, updateData: any) {
-    const { id: _, createdAt, ...cleanData } = updateData;
-    return this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined });
+  async update(id: string, updateData: any, userId?: string) {
+    // Price fields and relations are not stock-item columns: strip them, then apply the prices to the catalog entry
+    const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, ...cleanData } = updateData;
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined }, tx);
+      await this.savePatientPrices(tx, updated, { cashPrice, nhisPrice, insurancePrice, corporatePrice }, userId);
+      return updated;
+    });
   }
 
   async deleteStockItem(id: string) {
@@ -88,7 +179,24 @@ export class StockItemService extends BaseService {
     if (hasDeps) {
       throw new ConflictError('This item cannot be deleted because it has stock history (batches, transactions, prescriptions, invoices, requisitions or transfers). Mark it as inactive instead.');
     }
-    await this.repo.delete(id);
+
+    // The item's own catalog entry + prices go with it, unless that entry was already billed or prescribed
+    await this.prisma.$transaction(async (tx) => {
+      const catalogs = await tx.serviceCatalog.findMany({
+        where: { stockItemId: id },
+        select: { id: true, _count: { select: { medications: true, BillLineItem: true, ProformaInvoiceItem: true, ServiceRendered: true } } }
+      });
+      const inUse = catalogs.some(c => c._count.medications + c._count.BillLineItem + c._count.ProformaInvoiceItem + c._count.ServiceRendered > 0);
+      if (inUse) {
+        throw new ConflictError('This item cannot be deleted because it has been billed or prescribed. Mark it as inactive instead.');
+      }
+      const catalogIds = catalogs.map(c => c.id);
+      if (catalogIds.length > 0) {
+        await tx.servicePricing.deleteMany({ where: { serviceCatalogId: { in: catalogIds } } });
+        await tx.serviceCatalog.deleteMany({ where: { id: { in: catalogIds } } });
+      }
+      await tx.stockItem.delete({ where: { id } });
+    });
     return { message: 'Stock item deleted successfully' };
   }
 

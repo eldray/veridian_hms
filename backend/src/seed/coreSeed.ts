@@ -270,6 +270,8 @@ const addSchemaDefaults = (data: any, type: string) => {
         dailyNHISRate: data.dailyNHISRate ?? data.nhisPrice ?? data.nhisDailyRate ?? 0,
         dailyInsuranceRate:
           data.dailyInsuranceRate ?? data.insurancePrice ?? data.insuranceDailyRate ?? 0,
+        dailyCorporateRate:
+          data.dailyCorporateRate ?? data.corporatePrice ?? data.corporateDailyRate ?? 0,
       };
 
     default:
@@ -299,7 +301,7 @@ const createServicePricing = async (
       cashPrice: pricing.cashPrice ?? 0,
       nhisPrice: pricing.nhisPrice ?? 0,
       insurancePrice: pricing.insurancePrice ?? 0,
-      corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
+      corporatePrice: pricing.corporatePrice ?? 0, // 0 = billed with the corporate fallback (account discount off cash, else cash)
       vatRate: 0,
       isTaxable: false,
       isActive: true,
@@ -867,6 +869,8 @@ export const seedCoreData = async (force: boolean = false) => {
     const stockFiles = ['medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
     const stockItemMap = new Map();
+    // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
+    const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number }>();
 
     for (const file of stockFiles) {
       const items = readJSON(file);
@@ -897,6 +901,21 @@ export const seedCoreData = async (force: boolean = false) => {
             update: stockData,
           });
           stockItemMap.set(item.drugCode, stockItem);
+
+          // cash = sellingPrice, insurance = insurancePrice. In the NHIS list and medications2.json the
+          // insurancePrice equals unitPrice, and that is the real NHIA tariff, so it is also the NHIS price.
+          // medications1 / consumables only hold a cost in unitPrice: NHIS stays 0 (not NHIS-priced), so the
+          // patient pays the cash price. Corporate stays 0 and falls back to cash (or the account discount).
+          const unit = Number(item.unitPrice ?? 0);
+          const sell = Number(item.sellingPrice ?? 0);
+          const ins = Number(item.insurancePrice ?? 0);
+          const isNhiaTariff = unit > 0 && Math.abs(ins - unit) < 0.005;
+          const cashPrice = sell > 0 ? sell : Math.round(unit * 1.2 * 100) / 100;
+          stockPriceMap.set(item.drugCode, {
+            cashPrice,
+            insurancePrice: ins > 0 ? ins : cashPrice,
+            nhisPrice: isNhiaTariff ? unit : 0,
+          });
           totalStockProcessed++;
 
           if (totalStockProcessed % 50 === 0) {
@@ -1084,8 +1103,11 @@ export const seedCoreData = async (force: boolean = false) => {
     }
 
     for (const [drugCode, stockItem] of stockItemMap) {
-      const pricing = pricingConfig.medications?.[drugCode] || {
-        cashPrice: 50, nhisPrice: 35, insurancePrice: 45,
+      // An explicit entry in servicePricing.json wins; otherwise use the item's own prices from its JSON file.
+      // Last resort (no prices at all): cost + 20%. All of these are placeholders until real price lists are loaded.
+      const costBased = Math.round(Number(stockItem.costPrice ?? 0) * 1.2 * 100) / 100;
+      const pricing = pricingConfig.medications?.[drugCode] || stockPriceMap.get(drugCode) || {
+        cashPrice: costBased, nhisPrice: 0, insurancePrice: costBased,
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
@@ -1097,6 +1119,7 @@ export const seedCoreData = async (force: boolean = false) => {
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
+        metadata: { pricingSource: 'seed-placeholder' }, // replace with real price lists, then drop this flag
       });
     }
 
@@ -1172,6 +1195,7 @@ export const seedCoreData = async (force: boolean = false) => {
             cashPrice: ward.dailyCashRate ?? ward.cashPrice ?? ward.cashDailyRate ?? 100,
             nhisPrice: ward.dailyNHISRate ?? ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
             insurancePrice: ward.dailyInsuranceRate ?? ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
+            corporatePrice: ward.dailyCorporateRate ?? ward.corporatePrice ?? ward.corporateDailyRate ?? 0,
           };
 
           const serviceCatalogData = addSchemaDefaults({

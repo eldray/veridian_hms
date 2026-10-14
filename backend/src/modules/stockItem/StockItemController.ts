@@ -16,7 +16,7 @@ export class StockItemController extends BaseController {
   }
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.create(req.body);
+    const result = await this.service.create(req.body, req.user?.id);
     return this.created(res, result, 'Stock item created successfully');
   });
 
@@ -33,7 +33,7 @@ export class StockItemController extends BaseController {
   });
 
   update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.update(req.params.id, req.body);
+    const result = await this.service.update(req.params.id, req.body, req.user?.id);
     return this.ok(res, result, 'Stock item updated');
   });
 

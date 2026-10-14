@@ -62,6 +62,7 @@ const transformWard = (ward: any): Ward => {
     dailyCashRate: ward.dailyCashRate,
     dailyNHISRate: ward.dailyNHISRate,
     dailyInsuranceRate: ward.dailyInsuranceRate,
+    dailyCorporateRate: ward.dailyCorporateRate,
     vatRate: ward.vatRate,
     isTaxable: ward.isTaxable,
     isNHISCovered: ward.isNHISCovered,
