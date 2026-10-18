@@ -16,8 +16,41 @@ const api = axios.create({
   timeout: 30000,
 });
 
+
+// ── GET concurrency gate ─────────────────────────────────────────────────────
+// Browsers/Electron allow ~6 connections per server and the live-update stream keeps one open.
+// A screen that fires 20+ requests at once (nursing board, antenatal, medical entries...) made the
+// rest wait in the browser's queue, and the 30 s timeout then expired while they were still waiting.
+// Here at most MAX_GETS reads run at once and the rest wait their turn BEFORE the timeout starts.
+// Saves (POST/PUT/PATCH/DELETE) are never queued, so clicking Save is always immediate.
+const MAX_GETS = 4;
+let activeGets = 0;
+const waiting: Array<() => void> = [];
+
+const acquireSlot = (config: any): Promise<void> => {
+  if (config.__slot) return Promise.resolve();
+  const take = () => {
+    activeGets++;
+    config.__slot = true;
+    // safety net: never hold a slot longer than the request timeout + a little
+    config.__slotTimer = setTimeout(() => releaseSlot(config), 65_000);
+  };
+  if (activeGets < MAX_GETS) { take(); return Promise.resolve(); }
+  return new Promise<void>((resolve) => waiting.push(() => { take(); resolve(); }));
+};
+
+const releaseSlot = (config: any) => {
+  if (!config?.__slot) return;
+  config.__slot = false;
+  clearTimeout(config.__slotTimer);
+  activeGets = Math.max(0, activeGets - 1);
+  const next = waiting.shift();
+  if (next) next();
+};
+
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    if ((config.method || 'get').toLowerCase() === 'get') await acquireSlot(config);
     const token = localStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -28,9 +61,10 @@ api.interceptors.request.use(
 );
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => { releaseSlot(response.config); return response; },
   async (error) => {
     const originalRequest = error.config;
+    releaseSlot(originalRequest);
 
     const isAuthEndpoint =
       originalRequest?.url?.includes('/auth/login') ||

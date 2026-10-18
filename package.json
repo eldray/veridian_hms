@@ -15,7 +15,7 @@
     "electron:preview": "electron .",
     "build:win": "node build-win.js",
     "build:win:dir": "node build-win.js --dir",
-    "build:clean": "node -e \"['release','build/backend','backend/dist-bundle','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\"" 
+    "build:clean": "node -e \"['release','build/backend','backend/dist-bundle','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\""
   },
   "dependencies": {
     "concurrently": "^9.1.2"
@@ -23,6 +23,7 @@
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.38",
     "electron": "^36.0.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "prisma": "^6.19.3"
   }
 }

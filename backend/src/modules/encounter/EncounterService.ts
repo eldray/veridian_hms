@@ -253,6 +253,227 @@ export class EncounterService extends BaseService {
     });
   }
 
+
+
+    // ============================================
+  // POST-VISIT TRANSITIONS
+  // ============================================
+
+  /**
+   * Refer an attendance to another facility.
+   * - Creates the ReferralRecord (via ReferralService so outgoing referrals
+   *   stay consistent with the rest of the referral module)
+   * - Sets attendance.status = 'referred'
+   * - Closes the admission (if any) with dischargeStatus='transfer'
+   * - Frees the bed
+   */
+  async referFromEncounter(encounterId: string, data: {
+    referredToFacility: string;
+    referralReason: string;
+    referredToDoctor?: string;
+    referredToDepartment?: string;
+    referralNotes?: string;
+    urgency?: 'routine' | 'urgent' | 'stat';
+    referralDate?: string | Date;
+  }, userId: string) {
+    if (!data.referredToFacility?.trim()) {
+      throw new ValidationError('referredToFacility is required');
+    }
+    if (!data.referralReason?.trim()) {
+      throw new ValidationError('referralReason is required');
+    }
+
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      include: { Admission: true, Patient: true, referral: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+    if (terminal.includes(encounter.status)) {
+      throw new ValidationError(`Cannot refer: encounter is already "${encounter.status}"`);
+    }
+    if (encounter.referral) {
+      throw new ValidationError(
+        `This encounter already has referral ${encounter.referral.referralNumber}`,
+      );
+    }
+
+    // Reuse the referral module so the record is created by the same
+    // code path as `POST /referrals/outgoing`.
+    const { ReferralService } = await import('../referral/ReferralService');
+    const referralService = new ReferralService(this.prisma);
+    const referral = await referralService.createOutgoingReferral(
+      {
+        patientId: encounter.patientId,
+        encounterId: encounterId,
+        referralReason: data.referralReason,
+        referredToFacility: data.referredToFacility,
+        referredToDoctor: data.referredToDoctor,
+        referredToDepartment: data.referredToDepartment,
+        referralNotes: data.referralNotes,
+        urgency: data.urgency ?? 'routine',
+        referralDate: data.referralDate as any,
+      } as any,
+      userId,
+    );
+
+    return this.prisma.$transaction(async (tx) => {
+      // Close admission (transfer) — mirrors dischargeFromEncounter
+      if (encounter.Admission && !encounter.Admission.dischargeDate) {
+        const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
+          ? (encounter.Admission.dailyNotes as any[])
+          : [];
+        await tx.admission.update({
+          where: { id: encounter.Admission.id },
+          data: {
+            dischargeDate: new Date(),
+            dischargeStatus: 'transfer',
+            dailyNotes: [
+              ...existingNotes,
+              {
+                id: Date.now().toString(),
+                noteType: 'referral',
+                notes: `Referred to ${data.referredToFacility}. Reason: ${data.referralReason}`,
+                createdBy: userId,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          },
+        });
+      }
+
+      // Free the bed / decrement occupancy
+      if (encounter.bedId) {
+        await tx.bed.update({
+          where: { id: encounter.bedId },
+          data: { isOccupied: false },
+        });
+        if (encounter.wardId) {
+          await tx.ward.update({
+            where: { id: encounter.wardId },
+            data: { occupiedBeds: { decrement: 1 } },
+          });
+        }
+      }
+
+      // Set attendance status — one field, no derived state
+      const updated = await tx.attendance.update({
+        where: { id: encounterId },
+        data: { status: 'referred', bedId: null, updatedById: userId },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId,
+          title: 'Patient Referred',
+          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} referred to ${data.referredToFacility}.`,
+          type: 'clinical',
+          priority: data.urgency === 'stat' ? 'urgent' : data.urgency === 'urgent' ? 'high' : 'medium',
+          actionType: 'referral',
+          actionId: referral.id,
+        },
+      });
+
+      this.logInfo('Encounter referred', { encounterId, referralId: referral.id, userId });
+      return { attendance: updated, referral };
+    });
+  }
+
+  /**
+   * Mark an attendance as absconded (patient left without formal discharge).
+   * - Sets attendance.status = 'absconded'
+   * - Closes the admission (if any) with dischargeStatus='against_medical_advice'
+   * - Frees the bed
+   */
+  async abscondFromEncounter(encounterId: string, data: { notes?: string; abscondDate?: string | Date }, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      include: { Admission: true, Patient: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+    if (terminal.includes(encounter.status)) {
+      throw new ValidationError(`Cannot mark absconded: encounter is already "${encounter.status}"`);
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (encounter.Admission && !encounter.Admission.dischargeDate) {
+        const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
+          ? (encounter.Admission.dailyNotes as any[])
+          : [];
+        await tx.admission.update({
+          where: { id: encounter.Admission.id },
+          data: {
+            dischargeDate: data.abscondDate ? new Date(data.abscondDate) : new Date(),
+            dischargeStatus: 'against_medical_advice',
+            dailyNotes: [
+              ...existingNotes,
+              {
+                id: Date.now().toString(),
+                noteType: 'absconded',
+                notes: `Patient absconded. ${data.notes || ''}`.trim(),
+                createdBy: userId,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          },
+        });
+      }
+
+      if (encounter.bedId) {
+        await tx.bed.update({
+          where: { id: encounter.bedId },
+          data: { isOccupied: false },
+        });
+        if (encounter.wardId) {
+          await tx.ward.update({
+            where: { id: encounter.wardId },
+            data: { occupiedBeds: { decrement: 1 } },
+          });
+        }
+      }
+
+      const updated = await tx.attendance.update({
+        where: { id: encounterId },
+        data: { status: 'absconded', bedId: null, updatedById: userId },
+      });
+
+      this.logInfo('Encounter absconded', { encounterId, userId, notes: data.notes });
+      return updated;
+    });
+  }
+
+  /**
+   * Mark an OPD visit as completed.
+   * Refuses if an active admission exists — that must be discharged/referred/absconded first.
+   */
+  async completeEncounter(encounterId: string, userId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      include: { Admission: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+    if (terminal.includes(encounter.status)) {
+      throw new ValidationError(`Cannot complete: encounter is already "${encounter.status}"`);
+    }
+    if (encounter.Admission && !encounter.Admission.dischargeDate) {
+      throw new ValidationError(
+        'Cannot complete while an admission is active. Discharge, refer, or mark absconded first.',
+      );
+    }
+
+    return this.prisma.attendance.update({
+      where: { id: encounterId },
+      data: { status: 'completed', updatedById: userId },
+    });
+  }
+
+
+  
   async convertDetentionToFormalIPD(encounterId: string, data: ConvertDetentionToIPDDTO, userId: string) {
     const encounter = await this.prisma.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true, Patient: true } });
     if (!encounter || !encounter.Admission || encounter.Admission.admissionType !== 'detention_observation') {
@@ -327,6 +548,16 @@ export class EncounterService extends BaseService {
   async setPrimaryDiagnosis(id: string, diagnosisId: string, userId: string) { return this.addDiagnosis(id, { diagnosisId, diagnosisType: 'primary' }, userId); }
   async removeDiagnosis(id: string, diagnosisId: string) { return this.repository.removeDiagnosis(id, diagnosisId); }
   
+  /** Latest vitals reading for each of many encounters in ONE query (the nursing board used to ask once per patient). */
+  async getLatestVitals(ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.prisma.vitals.findMany({
+      where: { attendanceId: { in: ids.slice(0, 200) } },
+      distinct: ['attendanceId'],
+      orderBy: [{ attendanceId: 'asc' }, { recordedAt: 'desc' }],
+    });
+  }
+
   async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, orderBy: { recordedAt: 'desc' } }); }
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
   async updateVitals(id: string, data: any) { return this.repository.updateVitals(id, data); }

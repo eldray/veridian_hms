@@ -7,6 +7,7 @@ import { generateLeaveRegisterHTML } from './pdfTemplates/leaveRegisterPDF';
 import { generateLeaveRequestFormHTML } from './pdfTemplates/leaveRequestFormPDF';
 import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
 import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
+import { generateClaimBatchHTML } from './pdfTemplates/claimBatchPDF';
 import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
 import { generateVisitSummaryHTML } from './pdfTemplates/visitSummaryPDF';
 import { generateLabResultsHTML } from './pdfTemplates/labResultsPDF';
@@ -17,25 +18,26 @@ import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
 import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
 import { generateHandoverHTML } from './pdfTemplates/handoverPDF';
 
-export type PDFType = 
-  | 'receipt' 
-  | 'insuranceClaim' 
-  | 'billStatement' 
-  | 'visitSummary' 
-  | 'labResults'      // ✅ camelCase used in LabResultEntry
-  | 'lab-results'     // ✅ kebab-case alternative
-  | 'labResult'       // ✅ another alternative
-  | 'dischargeSummary' 
-  | 'prescription' 
-  | 'referral' 
+export type PDFType =
+  | 'receipt'
+  | 'insuranceClaim'
+  | 'billStatement'
+  | 'visitSummary'
+  | 'labResults'
+  | 'lab-results'
+  | 'labResult'
+  | 'dischargeSummary'
+  | 'prescription'
+  | 'referral'
   | 'referralLetter'
-  | 'combinedPrescription' 
-  | 'scanReport' 
+  | 'combinedPrescription'
+  | 'scanReport'
   | 'handover'
   | 'shiftRota'
   | 'shiftSummary'
   | 'leaveRegister'
-  | 'leaveRequestForm';
+  | 'leaveRequestForm'
+  | 'claimBatch';
 
 export const generatePDF = (
   type: PDFType,
@@ -50,7 +52,10 @@ export const generatePDF = (
     case 'receipt':
       return generateReceiptHTML(data.bill, data.patient, data.payment, hospital);
     case 'insuranceClaim':
-      return generateInsuranceClaimHTML(data.claim, data.patient, hospital);
+      // New signature: (claim, hospital)
+      return generateInsuranceClaimHTML(data.claim, hospital);
+    case 'claimBatch':
+      return generateClaimBatchHTML(data.batch, hospital);
     case 'billStatement':
       return generateBillStatementHTML(data.bill, data.patient, hospital);
     case 'visitSummary':

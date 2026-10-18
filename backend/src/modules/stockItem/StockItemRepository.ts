@@ -160,6 +160,34 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return this.prisma.stockTransaction.findMany({ where, include: { StockItem: { select: { name: true, category: true, isMedication: true, costPrice: true } } }, orderBy: { transactionDate: 'desc' } });
   }
 
+  /** Every stock transaction in the period, oldest first, so balances can be chained. Newest `limit` rows when there are more. */
+  async getLedgerTransactions(opts: { startDate?: Date; endDate?: Date; category?: string; stockItemId?: string; transactionType?: string; limit: number }) {
+    const where: any = {};
+    if (opts.startDate || opts.endDate) {
+      where.transactionDate = {};
+      if (opts.startDate) where.transactionDate.gte = opts.startDate;
+      if (opts.endDate) where.transactionDate.lte = opts.endDate;
+    }
+    if (opts.stockItemId) where.stockItemId = opts.stockItemId;
+    if (opts.transactionType) where.transactionType = opts.transactionType;
+    if (opts.category) where.StockItem = { category: opts.category };
+    const total = await this.prisma.stockTransaction.count({ where });
+    const rows = await this.prisma.stockTransaction.findMany({
+      where,
+      orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+      skip: Math.max(0, total - opts.limit),
+      take: opts.limit,
+      include: {
+        StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, drugCode: true, costPrice: true } },
+        User: { select: { fullName: true } },
+        Department: { select: { name: true } },
+        Requisition: { select: { requisitionNumber: true } },
+        Invoice: { select: { invoiceNumber: true, supplierName: true } },
+      },
+    });
+    return { rows, total };
+  }
+
   async getTransactionsForUsageReport(startDate: Date) {
     return this.prisma.stockTransaction.findMany({
       where: { transactionType: { in: ['sale', 'requisition'] }, transactionDate: { gte: startDate } },

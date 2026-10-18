@@ -95,12 +95,13 @@ export class CounterService {
       // The attendance counter is SHARED: it also generates bill, admission and
       // claim numbers (BILL-n, ADM-n, NHIS-n ...). All of them must be checked
       // or a restart can re-issue a number that already exists.
-      this.maxNumberAcross([
-        { model: 'Attendance', field: 'attendanceNumber' },
-        { model: 'Bill', field: 'billNumber' },
-        { model: 'Admission', field: 'admissionNumber' },
-        { model: 'InsuranceClaim', field: 'claimNumber' }
-      ]),
+    this.maxNumberAcross([
+      { model: 'Attendance', field: 'attendanceNumber' },
+      { model: 'Bill', field: 'billNumber' },
+      { model: 'Admission', field: 'admissionNumber' },
+      { model: 'InsuranceClaim', field: 'claimNumber' },
+      { model: 'ProformaInvoice', field: 'referenceNumber' },
+    ]),
 
       // Receipts (RCP-n) and claim batches (BATCH-xxxxxx-n) share the receipt counter.
       this.maxNumberAcross([
@@ -155,8 +156,11 @@ export class CounterService {
   // ============================================
   // CLAIM NUMBER (matches attendance)
   // ============================================
-  getClaimNumberFromAttendance(attendanceNumber: string, claimType: 'nhis' | 'private_insurance' | 'corporate'): string {
-    const prefix = claimType === 'nhis' ? 'NHIS' : claimType === 'private_insurance' ? 'PRV' : 'CORP';
+  getClaimNumberFromAttendance(
+    attendanceNumber: string,
+    claimType: 'nhis' | 'private' | 'corporate',
+  ): string {
+    const prefix = claimType === 'nhis' ? 'NHIS' : claimType === 'private' ? 'PRIV' : 'CORP';
     return `${prefix}-${attendanceNumber}`;
   }
 
@@ -209,7 +213,7 @@ export class CounterService {
   }
 
   nextBatchNumber(): string {
-    return `BATCH-${Date.now().toString().slice(-6)}-${++receiptCounter}`;
+    return `BATCH-${++receiptCounter}`;
   }
 
   nextNHISClaimNumber(): string {

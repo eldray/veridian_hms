@@ -1030,18 +1030,7 @@ export const getCorporateMonthlyBills = (accountId: string, filters?: any) =>
   api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// INSURANCE CLAIMS - Corporate Claims (FIXED)
-// ──────────────────────────────────────────────
-
-// ✅ FIX: This was missing - add corporate claim functions
-export const generateCorporateClaim = (encounterId: string) =>
-  api.post('/insurance-claims/corporate/generate', { attendanceId: encounterId }).then(r => r.data);
-
-export const getCorporateClaims = (filters?: any) =>
-  api.get('/insurance-claims/corporate', { params: filters }).then(r => r.data);
-
-// ──────────────────────────────────────────────
-// INSURANCE CLAIMS - General (FIXED order)
+// INSURANCE CLAIMS — GENERAL
 // ──────────────────────────────────────────────
 
 export const getInsuranceClaims = (filters?: any) =>
@@ -1055,47 +1044,89 @@ export const getClaimByEncounterId = (encounterId: string) =>
 
 export const updateClaimDraft = (claimId: string, data: any) =>
   api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
+export const replaceClaimItems = (claimId: string, items: any[]) =>
+  api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => r.data);
 
-export const updateInsuranceClaim = (claimId: string, data: any) =>
-  api.patch(`/insurance-claims/${claimId}`, data).then(r => r.data);
+// Alias — same endpoint as updateClaimDraft (drafts only)
+export const updateInsuranceClaim = updateClaimDraft;
 
 export const finalizeClaim = (claimId: string) =>
   api.patch(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
 
-export const updateClaimStatus = (claimId: string, data: { status: string; notes?: string }) =>
-  api.patch(`/insurance-claims/${claimId}/status`, data).then(r => r.data);
-
-export const generateClaimXML = (claimId: string) =>
-  api.post(`/insurance-claims/${claimId}/generate-xml`, {}, { responseType: 'blob' }).then(r => r.data);
-
-export const generateClaimPrint = (claimId: string) =>
-  api.get(`/insurance-claims/${claimId}/print`).then(r => r.data);
-
-export const getFinalizedClaimsTotal = (filters?: any) =>
-  api.get('/insurance-claims/finalized/total', { params: filters }).then(r => r.data);
+// ❌ REMOVED: updateClaimStatus, getFinalizedClaimsTotal
+//    The backend no longer has those endpoints (claim lifecycle = draft → finalized).
 
 // ──────────────────────────────────────────────
-// INSURANCE CLAIMS - NHIS & Private
+// INSURANCE CLAIMS — NHIS / PRIVATE / CORPORATE
 // ──────────────────────────────────────────────
 
-export const generateNHISClaim = (encounterId: string) =>
-  api.post('/insurance-claims/nhis/generate', { attendanceId: encounterId }).then(r => r.data);
+export const generateNHISClaim = (attendanceId: string) =>
+  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
 
 export const getNHISClaims = (filters?: any) =>
   api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
 
-export const generatePrivateInsuranceClaim = (encounterId: string) =>
-  api.post('/insurance-claims/private/generate', { attendanceId: encounterId }).then(r => r.data);
+export const generatePrivateInsuranceClaim = (attendanceId: string) =>
+  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
 
 export const getPrivateInsuranceClaims = (filters?: any) =>
   api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
 
+export const generateCorporateClaim = (attendanceId: string) =>
+  api.post('/insurance-claims/corporate/generate', { attendanceId }).then(r => r.data);
+
+export const getCorporateClaims = (filters?: any) =>
+  api.get('/insurance-claims/corporate', { params: filters }).then(r => r.data);
+
 // ──────────────────────────────────────────────
-// CLAIM BATCHES (Keep as is)
+// CLAIM SUMMARY (replaces getFinalizedClaimsTotal)
 // ──────────────────────────────────────────────
 
-export const createClaimBatch = (data: { claimIds: string[]; description?: string; insuranceType?: string }) =>
-  api.post('/insurance-claims/batches', data).then(r => r.data);
+export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate') =>
+  api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// CLAIM XML + PRINT (single claim — open in new tab)
+// ──────────────────────────────────────────────
+
+const resolveApiBase = (): string => {
+  // axios instance configures a baseURL; fall back to relative
+  return (api.defaults.baseURL ?? '') as string;
+};
+
+/** Download a single NHIS claim as XML (opens a new tab → browser download). */
+export const downloadClaimXml = (claimId: string) => {
+  window.open(`${resolveApiBase()}/insurance-claims/${claimId}/xml`, '_blank');
+};
+
+/** Print a single claim (any type) — opens a print-ready HTML view. */
+export const generateClaimPrint = (claimId: string) => {
+  window.open(`${resolveApiBase()}/insurance-claims/${claimId}/print`, '_blank');
+};
+
+/** Same as generateClaimPrint — kept for backward-compat with older call sites. */
+export const generateClaimXML = (claimId: string) => downloadClaimXml(claimId);
+
+
+// ──────────────────────────────────────────────
+// CLAIM BATCHES
+// ──────────────────────────────────────────────
+// NOTE: The batch is built from finalized claims for a (type, year, month,
+// provider/corporate account). Claim IDs are NOT passed in — the backend
+// selects them. Once created, the batch is `generated`; it can be
+// `finalized` or `deleted`. There is no manual "add/remove claims" API.
+
+export interface GenerateClaimBatchInput {
+  insuranceType: 'nhis' | 'private' | 'corporate';
+  periodYear: number;
+  periodMonth: number;         // 1–12
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
+  description?: string;
+}
+
+export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
+  api.post('/insurance-claims/batches/generate', data).then(r => r.data);
 
 export const getClaimBatches = (filters?: any) =>
   api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
@@ -1103,20 +1134,30 @@ export const getClaimBatches = (filters?: any) =>
 export const getClaimBatch = (id: string) =>
   api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
 
-export const addClaimsToBatch = (batchId: string, claimIds: string[]) =>
-  api.post(`/insurance-claims/batches/${batchId}/claims`, { claimIds }).then(r => r.data);
-
-export const removeClaimsFromBatch = (batchId: string, claimIds: string[]) =>
-  api.delete(`/insurance-claims/batches/${batchId}/claims`, { data: { claimIds } }).then(r => r.data);
-
-export const generateBatchXML = (batchId: string) =>
-  api.post(`/insurance-claims/batches/${batchId}/generate-xml`, {}, { responseType: 'blob' }).then(r => r.data);
-
-export const updateBatchStatus = (batchId: string, status: string) =>
-  api.patch(`/insurance-claims/batches/${batchId}/status`, { status }).then(r => r.data);
+export const finalizeClaimBatch = (batchId: string) =>
+  api.patch(`/insurance-claims/batches/${batchId}/finalize`).then(r => r.data);
 
 export const deleteClaimBatch = (batchId: string) =>
   api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
+
+/** NHIS only — opens a new tab → browser downloads the batch XML. */
+export const downloadBatchXml = (batchId: string) => {
+  window.open(`${resolveApiBase()}/insurance-claims/batches/${batchId}/xml`, '_blank');
+};
+
+/** Batch summary print (any type) — opens a print-ready HTML view. */
+export const printClaimBatch = (batchId: string) => {
+  window.open(`${resolveApiBase()}/insurance-claims/batches/${batchId}/print`, '_blank');
+};
+
+// ──────────────────────────────────────────────
+// Removed (backend no longer exposes them):
+//   createClaimBatch(claimIds, description, insuranceType)
+//   addClaimsToBatch(batchId, claimIds)
+//   removeClaimsFromBatch(batchId, claimIds)
+//   generateBatchXML(batchId)
+//   updateBatchStatus(batchId, status)
+// ──────────────────────────────────────────────
 
 // ──────────────────────────────────────────────
 // PATIENTS
@@ -1259,6 +1300,31 @@ export const updateEncounterStatus = (id: string, data: any) => {
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
+
+
+export const referFromEncounter = (
+  encounterId: string,
+  data: {
+    referredToFacility: string;
+    referralReason: string;
+    referredToDoctor?: string;
+    referredToDepartment?: string;
+    referralNotes?: string;
+    urgency?: 'routine' | 'urgent' | 'stat';
+    referralDate?: string;
+  },
+) =>
+  api.post(`/encounters/${encounterId}/refer`, data).then(r => r.data?.data ?? r.data);
+
+export const abscondFromEncounter = (
+  encounterId: string,
+  data: { notes?: string; abscondDate?: string } = {},
+) =>
+  api.post(`/encounters/${encounterId}/abscond`, data).then(r => r.data?.data ?? r.data);
+
+export const completeEncounter = (encounterId: string) =>
+  api.post(`/encounters/${encounterId}/complete`).then(r => r.data?.data ?? r.data);
+
 
 // ============================================
 // WORKLIST (VIA ENCOUNTER MODULE)
@@ -1457,6 +1523,18 @@ export const addVitalsToEncounter = async (encounterId: string, data: any) => {
 };
 
 // api/index.ts - Make sure this is correct
+
+/** Latest vitals reading for many encounters in one request (chunks of 100 ids). */
+export const getLatestVitals = async (encounterIds: string[]): Promise<any[]> => {
+  const out: any[] = [];
+  for (let i = 0; i < encounterIds.length; i += 100) {
+    const chunk = encounterIds.slice(i, i + 100);
+    const response = await api.get('/encounters/vitals/latest', { params: { ids: chunk.join(',') } });
+    const rows = response.data?.data ?? response.data;
+    if (Array.isArray(rows)) out.push(...rows);
+  }
+  return out;
+};
 
 export const getVitalsByEncounter = async (encounterId: string) => {
   try {
@@ -3103,11 +3181,20 @@ export const exportReport = async (data: {
   filters: ReportFilter;
   data: any;
 }) => {
-  const response = await api.post('/reports/export', data, { responseType: 'blob' });
+  const response = await api.post('/reports/export', data, { responseType: 'blob', timeout: 120000 });
   const blob: Blob = response.data;
+
+  // On a server error the body is JSON text, not a file: show its message instead of saving it as a "report"
+  if (blob.type && blob.type.includes('application/json')) {
+    let message = 'Export failed';
+    try { message = JSON.parse(await blob.text())?.message || message; } catch { /* keep default */ }
+    throw new Error(message);
+  }
+
+  const extension = data.format === 'excel' ? 'xlsx' : data.format === 'pdf' ? 'pdf' : 'csv';
   const disposition: string = response.headers?.['content-disposition'] || '';
   const match = /filename="?([^";]+)"?/i.exec(disposition);
-  const filename = match?.[1] || `${data.reportType}_${new Date().toISOString().split('T')[0]}.csv`;
+  const filename = match?.[1] || `${data.reportType}_${new Date().toISOString().split('T')[0]}.${extension}`;
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -3750,10 +3837,13 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Insurance Claims
   getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getCorporateClaims, getInsuranceClaim, getClaimByEncounterId,
-  generateNHISClaim, generatePrivateInsuranceClaim, generateCorporateClaim, updateInsuranceClaim, updateClaimDraft, finalizeClaim,
-  updateClaimStatus, generateClaimXML, generateClaimPrint, getFinalizedClaimsTotal,
-  createClaimBatch, getClaimBatches, getClaimBatch, addClaimsToBatch, removeClaimsFromBatch,
-  generateBatchXML, updateBatchStatus, deleteClaimBatch,
+  generateNHISClaim, generatePrivateInsuranceClaim, generateCorporateClaim,
+  updateInsuranceClaim, updateClaimDraft, finalizeClaim,
+  getClaimsSummary, downloadClaimXml, generateClaimPrint, generateClaimXML,
+
+  // Claim Batches
+  generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
+  downloadBatchXml, printClaimBatch,
 
   // Corporate Accounts
   getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount,
@@ -3812,7 +3902,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getDaycasePatients, convertDaycaseToIPD,
 
   // Discharge
-  dischargeFromEncounter,
+  dischargeFromEncounter,    referFromEncounter, abscondFromEncounter, completeEncounter,
 
   // Stock
   getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,

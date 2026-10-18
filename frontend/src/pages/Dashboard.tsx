@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - COMPLETE
+// src/pages/Dashboard.tsx — Fixed-height regions with internal scrolling
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -82,7 +82,6 @@ const PRESETS: { key: DatePreset; label: string }[] = [
 ];
 
 // ── Date toggle ────────────────────────────────────────────────────────────
-// FIX: Only show the range chip when in custom mode (dedupes "Today" label)
 
 function DateToggle({
   preset, dateRange, onChange,
@@ -240,6 +239,7 @@ function DateToggle({
 }
 
 // ── Stat group section ─────────────────────────────────────────────────────
+// The grid of StatCards scrolls internally if the group has many cards.
 
 function StatGroupSection({
   group, collapsed, onToggle, stats, loading, visitLabel, revLabel,
@@ -258,8 +258,8 @@ function StatGroupSection({
   const Icon = group.icon;
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between px-1">
+    <div className="flex flex-col min-h-0" style={{ flex: '1 1 auto' }}>
+      <div className="flex items-center justify-between px-1 flex-shrink-0">
         <div className="flex items-center gap-2">
           {Icon && <Icon className="w-4 h-4" style={{ color: 'var(--icon-cyan-text)' }} />}
           <span className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
@@ -283,24 +283,37 @@ function StatGroupSection({
       </div>
 
       {!collapsed && (
-        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          {statCards.map(s => (
-            <StatCard
-              key={s.key}
-              to={s.to}
-              label={
-                s.key === 'todayVisits' ? visitLabel
-                  : s.key === 'totalRevenue' ? revLabel
-                  : s.label
-              }
-              value={s.value(stats)}
-              sub={s.sub}
-              Icon={s.Icon}
-              bg={s.bg}
-              color={s.color}
-              loading={loading}
-            />
-          ))}
+        <div
+          className="mt-2 min-h-0"
+          style={{
+            overflowY: 'auto',
+            overscrollBehavior: 'contain',
+            // Fade-out hint that content scrolls
+            scrollbarWidth: 'thin',
+          }}
+        >
+          <div
+            className="grid gap-3 pb-1"
+            style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}
+          >
+            {statCards.map(s => (
+              <StatCard
+                key={s.key}
+                to={s.to}
+                label={
+                  s.key === 'todayVisits' ? visitLabel
+                    : s.key === 'totalRevenue' ? revLabel
+                    : s.label
+                }
+                value={s.value(stats)}
+                sub={s.sub}
+                Icon={s.Icon}
+                bg={s.bg}
+                color={s.color}
+                loading={loading}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -319,14 +332,13 @@ function StatTabs({
 }) {
   return (
     <div
-      className="flex items-center gap-1 flex-wrap rounded-lg border p-0.5"
+      className="flex items-center gap-1 flex-wrap rounded-lg border p-0.5 flex-shrink-0"
       style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
     >
       {groups.map(g => {
         const Icon = g.icon;
         const isActive = activeKey === g.key;
 
-        // Only alertsOnly groups get a badge (representing actionable items)
         let badgeCount: number | null = null;
         if (g.alertsOnly) {
           badgeCount = g.cards.filter(k => isStatActive(k, stats)).length;
@@ -595,18 +607,34 @@ export default function Dashboard() {
 
   return (
     <DashboardDateContext.Provider value={{ preset, dateRange }}>
+      {/*
+        ────────────────────────────────────────────────────────────────
+        LAYOUT CONTRACT
+        ────────────────────────────────────────────────────────────────
+        • Root is a grid with fixed height = viewport minus page padding.
+        • Rows:  auto (header)   → fits content
+                 auto (error)    → fits content (or 0 if hidden)
+                 1fr (main)      → takes all remaining space, never grows
+                 auto (actions)  → fits content (or 0 if hidden)
+        • Main row is itself a grid: content (1fr) + sidebar (320px).
+        • Inside content: stats (auto) + panels (1fr).
+        • Each scrollable region uses min-h-0 + overflow-y-auto.
+        • Nothing pushes the page. Only inner regions scroll.
+      */}
       <div
-        className="p-4 lg:p-6"
         style={{
-          minHeight: '100vh',
+          height: '100dvh',
           background: 'var(--bg-main)',
-          display: 'flex',
-          flexDirection: 'column',
+          display: 'grid',
+          gridTemplateRows: 'auto auto 1fr auto',
           gap: '1rem',
+          padding: '1rem',
+          overflow: 'hidden',
         }}
+        className="lg:p-6"
       >
-        {/* Header */}
-        <div className="flex items-center justify-between gap-4 flex-wrap flex-shrink-0">
+        {/* ── HEADER ───────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-4 flex-wrap min-h-0">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
@@ -633,10 +661,10 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Error banner */}
+        {/* ── ERROR BANNER (auto-height row, collapses to 0 when empty) ── */}
         {errors.length > 0 && (
           <div
-            className="flex items-center justify-between px-4 py-3 rounded-xl border flex-shrink-0"
+            className="flex items-center justify-between px-4 py-3 rounded-xl border min-h-0"
             style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}
           >
             <div className="flex items-center gap-2">
@@ -653,15 +681,28 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Main grid: content + sticky sidebar */}
+        {/* ── MAIN ────────────────────────────────────────────── */}
+        {/* Two columns: main content (flex 1) and sidebar (320px).
+            Both columns are constrained to the row's height. */}
         <div
-          className="grid gap-4 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]"
-          style={{ alignItems: 'start' }}
+          className="grid gap-4 min-h-0"
+          style={{
+            gridTemplateColumns: 'minmax(0, 1fr) 320px',
+            height: '100%',
+            minHeight: 0,
+          }}
         >
-          {/* LEFT / MAIN */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', minWidth: 0 }}>
-            {/* KPI cards */}
-            <div className="flex flex-col gap-3">
+          {/* LEFT column: stats + panels stacked; stats auto, panels fill */}
+          <div
+            className="min-h-0"
+            style={{
+              display: 'grid',
+              gridTemplateRows: 'auto minmax(0, 1fr)',
+              gap: '1rem',
+            }}
+          >
+            {/* Stats block */}
+            <div className="flex flex-col gap-3 min-h-0" style={{ maxHeight: '40vh' }}>
               {showTabs && (
                 <StatTabs
                   groups={statGroups}
@@ -673,7 +714,7 @@ export default function Dashboard() {
 
               {alertsAllClear && !isLoading ? (
                 <div
-                  className="rounded-xl border px-4 py-6 flex items-center gap-3"
+                  className="rounded-xl border px-4 py-6 flex items-center gap-3 flex-shrink-0"
                   style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}
                 >
                   <span className="text-2xl">✅</span>
@@ -685,62 +726,104 @@ export default function Dashboard() {
                   </div>
                 </div>
               ) : (
-                visibleGroups.map(group => (
-                  <StatGroupSection
-                    key={group.key}
-                    group={applyGroupFilter(group)}
-                    collapsed={collapsedGroups[group.key] || false}
-                    onToggle={() => toggleGroup(group.key)}
-                    stats={stats}
-                    loading={isLoading}
-                    visitLabel={visitLabel}
-                    revLabel={revLabel}
-                  />
-                ))
+                <div
+                  className="min-h-0"
+                  style={{
+                    overflowY: 'auto',
+                    overscrollBehavior: 'contain',
+                    scrollbarWidth: 'thin',
+                  }}
+                >
+                  <div className="flex flex-col gap-3">
+                    {visibleGroups.map(group => (
+                      <StatGroupSection
+                        key={group.key}
+                        group={applyGroupFilter(group)}
+                        collapsed={collapsedGroups[group.key] || false}
+                        onToggle={() => toggleGroup(group.key)}
+                        stats={stats}
+                        loading={isLoading}
+                        visitLabel={visitLabel}
+                        revLabel={revLabel}
+                      />
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 
-            {/* Primary panels — FIX: auto-size rows */}
+            {/* Panels block — fills remaining height, each panel internally scrolled */}
             {config.primaryPanels.length > 0 && (
               <div
-                className="grid gap-4"
+                className="grid gap-4 min-h-0"
                 style={{
                   gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                  gridAutoRows: 'minmax(280px, max-content)',
-                  alignItems: 'start',
+                  gridAutoRows: 'minmax(0, 1fr)',
+                  overflow: 'hidden',
                 }}
               >
                 {config.primaryPanels.map((spec, idx) => (
-                  <div key={idx} className="min-h-0 min-w-0" style={{ minHeight: 280 }}>
-                    {renderPanel(spec, `primary-${idx}`)}
+                  <div
+                    key={idx}
+                    className="min-h-0 min-w-0 overflow-hidden"
+                    style={{ display: 'flex', flexDirection: 'column' }}
+                  >
+                    {/*
+                      Each panel wrapper is a flex column with:
+                      • flex: 1 (fill parent grid cell)
+                      • overflow: hidden (so children can be internally scrolled)
+                      The panel component itself should have overflow-y-auto
+                      on its body — see the note at the bottom of this file.
+                    */}
+                    <div style={{ flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+                      {renderPanel(spec, `primary-${idx}`)}
+                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
 
-          {/* RIGHT / SIDEBAR — sticky on desktop, static on mobile */}
-          <div className="lg:sticky lg:top-4 lg:h-[calc(100vh-8rem)]">
+          {/* RIGHT column: sidebar, full row height, internal scroll */}
+          <div
+            className="min-h-0"
+            style={{
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
             {renderPanel(config.sidebarPanel, 'sidebar')}
           </div>
         </div>
 
-        {/* Quick actions */}
+        {/* ── QUICK ACTIONS (auto-height row) ─────────────────── */}
         {quickActions.length > 0 && (
           <div
-            className="rounded-xl border flex-shrink-0"
-            style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+            className="rounded-xl border min-h-0"
+            style={{
+              background: 'var(--bg-card)',
+              borderColor: 'var(--border-color)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              maxHeight: '22vh',
+            }}
           >
             <div
-              className="px-5 py-3 border-b"
+              className="px-5 py-3 border-b flex-shrink-0"
               style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
             >
               <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</p>
               <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Frequent operations</p>
             </div>
             <div
-              className="p-4"
+              className="p-4 min-h-0"
               style={{
+                overflowY: 'auto',
+                overscrollBehavior: 'contain',
+                scrollbarWidth: 'thin',
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
                 gap: '0.75rem',

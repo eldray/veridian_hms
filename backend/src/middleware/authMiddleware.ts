@@ -69,20 +69,22 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
 };
 
 // ✅ Role Checks
-export const requireRole = (allowedRoles: UserRole[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    const authReq = req as AuthRequest;
-    if (!authReq.user) {
-      res.status(401).json({ success: false, message: 'Authentication required.' });
-      return;
+export const requireRole = (roles: string[]) =>
+  (req: any, res: any, next: any) => {
+    if (!req.user) {
+      return res.status(401).json({ success: false, status: 'fail', message: 'Authentication required' });
     }
-    if (isSuperAdminOrAdmin(authReq.user.role) || allowedRoles.includes(authReq.user.role)) {
-      next();
-      return;
+    // super_admin is a universal bypass
+    if (req.user.role === 'super_admin') return next();
+    if (!roles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        status: 'fail',
+        message: `Access denied. Required role: ${roles.join(' or ')}`,
+      });
     }
-    res.status(403).json({ success: false, message: 'Access denied. Insufficient role.' });
+    next();
   };
-};
 
 export const requireAdmin = requireRole(['admin']);
 export const requireMedicalStaff = requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']);

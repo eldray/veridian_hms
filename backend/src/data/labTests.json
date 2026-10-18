@@ -1135,6 +1135,31 @@
       }
     ]
   },
+    {
+    "name": "Helicobacter Pylori Blood Antigen",
+    "investigationCode": "INVE621D",
+    "category": "microbiology",
+    "subCategory": "gastrointestinal",
+    "description": "H. pylori stool antigen test",
+    "specimenType": "stool",
+    "isActive": true,
+    "requiresAuthorization": false,
+    "tariffCode": "LAB-INVE621D",
+    "vatRate": 0,
+    "isTaxable": false,
+    "resultTemplate": [
+      {
+        "fieldName": "h_pylori_antigen",
+        "fieldType": "select",
+        "label": "H. pylori Antigen",
+        "referenceRange": "Negative",
+        "options": [
+          "Negative",
+          "Positive"
+        ]
+      }
+    ]
+  },
   {
     "name": "Helicobacter Pylori Stool Antigen",
     "investigationCode": "INVE62D",

@@ -103,15 +103,17 @@ function StatTile({
 }
 
 function ReportTable({
-  caption, columns, rows, empty, searchable = false,
+  caption, columns, rows, empty, searchable = false, pageSize = 0,
 }: {
   caption: string;
   columns: { key: string; label: string; align?: 'left' | 'center' | 'right'; sortable?: boolean }[];
   rows: Record<string, React.ReactNode>[];
   empty?: string;
   searchable?: boolean;
+  pageSize?: number; // 0 = show every row
 }) {
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState<string | null>(null);
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
@@ -130,10 +132,16 @@ function ReportTable({
     });
   }, [filteredRows, sortKey, sortDir]);
 
+  useEffect(() => { setPage(1); }, [search, sortKey, sortDir, rows.length]);
+
   const handleSort = (key: string) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     else { setSortKey(key); setSortDir('asc'); }
   };
+
+  const pages = pageSize ? Math.max(1, Math.ceil(sortedRows.length / pageSize)) : 1;
+  const curPage = Math.min(page, pages);
+  const shownRows = pageSize ? sortedRows.slice((curPage - 1) * pageSize, curPage * pageSize) : sortedRows;
 
   if (rows.length === 0) {
     return (
@@ -201,7 +209,7 @@ function ReportTable({
             </tr>
           </thead>
           <tbody>
-            {sortedRows.map((row, idx) => (
+            {shownRows.map((row, idx) => (
               <tr
                 key={idx}
                 className="transition-colors"
@@ -224,6 +232,16 @@ function ReportTable({
           </tbody>
         </table>
       </div>
+      {pageSize > 0 && sortedRows.length > pageSize && (
+        <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
+          <span>Showing {(curPage - 1) * pageSize + 1}–{Math.min(curPage * pageSize, sortedRows.length)} of {sortedRows.length.toLocaleString()}</span>
+          <span className="flex items-center gap-2">
+            <button disabled={curPage <= 1} onClick={() => setPage(curPage - 1)} className="px-2 py-1 rounded-md border disabled:opacity-40" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>Prev</button>
+            <span>Page {curPage} of {pages}</span>
+            <button disabled={curPage >= pages} onClick={() => setPage(curPage + 1)} className="px-2 py-1 rounded-md border disabled:opacity-40" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>Next</button>
+          </span>
+        </div>
+      )}
       {searchable && search && (
         <p className="text-[10px] text-center" style={{ color: 'var(--text-tertiary)' }}>
           Showing <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{sortedRows.length}</span> of {rows.length} rows
@@ -367,8 +385,11 @@ export default function StockReports() {
       }
       case 'stock-movement':
         return {
-          headers: ['Item', 'Quantity', 'Type'],
-          rows: (reportData.topMovements || []).map((i: any) => [i.name, i.quantity, i.type]),
+          headers: ['Date', 'Item', 'Category', 'Type', 'In', 'Out', 'Balance After', 'Reference', 'Document', 'Supplier', 'Department', 'Done By', 'Notes'],
+          rows: (reportData.transactions || []).map((t: any) => [
+            new Date(t.date).toLocaleString(), t.itemName, t.category, String(t.type).replace(/_/g, ' '), t.quantityIn || '', t.quantityOut || '', t.balanceAfter,
+            t.reference, t.document, t.supplier, t.department, t.performedBy, t.notes,
+          ]),
         };
       case 'expiry':
         return {
@@ -585,35 +606,82 @@ export default function StockReports() {
         );
       }
 
-      case 'stock-movement':
+      case 'stock-movement': {
+        const typeStyle = (t: string): React.CSSProperties => {
+          const inn = t === 'purchase' || t === 'transfer_in';
+          const out = t === 'sale' || t === 'requisition' || t === 'transfer_out';
+          return { background: inn ? 'var(--icon-green-bg)' : out ? 'var(--icon-red-bg)' : 'var(--icon-yellow-bg)', color: inn ? 'var(--icon-green-text)' : out ? 'var(--icon-red-text)' : 'var(--icon-yellow-text)' };
+        };
         return (
-          <section>
-            <SectionHeader icon={TrendingUp} title="Top Moving Items" accent="green" count={(reportData.topMovements || []).length} />
-            <ReportTable
-              caption="Items with the highest stock movement"
-              empty="No movement recorded in this period"
-              searchable
-              columns={[
-                { key: 'name', label: 'Item', sortable: true },
-                { key: 'quantity', label: 'Quantity', align: 'center', sortable: true },
-                { key: 'type', label: 'Type', sortable: true },
-              ]}
-              rows={(reportData.topMovements || []).map((i: any) => ({
-                name: <span className="font-medium">{i.name}</span>,
-                quantity: <span style={{ fontWeight: 700 }}>{i.quantity}</span>,
-                type: (
-                  <span className="capitalize px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
-                    style={{
-                      background: i.type === 'in' ? 'var(--icon-green-bg)' : 'var(--icon-red-bg)',
-                      color: i.type === 'in' ? 'var(--icon-green-text)' : 'var(--icon-red-text)',
-                    }}>
-                    {i.type}
-                  </span>
-                ),
-              }))}
-            />
-          </section>
+          <>
+            <section>
+              <SectionHeader icon={Package} title="Stock Movement by Item" accent="green" count={(reportData.items || []).length} />
+              <ReportTable
+                caption="Opening, stock in, stock out and closing balance per item"
+                empty="No movement recorded in this period"
+                searchable
+                pageSize={25}
+                columns={[
+                  { key: 'name', label: 'Item', sortable: true },
+                  { key: 'category', label: 'Category', sortable: true },
+                  { key: 'opening', label: 'Opening', align: 'center' },
+                  { key: 'in', label: 'In', align: 'center' },
+                  { key: 'out', label: 'Out', align: 'center' },
+                  { key: 'closing', label: 'Closing', align: 'center' },
+                  { key: 'txs', label: 'Transactions', align: 'center' },
+                ]}
+                rows={(reportData.items || []).map((i: any) => ({
+                  name: <span className="font-medium">{i.itemName}</span>,
+                  category: <span className="capitalize">{String(i.category || '').replace(/_/g, ' ')}</span>,
+                  opening: i.openingStock,
+                  in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{i.quantityIn ? `+${i.quantityIn}` : '—'}</span>,
+                  out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{i.quantityOut ? `-${i.quantityOut}` : '—'}</span>,
+                  closing: <span style={{ fontWeight: 700 }}>{i.closingStock}</span>,
+                  txs: i.transactions,
+                }))}
+              />
+            </section>
+            <section>
+              <SectionHeader icon={TrendingUp} title="Transaction History" accent="cyan" count={(reportData.transactions || []).length} />
+              {reportData.truncated && (
+                <p className="text-[11px] mb-2" style={{ color: 'var(--icon-yellow-text)' }}>
+                  Showing the latest {reportData.shown?.toLocaleString()} of {reportData.totalTransactions?.toLocaleString()} transactions. Narrow the date range to see the rest.
+                </p>
+              )}
+              <ReportTable
+                caption="Every stock transaction, newest first"
+                empty="No transactions in this period"
+                searchable
+                pageSize={50}
+                columns={[
+                  { key: 'date', label: 'Date' },
+                  { key: 'item', label: 'Item', sortable: true },
+                  { key: 'type', label: 'Type', sortable: true },
+                  { key: 'in', label: 'In', align: 'center' },
+                  { key: 'out', label: 'Out', align: 'center' },
+                  { key: 'balance', label: 'Balance', align: 'center' },
+                  { key: 'ref', label: 'Reference / Document' },
+                  { key: 'dept', label: 'Department' },
+                  { key: 'by', label: 'Done by' },
+                  { key: 'notes', label: 'Notes' },
+                ]}
+                rows={(reportData.transactions || []).map((t: any) => ({
+                  date: <span className="whitespace-nowrap">{new Date(t.date).toLocaleString()}</span>,
+                  item: <span className="font-medium">{t.itemName}</span>,
+                  type: <span className="capitalize px-1.5 py-0.5 rounded-full text-[9px] font-semibold whitespace-nowrap" style={typeStyle(t.type)}>{String(t.type).replace(/_/g, ' ')}</span>,
+                  in: <span style={{ color: 'var(--icon-green-text)', fontWeight: 600 }}>{t.quantityIn ? `+${t.quantityIn}` : ''}</span>,
+                  out: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{t.quantityOut ? `-${t.quantityOut}` : ''}</span>,
+                  balance: <span style={{ fontWeight: 700 }}>{t.balanceAfter}</span>,
+                  ref: [t.document, t.reference, t.supplier].filter(Boolean).join(' · ') || '—',
+                  dept: t.department || '—',
+                  by: t.performedBy,
+                  notes: <span className="max-w-[220px] inline-block truncate align-bottom" title={t.notes}>{t.notes || '—'}</span>,
+                }))}
+              />
+            </section>
+          </>
         );
+      }
 
       case 'expiry':
         return (

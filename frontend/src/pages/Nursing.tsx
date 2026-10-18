@@ -13,6 +13,7 @@ import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
 import { NursingDashboardStats } from '../components/nursing/NursingDashboardStats';
 import { getPatientName } from '../utils/patient';
+import { getLatestVitals } from '../api';
 import { getFrequencyInfo, isDoseDue } from '../utils/frequencyUtils';
 import {
   ChevronLeft, RefreshCw, Users, Hospital, Bed,
@@ -130,8 +131,8 @@ export default function Nursing() {
   });
   const [showFilters, setShowFilters] = useState(false);
 
-  const { attendances, getAttendances, getVitalsByAttendance } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { attendances, getAttendances } = useAttendanceStore();
+  const { patients } = usePatientStore(); // used only as a fallback for names; not loaded here
   const { admissions, getAdmissions, addDailyNote } = useAdmissionStore();
   const { wards, getWards, getBeds } = useWardStore();
   const { doses, tasks, fetchDoses, fetchTasks } = useNursingStore();
@@ -158,10 +159,11 @@ export default function Nursing() {
   const loadData = useCallback(async () => {
     setRefreshing(true);
     try {
+      // The ward board only needs patients who are admitted right now (the visit already carries
+      // the patient's name), not every visit of the last 3 days, every admission ever, or all patients.
       await Promise.all([
-        loadPatients(),
-        getAttendances(),
-        getAdmissions(),
+        getAttendances({ status: 'admitted' }),
+        getAdmissions({ status: 'active' }),
         getWards(),
         getBeds(),
       ]);
@@ -180,7 +182,7 @@ export default function Nursing() {
   }, []);
 
   useLiveRefresh(['encounters', 'admissions', 'nursing', 'beds'], () =>
-    Promise.all([getAttendances({}, { silent: true }), getAdmissions({}, { silent: true }), getBeds()])
+    Promise.all([getAttendances({ status: 'admitted' }, { silent: true }), getAdmissions({ status: 'active' }, { silent: true }), getBeds()])
   );
 
   // ── Inpatients ──
@@ -192,43 +194,26 @@ export default function Nursing() {
     [attendances],
   );
 
-  // ── Fetch MAR doses and tasks ──
+  // ── Fetch MAR doses, tasks and latest vitals: ONE batched request each for all inpatients ──
+  // (this used to send 3 requests per patient at once, which queued behind the browser's
+  //  6-connection limit and timed out; each call also overwrote the previous patient's data)
   useEffect(() => {
     const ids = inpatients.map((a) => getEntityId(a)).filter(Boolean);
     if (ids.length === 0) return;
+    const idList = ids.join(',');
+
+    fetchDoses({ attendanceId: idList }).catch(() => {});
+    fetchTasks({ attendanceId: idList }).catch(() => {});
 
     (async () => {
       try {
-        await Promise.all([
-          ...ids.map((id) => fetchDoses({ attendanceId: id, limit: 500 }).catch(() => {})),
-          ...ids.map((id) => fetchTasks({ attendanceId: id }).catch(() => {})),
-        ]);
-      } catch {}
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inpatients.length]);
-
-  // ── Fetch latest vitals ──
-  useEffect(() => {
-    const ids = inpatients.map((a) => getEntityId(a)).filter(Boolean);
-    if (ids.length === 0) return;
-
-    (async () => {
-      const updates: Record<string, any> = {};
-      await Promise.all(
-        ids.map(async (id) => {
-          try {
-            const list: any[] = await getVitalsByAttendance(id);
-            if (Array.isArray(list) && list.length > 0) {
-              const sorted = [...list].sort(
-                (a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime(),
-              );
-              updates[id] = sorted[0];
-            }
-          } catch {}
-        }),
-      );
-      setVitalsByAtt((prev) => ({ ...prev, ...updates }));
+        const rows = await getLatestVitals(ids);
+        const updates: Record<string, any> = {};
+        for (const v of rows) if (v?.attendanceId) updates[v.attendanceId] = v;
+        setVitalsByAtt((prev) => ({ ...prev, ...updates }));
+      } catch {
+        /* the board still works without the vitals badges */
+      }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inpatients.length]);

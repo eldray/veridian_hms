@@ -493,17 +493,30 @@ const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescrib
     return `${edd.toLocaleDateString()} (${daysLeft}d left)`;
   };
 
+  // Reference lists (stock, diagnoses, templates, all patients) are big and only needed when a
+  // form opens, so they load AFTER the page is usable, one after another, and only if not loaded yet.
+  // Opening this page used to fire 9 big requests at once, which queued and timed out.
+  const loadReferenceData = async () => {
+    const steps: Array<[boolean, () => Promise<unknown>]> = [
+      [patients.length === 0, () => loadPatients()],
+      [stockItems.length === 0, () => getStockItems()],
+      [diagnoses.length === 0, () => getDiagnoses()],
+      [labTestTemplates.length === 0, () => getLabTestTemplates()],
+      [procedureTemplates.length === 0, () => getProcedureTemplates()],
+      [scanTemplates.length === 0, () => getScanTemplates()],
+    ];
+    for (const [needed, run] of steps) {
+      if (!needed) continue;
+      try { await run(); } catch { /* a failed catalog must not break the page */ }
+    }
+  };
+
   const loadData = async () => {
     setRefreshing(true);
     try {
+      // Only what the page shows first: current visits and the delivery / postnatal records
       await Promise.all([
-        loadPatients(),
         getAttendances(),
-        getStockItems(),
-        getDiagnoses(),
-        getLabTestTemplates(),
-        getProcedureTemplates(),
-        getScanTemplates(),
         getDeliveryRecords(),
         getPostnatalRecords(),
       ]);
@@ -513,6 +526,7 @@ const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescrib
       setRefreshing(false);
       setIsLoading(false);
     }
+    void loadReferenceData();
   };
 
   useEffect(() => { loadData(); }, []);

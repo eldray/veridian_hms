@@ -7,6 +7,12 @@ import {
   NursingTaskFilters,
 } from './NursingTypes';
 
+/** One id, or several as "id1,id2,id3": lets a screen load many patients in ONE request instead of one each. */
+const idFilter = (value: string): string | { in: string[] } => {
+  const ids = String(value).split(',').map((v) => v.trim()).filter(Boolean);
+  return ids.length > 1 ? { in: ids.slice(0, 200) } : ids[0] ?? value;
+};
+
 export class NursingRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'medicationDose');
@@ -46,7 +52,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     }
     where.medication = {
       status: { not: 'cancelled' },
-      ...(attendanceId ? { attendanceId } : {}),
+      ...(attendanceId ? { attendanceId: idFilter(attendanceId) } : {}),
       ...(patientId ? { Attendance: { patientId } } : {}),
     };
 
@@ -171,7 +177,7 @@ async findNotes(filters: NursingNoteFilters) {
 
   const where: any = {};
   if (patientId) where.patientId = patientId;
-  if (attendanceId) where.attendanceId = attendanceId;
+  if (attendanceId) where.attendanceId = idFilter(attendanceId);
   if (admissionId) where.admissionId = admissionId;
   if (shift) where.shift = shift;
   if (noteType) where.noteType = noteType;
@@ -247,7 +253,7 @@ async findTasks(filters: NursingTaskFilters) {
 
   const where: any = {};
   if (patientId) where.patientId = patientId;
-  if (attendanceId) where.attendanceId = attendanceId;
+  if (attendanceId) where.attendanceId = idFilter(attendanceId);
   if (admissionId) where.admissionId = admissionId;
   if (status) where.status = Array.isArray(status) ? { in: status } : status;
   if (priority) where.priority = priority;

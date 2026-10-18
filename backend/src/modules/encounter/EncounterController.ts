@@ -102,6 +102,12 @@ export class EncounterController extends BaseController {
   // VITALS MANAGEMENT
   // ============================================
 
+  getLatestVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ids = String(req.query.ids || '').split(',').map((v) => v.trim()).filter(Boolean);
+    const vitals = await this.service.getLatestVitals(ids);
+    return this.ok(res, vitals, 'Latest vitals retrieved successfully');
+  });
+
   getVitalsByEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const vitals = await this.service.getVitalsByEncounter(id);
@@ -405,6 +411,28 @@ export class EncounterController extends BaseController {
     const result = await this.service.dischargeFromEncounter(id, req.body, user.id);
     return this.ok(res, null, result.message);
   });
+
+    referEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.referFromEncounter(id, req.body, user.id);
+    return this.ok(res, result, 'Patient referred successfully');
+  });
+
+  abscondEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.abscondFromEncounter(id, req.body, user.id);
+    return this.ok(res, result, 'Encounter marked absconded');
+  });
+
+  completeEncounter = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const result = await this.service.completeEncounter(id, user.id);
+    return this.ok(res, result, 'Encounter completed');
+  });
+  
 
   getBedOccupancy = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const occupancy = await this.service.getBedOccupancy();

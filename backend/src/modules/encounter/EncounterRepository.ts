@@ -137,7 +137,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const live = (filters as any).live === true || (filters as any).live === 'true';
     const where: any = {};
     if (patientId) where.patientId = patientId;
-    if (attendanceType) where.attendanceType = attendanceType;
+    if (attendanceType) {
+      // one type, or several as "antenatal,delivery,postnatal"
+      const types = String(attendanceType).split(',').map((x) => x.trim()).filter(Boolean);
+      where.attendanceType = types.length > 1 ? { in: types } : types[0];
+    }
     // status may be one value or a comma list: ?status=pending,admitted
     if (status) {
       const list = String(status).split(',').map((x) => x.trim()).filter(Boolean);

@@ -1,4 +1,4 @@
-// src/pages/insurance-claims/EditNHISClaim.tsx - COMPLETE FIXED VERSION
+// src/pages/insurance-claims/EditNHISClaim.tsx
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
@@ -7,42 +7,12 @@ import { usePatientStore } from '../../store/patientStore';
 import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
 import { useStockStore } from '../../store/stockStore';
 import { useToast } from '../../store/toastStore';
-import {
-  ArrowLeft,
-  Save,
-  Lock,
-  Download,
-  Printer,
-  FileText,
-  User,
-  Calendar,
-  Activity,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
-  Clock,
-  Plus,
-  Search,
-  Trash2,
-  Edit,
-  Stethoscope,
-  FlaskConical,
-  Pill,
-  Scissors,
-  Scan,
-  Hospital,
-  Hash,
-  AlertTriangle,
-  ChevronDown,
-  ChevronRight,
-  RefreshCw,
-  Shield
-} from 'lucide-react';
+import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
+import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown } from 'lucide-react';
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // TYPES
-// ==========================================
-
+// ═══════════════════════════════════════════════════════════════════════════
 interface DiagnosisItem {
   id?: string;
   gdrgCode: string;
@@ -76,10 +46,98 @@ interface MedicineItem {
   serviceCatalogId?: string;
 }
 
-// ==========================================
-// SEARCHABLE GDRG SELECT COMPONENT - IMPROVED
-// ==========================================
+interface ProcedureItem {
+  id?: string;
+  code: string;
+  description: string;
+  date: string;
+}
 
+// Accept both camelCase (new) and PascalCase (old) claim shapes so this page
+// works whether or not PR 9's response normalizer is live.
+const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
+const a = (claim: any): any => claim?.attendance ?? claim?.Attendance ?? {};
+
+const buildItemPayload = (args: {
+  diagnoses: DiagnosisItem[];
+  investigations: InvestigationItem[];
+  medicines: MedicineItem[];
+  procedures: ProcedureItem[];
+  principalGDRG: string;
+}) => {
+  const out: any[] = [];
+
+  for (const d of args.diagnoses) {
+    if (!d.icd10) continue;
+    out.push({
+      itemCategory: 'diagnosis',
+      code: d.icd10,
+      description: d.description || d.diagnosis || d.icd10,
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+      diagnosisId: d.diagnosisId ?? null,
+    });
+  }
+
+  for (const inv of args.investigations) {
+    if (!inv.gdrgCode) continue;
+    out.push({
+      itemCategory: 'investigation',
+      code: inv.gdrgCode,
+      description: inv.description || inv.gdrgCode,
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+      serviceDate: inv.date || null,
+      serviceCatalogId: inv.serviceCatalogId ?? null,
+    });
+  }
+
+  for (const pr of args.procedures) {
+    if (!pr.code) continue;
+    out.push({
+      itemCategory: 'procedure',
+      code: pr.code,
+      description: pr.description || pr.code,
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+      serviceDate: pr.date || null,
+    });
+  }
+
+  for (const m of args.medicines) {
+    if (!m.code) continue;
+    out.push({
+      itemCategory: 'medicine',
+      code: m.code,
+      description: m.description || m.code,
+      quantity: m.quantity ?? 1,
+      unitPrice: 0,
+      lineTotal: 0,
+      serviceDate: m.date || null,
+      prescriptionText: m.prescription ?? null,
+    });
+  }
+
+  if (args.principalGDRG) {
+    out.push({
+      itemCategory: 'gdrg',
+      code: args.principalGDRG,
+      description: 'Principal GDRG',
+      quantity: 1,
+      unitPrice: 0,
+      lineTotal: 0,
+    });
+  }
+
+  return out;
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// SEARCHABLE GDRG SELECT
+// ═══════════════════════════════════════════════════════════════════════════
 interface SearchableGDRGSelectProps {
   value: string;
   onChange: (code: string, description: string) => void;
@@ -94,7 +152,6 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
   const [selectedLabel, setSelectedLabel] = useState('');
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  // Update selected label when value changes
   useEffect(() => {
     if (value && options && options.length > 0) {
       const selected = options.find(opt => {
@@ -113,7 +170,6 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
     }
   }, [value, options]);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
@@ -124,37 +180,30 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Filter options based on search
   const filteredOptions = (options || []).filter(opt => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
-    
     const code = (opt.gdrgCode || opt.code || opt.gdrg_code || '').toString().toLowerCase();
     const description = (opt.description || opt.name || opt.desc || '').toString().toLowerCase();
-    
     return code.includes(search) || description.includes(search);
   });
 
   const handleSelect = (opt: any) => {
     const code = opt.gdrgCode || opt.code || opt.gdrg_code || '';
     const description = opt.description || opt.name || opt.desc || '';
-    
     onChange(code, description);
     setSelectedLabel(`${code} - ${description}`);
     setIsOpen(false);
     setSearchTerm('');
   };
 
-  // Helper to format tariff
   const formatTariff = (value: any): string => {
     const num = Number(value);
     return isNaN(num) ? '0.00' : num.toFixed(2);
   };
 
-  // Get tariff from various possible field names
-  const getTariff = (opt: any): number => {
-    return Number(opt.nhiaTariff || opt.tariff || opt.amount || opt.nhia_tariff || 0);
-  };
+  const getTariff = (opt: any): number =>
+    Number(opt.nhiaTariff || opt.tariff || opt.amount || opt.nhia_tariff || 0);
 
   if (disabled) {
     return (
@@ -206,10 +255,9 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
                 const description = opt.description || opt.name || opt.desc || '';
                 const tariff = getTariff(opt);
                 const isSelected = value === code;
-                
                 return (
                   <button
-                    key={opt.id || opt.gdrgCode || index}
+                    key={opt.id || code || index}
                     onClick={() => handleSelect(opt)}
                     className={`w-full text-left px-3 py-2 hover:bg-[var(--bg-main)] transition-colors ${
                       isSelected ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'text-[var(--text-primary)]'
@@ -220,9 +268,7 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
                         <span className="font-mono font-medium text-sm">{code}</span>
                         <span className="ml-2 text-sm">{description}</span>
                       </div>
-                      <span className="text-xs text-[var(--text-tertiary)]">
-                        Tariff: ₵{formatTariff(tariff)}
-                      </span>
+                      <span className="text-xs text-[var(--text-tertiary)]">Tariff: ₵{formatTariff(tariff)}</span>
                     </div>
                   </button>
                 );
@@ -235,18 +281,10 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // ADD DIAGNOSIS MODAL
-// ==========================================
-
-interface AddDiagnosisModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (diagnosis: DiagnosisItem) => void;
-  existingDiagnoses: DiagnosisItem[];
-}
-
-function AddDiagnosisModal({ isOpen, onClose, onAdd, existingDiagnoses }: AddDiagnosisModalProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: () => void; onAdd: (d: DiagnosisItem) => void }) {
   const { diagnoses, getDiagnoses } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
@@ -256,26 +294,25 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd, existingDiagnoses }: AddDia
     if (isOpen) getDiagnoses();
   }, [isOpen, getDiagnoses]);
 
-  const filteredDiagnoses = diagnoses.filter(d =>
+  const filtered = diagnoses.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     d.icdCode.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (selectedDiagnosis) {
-      onAdd({
-        gdrgCode: gdrgCode || 'OPDC06A',
-        description: selectedDiagnosis.name,
-        diagnosis: selectedDiagnosis.name,
-        icd10: selectedDiagnosis.icdCode,
-        diagnosisId: selectedDiagnosis.id,
-        diagnosisType: 'additional'
-      });
-      setSelectedDiagnosis(null);
-      setSearchTerm('');
-      setGdrgCode('');
-      onClose();
-    }
+    if (!selectedDiagnosis) return;
+    onAdd({
+      gdrgCode: gdrgCode || 'OPDC06A',
+      description: selectedDiagnosis.name,
+      diagnosis: selectedDiagnosis.name,
+      icd10: selectedDiagnosis.icdCode,
+      diagnosisId: selectedDiagnosis.id,
+      diagnosisType: 'additional',
+    });
+    setSelectedDiagnosis(null);
+    setSearchTerm('');
+    setGdrgCode('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -311,7 +348,7 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd, existingDiagnoses }: AddDia
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filteredDiagnoses.map((d) => (
+            {filtered.map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedDiagnosis(d)}
@@ -344,18 +381,10 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd, existingDiagnoses }: AddDia
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // ADD INVESTIGATION MODAL
-// ==========================================
-
-interface AddInvestigationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (investigation: InvestigationItem) => void;
-  type: 'lab' | 'scan';
-}
-
-function AddInvestigationModal({ isOpen, onClose, onAdd, type }: AddInvestigationModalProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boolean; onClose: () => void; onAdd: (i: InvestigationItem) => void; type: 'lab' | 'scan' }) {
   const { labTestTemplates, scanTemplates, getLabTestTemplates, getScanTemplates } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -371,25 +400,24 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: AddInvestigatio
   const items = type === 'lab' ? labTestTemplates : scanTemplates;
   const codeField = type === 'lab' ? 'investigationCode' : 'scanCode';
 
-  const filteredItems = items.filter(item =>
+  const filtered = items.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item[codeField] || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (selectedItem) {
-      onAdd({
-        gdrgCode: selectedItem[codeField] || selectedItem.code || 'INVE000',
-        description: selectedItem.name,
-        date: serviceDate,
-        serviceCatalogId: selectedItem.id,
-        type: type
-      });
-      setSelectedItem(null);
-      setSearchTerm('');
-      setServiceDate(new Date().toISOString().split('T')[0]);
-      onClose();
-    }
+    if (!selectedItem) return;
+    onAdd({
+      gdrgCode: selectedItem[codeField] || selectedItem.code || 'INVE000',
+      description: selectedItem.name,
+      date: serviceDate,
+      serviceCatalogId: selectedItem.id,
+      type,
+    });
+    setSelectedItem(null);
+    setSearchTerm('');
+    setServiceDate(new Date().toISOString().split('T')[0]);
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -424,7 +452,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: AddInvestigatio
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filteredItems.map((item) => (
+            {filtered.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -457,17 +485,10 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: AddInvestigatio
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // ADD MEDICINE MODAL
-// ==========================================
-
-interface AddMedicineModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onAdd: (medicine: MedicineItem) => void;
-}
-
-function AddMedicineModal({ isOpen, onClose, onAdd }: AddMedicineModalProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: () => void; onAdd: (m: MedicineItem) => void }) {
   const { stockItems, getStockItems } = useStockStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedItem, setSelectedItem] = useState<any>(null);
@@ -481,33 +502,32 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: AddMedicineModalProps) {
     if (isOpen) getStockItems();
   }, [isOpen, getStockItems]);
 
-  const filteredItems = stockItems.filter(item =>
+  const filtered = stockItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
-    if (selectedItem) {
-      const prescription = `${dosage} ${frequency} x ${duration}`.trim();
-      onAdd({
-        code: selectedItem.drugCode,
-        description: selectedItem.name,
-        quantity,
-        date: serviceDate,
-        prescription: prescription || 'As prescribed',
-        dosage,
-        frequency,
-        duration,
-        stockItemId: selectedItem.id
-      });
-      setSelectedItem(null);
-      setSearchTerm('');
-      setQuantity(1);
-      setDosage('');
-      setFrequency('');
-      setDuration('');
-      onClose();
-    }
+    if (!selectedItem) return;
+    const prescription = `${dosage} ${frequency} x ${duration}`.trim();
+    onAdd({
+      code: selectedItem.drugCode,
+      description: selectedItem.name,
+      quantity,
+      date: serviceDate,
+      prescription: prescription || 'As prescribed',
+      dosage,
+      frequency,
+      duration,
+      stockItemId: selectedItem.id,
+    });
+    setSelectedItem(null);
+    setSearchTerm('');
+    setQuantity(1);
+    setDosage('');
+    setFrequency('');
+    setDuration('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -535,58 +555,29 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: AddMedicineModalProps) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                value={quantity}
-                onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-              />
+              <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
-              <input
-                type="date"
-                value={serviceDate}
-                onChange={(e) => setServiceDate(e.target.value)}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-              />
+              <input type="date" value={serviceDate} onChange={(e) => setServiceDate(e.target.value)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Dosage</label>
-              <input
-                type="text"
-                value={dosage}
-                onChange={(e) => setDosage(e.target.value)}
-                placeholder="e.g., 500mg"
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={dosage} onChange={(e) => setDosage(e.target.value)} placeholder="e.g., 500mg" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Frequency</label>
-              <input
-                type="text"
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-                placeholder="e.g., BD"
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={frequency} onChange={(e) => setFrequency(e.target.value)} placeholder="e.g., BD" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Duration</label>
-              <input
-                type="text"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                placeholder="e.g., 7 days"
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="e.g., 7 days" className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filteredItems.map((item) => (
+            {filtered.map((item) => (
               <button
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -603,11 +594,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: AddMedicineModalProps) {
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button
-            onClick={handleAdd}
-            disabled={!selectedItem}
-            className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
-          >
+          <button onClick={handleAdd} disabled={!selectedItem} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
             Add Medicine
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
@@ -619,24 +606,14 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: AddMedicineModalProps) {
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // EDIT MEDICINE MODAL
-// ==========================================
-
-interface EditMedicineModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (medicine: MedicineItem) => void;
-  medicine: MedicineItem | null;
-}
-
-function EditMedicineModal({ isOpen, onClose, onSave, medicine }: EditMedicineModalProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+function EditMedicineModal({ isOpen, onClose, onSave, medicine }: { isOpen: boolean; onClose: () => void; onSave: (m: MedicineItem) => void; medicine: MedicineItem | null }) {
   const [formData, setFormData] = useState<MedicineItem | null>(null);
 
   useEffect(() => {
-    if (medicine) {
-      setFormData({ ...medicine });
-    }
+    if (medicine) setFormData({ ...medicine });
   }, [medicine]);
 
   const handleSave = () => {
@@ -665,68 +642,34 @@ function EditMedicineModal({ isOpen, onClose, onSave, medicine }: EditMedicineMo
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-              />
+              <input type="number" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-              />
+              <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Dosage</label>
-              <input
-                type="text"
-                value={formData.dosage || ''}
-                onChange={(e) => setFormData({ ...formData, dosage: e.target.value })}
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={formData.dosage || ''} onChange={(e) => setFormData({ ...formData, dosage: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Frequency</label>
-              <input
-                type="text"
-                value={formData.frequency || ''}
-                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={formData.frequency || ''} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Duration</label>
-              <input
-                type="text"
-                value={formData.duration || ''}
-                onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs"
-              />
+              <input type="text" value={formData.duration || ''} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
             </div>
           </div>
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription</label>
-            <textarea
-              value={formData.prescription}
-              onChange={(e) => setFormData({ ...formData, prescription: e.target.value })}
-              rows={2}
-              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-            />
+            <textarea value={formData.prescription} onChange={(e) => setFormData({ ...formData, prescription: e.target.value })} rows={2} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button
-            onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium"
-          >
+          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium">
             Save Changes
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
@@ -738,24 +681,14 @@ function EditMedicineModal({ isOpen, onClose, onSave, medicine }: EditMedicineMo
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // EDIT INVESTIGATION MODAL
-// ==========================================
-
-interface EditInvestigationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSave: (investigation: InvestigationItem) => void;
-  investigation: InvestigationItem | null;
-}
-
-function EditInvestigationModal({ isOpen, onClose, onSave, investigation }: EditInvestigationModalProps) {
+// ═══════════════════════════════════════════════════════════════════════════
+function EditInvestigationModal({ isOpen, onClose, onSave, investigation }: { isOpen: boolean; onClose: () => void; onSave: (i: InvestigationItem) => void; investigation: InvestigationItem | null }) {
   const [formData, setFormData] = useState<InvestigationItem | null>(null);
 
   useEffect(() => {
-    if (investigation) {
-      setFormData({ ...investigation });
-    }
+    if (investigation) setFormData({ ...investigation });
   }, [investigation]);
 
   const handleSave = () => {
@@ -783,19 +716,11 @@ function EditInvestigationModal({ isOpen, onClose, onSave, investigation }: Edit
           </div>
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
-            <input
-              type="date"
-              value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-            />
+            <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button
-            onClick={handleSave}
-            className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium"
-          >
+          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium">
             Save Changes
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
@@ -807,10 +732,9 @@ function EditInvestigationModal({ isOpen, onClose, onSave, investigation }: Edit
   );
 }
 
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// ==========================================
-
+// ═══════════════════════════════════════════════════════════════════════════
 export default function EditNHISClaim() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -820,18 +744,18 @@ export default function EditNHISClaim() {
   const {
     currentClaim,
     getInsuranceClaim,
-    updateInsuranceClaim,
+    updateClaimDraft,
+    replaceClaimItems,
     finalizeClaim,
-    generateClaimXML,
-    generateClaimPrint,
-    isLoading
+    downloadClaimXml,
+    printClaim,
+    isLoading,
   } = useInsuranceStore();
 
-  const { patients, getPatient, updatePatient } = usePatientStore();
+  const { getPatient, updatePatient } = usePatientStore();
   const { getDiagnoses } = useMedicalServicesStore();
   const { tariffs, fetchTariffs } = useGDRGTariffStore();
 
-  // NHIS Claim State
   const [patientNhisNumber, setPatientNhisNumber] = useState('');
   const [cccCode, setCccCode] = useState('');
   const [folderNumber, setFolderNumber] = useState('');
@@ -842,16 +766,9 @@ export default function EditNHISClaim() {
   const [age, setAge] = useState('');
   const [patientId, setPatientId] = useState('');
 
-  // Member details editing state
   const [isEditingMember, setIsEditingMember] = useState(false);
   const [memberFormData, setMemberFormData] = useState({
-    nhisNumber: '',
-    cccCode: '',
-    folderNumber: '',
-    surname: '',
-    otherNames: '',
-    gender: '',
-    dateOfBirth: '',
+    nhisNumber: '', cccCode: '', folderNumber: '', surname: '', otherNames: '', gender: '', dateOfBirth: '',
   });
 
   const [primaryServiceType, setPrimaryServiceType] = useState<'OPD' | 'IPD'>('OPD');
@@ -865,11 +782,19 @@ export default function EditNHISClaim() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
   const [investigations, setInvestigations] = useState<InvestigationItem[]>([]);
   const [medicines, setMedicines] = useState<MedicineItem[]>([]);
-  
+
   const [principalGDRG, setPrincipalGDRG] = useState('');
   const [principalGDRGDescription, setPrincipalGDRGDescription] = useState('');
   const [preAuthNumber, setPreAuthNumber] = useState('');
   const [notes, setNotes] = useState('');
+
+  const [serviceFlags, setServiceFlags] = useState({ diagnostic: false, pharmacy: false, unbundled: false, allInclusive: true });
+  const [specialties, setSpecialties] = useState<string[]>([]);
+  const [referringFacility, setReferringFacility] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [physicianId, setPhysicianId] = useState('');
+  const [procedures, setProcedures] = useState<ProcedureItem[]>([]);
+  const [tablesOpen, setTablesOpen] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -878,52 +803,34 @@ export default function EditNHISClaim() {
   const [isSavingMember, setIsSavingMember] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
-  const isFinalized = currentClaim?.status === 'submitted';
-
-  // Use tariffs from store - they're already normalized by the store
+  const isFinalized = currentClaim?.status === 'finalized';
   const availableGDRGs = tariffs || [];
 
-  // Load claim data
   useEffect(() => {
     if (id) {
-      loadClaim();
+      getInsuranceClaim(id);
       getDiagnoses();
-      fetchTariffs(); 
+      fetchTariffs();
     }
   }, [id]);
 
-  // Debug GDRG data
-  useEffect(() => {
-    if (tariffs && tariffs.length > 0) {
-      console.log('📊 GDRG Tariffs loaded:', tariffs.length);
-      console.log('📊 Sample tariff:', tariffs[0]);
-    }
-  }, [tariffs]);
-
-  // Populate form when currentClaim loads
   useEffect(() => {
     if (!currentClaim || isInitialized.current) return;
     isInitialized.current = true;
 
-    const patient = currentClaim.Patient;
-    const attendance = currentClaim.Attendance;
+    const patient = p(currentClaim);
+    const attendance = a(currentClaim);
 
-    // Member details
-    const permanentNhisNumber = patient?.nhisNumber;
-    const cccCodeValue = attendance?.nhisCCC;
-    const folderNumberValue = patient?.folderNumber;
+    if (patient?.nhisNumber) setPatientNhisNumber(patient.nhisNumber);
+    else if (attendance?.nhisCCC) setCccCode(attendance.nhisCCC);
+    if (patient?.folderNumber) setFolderNumber(patient.folderNumber);
 
-    if (permanentNhisNumber) setPatientNhisNumber(permanentNhisNumber);
-    else if (cccCodeValue) setCccCode(cccCodeValue);
-    if (folderNumberValue) setFolderNumber(folderNumberValue);
-    
     setPatientId(patient?.id || '');
     setSurname(patient?.surname || '');
     setOtherNames(patient?.otherNames || '');
     setGender(patient?.gender || '');
     setDateOfBirth(patient?.dateOfBirth ? new Date(patient.dateOfBirth).toLocaleDateString() : '');
-    
-    // Set member form data
+
     setMemberFormData({
       surname: patient?.surname || '',
       otherNames: patient?.otherNames || '',
@@ -933,171 +840,163 @@ export default function EditNHISClaim() {
       folderNumber: patient?.folderNumber || '',
       cccCode: attendance?.nhisCCC || '',
     });
-    
+
     if (patient?.dateOfBirth) {
-      const birthDate = new Date(patient.dateOfBirth);
+      const birth = new Date(patient.dateOfBirth);
       const today = new Date();
-      let ageYears = today.getFullYear() - birthDate.getFullYear();
-      const monthDiff = today.getMonth() - birthDate.getMonth();
-      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-        ageYears--;
-      }
-      setAge(`${ageYears} yrs`);
+      let y = today.getFullYear() - birth.getFullYear();
+      const m = today.getMonth() - birth.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) y--;
+      setAge(`${y} yrs`);
     }
 
-    // Service information
     const serviceType = currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD';
     setPrimaryServiceType(serviceType);
     setServiceOutcome(currentClaim.serviceOutcome === 'DISC' ? 'DISC' : 'CONT');
-    
+
     if (currentClaim.datesOfService?.length) {
       const dates = [...visitDates];
-      currentClaim.datesOfService.forEach((date: string, i: number) => {
-        if (i < 4) dates[i] = date;
-      });
+      currentClaim.datesOfService.forEach((date: string, i: number) => { if (i < 4) dates[i] = date; });
       setVisitDates(dates);
     } else if (attendance?.dateTime) {
       setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
     }
 
-    // Load from metadata first
-    if (currentClaim.metadata) {
-      const metadata = currentClaim.metadata as any;
-      
-      if (metadata.diagnoses && metadata.diagnoses.length > 0) {
-        setDiagnoses(metadata.diagnoses);
-      } else {
-        const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
-        const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
-          id: d.id,
-          gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
-          description: d.Diagnosis?.name || '',
-          diagnosis: d.Diagnosis?.name || '',
-          icd10: d.Diagnosis?.icdCode || '',
-          diagnosisId: d.diagnosisId,
-          diagnosisType: d.diagnosisType
-        }));
-        setDiagnoses(mappedDiagnoses);
-      }
-      
-      if (metadata.investigations && metadata.investigations.length > 0) {
-        setInvestigations(metadata.investigations);
-      } else {
-        const labTests = (attendance?.LabTest || []).map((l: any) => ({
-          id: l.id,
-          gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-          description: l.ServiceCatalog?.name || l.name || '',
-          date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
-                 l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
-          serviceCatalogId: l.serviceCatalogId,
-          type: 'lab' as const
-        }));
-        
-        const scans = (attendance?.Scan || []).map((s: any) => ({
-          id: s.id,
-          gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-          description: s.ServiceCatalog?.name || s.name || '',
-          date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
-                 s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
-          serviceCatalogId: s.serviceCatalogId,
-          type: 'scan' as const
-        }));
-        setInvestigations([...labTests, ...scans]);
-      }
-      
-      if (metadata.medicines && metadata.medicines.length > 0) {
-        setMedicines(metadata.medicines);
-      } else {
-        const medications = (attendance?.Medication || []).map((m: any) => ({
-          id: m.id,
-          code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
-          description: m.name,
-          quantity: m.quantity || 1,
-          date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
-                 m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
-          prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-          dosage: m.dosage || '',
-          frequency: m.frequency || '',
-          duration: m.duration || '',
-          stockItemId: m.stockItemId,
-          serviceCatalogId: m.serviceCatalogId
-        }));
-        setMedicines(medications);
-      }
-      
-      if (metadata.visitDates) setVisitDates(metadata.visitDates);
-      if (metadata.admissionDate) setAdmissionDate(metadata.admissionDate);
-      if (metadata.dischargeDate) setDischargeDate(metadata.dischargeDate);
-      if (metadata.lengthOfStay) setLengthOfStay(metadata.lengthOfStay);
+    // Items: prefer claim.items (server truth), fall back to metadata, then to attendance
+    const serverItems: any[] = (currentClaim as any).items ?? [];
+    const meta = (currentClaim.metadata || {}) as any;
+
+    const diagFromServer = serverItems.filter((i: any) => i.itemCategory === 'diagnosis');
+    const invFromServer = serverItems.filter((i: any) => i.itemCategory === 'investigation');
+    const procFromServer = serverItems.filter((i: any) => i.itemCategory === 'procedure');
+    const medFromServer = serverItems.filter((i: any) => i.itemCategory === 'medicine');
+
+    if (diagFromServer.length) {
+      setDiagnoses(diagFromServer.map((d: any, idx: number) => ({
+        id: d.id,
+        gdrgCode: d.gdrgTariff?.gdrgCode || currentClaim.principalGDRG || 'OPDC06A',
+        description: d.description,
+        diagnosis: d.description,
+        icd10: d.code,
+        diagnosisId: d.diagnosisId,
+        diagnosisType: idx === 0 ? 'primary' : 'additional',
+      })));
+    } else if (meta.diagnoses?.length) {
+      setDiagnoses(meta.diagnoses);
     } else {
-      // No metadata - load from attendance
-      const attendanceDiagnoses = attendance?.AttendanceDiagnosis || [];
-      const mappedDiagnoses: DiagnosisItem[] = attendanceDiagnoses.map((d: any, idx: number) => ({
+      const attDiags = attendance?.attendanceDiagnosis ?? attendance?.AttendanceDiagnosis ?? [];
+      setDiagnoses(attDiags.map((d: any, idx: number) => ({
         id: d.id,
         gdrgCode: currentClaim.principalGDRG || 'OPDC06A',
-        description: d.Diagnosis?.name || '',
-        diagnosis: d.Diagnosis?.name || '',
-        icd10: d.Diagnosis?.icdCode || '',
+        description: d.diagnosis?.name || d.Diagnosis?.name || '',
+        diagnosis: d.diagnosis?.name || d.Diagnosis?.name || '',
+        icd10: d.diagnosis?.icdCode || d.Diagnosis?.icdCode || '',
         diagnosisId: d.diagnosisId,
-        diagnosisType: d.diagnosisType
-      }));
-      setDiagnoses(mappedDiagnoses);
+        diagnosisType: d.diagnosisType,
+      })));
+    }
 
-      const labTests = (attendance?.LabTest || []).map((l: any) => ({
+    if (invFromServer.length) {
+      setInvestigations(invFromServer.map((i: any) => ({
+        id: i.id,
+        gdrgCode: i.code,
+        description: i.description,
+        date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
+        serviceCatalogId: i.serviceCatalogId,
+        type: 'lab' as const,
+      })));
+    } else if (meta.investigations?.length) {
+      setInvestigations(meta.investigations);
+    } else {
+      const labs = (attendance?.labTest ?? attendance?.LabTest ?? []).map((l: any) => ({
         id: l.id,
-        gdrgCode: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-        description: l.ServiceCatalog?.name || l.name || '',
-        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : 
-               l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : '',
+        gdrgCode: l.serviceCatalog?.investigationCode || l.ServiceCatalog?.investigationCode || '',
+        description: l.serviceCatalog?.name || l.ServiceCatalog?.name || l.name || '',
+        date: l.requestedAt ? new Date(l.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: l.serviceCatalogId,
-        type: 'lab' as const
+        type: 'lab' as const,
       }));
-      
-      const scans = (attendance?.Scan || []).map((s: any) => ({
+      const scans = (attendance?.scan ?? attendance?.Scan ?? []).map((s: any) => ({
         id: s.id,
-        gdrgCode: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-        description: s.ServiceCatalog?.name || s.name || '',
-        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : 
-               s.createdAt ? new Date(s.createdAt).toISOString().split('T')[0] : '',
+        gdrgCode: s.serviceCatalog?.investigationCode || s.ServiceCatalog?.investigationCode || '',
+        description: s.serviceCatalog?.name || s.ServiceCatalog?.name || s.name || '',
+        date: s.requestedAt ? new Date(s.requestedAt).toISOString().split('T')[0] : '',
         serviceCatalogId: s.serviceCatalogId,
-        type: 'scan' as const
+        type: 'scan' as const,
       }));
-      setInvestigations([...labTests, ...scans]);
+      setInvestigations([...labs, ...scans]);
+    }
 
-      const medications = (attendance?.Medication || []).map((m: any) => ({
+    if (medFromServer.length) {
+      setMedicines(medFromServer.map((m: any) => ({
         id: m.id,
-        code: m.StockItem?.drugCode || m.ServiceCatalog?.code || '',
+        code: m.code,
+        description: m.description,
+        quantity: m.quantity,
+        date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
+        prescription: m.prescriptionText || 'As prescribed',
+        stockItemId: m.medicationId,
+      })));
+    } else if (meta.medicines?.length) {
+      setMedicines(meta.medicines);
+    } else {
+      const meds = (attendance?.medication ?? attendance?.Medication ?? []).map((m: any) => ({
+        id: m.id,
+        code: m.stockItem?.drugCode || m.StockItem?.drugCode || m.serviceCatalog?.code || m.ServiceCatalog?.code || '',
         description: m.name,
         quantity: m.quantity || 1,
-        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : 
-               m.prescribedAt ? new Date(m.prescribedAt).toISOString().split('T')[0] : '',
+        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : '',
         prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
         dosage: m.dosage || '',
         frequency: m.frequency || '',
         duration: m.duration || '',
         stockItemId: m.stockItemId,
-        serviceCatalogId: m.serviceCatalogId
       }));
-      setMedicines(medications);
+      setMedicines(meds);
     }
 
-    // GDRG
+    if (procFromServer.length) {
+      setProcedures(procFromServer.map((pr: any) => ({
+        id: pr.id,
+        code: pr.code,
+        description: pr.description,
+        date: pr.serviceDate ? String(pr.serviceDate).split('T')[0] : '',
+      })));
+    } else if (meta.procedures?.length) {
+      setProcedures(meta.procedures);
+    } else {
+      const attProcs = (attendance?.procedure ?? attendance?.Procedure ?? []).map((pr: any) => ({
+        id: pr.id,
+        code: pr.serviceCatalog?.nhisServiceCode || pr.ServiceCatalog?.nhisServiceCode || pr.serviceCatalog?.code || pr.ServiceCatalog?.code || '',
+        description: pr.serviceCatalog?.name || pr.ServiceCatalog?.name || pr.procedureTemplate?.name || pr.ProcedureTemplate?.name || 'Procedure',
+        date: (pr.performedAt || pr.scheduledDate || pr.createdAt || '').toString().split('T')[0],
+      }));
+      setProcedures(attProcs);
+    }
+
+    if (meta.visitDates) setVisitDates(meta.visitDates);
+    if (meta.admissionDate) setAdmissionDate(meta.admissionDate);
+    if (meta.dischargeDate) setDischargeDate(meta.dischargeDate);
+    if (meta.lengthOfStay) setLengthOfStay(meta.lengthOfStay);
+
     setPrincipalGDRG(currentClaim.principalGDRG || '');
     setPreAuthNumber(currentClaim.preAuthNumber || '');
     setNotes(currentClaim.notes || '');
     setTypeOfAttendance(currentClaim.typeOfAttendance || 'GEN');
+
+    setServiceFlags(meta.serviceFlags ?? {
+      diagnostic: (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
+      pharmacy: (attendance?.medication ?? attendance?.Medication ?? []).length > 0,
+      unbundled: false,
+      allInclusive: true,
+    });
+    const mdc = (currentClaim.mdcCode || (currentClaim.principalGDRG || '').slice(0, 4) || '').toUpperCase();
+    setSpecialties(meta.specialties ?? ((SPECIALTIES as readonly string[]).includes(mdc) ? [mdc] : []));
+    setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
+    setReferralCode(meta.referralCode ?? '');
+    setPhysicianId(meta.physicianId ?? '');
   }, [currentClaim]);
 
-  const loadClaim = async () => {
-    try {
-      await getInsuranceClaim(id!);
-    } catch (error: any) {
-      toastError('Load Failed', 'Could not load claim data');
-      navigate('/dashboard/insurance-claims');
-    }
-  };
-
-  // Calculate length of stay
   useEffect(() => {
     if (admissionDate && dischargeDate) {
       const start = new Date(admissionDate);
@@ -1109,19 +1008,14 @@ export default function EditNHISClaim() {
     }
   }, [admissionDate, dischargeDate]);
 
-  // Update GDRG description when tariffs load
   useEffect(() => {
     if (tariffs.length > 0 && principalGDRG) {
-      const selectedGdrg = tariffs.find(g => g.gdrgCode === principalGDRG);
-      if (selectedGdrg && selectedGdrg.description !== principalGDRGDescription) {
-        setPrincipalGDRGDescription(selectedGdrg.description);
+      const selected = tariffs.find(g => g.gdrgCode === principalGDRG);
+      if (selected && selected.description !== principalGDRGDescription) {
+        setPrincipalGDRGDescription(selected.description);
       }
     }
   }, [tariffs, principalGDRG]);
-
-  // ==========================================
-  // MEMBER DETAILS HANDLERS
-  // ==========================================
 
   const handleMemberEdit = () => {
     setIsEditingMember(true);
@@ -1136,17 +1030,14 @@ export default function EditNHISClaim() {
     });
   };
 
-  // Helper function to calculate age
   const calculateAge = (dob: string) => {
     if (!dob) return '—';
-    const birthDate = new Date(dob);
+    const birth = new Date(dob);
     const today = new Date();
-    let ageYears = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      ageYears--;
-    }
-    return ageYears > 0 ? `${ageYears} yrs` : `${Math.abs(ageYears)} yrs`;
+    let y = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) y--;
+    return `${y} yrs`;
   };
 
   const handleMemberSave = async () => {
@@ -1154,10 +1045,8 @@ export default function EditNHISClaim() {
       toastError('Error', 'Patient ID not found');
       return;
     }
-  
     setIsSavingMember(true);
     try {
-      // Update patient record
       await updatePatient(patientId, {
         surname: memberFormData.surname,
         otherNames: memberFormData.otherNames,
@@ -1166,8 +1055,6 @@ export default function EditNHISClaim() {
         nhisNumber: memberFormData.nhisNumber,
         folderNumber: memberFormData.folderNumber,
       });
-  
-      // Update local state
       setSurname(memberFormData.surname);
       setOtherNames(memberFormData.otherNames);
       setGender(memberFormData.gender);
@@ -1175,16 +1062,9 @@ export default function EditNHISClaim() {
       setPatientNhisNumber(memberFormData.nhisNumber);
       setFolderNumber(memberFormData.folderNumber);
       setCccCode(memberFormData.cccCode);
-      
-      // Update age
-      if (memberFormData.dateOfBirth) {
-        setAge(calculateAge(memberFormData.dateOfBirth));
-      }
-      
+      if (memberFormData.dateOfBirth) setAge(calculateAge(memberFormData.dateOfBirth));
       success('Updated', 'Member details updated successfully');
       setIsEditingMember(false);
-      
-      // Refresh claim data to sync
       await getInsuranceClaim(id!);
     } catch (error: any) {
       toastError('Update Failed', error.message || 'Could not update member details');
@@ -1193,175 +1073,76 @@ export default function EditNHISClaim() {
     }
   };
 
-  // Handlers
-  const addDiagnosis = (diagnosis: DiagnosisItem) => {
-    setDiagnoses([...diagnoses, diagnosis]);
+  const addDiagnosis = (d: DiagnosisItem) => setDiagnoses([...diagnoses, d]);
+  const removeDiagnosis = (i: number) => setDiagnoses(diagnoses.filter((_, idx) => idx !== i));
+  const setPrimaryDiagnosis = (i: number) =>
+    setDiagnoses(diagnoses.map((d, idx) => ({ ...d, diagnosisType: idx === i ? 'primary' : 'additional' })));
+
+  const addInvestigation = (inv: InvestigationItem) => setInvestigations([...investigations, inv]);
+  const removeInvestigation = (i: number) => setInvestigations(investigations.filter((_, idx) => idx !== i));
+  const updateInvestigation = (inv: InvestigationItem) =>
+    setInvestigations(investigations.map(x => x.id === inv.id ? inv : x));
+
+  const addMedicine = (m: MedicineItem) => setMedicines([...medicines, m]);
+  const removeMedicine = (i: number) => setMedicines(medicines.filter((_, idx) => idx !== i));
+  const updateMedicine = (m: MedicineItem) => setMedicines(medicines.map(x => x.id === m.id ? m : x));
+
+  const updateVisitDate = (i: number, v: string) => {
+    const arr = [...visitDates]; arr[i] = v; setVisitDates(arr);
   };
 
-  const removeDiagnosis = (index: number) => {
-    setDiagnoses(diagnoses.filter((_, i) => i !== index));
+  const handlePrincipalGDRGChange = (code: string, desc: string) => {
+    setPrincipalGDRG(code);
+    setPrincipalGDRGDescription(desc);
   };
 
-  const setPrimaryDiagnosis = (index: number) => {
-    const newDiagnoses = diagnoses.map((d, i) => ({
-      ...d,
-      diagnosisType: i === index ? 'primary' : 'additional'
-    }));
-    setDiagnoses(newDiagnoses);
-  };
-
-  const addInvestigation = (investigation: InvestigationItem) => {
-    setInvestigations([...investigations, investigation]);
-  };
-
-  const removeInvestigation = (index: number) => {
-    setInvestigations(investigations.filter((_, i) => i !== index));
-  };
-
-  const updateInvestigation = (updatedInvestigation: InvestigationItem) => {
-    setInvestigations(investigations.map(inv => 
-      inv.id === updatedInvestigation.id ? updatedInvestigation : inv
-    ));
-  };
-
-  const addMedicine = (medicine: MedicineItem) => {
-    setMedicines([...medicines, medicine]);
-  };
-
-  const removeMedicine = (index: number) => {
-    setMedicines(medicines.filter((_, i) => i !== index));
-  };
-
-  const updateMedicine = (updatedMedicine: MedicineItem) => {
-    setMedicines(medicines.map(m => m.id === updatedMedicine.id ? updatedMedicine : m));
-  };
-
-  const updateVisitDate = (index: number, value: string) => {
-    const newDates = [...visitDates];
-    newDates[index] = value;
-    setVisitDates(newDates);
-  };
-
-  const handlePrincipalGDRGChange = (gdrgCode: string, description: string) => {
-    setPrincipalGDRG(gdrgCode);
-    setPrincipalGDRGDescription(description);
-  };
-
-  // NHIS Validation
-  const validateNHISClaim = (): { isValid: boolean; errors: string[] } => {
-    const errors: string[] = [];
-    
-    if (!cccCode && !patientNhisNumber) {
-      errors.push('NHIS CCC number is required for NHIS claims');
+  const validateNHISClaim = () => {
+    const errs: string[] = [];
+    if (!cccCode && !patientNhisNumber) errs.push('NHIS CCC number is required');
+    if (diagnoses.length === 0) errs.push('At least one diagnosis is required');
+    if (diagnoses.length > 0 && !diagnoses.some(d => d.diagnosisType === 'primary')) {
+      errs.push('A primary diagnosis must be selected');
     }
-    if (diagnoses.length === 0) {
-      errors.push('At least one diagnosis is required');
+    if (!principalGDRG) errs.push('Principal GDRG is required');
+    if (primaryServiceType === 'OPD' && !visitDates.some(d => d)) errs.push('At least one visit date is required');
+    if (primaryServiceType === 'IPD') {
+      if (!admissionDate) errs.push('Admission date is required');
+      if (!dischargeDate) errs.push('Discharge date is required');
     }
-    const hasPrimaryDiagnosis = diagnoses.some(d => d.diagnosisType === 'primary');
-    if (diagnoses.length > 0 && !hasPrimaryDiagnosis) {
-      errors.push('A primary diagnosis must be selected');
-    }
-    if (!principalGDRG) {
-      errors.push('Principal GDRG is required');
-    }
-    
-    if (primaryServiceType === 'OPD') {
-      const hasVisitDate = visitDates.some(d => d);
-      if (!hasVisitDate) {
-        errors.push('At least one visit date is required');
-      }
-    } else if (primaryServiceType === 'IPD') {
-      if (!admissionDate) {
-        errors.push('Admission date is required');
-      }
-      if (!dischargeDate) {
-        errors.push('Discharge date is required');
-      }
-    }
-    
-    return { isValid: errors.length === 0, errors };
+    return { isValid: errs.length === 0, errors: errs };
   };
 
   const handleSave = async () => {
     if (!isDraft) return;
-    
     const { isValid, errors } = validateNHISClaim();
     if (!isValid) {
       toastError('Validation Failed', errors.join(', '));
       return;
     }
-    
     try {
       setIsSubmitting(true);
-      
-      // Prepare dates for claim
-      let datesOfServiceArray: string[] = [];
-      if (primaryServiceType === 'OPD') {
-        datesOfServiceArray = visitDates.filter(d => d);
-      } else if (primaryServiceType === 'IPD') {
-        if (admissionDate && dischargeDate) {
-          const start = new Date(admissionDate);
-          const end = new Date(dischargeDate);
-          const current = new Date(start);
-          while (current <= end) {
-            datesOfServiceArray.push(current.toISOString().split('T')[0]);
-            current.setDate(current.getDate() + 1);
-          }
-        }
-      }
-      
-    const updateData = {
-      principalGDRG,
-      preAuthNumber,
-      notes,
-      datesOfService: visitDates.filter(d => d),
-      diagnosisCodes: diagnoses.map(d => d.icd10),
-      labTestCodes: investigations.filter(i => i.type === 'lab').map(i => i.gdrgCode),
-      scanCodes: investigations.filter(i => i.type === 'scan').map(i => i.gdrgCode),
-      medicationCodes: medicines.map(m => m.code),
-      typeOfService: primaryServiceType,
-      serviceOutcome,
-      typeOfAttendance,
-      mdcCode: principalGDRG?.slice(0, 4) || 'OPDC',
-      
-      metadata: {
-        diagnoses: diagnoses.map(d => ({
-          id: d.id,
-          gdrgCode: d.gdrgCode,
-          description: d.description,
-          diagnosis: d.diagnosis,
-          icd10: d.icd10,
-          diagnosisId: d.diagnosisId,
-          diagnosisType: d.diagnosisType
-        })),
-        investigations: investigations.map(i => ({
-          id: i.id,
-          gdrgCode: i.gdrgCode,
-          description: i.description,
-          date: i.date,
-          serviceCatalogId: i.serviceCatalogId,
-          type: i.type
-        })),
-        medicines: medicines.map(m => ({
-          id: m.id,
-          code: m.code,
-          description: m.description,
-          quantity: m.quantity,
-          date: m.date,
-          prescription: m.prescription,
-          dosage: m.dosage,
-          frequency: m.frequency,
-          duration: m.duration,
-          stockItemId: m.stockItemId
-        })),
-        visitDates: visitDates.filter(d => d),
-        admissionDate,
-        dischargeDate,
-        lengthOfStay
-      }
-    };
-      
-      await updateInsuranceClaim(id!, updateData);
+
+      await updateClaimDraft(id!, {
+        principalGDRG,
+        preAuthNumber,
+        notes,
+        mdcCode: principalGDRG?.slice(0, 4) || 'OPDC',
+        metadata: {
+          serviceFlags,
+          specialties,
+          referringFacility,
+          referralCode,
+          physicianId,
+          visitDates: visitDates.filter(d => d),
+          admissionDate,
+          dischargeDate,
+          lengthOfStay,
+        },
+      });
+
+      const items = buildItemPayload({ diagnoses, investigations, medicines, procedures, principalGDRG });
+      if (items.length > 0) await replaceClaimItems(id!, items);
+
       success('Saved', 'NHIS claim updated successfully');
       await getInsuranceClaim(id!);
     } catch (err: any) {
@@ -1372,10 +1153,14 @@ export default function EditNHISClaim() {
   };
 
   const handleFinalize = async () => {
-    await handleSave();
-    await finalizeClaim(id!);
-    success('Finalized', 'Claim is ready for submission');
-    navigate('/dashboard/insurance-claims');
+    try {
+      await handleSave();
+      await finalizeClaim(id!);
+      success('Finalized', 'Claim is ready for submission');
+      navigate('/dashboard/insurance-claims');
+    } catch (err: any) {
+      toastError('Finalize Failed', err.message);
+    }
   };
 
   if (isLoading && !currentClaim) {
@@ -1386,720 +1171,301 @@ export default function EditNHISClaim() {
     );
   }
 
+  const attendanceChoices = ATTENDANCE_OPTIONS.some(o => o.code === typeOfAttendance)
+    ? ATTENDANCE_OPTIONS
+    : [...ATTENDANCE_OPTIONS, { code: typeOfAttendance, label: `Other (${typeOfAttendance})` }];
+  const toggleSpecialty = (code: string, on: boolean) =>
+    setSpecialties(prev => on ? Array.from(new Set([...prev, code])) : prev.filter(c => c !== code));
+  const locked = !isDraft;
+
   return (
-    <div className="min-h-screen bg-[var(--bg-main)] p-6">
-      <div className="max-w-5xl mx-auto">
-        
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/dashboard/insurance-claims')}
-              className="p-2 hover:bg-[var(--bg-card)] rounded-xl transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
-            </button>
-            <div className="w-12 h-12 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center">
-              <Shield className="w-6 h-6 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-[var(--text-primary)]">Edit NHIS Claim</h1>
-              <p className="text-sm text-[var(--text-secondary)]">{currentClaim?.claimNumber}</p>
-            </div>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            {isDraft && (
-              <>
-                <button
-                  onClick={handleSave}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white disabled:opacity-50 text-sm"
-                >
-                  <Save className="w-4 h-4" />
-                  {isSubmitting ? 'Saving...' : 'Save Draft'}
-                </button>
-                <button
-                  onClick={handleFinalize}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm"
-                >
-                  <Lock className="w-4 h-4" />
-                  Save & Finalize
-                </button>
-              </>
-            )}
-            {isFinalized && (
-              <>
-                <button
-                  onClick={() => generateClaimXML(id!)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white text-sm"
-                >
-                  <Download className="w-4 h-4" />
-                  Download XML
-                </button>
-                <button
-                  onClick={() => generateClaimPrint(id!)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white text-sm"
-                >
-                  <Printer className="w-4 h-4" />
-                  Print Claim
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Status Banner */}
-        <div className={`p-3 rounded-xl mb-6 ${isDraft ? 'bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)]' : 'bg-[var(--icon-green-bg)] border border-[var(--icon-green-text)]'}`}>
-          <div className="flex items-center gap-3">
-            {isDraft ? <Clock className="w-5 h-5 text-[var(--icon-yellow-text)]" /> : <CheckCircle className="w-5 h-5 text-[var(--icon-green-text)]" />}
-            <span className="text-sm text-[var(--text-primary)]">
-              {isDraft ? 'DRAFT - NHIS claim requires GDRG and CCC code' : 'FINALIZED - Ready for NHIS submission'}
-            </span>
-          </div>
-        </div>
-
-        {/* Member Details Section - SIMPLE EDITABLE */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <User className="w-4 h-4 text-[var(--icon-green-text)]" />
-              NHIS Member Details
-            </h2>
-            {isDraft && !isEditingMember && (
-              <button
-                onClick={() => setIsEditingMember(true)}
-                className="flex items-center gap-1 px-3 py-1.5 text-xs bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors"
-              >
-                <Edit className="w-3.5 h-3.5" /> Edit Member
-              </button>
-            )}
-          </div>
-          
+    <>
+      <ClaimFrame
+        title="Update Claim"
+        subtitle={`${currentClaim?.claimNumber ?? ''} · NHIS`}
+        status={
+          <span className={`text-xs px-2 py-1 rounded mr-1 ${isDraft ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            {isDraft ? 'DRAFT' : 'FINALIZED'}
+          </span>
+        }
+        onClose={() => navigate('/dashboard/insurance-claims')}
+        onCollapse={() => setTablesOpen(o => !o)}
+        onFinalize={isDraft ? handleFinalize : undefined}
+        finalizing={isSubmitting}
+      >
+        <ClaimCard
+          title="Member Details"
+          action={isDraft && !isEditingMember ? (
+            <button type="button" onClick={handleMemberEdit} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10">Edit</button>
+          ) : undefined}
+        >
           {isEditingMember ? (
-            // EDIT MODE
-            <div className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+                <UField className="md:col-span-3" label="Member No / HIN" value={memberFormData.nhisNumber} onChange={v => setMemberFormData({ ...memberFormData, nhisNumber: v })} />
+                <UField label="Surname" value={memberFormData.surname} onChange={v => setMemberFormData({ ...memberFormData, surname: v })} />
+                <UField label="Other Names" value={memberFormData.otherNames} onChange={v => setMemberFormData({ ...memberFormData, otherNames: v })} />
+                <UField label="Folder No." value={memberFormData.folderNumber} onChange={v => setMemberFormData({ ...memberFormData, folderNumber: v })} />
                 <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">NHIS Member No</label>
-                  <input
-                    type="text"
-                    value={memberFormData.nhisNumber}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, nhisNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">CCC Code</label>
-                  <input
-                    type="text"
-                    value={memberFormData.cccCode}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, cccCode: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Folder No</label>
-                  <input
-                    type="text"
-                    value={memberFormData.folderNumber}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, folderNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Surname</label>
-                  <input
-                    type="text"
-                    value={memberFormData.surname}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, surname: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Other Names</label>
-                  <input
-                    type="text"
-                    value={memberFormData.otherNames}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, otherNames: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
-                  <select
-                    value={memberFormData.gender}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, gender: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  >
+                  <label className="block text-[11px] text-gray-500 mb-0.5">Gender</label>
+                  <select value={memberFormData.gender} onChange={e => setMemberFormData({ ...memberFormData, gender: e.target.value })} className="w-full border-b border-dotted border-gray-400 bg-transparent py-1.5 text-[15px] text-gray-600 focus:outline-none">
                     <option value="">Select</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="male">MALE</option>
+                    <option value="female">FEMALE</option>
+                    <option value="other">OTHER</option>
                   </select>
                 </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Date of Birth</label>
-                  <input
-                    type="date"
-                    value={memberFormData.dateOfBirth}
-                    onChange={(e) => setMemberFormData({ ...memberFormData, dateOfBirth: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
-                  <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] text-sm">
-                    {memberFormData.dateOfBirth ? calculateAge(memberFormData.dateOfBirth) : '—'}
-                  </p>
-                </div>
+                <UField label="Date of Birth" type="date" value={memberFormData.dateOfBirth ? String(memberFormData.dateOfBirth).split('T')[0] : ''} onChange={v => setMemberFormData({ ...memberFormData, dateOfBirth: v })} hint={memberFormData.dateOfBirth ? `Age: ${calculateAge(memberFormData.dateOfBirth)}` : undefined} />
+                <UField label="CCC No." value={memberFormData.cccCode} onChange={v => setMemberFormData({ ...memberFormData, cccCode: v })} />
               </div>
-              
-              <div className="flex gap-3 mt-4 pt-3 border-t border-[var(--border-color)]">
-                <button
-                  onClick={() => setIsEditingMember(false)}
-                  className="px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] hover:bg-[var(--bg-main)] text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleMemberSave}
-                  disabled={isSavingMember}
-                  className="px-6 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white flex items-center gap-2 text-sm"
-                >
-                  {isSavingMember ? (
-                    <>
-                      <RefreshCw className="w-4 h-4 animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Save className="w-4 h-4" /> Save Changes
-                    </>
-                  )}
+              <div className="flex justify-end gap-2 mt-4">
+                <button type="button" onClick={() => setIsEditingMember(false)} className="px-4 py-1.5 border border-gray-300 rounded text-sm text-gray-600 hover:bg-gray-50">Cancel</button>
+                <button type="button" onClick={handleMemberSave} disabled={isSavingMember} className="px-4 py-1.5 border rounded text-sm disabled:opacity-50" style={{ borderColor: '#4a7ca8', color: '#3a6a96' }}>
+                  {isSavingMember ? 'Saving…' : 'Save member'}
                 </button>
               </div>
-            </div>
+            </>
           ) : (
-            // VIEW MODE
-            <div className="p-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">NHIS Member No</label>
-                  <p className="text-sm font-medium text-[var(--text-primary)]">{patientNhisNumber || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">CCC Code</label>
-                  <p className="text-sm font-mono text-[var(--text-primary)]">{cccCode || '—'}</p>
-                  {!patientNhisNumber && cccCode && (
-                    <span className="text-[10px] text-[var(--icon-yellow-text)]">Using CCC Code</span>
-                  )}
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Folder No</label>
-                  <p className="text-sm text-[var(--text-primary)]">{folderNumber || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Surname</label>
-                  <p className="text-sm text-[var(--text-primary)]">{surname || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Other Names</label>
-                  <p className="text-sm text-[var(--text-primary)]">{otherNames || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Gender</label>
-                  <p className="text-sm text-[var(--text-primary)]">{gender?.toUpperCase() || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Date of Birth</label>
-                  <p className="text-sm text-[var(--text-primary)]">{dateOfBirth || '—'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)]">Age</label>
-                  <p className="text-sm text-[var(--text-primary)]">{age || '—'}</p>
-                </div>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
+              <UField className="md:col-span-3" label="Member No / HIN" value={patientNhisNumber || ''} icon="search" hint={!patientNhisNumber && cccCode ? 'No permanent member number: claim uses the CCC code' : undefined} />
+              <UField label="Surname" value={surname} />
+              <UField label="Other Names" value={otherNames} />
+              <UField label="Folder No." value={folderNumber} icon="search" />
+              <UField label="Gender" value={(gender || '').toUpperCase()} />
+              <UField label="Date of Birth" value={dateOfBirth} icon="calendar" hint={age ? `Age: ${age.replace(' yrs', 'yrs')}` : undefined} />
+              <UField label="CCC No." value={cccCode} />
             </div>
           )}
-        </div>
+        </ClaimCard>
 
-        {/* Service Information Section */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Activity className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Service Information
-            </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="md:col-span-2 space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+              <ClaimCard title="Type of Service(s)" className="md:col-span-3">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                  <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => setPrimaryServiceType('OPD')} disabled={locked} />
+                  <CheckItem label="Pharmacy" checked={serviceFlags.pharmacy} onChange={v => setServiceFlags({ ...serviceFlags, pharmacy: v })} disabled={locked} />
+                  <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => setPrimaryServiceType('IPD')} disabled={locked} />
+                  <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked} />
+                  <CheckItem label="UnBundled" checked={serviceFlags.unbundled} onChange={v => setServiceFlags({ ...serviceFlags, unbundled: v, allInclusive: v ? false : serviceFlags.allInclusive })} disabled={locked} />
+                  <CheckItem label="All-Inclusive" checked={serviceFlags.allInclusive} onChange={v => setServiceFlags({ ...serviceFlags, allInclusive: v, unbundled: v ? false : serviceFlags.unbundled })} disabled={locked} />
+                </div>
+              </ClaimCard>
+              <ClaimCard title="Service Outcome" className="md:col-span-2">
+                <div className="grid grid-cols-1 gap-y-3">
+                  {[['DISC', 'Discharged'], ['DIED', 'Died'], ['TRFO', 'Transferred Out'], ['ABS', 'Absconded']].map(([code, label]) => (
+                    <CheckItem key={code} label={label} checked={serviceOutcome === code} onChange={() => setServiceOutcome(code)} disabled={locked} />
+                  ))}
+                </div>
+              </ClaimCard>
+            </div>
+
+            <ClaimCard title="Type of Attendance">
+              <div className="flex flex-wrap gap-x-6 gap-y-3">
+                {attendanceChoices.map(o => (
+                  <CheckItem key={o.code} label={o.label} checked={typeOfAttendance === o.code} onChange={() => setTypeOfAttendance(o.code)} disabled={locked} />
+                ))}
+              </div>
+            </ClaimCard>
+
+            <ClaimCard title="Referral Info">
+              <div className="space-y-4">
+                <UField label="Referring Facility Name" value={referringFacility} onChange={setReferringFacility} disabled={locked} />
+                <UField label="Referral Code / CCC" value={referralCode} onChange={setReferralCode} disabled={locked} />
+              </div>
+            </ClaimCard>
           </div>
-          <div className="p-4">
-            
-            {/* Service Type */}
-            <div className="mb-4">
-              <label className="text-sm font-medium text-[var(--text-primary)] mb-2 block">Type of Service</label>
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="serviceType"
-                    checked={primaryServiceType === 'OPD'}
-                    onChange={() => setPrimaryServiceType('OPD')}
-                    disabled={!isDraft}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Outpatient (OPD)</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="serviceType"
-                    checked={primaryServiceType === 'IPD'}
-                    onChange={() => setPrimaryServiceType('IPD')}
-                    disabled={!isDraft}
-                    className="w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Inpatient (IPD)</span>
-                </label>
-              </div>
-            </div>
-            
-            {/* Type of Attendance (for NHIS) */}
-            <div className="mb-4">
-              <label className="text-sm font-medium text-[var(--text-primary)] mb-2 block">Type of Attendance</label>
-              <div className="flex flex-wrap gap-4">
-                {['GEN', 'EAE', 'ANC', 'DEL', 'SUR', 'NICU'].map(type => (
-                  <label key={type} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="typeOfAttendance"
-                      checked={typeOfAttendance === type}
-                      onChange={() => setTypeOfAttendance(type)}
-                      disabled={!isDraft}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-[var(--text-primary)]">{type}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Service Outcome */}
-            <div className="mb-4">
-              <label className="text-sm font-medium text-[var(--text-primary)] mb-2 block">Service Outcome</label>
-              <div className="flex flex-wrap gap-4">
-                {['DISC', 'CONT', 'DIED', 'TRFO', 'ABS'].map(outcome => (
-                  <label key={outcome} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="serviceOutcome"
-                      checked={serviceOutcome === outcome}
-                      onChange={() => setServiceOutcome(outcome)}
-                      disabled={!isDraft}
-                      className="w-4 h-4"
-                    />
-                    <span className="text-sm text-[var(--text-primary)]">
-                      {outcome === 'DISC' ? 'Discharged' : 
-                       outcome === 'CONT' ? 'Continued' :
-                       outcome === 'DIED' ? 'Died' :
-                       outcome === 'TRFO' ? 'Transferred Out' : 'Absconded'}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-            
-            {/* Dates Section */}
-            <div className="pt-4 border-t border-[var(--border-color)]">
+
+          <div className="space-y-5">
+            <ClaimCard title="Dates Of Service">
               {primaryServiceType === 'OPD' ? (
-                <div>
-                  <label className="text-sm font-medium text-[var(--text-primary)] mb-2 block">Visit Dates</label>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {['1st Visit', '2nd Visit', '3rd Visit', '4th Visit'].map((label, idx) => (
-                      <div key={idx}>
-                        <label className="text-xs text-[var(--text-secondary)]">{label}</label>
-                        <input
-                          type="date"
-                          value={visitDates[idx]}
-                          onChange={(e) => updateVisitDate(idx, e.target.value)}
-                          disabled={!isDraft}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                        />
-                      </div>
-                    ))}
-                  </div>
+                <div className="space-y-3">
+                  {['1st Visit', '2nd Visit', '3rd Visit', '4th Visit'].map((label, idx) => (
+                    <UField key={idx} label={idx === 0 ? label : ''} placeholder={label} type="date" value={visitDates[idx] || ''} onChange={v => updateVisitDate(idx, v)} disabled={locked} />
+                  ))}
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Admission Date</label>
-                    <input
-                      type="date"
-                      value={admissionDate}
-                      onChange={(e) => setAdmissionDate(e.target.value)}
-                      disabled={!isDraft}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Discharge Date</label>
-                    <input
-                      type="date"
-                      value={dischargeDate}
-                      onChange={(e) => setDischargeDate(e.target.value)}
-                      disabled={!isDraft}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Length of Stay</label>
-                    <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-primary)]">
-                      {lengthOfStay > 0 ? `${lengthOfStay} day(s)` : '—'}
-                    </p>
-                  </div>
+                <div className="space-y-3">
+                  <UField label="Admission Date" type="date" value={admissionDate} onChange={setAdmissionDate} disabled={locked} />
+                  <UField label="Discharge Date" type="date" value={dischargeDate} onChange={setDischargeDate} disabled={locked} />
+                  <UField label="Length of Stay" value={lengthOfStay > 0 ? `${lengthOfStay} day(s)` : ''} placeholder="—" />
                 </div>
               )}
-            </div>
+            </ClaimCard>
+
+            <ClaimCard title="Specialties Attended">
+              <div className="grid grid-cols-3 gap-x-2 gap-y-3 text-[14px]">
+                {SPECIALTIES.map(code => (
+                  <CheckItem key={code} label={code} checked={specialties.includes(code)} onChange={v => toggleSpecialty(code, v)} disabled={locked} />
+                ))}
+              </div>
+            </ClaimCard>
           </div>
         </div>
 
-        {/* Principal GDRG Section - WITH SEARCHABLE SELECT */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Hash className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Principal GDRG (NHIS)
-            </h2>
-          </div>
-          <div className="p-4">
-            <div className="bg-[var(--icon-yellow-bg)] p-3 rounded-lg mb-4">
-              <p className="text-xs text-[var(--text-secondary)]">
-                GDRG determines the tariff for NHIS claims. Select the appropriate GDRG based on the primary diagnosis.
-              </p>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Select Principal GDRG</label>
-                <SearchableGDRGSelect
-                  value={principalGDRG}
-                  onChange={handlePrincipalGDRGChange}
-                  options={availableGDRGs}
-                  disabled={!isDraft}
-                  placeholder="Search GDRG by code or description..."
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Description</label>
-                <p className="px-3 py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] text-sm min-h-[42px]">
-                  {principalGDRGDescription || '—'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Diagnoses Table */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Stethoscope className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Diagnoses ({diagnoses.length})
-            </h2>
-            {isDraft && (
-              <button
-                onClick={() => setActiveModal('diagnosis')}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded hover:bg-[var(--icon-green-text)] hover:text-white"
-              >
-                <Plus className="w-3 h-3" /> Add Diagnosis
-              </button>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">#</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">GDRG</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DESCRIPTION</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DIAGNOSIS</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">ICD10</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary)]">Type</th>
-                  {isDraft && <th className="px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary)]">Actions</th>}
+        <ListSection title="PROCEDURES" count={procedures.length} emptyText="No procedures added..." open={tablesOpen}>
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {procedures.map((pr, idx) => (
+                <tr key={idx} className="border-t border-gray-100">
+                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-gray-700">{pr.code || '—'}</td>
+                  <td className="px-3 py-3 text-gray-700">{pr.description}</td>
+                  <td className="px-3 py-3 text-gray-700">{fmtDate(pr.date)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center">
+                      <button type="button" onClick={() => setProcedures(procedures.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </td>
+                  )}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {diagnoses.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 7 : 6} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No diagnoses added</td></tr>
-                ) : (
-                  diagnoses.map((diag, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2 text-[var(--text-secondary)]">{idx + 1}.</td>
-                      <td className="px-3 py-2 font-mono text-sm">{diag.gdrgCode}</td>
-                      <td className="px-3 py-2 text-[var(--text-primary)] max-w-[200px] truncate">{diag.description}</td>
-                      <td className="px-3 py-2 text-[var(--text-primary)] max-w-[200px] truncate">{diag.diagnosis}</td>
-                      <td className="px-3 py-2 font-mono text-sm">{diag.icd10}</td>
-                      <td className="px-3 py-2 text-center">
-                        {diag.diagnosisType === 'primary' ? (
-                          <span className="px-2 py-0.5 text-xs font-medium bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded">Primary</span>
-                        ) : (
-                          isDraft && (
-                            <button
-                              onClick={() => setPrimaryDiagnosis(idx)}
-                              className="text-xs text-[var(--icon-blue-text)] hover:underline"
-                            >
-                              Set as Primary
-                            </button>
-                          )
-                        )}
-                      </td>
-                      {isDraft && (
-                        <td className="px-3 py-2 text-center">
-                          <button onClick={() => removeDiagnosis(idx)} className="text-red-500 hover:text-red-700">
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
 
-        {/* Investigations Table */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <FlaskConical className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Investigations ({investigations.length})
-            </h2>
-            {isDraft && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setActiveModal('lab')}
-                  className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded hover:bg-[var(--icon-purple-text)] hover:text-white"
-                >
-                  <Plus className="w-3 h-3" /> Add Lab
-                </button>
-                <button
-                  onClick={() => setActiveModal('scan')}
-                  className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded hover:bg-[var(--icon-blue-text)] hover:text-white"
-                >
-                  <Plus className="w-3 h-3" /> Add Scan
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">#</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">TYPE</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">GDRG</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DESCRIPTION</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DATE</th>
-                  {isDraft && <th className="px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary)]">Actions</th>}
+        <ListSection
+          title="DIAGNOSES"
+          count={diagnoses.length}
+          open={tablesOpen}
+          emptyText={diagnoses.length === 0 ? 'No diagnoses added...' : undefined}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('diagnosis')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Diagnosis</TH><TH>ICD10</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {diagnoses.map((d, idx) => (
+                <tr key={idx} className="border-t border-gray-100">
+                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-gray-700">{d.gdrgCode}</td>
+                  <td className="px-3 py-3 text-gray-700">{d.description}</td>
+                  <td className="px-3 py-3 text-gray-700">
+                    {d.diagnosis}
+                    {d.diagnosisType === 'primary'
+                      ? <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-teal-100 text-teal-700 align-middle">PRIMARY</span>
+                      : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-blue-600 hover:underline">set primary</button>}
+                  </td>
+                  <td className="px-3 py-3 text-gray-700">{d.icd10}</td>
+                  {isDraft && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {investigations.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 6 : 5} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No investigations added</td></tr>
-                ) : (
-                  investigations.map((inv, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2 text-[var(--text-secondary)]">{idx + 1}.</td>
-                      <td className="px-3 py-2">
-                        <span className={`px-2 py-0.5 text-xs rounded ${
-                          inv.type === 'lab' 
-                            ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]' 
-                            : 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'
-                        }`}>
-                          {inv.type === 'lab' ? 'Lab' : 'Scan'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 font-mono text-sm">{inv.gdrgCode}</td>
-                      <td className="px-3 py-2 text-[var(--text-primary)]">{inv.description}</td>
-                      <td className="px-3 py-2 text-[var(--text-secondary)]">{inv.date}</td>
-                      {isDraft && (
-                        <td className="px-3 py-2 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button onClick={() => setEditingInvestigation(inv)} className="text-blue-500 hover:text-blue-700">
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => removeInvestigation(idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
 
-        {/* Medicines Table */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-6">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)] flex justify-between items-center">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Pill className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Medicines ({medicines.length})
-            </h2>
-            {isDraft && (
-              <button
-                onClick={() => setActiveModal('medicine')}
-                className="flex items-center gap-1 px-2 py-1 text-xs bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded hover:bg-[var(--icon-green-text)] hover:text-white"
-              >
-                <Plus className="w-3 h-3" /> Add Medicine
-              </button>
-            )}
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">#</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">CODE</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DESCRIPTION</th>
-                  <th className="px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary)]">QTY</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">DATE</th>
-                  <th className="px-3 py-2 text-left text-xs font-medium text-[var(--text-secondary)]">PRESCRIPTION</th>
-                  {isDraft && <th className="px-3 py-2 text-center text-xs font-medium text-[var(--text-secondary)]">Actions</th>}
+        <ListSection
+          title="INVESTIGATIONS"
+          count={investigations.length}
+          open={tablesOpen}
+          emptyText={investigations.length === 0 ? 'No investigations added...' : undefined}
+          action={isDraft ? (
+            <span className="flex gap-2 normal-case">
+              <button type="button" onClick={() => setActiveModal('lab')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Lab</button>
+              <button type="button" onClick={() => setActiveModal('scan')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 flex items-center gap-1"><Plus className="w-3 h-3" /> Scan</button>
+            </span>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {investigations.map((inv, idx) => (
+                <tr key={idx} className="border-t border-gray-100">
+                  <td className="px-3 py-3 text-gray-500">{idx + 1}.</td>
+                  <td className="px-3 py-3 text-gray-700">{inv.gdrgCode}</td>
+                  <td className="px-3 py-3 text-gray-700">{inv.description}</td>
+                  <td className="px-3 py-3 text-gray-700">{fmtDate(inv.date)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditingInvestigation(inv)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeInvestigation(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {medicines.length === 0 ? (
-                  <tr><td colSpan={isDraft ? 7 : 6} className="px-3 py-8 text-center text-[var(--text-tertiary)]">No medicines added</td></tr>
-                ) : (
-                  medicines.map((med, idx) => (
-                    <tr key={idx} className="hover:bg-[var(--bg-main)]">
-                      <td className="px-3 py-2 text-[var(--text-secondary)]">{idx + 1}.</td>
-                      <td className="px-3 py-2 font-mono text-xs">{med.code}</td>
-                      <td className="px-3 py-2 text-[var(--text-primary)] max-w-[200px] truncate">{med.description}</td>
-                      <td className="px-3 py-2 text-center text-[var(--text-primary)]">{med.quantity}</td>
-                      <td className="px-3 py-2 text-[var(--text-secondary)]">{med.date}</td>
-                      <td className="px-3 py-2 text-xs text-[var(--text-secondary)] max-w-[200px] truncate">{med.prescription}</td>
-                      {isDraft && (
-                        <td className="px-3 py-2 text-center">
-                          <div className="flex justify-center gap-1">
-                            <button onClick={() => setEditingMedicine(med)} className="text-blue-500 hover:text-blue-700">
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button onClick={() => removeMedicine(idx)} className="text-red-500 hover:text-red-700">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
 
-        {/* Authorization Codes Section */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="bg-[var(--bg-main)] px-4 py-3 border-b border-[var(--border-color)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Lock className="w-4 h-4 text-[var(--icon-green-text)]" />
-              Authorization Codes
-            </h2>
-          </div>
-          <div className="p-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Pre-authorization Number</label>
-                <input
-                  type="text"
-                  value={preAuthNumber}
-                  onChange={(e) => setPreAuthNumber(e.target.value)}
-                  disabled={!isDraft}
-                  placeholder="Enter pre-authorization number"
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-[var(--text-primary)] mb-1 block">Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  disabled={!isDraft}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm resize-none"
-                  placeholder="Additional notes..."
-                />
-              </div>
+        <ListSection
+          title="MEDICINES"
+          count={medicines.length}
+          open={tablesOpen}
+          emptyText={medicines.length === 0 ? 'No medicines added...' : undefined}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('medicine')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
+          <table className="w-full text-sm">
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <tbody>
+              {medicines.map((m, idx) => (
+                <tr key={idx} className="border-t border-gray-100 align-top">
+                  <td className="px-3 py-3 text-gray-500">{idx + 1}</td>
+                  <td className="px-3 py-3 text-gray-700">{m.code}</td>
+                  <td className="px-3 py-3 text-gray-700">
+                    {m.description}
+                    {m.prescription && <div className="text-[10px] italic text-gray-500 mt-0.5">Rx: {m.prescription}</div>}
+                  </td>
+                  <td className="px-3 py-3 text-gray-700">{m.quantity}</td>
+                  <td className="px-3 py-3 text-gray-700">{fmtDate(m.date)}</td>
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditingMedicine(m)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeMedicine(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </ListSection>
+
+        <ClaimCard title="Principal GDRG">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+            <Hint>If you are not certain of the Principal GDRG, leave this section blank and the system will automatically identify the most appropriate Principal GDRG for the claim.</Hint>
+            <div>
+              <label className="block text-[11px] text-gray-500 mb-0.5">Select Principal GDRG</label>
+              <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
+              <p className="text-[15px] text-gray-700 mt-3">{principalGDRGDescription}</p>
             </div>
-            
-            {isDraft && (
-              <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-[var(--border-color)]">
-                <button
-                  onClick={() => navigate('/dashboard/insurance-claims')}
-                  className="px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white flex items-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  {isSubmitting ? 'Saving...' : 'SAVE'}
-                </button>
-              </div>
-            )}
           </div>
-        </div>
-      </div>
+        </ClaimCard>
 
-      {/* Modals */}
-      <AddDiagnosisModal
-        isOpen={activeModal === 'diagnosis'}
-        onClose={() => setActiveModal(null)}
-        onAdd={addDiagnosis}
-        existingDiagnoses={diagnoses}
-      />
+        <ClaimCard title="Authorization Codes">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-4">
+            <UField label="Physician Name/ID" value={physicianId} onChange={setPhysicianId} disabled={locked} />
+            <UField label="Pre-authorization Code(s)" value={preAuthNumber} onChange={setPreAuthNumber} disabled={locked} />
+            <div className="md:col-span-2">
+              <UField label="Notes" value={notes} onChange={setNotes} disabled={locked} placeholder="Additional notes…" />
+            </div>
+          </div>
+        </ClaimCard>
 
-      <AddInvestigationModal
-        isOpen={activeModal === 'lab'}
-        onClose={() => setActiveModal(null)}
-        onAdd={addInvestigation}
-        type="lab"
-      />
+        {isFinalized ? (
+          <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">
+            <button type="button" onClick={() => downloadClaimXml(id!)} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Download className="w-4 h-4" /> Download XML</button>
+            <button type="button" onClick={() => printClaim(id!)} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
+            <button type="button" onClick={() => navigate('/dashboard/insurance-claims')} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
+          </div>
+        ) : (
+          <ClaimFooter onCancel={() => navigate('/dashboard/insurance-claims')} onSave={handleSave} saving={isSubmitting} />
+        )}
+      </ClaimFrame>
 
-      <AddInvestigationModal
-        isOpen={activeModal === 'scan'}
-        onClose={() => setActiveModal(null)}
-        onAdd={addInvestigation}
-        type="scan"
-      />
-
-      <AddMedicineModal
-        isOpen={activeModal === 'medicine'}
-        onClose={() => setActiveModal(null)}
-        onAdd={addMedicine}
-      />
-
-      <EditMedicineModal
-        isOpen={!!editingMedicine}
-        onClose={() => setEditingMedicine(null)}
-        onSave={updateMedicine}
-        medicine={editingMedicine}
-      />
-
-      <EditInvestigationModal
-        isOpen={!!editingInvestigation}
-        onClose={() => setEditingInvestigation(null)}
-        onSave={updateInvestigation}
-        investigation={editingInvestigation}
-      />
-    </div>
+      <AddDiagnosisModal isOpen={activeModal === 'diagnosis'} onClose={() => setActiveModal(null)} onAdd={addDiagnosis} />
+      <AddInvestigationModal isOpen={activeModal === 'lab'} onClose={() => setActiveModal(null)} onAdd={addInvestigation} type="lab" />
+      <AddInvestigationModal isOpen={activeModal === 'scan'} onClose={() => setActiveModal(null)} onAdd={addInvestigation} type="scan" />
+      <AddMedicineModal isOpen={activeModal === 'medicine'} onClose={() => setActiveModal(null)} onAdd={addMedicine} />
+      <EditMedicineModal isOpen={!!editingMedicine} onClose={() => setEditingMedicine(null)} onSave={updateMedicine} medicine={editingMedicine} />
+      <EditInvestigationModal isOpen={!!editingInvestigation} onClose={() => setEditingInvestigation(null)} onSave={updateInvestigation} investigation={editingInvestigation} />
+    </>
   );
 }

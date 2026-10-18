@@ -1,8 +1,11 @@
 // modules/report/ReportService.ts
 import { cacheReadMethods } from '../../utils/ttlCache';
 import { PrismaClient, BillStatus } from '@prisma/client';
-// FIXED: removed unused PaymentMode import
 import { ReportFilters } from './ReportTypes';
+import { parseReportRange, toNum, money } from '../../utils/reportDates';
+
+// Bills that count as billed / collected money. Drafts were never issued and cancelled bills were voided.
+const COUNTED_BILL_STATUSES: BillStatus[] = [BillStatus.pending, BillStatus.partial, BillStatus.paid];
 
 export class ReportService {
   private prisma: PrismaClient;
@@ -24,14 +27,37 @@ export class ReportService {
     return Math.max(0, age);
   }
 
+  private ageGroup(age: number): string {
+    if (age < 1)  return '<1 year';
+    if (age < 5)  return '1-4 years';
+    if (age < 10) return '5-9 years';
+    if (age < 15) return '10-14 years';
+    if (age < 18) return '15-17 years';
+    if (age < 20) return '18-19 years';
+    if (age < 35) return '20-34 years';
+    if (age < 50) return '35-49 years';
+    if (age < 60) return '50-59 years';
+    if (age < 70) return '60-69 years';
+    return '70+ years';
+  }
+
+  /** Header block printed on every report. Missing settings show as "Not set" (never an invented code). */
   private async getFacilityInfo() {
     const hospital = await this.prisma.hospital.findFirst();
     return {
-      name: hospital?.name || 'General Hospital',
-      nhisFacilityCode: hospital?.nhisFacilityCode || 'GH001',
-      facilityType: hospital?.nhisFacilityType || 'Secondary',
-      district: hospital?.ghsDistrictCode || 'Unknown',
-      ghfCode: hospital?.ghaHFCode || 'Unknown',
+      name: hospital?.name || 'Facility name not set',
+      nhisFacilityCode: hospital?.nhisFacilityCode || 'Not set',
+      facilityType: hospital?.nhisFacilityType || 'Not set',
+      district: hospital?.ghsDistrictCode || 'Not set',
+      ghfCode: hospital?.ghaHFCode || 'Not set',
+    };
+  }
+
+  private periodOf(startDate?: string, endDate?: string) {
+    return {
+      startDate: startDate || 'Beginning',
+      endDate: endDate || 'Now',
+      generated: new Date().toISOString().split('T')[0],
     };
   }
 
@@ -39,94 +65,38 @@ export class ReportService {
 
   async getDemographicReport(filters: ReportFilters) {
     const { startDate, endDate } = filters;
+    const range = parseReportRange(startDate, endDate);
+    const attendanceWhere: any = range ? { dateTime: range } : {};
 
-    // ✅ Get patients who had ATTENDANCES during the date range
-    let attendanceWhere: any = {};
-    if (startDate || endDate) {
-      attendanceWhere.dateTime = {};
-      if (startDate) attendanceWhere.dateTime.gte = new Date(startDate);
-      if (endDate) attendanceWhere.dateTime.lte = new Date(endDate);
-    }
+    // One row per PATIENT who attended in the period (not one row per visit), and the visit
+    // counts are computed by the database.
+    const [patients, totalAttendances, attendanceModes, newPatients] = await Promise.all([
+      this.prisma.patient.findMany({
+        where: { Attendance: { some: attendanceWhere } },
+        select: { gender: true, dateOfBirth: true, paymentMode: true },
+      }),
+      this.prisma.attendance.count({ where: attendanceWhere }),
+      this.prisma.attendance.groupBy({ by: ['paymentMode'], where: attendanceWhere, _count: { _all: true } }),
+      this.prisma.patient.count({ where: range ? { registeredAt: range } : {} }),
+    ]);
 
-    // Get distinct patient IDs from attendances during the period
-    const attendances = await this.prisma.attendance.findMany({
-      where: attendanceWhere,
-      select: {
-        patientId: true,
-        dateTime: true,
-        paymentMode: true,
-        Patient: {
-          select: {
-            id: true,
-            gender: true,
-            dateOfBirth: true,
-            paymentMode: true,
-            registeredAt: true,
-          },
-        },
-      },
-      orderBy: { dateTime: 'asc' },
-    });
+    // Age is measured at the end of the period (or today when the period reaches into the future)
+    const now = new Date();
+    const ageAsOf = range?.lte && range.lte < now ? range.lte : now;
 
-    // Get unique patients from these attendances
-    const patientMap = new Map();
-    let totalAttendances = 0;
-
-    for (const att of attendances) {
-      totalAttendances++;
-      if (att.Patient && !patientMap.has(att.Patient.id)) {
-        patientMap.set(att.Patient.id, att.Patient);
-      }
-    }
-
-    const patients = Array.from(patientMap.values());
-
-    // ✅ Also get patients who were registered during the period (for new patients count)
-    let registrationWhere: any = {};
-    if (startDate || endDate) {
-      registrationWhere.registeredAt = {};
-      if (startDate) registrationWhere.registeredAt.gte = new Date(startDate);
-      if (endDate) registrationWhere.registeredAt.lte = new Date(endDate);
-    }
-
-    const newPatients = await this.prisma.patient.count({
-      where: registrationWhere,
-    });
-
-    // ── Calculate statistics ──────────────────────────────────────────────────
     const genderDistribution = {
       male: patients.filter(p => p.gender === 'male').length,
       female: patients.filter(p => p.gender === 'female').length,
       other: patients.filter(p => p.gender === 'other').length,
     };
 
-    // GHS-aligned age groups
     const ageGroups: Record<string, number> = {
       '<1 year': 0, '1-4 years': 0, '5-9 years': 0, '10-14 years': 0,
       '15-17 years': 0, '18-19 years': 0, '20-34 years': 0, '35-49 years': 0,
       '50-59 years': 0, '60-69 years': 0, '70+ years': 0,
     };
-
-    // Also track age groups with percentages
-    const ageGroupCounts: Record<string, number> = {};
-
     for (const patient of patients) {
-      const age = this.calculateAge(patient.dateOfBirth);
-      let group: string;
-      if (age < 1)        group = '<1 year';
-      else if (age < 5)   group = '1-4 years';
-      else if (age < 10)  group = '5-9 years';
-      else if (age < 15)  group = '10-14 years';
-      else if (age < 18)  group = '15-17 years';
-      else if (age < 20)  group = '18-19 years';
-      else if (age < 35)  group = '20-34 years';
-      else if (age < 50)  group = '35-49 years';
-      else if (age < 60)  group = '50-59 years';
-      else if (age < 70)  group = '60-69 years';
-      else                group = '70+ years';
-      
-      ageGroups[group]++;
-      ageGroupCounts[group] = (ageGroupCounts[group] || 0) + 1;
+      ageGroups[this.ageGroup(this.calculateAge(patient.dateOfBirth, ageAsOf))]++;
     }
 
     const paymentModeDistribution = {
@@ -136,21 +106,13 @@ export class ReportService {
       corporate: patients.filter(p => p.paymentMode === 'corporate').length,
     };
 
-    // ── Payment mode breakdown from attendances ──────────────────────────────
-    const attendancePaymentMode: Record<string, number> = {};
-    for (const att of attendances) {
-      const mode = att.paymentMode || 'unknown';
-      attendancePaymentMode[mode] = (attendancePaymentMode[mode] || 0) + 1;
-    }
+    const byPaymentMode: Record<string, number> = {};
+    for (const row of attendanceModes) byPaymentMode[row.paymentMode || 'unknown'] = row._count._all;
 
     return {
       reportType: 'DEMOGRAPHIC ANALYSIS REPORT' as const,
       facility: await this.getFacilityInfo(),
-      period: {
-        startDate: startDate || 'Beginning',
-        endDate: endDate || 'Now',
-        generated: new Date().toISOString().split('T')[0],
-      },
+      period: this.periodOf(startDate, endDate),
       patientDemographics: {
         totalPatients: patients.length,
         genderDistribution,
@@ -158,64 +120,96 @@ export class ReportService {
         paymentModeDistribution,
       },
       attendancePatterns: {
-        totalAttendances: totalAttendances,
+        totalAttendances,
         visitsPerPatient: patients.length > 0 ? Math.round((totalAttendances / patients.length) * 10) / 10 : 0,
-        newPatients: newPatients,
-        byPaymentMode: attendancePaymentMode,
+        newPatients,
+        byPaymentMode,
       },
       generatedAt: new Date(),
     };
   }
 
   // ==================== FINANCIAL REPORT ====================
+  // Billed vs collected vs outstanding. Everything is summed by the database; Prisma returns money as
+  // Decimal objects, so every value goes through toNum()/money() (adding Decimals with + builds a string).
   async getFinancialReport(filters: ReportFilters) {
     const { startDate, endDate, paymentMode, corporateAccountId } = filters;
+    const range = parseReportRange(startDate, endDate);
 
-    const where: any = {};
-    if (startDate || endDate) {
-      where.billDate = {};
-      if (startDate) where.billDate.gte = new Date(startDate);
-      if (endDate) where.billDate.lte = new Date(endDate);
-    }
+    const where: any = { status: { in: COUNTED_BILL_STATUSES } };
+    if (range) where.billDate = range;
     if (paymentMode) where.paymentMode = paymentMode;
-    // FIXED: Bill has corporateAccountId directly — no need to nest through patient
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
-    const bills = await this.prisma.bill.findMany({
-      where,
-      include: {
-        Patient: { select: { surname: true, otherNames: true, folderNumber: true, paymentMode: true } },
-        Attendance: {
-          include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } } },
-        },
-      },
-      orderBy: { billDate: 'desc' },
-    });
+    const sums = { totalAmount: true, paidAmount: true, balance: true, insuranceCovered: true, waiverAmount: true } as const;
 
-    const summary = bills.reduce(
-      (acc, bill) => {
-        acc.totalRevenue += bill.totalAmount || 0;
-        acc.totalPaid += bill.paidAmount || 0;
-        acc.outstandingBalance += bill.balance || 0;
-        acc.totalBills += 1;
-        return acc;
-      },
-      { totalRevenue: 0, totalPaid: 0, outstandingBalance: 0, totalBills: 0 },
-    );
+    const [totals, byMode, byStatus, daily] = await Promise.all([
+      this.prisma.bill.aggregate({ where, _sum: sums, _count: { _all: true } }),
+      this.prisma.bill.groupBy({ by: ['paymentMode'], where, _sum: sums, _count: { _all: true } }),
+      this.prisma.bill.groupBy({ by: ['status'], where, _sum: sums, _count: { _all: true } }),
+      // two narrow columns only, for the day-by-day trend
+      this.prisma.bill.findMany({ where, select: { billDate: true, totalAmount: true, paidAmount: true } }),
+    ]);
 
-    const byPaymentMode = bills.reduce((acc, bill) => {
-      const mode = bill.paymentMode;
-      if (!acc[mode]) acc[mode] = { count: 0, amount: 0 };
-      acc[mode].count++;
-      acc[mode].amount += bill.paidAmount || 0;
-      return acc;
-    }, {} as Record<string, { count: number; amount: number }>);
+    const revenueByPaymentMode = byMode
+      .map(row => {
+        const billed = money(row._sum.totalAmount);
+        const paid = money(row._sum.paidAmount);
+        const count = row._count._all;
+        return {
+          paymentMode: row.paymentMode as string,
+          billCount: count,
+          totalBilled: billed,
+          totalRevenue: paid,                       // collected
+          outstanding: money(row._sum.balance),
+          averageBill: count > 0 ? money(billed / count) : 0,
+        };
+      })
+      .sort((a, b) => b.totalBilled - a.totalBilled);
+
+    const dayMap = new Map<string, { date: string; bills: number; billed: number; paid: number }>();
+    for (const bill of daily) {
+      const day = bill.billDate.toISOString().split('T')[0];
+      const entry = dayMap.get(day) || { date: day, bills: 0, billed: 0, paid: 0 };
+      entry.bills += 1;
+      entry.billed += toNum(bill.totalAmount);
+      entry.paid += toNum(bill.paidAmount);
+      dayMap.set(day, entry);
+    }
+    const dailyTrend = Array.from(dayMap.values())
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .map(d => ({ ...d, billed: money(d.billed), paid: money(d.paid) }));
+
+    const byPaymentMode: Record<string, { count: number; amount: number }> = {};
+    for (const row of revenueByPaymentMode) byPaymentMode[row.paymentMode] = { count: row.billCount, amount: row.totalRevenue };
 
     return {
+      reportType: 'FINANCIAL SUMMARY' as const,
+      facility: await this.getFacilityInfo(),
       reportPeriod: { startDate: startDate || 'Beginning', endDate: endDate || 'Now' },
-      summary,
+      period: this.periodOf(startDate, endDate),
+      summary: {
+        totalRevenue: money(totals._sum.totalAmount),       // total billed (kept under this name for the screen)
+        totalPaid: money(totals._sum.paidAmount),
+        outstandingBalance: money(totals._sum.balance),
+        insuranceCovered: money(totals._sum.insuranceCovered),
+        waivers: money(totals._sum.waiverAmount),
+        totalBills: totals._count._all,
+        collectionRate: money(toNum(totals._sum.totalAmount)) > 0
+          ? Math.round((toNum(totals._sum.paidAmount) / toNum(totals._sum.totalAmount)) * 1000) / 10
+          : 0,
+        note: 'Draft and cancelled bills are not counted.',
+      },
+      revenueByPaymentMode,
       byPaymentMode,
-      breakdown: bills,
+      byStatus: byStatus.map(row => ({
+        status: row.status as string,
+        billCount: row._count._all,
+        totalBilled: money(row._sum.totalAmount),
+        totalPaid: money(row._sum.paidAmount),
+        outstanding: money(row._sum.balance),
+      })),
+      dailyTrend,
       reportGenerated: new Date(),
     };
   }
@@ -223,45 +217,87 @@ export class ReportService {
   // ==================== INSURANCE CLAIMS REPORT ====================
   async getInsuranceClaimsReport(filters: ReportFilters) {
     const { startDate, endDate, insuranceProviderId, status, corporateAccountId } = filters;
+    const range = parseReportRange(startDate, endDate);
 
     const where: any = {};
-    if (startDate || endDate) {
-      where.submissionDate = {};
-      if (startDate) where.submissionDate.gte = new Date(startDate);
-      if (endDate) where.submissionDate.lte = new Date(endDate);
-    }
+    if (range) where.submissionDate = range;
     if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
     if (status) where.status = status;
-    // FIXED: corporateAccountId is a direct field on InsuranceClaim
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
-    const claims = await this.prisma.insuranceClaim.findMany({
-      where,
-      include: {
-        InsuranceProvider: { select: { name: true, type: true } },
-        Patient: { select: { surname: true, otherNames: true, folderNumber: true, paymentMode: true } },
-        Attendance: { select: { attendanceNumber: true, dateTime: true } },
-        Bill: { select: { totalAmount: true, insuranceCovered: true, paidAmount: true } },
-        CorporateAccount: { select: { companyName: true } },
-      },
-      orderBy: { submissionDate: 'desc' },
-    });
+    const sums = { totalClaimAmount: true, approvedAmount: true, rejectedAmount: true, paidAmount: true } as const;
 
-    const corporateClaims = claims.filter(c => c.corporateAccountId);
-    const regularClaims = claims.filter(c => !c.corporateAccountId);
+    const [totals, corporateCount, byStatus, byProvider, recent] = await Promise.all([
+      this.prisma.insuranceClaim.aggregate({ where, _sum: sums, _count: { _all: true } }),
+      this.prisma.insuranceClaim.count({ where: { ...where, corporateAccountId: corporateAccountId || { not: null } } }),
+      this.prisma.insuranceClaim.groupBy({ by: ['status'], where, _sum: sums, _count: { _all: true } }),
+      this.prisma.insuranceClaim.groupBy({ by: ['insuranceProviderId'], where, _sum: sums, _count: { _all: true } }),
+      // the list behind the numbers: newest 500 only (a year of claims is far too many rows for one response)
+      this.prisma.insuranceClaim.findMany({
+        where,
+        select: {
+          id: true, status: true, submissionDate: true, totalClaimAmount: true, approvedAmount: true,
+          rejectedAmount: true, paidAmount: true, corporateAccountId: true,
+          InsuranceProvider: { select: { name: true, type: true } },
+          Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+          Attendance: { select: { attendanceNumber: true, dateTime: true } },
+          CorporateAccount: { select: { companyName: true } },
+        },
+        orderBy: { submissionDate: 'desc' },
+        take: 500,
+      }),
+    ]);
+
+    const providers = await this.prisma.insuranceProvider.findMany({
+      where: { id: { in: byProvider.map(p => p.insuranceProviderId) } },
+      select: { id: true, name: true, type: true },
+    });
+    const providerById = new Map(providers.map(p => [p.id, p]));
+
+    const totalClaimAmount = money(totals._sum.totalClaimAmount);
+    const totalPaidAmount = money(totals._sum.paidAmount);
 
     return {
       reportType: 'Insurance Claims Analysis' as const,
-      period: { startDate, endDate },
+      facility: await this.getFacilityInfo(),
+      period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
       summary: {
-        totalClaims: claims.length,
-        corporateClaims: corporateClaims.length,
-        regularClaims: regularClaims.length,
-        totalClaimAmount: claims.reduce((sum, c) => sum + c.totalClaimAmount, 0),
-        totalPaidAmount: claims.reduce((sum, c) => sum + (c.paidAmount || 0), 0),
+        totalClaims: totals._count._all,
+        corporateClaims: corporateCount,
+        regularClaims: totals._count._all - corporateCount,
+        totalClaimAmount,
+        totalApprovedAmount: money(totals._sum.approvedAmount),
+        totalRejectedAmount: money(totals._sum.rejectedAmount),
+        totalPaidAmount,
+        outstandingAmount: money(totalClaimAmount - totalPaidAmount),
       },
-      claimsReport: claims,
-      corporateClaims,
+      byStatus: byStatus
+        .map(row => ({
+          status: row.status as string,
+          claimCount: row._count._all,
+          claimAmount: money(row._sum.totalClaimAmount),
+          approvedAmount: money(row._sum.approvedAmount),
+          paidAmount: money(row._sum.paidAmount),
+        }))
+        .sort((a, b) => b.claimAmount - a.claimAmount),
+      byProvider: byProvider
+        .map(row => ({
+          provider: providerById.get(row.insuranceProviderId)?.name || 'Unknown',
+          type: providerById.get(row.insuranceProviderId)?.type || '',
+          claimCount: row._count._all,
+          claimAmount: money(row._sum.totalClaimAmount),
+          paidAmount: money(row._sum.paidAmount),
+          outstanding: money(toNum(row._sum.totalClaimAmount) - toNum(row._sum.paidAmount)),
+        }))
+        .sort((a, b) => b.claimAmount - a.claimAmount),
+      claimsReport: recent.map(c => ({
+        ...c,
+        totalClaimAmount: money(c.totalClaimAmount),
+        approvedAmount: c.approvedAmount === null ? null : money(c.approvedAmount),
+        rejectedAmount: c.rejectedAmount === null ? null : money(c.rejectedAmount),
+        paidAmount: c.paidAmount === null ? null : money(c.paidAmount),
+      })),
+      claimsShown: recent.length,
       generatedAt: new Date(),
     };
   }
@@ -269,80 +305,74 @@ export class ReportService {
   // ==================== CLINICAL REPORT ====================
   async getClinicalReport(filters: ReportFilters) {
     const { startDate, endDate } = filters;
+    const range = parseReportRange(startDate, endDate);
 
-    const where: any = {};
-    if (startDate || endDate) {
-      where.dateTime = {};
-      if (startDate) where.dateTime.gte = new Date(startDate);
-      if (endDate) where.dateTime.lte = new Date(endDate);
-    }
-
-    const clinicalData = await this.prisma.attendance.findMany({
-      where,
-      include: {
-        Patient: { select: { dateOfBirth: true, gender: true, paymentMode: true } },
-        AttendanceDiagnosis: {
-          include: {
-            Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } },
+    // Only the columns the report needs (the old query loaded whole visits with every relation)
+    const rows = await this.prisma.attendanceDiagnosis.findMany({
+      where: range ? { Attendance: { dateTime: range } } : {},
+      select: {
+        Diagnosis: { select: { name: true, icdCode: true, morbidityGroup: true } },
+        Attendance: {
+          select: {
+            dateTime: true,
+            Patient: { select: { dateOfBirth: true, gender: true, paymentMode: true } },
           },
         },
       },
     });
 
-    const clinicalReport: Record<string, any> = {};
+    interface Acc {
+      diagnosis: string; icdCode: string | null; morbidityGroup: any;
+      totalCases: number; ageSum: number; ageCount: number;
+      male: number; female: number; other: number;
+      paymentModes: Record<string, number>;
+    }
+    const byDiagnosis = new Map<string, Acc>();
 
-    for (const attendance of clinicalData) {
-      for (const diagnosisItem of attendance.AttendanceDiagnosis) {
-        const diagnosis = diagnosisItem.Diagnosis;
-        if (!diagnosis) continue;
-
-        const key = `${diagnosis.name}-${diagnosis.icdCode}`;
-        if (!clinicalReport[key]) {
-          clinicalReport[key] = {
-            diagnosis: diagnosis.name,
-            icdCode: diagnosis.icdCode,
-            morbidityGroup: diagnosis.morbidityGroup,
-            totalCases: 0,
-            ages: [] as number[],
-            genders: [] as string[],
-            paymentModes: [] as string[],
-          };
-        }
-
-        clinicalReport[key].totalCases += 1;
-        if (attendance.Patient) {
-          const age = this.calculateAge(attendance.Patient.dateOfBirth, attendance.dateTime);
-          clinicalReport[key].ages.push(age);
-          clinicalReport[key].genders.push(attendance.Patient.gender);
-          if (attendance.Patient.paymentMode) {
-            clinicalReport[key].paymentModes.push(attendance.Patient.paymentMode);
-          }
-        }
+    for (const row of rows) {
+      const diagnosis = row.Diagnosis;
+      if (!diagnosis) continue;
+      const key = `${diagnosis.name}-${diagnosis.icdCode}`;
+      let acc = byDiagnosis.get(key);
+      if (!acc) {
+        acc = {
+          diagnosis: diagnosis.name, icdCode: diagnosis.icdCode, morbidityGroup: diagnosis.morbidityGroup,
+          totalCases: 0, ageSum: 0, ageCount: 0, male: 0, female: 0, other: 0, paymentModes: {},
+        };
+        byDiagnosis.set(key, acc);
+      }
+      acc.totalCases += 1;
+      const patient = row.Attendance?.Patient;
+      if (patient) {
+        acc.ageSum += this.calculateAge(patient.dateOfBirth, row.Attendance.dateTime);
+        acc.ageCount += 1;
+        if (patient.gender === 'male') acc.male++;
+        else if (patient.gender === 'female') acc.female++;
+        else acc.other++;
+        if (patient.paymentMode) acc.paymentModes[patient.paymentMode] = (acc.paymentModes[patient.paymentMode] || 0) + 1;
       }
     }
 
-    const reportData = Object.values(clinicalReport).map((item: any) => ({
-      diagnosis: item.diagnosis,
-      icdCode: item.icdCode,
-      morbidityGroup: item.morbidityGroup,
-      totalCases: item.totalCases,
-      averageAge:
-        item.ages.length > 0
-          ? Math.round((item.ages.reduce((a: number, b: number) => a + b, 0) / item.ages.length) * 10) / 10
-          : 0,
-      genderDistribution: {
-        male: item.genders.filter((g: string) => g === 'male').length,
-        female: item.genders.filter((g: string) => g === 'female').length,
-      },
-      paymentModeBreakdown: item.paymentModes.reduce((acc: Record<string, number>, mode: string) => {
-        acc[mode] = (acc[mode] || 0) + 1;
-        return acc;
-      }, {}),
-    }));
+    const reportData = Array.from(byDiagnosis.values())
+      .map(acc => ({
+        diagnosis: acc.diagnosis,
+        icdCode: acc.icdCode,
+        morbidityGroup: acc.morbidityGroup,
+        totalCases: acc.totalCases,
+        averageAge: acc.ageCount > 0 ? Math.round((acc.ageSum / acc.ageCount) * 10) / 10 : 0,
+        genderDistribution: { male: acc.male, female: acc.female, other: acc.other },
+        paymentModeBreakdown: acc.paymentModes,
+      }))
+      .sort((a, b) => b.totalCases - a.totalCases); // most common first
 
     return {
       reportType: 'Clinical Statistics' as const,
-      period: { startDate, endDate },
+      facility: await this.getFacilityInfo(),
+      period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
+      summary: {
+        totalDiagnoses: rows.length,
+        distinctDiagnoses: reportData.length,
+      },
       clinicalReport: reportData,
       generatedAt: new Date(),
     };
@@ -351,52 +381,34 @@ export class ReportService {
   // ==================== ATTENDANCE REPORT ====================
   async getAttendanceReport(filters: ReportFilters) {
     const { startDate, endDate, attendanceType, paymentMode, corporateAccountId } = filters;
+    const range = parseReportRange(startDate, endDate);
 
     const where: any = {};
-    if (startDate || endDate) {
-      where.dateTime = {};
-      if (startDate) where.dateTime.gte = new Date(startDate);
-      if (endDate) where.dateTime.lte = new Date(endDate);
-    }
+    if (range) where.dateTime = range;
     if (attendanceType) where.attendanceType = attendanceType;
     if (paymentMode) where.paymentMode = paymentMode;
-    // FIXED: Attendance has corporateAccountId directly
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
-    const attendances = await this.prisma.attendance.findMany({
-      where,
-      include: {
-        Patient: {
-          select: { id: true, surname: true, otherNames: true, gender: true, dateOfBirth: true, paymentMode: true },
-        },
-        Bill: { select: { totalAmount: true, paidAmount: true, status: true } },
-      },
-      orderBy: { dateTime: 'desc' },
-    });
+    // The database counts; nothing is loaded row by row
+    const [totalAttendances, byType, byMode, patientGroups] = await Promise.all([
+      this.prisma.attendance.count({ where }),
+      this.prisma.attendance.groupBy({ by: ['attendanceType'], where, _count: { _all: true } }),
+      this.prisma.attendance.groupBy({ by: ['paymentMode'], where, _count: { _all: true } }),
+      this.prisma.attendance.groupBy({ by: ['patientId'], where }),
+    ]);
 
-    const totalAttendances = attendances.length;
-    const uniquePatients = new Set(attendances.map(a => a.patientId)).size;
+    const uniquePatients = patientGroups.length;
+    const typeBreakdown: Record<string, number> = {};
+    for (const row of byType) typeBreakdown[row.attendanceType as string] = row._count._all;
+    const paymentBreakdown: Record<string, number> = {};
+    for (const row of byMode) paymentBreakdown[row.paymentMode as string] = row._count._all;
 
-    const typeBreakdown = attendances.reduce((acc, a) => {
-      acc[a.attendanceType] = (acc[a.attendanceType] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const paymentBreakdown = attendances.reduce((acc, a) => {
-      acc[a.paymentMode] = (acc[a.paymentMode] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    const corporateAttendances = attendances.filter(a => a.paymentMode === 'corporate').length;
+    const corporateAttendances = paymentBreakdown['corporate'] || 0;
 
     return {
       reportType: 'ATTENDANCE REPORT' as const,
       facility: await this.getFacilityInfo(),
-      period: {
-        startDate: startDate || 'Beginning',
-        endDate: endDate || 'Now',
-        generated: new Date().toISOString().split('T')[0],
-      },
+      period: this.periodOf(startDate, endDate),
       summary: {
         totalAttendances,
         uniquePatients,
@@ -409,55 +421,57 @@ export class ReportService {
   }
 
   // ==================== REVENUE REPORT ====================
+  // Money actually COLLECTED in the period (paid and part-paid bills). The old report only counted
+  // fully paid bills, so every part payment was missing from "revenue".
   async getRevenueReport(filters: ReportFilters) {
     const { startDate, endDate, paymentMode, corporateAccountId } = filters;
+    const range = parseReportRange(startDate, endDate);
 
-    const where: any = { status: BillStatus.paid };
-    if (startDate || endDate) {
-      where.billDate = {};
-      if (startDate) where.billDate.gte = new Date(startDate);
-      if (endDate) where.billDate.lte = new Date(endDate);
-    }
+    const where: any = {
+      status: { in: [BillStatus.paid, BillStatus.partial] },
+      paidAmount: { gt: 0 },
+    };
+    if (range) where.billDate = range;
     if (paymentMode) where.paymentMode = paymentMode;
-    // FIXED: Bill has corporateAccountId directly
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
-    const bills = await this.prisma.bill.findMany({ where });
+    const [totals, byMode] = await Promise.all([
+      this.prisma.bill.aggregate({ where, _sum: { paidAmount: true }, _count: { _all: true } }),
+      this.prisma.bill.groupBy({ by: ['paymentMode'], where, _sum: { paidAmount: true }, _count: { _all: true } }),
+    ]);
 
-    const totalRevenue = bills.reduce((sum, bill) => sum + (bill.paidAmount || 0), 0);
-    const totalBills = bills.length;
+    const totalRevenue = money(totals._sum.paidAmount);
+    const totalBills = totals._count._all;
 
-    const revenueByPaymentMode = bills.reduce((acc, bill) => {
-      const mode = bill.paymentMode;
-      if (!acc[mode]) acc[mode] = { paymentMode: mode, totalRevenue: 0, billCount: 0, averageBill: 0 };
-      acc[mode].totalRevenue += bill.paidAmount || 0;
-      acc[mode].billCount += 1;
-      return acc;
-    }, {} as Record<string, { paymentMode: string; totalRevenue: number; billCount: number; averageBill: number }>);
+    const revenueByPaymentMode = byMode
+      .map(row => {
+        const revenue = money(row._sum.paidAmount);
+        const count = row._count._all;
+        return {
+          paymentMode: row.paymentMode as string,
+          totalRevenue: revenue,
+          billCount: count,
+          averageBill: count > 0 ? money(revenue / count) : 0,
+          sharePercent: totalRevenue > 0 ? Math.round((revenue / totalRevenue) * 1000) / 10 : 0,
+        };
+      })
+      .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
-    Object.values(revenueByPaymentMode).forEach(mode => {
-      mode.averageBill = mode.billCount > 0 ? mode.totalRevenue / mode.billCount : 0;
-    });
-
-    const corporateRevenue = revenueByPaymentMode['corporate']?.totalRevenue || 0;
-    const corporateShare = totalRevenue > 0 ? (corporateRevenue / totalRevenue) * 100 : 0;
+    const corporateRevenue = revenueByPaymentMode.find(m => m.paymentMode === 'corporate')?.totalRevenue || 0;
 
     return {
       reportType: 'REVENUE ANALYSIS REPORT' as const,
       facility: await this.getFacilityInfo(),
-      period: {
-        startDate: startDate || 'Beginning',
-        endDate: endDate || 'Now',
-        generated: new Date().toISOString().split('T')[0],
-      },
+      period: this.periodOf(startDate, endDate),
       summary: {
         totalRevenue,
         totalBills,
-        averageBillAmount: totalBills > 0 ? totalRevenue / totalBills : 0,
+        averageBillAmount: totalBills > 0 ? money(totalRevenue / totalBills) : 0,
         corporateRevenue,
-        corporateShare,
+        corporateShare: totalRevenue > 0 ? (corporateRevenue / totalRevenue) * 100 : 0,
+        note: 'Collected amounts on paid and part-paid bills.',
       },
-      revenueByPaymentMode: Object.values(revenueByPaymentMode),
+      revenueByPaymentMode,
       generatedAt: new Date(),
     };
   }
@@ -468,18 +482,15 @@ export class ReportService {
 
     const today = new Date();
     const expiryCutoff = new Date();
-    expiryCutoff.setDate(today.getDate() + daysThreshold);
+    expiryCutoff.setDate(today.getDate() + Number(daysThreshold));
 
     const where: any = {
       nhisNumber: { not: null },
       nhisActive: true,
     };
 
-    if (startDate && endDate) {
-      where.nhisExpiryDate = { gte: new Date(startDate), lte: new Date(endDate) };
-    } else {
-      where.nhisExpiryDate = { gte: today, lte: expiryCutoff };
-    }
+    const range = startDate && endDate ? parseReportRange(startDate, endDate) : undefined;
+    where.nhisExpiryDate = range ?? { gte: today, lte: expiryCutoff };
 
     const patients = await this.prisma.patient.findMany({
       where,
@@ -547,13 +558,11 @@ export class ReportService {
     const { startDate, endDate, expiryStatus } = filters;
 
     const where: any = {
-      // FIXED: correct Prisma relation filter syntax using 'is'
       InsuranceProvider: { is: { type: 'nhis' } },
     };
 
-    if (startDate && endDate) {
-      where.submissionDate = { gte: new Date(startDate), lte: new Date(endDate) };
-    }
+    const range = startDate && endDate ? parseReportRange(startDate, endDate) : undefined;
+    if (range) where.submissionDate = range;
 
     const claims = await this.prisma.insuranceClaim.findMany({
       where,
@@ -614,7 +623,8 @@ export class ReportService {
       period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
       summary: {
         totalClaims: filtered.length,
-        totalClaimAmount: filtered.reduce((sum, c) => sum + c.totalClaimAmount, 0),
+        // Decimal amounts: add as numbers (a plain + on Decimals concatenates text)
+        totalClaimAmount: money(filtered.reduce((sum, c) => sum + toNum(c.totalClaimAmount), 0)),
         byExpiryStatus,
       },
       claims: filtered,
@@ -622,18 +632,5 @@ export class ReportService {
     };
   }
 
-  // ==================== EXPORT REPORT ====================
-  async exportReport(data: { reportType: string; format: string; filters: any }) {
-    return {
-      success: true,
-      message: `Report exported successfully as ${data.format.toUpperCase()}`,
-      data: {
-        reportType: data.reportType,
-        format: data.format,
-        downloadUrl: `/exports/${data.reportType}-${Date.now()}.${data.format}`,
-        fileSize: '2.5 MB',
-        generatedAt: new Date(),
-      },
-    };
-  }
+  // Report files are produced by ReportController.exportReport (CSV / Excel / PDF).
 }

@@ -67,8 +67,9 @@ export class GHSReportController extends BaseController {
       startDate as string, endDate as string, period as 'daily' | 'weekly' | 'monthly', req.user!.id
     );
     const csv = GHSReportService.exportConsultingRoomRegisterToCSV(result);
-    const saved = await this.reportService.saveSubmission('opd_attendance', result.period.startDate, result.period.endDate, result, req.user!.id);
-    return this.ok(res, { data: result, csv, submissionId: saved.id }, 'Consulting room register generated successfully');
+    // Not saved as a submission: it is a line list, and the submissions table has no register type
+    // (saving it as 'opd_attendance' would overwrite the real OPD report for the same period).
+    return this.ok(res, { data: result, csv }, 'Consulting room register generated successfully');
   });
 
   generateDeliveryReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -115,7 +116,7 @@ export class GHSReportController extends BaseController {
     const result = await this.reportService.getTopDiagnoses(
       start, 
       end, 
-      limit ? parseInt(limit as string, 10) : 10
+      limit ? Math.max(0, parseInt(limit as string, 10) || 0) : 0 // 0 = every diagnosis
     );
     
     return this.ok(res, { data: result }, 'Top diagnoses retrieved successfully');
@@ -157,10 +158,8 @@ export class GHSReportController extends BaseController {
       return this.badRequest(res, 'Start date and end date are required');
     }
     
-    const stats = await this.reportService.getFamilyPlanningStats(
-      new Date(startDate as string),
-      new Date(endDate as string)
-    );
+    const range = this.reportService.parseDateParams(req.query);
+    const stats = await this.reportService.getFamilyPlanningStats(range.startDate, range.endDate);
     
     return this.ok(res, stats, 'Family planning statistics retrieved successfully');
   });

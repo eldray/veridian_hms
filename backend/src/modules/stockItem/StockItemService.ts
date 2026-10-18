@@ -260,24 +260,72 @@ export class StockItemService extends BaseService {
     };
   }
 
-  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string) {
-    const transactions = await this.repo.getTransactionsForMovementReport(startDate, endDate);
-    const filtered = category ? transactions.filter(t => t.StockItem?.category === category) : transactions;
+  /**
+   * Stock movement: a per-item summary (opening, in, out, closing) plus the full transaction history.
+   * Direction comes from the transaction type, because older writers stored sales as negative numbers and
+   * adjustments lost their sign; for an adjustment the change in balance decides whether it added or removed stock.
+   */
+  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string } = {}) {
+    const LIMIT = 5000;
+    const { rows, total } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, limit: LIMIT });
 
-    const byType = { purchase: filtered.filter(t => t.transactionType === 'purchase'), sale: filtered.filter(t => t.transactionType === 'sale'), requisition: filtered.filter(t => t.transactionType === 'requisition'), adjustment: filtered.filter(t => t.transactionType === 'adjustment') };
+    const lastBalance = new Map<string, number>();
+    const items = new Map<string, any>();
+    const byType: Record<string, { count: number; quantity: number; value: number }> = {};
+    const ledger: any[] = [];
+    let totalIn = 0, totalOut = 0;
+
+    for (const t of rows as any[]) {
+      const q = Math.abs(t.quantity);
+      const prev = lastBalance.get(t.stockItemId);
+      let signed: number;
+      switch (t.transactionType) {
+        case 'purchase': case 'transfer_in': signed = q; break;
+        case 'sale': case 'requisition': case 'transfer_out': signed = -q; break;
+        default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; // adjustment
+      }
+      lastBalance.set(t.stockItemId, t.balanceAfter);
+
+      const qtyIn = signed > 0 ? signed : 0;
+      const qtyOut = signed < 0 ? -signed : 0;
+      totalIn += qtyIn; totalOut += qtyOut;
+
+      const item = items.get(t.stockItemId) ?? { stockItemId: t.stockItemId, itemName: t.StockItem?.name ?? 'Unknown', category: t.StockItem?.category ?? '', unit: t.StockItem?.unitOfMeasure ?? '', openingStock: t.balanceAfter - signed, quantityIn: 0, quantityOut: 0, closingStock: t.balanceAfter, transactions: 0 };
+      item.quantityIn += qtyIn; item.quantityOut += qtyOut; item.closingStock = t.balanceAfter; item.transactions++;
+      items.set(t.stockItemId, item);
+
+      const bt = byType[t.transactionType] ?? { count: 0, quantity: 0, value: 0 };
+      bt.count++; bt.quantity += q; bt.value += toNumber(t.StockItem?.costPrice) * q;
+      byType[t.transactionType] = bt;
+
+      ledger.push({
+        id: t.id, date: t.transactionDate, stockItemId: t.stockItemId, itemName: t.StockItem?.name ?? 'Unknown', category: t.StockItem?.category ?? '',
+        unit: t.StockItem?.unitOfMeasure ?? '', type: t.transactionType, quantityIn: qtyIn, quantityOut: qtyOut, balanceAfter: t.balanceAfter,
+        reference: t.reference ?? '', document: t.Requisition?.requisitionNumber ?? t.Invoice?.invoiceNumber ?? '', supplier: t.Invoice?.supplierName ?? '',
+        department: t.Department?.name ?? '', performedBy: t.User?.fullName ?? (t.performedBy && t.performedBy !== 'system' ? 'Unknown user' : 'System'), notes: t.notes ?? '',
+      });
+    }
+
+    const itemList = [...items.values()].sort((a, b) => (b.quantityIn + b.quantityOut) - (a.quantityIn + a.quantityOut));
+    const g = (k: string) => byType[k] ?? { count: 0, quantity: 0, value: 0 };
+    const summary = {
+      totalTransactions: total, totalIn, totalOut, netChange: totalIn - totalOut, itemsMoved: itemList.length,
+      byType: {
+        purchases: g('purchase').count, purchaseQuantity: g('purchase').quantity, purchaseValue: g('purchase').value,
+        sales: g('sale').count, saleQuantity: g('sale').quantity,
+        requisitions: g('requisition').count, requisitionQuantity: g('requisition').quantity,
+        transfersIn: g('transfer_in').count, transferInQuantity: g('transfer_in').quantity,
+        transfersOut: g('transfer_out').count, transferOutQuantity: g('transfer_out').quantity,
+        adjustments: g('adjustment').count, adjustmentQuantity: g('adjustment').quantity,
+      },
+    };
 
     return {
       period: { startDate: startDate || null, endDate: endDate || null },
-      totalTransactions: filtered.length,
-      totalIn: byType.purchase.reduce((sum, t) => sum + t.quantity, 0),
-      totalOut: [...byType.sale, ...byType.requisition].reduce((sum, t) => sum + t.quantity, 0),
-      byType: {
-        purchases: byType.purchase.length, purchaseQuantity: byType.purchase.reduce((sum, t) => sum + t.quantity, 0),
-        purchaseValue: byType.purchase.reduce((sum, t) => sum + (toNumber(t.StockItem?.costPrice) * t.quantity), 0), // ✅ FIXED
-        sales: byType.sale.length, saleQuantity: byType.sale.reduce((sum, t) => sum + t.quantity, 0),
-        requisitions: byType.requisition.length, requisitionQuantity: byType.requisition.reduce((sum, t) => sum + t.quantity, 0),
-        adjustments: byType.adjustment.length, adjustmentQuantity: byType.adjustment.reduce((sum, t) => sum + t.quantity, 0)
-      }
+      ...summary, summary, items: itemList,
+      topMovements: itemList.slice(0, 10).map((i) => ({ name: i.itemName, quantity: i.quantityIn + i.quantityOut, type: i.quantityIn >= i.quantityOut ? 'in' : 'out' })),
+      transactions: ledger.reverse(), // newest first
+      truncated: total > rows.length, shown: rows.length,
     };
   }
 

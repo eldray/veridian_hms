@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { parseReportRange } from '../../utils/reportDates';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { StockItemService } from './StockItemService';
@@ -86,7 +87,8 @@ export class StockItemController extends BaseController {
   });
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getMovementSummary(req.query.startDate ? new Date(req.query.startDate as string) : undefined, req.query.endDate ? new Date(req.query.endDate as string) : undefined, req.query.category as string);
+    const range = parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
+    const result = await this.service.getMovementSummary(range?.gte, range?.lte, req.query.category as string | undefined, { stockItemId: req.query.stockItemId as string | undefined, transactionType: req.query.transactionType as string | undefined });
     return this.ok(res, result, 'Movement summary retrieved');
   });
 

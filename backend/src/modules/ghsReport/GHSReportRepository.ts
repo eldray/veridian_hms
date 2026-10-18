@@ -1,4 +1,5 @@
 // src/modules/ghsReport/GHSReportRepository.ts - COMPLETE FIXED VERSION
+import { FP_COMMODITIES } from './fpReturns';
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 
@@ -101,6 +102,42 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   }
 
   // ── Form A Report Data ────────────────────────────────────────────────────
+  async getFPReturnsInputs(startDate: Date, endDate: Date) {
+    const p = this.prisma as any;
+    const keys = FP_COMMODITIES.flatMap(c => c.stockKeys);
+    const [services, allItems] = await Promise.all([
+      p.familyPlanningService.findMany({
+        where: { serviceDate: { gte: startDate, lte: endDate } },
+        include: { patient: { select: { id: true, dateOfBirth: true, gender: true, maritalStatus: true } } },
+      }),
+      p.stockItem.findMany({ where: { isActive: true }, select: { id: true, name: true, supplier: true, currentStock: true } }),
+    ]);
+    const stockItems = allItems.filter((i: any) => keys.some(k => String(i.name).toLowerCase().includes(k)));
+    const transactions = stockItems.length ? await p.stockTransaction.findMany({
+      where: { stockItemId: { in: stockItems.map((i: any) => i.id) }, transactionDate: { lte: endDate } },
+      orderBy: { transactionDate: 'asc' },
+      select: { stockItemId: true, transactionType: true, quantity: true, balanceAfter: true, transactionDate: true, reference: true, notes: true, Invoice: { select: { supplierName: true } } },
+    }) : [];
+    return { services, stockItems, transactions };
+  }
+
+  async getFormAInputs(startDate: Date, endDate: Date) {
+    const p = this.prisma as any;
+    const [bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications, shortMothers, hospital] = await Promise.all([
+      p.antenatalBooking.findMany({ where: { bookingDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } } } }),
+      p.aNCVisit.findMany({ where: { visitDate: { gte: startDate, lte: endDate } } }),
+      p.deliveryRecord.findMany({ where: { deliveryDate: { gte: startDate, lte: endDate } }, include: { Newborn: true, patient: { select: { dateOfBirth: true } }, antenatalBooking: { select: { para: true } } } }),
+      p.postnatalRecord.findMany({ where: { examinationDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } }, deliveryRecord: { select: { deliveryDate: true } } } }),
+      p.abortionRecord.findMany({ where: { abortionDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } } } }),
+      p.referralRecord.findMany({ where: { referralDate: { gte: startDate, lte: endDate }, attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } } }, include: { attendance: { select: { attendanceType: true } }, patient: { select: { dateOfBirth: true } } } }),
+      p.labTest.findMany({ where: { requestedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal'] } } }, include: { LabTestTemplate: true } }),
+      p.medication.findMany({ where: { prescribedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal', 'delivery'] } } }, include: { StockItem: true } }),
+      p.vitals.findMany({ where: { recordedAt: { gte: startDate, lte: endDate }, height: { lt: 150 }, Attendance: { attendanceType: 'antenatal' } }, distinct: ['patientId'], select: { id: true } }),
+      p.hospital.findFirst(),
+    ]);
+    return { bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications, shortMothers: shortMothers.length, hospital };
+  }
+
   async getFormAData(startDate: Date, endDate: Date) {
     return Promise.all([
       this.prisma.antenatalBooking.findMany({ 
