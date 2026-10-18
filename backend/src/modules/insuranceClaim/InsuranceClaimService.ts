@@ -11,6 +11,7 @@ import {
   mapEncounterCategoryToTypeOfService,
 } from './helpers/AttendanceOutcomeMapper';
 import { getCounterService } from '../../services/CounterService';
+import { generateCCC as generateAttendanceCCCService } from '../settings/nhis-eligibility.service';
 
 interface IncomingItem {
   itemCategory: 'diagnosis' | 'investigation' | 'medicine' | 'procedure' | 'service' | 'gdrg';
@@ -70,13 +71,6 @@ export class InsuranceClaimService extends BaseService {
   }
 
   // ─── CCC resolution ──────────────────────────────────
-  /**
-   * The attendance creation flow may write the claim check code to either
-   * `nhisCCC` or `nhisCCCCode` — both columns exist on the Attendance model.
-   * Read whichever is populated so the claim generation doesn't fight the
-   * upstream flow. The value used is also snapshotted onto the claim as
-   * `claimCheckCode`, so this fallback is only needed here.
-   */
   private resolveAttendanceCCC(att: {
     nhisCCC?: string | null;
     nhisCCCCode?: string | null;
@@ -88,47 +82,109 @@ export class InsuranceClaimService extends BaseService {
     return null;
   }
 
+  /**
+   * Ask the NHIS eligibility service to generate a CCC for this attendance.
+   * The service writes `Attendance.nhisCCCCode` + `nhisCCCGeneratedAt` +
+   * `nhisCCCValidUntil` and returns `{ success, message, data }`.
+   *
+   * It does NOT throw on failure — it returns `success: false` with a message.
+   * We surface that message so the frontend shows the real cause (API not
+   * configured, membership expired, patient ineligible, network, etc.).
+   */
+  private async generateAttendanceCCC(
+    patient: { id: string; nhisNumber: string | null },
+    attendanceId: string,
+    totalAmount: Prisma.Decimal | number,
+  ): Promise<string> {
+    if (!patient.nhisNumber) {
+      throw new ValidationError(
+        'Patient has no NHIS number. Register the NHIS membership before creating a claim.',
+      );
+    }
+
+    const result = await generateAttendanceCCCService(
+      patient.nhisNumber,
+      attendanceId,
+      Number(totalAmount),
+    );
+
+    if (!result.success) {
+      throw new ValidationError(`CCC generation failed: ${result.message}`);
+    }
+
+    // The service wrote to Attendance.nhisCCCCode — re-read the row to get it.
+    const refreshed = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      select: { nhisCCC: true, nhisCCCCode: true },
+    });
+
+    const resolved = this.resolveAttendanceCCC(refreshed ?? {});
+    if (!resolved) {
+      throw new ValidationError(
+        'CCC generation reported success but Attendance.nhisCCCCode is still empty.',
+      );
+    }
+    return resolved;
+  }
+
   // ─── Generation ───────────────────────────────────────
   async generateNHISClaim(attendanceId: string, userId: string) {
+    // 1. Pre-load the attendance + patient + provider OUTSIDE the transaction,
+    //    because CCC generation makes a network call. Holding a DB transaction
+    //    across an HTTPS call would lock rows for the round-trip duration.
+    const pre = await this.prisma.attendance.findUnique({
+      where: { id: attendanceId },
+      include: { InsuranceProvider: true, Patient: true, Admission: true },
+    });
+    if (!pre) throw new ValidationError('Attendance not found');
+    if (!pre.InsuranceProvider || pre.InsuranceProvider.type !== 'nhis') {
+      throw new ValidationError('Attendance is not NHIS');
+    }
+
+    // 2. Resolve or generate the CCC BEFORE the write transaction.
+    //    We pass 0 as the total because the real total isn't known until
+    //    `buildNHISClaimItems` runs inside the transaction, and the NHIA
+    //    CCC endpoint treats `totalAmount` as a metadata field, not an
+    //    authorization gate.
+    let ccc = this.resolveAttendanceCCC(pre);
+    if (!ccc) {
+      ccc = await this.generateAttendanceCCC(
+        { id: pre.patientId, nhisNumber: pre.Patient?.nhisNumber ?? null },
+        pre.id,
+        0,
+      );
+    }
+
+    // 3. Now the write transaction — everything except CCC is here.
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId } });
       if (existing) return { claim: existing, isExisting: true };
 
-      const att = await tx.attendance.findUnique({
-        where: { id: attendanceId },
-        include: { InsuranceProvider: true, Patient: true, Admission: true },
-      });
-      if (!att) throw new ValidationError('Attendance not found');
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis')
-        throw new ValidationError('Attendance is not NHIS');
-
-      const ccc = this.resolveAttendanceCCC(att);
-      if (!ccc) {
-        throw new ValidationError(
-          'Attendance has no NHIS CCC. Generate it at registration/eligibility check first.',
-        );
-      }
-
       const { items, principalGDRG, mdcCode, total } = await buildNHISClaimItems(tx, attendanceId);
       const claimNumber = `NHIS-${getCounterService().nextAttendanceNumber()}`;
-      const serviceOutcome = mapAttendanceToServiceOutcome(att.status, att.Admission?.dischargeStatus ?? null);
-      const typeOfService = mapEncounterCategoryToTypeOfService(att.encounterCategory);
-      const typeOfAttendance = mapAttendanceTypeToTypeOfAttendance(att.attendanceType);
+      const serviceOutcome = mapAttendanceToServiceOutcome(
+        pre.status,
+        pre.Admission?.dischargeStatus ?? null,
+      );
+      const typeOfService = mapEncounterCategoryToTypeOfService(pre.encounterCategory);
+      const typeOfAttendance = mapAttendanceTypeToTypeOfAttendance(pre.attendanceType);
       const datesOfService = buildDatesOfService(
-        att.dateTime,
-        att.Admission ? { admissionDate: att.Admission.admissionDate, dischargeDate: att.Admission.dischargeDate } : null,
+        pre.dateTime,
+        pre.Admission
+          ? { admissionDate: pre.Admission.admissionDate, dischargeDate: pre.Admission.dischargeDate }
+          : null,
       );
 
       const claim = await tx.insuranceClaim.create({
         data: {
           claimNumber,
-          patientId: att.patientId,
-          attendanceId: att.id,
-          insuranceProviderId: att.insuranceProviderId!,
+          patientId: pre.patientId,
+          attendanceId: pre.id,
+          insuranceProviderId: pre.insuranceProviderId!,
           totalClaimAmount: total,
           status: 'draft',
           createdById: userId,
-          preAuthNumber: att.preAuthNumber ?? null,
+          preAuthNumber: pre.preAuthNumber ?? null,
           principalGDRG,
           claimCheckCode: ccc,
           typeOfService,
