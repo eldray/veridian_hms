@@ -1688,3 +1688,17 @@
 {"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-18 21:09:10"}
 {"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-18 21:09:10"}
 {"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 21:09:11"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-18 22:04:18"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-18 22:04:19"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:41"}
+{"filters":{"limit":100,"page":2},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:41"}
+{"filters":{"limit":100,"page":3},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:41"}
+{"filters":{"limit":100,"page":4},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:41"}
+{"filters":{"limit":100,"page":5},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:41"}
+{"filters":{"limit":100,"page":6},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:42"}
+{"filters":{"limit":100,"page":7},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:42"}
+{"filters":{"limit":100,"page":8},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:42"}
+{"filters":{"limit":100,"page":9},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:42"}
+{"filters":{"limit":100,"page":10},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-18 22:04:42"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-18 22:05:59"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-18 22:05:59"}

@@ -58,6 +58,15 @@ let extraAttendanceCounter = 90000;
 const nextExtraAttendanceNumber = () => `${++extraAttendanceCounter}`;
 
 // ═══════════════════════════════════════════════════════════
+// NHIS CCC — 5-digit Claim Check Code, deterministic per attendance
+// ═══════════════════════════════════════════════════════════
+const nhisCCCFor = (attendanceNumber: string | number): string => {
+  const digits = String(attendanceNumber).replace(/\D/g, '');
+  const seed = digits ? parseInt(digits, 10) : 0;
+  return String(10000 + (seed % 90000)).padStart(5, '0');
+};
+
+// ═══════════════════════════════════════════════════════════
 // RBAC
 // ═══════════════════════════════════════════════════════════
 const PERMISSION_DEFINITIONS: Array<[string, string]> = [
@@ -514,6 +523,7 @@ export const seedTestData = async (force: boolean = false) => {
     for (const a of bundle.attendances) {
       const patient = patientById.get(a.patientFolderNumber);
       if (!patient) continue;
+      const isNhisAttendance = a.paymentMode === 'nhis';
       const created = await prisma.attendance.create({
         data: {
           attendanceNumber: a.attendanceNumber,
@@ -528,6 +538,8 @@ export const seedTestData = async (force: boolean = false) => {
           serviceCategory: a.serviceCategory as ServiceCategory,
           complaints: a.complaints,
           medicalNotes: a.medicalNotes,
+          // ✅ NHIS visits must carry a 5-digit Claim Check Code so claims can be generated.
+          nhisCCC: isNhisAttendance ? nhisCCCFor(a.attendanceNumber) : null,
           createdById: doctor.id,
         },
       });
@@ -853,9 +865,11 @@ export const seedTestData = async (force: boolean = false) => {
       const patient = bk ? patientById.get(bk.patientFolderNumber) : null;
       if (!patient) continue;
 
+      const visitAttNumber = nextExtraAttendanceNumber();
+      const isNhisVisit = patient.paymentMode === 'nhis';
       const visitAtt = await prisma.attendance.create({
         data: {
-          attendanceNumber: nextExtraAttendanceNumber(),
+          attendanceNumber: visitAttNumber,
           patientId: patient.id,
           dateTime: v.visitDate,
           attendanceType: 'antenatal' as AttendanceType,
@@ -865,6 +879,7 @@ export const seedTestData = async (force: boolean = false) => {
           visitCategory: 'general' as VisitCategory,
           serviceCategory: 'opd' as ServiceCategory,
           complaints: `ANC visit ${v.visitNumber}`,
+          nhisCCC: isNhisVisit ? nhisCCCFor(visitAttNumber) : null,
           createdById: midwife?.id ?? doctor.id,
         },
       });

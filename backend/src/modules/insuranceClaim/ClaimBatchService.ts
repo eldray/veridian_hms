@@ -283,6 +283,37 @@ export class ClaimBatchService extends BaseService {
     });
   }
 
+  async eligibleForPeriod(periodYear: number, periodMonth: number) {
+  const start = new Date(periodYear, periodMonth - 1, 1);
+  const end = new Date(periodYear, periodMonth, 1);
+
+  const claims = await this.prisma.insuranceClaim.findMany({
+    where: {
+      status: 'submitted',
+      batchId: null,
+      Attendance: { dateTime: { gte: start, lt: end } },
+    },
+    select: {
+      id: true,
+      totalClaimAmount: true,
+      corporateAccountId: true,
+      InsuranceProvider: { select: { type: true } },
+    },
+  });
+
+  const zero = () => ({ count: 0, totalAmount: 0 });
+  const out = { nhis: zero(), private: zero(), corporate: zero() };
+
+  for (const c of claims) {
+    const bucket = c.corporateAccountId ? 'corporate' : (c.InsuranceProvider?.type ?? null);
+    if (bucket === 'nhis' || bucket === 'private' || bucket === 'corporate') {
+      out[bucket].count += 1;
+      out[bucket].totalAmount += Number(c.totalClaimAmount);
+    }
+  }
+  return out;
+}
+
   // ==========================================
   // XML (NHIS only)
   // ==========================================
@@ -325,4 +356,5 @@ export class ClaimBatchService extends BaseService {
     const xml = await this.buildNHISBatchXml(batchId);
     return { xml, filename: `${batch.batchNumber}.xml` };
   }
+  
 }

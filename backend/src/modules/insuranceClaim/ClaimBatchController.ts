@@ -66,6 +66,24 @@ export class ClaimBatchController extends BaseController {
   });
 
   // ==========================================
+  // ELIGIBLE (per period, grouped by type)
+  // ==========================================
+  eligible = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const periodYear = parseInt(req.query.periodYear as string, 10);
+    const periodMonth = parseInt(req.query.periodMonth as string, 10);
+
+    if (!Number.isFinite(periodYear) || !Number.isFinite(periodMonth)) {
+      return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
+    }
+    if (periodMonth < 1 || periodMonth > 12) {
+      return this.badRequest(res, 'periodMonth must be 1–12');
+    }
+
+    const summary = await this.service.eligibleForPeriod(periodYear, periodMonth);
+    return this.ok(res, summary, 'Eligible claims for period');
+  });
+
+  // ==========================================
   // FINALIZE / DELETE
   // ==========================================
   finalizeBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {

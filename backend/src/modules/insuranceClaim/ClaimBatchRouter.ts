@@ -16,6 +16,12 @@ export const createClaimBatchRoutes = () => {
     claimBatchController.generateBatch,
   );
 
+  router.get(
+  '/eligible',
+  requireRole(['admin', 'accounts', 'doctor', 'records']),
+  claimBatchController.eligible,
+);
+
   // Dynamic :id routes — two-segment before one-segment
   router.get(
     '/:id/xml',

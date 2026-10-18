@@ -1,40 +1,12 @@
-// backend/src/modules/insuranceClaim/InsuranceClaimService.ts
+import { NotFoundError, ValidationError } from '../../utils/errors';
 import { Prisma, PrismaClient } from '@prisma/client';
-import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
-import { buildBillClaimItems, buildNHISClaimItems } from './ClaimGenerationService';
-import {
-  buildDatesOfService,
-  mapAttendanceToServiceOutcome,
-  mapAttendanceTypeToTypeOfAttendance,
-  mapEncounterCategoryToTypeOfService,
-} from './helpers/AttendanceOutcomeMapper';
 import { getCounterService } from '../../services/CounterService';
-import { generateCCC as generateAttendanceCCCService } from '../settings/nhis-eligibility.service';
 
-interface IncomingItem {
-  itemCategory: 'diagnosis' | 'investigation' | 'medicine' | 'procedure' | 'service' | 'gdrg';
-  itemType?: string | null;
-  code: string;
-  description: string;
-  quantity?: number;
-  noOfDays?: number | null;
-  unitPrice?: number;
-  lineTotal?: number;
-  serviceDate?: string | null;
-  prescriptionText?: string | null;
-  clinician?: string | null;
-  prescriberNo?: string | null;
-  billLineItemId?: string | null;
-  serviceCatalogId?: string | null;
-  diagnosisId?: string | null;
-  gdrgTariffId?: string | null;
-  labTestId?: string | null;
-  scanId?: string | null;
-  procedureId?: string | null;
-  medicationId?: string | null;
-}
+const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
+const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => (arr || []).map(mapper).filter(Boolean);
 
 export class InsuranceClaimService extends BaseService {
   private repo: InsuranceClaimRepository;
@@ -46,409 +18,679 @@ export class InsuranceClaimService extends BaseService {
     this.repo = new InsuranceClaimRepository(prisma);
   }
 
-  // ─── Listing / detail ─────────────────────────────────
-  async listClaims(filters: any) {
-    return this.repo.findClaimsPaginated({ ...filters, limit: Math.min(filters.limit ?? 20, 100) });
+  // attendanceId is @unique on InsuranceClaim, so an attendance can only ever carry ONE claim.
+  // Return it if it is the requested type; refuse clearly if it is a different type
+  // (otherwise the insert would fail later with an opaque duplicate-key error).
+  private async findExistingClaim(tx: Prisma.TransactionClient, attendanceId: string, type: 'nhis' | 'private' | 'corporate') {
+    const existing = await tx.insuranceClaim.findUnique({
+      where: { attendanceId },
+      include: { InsuranceProvider: { select: { type: true } } }
+    });
+    if (!existing) return null;
+    if (existing.InsuranceProvider?.type === type) return existing;
+    throw new ValidationError(
+      `This attendance already has a ${existing.InsuranceProvider?.type ?? 'different'} claim (${existing.claimNumber}), so a ${type} claim cannot be generated for it.`
+    );
   }
 
-  async listClaimsByType(providerType: 'nhis' | 'private' | 'corporate', filters: any) {
-    return this.repo.findClaimsByProviderType(providerType, {
-      ...filters,
-      limit: Math.min(filters.limit ?? 20, 100),
+  private calculateAgeInYears(dob: Date, asOf: Date): number {
+    let age = asOf.getFullYear() - dob.getFullYear();
+    const m = asOf.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && asOf.getDate() < dob.getDate())) age--;
+    return Math.max(0, age);
+  }
+
+  // ==========================================
+  // BATCH SERVICES (Fully Restored)
+  // ==========================================
+  async createClaimBatch(claimIds: string[], description: string | null, insuranceType: string | null, userId: string) {
+    if (!claimIds?.length) throw new Error('At least one claim ID is required');
+    let targetType = insuranceType;
+
+    return this.prisma.$transaction(async (tx) => {
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true } });
+      if (claims.length !== claimIds.length) throw new Error('One or more claims not found');
+      if (!targetType && claims.length > 0) targetType = claims[0].InsuranceProvider?.type;
+      if (!targetType) throw new Error('Insurance type must be specified or determinable');
+
+      for (const c of claims) {
+        if (c.status !== 'submitted') throw new Error(`Claim ${c.claimNumber} not submitted`);
+        if (c.InsuranceProvider?.type !== targetType) throw new Error(`Claim ${c.claimNumber} type mismatch`);
+        if (c.batchId) throw new Error(`Claim ${c.claimNumber} already batched`);
+      }
+
+      // ✅ FIXED: Decimal math
+      const totalAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
+      const batchNumber = `BATCH-${getCounterService().nextBatchNumber()}`;
+
+      const batch = await tx.claimBatch.create({
+        data: { batchNumber, description, totalAmount, status: 'draft', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },
+        include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+      });
+
+      await tx.insuranceClaim.updateMany({ where: { id: { in: claimIds } }, data: { batchId: batch.id } });
+      return batch;
     });
   }
 
-  async getClaim(id: string) {
-    const claim = await this.repo.findClaimById(id);
-    if (!claim) throw new NotFoundError('Claim', id);
+  async getClaimBatches(status?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
+    const where: any = {};
+    if (status) where.status = status;
+    if (startDate || endDate) {
+      where.batchDate = {};
+      if (startDate) where.batchDate.gte = startDate;
+      if (endDate) { const d = new Date(endDate); d.setHours(23, 59, 59, 999); where.batchDate.lte = d; }
+    }
+
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [batches, total] = await Promise.all([
+      this.prisma.claimBatch.findMany({
+        where, include: { claims: { select: { id: true, claimNumber: true, totalClaimAmount: true, status: true, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } } } }, createdBy: { select: { id: true, fullName: true, username: true } } },
+        orderBy: { batchDate: 'desc' }, skip, take: limitNum
+      }),
+      this.prisma.claimBatch.count({ where })
+    ]);
+
+    return { data: batches, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+  }
+
+  async getClaimBatch(batchId: string) {
+    const batch = await this.prisma.claimBatch.findUnique({
+      where: { id: batchId },
+      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+    });
+    if (!batch) throw new Error('Batch not found');
+    return batch;
+  }
+
+  async addClaimsToBatch(batchId: string, claimIds: string[]) {
+    if (!claimIds?.length) throw new Error('At least one claim ID is required');
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: true } });
+      if (!existing) throw new Error('Batch not found');
+      if (existing.status !== 'draft') throw new Error('Can only add claims to draft batches');
+
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true } });
+      if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
+
+      for (const c of claims) {
+        if (c.status !== 'submitted') throw new Error(`Claim ${c.claimNumber} not submitted`);
+        if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
+      }
+
+      // ✅ FIXED: Decimal math
+      const addAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
+
+      await tx.claimBatch.update({
+        where: { id: batchId },
+        data: { totalAmount: toNumber(existing.totalAmount) + addAmount, claims: { connect: claimIds.map(id => ({ id })) } }
+      });
+      await tx.insuranceClaim.updateMany({ where: { id: { in: claimIds } }, data: { batchId } });
+
+      return await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+      });
+    });
+  }
+
+  async removeClaimsFromBatch(batchId: string, claimIds: string[]) {
+    if (!claimIds?.length) throw new Error('At least one claim ID is required');
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: { where: { id: { in: claimIds } }, select: { id: true, totalClaimAmount: true } } } });
+      if (!existing) throw new Error('Batch not found');
+      if (existing.status !== 'draft') throw new Error('Can only remove from draft batches');
+
+      // ✅ FIXED: Decimal math
+      const remAmount = existing.claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
+
+      await tx.claimBatch.update({
+        where: { id: batchId },
+        data: { totalAmount: toNumber(existing.totalAmount) - remAmount, claims: { disconnect: claimIds.map(id => ({ id })) } }
+      });
+      await tx.insuranceClaim.updateMany({ where: { id: { in: claimIds } }, data: { batchId: null } });
+
+      return await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+      });
+    });
+  }
+
+  async generateBatchXML(batchId: string) {
+    const batch = await this.prisma.claimBatch.findUnique({
+      where: { id: batchId },
+      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: true }
+    });
+    if (!batch || !batch.claims.length) throw new Error('Batch not found or empty');
+
+    const facilityCode = process.env.NHIS_FACILITY_CODE || 'FAC001';
+    
+    // ✅ FIXED: Safely join JSON arrays for XML
+    const claimsXml = batch.claims.map(c => `    <Claim>
+      <ClaimNumber>${c.claimNumber}</ClaimNumber>
+      <PatientCCC>${c.Attendance?.nhisCCC || ''}</PatientCCC>
+      <PatientName>${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}</PatientName>
+      <TotalAmount>${toNumber(c.totalClaimAmount).toFixed(2)}</TotalAmount>
+      <DiagnosisCodes>${safeArrayJoin(c.diagnosisCodes)}</DiagnosisCodes>
+      <GDRGCodes>${safeArrayJoin(c.gdrgCodes)}</GDRGCodes>
+    </Claim>`).join('\n');
+
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<NHISBatchSubmission>
+  <BatchInfo>
+    <BatchNumber>${batch.batchNumber}</BatchNumber>
+    <BatchDate>${batch.batchDate.toISOString()}</BatchDate>
+    <FacilityCode>${facilityCode}</FacilityCode>
+    <TotalClaims>${batch.claims.length}</TotalClaims>
+    <TotalAmount>${toNumber(batch.totalAmount).toFixed(2)}</TotalAmount>
+    <GeneratedBy>${batch.createdBy.fullName || batch.createdBy.username}</GeneratedBy>
+    <GeneratedAt>${new Date().toISOString()}</GeneratedAt>
+  </BatchInfo>
+  <Claims>
+${claimsXml}
+  </Claims>
+</NHISBatchSubmission>`;
+
+    await this.prisma.claimBatch.update({ where: { id: batchId }, data: { status: 'generated', xmlGeneratedAt: new Date() } });
+    return { xml, batchNumber: batch.batchNumber };
+  }
+
+  async updateBatchStatus(batchId: string, status: string) {
+    const valid = ['draft', 'generated', 'submitted', 'exported'];
+    if (!valid.includes(status)) throw new Error('Invalid status');
+    return this.prisma.claimBatch.update({
+      where: { id: batchId },
+      data: { status: status as any, ...(status === 'submitted' ? { submissionDate: new Date() } : {}) },
+      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+    });
+  }
+
+  async deleteClaimBatch(batchId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: true } });
+      if (!existing) throw new Error('Batch not found');
+      if (existing.status !== 'draft') throw new Error('Can only delete draft batches');
+      await tx.insuranceClaim.updateMany({ where: { batchId }, data: { batchId: null } });
+      await tx.claimBatch.delete({ where: { id: batchId } });
+      return existing;
+    });
+  }
+
+  // ==========================================
+  // GENERAL CLAIM SERVICES (Fully Restored)
+  // ==========================================
+  async getAllInsuranceClaims(status?: string | string[], providerId?: string, patientId?: string, dateFrom?: Date, dateTo?: Date, page = 1, limit = 50) {
+    const where: any = {};
+    if (status) where.status = typeof status === 'string' && status.includes(',') ? { in: status.split(',').map(s => s.trim()) } : status;
+    if (providerId) where.insuranceProviderId = providerId;
+    if (patientId) where.patientId = patientId;
+    if (dateFrom || dateTo) {
+      where.createdAt = {};
+      if (dateFrom) where.createdAt.gte = dateFrom;
+      if (dateTo) { const d = new Date(dateTo); d.setHours(23, 59, 59, 999); where.createdAt.lte = d; }
+    }
+
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, Math.max(1, limit));
+    const skip = (pageNum - 1) * limitNum;
+
+    const [claims, total] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({
+        where, include: { InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } },
+        orderBy: { createdAt: 'desc' }, skip, take: limitNum
+      }),
+      this.prisma.insuranceClaim.count({ where })
+    ]);
+
+    return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+  }
+
+  // Include the encounter's clinical sub-records so claim forms can auto-populate
+  // diagnoses / investigations / medicines / procedures from the attendance.
+  // NOTE: the relation field on InsuranceClaim is `attendance` (lowercase).
+  private claimDetailInclude = {
+    InsuranceProvider: true,
+    Patient: true,
+    // Include priced line items so private/corporate claim forms can auto-load
+    // billed services/medicines with their actual unit prices.
+    Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } },
+    // Include active employees so the corporate form can attribute services.
+    CorporateAccount: { include: { employees: { where: { isActive: true } } } },
+    Attendance: {
+      include: {
+        AttendanceDiagnosis: { include: { Diagnosis: true } },
+        LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
+        Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
+        Medication: { include: { StockItem: true, ServiceCatalog: true } },
+        Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
+        referral: true,
+      }
+    }
+  } as const;
+
+  // The frontend reads `claim.Attendance` (capitalised), so expose the lowercase
+  // relation under that key too.
+  private normalizeClaim(claim: any) {
+    if (claim && claim.attendance && !claim.Attendance) {
+      claim.Attendance = claim.attendance;
+    }
     return claim;
+  }
+
+  async getInsuranceClaim(id: string) {
+    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id }, include: this.claimDetailInclude });
+    if (!claim) throw new NotFoundError('Claim', id);
+    return this.normalizeClaim(claim);
   }
 
   async getClaimByAttendanceId(attendanceId: string) {
-    const claim = await this.repo.findClaimByAttendanceId(attendanceId);
-    if (!claim) throw new NotFoundError('Claim for attendance', attendanceId);
-    return claim;
+    const claim = await this.prisma.insuranceClaim.findFirst({ where: { attendanceId }, include: this.claimDetailInclude });
+    if (!claim) throw new Error('No claim found for this attendance');
+    return this.normalizeClaim(claim);
   }
 
-  // ─── CCC resolution ──────────────────────────────────
-  private resolveAttendanceCCC(att: {
-    nhisCCC?: string | null;
-    nhisCCCCode?: string | null;
-  }): string | null {
-    const a = att.nhisCCC?.trim();
-    if (a) return a;
-    const b = att.nhisCCCCode?.trim();
-    if (b) return b;
-    return null;
+  async updateClaimDraft(claimId: string, data: any, userId: string) {
+    const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'approvedAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
+    const toUpdate: any = { updatedById: userId, updatedAt: new Date() };
+    fields.forEach(f => { if (data[f] !== undefined) toUpdate[f] = data[f]; });
+    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
 
-  /**
-   * Ask the NHIS eligibility service to generate a CCC for this attendance.
-   * The service writes `Attendance.nhisCCCCode` + `nhisCCCGeneratedAt` +
-   * `nhisCCCValidUntil` and returns `{ success, message, data }`.
-   *
-   * It does NOT throw on failure — it returns `success: false` with a message.
-   * We surface that message so the frontend shows the real cause (API not
-   * configured, membership expired, patient ineligible, network, etc.).
-   */
-  private async generateAttendanceCCC(
-    patient: { id: string; nhisNumber: string | null },
-    attendanceId: string,
-    totalAmount: Prisma.Decimal | number,
-  ): Promise<string> {
-    if (!patient.nhisNumber) {
-      throw new ValidationError(
-        'Patient has no NHIS number. Register the NHIS membership before creating a claim.',
-      );
-    }
-
-    const result = await generateAttendanceCCCService(
-      patient.nhisNumber,
-      attendanceId,
-      Number(totalAmount),
-    );
-
-    if (!result.success) {
-      throw new ValidationError(`CCC generation failed: ${result.message}`);
-    }
-
-    // The service wrote to Attendance.nhisCCCCode — re-read the row to get it.
-    const refreshed = await this.prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      select: { nhisCCC: true, nhisCCCCode: true },
-    });
-
-    const resolved = this.resolveAttendanceCCC(refreshed ?? {});
-    if (!resolved) {
-      throw new ValidationError(
-        'CCC generation reported success but Attendance.nhisCCCCode is still empty.',
-      );
-    }
-    return resolved;
-  }
-
-  // ─── Generation ───────────────────────────────────────
-  async generateNHISClaim(attendanceId: string, userId: string) {
-    // 1. Pre-load the attendance + patient + provider OUTSIDE the transaction,
-    //    because CCC generation makes a network call. Holding a DB transaction
-    //    across an HTTPS call would lock rows for the round-trip duration.
-    const pre = await this.prisma.attendance.findUnique({
-      where: { id: attendanceId },
-      include: { InsuranceProvider: true, Patient: true, Admission: true },
-    });
-    if (!pre) throw new ValidationError('Attendance not found');
-    if (!pre.InsuranceProvider || pre.InsuranceProvider.type !== 'nhis') {
-      throw new ValidationError('Attendance is not NHIS');
-    }
-
-    // 2. Resolve or generate the CCC BEFORE the write transaction.
-    //    We pass 0 as the total because the real total isn't known until
-    //    `buildNHISClaimItems` runs inside the transaction, and the NHIA
-    //    CCC endpoint treats `totalAmount` as a metadata field, not an
-    //    authorization gate.
-    let ccc = this.resolveAttendanceCCC(pre);
-    if (!ccc) {
-      ccc = await this.generateAttendanceCCC(
-        { id: pre.patientId, nhisNumber: pre.Patient?.nhisNumber ?? null },
-        pre.id,
-        0,
-      );
-    }
-
-    // 3. Now the write transaction — everything except CCC is here.
-    return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId } });
-      if (existing) return { claim: existing, isExisting: true };
-
-      const { items, principalGDRG, mdcCode, total } = await buildNHISClaimItems(tx, attendanceId);
-      const claimNumber = `NHIS-${getCounterService().nextAttendanceNumber()}`;
-      const serviceOutcome = mapAttendanceToServiceOutcome(
-        pre.status,
-        pre.Admission?.dischargeStatus ?? null,
-      );
-      const typeOfService = mapEncounterCategoryToTypeOfService(pre.encounterCategory);
-      const typeOfAttendance = mapAttendanceTypeToTypeOfAttendance(pre.attendanceType);
-      const datesOfService = buildDatesOfService(
-        pre.dateTime,
-        pre.Admission
-          ? { admissionDate: pre.Admission.admissionDate, dischargeDate: pre.Admission.dischargeDate }
-          : null,
-      );
-
-      const claim = await tx.insuranceClaim.create({
-        data: {
-          claimNumber,
-          patientId: pre.patientId,
-          attendanceId: pre.id,
-          insuranceProviderId: pre.insuranceProviderId!,
-          totalClaimAmount: total,
-          status: 'draft',
-          createdById: userId,
-          preAuthNumber: pre.preAuthNumber ?? null,
-          principalGDRG,
-          claimCheckCode: ccc,
-          typeOfService,
-          typeOfAttendance,
-          serviceOutcome,
-          mdcCode,
-          datesOfService: datesOfService as any,
-          items: { create: items },
-        },
-      });
-      return { claim, isExisting: false };
-    });
-  }
-
-  async generatePrivateClaim(attendanceId: string, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId } });
-      if (existing) return { claim: existing, isExisting: true };
-
-      const att = await tx.attendance.findUnique({
-        where: { id: attendanceId },
-        include: { InsuranceProvider: true, Admission: true },
-      });
-      if (!att) throw new ValidationError('Attendance not found');
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private')
-        throw new ValidationError('Attendance is not private insurance');
-
-      const { items, total } = await buildBillClaimItems(tx, attendanceId);
-      const bill = await tx.bill.findFirst({ where: { attendanceId } });
-      const claimNumber = `PRIV-${getCounterService().nextAttendanceNumber()}`;
-      const serviceOutcome = mapAttendanceToServiceOutcome(att.status, att.Admission?.dischargeStatus ?? null);
-      const typeOfService = mapEncounterCategoryToTypeOfService(att.encounterCategory);
-      const typeOfAttendance = mapAttendanceTypeToTypeOfAttendance(att.attendanceType);
-      const datesOfService = buildDatesOfService(
-        att.dateTime,
-        att.Admission ? { admissionDate: att.Admission.admissionDate, dischargeDate: att.Admission.dischargeDate } : null,
-      );
-
-      const claim = await tx.insuranceClaim.create({
-        data: {
-          claimNumber,
-          patientId: att.patientId,
-          attendanceId: att.id,
-          insuranceProviderId: att.insuranceProviderId!,
-          billId: bill?.id ?? null,
-          totalClaimAmount: total,
-          status: 'draft',
-          createdById: userId,
-          preAuthNumber: att.preAuthNumber ?? null,
-          typeOfService,
-          typeOfAttendance,
-          serviceOutcome,
-          datesOfService: datesOfService as any,
-          items: { create: items },
-        },
-      });
-      return { claim, isExisting: false };
-    });
-  }
-
-  async generateCorporateClaim(attendanceId: string, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.insuranceClaim.findFirst({ where: { attendanceId } });
-      if (existing) return { claim: existing, isExisting: true, creditInfo: null };
-
-      const att = await tx.attendance.findUnique({
-        where: { id: attendanceId },
-        include: { InsuranceProvider: true, Admission: true },
-      });
-      if (!att) throw new ValidationError('Attendance not found');
-      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate')
-        throw new ValidationError('Attendance is not corporate');
-      if (!att.corporateAccountId) throw new ValidationError('Attendance has no corporate account');
-
-      const corp = await tx.corporateAccount.findUnique({ where: { id: att.corporateAccountId } });
-      if (!corp || !corp.isActive) throw new ValidationError('Corporate account is inactive');
-
-      const { items, total } = await buildBillClaimItems(tx, attendanceId);
-      const bill = await tx.bill.findFirst({ where: { attendanceId } });
-      const outstanding = await tx.insuranceClaim.aggregate({
-        where: { corporateAccountId: att.corporateAccountId, status: { in: ['draft', 'finalized'] } },
-        _sum: { totalClaimAmount: true },
-      });
-      const currentBal = outstanding._sum.totalClaimAmount ?? new Prisma.Decimal(0);
-      const projected = currentBal.plus(total);
-      if (projected.greaterThan(corp.creditLimit)) {
-        throw new ConflictError(
-          `Exceeds credit limit. Current: ${currentBal.toFixed(2)}, This claim: ${total.toFixed(2)}, Limit: ${corp.creditLimit.toFixed(2)}`,
-        );
-      }
-
-      const claimNumber = `CORP-${getCounterService().nextAttendanceNumber()}`;
-      const serviceOutcome = mapAttendanceToServiceOutcome(att.status, att.Admission?.dischargeStatus ?? null);
-      const typeOfService = mapEncounterCategoryToTypeOfService(att.encounterCategory);
-      const typeOfAttendance = mapAttendanceTypeToTypeOfAttendance(att.attendanceType);
-      const datesOfService = buildDatesOfService(
-        att.dateTime,
-        att.Admission ? { admissionDate: att.Admission.admissionDate, dischargeDate: att.Admission.dischargeDate } : null,
-      );
-
-      const claim = await tx.insuranceClaim.create({
-        data: {
-          claimNumber,
-          patientId: att.patientId,
-          attendanceId: att.id,
-          insuranceProviderId: att.insuranceProviderId!,
-          corporateAccountId: att.corporateAccountId,
-          billId: bill?.id ?? null,
-          totalClaimAmount: total,
-          status: 'draft',
-          createdById: userId,
-          preAuthNumber: att.preAuthNumber ?? null,
-          typeOfService,
-          typeOfAttendance,
-          serviceOutcome,
-          datesOfService: datesOfService as any,
-          items: { create: items },
-        },
-      });
-
-      return {
-        claim,
-        isExisting: false,
-        creditInfo: {
-          currentBalance: currentBal.toNumber(),
-          projectedBalance: projected.toNumber(),
-          limit: corp.creditLimit.toNumber(),
-        },
-      };
-    });
-  }
-
-  // ─── Edit (draft only) ────────────────────────────────
-  async updateDraftHeader(
-    claimId: string,
-    data: {
-      notes?: string;
-      preAuthNumber?: string;
-      principalGDRG?: string;
-      mdcCode?: string;
-      metadata?: Prisma.InputJsonValue;
-    },
-    userId: string,
-  ) {
-    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundError('Claim', claimId);
-    if (claim.status !== 'draft') throw new ConflictError('Only draft claims can be edited');
-
-    return this.prisma.insuranceClaim.update({
-      where: { id: claimId },
-      data: {
-        ...(data.notes !== undefined && { notes: data.notes }),
-        ...(data.preAuthNumber !== undefined && { preAuthNumber: data.preAuthNumber }),
-        ...(data.principalGDRG !== undefined && { principalGDRG: data.principalGDRG }),
-        ...(data.mdcCode !== undefined && { mdcCode: data.mdcCode }),
-        ...(data.metadata !== undefined && { metadata: data.metadata }),
-        updatedById: userId,
-      },
-    });
-  }
-
-  async replaceClaimItems(claimId: string, items: IncomingItem[], userId: string) {
-    if (!Array.isArray(items)) throw new ValidationError('items must be an array');
-    if (items.length === 0) throw new ValidationError('items cannot be empty');
-
-    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
-    if (!claim) throw new NotFoundError('Claim', claimId);
-    if (claim.status !== 'draft') throw new ConflictError('Only draft claims can be edited');
-
-    let runningTotal = new Prisma.Decimal(0);
-
-    const rows = items.map((item, index) => {
-      const quantity = Math.max(1, Math.trunc(Number(item.quantity ?? 1)));
-      const unitPrice =
-        item.unitPrice != null ? new Prisma.Decimal(item.unitPrice.toString())
-        : item.lineTotal != null ? new Prisma.Decimal(item.lineTotal.toString()).dividedBy(quantity)
-        : new Prisma.Decimal(0);
-      const lineTotal = item.lineTotal != null
-        ? new Prisma.Decimal(item.lineTotal.toString())
-        : unitPrice.times(quantity);
-      runningTotal = runningTotal.plus(lineTotal);
-
-      return {
-        claimId,
-        itemNumber: index + 1,
-        itemCategory: item.itemCategory,
-        itemType: item.itemType ?? null,
-        code: item.code ?? '',
-        description: item.description ?? '',
-        quantity,
-        noOfDays: item.noOfDays ?? null,
-        unitPrice,
-        lineTotal,
-        serviceDate: item.serviceDate ? new Date(item.serviceDate) : null,
-        prescriptionText: item.prescriptionText ?? null,
-        clinician: item.clinician ?? null,
-        prescriberNo: item.prescriberNo ?? null,
-        billLineItemId: item.billLineItemId ?? null,
-        serviceCatalogId: item.serviceCatalogId ?? null,
-        diagnosisId: item.diagnosisId ?? null,
-        gdrgTariffId: item.gdrgTariffId ?? null,
-        labTestId: item.labTestId ?? null,
-        scanId: item.scanId ?? null,
-        procedureId: item.procedureId ?? null,
-        medicationId: item.medicationId ?? null,
-      };
-    });
-
-    return this.prisma.$transaction(async (tx) => {
-      await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
-      await tx.insuranceClaimItem.createMany({ data: rows });
-      return tx.insuranceClaim.update({
-        where: { id: claimId },
-        data: { totalClaimAmount: runningTotal, updatedById: userId },
-        include: { items: { orderBy: { itemNumber: 'asc' } } },
-      });
-    });
-  }
-
-  // ─── Finalize ────────────────────────────────────────
   async finalizeClaim(claimId: string, userId: string) {
-    const claim = await this.prisma.insuranceClaim.findUnique({
-      where: { id: claimId },
-      include: { _count: { select: { items: true } } },
-    });
+    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
     if (!claim) throw new NotFoundError('Claim', claimId);
-    if (claim.status !== 'draft') throw new ConflictError('Only draft claims can be finalized');
-    if (claim._count.items === 0) throw new ValidationError('Cannot finalize a claim with no items');
-
-    return this.prisma.insuranceClaim.update({
-      where: { id: claimId },
-      data: {
-        status: 'finalized',
-        finalizedAt: new Date(),
-        finalizedById: userId,
-        updatedById: userId,
-      },
-    });
+    if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
+    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'submitted', submissionDate: new Date(), updatedById: userId } });
   }
 
-  // ─── Summary ─────────────────────────────────────────
-  async getClaimsSummary(filters: { insuranceType?: 'nhis' | 'private' | 'corporate' } = {}) {
-    const [draft, finalized] = await Promise.all([
-      this.prisma.insuranceClaim.aggregate({
-        where: {
-          status: 'draft',
-          ...(filters.insuranceType && { InsuranceProvider: { is: { type: filters.insuranceType } } }),
-        },
-        _count: true,
-        _sum: { totalClaimAmount: true },
-      }),
-      this.prisma.insuranceClaim.aggregate({
-        where: {
-          status: 'finalized',
-          ...(filters.insuranceType && { InsuranceProvider: { is: { type: filters.insuranceType } } }),
-        },
-        _count: true,
-        _sum: { totalClaimAmount: true },
-      }),
-    ]);
+  async updateClaimStatus(claimId: string, status: string, notes: string | undefined, userId: string) {
+    const valid = ['draft', 'submitted', 'approved', 'paid', 'rejected'];
+    if (!valid.includes(status)) throw new Error('Invalid status');
+    const toUpdate: any = { status, updatedById: userId, updatedAt: new Date() };
+    if (status === 'submitted') toUpdate.submissionDate = new Date();
+    if (status === 'approved') toUpdate.approvalDate = new Date();
+    if (status === 'paid') toUpdate.paymentDate = new Date();
+    if (notes) toUpdate.notes = notes;
+    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
+  }
+
+  async getFinalizedClaimsTotal(dateFrom?: Date, dateTo?: Date, type?: string) {
+    const where: any = { status: 'submitted' };
+    if (type === 'nhis') where.InsuranceProvider = { type: 'nhis' };
+    if (type === 'private') where.InsuranceProvider = { type: 'private' };
+    if (dateFrom || dateTo) {
+      where.submissionDate = {};
+      if (dateFrom) where.submissionDate.gte = dateFrom;
+      if (dateTo) where.submissionDate.lte = dateTo;
+    }
+
+    const claims = await this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: true, Patient: true } });
+    
+    // ✅ FIXED: Decimal math
+    const totalAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
 
     return {
-      draft: { count: draft._count, totalAmount: draft._sum.totalClaimAmount?.toNumber() ?? 0 },
-      finalized: { count: finalized._count, totalAmount: finalized._sum.totalClaimAmount?.toNumber() ?? 0 },
+      total: claims.length, totalAmount,
+      claims: claims.map(c => ({ id: c.id, claimNumber: c.claimNumber, patientName: `${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}`.trim(), amount: toNumber(c.totalClaimAmount), submissionDate: c.submissionDate, provider: c.InsuranceProvider?.name }))
     };
   }
+
+  // ==========================================
+  // NHIS SERVICES (Fully Restored)
+  // ==========================================
+  async generateNHISClaim(attendanceId: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (!attendanceId) throw new ValidationError('attendanceId is required');
+      const existing = await this.findExistingClaim(tx, attendanceId, 'nhis');
+      if (existing) return { claim: existing, isExisting: true };
+
+      const att = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        include: { Patient: true, InsuranceProvider: true, Bill: true, Admission: true, AttendanceDiagnosis: { where: { diagnosisType: 'primary' }, include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, Medication: { where: { status: 'dispensed' }, include: { ServiceCatalog: true, StockItem: true } }, LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Scan: { where: { status: 'completed' }, include: { ServiceCatalog: true } }, Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: true } } }
+      });
+
+      if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
+        throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
+      }
+      if (!att.nhisCCC) throw new ValidationError(`Attendance ${att.attendanceNumber} has no Claim Check Code (CCC). Generate or enter the NHIS CCC before creating the claim.`);
+      const pd = att.AttendanceDiagnosis[0];
+      if (!pd) throw new ValidationError(`Attendance ${att.attendanceNumber} has no primary diagnosis. Record a primary diagnosis before creating the NHIS claim.`);
+
+      const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
+      if (!gdrgLink) throw new ValidationError(`No G-DRG tariff is mapped to the primary diagnosis "${pd.Diagnosis?.name ?? pd.diagnosisId}". Map it in G-DRG settings or choose a mapped diagnosis.`);
+
+      const age = this.calculateAgeInYears(att.Patient.dateOfBirth, att.dateTime);
+      const split = age >= 12 ? 'A' : 'C';
+      const base = gdrgLink.gdrgTariff.gdrgCode.slice(0, -1);
+      const finalCode = base + split;
+      const tariff = await tx.gDRGTariff.findFirst({ where: { gdrgCode: finalCode, isActive: true } }) || gdrgLink.gdrgTariff;
+
+      // nextNHISClaimNumber() already returns "NHIS-<n>" - do not prefix it again
+      const claimNumber = getCounterService().nextNHISClaimNumber();
+
+      // Helper for dates of service
+      let datesOfService: string[] = [];
+      if (att.Admission) {
+        let curr = new Date(att.Admission.admissionDate);
+        const end = att.Admission.dischargeDate || new Date();
+        while (curr <= end) { datesOfService.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
+      } else { datesOfService.push(att.dateTime.toISOString().split('T')[0]); }
+
+      let typeOfAtt = 'GEN';
+      if (att.attendanceType === 'emergency_acute') typeOfAtt = 'EAE';
+      else if (att.attendanceType === 'antenatal') typeOfAtt = 'ANC';
+      else if (att.attendanceType === 'delivery') typeOfAtt = 'DEL';
+      else if (att.attendanceType === 'surgery') typeOfAtt = 'SUR';
+
+      const claim = await tx.insuranceClaim.create({
+        data: {
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
+          totalClaimAmount: tariff.nhiaTariff, status: 'draft', createdById: userId,
+          diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
+          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
+          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
+          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
+          gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
+          principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
+          typeOfService: att.Admission ? 'IPD' : 'OPD', serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
+          mdcCode: tariff.gdrgCode.match(/^[A-Z]+/)?.[0] || 'MEDI', typeOfAttendance: typeOfAtt, datesOfService,
+          notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`
+        }
+      });
+
+      return { claim, gdrgDetails: tariff, isExisting: false };
+    });
+  }
+
+  async getNHISClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
+    const where: any = { InsuranceProvider: { type: 'nhis' } };
+    if (status) where.status = status;
+    if (patientId) where.patientId = patientId;
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: startDate };
+      if (endDate) { const d = new Date(endDate); d.setHours(23, 59, 59, 999); where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d }; }
+    }
+
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [claims, total] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.count({ where })
+    ]);
+
+    return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+  }
+
+  // ==========================================
+  // PRIVATE INSURANCE SERVICES (Fully Restored)
+  // ==========================================
+  async generatePrivateInsuranceClaim(attendanceId: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (!attendanceId) throw new ValidationError('attendanceId is required');
+      const existing = await this.findExistingClaim(tx, attendanceId, 'private');
+      if (existing) return { claim: existing, isExisting: true };
+
+      const att = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        include: { Patient: true, InsuranceProvider: true, Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } }, AttendanceDiagnosis: { include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true } }, Procedure: { include: { ServiceCatalog: true } }, Scan: { include: { ServiceCatalog: true } } }
+      });
+
+      if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') {
+        throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
+      }
+
+      // nextPrivateClaimNumber() already returns "PRIV-<n>" - do not prefix it again
+      const claimNumber = getCounterService().nextPrivateClaimNumber();
+      const claim = await tx.insuranceClaim.create({
+        data: {
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
+          totalClaimAmount: att.Bill?.totalAmount || 0, status: 'draft', createdById: userId,
+          diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
+          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
+          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
+          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
+          serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
+          notes: 'Private insurance claim - itemized billing'
+        }
+      });
+
+      return { claim, isExisting: false };
+    });
+  }
+
+  async getPrivateInsuranceClaims(status?: string, patientId?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
+    const where: any = { InsuranceProvider: { type: 'private' } };
+    if (status) where.status = status;
+    if (patientId) where.patientId = patientId;
+    if (startDate || endDate) {
+      where.Attendance = {};
+      if (startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: startDate };
+      if (endDate) { const d = new Date(endDate); d.setHours(23, 59, 59, 999); where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d }; }
+    }
+
+    const pageNum = Math.max(1, page);
+    const limitNum = Math.min(100, limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    const [claims, total] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.count({ where })
+    ]);
+
+    return { data: claims, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+  }
+
+  // ==========================================
+  // CORPORATE SERVICES (Fully Restored)
+  // ==========================================
+  async generateCorporateClaim(attendanceId: string, userId: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (!attendanceId) throw new ValidationError('attendanceId is required');
+      const existing = await this.findExistingClaim(tx, attendanceId, 'corporate');
+      if (existing) return { claim: existing, isExisting: true };
+
+      const att = await tx.attendance.findUnique({
+        where: { id: attendanceId },
+        include: { Patient: true, InsuranceProvider: true, CorporateAccount: true, Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } }, AttendanceDiagnosis: { include: { Diagnosis: true } }, ServiceRendered: { include: { ServiceCatalog: true } }, LabTest: { include: { ServiceCatalog: true } }, Medication: { include: { ServiceCatalog: true, StockItem: true } }, Procedure: { include: { ServiceCatalog: true } }, Scan: { include: { ServiceCatalog: true } }, Admission: true }
+      });
+
+      if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') {
+        throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a corporate provider on the attendance first.`);
+      }
+      if (!att.corporateAccountId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no corporate account linked.`);
+
+      const corp = await tx.corporateAccount.findUnique({ where: { id: att.corporateAccountId } });
+      if (!corp) throw new NotFoundError('Corporate account', att.corporateAccountId);
+      if (!corp.isActive) throw new ValidationError(`Corporate account "${corp.companyName}" is inactive.`);
+
+      // ✅ FIXED: Decimal math for credit limit
+      const whereCond: any = { corporateAccountId: att.corporateAccountId, status: { in: ['submitted', 'approved'] } };
+      if (att.insuranceProviderId) whereCond.insuranceProviderId = att.insuranceProviderId;
+      const outstanding = await tx.insuranceClaim.aggregate({ where: whereCond, _sum: { totalClaimAmount: true } });
+      const currentBal = toNumber(outstanding._sum?.totalClaimAmount);
+      const claimAmt = toNumber(att.Bill?.totalAmount);
+      const projected = currentBal + claimAmt;
+      const limit = toNumber(corp.creditLimit);
+      // A zero/null credit limit means "no limit configured", not "zero credit".
+      if (limit > 0 && projected > limit) {
+        throw new ValidationError(
+          `Exceeds credit limit. Current: GHS ${currentBal.toFixed(2)}, Limit: GHS ${limit.toFixed(2)}`
+        );
+      }
+      const providerId = att.insuranceProviderId || corp.insuranceProviderId;
+      if (!providerId) throw new ValidationError(`No insurance provider is set on attendance ${att.attendanceNumber} or on corporate account "${corp.companyName}".`);
+
+      // nextCorporateClaimNumber() already returns "CORP-<n>" - do not prefix it again
+      const claimNumber = getCounterService().nextCorporateClaimNumber();
+      const claim = await tx.insuranceClaim.create({
+        data: {
+          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: providerId, corporateAccountId: att.corporateAccountId,
+          totalClaimAmount: claimAmt, status: 'submitted', createdById: userId,
+          diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
+          procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
+          labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
+          scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
+          serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Itemized billing.`
+        }
+      });
+
+      return { claim, isExisting: false, creditInfo: { currentBalance: currentBal, projectedBalance: projected, limit } };
+    });
+  }
+
+// backend/src/modules/insuranceClaim/InsuranceClaimService.ts
+
+
+// Add to InsuranceClaimService (backend/src/modules/insuranceClaim/InsuranceClaimService.ts)
+
+/** Controller calls: service.listClaimsByType(type, filters) */
+async listClaimsByType(
+  type: 'nhis' | 'private' | 'corporate',
+  filters: {
+    status?: string;
+    patientId?: string;
+    corporateAccountId?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    page?: number;
+    limit?: number;
+  },
+) {
+  const { status, patientId, corporateAccountId, dateFrom, dateTo, page = 1, limit = 50 } = filters;
+
+  let result;
+  if (type === 'nhis') {
+    result = await this.getNHISClaims(status, patientId, dateFrom, dateTo, page, limit);
+  } else if (type === 'private') {
+    result = await this.getPrivateInsuranceClaims(status, patientId, dateFrom, dateTo, page, limit);
+  } else {
+    result = await this.getCorporateClaims(status, patientId, dateFrom, dateTo, corporateAccountId, page, limit);
+  }
+
+  return {
+    data: result.data,
+    page: result.pagination.page,
+    limit: result.pagination.limit,
+    total: result.pagination.total,
+    pagination: result.pagination,
+  };
+}
+
+/** Controller calls: service.listClaims(filters) */
+async listClaims(filters: {
+  status?: string;
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
+  patientId?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
+  page?: number;
+  limit?: number;
+}) {
+  return this.getAllInsuranceClaims(
+    filters.status,
+    filters.insuranceProviderId,
+    filters.patientId,
+    filters.dateFrom,
+    filters.dateTo,
+    filters.page ?? 1,
+    filters.limit ?? 50,
+  ).then((r) => ({
+    data: r.data,
+    page: r.pagination.page,
+    limit: r.pagination.limit,
+    total: r.pagination.total,
+    pagination: r.pagination,
+  }));
+}
+
+/** Controller calls: service.getClaim(id) */
+async getClaim(id: string) {
+  return this.getInsuranceClaim(id);
+}
+
+/** Controller calls: service.generatePrivateClaim(id, uid) */
+async generatePrivateClaim(attendanceId: string, userId: string) {
+  return this.generatePrivateInsuranceClaim(attendanceId, userId);
+}
+
+/** Controller calls: service.updateDraftHeader(id, data, uid) */
+async updateDraftHeader(claimId: string, data: any, userId: string) {
+  return this.updateClaimDraft(claimId, data, userId);
+}
+
+
+async getCorporateClaims(
+  status?: string,
+  patientId?: string,
+  startDate?: Date,
+  endDate?: Date,
+  corpId?: string,
+  page = 1,
+  limit = 50
+) {
+  // Corporate claims are identified by `corporateAccountId`, NOT by provider type:
+  // a corporate account is normally billed through a private-type insurance provider,
+  // so filtering on InsuranceProvider.type === 'corporate' silently hides them.
+  const where: any = { corporateAccountId: { not: null } };
+  if (status) where.status = status;
+  if (patientId) where.patientId = patientId;
+  if (corpId) where.corporateAccountId = corpId;
+  if (startDate || endDate) {
+    where.Attendance = {};
+    if (startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: startDate };
+    if (endDate) {
+      const d = new Date(endDate);
+      d.setHours(23, 59, 59, 999);
+      where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+    }
+  }
+
+  const pageNum = Math.max(1, page);
+  const limitNum = Math.min(100, limit);
+  const skip = (pageNum - 1) * limitNum;
+
+  const [claims, total] = await Promise.all([
+    this.prisma.insuranceClaim.findMany({
+      where,
+      include: {
+        InsuranceProvider: { select: { id: true, name: true, type: true } },
+        CorporateAccount: { select: { id: true, companyName: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Attendance: {
+          select: {
+            id: true,
+            attendanceNumber: true,
+            dateTime: true,
+            corporateEmployeeId: true,
+          },
+        },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limitNum,
+    }),
+    this.prisma.insuranceClaim.count({ where }),
+  ]);
+
+  return {
+    data: claims,
+    pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) },
+  };
+}
 }
