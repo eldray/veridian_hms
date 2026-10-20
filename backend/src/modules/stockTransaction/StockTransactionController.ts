@@ -15,7 +15,9 @@ export class StockTransactionController extends BaseController {
   }
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.create({ ...req.body, performedBy: req.user?.id });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const departmentId = isAdmin ? (req.body.departmentId || req.user?.departmentId) : req.user?.departmentId;
+    const result = await this.service.create({ ...req.body, departmentId: departmentId || undefined, performedBy: req.user?.id });
     return this.created(res, result, 'Stock transaction created successfully');
   });
 
