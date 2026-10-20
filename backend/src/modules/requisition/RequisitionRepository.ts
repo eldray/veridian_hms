@@ -31,15 +31,43 @@ export class RequisitionRepository {
   };
 
   async findAll(params: RequisitionQueryParams) {
-    const { departmentId, wardId, supplyingDepartmentId, status, urgency, page = 1, limit = 1000 } = params;
+    const { departmentId, wardId, supplyingDepartmentId, status, urgency, authenticatedUserId, page = 1, limit = 1000 } = params;
 
     const where: Prisma.RequisitionWhereInput = {};
+    const filters: Prisma.RequisitionWhereInput[] = [];
 
-    if (departmentId) where.requestingDepartmentId = departmentId;
-    if (wardId) where.requestingWardId = wardId;
-    if (supplyingDepartmentId) where.supplyingDepartmentId = supplyingDepartmentId;
-    if (status) where.status = status as any;
-    if (urgency) where.urgency = urgency as any;
+    // Client filters narrow results; they never grant access. The authenticated user's
+    // current database role and department determine the mandatory visibility scope.
+    if (authenticatedUserId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: authenticatedUserId },
+        select: { role: true, departmentId: true }
+      });
+      if (!user) throw new Error('User not found');
+
+      if (user.role !== 'admin' && user.role !== 'super_admin') {
+        const visibleToUser: Prisma.RequisitionWhereInput[] = [
+          { requestedById: authenticatedUserId }
+        ];
+        if (user.departmentId) {
+          visibleToUser.push(
+            { requestingDepartmentId: user.departmentId },
+            { supplyingDepartmentId: user.departmentId }
+          );
+        }
+        filters.push({ OR: visibleToUser });
+      }
+    } else {
+      // Defensive default: never return the unrestricted list without an authenticated ID.
+      throw new Error('User not authenticated');
+    }
+
+    if (departmentId) filters.push({ requestingDepartmentId: departmentId });
+    if (wardId) filters.push({ requestingWardId: wardId });
+    if (supplyingDepartmentId) filters.push({ supplyingDepartmentId });
+    if (status) filters.push({ status: status as any });
+    if (urgency) filters.push({ urgency: urgency as any });
+    if (filters.length) where.AND = filters;
 
     const skip = (page - 1) * limit;
 
