@@ -477,6 +477,18 @@ export class RequisitionRepository {
 
       // ---------- Validate supplier stock for ALL lines first ----------
       const supplierQty = await this.getDepartmentQuantities(supplierId, lines.map(l => l.ri.stockItemId), tx);
+      // Non-batch supplies use the canonical location balance directly. If an item has
+      // any batches, only eligible batches at the supplying department are spendable.
+      for (const { ri } of lines) {
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: ri.stockItemId } });
+        if (batchCount === 0 && !supplierQty.has(ri.stockItemId)) {
+          const balance = await tx.stockItemDepartmentBalance.findUnique({
+            where: { stockItemId_locationKey: { stockItemId: ri.stockItemId, locationKey: supplierId } },
+            select: { quantity: true },
+          });
+          supplierQty.set(ri.stockItemId, balance?.quantity ?? 0);
+        }
+      }
       const short = lines.filter(l => (supplierQty.get(l.ri.stockItemId) ?? 0) < l.qty);
       if (short.length > 0) {
         const details = short
@@ -500,13 +512,14 @@ export class RequisitionRepository {
           ? await increaseDepartmentStockBalance(tx, ri.stockItemId, toDepartmentId, qty)
           : await increaseDepartmentStockBalance(tx, ri.stockItemId, null, qty, toWardId);
 
-        const batches = await tx.stockBatch.findMany({
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: ri.stockItemId } });
+        const batches = batchCount > 0 ? await tx.stockBatch.findMany({
           where: {
             stockItemId: ri.stockItemId, departmentId: supplierId, wardId: null, isActive: true,
             quantity: { gt: 0 }, expiryDate: { gt: new Date() }
           },
           orderBy: { expiryDate: 'asc' } // FEFO
-        });
+        }) : [];
 
         for (const batch of batches) {
           if (remaining <= 0) break;
@@ -548,7 +561,9 @@ export class RequisitionRepository {
           remaining -= move;
         }
 
-        if (remaining > 0) throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
+        if (batchCount > 0 && remaining > 0) {
+          throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
+        }
 
         if (toDepartmentId || toWardId) {
           const destinationName = toDepartmentId
