@@ -35,6 +35,7 @@ export default function StockManagement() {
     updateStockItem,
     deleteStockItem,
     createStockTransaction,
+    allocateStockToDepartment,
     getLowStockItems,
     lowStockAlerts,
     isLoading
@@ -50,6 +51,8 @@ export default function StockManagement() {
   const [filterStatus, setFilterStatus] = useState('all'); // all, low-stock, in-stock
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showAllocationForm, setShowAllocationForm] = useState(false);
+  const [allocationData, setAllocationData] = useState({ quantity: 0, departmentId: '' });
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
@@ -217,6 +220,21 @@ export default function StockManagement() {
       await loadAllData();
     } catch (err: any) {
       toastError('Transaction failed', apiError(err, 'Could not record transaction'));
+    }
+  };
+
+  const handleAllocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItem) return;
+    try {
+      await allocateStockToDepartment(selectedItem.id, allocationData);
+      success('Allocated', 'Stock moved to the selected department; hospital total is unchanged');
+      setShowAllocationForm(false);
+      setSelectedItem(null);
+      setAllocationData({ quantity: 0, departmentId: '' });
+      await loadAllData();
+    } catch (err: any) {
+      toastError('Allocation failed', apiError(err, 'Could not allocate unassigned stock'));
     }
   };
 
@@ -716,6 +734,18 @@ export default function StockManagement() {
                       >
                         Stock In/Out
                       </button>
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
+                            setShowAllocationForm(true);
+                          }}
+                          className="flex-1 py-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all text-xs font-medium"
+                        >
+                          Allocate
+                        </button>
+                      )}
                       <button
                         onClick={() => handleEdit(item)}
                         className="p-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
@@ -1114,6 +1144,47 @@ export default function StockManagement() {
                 >
                   {editingItem ? 'Update Item' : 'Create Item'}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy stock allocation: moves stock from unassigned to a department without changing hospital total. */}
+      {showAllocationForm && selectedItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAllocationForm(false)}>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">Allocate Unassigned Stock</h2>
+              <button onClick={() => setShowAllocationForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--bg-main)]">
+                <X className="w-4 h-4 text-[var(--text-secondary)]" />
+              </button>
+            </div>
+            <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
+              <div className="bg-[var(--bg-main)] rounded-lg p-3">
+                <p className="text-sm text-[var(--text-secondary)]">Selected item</p>
+                <p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                  Unassigned balance: {getInventoryBreakdown(selectedItem).departments.find(d => d.id === '__UNASSIGNED__')?.quantity || 0} {selectedItem.unitOfMeasure}
+                </p>
+                <p className="text-xs text-[var(--text-tertiary)]">This is an internal allocation; the hospital total will not change.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label>
+                <select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                  <option value="">Choose department</option>
+                  {departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity to allocate *</label>
+                <input type="number" min="1" step="1" required value={allocationData.quantity || ''} onChange={e => setAllocationData({ ...allocationData, quantity: Number(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
+                <button type="button" onClick={() => setShowAllocationForm(false)} className="flex-1 px-5 py-2.5 border border-[var(--border-color)] rounded-lg text-sm">Cancel</button>
+                <button type="submit" className="flex-1 px-5 py-2.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-sm font-medium">Allocate Stock</button>
               </div>
             </form>
           </div>
