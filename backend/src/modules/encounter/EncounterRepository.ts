@@ -1085,7 +1085,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
       if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
       const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
 
@@ -1125,6 +1125,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
       const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
       if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
+      if (!['admin', 'super_admin'].includes(String(actor.role).toLowerCase()) && previous.departmentId !== actor.departmentId) throw new ValidationError('You can only edit consumable use recorded by your own department');
       const previousBalance = await this.restoreConsumableStock(tx, previous.stockItemId, previous.quantity, previous.departmentId, previous.batchAllocations);
       const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
       await tx.stockTransaction.update({
@@ -1176,6 +1177,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { notes: `Consumable use deletion in progress: ${use.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
+      if (!actor) throw new UnauthorizedError('Active user could not be verified');
+      if (!['admin', 'super_admin'].includes(String(actor.role).toLowerCase()) && use.departmentId !== actor.departmentId) throw new ValidationError('You can only delete consumable use recorded by your own department');
       const restoredBalance = await this.restoreConsumableStock(tx, use.stockItemId, use.quantity, use.departmentId, use.batchAllocations);
       await tx.stockTransaction.update({
         where: { id: use.id },
