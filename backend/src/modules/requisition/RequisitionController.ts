@@ -62,7 +62,7 @@ export class RequisitionController extends BaseController {
   getRequisitionById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const requisition = await this.service.getRequisitionById(id);
+      const requisition = await this.service.getRequisitionById(id, (req as AuthRequest).user?.id);
       return this.ok(res, requisition, 'Requisition fetched successfully');
     } catch (error: any) {
       return this.error(res, error);
