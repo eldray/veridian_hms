@@ -4,7 +4,8 @@ import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
-import { decreaseDepartmentStockBalance } from '../stockItem/StockBalance';
+import { decreaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
   AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
