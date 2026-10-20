@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { StockTransactionRepository } from './StockTransactionRepository';
+import { NotFoundError, ValidationError } from '../../utils/errors';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -15,9 +16,18 @@ export class StockTransactionService extends BaseService {
 
   async create(data: any) {
     this.logInfo('Creating stock transaction', { stockItemId: data.stockItemId, type: data.transactionType });
-    if (!data.stockItemId || !data.transactionType || !data.quantity) throw new Error('Stock item ID, transaction type, and quantity are required');
+    if (!data.stockItemId || !data.transactionType || data.quantity === undefined || data.quantity === null) {
+      throw new ValidationError('Stock item ID, transaction type, and quantity are required');
+    }
+    const quantity = Number(data.quantity);
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Stock transaction quantity must be a positive whole number');
+    }
     const validTypes = ['purchase', 'adjustment', 'requisition', 'sale'];
-    if (!validTypes.includes(data.transactionType)) throw new Error(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
+    if (!validTypes.includes(data.transactionType)) {
+      throw new ValidationError(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
+    }
+    data.quantity = quantity;
     
     return this.repo.createSafely(data);
   }
@@ -28,7 +38,7 @@ export class StockTransactionService extends BaseService {
 
   async getById(id: string) {
     const tx = await this.repo.findByIdWithRelations(id);
-    if (!tx) throw new Error('Stock transaction not found');
+    if (!tx) throw new NotFoundError('Stock transaction not found');
     return tx;
   }
 
