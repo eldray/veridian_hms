@@ -25,12 +25,14 @@ export class StockTransactionController extends BaseController {
 
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
-    const result = await this.service.getAll({ ...req.query, page, limit, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getAll({ ...req.query, page, limit, departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Transactions retrieved');
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getById(req.params.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getById(req.params.id, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
     return this.ok(res, result, 'Transaction retrieved');
   });
 
