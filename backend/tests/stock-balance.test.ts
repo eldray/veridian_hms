@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../src/modules/stockItem/StockBalance';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
 
 describe('department stock balance ledger', () => {
