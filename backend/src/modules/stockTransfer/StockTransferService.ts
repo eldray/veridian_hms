@@ -129,7 +129,7 @@ export class StockTransferService extends BaseService {
               data: { quantity: { decrement: take } },
             });
             if (claimed.count !== 1) throw new Error('Origin batch stock changed during dispatch. Refresh and retry.');
-            allocations.push({ batchId: batch.id, quantity: take, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate, costPrice: batch.costPrice });
+            allocations.push({ batchId: batch.id, quantity: take, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate, costPrice: String(batch.costPrice) });
             remaining -= take;
           }
           if (remaining > 0) throw new Error('Not enough eligible batch stock to reserve the full transfer quantity');
