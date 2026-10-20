@@ -299,10 +299,18 @@ export default function StockManagement() {
     resetTransactionForm();
   };
 
-  const isLowStock = (item: StockItem) => item.currentStock <= item.reorderLevel;
-  
+  const getRelevantStockQuantity = (item: StockItem) => {
+    const inventory = getInventoryBreakdown(item);
+    return hasRole(['admin', 'super_admin'])
+      ? inventory.hospitalTotal
+      : (inventory.currentDepartment ?? inventory.hospitalTotal);
+  };
+
+  const isLowStock = (item: StockItem) => getRelevantStockQuantity(item) <= item.reorderLevel;
+
   const getStockStatusBadge = (item: StockItem) => {
-    if (item.currentStock === 0) {
+    const quantity = getRelevantStockQuantity(item);
+    if (quantity === 0) {
       return { label: 'OUT OF STOCK', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' };
     }
     if (isLowStock(item)) {
@@ -311,8 +319,7 @@ export default function StockManagement() {
     return { label: 'IN STOCK', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' };
   };
 
-  // Department quantities are derived from the department-owned batches. currentStock
-  // remains the hospital-wide aggregate for compatibility with existing reports/workflows.
+  // Balances are the source of truth; currentStock remains the synchronized aggregate cache.
   const getInventoryBreakdown = (item: StockItem) => {
     const balances = ((item as any).stockBalances || []) as Array<any>;
     const locations = new Map<string, { id: string; name: string; quantity: number; departmentId?: string }>();
