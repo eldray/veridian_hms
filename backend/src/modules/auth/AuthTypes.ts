@@ -17,3 +17,10 @@ export interface TokenPayload {
 }
 
 export interface AuthenticatedRequest extends Request { user?: TokenPayload; }
+
+export interface AuthResponse {
+  user: Record<string, any>;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
