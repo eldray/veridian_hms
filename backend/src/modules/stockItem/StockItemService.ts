@@ -1,9 +1,9 @@
 import { PrismaClient, StockTransactionType, RequisitionStatus, ServiceType, ServiceCategory } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
-import { StockItemRepository } from './StockItemRepository';
 import { getCounterService } from '../../services/CounterService';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
-import { increaseDepartmentStockBalance } from './StockBalance';
+import { StockItemRepository, increaseDepartmentStockBalance } from './StockItemRepository';
+
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
