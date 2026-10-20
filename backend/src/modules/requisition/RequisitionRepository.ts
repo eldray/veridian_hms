@@ -311,6 +311,16 @@ export class RequisitionRepository {
         }
       }
 
+      // Claim approval atomically so two approvers cannot race and overwrite
+      // the line quantities after both observed the submitted state.
+      const approvalClaim = await tx.requisition.updateMany({
+        where: { id, status: 'submitted' },
+        data: { status: 'approved', approvedById: userId, approvedAt: new Date() },
+      });
+      if (approvalClaim.count !== 1) {
+        throw new Error('This requisition has already been approved or its status changed. Refresh and try again.');
+      }
+
       for (const item of approvedItems) {
         await tx.requisitionItem.update({
           where: { id: item.requisitionItemId },
