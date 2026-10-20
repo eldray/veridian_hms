@@ -99,7 +99,7 @@ export class StockTransferService extends BaseService {
       // non-batch supplies use the canonical department balance.
       for (const item of transfer.items) {
         const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
-        const batches = batchCount > 0
+        const batches: Array<{ id: string; quantity: number; batchNumber: string; expiryDate: Date; costPrice: any }> = batchCount > 0
           ? await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx)
           : [];
         const balance = batchCount === 0 ? await tx.stockItemDepartmentBalance.findUnique({
