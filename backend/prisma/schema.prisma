@@ -805,6 +805,7 @@ model Ward {
   stockBatches     StockBatch[]
   stockBalances    StockItemDepartmentBalance[]
   stockTransactions StockTransaction[]
+  receivedInvoices Invoice[]
 }
 
 // ============================================================
@@ -1737,9 +1738,12 @@ model Invoice {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // ✅ NEW: Which store/department physically received this invoice's goods?
+  // Physical location where purchased goods were received. Exactly one location
+  // (department/store or ward) is selected by the purchase-invoice workflow.
   receivedAtDepartmentId String?
+  receivedAtWardId       String?
   receivedAtDepartment   Department? @relation(fields: [receivedAtDepartmentId], references: [id])
+  receivedAtWard         Ward?       @relation(fields: [receivedAtWardId], references: [id])
 
   User               User               @relation(fields: [createdById], references: [id])
   InvoiceItem        InvoiceItem[]
@@ -1750,7 +1754,8 @@ model Invoice {
   @@index([invoiceDate])
   @@index([invoiceNumber])
   @@index([supplierName])
-  @@index([receivedAtDepartmentId]) // ← Add index for department receiving reports
+  @@index([receivedAtDepartmentId])
+  @@index([receivedAtWardId])
 }
 
 model InvoiceItem {
