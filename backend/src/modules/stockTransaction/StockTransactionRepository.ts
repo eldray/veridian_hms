@@ -49,7 +49,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
 
       const departmentId = data.departmentId ? String(data.departmentId) : undefined;
       const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
-      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
+      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
 
       // Sales/dispensing from a batch-tracked department must reduce that department's
       // FEFO batches and the hospital aggregate in the same transaction.
@@ -57,7 +57,10 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         if (!departmentId) throw new ValidationError('Select the department issuing this stock');
         let remaining = quantity;
         const batches = await tx.stockBatch.findMany({
-          where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
+          where: {
+            stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 },
+            ...(transactionType === 'write_off' ? {} : { expiryDate: { gt: new Date() } }),
+          },
           orderBy: { expiryDate: 'asc' }
         });
         const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
