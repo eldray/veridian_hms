@@ -24,3 +24,5 @@ export interface AuthResponse {
   refreshToken: string;
   expiresIn: number;
 }
+
+export type AuthTypes = LoginRequestDTO | RegisterRequestDTO | ChangePasswordRequestDTO | AuthResponse | TokenPayload;
