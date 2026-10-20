@@ -5,6 +5,7 @@ import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDepartmentStore } from '../store/departmentStore';
+import { useWardStore } from '../store/wardStore';
 import { 
   Plus, 
   Search, 
@@ -63,6 +64,8 @@ interface Invoice {
     id: string;
     name: string;
   };
+  receivedAtWardId?: string;
+  receivedAtWard?: { id: string; wardName: string };
 }
 
 // ==========================================
@@ -208,6 +211,7 @@ export default function InvoiceManagement() {
     isLoading
   } = useStockStore();
   const { departments, getDepartments } = useDepartmentStore();
+  const { wards, getWards } = useWardStore();
   const { user, hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
@@ -233,7 +237,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
     invoiceDate: new Date().toISOString().split('T')[0],
     totalAmount: 0,
     notes: '',
+    receivingLocationType: 'department' as 'department' | 'ward',
     receivedAtDepartmentId: '',
+    receivedAtWardId: '',
     invoiceItems: [{
       stockItemId: '',
       quantity: 1,
@@ -252,7 +258,8 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       await Promise.all([
         getPurchaseInvoices(),
         getStockItems(),
-        getDepartments()
+        getDepartments(),
+        getWards()
       ]);
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -309,7 +316,8 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       const submitData = {
         ...formData,
         totalAmount: calculateTotal(),
-        receivedAtDepartmentId: formData.receivedAtDepartmentId || undefined,
+        receivedAtDepartmentId: formData.receivingLocationType === 'department' ? (formData.receivedAtDepartmentId || undefined) : undefined,
+        receivedAtWardId: formData.receivingLocationType === 'ward' ? (formData.receivedAtWardId || undefined) : undefined,
         invoiceItems: validItems.map(item => ({
           stockItemId: item.stockItemId,
           quantity: item.quantity,
@@ -357,7 +365,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       invoiceDate: invoice.invoiceDate.split('T')[0],
       totalAmount: invoice.totalAmount,
       notes: invoice.notes || '',
+      receivingLocationType: invoice.receivedAtWardId ? 'ward' : 'department',
       receivedAtDepartmentId: invoice.receivedAtDepartmentId || '',
+      receivedAtWardId: invoice.receivedAtWardId || '',
       invoiceItems: invoice.InvoiceItem?.map(item => ({
         stockItemId: item.stockItemId,
         quantity: item.quantity,
@@ -382,7 +392,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       invoiceDate: new Date().toISOString().split('T')[0],
       totalAmount: 0,
       notes: '',
+      receivingLocationType: 'department',
       receivedAtDepartmentId: '',
+      receivedAtWardId: '',
       invoiceItems: [{
         stockItemId: '',
         quantity: 1,
