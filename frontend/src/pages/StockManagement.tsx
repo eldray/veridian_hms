@@ -304,6 +304,7 @@ export default function StockManagement() {
     setTransactionData({
       transactionType: 'purchase',
       quantity: 0,
+      adjustmentDirection: 'increase',
       reference: '',
       notes: '',
       departmentId: (user as any)?.departmentId || ''
