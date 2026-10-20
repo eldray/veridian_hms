@@ -198,7 +198,20 @@ export class StockTransferService extends BaseService {
               where: { stockItemId: item.stockItemId, batchNumber: allocation.batchNumber, departmentId: transfer.destinationId, wardId: null },
             });
             if (existing) {
-              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: allocation.quantity } } });
+              const expectedExpiry = new Date(allocation.expiryDate);
+              if (existing.expiryDate.getTime() !== expectedExpiry.getTime()) {
+                throw new Error(`Destination already has batch ${allocation.batchNumber} with a different expiry date. Reconcile the batch before receiving this transfer.`);
+              }
+              if (String(existing.costPrice) !== String(allocation.costPrice)) {
+                throw new Error(`Destination already has batch ${allocation.batchNumber} with a different cost price. Reconcile the batch before receiving this transfer.`);
+              }
+              if (!existing.isActive) {
+                throw new Error(`Destination batch ${allocation.batchNumber} is inactive. Reconcile the batch before receiving this transfer.`);
+              }
+              await tx.stockBatch.update({
+                where: { id: existing.id },
+                data: { quantity: { increment: allocation.quantity } },
+              });
             } else {
               await tx.stockBatch.create({
                 data: {
