@@ -308,7 +308,7 @@ export default function BackupRestoreTab() {
             Select Backup File
             <input 
               type="file" 
-              accept=".sql,.zip,.backup,.json" 
+              accept=".sql,.backup,.dump" 
               onChange={handleFileSelect} 
               className="hidden" 
             />
