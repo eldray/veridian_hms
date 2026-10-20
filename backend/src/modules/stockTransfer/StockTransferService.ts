@@ -48,11 +48,21 @@ export class StockTransferService extends BaseService {
       const transfer = await tx.stockTransfer.findUnique({ where: { id }, include: { items: true } });
       if (!transfer || transfer.status !== 'approved') throw new Error('Transfer must be approved before dispatching');
 
-      // 1. Verify Origin actually has the stock in its physical batches
+      // 1. Verify origin availability. Batch-tracked items use eligible batches;
+      // non-batch supplies use the canonical department balance.
       for (const item of transfer.items) {
-        const batches = await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx);
-        const totalAvailable = batches.reduce((sum, b) => sum + b.quantity, 0);
-        
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+        const batches = batchCount > 0
+          ? await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx)
+          : [];
+        const balance = batchCount === 0 ? await tx.stockItemDepartmentBalance.findUnique({
+          where: { stockItemId_locationKey: { stockItemId: item.stockItemId, locationKey: transfer.originId } },
+          select: { quantity: true },
+        }) : null;
+        const totalAvailable = batchCount > 0
+          ? batches.reduce((sum, b) => sum + b.quantity, 0)
+          : (balance?.quantity ?? 0);
+
         if (totalAvailable < item.quantityRequested) {
           throw new Error(`Insufficient stock in Origin for item ${item.stockItemId}. Available: ${totalAvailable}, Requested: ${item.quantityRequested}`);
         }
@@ -89,8 +99,12 @@ export class StockTransferService extends BaseService {
         const originBalanceAfter = await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qtyToReceive);
         const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qtyToReceive);
 
-        // ✅ FEFO: Get batches from Origin, sorted by Expiry Date
-        const originBatches = await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx);
+        // Batch-tracked items move their physical batches. Non-batch supplies move only
+        // their location balances; both paths preserve the hospital-wide total.
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+        const originBatches = batchCount > 0
+          ? await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx)
+          : [];
 
         for (const batch of originBatches) {
           if (qtyToReceive <= 0) break;
@@ -151,8 +165,28 @@ export class StockTransferService extends BaseService {
 
           qtyToReceive -= qtyToMove;
         }
-        if (qtyToReceive > 0) {
+        if (batchCount > 0 && qtyToReceive > 0) {
           throw new Error(`Transfer item ${item.id} no longer has enough usable origin batch stock to receive the full dispatched quantity`);
+        }
+        if (batchCount === 0) {
+          await tx.stockTransaction.createMany({
+            data: [
+              {
+                stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: item.quantitySent,
+                balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
+                reference: transfer.transferNumber, notes: `Transferred to ${transfer.destination.name}`, performedBy: userId,
+              },
+              {
+                stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: item.quantitySent,
+                balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
+                reference: transfer.transferNumber, notes: `Received from ${transfer.origin.name}`, performedBy: userId,
+              },
+            ],
+          });
+          await tx.stockTransferItem.update({
+            where: { id: item.id },
+            data: { quantityReceived: item.quantitySent },
+          });
         }
       }
 
