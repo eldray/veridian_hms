@@ -46,6 +46,8 @@ export interface RequisitionQueryParams {
   supplyingDepartmentId?: string;
   status?: string;
   urgency?: string;
+  /** Set exclusively from the authenticated request, never from client query parameters. */
+  authenticatedUserId?: string;
   page?: number;
   limit?: number;
 }
