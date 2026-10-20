@@ -37,7 +37,8 @@ export class StockTransactionController extends BaseController {
   });
 
   update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.update(req.params.id, req.body);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.update(req.params.id, req.body, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
     return this.ok(res, result, 'Transaction updated');
   });
 
