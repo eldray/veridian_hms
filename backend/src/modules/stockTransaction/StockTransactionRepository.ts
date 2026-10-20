@@ -128,6 +128,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') {
         throw new ValidationError('Internal transfer entries cannot be deleted individually. Use the dedicated transfer/reconciliation workflow.');
       }
+      if (transaction.transactionType === 'adjustment') {
+        throw new ValidationError('Stock adjustments cannot be reversed safely because the stored transaction does not preserve the adjustment direction. Record a correcting adjustment with an audit note instead.');
+      }
 
       // Reversing an aggregate-only transaction cannot correctly restore/decrement batch
       // balances. Require a dedicated batch-aware reversal for batch-tracked items.
