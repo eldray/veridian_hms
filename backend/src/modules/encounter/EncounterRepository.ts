@@ -1125,28 +1125,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { notes: `Consumable use edit in progress: ${previous.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
-      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      if (!item || !item.isActive || item.isMedication) {
-        throw new NotFoundError('Active consumable', stockItemId);
-      }
-
-      await tx.stockItem.update({
-        where: { id: previous.stockItemId },
-        data: { currentStock: { increment: previous.quantity } },
-      });
-      const updated = await tx.stockItem.updateMany({
-        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
-        data: { currentStock: { decrement: quantity } },
-      });
-      if (updated.count === 0) {
-        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock + (previous.stockItemId === stockItemId ? previous.quantity : 0)}`);
-      }
-
-      const previousBalance = await tx.stockItem.findUnique({
-        where: { id: previous.stockItemId },
-        select: { currentStock: true },
-      });
-      if (!previousBalance) throw new NotFoundError('Stock item', previous.stockItemId);
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+      if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
+      const previousBalance = await this.restoreConsumableStock(tx, previous.stockItemId, previous.quantity, previous.departmentId, previous.batchAllocations);
+      const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
       await tx.stockTransaction.update({
         where: { id: previous.id },
         data: { notes: `Consumable use edited: ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
@@ -1156,8 +1138,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           stockItemId: previous.stockItemId,
           transactionType: 'adjustment',
           quantity: previous.quantity,
-          balanceAfter: previousBalance.currentStock,
+          balanceAfter: previousBalance,
           reference: encounterId,
+          departmentId: previous.departmentId,
+          batchAllocations: previous.batchAllocations as any,
           notes: `Consumable use edit reversal: ${previous.id}`,
           performedBy: actorId,
         },
@@ -1173,8 +1157,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           stockItemId,
           transactionType: 'sale',
           quantity,
-          balanceAfter: current.currentStock,
+          balanceAfter: consumed.balanceAfter,
           reference: encounterId,
+          departmentId: actor.departmentId,
+          batchAllocations: consumed.allocations as any,
           notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
           performedBy: actorId,
         },
