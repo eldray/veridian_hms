@@ -107,20 +107,21 @@ export class StockTransactionService extends BaseService {
       const purchases = itemTxs.filter((t: any) => t.transactionType === 'purchase').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const sales = itemTxs.filter((t: any) => t.transactionType === 'sale').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const requisitions = itemTxs.filter((t: any) => t.transactionType === 'requisition').reduce((sum: number, t: any) => sum + t.quantity, 0);
+      const writeOffs = itemTxs.filter((t: any) => t.transactionType === 'write_off').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const adjustments = itemTxs.filter((t: any) => t.transactionType === 'adjustment').reduce((sum: number, t: any) => sum + t.quantity, 0);
 
-      const totalOut = sales + requisitions;
+      const totalOut = sales + requisitions + writeOffs;
       const totalIn = purchases + (adjustments > 0 ? adjustments : 0);
       const netChange = totalIn - totalOut;
 
-      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: item.currentStock - netChange, purchases, sales, requisitions, adjustments: Math.abs(adjustments), closingStock: item.currentStock, netChange };
+      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: item.currentStock - netChange, purchases, sales, requisitions, writeOffs, adjustments: Math.abs(adjustments), closingStock: item.currentStock, netChange };
     });
 
     const totals = movementSummary.reduce((acc, item) => {
-      acc.totalPurchases += item.purchases; acc.totalSales += item.sales; acc.totalRequisitions += item.requisitions; acc.totalAdjustments += item.adjustments;
+      acc.totalPurchases += item.purchases; acc.totalSales += item.sales; acc.totalRequisitions += item.requisitions; acc.totalWriteOffs += item.writeOffs; acc.totalAdjustments += item.adjustments;
       return acc;
-    }, { totalPurchases: 0, totalSales: 0, totalRequisitions: 0, totalAdjustments: 0 });
+    }, { totalPurchases: 0, totalSales: 0, totalRequisitions: 0, totalWriteOffs: 0, totalAdjustments: 0 });
 
-    return { period: { startDate: filters.startDate || null, endDate: filters.endDate || null }, totals, items: movementSummary.filter(item => item.purchases > 0 || item.sales > 0 || item.requisitions > 0 || item.adjustments !== 0) };
+    return { period: { startDate: filters.startDate || null, endDate: filters.endDate || null }, totals, items: movementSummary.filter(item => item.purchases > 0 || item.sales > 0 || item.requisitions > 0 || item.writeOffs > 0 || item.adjustments !== 0) };
   }
 }
