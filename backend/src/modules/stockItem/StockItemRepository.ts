@@ -110,7 +110,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
             where: {
-              id: batch.id, quantity: { gte: move },
+              id: batch.id, departmentId: normalizedDepartmentId, wardId: null, quantity: { gte: move },
               ...(transactionType === 'write_off' ? {} : { isActive: true }),
             },
             data: { quantity: { decrement: move } },
