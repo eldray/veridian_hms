@@ -571,6 +571,7 @@ export class EncounterService extends BaseService {
           where: {
             stockItemId: stockItem.id,
             departmentId,
+            wardId: null,
             isActive: true,
             expiryDate: { gt: now },
             quantity: { gte: quantity },
@@ -585,6 +586,7 @@ export class EncounterService extends BaseService {
           where: {
             id: selectedBatch.id,
             departmentId,
+            wardId: null,
             isActive: true,
             expiryDate: { gt: now },
             quantity: { gte: quantity },
