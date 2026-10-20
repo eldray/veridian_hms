@@ -95,23 +95,41 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async addBatchSafely(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date, departmentId?: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const batch = await tx.stockBatch.create({
-        data: {
-          stockItemId, batchNumber, expiryDate, quantity, costPrice,
-          receivedDate: receivedDate || new Date(),
-          ...(departmentId ? { departmentId } : {}),
-        },
-      });
-      await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
-      const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      
-      await tx.stockTransaction.create({
-        data: { stockItemId, transactionType: 'purchase', quantity, balanceAfter: updatedItem!.currentStock, reference: `BATCH-${batchNumber}`, notes: `Added batch ${batchNumber}`, performedBy: 'system' }
-      });
-      return batch;
+  async addBatchWithinTransaction(
+    tx: any,
+    stockItemId: string,
+    batchNumber: string,
+    expiryDate: Date,
+    quantity: number,
+    costPrice: number,
+    receivedDate?: Date,
+    departmentId?: string,
+  ) {
+    const batch = await tx.stockBatch.create({
+      data: {
+        stockItemId, batchNumber, expiryDate, quantity, costPrice,
+        receivedDate: receivedDate || new Date(),
+        ...(departmentId ? { departmentId } : {}),
+      },
     });
+    await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
+    const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+    if (!updatedItem) throw new Error('Stock item not found while receiving batch');
+
+    await tx.stockTransaction.create({
+      data: {
+        stockItemId, transactionType: 'purchase', quantity,
+        balanceAfter: updatedItem.currentStock, reference: `BATCH-${batchNumber}`,
+        notes: `Added batch ${batchNumber}`, performedBy: 'system',
+      },
+    });
+    return batch;
+  }
+
+  async addBatchSafely(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date, departmentId?: string) {
+    return this.prisma.$transaction((tx) =>
+      this.addBatchWithinTransaction(tx, stockItemId, batchNumber, expiryDate, quantity, costPrice, receivedDate, departmentId)
+    );
   }
 
   // ✅ FIXED: Prisma doesn't support comparing two fields directly. We fetch and filter in memory.
