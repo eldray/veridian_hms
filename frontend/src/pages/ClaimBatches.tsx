@@ -1,59 +1,49 @@
-// src/pages/ClaimBatches.tsx
-import { useEffect, useState } from 'react';
+// src/pages/ClaimBatches.tsx — REWRITTEN FOR MONTHLY BATCHES
+import { useEffect, useMemo, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
 import {
-  ArrowLeft,
-  RefreshCw,
-  Plus,
-  Trash2,
-  Eye,
-  Download,
-  CheckCircle,
-  XCircle,
-  Clock,
-  FileText,
-  Calendar,
-  User,
-  DollarSign,
-  Shield,
-  Layers,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Search,
-  Filter,
-  AlertCircle,
-  Loader,
-  Printer,
-  Edit,
-  Lock,
-  Send
+  ArrowLeft, RefreshCw, Plus, Trash2, Eye, Download, CheckCircle,
+  Clock, FileText, Calendar, User, DollarSign, Layers,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+  Search, Filter, Loader, Printer, XCircle, Link as LinkIcon,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 
-interface ClaimBatch {
+type BatchStatus = 'generated' | 'finalized';
+type InsuranceType = 'nhis' | 'private' | 'corporate';
+
+interface BatchRow {
   id: string;
   batchNumber: string;
-  batchDate: string;
-  description: string | null;
+  insuranceType: InsuranceType;
+  periodYear: number;
+  periodMonth: number;
+  totalClaims: number;
   totalAmount: number;
-  status: 'draft' | 'generated' | 'submitted' | 'exported';
-  claims: any[];
-  createdBy: { fullName: string; username: string };
+  status: BatchStatus;
+  description: string | null;
   createdAt: string;
-  xmlGeneratedAt?: string;
-  xmlFilePath?: string;
+  finalizedAt?: string | null;
+  createdBy?: { fullName?: string; username?: string };
+  insuranceProvider?: { id: string; name: string } | null;
+  corporateAccount?: { id: string; companyName: string } | null;
+  claims?: any[];
 }
 
 const ITEMS_PER_PAGE = 10;
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft', color: 'yellow' },
-  { value: 'generated', label: 'XML Generated', color: 'blue' },
-  { value: 'submitted', label: 'Submitted', color: 'purple' },
-  { value: 'exported', label: 'Exported', color: 'green' }
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
 ];
+
+const typeLabel = (t: InsuranceType) =>
+  t === 'nhis' ? 'NHIS' : t === 'private' ? 'Private' : 'Corporate';
+
+const typeColor = (t: InsuranceType) =>
+  t === 'nhis' ? 'text-blue-600 bg-blue-50'
+    : t === 'private' ? 'text-purple-600 bg-purple-50'
+      : 'text-cyan-600 bg-cyan-50';
 
 export default function ClaimBatches() {
   const navigate = useNavigate();
@@ -61,236 +51,189 @@ export default function ClaimBatches() {
 
   const {
     batches,
-    allClaims,
     getClaimBatches,
-    getInsuranceClaims,
-    createClaimBatch,
     getClaimBatch,
-    generateBatchXML,
-    updateBatchStatus,
+    generateClaimBatch,
+    finalizeClaimBatch,
     deleteClaimBatch,
-    isLoading: storeLoading
+    downloadBatchXml,
+    printBatch,
+    getEligibleClaimsForBatch,
+    isLoading,
   } = useInsuranceStore();
 
-  // Local state
+  // Filters
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(ITEMS_PER_PAGE);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [selectedClaims, setSelectedClaims] = useState<Set<string>>(new Set());
-  const [batchDescription, setBatchDescription] = useState('');
-  const [viewingBatch, setViewingBatch] = useState<ClaimBatch | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [processingBatch, setProcessingBatch] = useState<string | null>(null);
-
-  const isLoading = storeLoading;
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const filters: any = {};
-      if (startDate) filters.startDate = startDate;
-      if (endDate) filters.endDate = endDate;
-      
-      await Promise.all([
-        getClaimBatches(filters),
-        getInsuranceClaims()
-      ]);
-    } catch (error) {
-      toastError('Load failed', 'Could not fetch batches');
-    }
-  };
-
-  // Filter batches
-  const filteredBatches = batches.filter(batch => {
-    const matchesSearch = searchTerm === '' ||
-      batch.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (batch.description?.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesStatus = filterStatus === 'all' || batch.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  const [filterType, setFilterType] = useState<'all' | InsuranceType>('all');
+  const [filterStatus, setFilterStatus] = useState<'all' | BatchStatus>('all');
+  const [periodYear, setPeriodYear] = useState('');
+  const [periodMonth, setPeriodMonth] = useState('');
 
   // Pagination
-  const totalItems = filteredBatches.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const paginatedBatches = filteredBatches.slice(startIndex, endIndex);
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // Get eligible claims for batch creation (submitted claims not in any batch, grouped by insurance type)
-  const eligibleClaims = allClaims.filter(claim => 
-    claim.status === 'submitted' && 
-    claim.insuranceProvider &&
-    !claim.batchId
-  );
-  
-  // Group eligible claims by insurance provider type
-  const claimsByType = eligibleClaims.reduce((acc, claim) => {
-    const type = claim.insuranceProvider?.type || 'unknown';
-    if (!acc[type]) acc[type] = [];
-    acc[type].push(claim);
-    return acc;
-  }, {} as Record<string, typeof eligibleClaims>);
+  // Modals
+  const [showCreate, setShowCreate] = useState(false);
+  const [viewing, setViewing] = useState<BatchRow | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const handlePageChange = (page: number) => {
-    if (page >= 1 && page <= totalPages) {
-      setCurrentPage(page);
-    }
-  };
+  // Create form state
+  const now = new Date();
+  const [formType, setFormType] = useState<InsuranceType>('nhis');
+  const [formYear, setFormYear] = useState(now.getFullYear());
+  const [formMonth, setFormMonth] = useState(now.getMonth() + 1);
+  const [formProviderId, setFormProviderId] = useState('');
+  const [formCorporateId, setFormCorporateId] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+  const [eligible, setEligible] = useState<{
+    nhis: number; private: number; corporate: number;
+    totalAmount: { nhis: number; private: number; corporate: number };
+  } | null>(null);
+  const [eligibleLoading, setEligibleLoading] = useState(false);
 
-  const handleToggleClaimSelection = (claimId: string) => {
-    const newSet = new Set(selectedClaims);
-    if (newSet.has(claimId)) {
-      newSet.delete(claimId);
-    } else {
-      newSet.add(claimId);
-    }
-    setSelectedClaims(newSet);
-  };
+  useEffect(() => {
+    loadBatches();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterType, filterStatus, periodYear, periodMonth]);
 
-  const handleSelectAll = () => {
-    if (selectedClaims.size === eligibleClaims.length) {
-      setSelectedClaims(new Set());
-    } else {
-      setSelectedClaims(new Set(eligibleClaims.map(c => c.id)));
-    }
-  };
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterType, filterStatus, periodYear, periodMonth]);
 
-  const handleCreateBatch = async (insuranceType?: string) => {
-    if (selectedClaims.size === 0) {
-      warning('No Claims Selected', 'Please select at least one claim to create a batch');
-      return;
-    }
-
+  const loadBatches = async () => {
     try {
-      const claimIds = Array.from(selectedClaims);
-      
-      // Determine insurance type from selected claims if not provided
-      let targetInsuranceType = insuranceType;
-      if (!targetInsuranceType && selectedClaims.size > 0) {
-        const firstClaim = allClaims.find(c => c.id === claimIds[0]);
-        targetInsuranceType = firstClaim?.insuranceProvider?.type;
-      }
-      
-      await createClaimBatch(claimIds, batchDescription || `Batch of ${claimIds.length} claims`, targetInsuranceType);
-      success('Batch Created', `Batch created with ${claimIds.length} claims`);
-      setShowCreateModal(false);
-      setSelectedClaims(new Set());
-      setBatchDescription('');
-      await loadData();
-    } catch (error: any) {
-      toastError('Create Failed', error.message);
+      const filters: any = {};
+      if (filterType !== 'all') filters.insuranceType = filterType;
+      if (filterStatus !== 'all') filters.status = filterStatus;
+      if (periodYear) filters.periodYear = periodYear;
+      if (periodMonth) filters.periodMonth = periodMonth;
+      await getClaimBatches(filters);
+    } catch (e: any) {
+      toastError('Load failed', e?.message || 'Could not fetch batches');
     }
   };
 
-  const handleViewBatch = async (batchId: string) => {
-    try {
-      const batch = await getClaimBatch(batchId);
-      setViewingBatch(batch);
-    } catch (error: any) {
-      toastError('View Failed', error.message);
-    }
-  };
+  // Eligible preview whenever the create form's period changes
+  useEffect(() => {
+    if (!showCreate) return;
+    let cancelled = false;
+    setEligibleLoading(true);
+    getEligibleClaimsForBatch({ periodYear: formYear, periodMonth: formMonth })
+      .then((r) => { if (!cancelled) setEligible(r); })
+      .catch(() => { if (!cancelled) setEligible(null); })
+      .finally(() => { if (!cancelled) setEligibleLoading(false); });
+    return () => { cancelled = true; };
+  }, [showCreate, formYear, formMonth, getEligibleClaimsForBatch]);
 
-  const handleGenerateXML = async (batchId: string) => {
-    setProcessingBatch(batchId);
-    try {
-      await generateBatchXML(batchId);
-      success('XML Generated', 'Batch XML file downloaded successfully');
-      await loadData();
-    } catch (error: any) {
-      toastError('Generation Failed', error.message);
-    } finally {
-      setProcessingBatch(null);
-    }
-  };
+  const filtered = useMemo(() => {
+    const list = (batches as any[]).filter((b: BatchRow) => {
+      const matchesSearch =
+        !searchTerm ||
+        b.batchNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.description ?? '').toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesSearch;
+    });
+    return list as BatchRow[];
+  }, [batches, searchTerm]);
 
-  const handleDownloadXML = async (batchId: string, batchNumber: string) => {
-    setProcessingBatch(batchId);
-    try {
-      await generateBatchXML(batchId);
-      success('Download Started', 'XML file is being downloaded');
-    } catch (error: any) {
-      toastError('Download Failed', error.message);
-    } finally {
-      setProcessingBatch(null);
-    }
-  };
-
-  const handleUpdateStatus = async (batchId: string, status: string) => {
-    setProcessingBatch(batchId);
-    try {
-      await updateBatchStatus(batchId, status);
-      success('Status Updated', `Batch status changed to ${status}`);
-      await loadData();
-      if (viewingBatch?.id === batchId) {
-        setViewingBatch(await getClaimBatch(batchId));
-      }
-    } catch (error: any) {
-      toastError('Update Failed', error.message);
-    } finally {
-      setProcessingBatch(null);
-    }
-  };
-
-  const handleDeleteBatch = async () => {
-    if (!deleteConfirm) return;
-    setProcessingBatch(deleteConfirm);
-    try {
-      await deleteClaimBatch(deleteConfirm);
-      success('Batch Deleted', 'Batch removed successfully');
-      setDeleteConfirm(null);
-      if (viewingBatch?.id === deleteConfirm) {
-        setViewingBatch(null);
-      }
-      await loadData();
-    } catch (error: any) {
-      toastError('Delete Failed', error.message);
-    } finally {
-      setProcessingBatch(null);
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    const config: Record<string, { bg: string; text: string; icon: JSX.Element }> = {
-      draft: { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: <Edit className="w-3 h-3" /> },
-      generated: { bg: 'bg-blue-100', text: 'text-blue-800', icon: <FileText className="w-3 h-3" /> },
-      submitted: { bg: 'bg-purple-100', text: 'text-purple-800', icon: <Send className="w-3 h-3" /> },
-      exported: { bg: 'bg-green-100', text: 'text-green-800', icon: <CheckCircle className="w-3 h-3" /> }
-    };
-    const c = config[status] || config.draft;
-    return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-        {c.icon}
-        {status.charAt(0).toUpperCase() + status.slice(1)}
-      </span>
-    );
-  };
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const pageRows = filtered.slice(startIndex, endIndex);
 
   const stats = {
-    total: batches.length,
-    draft: batches.filter(b => b.status === 'draft').length,
-    generated: batches.filter(b => b.status === 'generated').length,
-    submitted: batches.filter(b => b.status === 'submitted').length,
-    exported: batches.filter(b => b.status === 'exported').length,
-    totalAmount: batches.reduce((sum, b) => sum + b.totalAmount, 0)
+    total: filtered.length,
+    generated: filtered.filter((b) => b.status === 'generated').length,
+    finalized: filtered.filter((b) => b.status === 'finalized').length,
+    totalAmount: filtered.reduce((s, b) => s + Number(b.totalAmount || 0), 0),
   };
 
+  const handleCreate = async () => {
+    try {
+      setProcessingId('__create__');
+      await generateClaimBatch({
+        insuranceType: formType,
+        periodYear: formYear,
+        periodMonth: formMonth,
+        insuranceProviderId: formProviderId || undefined,
+        corporateAccountId: formType === 'corporate' ? (formCorporateId || undefined) : undefined,
+        description: formDescription || undefined,
+      });
+      success('Batch generated', `Batches are built from all finalized un-batched ${typeLabel(formType)} claims in ${MONTH_NAMES[formMonth - 1]} ${formYear}`);
+      setShowCreate(false);
+      setFormDescription('');
+      await loadBatches();
+    } catch (e: any) {
+      toastError('Generation failed', e?.response?.data?.message || e?.message || 'Could not generate batch');
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleView = async (id: string) => {
+    try {
+      const b = await getClaimBatch(id);
+      setViewing(b as unknown as BatchRow);
+    } catch (e: any) {
+      toastError('View failed', e?.message || 'Could not load batch');
+    }
+  };
+
+  const handleDownloadXml = (id: string) => {
+    downloadBatchXml(id);
+    success('XML ready', 'Batch XML is downloading');
+  };
+
+  const handlePrint = (id: string) => {
+    printBatch(id);
+  };
+
+  const handleFinalize = async (id: string) => {
+    try {
+      setProcessingId(id);
+      await finalizeClaimBatch(id);
+      success('Finalized', 'Batch is now finalized and can no longer be deleted');
+      await loadBatches();
+      if (viewing?.id === id) {
+        const refreshed = await getClaimBatch(id);
+        setViewing(refreshed as unknown as BatchRow);
+      }
+    } catch (e: any) {
+      toastError('Finalize failed', e?.response?.data?.message || e?.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    try {
+      setProcessingId(deleteId);
+      await deleteClaimBatch(deleteId);
+      success('Deleted', 'Batch removed; its claims are now un-batched');
+      if (viewing?.id === deleteId) setViewing(null);
+      setDeleteId(null);
+      await loadBatches();
+    } catch (e: any) {
+      toastError('Delete failed', e?.response?.data?.message || e?.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  const statusBadge = (status: BatchStatus) =>
+    status === 'generated'
+      ? <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"><Clock className="w-3 h-3" />Generated</span>
+      : <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800"><CheckCircle className="w-3 h-3" />Finalized</span>;
+
+  // ─────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]"
-          >
+          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)]">
             <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
           </button>
           <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
@@ -298,27 +241,26 @@ export default function ClaimBatches() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-[var(--text-primary)]">Claim Batches</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Group NHIS claims into batches for submission</p>
+            <p className="text-sm text-[var(--text-secondary)]">Monthly bundles of finalized claims per insurance type</p>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {Object.keys(claimsByType).map(type => (
-            claimsByType[type].length > 0 && (
-              <button
-                key={type}
-                onClick={() => {
-                  setShowCreateModal(true);
-                  setSelectedClaims(new Set());
-                }}
-                className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Create {type.toUpperCase()} Batch ({claimsByType[type].length})
-              </button>
-            )
-          ))}
+          <Link
+            to="/dashboard/insurance-claims"
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm"
+          >
+            <FileText className="w-4 h-4" />
+            View All Claims
+          </Link>
           <button
-            onClick={loadData}
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Generate Batch
+          </button>
+          <button
+            onClick={loadBatches}
             disabled={isLoading}
             className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm"
           >
@@ -328,503 +270,453 @@ export default function ClaimBatches() {
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
-          <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Batches</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
-          <div className="text-2xl font-bold text-yellow-600">{stats.draft}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Draft</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
-          <div className="text-2xl font-bold text-blue-600">{stats.generated}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">XML Generated</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
-          <div className="text-2xl font-bold text-purple-600">{stats.submitted}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Submitted</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
-          <div className="text-lg font-bold text-[var(--text-primary)]">GHS {stats.totalAmount.toFixed(2)}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Amount</div>
-        </div>
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Total Batches" value={stats.total} />
+        <StatCard label="Generated" value={stats.generated} color="text-blue-600" />
+        <StatCard label="Finalized" value={stats.finalized} color="text-green-600" />
+        <StatCard label="Total Amount" value={`GHS ${stats.totalAmount.toFixed(2)}`} />
       </div>
 
       {/* Filters */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
         <div className="flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[200px] relative">
+          <div className="flex-1 min-w-[220px] relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
-              placeholder="Search by batch number or description..."
+              placeholder="Search batch number or description…"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[var(--text-secondary)]">Start Date</label>
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-[var(--text-secondary)]">End Date</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
-            />
-          </div>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value as any)}
+            className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+          >
+            <option value="all">All Types</option>
+            <option value="nhis">NHIS</option>
+            <option value="private">Private</option>
+            <option value="corporate">Corporate</option>
+          </select>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => setFilterStatus(e.target.value as any)}
             className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
           >
             <option value="all">All Status</option>
-            {STATUS_OPTIONS.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            <option value="generated">Generated</option>
+            <option value="finalized">Finalized</option>
+          </select>
+          <input
+            type="number"
+            placeholder="Year"
+            value={periodYear}
+            onChange={(e) => setPeriodYear(e.target.value)}
+            className="w-24 px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+          />
+          <select
+            value={periodMonth}
+            onChange={(e) => setPeriodMonth(e.target.value)}
+            className="px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+          >
+            <option value="">All Months</option>
+            {MONTH_NAMES.map((m, i) => (
+              <option key={m} value={i + 1}>{m}</option>
             ))}
           </select>
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition text-sm"
-          >
-            <Filter className="w-4 h-4" />
-            Apply Filters
-          </button>
-          {(startDate || endDate || filterStatus !== 'all' || searchTerm) && (
+          {(searchTerm || filterType !== 'all' || filterStatus !== 'all' || periodYear || periodMonth) && (
             <button
               onClick={() => {
-                setStartDate('');
-                setEndDate('');
-                setFilterStatus('all');
-                setSearchTerm('');
+                setSearchTerm(''); setFilterType('all'); setFilterStatus('all');
+                setPeriodYear(''); setPeriodMonth('');
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-card)] transition text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
             >
-              <XCircle className="w-4 h-4" />
-              Clear
+              <XCircle className="w-4 h-4" /> Clear
             </button>
           )}
         </div>
       </div>
 
-      {/* Results info */}
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <p className="text-sm text-[var(--text-secondary)]">
-          Showing <span className="font-medium text-[var(--text-primary)]">{startIndex + 1}</span> to{' '}
-          <span className="font-medium text-[var(--text-primary)]">{Math.min(endIndex, totalItems)}</span> of{' '}
-          <span className="font-medium text-[var(--text-primary)]">{totalItems}</span> batches
-        </p>
+      {/* Results meta */}
+      <div className="text-sm text-[var(--text-secondary)]">
+        Showing <span className="font-medium text-[var(--text-primary)]">{filtered.length === 0 ? 0 : startIndex + 1}</span> to{' '}
+        <span className="font-medium text-[var(--text-primary)]">{Math.min(endIndex, filtered.length)}</span> of{' '}
+        <span className="font-medium text-[var(--text-primary)]">{filtered.length}</span> batches
       </div>
 
-      {/* Batches Grid */}
+      {/* Table */}
       {isLoading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
-              <div className="h-5 bg-[var(--bg-main)] rounded w-1/3 mb-3"></div>
-              <div className="grid grid-cols-4 gap-3">
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-                <div className="h-3 bg-[var(--bg-main)] rounded"></div>
-              </div>
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">
+              <div className="h-4 bg-[var(--bg-main)] rounded w-1/4 mb-2" />
+              <div className="h-3 bg-[var(--bg-main)] rounded w-2/3" />
             </div>
           ))}
         </div>
-      ) : paginatedBatches.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
           <Layers className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
           <p className="text-[var(--text-secondary)]">No claim batches found</p>
-          {eligibleClaims.length > 0 && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="mt-4 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm"
-            >
-              Create your first batch
-            </button>
-          )}
+          <button
+            onClick={() => setShowCreate(true)}
+            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm"
+          >
+            Generate your first batch
+          </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {paginatedBatches.map(batch => (
-            <div
-              key={batch.id}
-              className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-md transition-all overflow-hidden"
-            >
-              <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-bold text-[var(--text-primary)]">{batch.batchNumber}</h3>
-                    <p className="text-xs text-[var(--text-secondary)] mt-0.5">
-                      {batch.description || `Batch of ${batch.claims?.length || 0} claims`}
-                    </p>
-                  </div>
-                  {getStatusBadge(batch.status)}
-                </div>
-              </div>
-              <div className="p-4 space-y-3">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-[var(--text-tertiary)]" />
-                    <span className="text-[var(--text-secondary)]">{new Date(batch.batchDate).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <User className="w-4 h-4 text-[var(--text-tertiary)]" />
-                    <span className="text-[var(--text-secondary)]">{batch.createdBy?.fullName || batch.createdBy?.username}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <FileText className="w-4 h-4 text-[var(--text-tertiary)]" />
-                    <span className="text-[var(--text-secondary)]">{batch.claims?.length || 0} claims</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-[var(--text-tertiary)]" />
-                    <span className="font-medium text-[var(--text-primary)]">GHS {batch.totalAmount.toFixed(2)}</span>
-                  </div>
-                </div>
-                <div className="flex gap-2 pt-2 border-t border-[var(--border-color)]">
-                  <button
-                    onClick={() => handleViewBatch(batch.id)}
-                    className="flex-1 py-1.5 text-xs flex items-center justify-center gap-1 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition"
-                  >
-                    <Eye className="w-3 h-3" />
-                    View Details
-                  </button>
-                  {batch.status === 'draft' && (
-                    <button
-                      onClick={() => handleGenerateXML(batch.id)}
-                      disabled={processingBatch === batch.id}
-                      className="flex-1 py-1.5 text-xs flex items-center justify-center gap-1 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition disabled:opacity-50"
-                    >
-                      {processingBatch === batch.id ? (
-                        <Loader className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Download className="w-3 h-3" />
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Batch #</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Period</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Provider / Account</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Claims</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {pageRows.map((b) => (
+                <tr key={b.id} className="hover:bg-[var(--bg-main)]">
+                  <td className="px-4 py-3 font-mono text-xs">{b.batchNumber}</td>
+                  <td className="px-4 py-3">
+                    {MONTH_NAMES[(b.periodMonth ?? 1) - 1]} {b.periodYear}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${typeColor(b.insuranceType)}`}>
+                      {typeLabel(b.insuranceType)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {b.insuranceType === 'corporate'
+                      ? (b.corporateAccount?.companyName ?? '—')
+                      : (b.insuranceProvider?.name ?? '—')}
+                  </td>
+                  <td className="px-4 py-3 text-right">{b.totalClaims ?? b.claims?.length ?? 0}</td>
+                  <td className="px-4 py-3 text-right font-medium">GHS {Number(b.totalAmount || 0).toFixed(2)}</td>
+                  <td className="px-4 py-3">{statusBadge(b.status)}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button onClick={() => handleView(b.id)} title="View" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      {b.insuranceType === 'nhis' && (
+                        <button onClick={() => handleDownloadXml(b.id)} title="Download XML" className="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg">
+                          <Download className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                      Generate XML
-                    </button>
-                  )}
-                  {(batch.status === 'generated' || batch.status === 'submitted' || batch.status === 'exported') && (
-                    <button
-                      onClick={() => handleDownloadXML(batch.id, batch.batchNumber)}
-                      disabled={processingBatch === batch.id}
-                      className="flex-1 py-1.5 text-xs flex items-center justify-center gap-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition disabled:opacity-50"
-                    >
-                      {processingBatch === batch.id ? (
-                        <Loader className="w-3 h-3 animate-spin" />
-                      ) : (
-                        <Download className="w-3 h-3" />
+                      <button onClick={() => handlePrint(b.id)} title="Print" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
+                        <Printer className="w-3.5 h-3.5" />
+                      </button>
+                      {b.status === 'generated' && (
+                        <button
+                          onClick={() => handleFinalize(b.id)}
+                          disabled={processingId === b.id}
+                          title="Finalize"
+                          className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5" />
+                        </button>
                       )}
-                      Download XML
-                    </button>
-                  )}
-                  {batch.status === 'generated' && (
-                    <button
-                      onClick={() => handleUpdateStatus(batch.id, 'submitted')}
-                      disabled={processingBatch === batch.id}
-                      className="flex-1 py-1.5 text-xs flex items-center justify-center gap-1 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition disabled:opacity-50"
-                    >
-                      <Send className="w-3 h-3" />
-                      Submit
-                    </button>
-                  )}
-                  {batch.status === 'draft' && (
-                    <button
-                      onClick={() => setDeleteConfirm(batch.id)}
-                      disabled={processingBatch === batch.id}
-                      className="py-1.5 px-3 text-xs bg-red-100 text-red-600 rounded-lg hover:bg-red-600 hover:text-white transition disabled:opacity-50"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+                      {b.status === 'generated' && (
+                        <button
+                          onClick={() => setDeleteId(b.id)}
+                          disabled={processingId === b.id}
+                          title="Delete"
+                          className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg disabled:opacity-50"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2 pt-4">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <ChevronsLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <span className="text-sm text-[var(--text-secondary)]">
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
-            className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <ChevronsRight className="w-4 h-4" />
-          </button>
+        <div className="flex items-center justify-center gap-2 pt-2">
+          <button onClick={() => setCurrentPage(1)} disabled={currentPage === 1} className="p-2 disabled:opacity-40"><ChevronsLeft className="w-4 h-4" /></button>
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 disabled:opacity-40"><ChevronLeft className="w-4 h-4" /></button>
+          <span className="text-sm text-[var(--text-secondary)]">Page {currentPage} of {totalPages}</span>
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="p-2 disabled:opacity-40"><ChevronRight className="w-4 h-4" /></button>
+          <button onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages} className="p-2 disabled:opacity-40"><ChevronsRight className="w-4 h-4" /></button>
         </div>
       )}
 
-      {/* Create Batch Modal */}
-      {showCreateModal && (
+      {/* ── Create batch (month) modal ─────────────────────────── */}
+      {showCreate && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto border">
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b px-5 py-3 flex justify-between items-center">
-              <h3 className="font-bold text-lg">Create Claim Batch</h3>
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setSelectedClaims(new Set());
-                  setBatchDescription('');
-                }}
-                className="p-1 hover:bg-[var(--bg-main)] rounded"
-              >
-                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full border">
+            <div className="border-b px-5 py-3 flex justify-between items-center">
+              <h3 className="font-bold text-lg">Generate Monthly Batch</h3>
+              <button onClick={() => setShowCreate(false)} className="p-1 hover:bg-[var(--bg-main)] rounded">
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5">
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                  Batch Description (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={batchDescription}
-                  onChange={(e) => setBatchDescription(e.target.value)}
-                  placeholder="e.g., October 2024 NHIS Claims"
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
-                />
-              </div>
-              <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="text-sm font-medium text-[var(--text-primary)]">
-                    Select Claims ({eligibleClaims.length} available)
-                  </label>
-                  <button
-                    onClick={handleSelectAll}
-                    className="text-xs text-[var(--icon-cyan-text)] hover:underline"
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-[var(--text-secondary)]">
+                The batch is built automatically from <strong>finalized, un-batched</strong> claims whose attendance date falls in the selected month. You cannot pick individual claims.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium mb-1">Insurance Type</label>
+                  <select
+                    value={formType}
+                    onChange={(e) => setFormType(e.target.value as InsuranceType)}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
                   >
-                    {selectedClaims.size === eligibleClaims.length ? 'Deselect All' : 'Select All'}
-                  </button>
+                    <option value="nhis">NHIS</option>
+                    <option value="private">Private</option>
+                    <option value="corporate">Corporate</option>
+                  </select>
                 </div>
-                <div className="border rounded-lg overflow-hidden max-h-96 overflow-y-auto">
-                  {eligibleClaims.length === 0 ? (
-                    <div className="p-8 text-center text-[var(--text-secondary)]">
-                      No eligible claims found. Claims must be NHIS and finalized (submitted).
-                    </div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead className="bg-[var(--bg-main)] sticky top-0">
-                        <tr>
-                          <th className="px-3 py-2 text-left w-10">
-                            <input
-                              type="checkbox"
-                              checked={selectedClaims.size === eligibleClaims.length && eligibleClaims.length > 0}
-                              onChange={handleSelectAll}
-                              className="rounded"
-                            />
-                          </th>
-                          <th className="px-3 py-2 text-left">Claim Number</th>
-                          <th className="px-3 py-2 text-left">Patient</th>
-                          <th className="px-3 py-2 text-right">Amount</th>
-                          <th className="px-3 py-2 text-left">Date</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y">
-                        {eligibleClaims.map(claim => (
-                          <tr key={claim.id} className="hover:bg-[var(--bg-main)]">
-                            <td className="px-3 py-2">
-                              <input
-                                type="checkbox"
-                                checked={selectedClaims.has(claim.id)}
-                                onChange={() => handleToggleClaimSelection(claim.id)}
-                                className="rounded"
-                              />
-                            </td>
-                            <td className="px-3 py-2 font-mono text-xs">{claim.claimNumber}</td>
-                            <td className="px-3 py-2">
-                              {claim.patient?.surname} {claim.patient?.otherNames}
-                            </td>
-                            <td className="px-3 py-2 text-right font-medium">
-                              GHS {claim.totalClaimAmount?.toFixed(2)}
-                            </td>
-                            <td className="px-3 py-2 text-xs text-[var(--text-secondary)]">
-                              {new Date(claim.createdAt).toLocaleDateString()}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
+                <div>
+                  <label className="block text-xs font-medium mb-1">Description (optional)</label>
+                  <input
+                    type="text"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    placeholder="e.g., October NHIS batch"
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+                  />
                 </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Year</label>
+                  <input
+                    type="number"
+                    value={formYear}
+                    onChange={(e) => setFormYear(parseInt(e.target.value, 10) || formYear)}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium mb-1">Month</label>
+                  <select
+                    value={formMonth}
+                    onChange={(e) => setFormMonth(parseInt(e.target.value, 10))}
+                    className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm"
+                  >
+                    {MONTH_NAMES.map((m, i) => (
+                      <option key={m} value={i + 1}>{m}</option>
+                    ))}
+                  </select>
+                </div>
+                {formType !== 'nhis' && (
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium mb-1">
+                      {formType === 'corporate' ? 'Corporate Account ID (optional)' : 'Insurance Provider ID'}
+                    </label>
+                    <input
+                      type="text"
+                      value={formType === 'corporate' ? formCorporateId : formProviderId}
+                      onChange={(e) => formType === 'corporate' ? setFormCorporateId(e.target.value) : setFormProviderId(e.target.value)}
+                      placeholder="UUID"
+                      className="w-full px-3 py-2 bg-[var(--bg-main)] border rounded-lg text-sm font-mono"
+                    />
+                  </div>
+                )}
               </div>
+
+              <div className="rounded-lg border bg-[var(--bg-main)] p-3">
+                <p className="text-xs font-medium mb-2 text-[var(--text-secondary)]">
+                  Eligible claims in {MONTH_NAMES[formMonth - 1]} {formYear}
+                </p>
+                {eligibleLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+                    <Loader className="w-3 h-3 animate-spin" /> Loading…
+                  </div>
+                ) : eligible ? (
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <EligibleChip type="nhis" count={eligible.nhis} amount={eligible.totalAmount.nhis} active={formType === 'nhis'} />
+                    <EligibleChip type="private" count={eligible.private} amount={eligible.totalAmount.private} active={formType === 'private'} />
+                    <EligibleChip type="corporate" count={eligible.corporate} amount={eligible.totalAmount.corporate} active={formType === 'corporate'} />
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-600">Could not load eligible claims</p>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-3 border-t">
                 <button
-                  onClick={handleCreateBatch}
-                  disabled={selectedClaims.size === 0}
+                  onClick={handleCreate}
+                  disabled={
+                    processingId === '__create__' ||
+                    !eligible ||
+                    (eligible[formType] ?? 0) === 0
+                  }
                   className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50"
                 >
-                  Create Batch ({selectedClaims.size} claims)
+                  {processingId === '__create__' ? 'Generating…' : `Generate ${typeLabel(formType)} Batch (${eligible?.[formType] ?? 0})`}
                 </button>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setSelectedClaims(new Set());
-                    setBatchDescription('');
-                  }}
-                  className="flex-1 px-4 py-2 border rounded-lg"
-                >
-                  Cancel
-                </button>
+                <button onClick={() => setShowCreate(false)} className="px-4 py-2 border rounded-lg">Cancel</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* View Batch Modal */}
-      {viewingBatch && (
+      {/* ── View batch modal ───────────────────────────────────── */}
+      {viewing && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto border">
             <div className="sticky top-0 bg-[var(--bg-card)] border-b px-5 py-3 flex justify-between items-center">
               <div>
-                <h3 className="font-bold text-lg">{viewingBatch.batchNumber}</h3>
-                <p className="text-xs text-[var(--text-secondary)]">{viewingBatch.description}</p>
+                <h3 className="font-bold text-lg">{viewing.batchNumber}</h3>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  {MONTH_NAMES[(viewing.periodMonth ?? 1) - 1]} {viewing.periodYear} · {typeLabel(viewing.insuranceType)}
+                </p>
               </div>
-              <button onClick={() => setViewingBatch(null)} className="p-1 hover:bg-[var(--bg-main)] rounded">
-                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
+              <button onClick={() => setViewing(null)} className="p-1 hover:bg-[var(--bg-main)] rounded">
+                <XCircle className="w-5 h-5" />
               </button>
             </div>
-            <div className="p-5">
-              {/* Batch Info */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 pb-4 border-b">
+
+            <div className="p-5 space-y-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pb-4 border-b text-sm">
                 <div>
                   <p className="text-xs text-[var(--text-secondary)]">Status</p>
-                  <div className="mt-1">{getStatusBadge(viewingBatch.status)}</div>
+                  <div className="mt-1">{statusBadge(viewing.status)}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">Claims</p>
+                  <p className="font-medium">{viewing.totalClaims ?? viewing.claims?.length ?? 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-[var(--text-secondary)]">Amount</p>
+                  <p className="font-bold">GHS {Number(viewing.totalAmount || 0).toFixed(2)}</p>
                 </div>
                 <div>
                   <p className="text-xs text-[var(--text-secondary)]">Created By</p>
-                  <p className="text-sm font-medium">{viewingBatch.createdBy?.fullName || viewingBatch.createdBy?.username}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)]">Created Date</p>
-                  <p className="text-sm">{new Date(viewingBatch.createdAt).toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)]">Total Amount</p>
-                  <p className="text-lg font-bold text-[var(--text-primary)]">GHS {viewingBatch.totalAmount.toFixed(2)}</p>
+                  <p className="font-medium">{viewing.createdBy?.fullName ?? viewing.createdBy?.username ?? '—'}</p>
                 </div>
               </div>
 
-              {/* Claims Table */}
-              <h4 className="font-semibold mb-3">Claims in this Batch ({viewingBatch.claims?.length || 0})</h4>
-              <div className="border rounded-lg overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)]">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Claim Number</th>
-                      <th className="px-3 py-2 text-left">Patient</th>
-                      <th className="px-3 py-2 text-right">Amount</th>
-                      <th className="px-3 py-2 text-left">Status</th>
-                      <th className="px-3 py-2 text-left">Principal GDRG</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {viewingBatch.claims?.map(claim => (
-                      <tr key={claim.id} className="hover:bg-[var(--bg-main)]">
-                        <td className="px-3 py-2 font-mono text-xs">{claim.claimNumber}</td>
-                        <td className="px-3 py-2">
-                          {claim.patient?.surname} {claim.patient?.otherNames}
-                        </td>
-                        <td className="px-3 py-2 text-right font-medium">GHS {claim.totalClaimAmount?.toFixed(2)}</td>
-                        <td className="px-3 py-2">
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${claim.status === 'submitted' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100'}`}>
-                            {claim.status}
-                          </span>
-                        </td>
-                        <td className="px-3 py-2 font-mono text-xs">{claim.principalGDRG || '—'}</td>
+              <div>
+                <h4 className="font-semibold mb-2">Claims ({viewing.claims?.length ?? 0})</h4>
+                <div className="border rounded-lg overflow-x-auto max-h-80 overflow-y-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[var(--bg-main)] sticky top-0">
+                      <tr>
+                        <th className="px-3 py-2 text-left">Claim #</th>
+                        <th className="px-3 py-2 text-left">Patient</th>
+                        <th className="px-3 py-2 text-right">Amount</th>
+                        <th className="px-3 py-2 text-left">Status</th>
+                        <th className="px-3 py-2 text-right">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y">
+                      {(viewing.claims ?? []).map((c: any) => (
+                        <tr key={c.id} className="hover:bg-[var(--bg-main)]">
+                          <td className="px-3 py-2 font-mono text-xs">{c.claimNumber}</td>
+                          <td className="px-3 py-2">{(c.patient?.surname ?? c.Patient?.surname ?? '')} {(c.patient?.otherNames ?? c.Patient?.otherNames ?? '')}</td>
+                          <td className="px-3 py-2 text-right">GHS {Number(c.totalClaimAmount || 0).toFixed(2)}</td>
+                          <td className="px-3 py-2 text-xs">{c.status}</td>
+                          <td className="px-3 py-2 text-right">
+                            <Link
+                              to={`/dashboard/insurance-claims/${c.id}/edit`}
+                              className="text-xs text-blue-600 hover:underline inline-flex items-center gap-1"
+                            >
+                              <LinkIcon className="w-3 h-3" />
+                              Open claim
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 pt-5 mt-4 border-t">
-                {viewingBatch.status === 'draft' && (
-                  <button
-                    onClick={() => handleGenerateXML(viewingBatch.id)}
-                    disabled={processingBatch === viewingBatch.id}
-                    className="flex-1 py-2 flex items-center justify-center gap-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white"
-                  >
-                    <Download className="w-4 h-4" />
-                    Generate Batch XML
+              <div className="flex gap-3 pt-3 border-t flex-wrap">
+                {viewing.insuranceType === 'nhis' && (
+                  <button onClick={() => handleDownloadXml(viewing.id)} className="flex-1 py-2 rounded-lg bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white text-sm flex items-center justify-center gap-2">
+                    <Download className="w-4 h-4" /> Download NHIS XML
                   </button>
                 )}
-                {viewingBatch.status === 'generated' && (
-                  <button
-                    onClick={() => handleUpdateStatus(viewingBatch.id, 'submitted')}
-                    className="flex-1 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white"
-                  >
-                    Mark as Submitted
-                  </button>
-                )}
-                <button onClick={() => setViewingBatch(null)} className="flex-1 py-2 border rounded-lg">
-                  Close
+                <button onClick={() => handlePrint(viewing.id)} className="flex-1 py-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-600 hover:text-white text-sm flex items-center justify-center gap-2">
+                  <Printer className="w-4 h-4" /> Print Batch Summary
                 </button>
+                {viewing.status === 'generated' && (
+                  <button
+                    onClick={() => handleFinalize(viewing.id)}
+                    disabled={processingId === viewing.id}
+                    className="flex-1 py-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-600 hover:text-white text-sm disabled:opacity-50"
+                  >
+                    Finalize Batch
+                  </button>
+                )}
+                <button onClick={() => setViewing(null)} className="px-4 py-2 border rounded-lg text-sm">Close</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
-      {deleteConfirm && (
+      {/* ── Delete confirm ─────────────────────────────────────── */}
+      {deleteId && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 max-w-md w-full">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 max-w-md w-full border">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-lg flex items-center justify-center">
                 <Trash2 className="w-5 h-5 text-red-600" />
               </div>
               <div>
                 <h3 className="text-lg font-bold">Delete Batch</h3>
-                <p className="text-sm text-[var(--text-secondary)]">This action cannot be undone.</p>
+                <p className="text-sm text-[var(--text-secondary)]">Only generated batches can be deleted.</p>
               </div>
             </div>
-            <p className="mb-6">Are you sure you want to delete this batch? All claims will be removed from the batch.</p>
+            <p className="mb-6 text-sm">
+              The claims in this batch will return to "finalized, un-batched" and can be picked up by a future batch.
+            </p>
             <div className="flex gap-3">
-              <button onClick={() => setDeleteConfirm(null)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
-              <button onClick={handleDeleteBatch} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Delete</button>
+              <button onClick={() => setDeleteId(null)} className="flex-1 px-4 py-2 border rounded-lg">Cancel</button>
+              <button
+                onClick={handleDelete}
+                disabled={processingId === deleteId}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {processingId === deleteId ? 'Deleting…' : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StatCard({ label, value, color }: { label: string; value: number | string; color?: string }) {
+  return (
+    <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] text-center">
+      <div className={`text-2xl font-bold ${color ?? 'text-[var(--text-primary)]'}`}>{value}</div>
+      <div className="text-xs text-[var(--text-secondary)] mt-1">{label}</div>
+    </div>
+  );
+}
+
+function EligibleChip({
+  type, count, amount, active,
+}: { type: InsuranceType; count: number; amount: number; active: boolean }) {
+  return (
+    <div className={`rounded-lg border p-2 ${active ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]/20' : 'border-[var(--border-color)]'}`}>
+      <p className="text-xs font-medium text-[var(--text-secondary)]">{typeLabel(type)}</p>
+      <p className="text-lg font-bold text-[var(--text-primary)]">{count}</p>
+      <p className="text-[11px] text-[var(--text-secondary)]">GHS {amount.toFixed(2)}</p>
     </div>
   );
 }

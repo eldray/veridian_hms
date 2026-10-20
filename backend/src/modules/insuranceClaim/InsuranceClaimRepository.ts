@@ -1,132 +1,28 @@
-import { Prisma, PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 
-const CLAIM_LIST_INCLUDE = {
-  InsuranceProvider: {
-    select: { id: true, name: true, type: true, coveragePercentage: true },
-  },
-  Patient: {
-    select: {
-      id: true,
-      folderNumber: true,
-      surname: true,
-      otherNames: true,
-      dateOfBirth: true,
-      gender: true,
-      nhisNumber: true,
-      nhisExpiryDate: true,
-      insuranceDetails: true,
-      contact: true,
-      phoneNumber: true,
-    },
-  },
-  Attendance: {
-    select: {
-      id: true,
-      attendanceNumber: true,
-      dateTime: true,
-      status: true,
-      nhisCCC: true,
-      attendanceType: true,
-      encounterCategory: true,
-      corporateEmployeeId: true,
-      preAuthNumber: true,
-    },
-  },
-  Bill: { select: { id: true, billNumber: true, totalAmount: true } },
-  CorporateAccount: { select: { id: true, companyName: true } },
-} as const;
-
-const CLAIM_DETAIL_INCLUDE = {
-  InsuranceProvider: true,
-  Patient: true,
-  Bill: { include: { BillLineItem: { include: { serviceCatalog: true } } } },
-  CorporateAccount: { include: { employees: { where: { isActive: true } } } },
-  finalizedBy: { select: { id: true, fullName: true, username: true, licenseNumber: true } },
-  Attendance: {
-    include: {
-      Patient: true,
-      Admission: true,
-      AttendanceDiagnosis: { include: { Diagnosis: true, User: { select: { id: true, fullName: true, licenseNumber: true } } } },
-      LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
-      Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
-      Medication: { include: { StockItem: true, ServiceCatalog: true } },
-      Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
-      ServiceRendered: { include: { ServiceCatalog: true } },
-      WardChargeRecord: true,
-      referral: true,
-    },
-  },
-  items: {
-    include: {
-      diagnosis: true,
-      gdrgTariff: true,
-      labTest: { include: { LabTestTemplate: true } },
-      scan: { include: { ScanTemplate: true } },
-      procedure: { include: { ProcedureTemplate: true } },
-      medication: { include: { StockItem: true } },
-      serviceCatalog: true,
-    },
-    orderBy: { itemNumber: 'asc' },
-  },
-} as const;
-
-export interface ClaimListFilters {
-  status?: string | string[];
-  insuranceProviderId?: string;
-  corporateAccountId?: string;
-  patientId?: string;
-  dateFrom?: Date;
-  dateTo?: Date;
-  page?: number;
-  limit?: number;
-}
-
-export interface BatchListFilters {
-  insuranceType?: string;
-  insuranceProviderId?: string;
-  corporateAccountId?: string;
-  status?: string;
-  periodYear?: number;
-  periodMonth?: number;
-  page?: number;
-  limit?: number;
-}
-
-export class InsuranceClaimRepository extends BaseRepository<unknown, unknown, unknown> {
+export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'insuranceClaim');
   }
 
   // ==========================================
-  // CLAIM — LIST & DETAIL
+  // GENERAL CLAIM QUERIES
   // ==========================================
-  async findClaimsPaginated(filters: ClaimListFilters) {
-    const {
-      status,
-      insuranceProviderId,
-      corporateAccountId,
-      patientId,
-      dateFrom,
-      dateTo,
-      page = 1,
-      limit = 20,
-    } = filters;
+  async findAllWithFilters(filters: any) {
+    const { status, insuranceProviderId, patientId, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const where: any = {};
 
-    const where: Prisma.InsuranceClaimWhereInput = {};
-    if (status) {
-      where.status = Array.isArray(status) ? { in: status as any } : (status as any);
-    }
+    if (status) where.status = Array.isArray(status) ? { in: status } : status;
     if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
     if (patientId) where.patientId = patientId;
     if (dateFrom || dateTo) {
       where.createdAt = {};
-      if (dateFrom) (where.createdAt as any).gte = dateFrom;
+      if (dateFrom) where.createdAt.gte = dateFrom;
       if (dateTo) {
         const d = new Date(dateTo);
         d.setHours(23, 59, 59, 999);
-        (where.createdAt as any).lte = d;
+        where.createdAt.lte = d;
       }
     }
 
@@ -135,175 +31,216 @@ export class InsuranceClaimRepository extends BaseRepository<unknown, unknown, u
       page,
       limit,
       orderBy: { createdAt: 'desc' },
-      include: CLAIM_LIST_INCLUDE,
-    });
-  }
-
-  async findClaimsByProviderType(
-    providerType: 'nhis' | 'private' | 'corporate',
-    filters: Omit<ClaimListFilters, 'insuranceProviderId'>,
-  ) {
-    const {
-      status,
-      patientId,
-      corporateAccountId,
-      dateFrom,
-      dateTo,
-      page = 1,
-      limit = 20,
-    } = filters;
-
-    const where: Prisma.InsuranceClaimWhereInput = {
-      InsuranceProvider: { is: { type: providerType as any } },
-    };
-    if (status) where.status = status as any;
-    if (patientId) where.patientId = patientId;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
-    if (dateFrom || dateTo) {
-      where.Attendance = {};
-      const att: any = where.Attendance;
-      if (dateFrom) att.dateTime = { ...att.dateTime, gte: dateFrom };
-      if (dateTo) {
-        const d = new Date(dateTo);
-        d.setHours(23, 59, 59, 999);
-        att.dateTime = { ...att.dateTime, lte: d };
+      include: {
+        InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
       }
-    }
-
-    return this.findManyWithPagination({
-      where,
-      page,
-      limit,
-      orderBy: { createdAt: 'desc' },
-      include: CLAIM_LIST_INCLUDE,
     });
   }
 
-  async findClaimById(id: string) {
+  async findByIdWithDetails(id: string) {
     return this.getModel().findUnique({
       where: { id },
-      include: CLAIM_DETAIL_INCLUDE,
-    });
-  }
-
-  async findClaimByAttendanceId(attendanceId: string) {
-    return this.getModel().findFirst({
-      where: { attendanceId },
-      include: CLAIM_DETAIL_INCLUDE,
-    });
-  }
-
-  async findEligibleClaimsForBatch(
-    insuranceType: 'nhis' | 'private' | 'corporate',
-    periodYear: number,
-    periodMonth: number,
-    insuranceProviderId?: string | null,
-    corporateAccountId?: string | null,
-  ) {
-    const start = new Date(periodYear, periodMonth - 1, 1, 0, 0, 0, 0);
-    const end = new Date(periodYear, periodMonth, 1, 0, 0, 0, 0);
-
-    const where: Prisma.InsuranceClaimWhereInput = {
-      status: 'finalized',
-      batchId: null,
-      Attendance: { dateTime: { gte: start, lt: end } },
-      InsuranceProvider: { is: { type: insuranceType as any } },
-    };
-    if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
-
-    return this.getModel().findMany({
-      where,
-      orderBy: { createdAt: 'asc' },
       include: {
-        Patient: true,
-        Attendance: { include: { Admission: true } },
         InsuranceProvider: true,
-        CorporateAccount: true,
-        items: { orderBy: { itemNumber: 'asc' } },
-      },
+        Patient: true,
+        // Include the encounter's clinical sub-records so claim forms can
+        // auto-populate diagnoses / investigations / medicines / procedures.
+        Attendance: {
+          include: {
+            AttendanceDiagnosis: { include: { Diagnosis: true } },
+            LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
+            Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
+            Medication: { include: { StockItem: true, ServiceCatalog: true } },
+            Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
+            referral: true,
+            Admission: true,
+          }
+        },
+        Bill: true,
+        CorporateAccount: true
+      }
     });
   }
 
-  async countClaimsByStatus(status: 'draft' | 'finalized') {
-    return this.getModel().count({ where: { status } });
-  }
-
-  // ==========================================
-  // BATCH
-  // ==========================================
-  async findBatchesPaginated(filters: BatchListFilters) {
-    const {
-      insuranceType,
-      insuranceProviderId,
-      corporateAccountId,
-      status,
-      periodYear,
-      periodMonth,
-      page = 1,
-      limit = 20,
-    } = filters;
-
-    const where: Prisma.ClaimBatchWhereInput = {};
-    if (insuranceType) where.insuranceType = insuranceType as any;
-    if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
-    if (status) where.status = status as any;
-    if (periodYear) where.periodYear = periodYear;
-    if (periodMonth) where.periodMonth = periodMonth;
-
-    return this.findManyWithPagination({
+  async findByAttendanceId(attendanceId: string, providerType?: string) {
+    const where: any = { attendanceId };
+    if (providerType) {
+      where.InsuranceProvider = { type: providerType };
+    }
+    
+    return this.getModel().findFirst({
       where,
-      page,
-      limit,
-      orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }, { generatedAt: 'desc' }],
       include: {
-        insuranceProvider: { select: { id: true, name: true, type: true } },
-        corporateAccount: { select: { id: true, companyName: true } },
-        createdBy: { select: { id: true, fullName: true, username: true } },
-        finalizedBy: { select: { id: true, fullName: true, username: true } },
-        _count: { select: { claims: true } },
-      },
+        InsuranceProvider: true,
+        Patient: true,
+        Attendance: true,
+        Bill: true
+      }
     });
+  }
+
+  // ==========================================
+  // BATCH QUERIES
+  // ==========================================
+  async findBatchesWithFilters(filters: any) {
+    const { status, startDate, endDate, page = 1, limit = 1000 } = filters;
+    const where: any = {};
+
+    if (status) where.status = status;
+    if (startDate || endDate) {
+      where.batchDate = {};
+      if (startDate) where.batchDate.gte = startDate;
+      if (endDate) {
+        const d = new Date(endDate);
+        d.setHours(23, 59, 59, 999);
+        where.batchDate.lte = d;
+      }
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [batches, total] = await Promise.all([
+      this.prisma.claimBatch.findMany({
+        where,
+        include: {
+          claims: {
+            select: {
+              id: true,
+              claimNumber: true,
+              totalClaimAmount: true,
+              status: true,
+              Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }
+            }
+          },
+          createdBy: { select: { id: true, fullName: true, username: true } }
+        },
+        orderBy: { batchDate: 'desc' },
+        skip,
+        take: limit
+      }),
+      this.prisma.claimBatch.count({ where })
+    ]);
+
+    return {
+      data: batches,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    };
   }
 
   async findBatchById(batchId: string) {
     return this.prisma.claimBatch.findUnique({
       where: { id: batchId },
       include: {
-        insuranceProvider: true,
-        corporateAccount: true,
-        createdBy: { select: { id: true, fullName: true, username: true } },
-        finalizedBy: { select: { id: true, fullName: true, username: true } },
         claims: {
           include: {
-            Patient: true,
-            Attendance: { include: { Admission: true } },
             InsuranceProvider: true,
-            CorporateAccount: true,
-            items: { orderBy: { itemNumber: 'asc' } },
-          },
-          orderBy: { createdAt: 'asc' },
+            Patient: true,
+            Attendance: true,
+            Bill: true
+          }
         },
-      },
+        createdBy: { select: { id: true, fullName: true, username: true } }
+      }
     });
   }
 
-  async findExistingBatch(
-    insuranceType: 'nhis' | 'private' | 'corporate',
-    periodYear: number,
-    periodMonth: number,
-    insuranceProviderId: string | null,
-    corporateAccountId: string | null,
-  ) {
-    return this.prisma.claimBatch.findFirst({
-      where: {
-        insuranceType,
-        periodYear,
-        periodMonth,
-        insuranceProviderId: insuranceProviderId ?? null,
-        corporateAccountId: corporateAccountId ?? null,
-      },
+  // ==========================================
+  // SPECIFIC PROVIDER QUERIES (Helper methods for Service)
+  // ==========================================
+  async findNHISClaims(filters: any) {
+    const where: any = { InsuranceProvider: { type: 'nhis' } };
+    if (filters.status) where.status = filters.status;
+    if (filters.patientId) where.patientId = filters.patientId;
+    
+    if (filters.startDate || filters.endDate) {
+      where.Attendance = {};
+      if (filters.startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: filters.startDate };
+      if (filters.endDate) {
+        const d = new Date(filters.endDate);
+        d.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+      }
+    }
+
+    return this.findManyWithPagination({
+      where,
+      page: filters.page,
+      limit: filters.limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        InsuranceProvider: { select: { id: true, name: true, type: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+      }
+    });
+  }
+
+  async findPrivateClaims(filters: any) {
+    const where: any = { InsuranceProvider: { type: 'private' } };
+    if (filters.status) where.status = filters.status;
+    if (filters.patientId) where.patientId = filters.patientId;
+    
+    if (filters.startDate || filters.endDate) {
+      where.Attendance = {};
+      if (filters.startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: filters.startDate };
+      if (filters.endDate) {
+        const d = new Date(filters.endDate);
+        d.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+      }
+    }
+
+    return this.findManyWithPagination({
+      where,
+      page: filters.page,
+      limit: filters.limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        InsuranceProvider: { select: { id: true, name: true, type: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+      }
+    });
+  }
+
+  async findCorporateClaims(filters: any) {
+    const where: any = { InsuranceProvider: { type: 'corporate' } };
+    if (filters.status) where.status = filters.status;
+    if (filters.patientId) where.patientId = filters.patientId;
+    if (filters.corporateAccountId) where.corporateAccountId = filters.corporateAccountId;
+    
+    if (filters.startDate || filters.endDate) {
+      where.Attendance = {};
+      if (filters.startDate) where.Attendance.dateTime = { ...where.Attendance.dateTime, gte: filters.startDate };
+      if (filters.endDate) {
+        const d = new Date(filters.endDate);
+        d.setHours(23, 59, 59, 999);
+        where.Attendance.dateTime = { ...where.Attendance.dateTime, lte: d };
+      }
+    }
+
+    return this.findManyWithPagination({
+      where,
+      page: filters.page,
+      limit: filters.limit,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        InsuranceProvider: { select: { id: true, name: true, type: true } },
+        CorporateAccount: { select: { id: true, companyName: true } },
+        Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } },
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+      }
     });
   }
 }

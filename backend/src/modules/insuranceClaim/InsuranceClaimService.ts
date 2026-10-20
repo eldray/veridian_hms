@@ -3,6 +3,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { getCounterService } from '../../services/CounterService';
+import { mapAttendanceToNHIS } from '../../utils/nhisAttendanceMapping';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -269,7 +270,18 @@ ${claimsXml}
         Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
         referral: true,
       }
-    }
+    },
+    // Saved claim line items (diagnoses / investigations / medicines / procedures).
+    // The edit forms load these first, so without this an edited claim reverts to
+    // the original attendance data on reload.
+    items: {
+      include: {
+        diagnosis: true,
+        gdrgTariff: true,
+        serviceCatalog: true,
+      },
+      orderBy: { itemNumber: 'asc' as const },
+    },
   } as const;
 
   // The frontend reads `claim.Attendance` (capitalised), so expose the lowercase
@@ -381,11 +393,7 @@ ${claimsXml}
         while (curr <= end) { datesOfService.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
       } else { datesOfService.push(att.dateTime.toISOString().split('T')[0]); }
 
-      let typeOfAtt = 'GEN';
-      if (att.attendanceType === 'emergency_acute') typeOfAtt = 'EAE';
-      else if (att.attendanceType === 'antenatal') typeOfAtt = 'ANC';
-      else if (att.attendanceType === 'delivery') typeOfAtt = 'DEL';
-      else if (att.attendanceType === 'surgery') typeOfAtt = 'SUR';
+      const { typeOfAttendance: typeOfAtt, typeOfService } = mapAttendanceToNHIS(att.attendanceType, !!att.Admission);
 
       const claim = await tx.insuranceClaim.create({
         data: {
@@ -399,7 +407,7 @@ ${claimsXml}
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
-          typeOfService: att.Admission ? 'IPD' : 'OPD', serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
+          typeOfService, serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
           mdcCode: tariff.gdrgCode.match(/^[A-Z]+/)?.[0] || 'MEDI', typeOfAttendance: typeOfAtt, datesOfService,
           notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`
         }
@@ -631,6 +639,68 @@ async generatePrivateClaim(attendanceId: string, userId: string) {
 /** Controller calls: service.updateDraftHeader(id, data, uid) */
 async updateDraftHeader(claimId: string, data: any, userId: string) {
   return this.updateClaimDraft(claimId, data, userId);
+}
+
+/**
+ * Controller calls: service.replaceClaimItems(id, items, uid)
+ * Replaces ALL line items of a DRAFT claim with the given list (PUT /insurance-claims/:id/items).
+ * Items are renumbered 1..n in the order received. The claim header total is not changed here.
+ */
+async replaceClaimItems(claimId: string, items: any[], userId: string) {
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, select: { id: true, status: true } });
+  if (!claim) throw new NotFoundError('Claim', claimId);
+  if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
+
+  // The forms may send ids that are not valid foreign keys (e.g. a lab/scan *template* id in
+  // `serviceCatalogId`). Keep only ids that exist, otherwise the whole save fails on the FK.
+  const idsOf = (field: string) => Array.from(new Set((items || []).map((it: any) => it[field]).filter(Boolean))) as string[];
+  const [catalogIds, diagnosisIds, tariffIds] = await Promise.all([
+    this.prisma.serviceCatalog.findMany({ where: { id: { in: idsOf('serviceCatalogId') } }, select: { id: true } }),
+    this.prisma.diagnosis.findMany({ where: { id: { in: idsOf('diagnosisId') } }, select: { id: true } }),
+    this.prisma.gDRGTariff.findMany({ where: { id: { in: idsOf('gdrgTariffId') } }, select: { id: true } }),
+  ]);
+  const validCatalog = new Set(catalogIds.map(r => r.id));
+  const validDiagnosis = new Set(diagnosisIds.map(r => r.id));
+  const validTariff = new Set(tariffIds.map(r => r.id));
+
+  const rows = (items || []).map((it: any, idx: number) => {
+    const quantity = it.quantity ?? 1;
+    const unitPrice = it.unitPrice ?? 0;
+    const serviceDate = it.serviceDate ? new Date(it.serviceDate) : null;
+    return {
+      claimId,
+      itemNumber: idx + 1,
+      itemCategory: it.itemCategory,
+      itemType: it.itemType ?? null,
+      code: it.code,
+      description: it.description,
+      quantity,
+      noOfDays: it.noOfDays ?? null,
+      unitPrice,
+      lineTotal: it.lineTotal ?? quantity * unitPrice,
+      serviceDate: serviceDate && !isNaN(serviceDate.getTime()) ? serviceDate : null,
+      clinician: it.clinician ?? null,
+      prescriberNo: it.prescriberNo ?? null,
+      prescriptionText: it.prescriptionText ?? null,
+      serviceCatalogId: it.serviceCatalogId && validCatalog.has(it.serviceCatalogId) ? it.serviceCatalogId : null,
+      diagnosisId: it.diagnosisId && validDiagnosis.has(it.diagnosisId) ? it.diagnosisId : null,
+      gdrgTariffId: it.gdrgTariffId && validTariff.has(it.gdrgTariffId) ? it.gdrgTariffId : null,
+      // Not sent by the forms today; left unset rather than risking an invalid foreign key.
+      billLineItemId: null,
+      labTestId: null,
+      scanId: null,
+      procedureId: null,
+      medicationId: null,
+    };
+  });
+
+  await this.prisma.$transaction(async (tx) => {
+    await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
+    if (rows.length) await tx.insuranceClaimItem.createMany({ data: rows });
+    await tx.insuranceClaim.update({ where: { id: claimId }, data: { updatedById: userId, updatedAt: new Date() } });
+  });
+
+  return this.getInsuranceClaim(claimId);
 }
 
 

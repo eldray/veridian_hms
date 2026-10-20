@@ -1,29 +1,25 @@
-// src/store/insuranceStore.ts
+// src/store/insuranceStore.ts - FIXED
 import { create } from 'zustand';
 import {
-  // NHIS Claim Functions
   generateNHISClaim as apiGenerateNHISClaim,
   getNHISClaims as apiGetNHISClaims,
 
-  // Private Insurance Claim Functions
   generatePrivateInsuranceClaim as apiGeneratePrivateInsuranceClaim,
   getPrivateInsuranceClaims as apiGetPrivateInsuranceClaims,
 
-  // Common Claim Functions
   getInsuranceClaims as apiGetInsuranceClaims,
   getInsuranceClaim as apiGetInsuranceClaim,
   getClaimByEncounterId as apiGetClaimByAttendanceId,
   updateClaimDraft as apiUpdateClaimDraft,
+  replaceClaimItems as apiReplaceClaimItems,
   finalizeClaim as apiFinalizeClaim,
   getClaimsSummary as apiGetClaimsSummary,
   downloadClaimXml as apiDownloadClaimXml,
   generateClaimPrint as apiGenerateClaimPrint,
 
-  // Corporate Claim Functions
   getCorporateClaims as apiGetCorporateClaims,
   generateCorporateClaim as apiGenerateCorporateClaim,
 
-  // Batch Functions (NEW API)
   generateClaimBatch as apiGenerateClaimBatch,
   getClaimBatches as apiGetClaimBatches,
   getClaimBatch as apiGetClaimBatch,
@@ -32,23 +28,14 @@ import {
   downloadBatchXml as apiDownloadBatchXml,
   printClaimBatch as apiPrintClaimBatch,
 
-  // Provider Functions
   getInsuranceProviders as apiGetInsuranceProviders,
   getInsuranceProvider as apiGetInsuranceProvider,
   createInsuranceProvider as apiCreateInsuranceProvider,
   updateInsuranceProvider as apiUpdateInsuranceProvider,
   deleteInsuranceProvider as apiDeleteInsuranceProvider,
 } from '../api';
-import type {
-  InsuranceProvider,
-  InsuranceClaim,
-  ClaimBatch,
-  Pagination,
-} from '../types';
+import type { InsuranceProvider, InsuranceClaim, ClaimBatch, Pagination } from '../types';
 
-// ==========================================
-// STAT SHAPE
-// ==========================================
 interface ClaimStats {
   total: number;
   draft: number;
@@ -62,8 +49,13 @@ interface ClaimSummary {
   finalized: { count: number; totalAmount: number };
 }
 
+/** Legacy shape exposed for pages that still read `finalizedClaimsTotal`. */
+interface FinalizedClaimsTotal {
+  total: number;
+  totalAmount: number;
+}
+
 interface InsuranceState {
-  // Data
   nhisClaims: InsuranceClaim[];
   privateClaims: InsuranceClaim[];
   corporateClaims: InsuranceClaim[];
@@ -77,17 +69,17 @@ interface InsuranceState {
   currentBatch: ClaimBatch | null;
   currentProvider: InsuranceProvider | null;
 
-  // UI
   isLoading: boolean;
   pagination: Pagination | null;
   error: string | null;
 
-  // Stats
   nhisStats: ClaimStats;
   privateStats: ClaimStats;
   summary: ClaimSummary | null;
+  /** Legacy mirror of summary.finalized for old callers. */
+  finalizedClaimsTotal: FinalizedClaimsTotal | null;
 
-  // ── Actions: claims ────────────────────────
+  // Claims
   getNHISClaims: (filters?: any) => Promise<void>;
   generateNHISClaim: (attendanceId: string) => Promise<InsuranceClaim>;
 
@@ -101,14 +93,22 @@ interface InsuranceState {
   getInsuranceClaim: (id: string) => Promise<InsuranceClaim>;
   getClaimByAttendanceId: (attendanceId: string) => Promise<InsuranceClaim | null>;
   updateClaimDraft: (claimId: string, data: any) => Promise<InsuranceClaim>;
+  replaceClaimItems: (claimId: string, items: any[]) => Promise<InsuranceClaim>;
   finalizeClaim: (claimId: string) => Promise<InsuranceClaim>;
-  
 
   downloadClaimXml: (claimId: string) => void;
   printClaim: (claimId: string) => void;
-  getClaimsSummary: (insuranceType?: 'nhis' | 'private' | 'corporate') => Promise<void>;
+  /** Backward-compat aliases. */
+  generateClaimXML: (claimId: string) => void;
+  generateClaimPrint: (claimId: string) => void;
 
-  // ── Actions: batches ───────────────────────
+  getClaimsSummary: (insuranceType?: 'nhis' | 'private' | 'corporate') => Promise<void>;
+  /** Legacy alias → getClaimsSummary. Accepts { type } or a bare type string. */
+  getFinalizedClaimsTotal: (
+    input?: 'nhis' | 'private' | 'corporate' | { type?: 'nhis' | 'private' | 'corporate' }
+  ) => Promise<void>;
+
+  // Batches
   generateClaimBatch: (input: {
     insuranceType: 'nhis' | 'private' | 'corporate';
     periodYear: number;
@@ -123,16 +123,15 @@ interface InsuranceState {
   deleteClaimBatch: (batchId: string) => Promise<void>;
   downloadBatchXml: (batchId: string) => void;
   printBatch: (batchId: string) => void;
-  
 
-  // ── Actions: providers ─────────────────────
+  // Providers
   getInsuranceProviders: (filters?: any) => Promise<void>;
   getInsuranceProvider: (id: string) => Promise<void>;
   createInsuranceProvider: (data: any) => Promise<void>;
   updateInsuranceProvider: (id: string, data: any) => Promise<void>;
   deleteInsuranceProvider: (id: string) => Promise<void>;
 
-  // ── Utilities ──────────────────────────────
+  // Utilities
   clearCurrentClaim: () => void;
   clearCurrentDraft: () => void;
   clearCurrentBatch: () => void;
@@ -141,9 +140,6 @@ interface InsuranceState {
   updateStats: () => void;
 }
 
-// ==========================================
-// HELPERS
-// ==========================================
 const normalizeClaim = (claim: any): InsuranceClaim => {
   if (!claim) return claim;
   return {
@@ -163,6 +159,9 @@ const normalizeClaim = (claim: any): InsuranceClaim => {
   };
 };
 
+/** Some controllers return `{ claim, ... }`, others return the claim directly. */
+const unwrapClaim = (raw: any): any => raw?.claim ?? raw;
+
 const normalizeBatch = (b: any): ClaimBatch => {
   if (!b) return b;
   return {
@@ -173,9 +172,14 @@ const normalizeBatch = (b: any): ClaimBatch => {
   };
 };
 
+/**
+ * Backend lifecycle is draft → submitted. "Finalized" is the UI label for
+ * "submitted", NOT a distinct status value. Count both for safety so legacy
+ * data with `status: 'finalized'` still reports correctly.
+ */
 const calculateStats = (claims: InsuranceClaim[]): ClaimStats => {
-  const draft = claims.filter(c => c.status === 'draft');
-  const finalized = claims.filter(c => c.status === 'finalized');
+  const draft = claims.filter((c) => c.status === 'draft');
+  const finalized = claims.filter((c) => c.status === 'submitted' || c.status === 'finalized');
   return {
     total: claims.length,
     draft: draft.length,
@@ -184,6 +188,27 @@ const calculateStats = (claims: InsuranceClaim[]): ClaimStats => {
     finalizedAmount: finalized.reduce((s, c) => s + Number(c.totalClaimAmount || 0), 0),
   };
 };
+
+// Add to InsuranceState interface:
+
+/**
+ * Un-batched finalized claims grouped by insurance type for the current
+ * year/month. Powers the "Generate batch" form on ClaimBatches.tsx so it can
+ * show how many claims are eligible and disable the button when 0.
+ */
+getEligibleClaimsForBatch: (params: {
+  periodYear: number;
+  periodMonth: number;
+}) => Promise<{
+  nhis: number;
+  private: number;
+  corporate: number;
+  totalAmount: { nhis: number; private: number; corporate: number };
+}>;
+
+/** All finalized claims across types (used by batches page's "eligible" panel). */
+getFinalizedUnbatchedClaims: () => Promise<InsuranceClaim[]>;
+
 
 const extractClaims = (response: any): InsuranceClaim[] => {
   if (Array.isArray(response)) return response.map(normalizeClaim);
@@ -205,12 +230,44 @@ const extractPagination = (response: any): Pagination | null =>
   response?.pagination ?? response?.meta ?? response?.data?.pagination ?? null;
 
 const EMPTY_STATS: ClaimStats = {
-  total: 0, draft: 0, finalized: 0, totalAmount: 0, finalizedAmount: 0,
+  total: 0,
+  draft: 0,
+  finalized: 0,
+  totalAmount: 0,
+  finalizedAmount: 0,
 };
 
-// ==========================================
-// STORE
-// ==========================================
+const normalizeSummary = (raw: any): ClaimSummary | null => {
+  const s = raw?.data ?? raw;
+  if (!s) return null;
+  // Accept either the store's expected shape or the service's flat shape.
+  if (s.draft || s.finalized) {
+    return {
+      draft: {
+        count: Number(s.draft?.count) || 0,
+        totalAmount: Number(s.draft?.totalAmount) || 0,
+      },
+      finalized: {
+        count: Number(s.finalized?.count) || 0,
+        totalAmount: Number(s.finalized?.totalAmount) || 0,
+      },
+    };
+  }
+  // Service's getFinalizedClaimsTotal shape: { total, totalAmount }
+  return {
+    draft: { count: 0, totalAmount: 0 },
+    finalized: {
+      count: Number(s.total) || 0,
+      totalAmount: Number(s.totalAmount) || 0,
+    },
+  };
+};
+
+const summaryToLegacy = (summary: ClaimSummary | null): FinalizedClaimsTotal | null =>
+  summary
+    ? { total: summary.finalized.count, totalAmount: summary.finalized.totalAmount }
+    : null;
+
 export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   nhisClaims: [],
   privateClaims: [],
@@ -226,10 +283,10 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   pagination: null,
   error: null,
   summary: null,
+  finalizedClaimsTotal: null,
   nhisStats: { ...EMPTY_STATS },
   privateStats: { ...EMPTY_STATS },
 
-  // ── NHIS CLAIMS ────────────────────────────
   getNHISClaims: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -242,7 +299,10 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
         isLoading: false,
       });
     } catch (e: any) {
-      set({ isLoading: false, error: e?.response?.data?.message || e?.message || 'Failed to fetch NHIS claims' });
+      set({
+        isLoading: false,
+        error: e?.response?.data?.message || e?.message || 'Failed to fetch NHIS claims',
+      });
       throw e;
     }
   },
@@ -251,10 +311,10 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGenerateNHISClaim(attendanceId);
-      const claim = normalizeClaim(res.data ?? res);
-      set(state => ({
-        nhisClaims: [claim, ...state.nhisClaims.filter(c => c.id !== claim.id)],
-        nhisStats: calculateStats([claim, ...state.nhisClaims.filter(c => c.id !== claim.id)]),
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => ({
+        nhisClaims: [claim, ...state.nhisClaims.filter((c) => c.id !== claim.id)],
+        nhisStats: calculateStats([claim, ...state.nhisClaims.filter((c) => c.id !== claim.id)]),
         currentClaim: claim,
         currentDraft: claim,
         isLoading: false,
@@ -266,7 +326,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  // ── PRIVATE CLAIMS ─────────────────────────
   getPrivateInsuranceClaims: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -288,10 +347,13 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGeneratePrivateInsuranceClaim(attendanceId);
-      const claim = normalizeClaim(res.data ?? res);
-      set(state => ({
-        privateClaims: [claim, ...state.privateClaims.filter(c => c.id !== claim.id)],
-        privateStats: calculateStats([claim, ...state.privateClaims.filter(c => c.id !== claim.id)]),
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => ({
+        privateClaims: [claim, ...state.privateClaims.filter((c) => c.id !== claim.id)],
+        privateStats: calculateStats([
+          claim,
+          ...state.privateClaims.filter((c) => c.id !== claim.id),
+        ]),
         currentClaim: claim,
         currentDraft: claim,
         isLoading: false,
@@ -303,7 +365,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  // ── CORPORATE CLAIMS ───────────────────────
   getCorporateClaims: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -324,11 +385,9 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGenerateCorporateClaim(attendanceId);
-      // Backend returns { claim, creditInfo } on new, or { ...claim } on existing.
-      const raw = res.data ?? res;
-      const claim = normalizeClaim(raw.claim ?? raw);
-      set(state => ({
-        corporateClaims: [claim, ...state.corporateClaims.filter(c => c.id !== claim.id)],
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => ({
+        corporateClaims: [claim, ...state.corporateClaims.filter((c) => c.id !== claim.id)],
         currentClaim: claim,
         isLoading: false,
       }));
@@ -339,7 +398,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  // ── GENERAL CLAIMS ─────────────────────────
   getInsuranceClaims: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -359,7 +417,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGetInsuranceClaim(id);
-      const claim = normalizeClaim(res.data ?? res);
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
       set({ currentClaim: claim, isLoading: false });
       return claim;
     } catch (e: any) {
@@ -372,7 +430,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGetClaimByAttendanceId(attendanceId);
-      const claim = res?.data ?? res;
+      const claim = unwrapClaim(res?.data ?? res);
       set({ isLoading: false });
       return claim ? normalizeClaim(claim) : null;
     } catch {
@@ -385,12 +443,12 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiUpdateClaimDraft(claimId, data);
-      const claim = normalizeClaim(res.data ?? res);
-      set(state => ({
-        allClaims: state.allClaims.map(c => c.id === claimId ? claim : c),
-        nhisClaims: state.nhisClaims.map(c => c.id === claimId ? claim : c),
-        privateClaims: state.privateClaims.map(c => c.id === claimId ? claim : c),
-        corporateClaims: state.corporateClaims.map(c => c.id === claimId ? claim : c),
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => ({
+        allClaims: state.allClaims.map((c) => (c.id === claimId ? claim : c)),
+        nhisClaims: state.nhisClaims.map((c) => (c.id === claimId ? claim : c)),
+        privateClaims: state.privateClaims.map((c) => (c.id === claimId ? claim : c)),
+        corporateClaims: state.corporateClaims.map((c) => (c.id === claimId ? claim : c)),
         currentClaim: claim,
         currentDraft: claim,
         isLoading: false,
@@ -402,16 +460,16 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-    replaceClaimItems: async (claimId, items) => {
+  replaceClaimItems: async (claimId, items) => {
     set({ isLoading: true, error: null });
     try {
       const res = await apiReplaceClaimItems(claimId, items);
-      const claim = normalizeClaim(res.data ?? res);
-      set(state => ({
-        allClaims: state.allClaims.map(c => c.id === claimId ? claim : c),
-        nhisClaims: state.nhisClaims.map(c => c.id === claimId ? claim : c),
-        privateClaims: state.privateClaims.map(c => c.id === claimId ? claim : c),
-        corporateClaims: state.corporateClaims.map(c => c.id === claimId ? claim : c),
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => ({
+        allClaims: state.allClaims.map((c) => (c.id === claimId ? claim : c)),
+        nhisClaims: state.nhisClaims.map((c) => (c.id === claimId ? claim : c)),
+        privateClaims: state.privateClaims.map((c) => (c.id === claimId ? claim : c)),
+        corporateClaims: state.corporateClaims.map((c) => (c.id === claimId ? claim : c)),
         currentClaim: claim,
         currentDraft: claim,
         isLoading: false,
@@ -422,23 +480,27 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       throw e;
     }
   },
-  
+
   finalizeClaim: async (claimId) => {
     set({ isLoading: true, error: null });
     try {
       const res = await apiFinalizeClaim(claimId);
-      const claim = normalizeClaim(res.data ?? res);
-      set(state => ({
-        allClaims: state.allClaims.map(c => c.id === claimId ? claim : c),
-        nhisClaims: state.nhisClaims.map(c => c.id === claimId ? claim : c),
-        privateClaims: state.privateClaims.map(c => c.id === claimId ? claim : c),
-        corporateClaims: state.corporateClaims.map(c => c.id === claimId ? claim : c),
-        nhisStats: calculateStats(state.nhisClaims.map(c => c.id === claimId ? claim : c)),
-        privateStats: calculateStats(state.privateClaims.map(c => c.id === claimId ? claim : c)),
-        currentDraft: null,
-        currentClaim: claim,
-        isLoading: false,
-      }));
+      const claim = normalizeClaim(unwrapClaim(res.data ?? res));
+      set((state) => {
+        const mapClaim = (arr: InsuranceClaim[]) =>
+          arr.map((c) => (c.id === claimId ? claim : c));
+        return {
+          allClaims: mapClaim(state.allClaims),
+          nhisClaims: mapClaim(state.nhisClaims),
+          privateClaims: mapClaim(state.privateClaims),
+          corporateClaims: mapClaim(state.corporateClaims),
+          nhisStats: calculateStats(mapClaim(state.nhisClaims)),
+          privateStats: calculateStats(mapClaim(state.privateClaims)),
+          currentDraft: null,
+          currentClaim: claim,
+          isLoading: false,
+        };
+      });
       return claim;
     } catch (e: any) {
       set({ isLoading: false, error: e?.response?.data?.message || e?.message });
@@ -454,26 +516,44 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     apiGenerateClaimPrint(claimId);
   },
 
+  // Backward-compat aliases
+  generateClaimXML: (claimId) => {
+    apiDownloadClaimXml(claimId);
+  },
+  generateClaimPrint: (claimId) => {
+    apiGenerateClaimPrint(claimId);
+  },
+
   getClaimsSummary: async (insuranceType) => {
     set({ isLoading: true, error: null });
     try {
       const res = await apiGetClaimsSummary(insuranceType);
-      const summary = res?.data ?? res;
-      set({ summary, isLoading: false });
+      const summary = normalizeSummary(res);
+      set({
+        summary,
+        finalizedClaimsTotal: summaryToLegacy(summary),
+        isLoading: false,
+      });
     } catch (e: any) {
       set({ isLoading: false, error: e?.response?.data?.message || e?.message });
       throw e;
     }
   },
 
-  // ── BATCHES ────────────────────────────────
+  // Legacy alias: accepts either a bare type string or `{ type }`.
+  getFinalizedClaimsTotal: async (input) => {
+    const type =
+      typeof input === 'string' ? input : (input as any)?.type ?? undefined;
+    return get().getClaimsSummary(type);
+  },
+
   generateClaimBatch: async (input) => {
     set({ isLoading: true, error: null });
     try {
       const res = await apiGenerateClaimBatch(input);
       const batch = normalizeBatch(res.data ?? res);
-      set(state => ({
-        batches: [batch, ...state.batches.filter(b => b.id !== batch.id)],
+      set((state) => ({
+        batches: [batch, ...state.batches.filter((b) => b.id !== batch.id)],
         currentBatch: batch,
         isLoading: false,
       }));
@@ -517,8 +597,8 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     try {
       const res = await apiFinalizeClaimBatch(batchId);
       const batch = normalizeBatch(res.data ?? res);
-      set(state => ({
-        batches: state.batches.map(b => b.id === batchId ? batch : b),
+      set((state) => ({
+        batches: state.batches.map((b) => (b.id === batchId ? batch : b)),
         currentBatch: batch,
         isLoading: false,
       }));
@@ -533,8 +613,8 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await apiDeleteClaimBatch(batchId);
-      set(state => ({
-        batches: state.batches.filter(b => b.id !== batchId),
+      set((state) => ({
+        batches: state.batches.filter((b) => b.id !== batchId),
         currentBatch: state.currentBatch?.id === batchId ? null : state.currentBatch,
         isLoading: false,
       }));
@@ -552,7 +632,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     apiPrintClaimBatch(batchId);
   },
 
-  // ── PROVIDERS ──────────────────────────────
   getInsuranceProviders: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
@@ -584,7 +663,7 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     try {
       const res = await apiCreateInsuranceProvider(data);
       const provider = res.data ?? res;
-      set(state => ({
+      set((state) => ({
         providers: [provider, ...state.providers],
         currentProvider: provider,
         isLoading: false,
@@ -595,16 +674,19 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
+  
+
   updateInsuranceProvider: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
       const res = await apiUpdateInsuranceProvider(id, data);
       const provider = res.data ?? res;
-      set(state => ({
-        providers: state.providers.map(p => p.id === id ? { ...p, ...provider } : p),
-        currentProvider: state.currentProvider?.id === id
-          ? { ...state.currentProvider, ...provider }
-          : state.currentProvider,
+      set((state) => ({
+        providers: state.providers.map((p) => (p.id === id ? { ...p, ...provider } : p)),
+        currentProvider:
+          state.currentProvider?.id === id
+            ? { ...state.currentProvider, ...provider }
+            : state.currentProvider,
         isLoading: false,
       }));
     } catch (e: any) {
@@ -617,8 +699,8 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await apiDeleteInsuranceProvider(id);
-      set(state => ({
-        providers: state.providers.filter(p => p.id !== id),
+      set((state) => ({
+        providers: state.providers.filter((p) => p.id !== id),
         currentProvider: state.currentProvider?.id === id ? null : state.currentProvider,
         isLoading: false,
       }));
@@ -628,9 +710,69 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  // ── UTIL ───────────────────────────────────
+
+  // Add to the create(...) body:
+
+getEligibleClaimsForBatch: async ({ periodYear, periodMonth }) => {
+  set({ isLoading: true, error: null });
+  try {
+    // The service has no dedicated endpoint for this; the cheapest correct
+    // query is: get all finalized claims, keep only the ones with batchId==null
+    // whose Attendance.dateTime falls in the requested month, grouped by type.
+    const res = await apiGetInsuranceClaims({ status: 'submitted', page: 1, limit: 5000 });
+    const all = extractClaims(res);
+    const start = new Date(periodYear, periodMonth - 1, 1, 0, 0, 0, 0);
+    const end = new Date(periodYear, periodMonth, 1, 0, 0, 0, 0);
+
+    const inMonth = (c: InsuranceClaim) => {
+      const d = (c as any).Attendance?.dateTime ? new Date((c as any).Attendance.dateTime) : null;
+      return d !== null && d >= start && d < end && !(c as any).batchId;
+    };
+
+    const zero = () => ({ nhis: 0, private: 0, corporate: 0 });
+    const counts = zero();
+    const totals = zero();
+
+    for (const c of all) {
+      if (!inMonth(c)) continue;
+      const type = (c as any).insuranceProvider?.type as 'nhis' | 'private' | 'corporate' | undefined;
+      const amount = Number((c as any).totalClaimAmount) || 0;
+      // Corporate is identified by corporateAccountId linkage, not provider type.
+      if ((c as any).corporateAccountId) {
+        counts.corporate += 1;
+        totals.corporate += amount;
+      } else if (type === 'nhis') {
+        counts.nhis += 1;
+        totals.nhis += amount;
+      } else if (type === 'private') {
+        counts.private += 1;
+        totals.private += amount;
+      }
+    }
+
+    set({ isLoading: false });
+    return { ...counts, totalAmount: totals };
+  } catch (e: any) {
+    set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+    throw e;
+  }
+},
+
+getFinalizedUnbatchedClaims: async () => {
+  set({ isLoading: true, error: null });
+  try {
+    const res = await apiGetInsuranceClaims({ status: 'submitted', page: 1, limit: 5000 });
+    const all = extractClaims(res).filter((c: any) => !c.batchId);
+    set({ isLoading: false });
+    return all;
+  } catch (e: any) {
+    set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+    throw e;
+  }
+},
+
   updateStats: () => {
-    set(state => ({
+    set((state) => ({
       nhisStats: calculateStats(state.nhisClaims),
       privateStats: calculateStats(state.privateClaims),
     }));

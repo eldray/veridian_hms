@@ -9,6 +9,7 @@ import { useStockStore } from '../../store/stockStore';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
 import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown } from 'lucide-react';
+import { mapAttendanceToNHIS, normalizeNHISAttendanceCode } from '../../utils/nhisAttendanceMapping';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -284,15 +285,31 @@ function SearchableGDRGSelect({ value, onChange, options, disabled = false, plac
 // ═══════════════════════════════════════════════════════════════════════════
 // ADD DIAGNOSIS MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: () => void; onAdd: (d: DiagnosisItem) => void }) {
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddDiagnosisModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (d: DiagnosisItem) => void; editing?: DiagnosisItem | null }) {
   const { diagnoses, getDiagnoses } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
+  const [pickedDiagnosis, setPickedDiagnosis] = useState<any>(null);
   const [gdrgCode, setGdrgCode] = useState('');
 
   useEffect(() => {
     if (isOpen) getDiagnoses();
   }, [isOpen, getDiagnoses]);
+
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedDiagnosis(null);
+    setGdrgCode(editing?.gdrgCode || '');
+  }, [isOpen, editing]);
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedDiagnosis = pickedDiagnosis ?? (editing
+    ? (diagnoses.find(d => (editing.diagnosisId && d.id === editing.diagnosisId) || d.icdCode === editing.icd10)
+        ?? { id: editing.diagnosisId, name: editing.diagnosis || editing.description, icdCode: editing.icd10 })
+    : null);
+  const setSelectedDiagnosis = setPickedDiagnosis;
 
   const filtered = diagnoses.filter(d =>
     d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -302,12 +319,13 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClos
   const handleAdd = () => {
     if (!selectedDiagnosis) return;
     onAdd({
+      id: editing?.id,
       gdrgCode: gdrgCode || 'OPDC06A',
       description: selectedDiagnosis.name,
       diagnosis: selectedDiagnosis.name,
       icd10: selectedDiagnosis.icdCode,
       diagnosisId: selectedDiagnosis.id,
-      diagnosisType: 'additional',
+      diagnosisType: editing?.diagnosisType ?? 'additional',
     });
     setSelectedDiagnosis(null);
     setSearchTerm('');
@@ -321,7 +339,7 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClos
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Diagnosis</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Diagnosis' : 'Add Diagnosis'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
             <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
@@ -370,7 +388,7 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClos
             disabled={!selectedDiagnosis}
             className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
           >
-            Add Diagnosis
+            {editing ? 'Save Changes' : 'Add Diagnosis'}
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
             Cancel
@@ -384,21 +402,40 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClos
 // ═══════════════════════════════════════════════════════════════════════════
 // ADD INVESTIGATION MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boolean; onClose: () => void; onAdd: (i: InvestigationItem) => void; type: 'lab' | 'scan' }) {
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (i: InvestigationItem) => void; type: 'lab' | 'scan'; editing?: InvestigationItem | null }) {
   const { labTestTemplates, scanTemplates, getLabTestTemplates, getScanTemplates } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [pickedItem, setPickedItem] = useState<any>(null);
   const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
+  // When editing, the row may be a lab or a scan (not always recorded), so allow switching.
+  const [kind, setKind] = useState<'lab' | 'scan'>(type);
 
   useEffect(() => {
     if (isOpen) {
-      if (type === 'lab') getLabTestTemplates();
+      if (kind === 'lab') getLabTestTemplates();
       else getScanTemplates();
     }
-  }, [isOpen, type, getLabTestTemplates, getScanTemplates]);
+  }, [isOpen, kind, getLabTestTemplates, getScanTemplates]);
 
-  const items = type === 'lab' ? labTestTemplates : scanTemplates;
-  const codeField = type === 'lab' ? 'investigationCode' : 'scanCode';
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setKind(editing?.type ?? type);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+  }, [isOpen, editing, type]);
+
+  const items = kind === 'lab' ? labTestTemplates : scanTemplates;
+  const codeField = kind === 'lab' ? 'investigationCode' : 'scanCode';
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? (items.find(i => (editing.serviceCatalogId && i.id === editing.serviceCatalogId) || (i as any)[codeField] === editing.gdrgCode)
+        ?? { id: editing.serviceCatalogId, name: editing.description, [codeField]: editing.gdrgCode })
+    : null);
+  const setSelectedItem = setPickedItem;
 
   const filtered = items.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -408,11 +445,12 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boole
   const handleAdd = () => {
     if (!selectedItem) return;
     onAdd({
+      id: editing?.id,
       gdrgCode: selectedItem[codeField] || selectedItem.code || 'INVE000',
       description: selectedItem.name,
       date: serviceDate,
       serviceCatalogId: selectedItem.id,
-      type,
+      type: kind,
     });
     setSelectedItem(null);
     setSearchTerm('');
@@ -426,17 +464,31 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boole
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add {type === 'lab' ? 'Lab Test' : 'Scan'}</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit' : 'Add'} {kind === 'lab' ? 'Lab Test' : 'Scan'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
             <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
         <div className="p-4 space-y-4">
+          {editing && (
+            <div className="flex gap-2">
+              {(['lab', 'scan'] as const).map(k => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => { setKind(k); setPickedItem(null); setSearchTerm(''); }}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-sm border ${kind === k ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-text)]' : 'border-[var(--border-color)] text-[var(--text-primary)]'}`}
+                >
+                  {k === 'lab' ? 'Lab Test' : 'Scan'}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
             <input
               type="text"
-              placeholder={`Search ${type === 'lab' ? 'lab test' : 'scan'}...`}
+              placeholder={`Search ${kind === 'lab' ? 'lab test' : 'scan'}...`}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
@@ -474,7 +526,7 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boole
             disabled={!selectedItem}
             className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
           >
-            Add Investigation
+            {editing ? 'Save Changes' : 'Add Investigation'}
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
             Cancel
@@ -488,10 +540,11 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type }: { isOpen: boole
 // ═══════════════════════════════════════════════════════════════════════════
 // ADD MEDICINE MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose: () => void; onAdd: (m: MedicineItem) => void }) {
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (m: MedicineItem) => void; editing?: MedicineItem | null }) {
   const { stockItems, getStockItems } = useStockStore();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [pickedItem, setPickedItem] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dosage, setDosage] = useState('');
@@ -502,6 +555,25 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose
     if (isOpen) getStockItems();
   }, [isOpen, getStockItems]);
 
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setQuantity(editing?.quantity || 1);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+    setDosage(editing?.dosage || '');
+    setFrequency(editing?.frequency || '');
+    setDuration(editing?.duration || '');
+  }, [isOpen, editing]);
+
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? (stockItems.find(i => (editing.stockItemId && i.id === editing.stockItemId) || (i.drugCode && i.drugCode === editing.code))
+        ?? { id: editing.stockItemId, name: editing.description, drugCode: editing.code })
+    : null);
+  const setSelectedItem = setPickedItem;
+
   const filtered = stockItems.filter(item =>
     item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (item.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -511,15 +583,18 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose
     if (!selectedItem) return;
     const prescription = `${dosage} ${frequency} x ${duration}`.trim();
     onAdd({
+      id: editing?.id,
       code: selectedItem.drugCode,
       description: selectedItem.name,
       quantity,
       date: serviceDate,
-      prescription: prescription || 'As prescribed',
+      // keep the original prescription text when no dose details were entered
+      prescription: prescription || editing?.prescription || 'As prescribed',
       dosage,
       frequency,
       duration,
       stockItemId: selectedItem.id,
+      serviceCatalogId: editing?.serviceCatalogId,
     });
     setSelectedItem(null);
     setSearchTerm('');
@@ -536,7 +611,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Add Medicine</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Medicine' : 'Add Medicine'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
             <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
@@ -595,7 +670,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
           <button onClick={handleAdd} disabled={!selectedItem} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
-            Add Medicine
+            {editing ? 'Save Changes' : 'Add Medicine'}
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
             Cancel
@@ -607,121 +682,111 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: { isOpen: boolean; onClose
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// EDIT MEDICINE MODAL
+// ADD / EDIT PROCEDURE MODAL
 // ═══════════════════════════════════════════════════════════════════════════
-function EditMedicineModal({ isOpen, onClose, onSave, medicine }: { isOpen: boolean; onClose: () => void; onSave: (m: MedicineItem) => void; medicine: MedicineItem | null }) {
-  const [formData, setFormData] = useState<MedicineItem | null>(null);
+// `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
+function AddProcedureModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (p: ProcedureItem) => void; editing?: ProcedureItem | null }) {
+  const { procedureTemplates, getProcedureTemplates } = useMedicalServicesStore();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pickedItem, setPickedItem] = useState<any>(null);
+  const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
-    if (medicine) setFormData({ ...medicine });
-  }, [medicine]);
+    if (isOpen) getProcedureTemplates();
+  }, [isOpen, getProcedureTemplates]);
 
-  const handleSave = () => {
-    if (formData) {
-      onSave(formData);
-      onClose();
-    }
-  };
+  // Reset / pre-fill each time the dialog opens
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchTerm('');
+    setPickedItem(null);
+    setServiceDate(editing?.date || new Date().toISOString().split('T')[0]);
+  }, [isOpen, editing]);
 
-  if (!isOpen || !formData) return null;
+  const codeOf = (t: any) => t?.tariffCode || t?.procedureCode || '';
 
-  return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-        <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit Medicine</h3>
-          <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
-            <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-        </div>
-        <div className="p-4 space-y-4">
-          <div className="bg-[var(--bg-main)] p-2 rounded-lg">
-            <p className="text-sm font-medium text-[var(--text-primary)]">{formData.description}</p>
-            <p className="text-xs text-[var(--text-secondary)]">Code: {formData.code}</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input type="number" min="1" value={formData.quantity} onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || 1 })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
-              <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Dosage</label>
-              <input type="text" value={formData.dosage || ''} onChange={(e) => setFormData({ ...formData, dosage: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Frequency</label>
-              <input type="text" value={formData.frequency || ''} onChange={(e) => setFormData({ ...formData, frequency: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Duration</label>
-              <input type="text" value={formData.duration || ''} onChange={(e) => setFormData({ ...formData, duration: e.target.value })} className="w-full px-2 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-xs" />
-            </div>
-          </div>
-          <div>
-            <label className="text-xs font-medium text-[var(--text-secondary)]">Prescription</label>
-            <textarea value={formData.prescription} onChange={(e) => setFormData({ ...formData, prescription: e.target.value })} rows={2} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-          </div>
-        </div>
-        <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium">
-            Save Changes
-          </button>
-          <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
+  // Current selection: what the user picked, else the row being edited
+  const selectedItem = pickedItem ?? (editing
+    ? ((procedureTemplates || []).find((t: any) => codeOf(t) === editing.code || t.procedureCode === editing.code)
+        ?? { id: editing.id, name: editing.description, procedureCode: editing.code })
+    : null);
+
+  const filtered = (procedureTemplates || []).filter((t: any) =>
+    (t.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    codeOf(t).toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.procedureCode || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
-}
 
-// ═══════════════════════════════════════════════════════════════════════════
-// EDIT INVESTIGATION MODAL
-// ═══════════════════════════════════════════════════════════════════════════
-function EditInvestigationModal({ isOpen, onClose, onSave, investigation }: { isOpen: boolean; onClose: () => void; onSave: (i: InvestigationItem) => void; investigation: InvestigationItem | null }) {
-  const [formData, setFormData] = useState<InvestigationItem | null>(null);
-
-  useEffect(() => {
-    if (investigation) setFormData({ ...investigation });
-  }, [investigation]);
-
-  const handleSave = () => {
-    if (formData) {
-      onSave(formData);
-      onClose();
-    }
+  const handleAdd = () => {
+    if (!selectedItem) return;
+    onAdd({
+      id: editing?.id,
+      code: codeOf(selectedItem) || selectedItem.procedureCode || '',
+      description: selectedItem.name,
+      date: serviceDate,
+    });
+    onClose();
   };
 
-  if (!isOpen || !formData) return null;
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
         <div className="p-4 border-b border-[var(--border-color)] flex items-center justify-between">
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Edit Investigation</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{editing ? 'Edit Procedure' : 'Add Procedure'}</h3>
           <button onClick={onClose} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
             <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
         <div className="p-4 space-y-4">
-          <div className="bg-[var(--bg-main)] p-2 rounded-lg">
-            <p className="text-sm font-medium text-[var(--text-primary)]">{formData.description}</p>
-            <p className="text-xs text-[var(--text-secondary)]">Code: {formData.gdrgCode}</p>
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)]" />
+            <input
+              type="text"
+              placeholder="Search procedure by name or code..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
           </div>
           <div>
             <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
-            <input type="date" value={formData.date} onChange={(e) => setFormData({ ...formData, date: e.target.value })} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+            <input
+              type="date"
+              value={serviceDate}
+              onChange={(e) => setServiceDate(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm"
+            />
+          </div>
+          {editing && (
+            <div className="text-xs text-[var(--text-secondary)]">Current: {selectedItem?.name} ({codeOf(selectedItem) || selectedItem?.procedureCode || '—'})</div>
+          )}
+          <div className="max-h-64 overflow-y-auto space-y-1">
+            {filtered.map((t: any) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setPickedItem(t)}
+                className={`w-full text-left p-2 rounded-lg transition-colors ${
+                  selectedItem?.id === t.id
+                    ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
+                    : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
+                }`}
+              >
+                <div className="font-medium text-sm">{t.name}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {codeOf(t) || t.procedureCode}</div>
+              </button>
+            ))}
           </div>
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
-          <button onClick={handleSave} className="flex-1 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium">
-            Save Changes
+          <button
+            onClick={handleAdd}
+            disabled={!selectedItem}
+            className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium"
+          >
+            {editing ? 'Save Changes' : 'Add Procedure'}
           </button>
           <button onClick={onClose} className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] text-sm">
             Cancel
@@ -777,7 +842,7 @@ export default function EditNHISClaim() {
   const [admissionDate, setAdmissionDate] = useState('');
   const [dischargeDate, setDischargeDate] = useState('');
   const [lengthOfStay, setLengthOfStay] = useState(0);
-  const [typeOfAttendance, setTypeOfAttendance] = useState('GEN');
+  const [typeOfAttendance, setTypeOfAttendance] = useState('CFU');
 
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
   const [investigations, setInvestigations] = useState<InvestigationItem[]>([]);
@@ -798,8 +863,9 @@ export default function EditNHISClaim() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeModal, setActiveModal] = useState<string | null>(null);
-  const [editingMedicine, setEditingMedicine] = useState<MedicineItem | null>(null);
-  const [editingInvestigation, setEditingInvestigation] = useState<InvestigationItem | null>(null);
+  // The row currently being edited (opens the matching search dialog, pre-filled)
+  const [editing, setEditing] = useState<{ kind: 'diagnosis' | 'investigation' | 'medicine' | 'procedure'; index: number } | null>(null);
+  const closeModal = () => { setActiveModal(null); setEditing(null); };
   const [isSavingMember, setIsSavingMember] = useState(false);
 
   const isDraft = currentClaim?.status === 'draft';
@@ -982,7 +1048,18 @@ export default function EditNHISClaim() {
     setPrincipalGDRG(currentClaim.principalGDRG || '');
     setPreAuthNumber(currentClaim.preAuthNumber || '');
     setNotes(currentClaim.notes || '');
-    setTypeOfAttendance(currentClaim.typeOfAttendance || 'GEN');
+    // Type of Attendance / Type of Service follow the attendance type (see utils/nhisAttendanceMapping.ts).
+    // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
+    const mapped = mapAttendanceToNHIS(
+      attendance?.attendanceType,
+      !!(attendance?.Admission ?? attendance?.admission) || currentClaim.typeOfService === 'IPD'
+    );
+    if (currentClaim.status === 'draft' && attendance?.attendanceType) {
+      setTypeOfAttendance(mapped.typeOfAttendance);
+      setPrimaryServiceType(mapped.typeOfService);
+    } else {
+      setTypeOfAttendance(normalizeNHISAttendanceCode(currentClaim.typeOfAttendance) || mapped.typeOfAttendance);
+    }
 
     setServiceFlags(meta.serviceFlags ?? {
       diagnostic: (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
@@ -1073,19 +1150,23 @@ export default function EditNHISClaim() {
     }
   };
 
-  const addDiagnosis = (d: DiagnosisItem) => setDiagnoses([...diagnoses, d]);
+  // Replace the row at `index`, or append when not editing
+  const upsert = <T,>(list: T[], item: T, kind: string): T[] =>
+    editing?.kind === kind ? list.map((x, i) => (i === editing.index ? item : x)) : [...list, item];
+
+  const addDiagnosis = (d: DiagnosisItem) => setDiagnoses(upsert(diagnoses, d, 'diagnosis'));
   const removeDiagnosis = (i: number) => setDiagnoses(diagnoses.filter((_, idx) => idx !== i));
   const setPrimaryDiagnosis = (i: number) =>
     setDiagnoses(diagnoses.map((d, idx) => ({ ...d, diagnosisType: idx === i ? 'primary' : 'additional' })));
 
-  const addInvestigation = (inv: InvestigationItem) => setInvestigations([...investigations, inv]);
+  const addInvestigation = (inv: InvestigationItem) => setInvestigations(upsert(investigations, inv, 'investigation'));
   const removeInvestigation = (i: number) => setInvestigations(investigations.filter((_, idx) => idx !== i));
-  const updateInvestigation = (inv: InvestigationItem) =>
-    setInvestigations(investigations.map(x => x.id === inv.id ? inv : x));
 
-  const addMedicine = (m: MedicineItem) => setMedicines([...medicines, m]);
+  const addMedicine = (m: MedicineItem) => setMedicines(upsert(medicines, m, 'medicine'));
   const removeMedicine = (i: number) => setMedicines(medicines.filter((_, idx) => idx !== i));
-  const updateMedicine = (m: MedicineItem) => setMedicines(medicines.map(x => x.id === m.id ? m : x));
+
+  const addProcedure = (pr: ProcedureItem) => setProcedures(upsert(procedures, pr, 'procedure'));
+  const removeProcedure = (i: number) => setProcedures(procedures.filter((_, idx) => idx !== i));
 
   const updateVisitDate = (i: number, v: string) => {
     const arr = [...visitDates]; arr[i] = v; setVisitDates(arr);
@@ -1303,7 +1384,17 @@ export default function EditNHISClaim() {
           </div>
         </div>
 
-        <ListSection title="PROCEDURES" count={procedures.length} emptyText="No procedures added..." open={tablesOpen}>
+        <ListSection
+          title="PROCEDURES"
+          count={procedures.length}
+          emptyText={procedures.length === 0 ? 'No procedures added...' : undefined}
+          open={tablesOpen}
+          action={isDraft ? (
+            <button type="button" onClick={() => setActiveModal('procedure')} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1">
+              <Plus className="w-3 h-3" /> Add
+            </button>
+          ) : undefined}
+        >
           <table className="w-full text-sm">
             <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
@@ -1314,8 +1405,9 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">{pr.description}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(pr.date)}</td>
                   {isDraft && (
-                    <td className="px-3 py-3 text-center">
-                      <button type="button" onClick={() => setProcedures(procedures.filter((_, i) => i !== idx))} className="text-red-400 hover:text-red-600">
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeProcedure(idx)} className="text-red-400 hover:text-red-600">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </td>
@@ -1352,7 +1444,12 @@ export default function EditNHISClaim() {
                       : isDraft && <button type="button" onClick={() => setPrimaryDiagnosis(idx)} className="ml-2 text-[11px] text-blue-600 hover:underline">set primary</button>}
                   </td>
                   <td className="px-3 py-3 text-gray-700">{d.icd10}</td>
-                  {isDraft && <td className="px-3 py-3 text-center"><button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button></td>}
+                  {isDraft && (
+                    <td className="px-3 py-3 text-center whitespace-nowrap">
+                      <button type="button" onClick={() => setEditing({ kind: 'diagnosis', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => removeDiagnosis(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1382,7 +1479,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">{fmtDate(inv.date)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditingInvestigation(inv)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeInvestigation(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   )}
@@ -1418,7 +1515,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">{fmtDate(m.date)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
-                      <button type="button" onClick={() => setEditingMedicine(m)} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
+                      <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
                       <button type="button" onClick={() => removeMedicine(idx)} className="text-red-400 hover:text-red-600"><Trash2 className="w-4 h-4" /></button>
                     </td>
                   )}
@@ -1460,12 +1557,12 @@ export default function EditNHISClaim() {
         )}
       </ClaimFrame>
 
-      <AddDiagnosisModal isOpen={activeModal === 'diagnosis'} onClose={() => setActiveModal(null)} onAdd={addDiagnosis} />
-      <AddInvestigationModal isOpen={activeModal === 'lab'} onClose={() => setActiveModal(null)} onAdd={addInvestigation} type="lab" />
-      <AddInvestigationModal isOpen={activeModal === 'scan'} onClose={() => setActiveModal(null)} onAdd={addInvestigation} type="scan" />
-      <AddMedicineModal isOpen={activeModal === 'medicine'} onClose={() => setActiveModal(null)} onAdd={addMedicine} />
-      <EditMedicineModal isOpen={!!editingMedicine} onClose={() => setEditingMedicine(null)} onSave={updateMedicine} medicine={editingMedicine} />
-      <EditInvestigationModal isOpen={!!editingInvestigation} onClose={() => setEditingInvestigation(null)} onSave={updateInvestigation} investigation={editingInvestigation} />
+      <AddDiagnosisModal isOpen={activeModal === 'diagnosis' || editing?.kind === 'diagnosis'} onClose={closeModal} onAdd={addDiagnosis} editing={editing?.kind === 'diagnosis' ? diagnoses[editing.index] ?? null : null} />
+      <AddInvestigationModal isOpen={activeModal === 'lab'} onClose={closeModal} onAdd={addInvestigation} type="lab" />
+      <AddInvestigationModal isOpen={activeModal === 'scan'} onClose={closeModal} onAdd={addInvestigation} type="scan" />
+      <AddInvestigationModal isOpen={editing?.kind === 'investigation'} onClose={closeModal} onAdd={addInvestigation} type="lab" editing={editing?.kind === 'investigation' ? investigations[editing.index] ?? null : null} />
+      <AddMedicineModal isOpen={activeModal === 'medicine' || editing?.kind === 'medicine'} onClose={closeModal} onAdd={addMedicine} editing={editing?.kind === 'medicine' ? medicines[editing.index] ?? null : null} />
+      <AddProcedureModal isOpen={activeModal === 'procedure' || editing?.kind === 'procedure'} onClose={closeModal} onAdd={addProcedure} editing={editing?.kind === 'procedure' ? procedures[editing.index] ?? null : null} />
     </>
   );
 }
