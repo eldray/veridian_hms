@@ -534,6 +534,17 @@ export class EncounterService extends BaseService {
       const departmentId = dispensingUser.departmentId ?? null;
       const now = new Date();
 
+      // Claim this prescription inside the same transaction before changing stock. The
+      // conditional update prevents two concurrent requests from dispensing the same
+      // prescribed medication twice. If a later stock check fails, the transaction rolls back.
+      const medicationClaim = await tx.medication.updateMany({
+        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
+        data: { status: 'dispensed' },
+      });
+      if (medicationClaim.count !== 1) {
+        throw new ValidationError('Medication has already been dispensed or is no longer available');
+      }
+
       // If batch tracking has started for this item, dispensing must consume a matching
       // active, unexpired batch in the user's department/store. Never fall back to aggregate
       // stock when batches exist elsewhere or cannot satisfy the requested quantity.
