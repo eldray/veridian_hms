@@ -57,8 +57,13 @@ export async function decreaseDepartmentStockBalance(
       where: { stockItemId_locationKey: { stockItemId, locationKey } },
       select: { quantity: true },
     });
+    const locationLabel = normalizedDepartmentId
+      ? 'the selected department/store'
+      : normalizedWardId
+        ? 'the selected ward'
+        : 'unassigned stock';
     throw new ValidationError(
-      `Insufficient stock balance in ${normalizedDepartmentId ? 'the selected department' : 'unassigned stock'}. Available: ${balance?.quantity ?? 0}, requested: ${quantity}`,
+      `Insufficient stock balance in ${locationLabel}. Available: ${balance?.quantity ?? 0}, requested: ${quantity}`,
     );
   }
   return tx.stockItemDepartmentBalance.findUnique({
