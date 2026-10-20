@@ -1251,6 +1251,16 @@ export default function StockManagement() {
                 </select>
               </div>
               
+              {transactionData.transactionType === 'adjustment' && (
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Adjustment Direction *</label>
+                  <select required value={transactionData.adjustmentDirection} onChange={e => setTransactionData({ ...transactionData, adjustmentDirection: e.target.value as 'increase' | 'decrease' })} className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                    <option value="increase">Increase stock</option>
+                    <option value="decrease">Decrease stock</option>
+                  </select>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Issuing / Receiving Department</label>
                 <select
