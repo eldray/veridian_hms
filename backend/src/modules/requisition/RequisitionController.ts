@@ -23,12 +23,17 @@ export class RequisitionController extends BaseController {
     try {
       const { departmentId, wardId, supplyingDepartmentId, status, urgency, page, limit } = req.query;
 
+      const authReq = req as AuthRequest;
+      const userId = authReq.user?.id;
+      if (!userId) return this.unauthorized(res, 'User not authenticated');
+
       const params = {
         departmentId: departmentId as string | undefined,
         wardId: wardId as string | undefined,
         supplyingDepartmentId: supplyingDepartmentId as string | undefined,
         status: status as string | undefined,
         urgency: urgency as string | undefined,
+        authenticatedUserId: userId,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 50
       };
