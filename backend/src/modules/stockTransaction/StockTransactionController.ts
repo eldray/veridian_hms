@@ -48,12 +48,20 @@ export class StockTransactionController extends BaseController {
   });
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getMovementSummary({ startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined, category: req.query.category as string });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getMovementSummary({
+      startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+      endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+      category: req.query.category as string,
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations: isAdmin,
+    });
     return this.ok(res, result, 'Movement summary retrieved');
   });
 
   getLowStockAlerts = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getLowStockAlerts(req.query.category as string);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getLowStockAlerts(req.query.category as string, { departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
     return this.ok(res, result, 'Low stock alerts retrieved');
   });
 
