@@ -3,7 +3,8 @@ import { BaseService } from '../../shared/base/BaseService';
 import { StockTransferRepository } from './StockTransferRepository';
 import { CreateTransferDTO, TransferQueryParams } from './StockTransferTypes';
 import { getCounterService } from '../../services/CounterService';
-import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+
 
 export class StockTransferService extends BaseService {
   private repo: StockTransferRepository;
