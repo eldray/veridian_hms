@@ -1796,6 +1796,7 @@ model Requisition {
   id                     String             @id @default(cuid())
   requisitionNumber      String             @unique
   requestingDepartmentId String?
+  supplyingDepartmentId  String?
   requestingWardId       String?
   requestedById          String
   urgency                RequisitionUrgency @default(routine)
@@ -1814,13 +1815,15 @@ model Requisition {
   approvedBy  User? @relation("Requisition_approvedBy", fields: [approvedById], references: [id])
   fulfilledBy User? @relation("Requisition_fulfilledBy", fields: [fulfilledById], references: [id])
 
-  departments      Department?        @relation(fields: [requestingDepartmentId], references: [id])
-  ward             Ward?              @relation(fields: [requestingWardId], references: [id])
+  departments         Department? @relation("Requisition_requestingDepartment", fields: [requestingDepartmentId], references: [id])
+  supplyingDepartment Department? @relation("Requisition_supplyingDepartment", fields: [supplyingDepartmentId], references: [id])
+  ward                Ward?       @relation(fields: [requestingWardId], references: [id])
   RequisitionItem  RequisitionItem[]
   StockTransaction StockTransaction[]
 
   @@index([requestingWardId])
   @@index([requestingDepartmentId])
+  @@index([supplyingDepartmentId])
   @@index([status])
 }
 
@@ -1922,8 +1925,9 @@ model Department {
   stockTransactions StockTransaction[]
 
   // Existing
-  Requisitions Requisition[]
-  users        User[]        @relation("DepartmentUsers")
+  Requisitions        Requisition[] @relation("Requisition_requestingDepartment")
+  suppliedRequisitions Requisition[] @relation("Requisition_supplyingDepartment")
+  users               User[]        @relation("DepartmentUsers")
   appointments Appointment[]
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
 
