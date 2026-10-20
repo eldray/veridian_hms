@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
+import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 import { ValidationError } from '../src/utils/errors';
 
 describe('stock transaction validation', () => {
@@ -65,8 +66,24 @@ describe('stock transaction validation', () => {
 
 
   it('rejects generic reversal of an adjustment when direction is ambiguous', async () => {
-    // Regression covered at repository level: adjustment direction is not stored reliably.
-    expect(true).toBe(true);
+    const tx = {
+      stockTransaction: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'tx-adjustment', stockItemId: 'item-1', transactionType: 'adjustment',
+          quantity: 4, departmentId: 'pharmacy', wardId: null,
+        }),
+        delete: vi.fn(),
+      },
+      stockBatch: { count: vi.fn() },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockTransactionRepository(prisma as any);
+
+    await expect(repository.deleteSafely('tx-adjustment')).rejects.toBeInstanceOf(ValidationError);
+    expect(tx.stockBatch.count).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.delete).not.toHaveBeenCalled();
   });
 
   it('only allows administrators to select a ward directly', async () => {
