@@ -244,7 +244,7 @@ export class StockItemService extends BaseService {
     return { message: 'Stock item deleted successfully' };
   }
 
-  async updateStockLevel(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string) {
+  async updateStockLevel(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string, departmentId?: string) {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Stock quantity must be a positive whole number');
     }
@@ -252,7 +252,7 @@ export class StockItemService extends BaseService {
       throw new ValidationError('Invalid stock transaction type');
     }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
-    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy);
+    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
   }
 
   async getStockTransactions(id: string, page: number = 1, limit: number = 50) {
