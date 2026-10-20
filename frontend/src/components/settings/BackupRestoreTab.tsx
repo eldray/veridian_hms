@@ -1,6 +1,7 @@
 // src/components/settings/BackupRestoreTab.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
 import { useToast } from '../../store/toastStore';
+import { useAuthStore } from '../../store/authStore';
 import { Download, Upload, RefreshCw, Database, Trash2, Loader, AlertCircle, CheckCircle } from 'lucide-react';
 import api from '../../api/api';
 
@@ -15,6 +16,8 @@ interface BackupFile {
 
 export default function BackupRestoreTab() {
   const { success, error: toastError } = useToast();
+  const { user: currentUser } = useAuthStore();
+  const canRestoreBackup = currentUser?.role === 'super_admin';
   
   const [backups, setBackups] = useState<BackupFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -283,7 +286,7 @@ export default function BackupRestoreTab() {
         <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] text-center">
           <Upload className="w-5 h-5 text-blue-500 mx-auto mb-1" />
           <p className="text-2xl font-bold text-blue-600">{selectedFile ? '1' : '0'}</p>
-          <p className="text-xs text-[var(--text-secondary)]">Selected for Restore</p>
+          <p className="text-xs text-[var(--text-secondary)]">{canRestoreBackup ? 'Selected for Restore' : 'Restore Restricted'}</p>
         </div>
       </div>
 
@@ -299,6 +302,7 @@ export default function BackupRestoreTab() {
             {creatingBackup ? 'Creating...' : 'Create Backup'}
           </button>
           
+          {canRestoreBackup && (
           <label className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] cursor-pointer text-sm font-medium transition-all">
             <Upload className="w-4 h-4" />
             Select Backup File
@@ -309,7 +313,9 @@ export default function BackupRestoreTab() {
               className="hidden" 
             />
           </label>
+          )}
           
+          {canRestoreBackup && (
           <button 
             onClick={handleRestoreBackup} 
             disabled={restoring || creatingBackup || !selectedFile}
@@ -318,6 +324,7 @@ export default function BackupRestoreTab() {
             {restoring ? <Loader className="w-4 h-4 animate-spin inline mr-2" /> : <Upload className="w-4 h-4 inline mr-2" />}
             {restoring ? 'Restoring...' : 'Restore Backup'}
           </button>
+          )}
           
           <button 
             onClick={loadBackups} 
