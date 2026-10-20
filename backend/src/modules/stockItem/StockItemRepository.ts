@@ -396,7 +396,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         ? item.currentStock
         : item.stockBalances.reduce((sum: number, balance: any) => sum + balance.quantity, 0),
     }));
-    return scopedItems.filter(item => item.currentStock <= item.reorderLevel);
+    return scopedItems.filter((item: any) => item.currentStock <= item.reorderLevel);
   }
 
   async getExpiringBatches(daysThreshold: number = 90) {
