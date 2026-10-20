@@ -41,8 +41,13 @@ export class StockTransferController extends BaseController {
   });
 
   receive = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.destinationId)) {
+      return res.status(403).json({ success: false, message: 'Only the receiving department can confirm this transfer' });
+    }
     const result = await this.service.receiveTransfer(req.params.id, req.user!.id);
-    return this.ok(res, result, 'Transfer received at destination. Batches updated.');
+    return this.ok(res, result, 'Transfer received at destination. Stock balances updated.');
   });
 }
 
