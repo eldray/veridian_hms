@@ -853,6 +853,19 @@ export default function StockManagement() {
                         >
                           <TrendingUp className="w-3.5 h-3.5" />
                         </button>
+                        {canDelete && (
+                          <button
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
+                              setShowAllocationForm(true);
+                            }}
+                            className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
+                            title="Allocate unassigned stock"
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(item)}
                           className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
