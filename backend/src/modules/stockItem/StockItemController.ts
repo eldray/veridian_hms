@@ -70,7 +70,11 @@ export class StockItemController extends BaseController {
 
   getTransactions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
-    const result = await this.service.getStockTransactions(req.params.id, page, limit);
+    const includeAllStockLocations = ['admin', 'super_admin', 'accounts'].includes(String(req.user?.role));
+    const result = await this.service.getStockTransactions(req.params.id, page, limit, {
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations,
+    });
     return this.ok(res, result, 'Transactions retrieved');
   });
 
