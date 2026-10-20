@@ -213,6 +213,7 @@ export default function StockManagement() {
       await createStockTransaction({
         stockItemId: selectedItem.id,
         ...transactionData,
+        quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity,
         departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined
       });
       success('Recorded', 'Transaction completed successfully');
