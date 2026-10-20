@@ -209,6 +209,7 @@ export class RequisitionService extends BaseService {
     if (!existing) throw new ValidationError('Requisition not found');
     if (existing.status !== 'submitted') throw new ValidationError('Only submitted requisitions can be approved');
     const linesById = new Map((existing.RequisitionItem || []).map((line: any) => [line.id, line]));
+    if (data.approvedItems.length !== linesById.size) throw new ValidationError('Submit an approval quantity for every requisition line. Use 0 for items not approved.');
     for (const a of data.approvedItems) {
       const line: any = linesById.get(a.requisitionItemId);
       if (!line) throw new ValidationError('An approved item does not belong to this requisition');
