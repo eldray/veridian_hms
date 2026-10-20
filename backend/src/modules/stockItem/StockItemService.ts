@@ -125,6 +125,24 @@ export class StockItemService extends BaseService {
     if (!unitOfMeasure) throw new ValidationError('Unit of measure is required');
     if (!Number.isFinite(costPrice) || costPrice < 0) throw new ValidationError('Cost price must be a number that is 0 or more');
 
+    const initialStock = Number(data.currentStock ?? 0);
+    if (!Number.isSafeInteger(initialStock) || initialStock < 0) {
+      throw new ValidationError('Initial stock must be a non-negative whole number');
+    }
+    const hasOpeningBatch = Boolean(
+      data.batchNumber && data.expiryDate &&
+      data.quantityReceived !== undefined && data.quantityReceived !== null && data.quantityReceived !== ''
+    );
+    if (hasOpeningBatch) {
+      const receivedQuantity = Number(data.quantityReceived);
+      if (!Number.isSafeInteger(receivedQuantity) || receivedQuantity <= 0) {
+        throw new ValidationError('Opening batch quantity must be a positive whole number');
+      }
+      if (initialStock > 0) {
+        throw new ValidationError('Provide either initial stock or an opening batch quantity, not both, to avoid counting the same stock twice');
+      }
+    }
+
     // drugCode is required + unique in the schema: use the one supplied, otherwise generate it
     let drugCode = String(data.drugCode ?? '').trim().toUpperCase();
     if (drugCode) {
@@ -139,7 +157,7 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice, isNHISCovered: data.isNHISCovered ?? true,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
@@ -148,8 +166,18 @@ export class StockItemService extends BaseService {
       return created;
     });
 
-    if (data.batchNumber && data.expiryDate && data.quantityReceived) {
-      await this.repo.addBatchSafely(item.id, data.batchNumber, new Date(data.expiryDate), data.quantityReceived, data.costPrice);
+    if (hasOpeningBatch) {
+      await this.addStockBatch(
+        item.id,
+        String(data.batchNumber).trim(),
+        new Date(data.expiryDate),
+        Number(data.quantityReceived),
+        costPrice,
+        data.receivedDate ? new Date(data.receivedDate) : undefined,
+        data.departmentId ? String(data.departmentId) : undefined,
+      );
+      // Return the refreshed aggregate and batch list, not the pre-receipt snapshot.
+      return this.getById(item.id);
     }
     return item;
   }
@@ -201,6 +229,12 @@ export class StockItemService extends BaseService {
   }
 
   async updateStockLevel(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string) {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Stock quantity must be a positive whole number');
+    }
+    if (!['purchase', 'adjustment', 'requisition', 'sale'].includes(transactionType)) {
+      throw new ValidationError('Invalid stock transaction type');
+    }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
     return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy);
   }
@@ -210,8 +244,33 @@ export class StockItemService extends BaseService {
     return { transactions, pagination: { page, limit, total: transactions.length, pages: 1 } }; // Simplified pagination for brevity
   }
 
-  async addStockBatch(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date) {
-    return this.repo.addBatchSafely(stockItemId, batchNumber, expiryDate, quantity, costPrice, receivedDate);
+  async addStockBatch(
+    stockItemId: string,
+    batchNumber: string,
+    expiryDate: Date,
+    quantity: number,
+    costPrice: number,
+    receivedDate?: Date,
+    departmentId?: string,
+  ) {
+    if (!stockItemId.trim()) throw new ValidationError('Stock item ID is required');
+    if (!batchNumber?.trim()) throw new ValidationError('Batch number is required');
+    if (!(expiryDate instanceof Date) || !Number.isFinite(expiryDate.getTime())) {
+      throw new ValidationError('A valid batch expiry date is required');
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Batch quantity must be a positive whole number');
+    }
+    if (!Number.isFinite(costPrice) || costPrice < 0) {
+      throw new ValidationError('Batch cost price must be a number that is 0 or more');
+    }
+    const received = receivedDate ?? new Date();
+    if (!(received instanceof Date) || !Number.isFinite(received.getTime())) {
+      throw new ValidationError('A valid received date is required');
+    }
+    if (expiryDate <= received) throw new ValidationError('Batch expiry date must be after its received date');
+    if (received.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
+    return this.repo.addBatchSafely(stockItemId, batchNumber.trim(), expiryDate, quantity, costPrice, received, departmentId);
   }
 
   async getExpiringBatches(days: number) { return this.repo.getExpiringBatches(days); }
