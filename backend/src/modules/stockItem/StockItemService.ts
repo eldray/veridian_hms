@@ -271,8 +271,8 @@ export class StockItemService extends BaseService {
     departmentId?: string,
     role?: string,
   ) {
-    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
-      throw new ValidationError('Stock quantity must be a positive whole number');
+    if (!Number.isSafeInteger(quantity) || quantity === 0 || (quantity < 0 && transactionType !== 'adjustment')) {
+      throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
     }
     if (!['purchase', 'adjustment', 'requisition', 'sale', 'write_off'].includes(transactionType)) {
       throw new ValidationError('Invalid stock transaction type');
