@@ -1,5 +1,6 @@
 import { PrismaClient, StockTransactionType, RequisitionStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from './StockBalance';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -55,34 +56,65 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   // ✅ PRODUCTION FIX: Thread-safe inventory update using atomic decrement
-  async updateStockLevelSafely(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string) {
+  async updateStockLevelSafely(
+    id: string,
+    quantity: number,
+    transactionType: StockTransactionType,
+    reference?: string,
+    notes?: string,
+    performedBy?: string,
+    departmentId?: string,
+  ) {
     return this.prisma.$transaction(async (tx) => {
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
-      
+      const normalizedDepartmentId = departmentId || undefined;
+      const batchCount = await tx.stockBatch.count({ where: { stockItemId: id } });
+
+      if (batchCount > 0 && isOutgoing) {
+        if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
+        const now = new Date();
+        const batches = await tx.stockBatch.findMany({
+          where: { stockItemId: id, departmentId: normalizedDepartmentId, isActive: true, expiryDate: { gt: now }, quantity: { gt: 0 } },
+          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+        });
+        const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+        if (available < quantity) throw new Error(`Insufficient stock in department. Available: ${available}, requested: ${quantity}`);
+        let remaining = quantity;
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const move = Math.min(batch.quantity, remaining);
+          const changed = await tx.stockBatch.updateMany({
+            where: { id: batch.id, quantity: { gte: move }, isActive: true },
+            data: { quantity: { decrement: move } },
+          });
+          if (changed.count !== 1) throw new Error('Stock changed during the transaction. Please retry.');
+          remaining -= move;
+        }
+      } else if (batchCount > 0) {
+        throw new Error('This item uses batch tracking. Use the batch receipt workflow for incoming stock.');
+      }
+
       if (isOutgoing) {
-        // Atomically decrement ONLY if we have enough stock
+        await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, quantity);
         const updated = await tx.stockItem.updateMany({
           where: { id, currentStock: { gte: quantity } },
-          data: { currentStock: { decrement: quantity } }
+          data: { currentStock: { decrement: quantity } },
         });
-        if (updated.count === 0) {
-          const item = await tx.stockItem.findUnique({ where: { id } });
-          throw new Error(`Insufficient stock. Current: ${item?.currentStock || 0}, Requested: ${quantity}`);
-        }
+        if (updated.count !== 1) throw new Error('Insufficient hospital-wide stock');
       } else {
+        await increaseDepartmentStockBalance(tx, id, normalizedDepartmentId, quantity);
         await tx.stockItem.update({ where: { id }, data: { currentStock: { increment: quantity } } });
       }
 
-      // Fetch the new balance for the transaction log
       const updatedItem = await tx.stockItem.findUnique({ where: { id } });
-
+      if (!updatedItem) throw new Error('Stock item not found');
       await tx.stockTransaction.create({
         data: {
           stockItemId: id, transactionType, quantity: Math.abs(quantity),
-          balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system'
-        }
+          balanceAfter: updatedItem.currentStock, reference, notes,
+          performedBy: performedBy || 'system', departmentId: normalizedDepartmentId,
+        },
       });
-
       return updatedItem;
     });
   }
@@ -112,6 +144,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         ...(departmentId ? { departmentId } : {}),
       },
     });
+    await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
     await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
     const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
     if (!updatedItem) throw new Error('Stock item not found while receiving batch');
@@ -121,6 +154,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         stockItemId, transactionType: 'purchase', quantity,
         balanceAfter: updatedItem.currentStock, reference: `BATCH-${batchNumber}`,
         notes: `Added batch ${batchNumber}`, performedBy: 'system',
+        ...(departmentId ? { departmentId } : {}),
       },
     });
     return batch;
