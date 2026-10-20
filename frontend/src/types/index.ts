@@ -290,7 +290,7 @@ export type InsuranceType = 'nhis' | 'private' | 'corporate';
 export type ClaimSubmissionMethod = 'portal' | 'paper' | 'edi_batch' | 'api';
 
 // Stock & Requisitions
-export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out';
+export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out' | 'write_off';
 export type RequisitionStatus = 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
 export type RequisitionUrgency = 'routine' | 'urgent' | 'emergency';
 
