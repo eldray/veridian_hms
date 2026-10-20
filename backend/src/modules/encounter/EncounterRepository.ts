@@ -616,6 +616,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         if (!departmentId) throw new ValidationError('Assign the dispensing user to a pharmacy/issuing department before dispensing');
 
         const stockItem = med.StockItem;
+        if (!stockItem.isActive) throw new ValidationError('Inactive stock items cannot be dispensed');
+        if (!stockItem.isMedication) throw new ValidationError('The linked stock item is not configured as a medication');
         const now = new Date();
         const batchCount = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
         const batches = batchCount > 0 ? await tx.stockBatch.findMany({
