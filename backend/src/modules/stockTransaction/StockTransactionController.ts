@@ -16,8 +16,10 @@ export class StockTransactionController extends BaseController {
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
-    const departmentId = isAdmin ? (req.body.departmentId || req.user?.departmentId) : req.user?.departmentId;
-    const result = await this.service.create({ ...req.body, departmentId: departmentId || undefined, performedBy: req.user?.id });
+    const departmentId = isAdmin ? (req.body.departmentId || undefined) : req.user?.departmentId;
+    // Staff are confined to their assigned department; only administrators may select a ward directly.
+    const wardId = isAdmin ? (req.body.wardId || undefined) : undefined;
+    const result = await this.service.create({ ...req.body, departmentId, wardId, role: req.user?.role, performedBy: req.user?.id });
     return this.created(res, result, 'Stock transaction created successfully');
   });
 
