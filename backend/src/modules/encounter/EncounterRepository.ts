@@ -1109,7 +1109,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async updateConsumableUse(encounterId: string, transactionId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Quantity must be a positive whole number');
     }
 
