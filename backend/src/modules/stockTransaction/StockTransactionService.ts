@@ -107,7 +107,7 @@ export class StockTransactionService extends BaseService {
   }
 
   async getMovementSummary(filters: any) {
-    const { stockItems, transactions } = await this.repo.getMovementData(filters.startDate, filters.endDate, filters.category);
+    const { stockItems, transactions } = await this.repo.getMovementData(filters.startDate, filters.endDate, filters.category, { departmentId: filters.departmentId, includeAllStockLocations: filters.includeAllStockLocations });
 
     const movementSummary = stockItems.map(item => {
       const itemTxs = transactions.filter((t: any) => t.stockItemId === item.id);
