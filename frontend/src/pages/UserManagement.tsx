@@ -134,7 +134,7 @@ const Pagination: React.FC<PaginationProps> = ({
 // ═════════════════════════════════════════════════════════════════════════════
 const ROLE_STYLES: Record<string, string> = {
   // Admin tier
-  super_admin:     'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+  super_admin:     'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
   admin:           'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
   hr_officer:      'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]',
 
