@@ -70,10 +70,14 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
 
         // 2. Create Stock Batch (Assigned to the receiving department!)
         if (item.batchNumber) {
+          const batchExpiry = item.expiryDate ? new Date(item.expiryDate) : null;
+          if (!batchExpiry || !Number.isFinite(batchExpiry.getTime()) || batchExpiry <= new Date()) {
+            throw new Error(`A future expiry date is required for batch-tracked item ${stockItem.name}`);
+          }
           await tx.stockBatch.create({
             data: {
               stockItemId: item.stockItemId, batchNumber: item.batchNumber,
-              expiryDate: item.expiryDate ? new Date(item.expiryDate) : new Date(),
+              expiryDate: batchExpiry,
               quantity: item.quantity, costPrice: item.unitCost, receivedDate: new Date(),
               departmentId: data.receivedAtDepartmentId // ✅ NEW: Physical location of the batch
             }
