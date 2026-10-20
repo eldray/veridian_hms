@@ -118,12 +118,14 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       }
 
       const isOutgoing = transaction.transactionType === 'sale' || transaction.transactionType === 'requisition';
-      
+
       if (isOutgoing) {
-        // Reversing an outgoing transaction means adding stock back
+        // Reversing an outgoing transaction restores the same location balance and aggregate.
+        await increaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, transaction.quantity, transaction.wardId);
         await tx.stockItem.update({ where: { id: transaction.stockItemId }, data: { currentStock: { increment: transaction.quantity } } });
       } else {
-        // Reversing an incoming transaction means deducting stock safely
+        // Reversing an incoming transaction deducts from the recorded location first.
+        await decreaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, transaction.quantity, transaction.wardId);
         const updated = await tx.stockItem.updateMany({
           where: { id: transaction.stockItemId, currentStock: { gte: transaction.quantity } },
           data: { currentStock: { decrement: transaction.quantity } }
