@@ -1183,11 +1183,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { notes: `Consumable use deletion in progress: ${use.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
-      const item = await tx.stockItem.update({
-        where: { id: use.stockItemId },
-        data: { currentStock: { increment: use.quantity } },
-        select: { currentStock: true },
-      });
+      const restoredBalance = await this.restoreConsumableStock(tx, use.stockItemId, use.quantity, use.departmentId, use.batchAllocations);
       await tx.stockTransaction.update({
         where: { id: use.id },
         data: { notes: `Consumable use deleted: ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
@@ -1197,8 +1193,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           stockItemId: use.stockItemId,
           transactionType: 'adjustment',
           quantity: use.quantity,
-          balanceAfter: item.currentStock,
+          balanceAfter: restoredBalance,
           reference: encounterId,
+          departmentId: use.departmentId,
+          batchAllocations: use.batchAllocations as any,
           notes: `Consumable use deletion reversal: ${use.id}`,
           performedBy: actorId,
         },
