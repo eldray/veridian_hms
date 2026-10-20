@@ -1013,7 +1013,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
       orderBy: { transactionDate: 'desc' },
     });
-    return rows.filter((row: any) => !/^Consumable use: \\[(EDITED|DELETED)\\]/i.test(String(row.notes || '')));
+    return rows.filter((row: any) => !/^Consumable use: \[(EDITED|DELETED)\]/i.test(String(row.notes || '')));
   }
 
   private async consumeConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string) {
