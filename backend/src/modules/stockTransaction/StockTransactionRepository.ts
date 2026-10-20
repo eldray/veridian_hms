@@ -1,5 +1,6 @@
 import { PrismaClient, StockTransactionType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { ValidationError } from '../../utils/errors';
 
 export class StockTransactionRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -44,7 +45,14 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async createSafely(data: any) {
     return this.prisma.$transaction(async (tx) => {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
-      
+
+      // Generic transactions only update aggregate stock. Once an item has batches, using
+      // this path would desynchronize batch quantities from StockItem.currentStock.
+      const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
+      if (batchCount > 0) {
+        throw new ValidationError('This item uses batch tracking. Use a batch-aware stock workflow; generic stock transactions are blocked to prevent inventory mismatches.');
+      }
+
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
       
       if (isOutgoing) {
@@ -84,6 +92,13 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const transaction = await tx.stockTransaction.findUnique({ where: { id } });
       if (!transaction) throw new Error('Transaction not found');
+
+      // Reversing an aggregate-only transaction cannot correctly restore/decrement batch
+      // balances. Require a dedicated batch-aware reversal for batch-tracked items.
+      const batchCount = await tx.stockBatch.count({ where: { stockItemId: transaction.stockItemId } });
+      if (batchCount > 0) {
+        throw new ValidationError('This item uses batch tracking. Generic transaction reversal is blocked until a batch-aware reversal workflow is available.');
+      }
 
       const isOutgoing = transaction.transactionType === 'sale' || transaction.transactionType === 'requisition';
       
