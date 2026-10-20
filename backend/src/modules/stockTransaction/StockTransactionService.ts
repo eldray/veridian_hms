@@ -30,6 +30,11 @@ export class StockTransactionService extends BaseService {
     if (data.transactionType === 'write_off' && !String(data.notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
+    if (data.departmentId && data.wardId) throw new ValidationError('Select either a department or a ward, not both');
+    if (data.wardId && !['admin', 'super_admin'].includes(String(data.role || ''))) {
+      // Authorization is enforced by the controller; the service also rejects direct ward writes unless explicitly authorized.
+      throw new ValidationError('Only an administrator may select a ward directly');
+    }
     data.quantity = quantity;
 
     return this.repo.createSafely(data);
