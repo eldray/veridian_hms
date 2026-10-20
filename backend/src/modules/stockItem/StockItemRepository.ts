@@ -96,9 +96,9 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         const now = new Date();
         const batches = await tx.stockBatch.findMany({
           where: {
-            stockItemId: id, departmentId: normalizedDepartmentId, wardId: null, isActive: true,
+            stockItemId: id, departmentId: normalizedDepartmentId, wardId: null,
             quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { expiryDate: { gt: now } }),
+            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: now } }),
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
@@ -109,7 +109,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           if (remaining <= 0) break;
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
-            where: { id: batch.id, quantity: { gte: move }, isActive: true },
+            where: {
+              id: batch.id, quantity: { gte: move },
+              ...(transactionType === 'write_off' ? {} : { isActive: true }),
+            },
             data: { quantity: { decrement: move } },
           });
           if (changed.count !== 1) throw new Error('Stock changed during the transaction. Please retry.');
