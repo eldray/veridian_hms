@@ -161,11 +161,25 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   }
 
   // ✅ FIXED: Prisma doesn't support comparing two fields directly. We fetch and filter in memory.
-  async getLowStockItems(category?: string) {
+  async getLowStockItems(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const where: any = { isActive: true };
     if (category) where.category = category;
-    const items = await this.prisma.stockItem.findMany({ where, select: { id: true, name: true, category: true, currentStock: true, reorderLevel: true, unitOfMeasure: true, drugCode: true }, orderBy: { currentStock: 'asc' } });
-    return items.filter(i => i.currentStock <= i.reorderLevel);
+    const items = await this.prisma.stockItem.findMany({
+      where,
+      select: {
+        id: true, name: true, category: true, currentStock: true, reorderLevel: true, unitOfMeasure: true, drugCode: true,
+        stockBalances: filters.includeAllStockLocations ? false as any : {
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+          select: { quantity: true },
+        },
+      },
+      orderBy: { currentStock: 'asc' },
+    });
+    const scoped = items.map((item: any) => ({
+      ...item,
+      currentStock: filters.includeAllStockLocations ? item.currentStock : item.stockBalances.reduce((sum: number, b: any) => sum + b.quantity, 0),
+    }));
+    return scoped.filter((i: any) => i.currentStock <= i.reorderLevel);
   }
 
   async getRequisitionTransactions(filters: any) {
@@ -185,18 +199,35 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.prisma.stockItem.findMany({ where, select: { id: true, name: true, category: true, currentStock: true, costPrice: true, unitOfMeasure: true, reorderLevel: true } });
   }
 
-  async getMovementData(startDate?: Date, endDate?: Date, category?: string) {
+  async getMovementData(startDate?: Date, endDate?: Date, category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const whereTx: any = {};
-    if (startDate || endDate) { whereTx.transactionDate = {}; if (startDate) whereTx.transactionDate.gte = startDate; if (endDate) whereTx.transactionDate.lte = endDate; }
-    
+    if (!filters.includeAllStockLocations) whereTx.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    if (startDate || endDate) {
+      whereTx.transactionDate = {};
+      if (startDate) whereTx.transactionDate.gte = startDate;
+      if (endDate) whereTx.transactionDate.lte = endDate;
+    }
+
     const whereItem: any = {};
     if (category) whereItem.category = category;
 
     const [stockItems, transactions] = await Promise.all([
-      this.prisma.stockItem.findMany({ where: whereItem, select: { id: true, name: true, category: true, currentStock: true, unitOfMeasure: true } }),
-      this.getModel().findMany({ where: whereTx, include: { StockItem: { select: { id: true, name: true, category: true } } } })
+      this.prisma.stockItem.findMany({
+        where: whereItem,
+        select: {
+          id: true, name: true, category: true, currentStock: true, unitOfMeasure: true,
+          stockBalances: filters.includeAllStockLocations ? false as any : {
+            where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+            select: { quantity: true },
+          },
+        },
+      }),
+      this.getModel().findMany({ where: whereTx, include: { StockItem: { select: { id: true, name: true, category: true } } } }),
     ]);
-
-    return { stockItems, transactions };
+    const scopedItems = stockItems.map((item: any) => ({
+      ...item,
+      currentStock: filters.includeAllStockLocations ? item.currentStock : item.stockBalances.reduce((sum: number, b: any) => sum + b.quantity, 0),
+    }));
+    return { stockItems: scopedItems, transactions };
   }
 }
