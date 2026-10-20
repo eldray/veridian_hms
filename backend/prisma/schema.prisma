@@ -1671,7 +1671,27 @@ model StockItem {
   ServiceCatalog   ServiceCatalog[]
   StockTransaction StockTransaction[]
   StockBatch       StockBatch[]
+  stockBalances    StockItemDepartmentBalance[]
   transferItems    StockTransferItem[]
+}
+
+// Canonical on-hand balance by department. A null departmentId represents legacy/unassigned stock.
+model StockItemDepartmentBalance {
+  id           String      @id @default(cuid())
+  stockItemId  String
+  departmentId String?
+  // Stable unique key: department id or "__UNASSIGNED__" for legacy stock not yet assigned.
+  locationKey  String
+  quantity     Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  stockItem  StockItem   @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+
+  @@unique([stockItemId, locationKey])
+  @@index([departmentId, stockItemId])
+  @@map("stock_item_department_balances")
 }
 
 model StockBatch {
@@ -1895,6 +1915,7 @@ model Department {
 
   // Stock management
   stockBatches      StockBatch[]
+  stockBalances    StockItemDepartmentBalance[]
   outgoingTransfers StockTransfer[]    @relation("OriginDepartment")
   incomingTransfers StockTransfer[]    @relation("DestinationDepartment")
   receivedInvoices  Invoice[]
