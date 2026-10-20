@@ -26,7 +26,12 @@ export class StockItemController extends BaseController {
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     // Stock list is a reference list: allow up to 1000 per request (repository already caps at 1000)
     const { page, limit } = this.getPaginationParams(req, 1000);
-    const result = await this.service.getAll({ ...req.query, page, limit });
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getAll({
+      ...req.query, page, limit,
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations,
+    });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Stock items retrieved');
   });
 
