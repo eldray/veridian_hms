@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { StockTransferRepository } from './StockTransferRepository';
 import { CreateTransferDTO, TransferQueryParams } from './StockTransferTypes';
 import { getCounterService } from '../../services/CounterService';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
 
 export class StockTransferService extends BaseService {
   private repo: StockTransferRepository;
@@ -78,7 +79,15 @@ export class StockTransferService extends BaseService {
       if (!transfer || transfer.status !== 'dispatched') throw new Error('Transfer must be dispatched before receiving');
 
       for (const item of transfer.items) {
-        let qtyToReceive = item.quantitySent; 
+        let qtyToReceive = item.quantitySent;
+
+        if (!Number.isSafeInteger(qtyToReceive) || qtyToReceive <= 0) {
+          throw new Error(`Transfer item ${item.id} has no valid dispatched quantity`);
+        }
+        // Internal transfer moves the balance between departments without changing
+        // StockItem.currentStock (the hospital-wide aggregate).
+        await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qtyToReceive);
+        await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qtyToReceive);
 
         // ✅ FEFO: Get batches from Origin, sorted by Expiry Date
         const originBatches = await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx);
