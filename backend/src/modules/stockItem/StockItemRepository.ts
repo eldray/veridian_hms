@@ -11,7 +11,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async findAllWithFilters(filters: any) {
-    const { category, search, page = 1, limit = 1000 } = filters;
+    const { category, search, page = 1, limit = 1000, departmentId, includeAllStockLocations } = filters;
     const where: any = {};
     if (category) where.category = category;
     if (search) {
@@ -25,8 +25,18 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: {
-        StockBatch: { where: { isActive: true }, include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } }, orderBy: { expiryDate: 'asc' } },
-        stockBalances: { include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } } },
+        StockBatch: {
+          where: {
+            isActive: true,
+            ...(!includeAllStockLocations ? { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null } : {}),
+          },
+          include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
+          orderBy: { expiryDate: 'asc' },
+        },
+        stockBalances: {
+          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__' },
+          include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
+        },
         // Current patient prices (cash / NHIS / insurance / corporate) live on the item's catalog entry
         ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
       }
