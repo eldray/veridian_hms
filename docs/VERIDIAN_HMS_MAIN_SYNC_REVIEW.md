@@ -29,12 +29,12 @@ All changes in this branch are targeted edits to current-main files. The reposit
 
 ## Critical data-exposure follow-up
 
-A previous source inspection identified a root-level `all.xml` export and files under backup/log paths that appeared to contain patient-linked claims or clinical data. Treat these as potentially real sensitive health information until verified otherwise.
+Earlier inspection of the pre-sync branch identified a root-level `all.xml` export. That file is no longer present in the current synced branch. The current synced branch did contain a tracked JSON backup and operational log files; those files have now been removed from this working branch because they may contain sensitive health or operational data. Treat the historical exposure as potentially real until verified otherwise.
 
 Actions for the repository owner:
 1. Consider making the repository private while investigating.
 2. Determine whether exposed records are real, synthetic, or de-identified and follow the applicable organizational and Ghana data-protection incident procedure if real.
-3. Remove sensitive tracked files from the active tree and plan a careful history cleanup if appropriate; rewriting history is destructive and should be done only with an agreed recovery plan.
+3. Review the proposed deletions of the tracked backup/log files in this branch and check the remaining repository tree. Plan a careful history cleanup if appropriate; rewriting history is destructive and should be done only with an agreed recovery plan.
 4. Review forks, clones, CI artifacts, releases, downloaded archives, and backups; rotate credentials if any secrets were present.
 5. Keep only synthetic test fixtures in source control.
 
