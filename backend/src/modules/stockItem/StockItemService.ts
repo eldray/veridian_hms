@@ -411,7 +411,8 @@ export class StockItemService extends BaseService {
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': signed = q; break;
         case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
-        default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; // adjustment
+        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; break;
+        default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q;
       }
       lastBalance.set(t.stockItemId, t.balanceAfter);
 
