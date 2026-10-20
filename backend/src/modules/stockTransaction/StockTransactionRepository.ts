@@ -9,8 +9,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   }
 
   async findAllWithFilters(filters: any) {
-    const { stockItemId, transactionType, startDate, endDate, page = 1, limit = 1000 } = filters;
+    const { stockItemId, transactionType, startDate, endDate, page = 1, limit = 1000, departmentId, includeAllStockLocations } = filters;
     const where: any = {};
+    if (!includeAllStockLocations) where.departmentId = departmentId || '__NO_DEPARTMENT__';
     if (stockItemId) where.stockItemId = stockItemId;
     if (transactionType) where.transactionType = transactionType;
     if (startDate || endDate) {
@@ -30,9 +31,12 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async findByIdWithRelations(id: string) {
-    return this.getModel().findUnique({
-      where: { id },
+  async findByIdWithRelations(id: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    return this.getModel().findFirst({
+      where: {
+        id,
+        ...(!filters.includeAllStockLocations ? { departmentId: filters.departmentId || '__NO_DEPARTMENT__' } : {}),
+      },
       include: {
         StockItem: { select: { id: true, name: true, category: true, drugCode: true, unitOfMeasure: true, currentStock: true } },
         Requisition: { select: { requisitionNumber: true, status: true, urgency: true, departments: { select: { name: true } } } },
