@@ -133,6 +133,8 @@ export class StockItemService extends BaseService {
       data.batchNumber && data.expiryDate &&
       data.quantityReceived !== undefined && data.quantityReceived !== null && data.quantityReceived !== ''
     );
+    let openingBatchExpiryDate: Date | undefined;
+    let openingBatchReceivedDate: Date | undefined;
     if (hasOpeningBatch) {
       const receivedQuantity = Number(data.quantityReceived);
       if (!Number.isSafeInteger(receivedQuantity) || receivedQuantity <= 0) {
@@ -140,6 +142,18 @@ export class StockItemService extends BaseService {
       }
       if (initialStock > 0) {
         throw new ValidationError('Provide either initial stock or an opening batch quantity, not both, to avoid counting the same stock twice');
+      }
+      if (!String(data.batchNumber).trim()) throw new ValidationError('Batch number is required');
+
+      openingBatchExpiryDate = new Date(data.expiryDate);
+      openingBatchReceivedDate = data.receivedDate ? new Date(data.receivedDate) : new Date();
+      if (!Number.isFinite(openingBatchExpiryDate.getTime())) throw new ValidationError('A valid batch expiry date is required');
+      if (!Number.isFinite(openingBatchReceivedDate.getTime())) throw new ValidationError('A valid received date is required');
+      if (openingBatchExpiryDate <= openingBatchReceivedDate) throw new ValidationError('Batch expiry date must be after its received date');
+      if (openingBatchReceivedDate.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
+      if (data.departmentId) {
+        const department = await this.prisma.department.findUnique({ where: { id: String(data.departmentId) }, select: { id: true } });
+        if (!department) throw new ValidationError('Selected stock department does not exist');
       }
     }
 
@@ -163,23 +177,23 @@ export class StockItemService extends BaseService {
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
+      if (hasOpeningBatch) {
+        await this.repo.addBatchWithinTransaction(
+          tx,
+          created.id,
+          String(data.batchNumber).trim(),
+          openingBatchExpiryDate!,
+          Number(data.quantityReceived),
+          costPrice,
+          openingBatchReceivedDate,
+          data.departmentId ? String(data.departmentId) : undefined,
+        );
+      }
       return created;
     });
 
-    if (hasOpeningBatch) {
-      await this.addStockBatch(
-        item.id,
-        String(data.batchNumber).trim(),
-        new Date(data.expiryDate),
-        Number(data.quantityReceived),
-        costPrice,
-        data.receivedDate ? new Date(data.receivedDate) : undefined,
-        data.departmentId ? String(data.departmentId) : undefined,
-      );
-      // Return the refreshed aggregate and batch list, not the pre-receipt snapshot.
-      return this.getById(item.id);
-    }
-    return item;
+    // Return the refreshed aggregate and batch list after the atomic opening receipt.
+    return hasOpeningBatch ? this.getById(item.id) : item;
   }
 
   async getAll(filters: any) { return this.repo.findAllWithFilters(filters); }
