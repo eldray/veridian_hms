@@ -123,7 +123,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('This item uses batch tracking. Generic transaction reversal is blocked until a batch-aware reversal workflow is available.');
       }
 
-      const isOutgoing = transaction.transactionType === 'sale' || transaction.transactionType === 'requisition';
+      const isOutgoing = transaction.transactionType === 'sale' || transaction.transactionType === 'requisition' || transaction.transactionType === 'write_off';
 
       if (isOutgoing) {
         // Reversing an outgoing transaction restores the same location balance and aggregate.
