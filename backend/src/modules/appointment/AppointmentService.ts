@@ -60,7 +60,7 @@ export class AppointmentService extends BaseService {
     const WORK_END = 17;    // 17:00
     const SLOT_MINUTES = 30;
 
-    const booked = await this.repository.getBookedSlots(clinicianId, date);
+    const booked: Array<{ scheduledAt: Date | string; duration?: number | null }> = await this.repository.getBookedSlots(clinicianId, date);
     // Build a set of occupied [start, end) intervals (ms since midnight) honoring duration.
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
     const occupied = booked.map(b => {
