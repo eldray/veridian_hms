@@ -192,6 +192,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
 
   async getRequisitionTransactions(filters: any) {
     const where: any = { transactionType: 'requisition' };
+    // Non-administrators may only view requisition stock movements in their own department.
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
     if (filters.requisitionId) where.requisitionId = filters.requisitionId;
     if (filters.startDate || filters.endDate) {
       where.transactionDate = {};
