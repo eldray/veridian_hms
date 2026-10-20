@@ -469,6 +469,16 @@ export class RequisitionRepository {
       if (!requisition) throw new Error('Requisition not found');
       if (requisition.status !== 'approved') throw new Error('Only approved requisitions can be fulfilled');
 
+      // Claim fulfillment before stock changes. Competing requests cannot issue the
+      // same requisition twice; any later failure rolls this status claim back.
+      const fulfillmentClaim = await tx.requisition.updateMany({
+        where: { id, status: 'approved' },
+        data: { status: 'fulfilled', fulfilledById: userId, fulfilledAt: new Date() },
+      });
+      if (fulfillmentClaim.count !== 1) {
+        throw new Error('This requisition has already been fulfilled or its status changed. Refresh and try again.');
+      }
+
       const lines = requisition.RequisitionItem
         .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }))
         .filter(l => l.qty > 0);
