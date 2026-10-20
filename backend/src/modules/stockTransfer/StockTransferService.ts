@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { StockTransferRepository } from './StockTransferRepository';
 import { CreateTransferDTO, TransferQueryParams } from './StockTransferTypes';
 import { getCounterService } from '../../services/CounterService';
+import { ValidationError, NotFoundError } from '../../utils/errors';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 
@@ -27,8 +28,46 @@ export class StockTransferService extends BaseService {
   }
 
   async requestTransfer(data: CreateTransferDTO, userId: string) {
+    if (!data?.originId || !data?.destinationId) {
+      throw new ValidationError('Origin and destination departments are required');
+    }
+    if (data.originId === data.destinationId) {
+      throw new ValidationError('Origin and destination must be different departments');
+    }
+    if (!Array.isArray(data.items) || data.items.length === 0) {
+      throw new ValidationError('A transfer must contain at least one item');
+    }
+
+    const seenItems = new Set<string>();
+    for (const item of data.items) {
+      if (!item?.stockItemId) throw new ValidationError('Every transfer item must specify a stock item');
+      if (seenItems.has(item.stockItemId)) {
+        throw new ValidationError('Duplicate stock items are not allowed in one transfer; combine their quantities');
+      }
+      seenItems.add(item.stockItemId);
+      if (!Number.isSafeInteger(item.quantityRequested) || item.quantityRequested <= 0) {
+        throw new ValidationError('Transfer quantities must be positive whole numbers');
+      }
+    }
+
+    const [origin, destination, stockItems] = await Promise.all([
+      this.prisma.department.findUnique({ where: { id: data.originId }, select: { id: true } }),
+      this.prisma.department.findUnique({ where: { id: data.destinationId }, select: { id: true } }),
+      this.prisma.stockItem.findMany({
+        where: { id: { in: [...seenItems] }, isActive: true },
+        select: { id: true, name: true },
+      }),
+    ]);
+    if (!origin) throw new NotFoundError('Origin department', data.originId);
+    if (!destination) throw new NotFoundError('Destination department', data.destinationId);
+    if (stockItems.length !== seenItems.size) {
+      const found = new Set(stockItems.map((item: { id: string }) => item.id));
+      const missingId = [...seenItems].find(id => !found.has(id));
+      throw new ValidationError(`Stock item ${missingId || ''} does not exist or is inactive`);
+    }
+
     this.logInfo('Requesting stock transfer', { origin: data.originId, destination: data.destinationId });
-    const transferNumber = getCounterService().nextTransferNumber(); // Add this to your CounterService!
+    const transferNumber = getCounterService().nextTransferNumber();
     return this.repo.createTransfer(data, userId, transferNumber);
   }
 
