@@ -1018,6 +1018,67 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
   }
 
+  private async consumeConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string) {
+    const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+    if (!item || !item.isActive || item.isMedication) throw new NotFoundError('Active consumable', stockItemId);
+    const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
+    const allocations: Array<{ batchId: string; quantity: number }> = [];
+    if (batchCount > 0) {
+      const batches = await tx.stockBatch.findMany({
+        where: { stockItemId, departmentId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gt: 0 } },
+        orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+      });
+      const available = batches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+      if (available < quantity) throw new ValidationError(`Insufficient usable batch stock for ${item.name}. Available: ${available}, requested: ${quantity}`);
+      let remaining = quantity;
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const move = Math.min(batch.quantity, remaining);
+        const result = await tx.stockBatch.updateMany({
+          where: { id: batch.id, departmentId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: move } },
+          data: { quantity: { decrement: move } },
+        });
+        if (result.count !== 1) throw new ConflictError('Batch stock changed during consumable use; retry the operation');
+        allocations.push({ batchId: batch.id, quantity: move });
+        remaining -= move;
+      }
+    }
+    await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    const changed = await tx.stockItem.updateMany({
+      where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
+      data: { currentStock: { decrement: quantity } },
+    });
+    if (changed.count !== 1) throw new ValidationError(`Insufficient hospital-wide stock for ${item.name}`);
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true } });
+    if (!stock) throw new NotFoundError('Stock item', stockItemId);
+    return { balanceAfter: stock.currentStock, allocations };
+  }
+
+  private async restoreConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string | null, allocationsValue: any) {
+    const allocations = Array.isArray(allocationsValue) ? allocationsValue : [];
+    if (allocations.length > 0) {
+      const total = allocations.reduce((sum: number, a: any) => sum + Number(a.quantity || 0), 0);
+      if (total !== quantity) throw new ValidationError('Saved batch allocation does not match the original quantity; manual reconciliation is required');
+      for (const allocation of allocations) {
+        const batchId = String(allocation.batchId || '');
+        const amount = Number(allocation.quantity);
+        if (!batchId || !Number.isSafeInteger(amount) || amount <= 0) throw new ValidationError('Saved batch allocation is invalid');
+        const batch = await tx.stockBatch.findUnique({ where: { id: batchId }, select: { id: true, stockItemId: true, departmentId: true, wardId: true } });
+        if (!batch || batch.stockItemId !== stockItemId || batch.departmentId !== departmentId || batch.wardId !== null) {
+          throw new ValidationError('Original batch location has changed; manual reconciliation is required');
+        }
+        await tx.stockBatch.update({ where: { id: batchId }, data: { quantity: { increment: amount }, isActive: true } });
+      }
+    } else if (await tx.stockBatch.count({ where: { stockItemId } }) > 0) {
+      throw new ValidationError('This historic use has no saved batch allocation; manual reconciliation is required');
+    }
+    await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true } });
+    if (!stock) throw new NotFoundError('Stock item', stockItemId);
+    return stock.currentStock;
+  }
+
   async recordConsumableUse(encounterId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
