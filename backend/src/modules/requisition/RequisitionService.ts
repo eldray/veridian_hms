@@ -66,10 +66,25 @@ export class RequisitionService extends BaseService {
     };
   }
 
-  async getRequisitionById(id: string) {
+  async getRequisitionById(id: string, userId: string | undefined) {
     this.logDebug('Fetching requisition by ID', { id });
     const requisition: any = await this.repository.findById(id);
     if (!requisition) throw new Error('Requisition not found');
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, departmentId: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    const isRequester = requisition.requestedById === userId;
+    const isDepartmentParticipant = !!user.departmentId &&
+      (user.departmentId === requisition.requestingDepartmentId ||
+       user.departmentId === requisition.supplyingDepartmentId);
+    if (!isAdmin && !isRequester && !isDepartmentParticipant) {
+      throw new ValidationError('You are not authorized to view this requisition');
+    }
 
     // Show the supplier's (and requester's) CURRENT quantities next to each requested line
     const ids = (requisition.RequisitionItem || []).map((i: any) => i.stockItemId);
