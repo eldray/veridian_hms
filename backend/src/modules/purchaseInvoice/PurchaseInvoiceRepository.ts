@@ -39,7 +39,8 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true, currentStock: true, costPrice: true } } } },
         StockTransaction: true,
         User: { select: { fullName: true, username: true } },
-        receivedAtDepartment: { select: { id: true, name: true } } // ✅ NEW
+        receivedAtDepartment: { select: { id: true, name: true } },
+        receivedAtWard: { select: { id: true, wardName: true } }
       }
     });
   }
@@ -136,7 +137,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         });
       }
 
-      return await tx.invoice.findUnique({ where: { id: invoice.id }, include: { InvoiceItem: true, receivedAtDepartment: true } });
+      return await tx.invoice.findUnique({ where: { id: invoice.id }, include: { InvoiceItem: true, receivedAtDepartment: true, receivedAtWard: true } });
     });
   }
 
