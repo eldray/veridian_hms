@@ -1790,6 +1790,7 @@ model StockTransaction {
   wardId          String?
   // Exact batch quantities consumed by a stock movement, used for audited reversals.
   batchAllocations Json?
+  adjustmentDirection String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
