@@ -461,7 +461,8 @@ export class RequisitionRepository {
         include: {
           RequisitionItem: { include: { StockItem: true } },
           supplyingDepartment: { select: { id: true, name: true } },
-          departments: { select: { id: true, name: true } }
+          departments: { select: { id: true, name: true } },
+          ward: { select: { id: true, wardName: true } }
         }
       });
 
