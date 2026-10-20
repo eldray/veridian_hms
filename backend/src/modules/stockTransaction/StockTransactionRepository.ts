@@ -46,44 +46,58 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
 
-      // Generic transactions only update aggregate stock. Once an item has batches, using
-      // this path would desynchronize batch quantities from StockItem.currentStock.
+      const departmentId = data.departmentId ? String(data.departmentId) : undefined;
       const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
-      if (batchCount > 0) {
-        throw new ValidationError('This item uses batch tracking. Use a batch-aware stock workflow; generic stock transactions are blocked to prevent inventory mismatches.');
+      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
+
+      // Sales/dispensing from a batch-tracked department must reduce that department's
+      // FEFO batches and the hospital aggregate in the same transaction.
+      if (isOutgoing && batchCount > 0) {
+        if (!departmentId) throw new ValidationError('Select the department issuing this stock');
+        let remaining = quantity;
+        const batches = await tx.stockBatch.findMany({
+          where: { stockItemId, departmentId, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
+          orderBy: { expiryDate: 'asc' }
+        });
+        const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+        if (departmentAvailable < quantity) {
+          throw new ValidationError(`Insufficient stock in the selected department. Available: ${departmentAvailable}, requested: ${quantity}`);
+        }
+        for (const batch of batches) {
+          if (remaining <= 0) break;
+          const move = Math.min(batch.quantity, remaining);
+          const changed = await tx.stockBatch.updateMany({
+            where: { id: batch.id, quantity: { gte: move }, isActive: true },
+            data: { quantity: { decrement: move } }
+          });
+          if (changed.count !== 1) throw new ValidationError('Stock changed during the sale. Please retry.');
+          remaining -= move;
+        }
+      } else if (batchCount > 0) {
+        throw new ValidationError('This item uses batch tracking. Receive or adjust it through a batch-aware workflow to keep batch and aggregate stock aligned.');
       }
 
-      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
-      
       if (isOutgoing) {
-        // Atomically decrement ONLY if we have enough stock
         const updated = await tx.stockItem.updateMany({
           where: { id: stockItemId, currentStock: { gte: quantity } },
           data: { currentStock: { decrement: quantity } }
         });
         if (updated.count === 0) {
           const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-          throw new Error(`Insufficient stock. Current: ${item?.currentStock || 0}, Requested: ${quantity}`);
+          throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${quantity}`);
         }
       } else {
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
       }
 
       const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-
-      const transaction = await tx.stockTransaction.create({
+      return tx.stockTransaction.create({
         data: {
           stockItemId, transactionType, quantity: Math.abs(quantity),
-          balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system', requisitionId, invoiceId
+          balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
+          requisitionId, invoiceId, departmentId
         }
       });
-
-      if (requisitionId && transactionType === 'requisition') {
-        await tx.requisition.update({ where: { id: requisitionId }, data: { status: 'fulfilled', fulfilledAt: new Date(), fulfilledById: performedBy } });
-        await tx.requisitionItem.updateMany({ where: { requisitionId }, data: { quantityFulfilled: { increment: quantity } } });
-      }
-
-      return transaction;
     });
   }
 
