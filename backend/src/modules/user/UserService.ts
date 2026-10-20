@@ -1,6 +1,6 @@
 import { PrismaClient, Seniority, LeaveStatus, ShiftType, UserRole, AuditAction } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { BaseService } from '../../shared/base/BaseService';
 import { UserRepository } from './UserRepository';
 import {
@@ -280,7 +280,7 @@ export class UserService extends BaseService {
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username, role: user.role, seniority: user.seniority, permissions },
       JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] },
     );
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
