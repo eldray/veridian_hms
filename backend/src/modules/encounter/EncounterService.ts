@@ -506,23 +506,107 @@ export class EncounterService extends BaseService {
   // PHARMACY (FIXED RACE CONDITION)
   // ============================================
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
-    return this.prisma.$transaction(async (tx) => {
-      const medication = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
-      if (!medication || medication.status !== 'prescribed') throw new ValidationError('Medication not found or not prescribed');
-      
-      const stockItem = medication.StockItem;
-      if (!stockItem || stockItem.currentStock < quantity) throw new ValidationError(`Insufficient stock. Available: ${stockItem?.currentStock || 0}`);
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Dispensed quantity must be a positive whole number');
+    }
 
-      // ✅ PRODUCTION FIX: Atomic decrement prevents negative stock race conditions
-      await tx.stockItem.update({ where: { id: stockItem.id }, data: { currentStock: { decrement: quantity } } });
+    return this.prisma.$transaction(async (tx) => {
+      const medication = await tx.medication.findUnique({
+        where: { id: medicationId },
+        include: { StockItem: true },
+      });
+      if (!medication || medication.status !== 'prescribed') {
+        throw new ValidationError('Medication not found or not prescribed');
+      }
+      if (medication.attendanceId !== encounterId) {
+        throw new ValidationError('Medication does not belong to this encounter');
+      }
+
+      const stockItem = medication.StockItem;
+      if (!stockItem) throw new ValidationError('This medication is not linked to a stock item');
+
+      // Department is read from the current user record, not trusted from the request body.
+      const dispensingUser = await tx.user.findUnique({
+        where: { id: userId },
+        select: { departmentId: true },
+      });
+      if (!dispensingUser) throw new NotFoundError('Dispensing user not found');
+      const departmentId = dispensingUser.departmentId ?? null;
+      const now = new Date();
+
+      // If batch tracking has started for this item, dispensing must consume a matching
+      // active, unexpired batch in the user's department/store. Never fall back to aggregate
+      // stock when batches exist elsewhere or cannot satisfy the requested quantity.
+      const anyBatches = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
+      let selectedBatch: any = null;
+
+      if (anyBatches > 0) {
+        selectedBatch = await tx.stockBatch.findFirst({
+          where: {
+            stockItemId: stockItem.id,
+            departmentId,
+            isActive: true,
+            expiryDate: { gt: now },
+            quantity: { gte: quantity },
+          },
+          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+        });
+        if (!selectedBatch) {
+          throw new ValidationError('No active, unexpired batch in your department has enough stock for this dispense');
+        }
+
+        const batchUpdate = await tx.stockBatch.updateMany({
+          where: {
+            id: selectedBatch.id,
+            departmentId,
+            isActive: true,
+            expiryDate: { gt: now },
+            quantity: { gte: quantity },
+          },
+          data: { quantity: { decrement: quantity } },
+        });
+        if (batchUpdate.count !== 1) {
+          throw new ValidationError('Batch stock changed during dispensing. Refresh the stock and try again');
+        }
+      }
+
+      // Guarded aggregate decrement prevents concurrent dispenses from creating negative stock.
+      const itemUpdate = await tx.stockItem.updateMany({
+        where: { id: stockItem.id, currentStock: { gte: quantity } },
+        data: { currentStock: { decrement: quantity } },
+      });
+      if (itemUpdate.count !== 1) {
+        throw new ValidationError(`Insufficient stock. Available: ${stockItem.currentStock}`);
+      }
+      const updatedStockItem = await tx.stockItem.findUnique({
+        where: { id: stockItem.id },
+        select: { currentStock: true },
+      });
+      if (!updatedStockItem) throw new NotFoundError('Stock item not found after dispensing');
 
       const updatedMedication = await tx.medication.update({
         where: { id: medicationId },
-        data: { status: 'dispensed', quantity, dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, dispensedUnitCost: stockItem.costPrice }
+        data: {
+          status: 'dispensed',
+          quantity,
+          dispensedAt: now,
+          dispensedById: userId,
+          dispensedBatchNumber: selectedBatch?.batchNumber ?? (anyBatches === 0 ? batchNumber : undefined),
+          dispensedExpiryDate: selectedBatch?.expiryDate ?? (anyBatches === 0 ? expiryDate : undefined),
+          dispensedUnitCost: selectedBatch?.costPrice ?? stockItem.costPrice,
+        },
       });
 
       await tx.stockTransaction.create({
-        data: { stockItemId: stockItem.id, transactionType: 'sale', quantity, balanceAfter: stockItem.currentStock - quantity, reference: `Encounter ${encounterId}`, performedBy: userId }
+        data: {
+          stockItemId: stockItem.id,
+          transactionType: 'sale',
+          quantity,
+          balanceAfter: updatedStockItem.currentStock,
+          reference: `Encounter ${encounterId}`,
+          notes: selectedBatch ? `Dispensed from batch ${selectedBatch.batchNumber}` : undefined,
+          performedBy: userId,
+        },
       });
 
       return updatedMedication;
