@@ -112,9 +112,37 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
       const invoice = await tx.invoice.findUnique({ where: { id }, include: { InvoiceItem: true } });
       if (!invoice) throw new Error('Purchase invoice not found');
 
-      // Safely reverse both the department balance and the hospital aggregate.
-      // Any failed reversal aborts the complete invoice deletion transaction.
+      // Reverse only when the received stock can still be identified at the receiving location.
+      // The entire delete runs transactionally; any failed line cancels all reversals.
       for (const item of invoice.InvoiceItem) {
+        if (item.batchNumber) {
+          const batch = await tx.stockBatch.findFirst({
+            where: {
+              stockItemId: item.stockItemId,
+              batchNumber: item.batchNumber,
+              departmentId: invoice.receivedAtDepartmentId || null,
+              wardId: null,
+              quantity: item.quantity,
+            },
+          });
+          if (!batch) {
+            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} for item ${item.stockItemId} is no longer intact at the receiving location.`);
+          }
+          await tx.stockBatch.delete({ where: { id: batch.id } });
+        } else {
+          const outgoingSinceReceipt = await tx.stockTransaction.count({
+            where: {
+              stockItemId: item.stockItemId,
+              departmentId: invoice.receivedAtDepartmentId || null,
+              transactionDate: { gte: invoice.createdAt },
+              transactionType: { in: ['sale', 'requisition', 'transfer_out'] },
+            },
+          });
+          if (outgoingSinceReceipt > 0) {
+            throw new Error(`Cannot safely delete invoice: stock for item ${item.stockItemId} may have been consumed or transferred since receipt.`);
+          }
+        }
+
         await decreaseDepartmentStockBalance(tx, item.stockItemId, invoice.receivedAtDepartmentId, item.quantity);
         const reversed = await tx.stockItem.updateMany({
           where: { id: item.stockItemId, currentStock: { gte: item.quantity } },
@@ -123,13 +151,6 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
 
         if (reversed.count === 0) {
           throw new Error(`Cannot delete invoice: Stock for '${item.stockItemId}' has already been consumed, transferred, or dispensed. Please use an adjustment instead.`);
-        }
-
-        // Delete the associated batch if it still exists and hasn't been moved
-        if (item.batchNumber) {
-          await tx.stockBatch.deleteMany({
-            where: { stockItemId: item.stockItemId, batchNumber: item.batchNumber, departmentId: invoice.receivedAtDepartmentId || null, wardId: null, quantity: item.quantity }
-          });
         }
       }
 
