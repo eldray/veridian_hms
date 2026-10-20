@@ -1008,14 +1008,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getConsumableUses(encounterId: string) {
     await this.requireEncounterId(encounterId);
-    return this.prisma.stockTransaction.findMany({
-      where: {
-        reference: encounterId,
-        notes: { startsWith: 'Consumable use:' },
-      },
+    const rows = await this.prisma.stockTransaction.findMany({
+      where: { reference: encounterId, notes: { startsWith: 'Consumable use:' } },
       include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
       orderBy: { transactionDate: 'desc' },
     });
+    return rows.filter((row: any) => !/^Consumable use: \\[(EDITED|DELETED)\\]/i.test(String(row.notes || '')));
   }
 
   private async consumeConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string) {
@@ -1131,7 +1129,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
       await tx.stockTransaction.update({
         where: { id: previous.id },
-        data: { notes: `Consumable use edited: ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+        data: { notes: `Consumable use: [EDITED] ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
       await tx.stockTransaction.create({
         data: {
@@ -1181,7 +1179,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       const restoredBalance = await this.restoreConsumableStock(tx, use.stockItemId, use.quantity, use.departmentId, use.batchAllocations);
       await tx.stockTransaction.update({
         where: { id: use.id },
-        data: { notes: `Consumable use deleted: ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+        data: { notes: `Consumable use: [DELETED] ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
       return tx.stockTransaction.create({
         data: {
