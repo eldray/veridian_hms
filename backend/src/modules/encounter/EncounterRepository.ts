@@ -1087,32 +1087,19 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      if (!item || !item.isActive || item.isMedication) {
-        throw new NotFoundError('Active consumable', stockItemId);
-      }
-
-      const updated = await tx.stockItem.updateMany({
-        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
-        data: { currentStock: { decrement: quantity } },
-      });
-      if (updated.count === 0) {
-        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock}`);
-      }
-
-      const current = await tx.stockItem.findUnique({
-        where: { id: stockItemId },
-        select: { currentStock: true },
-      });
-      if (!current) throw new NotFoundError('Stock item', stockItemId);
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+      if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
+      const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
 
       return tx.stockTransaction.create({
         data: {
           stockItemId,
           transactionType: 'sale',
           quantity,
-          balanceAfter: current.currentStock,
+          balanceAfter: consumed.balanceAfter,
           reference: encounterId,
+          departmentId: actor.departmentId,
+          batchAllocations: consumed.allocations as any,
           notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
           performedBy: actorId,
         },
