@@ -158,8 +158,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
       throw new Error('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
     }
+    if (!Number.isSafeInteger(quantity) || quantity === 0 || (quantity < 0 && transactionType !== 'adjustment')) throw new Error('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
     return this.prisma.$transaction(async (tx) => {
-      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
+      const effectiveQuantity = Math.abs(quantity);
+      const adjustmentDirection = transactionType === 'adjustment' ? (quantity < 0 ? 'decrease' : 'increase') : undefined;
+      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off' || (transactionType === 'adjustment' && adjustmentDirection === 'decrease');
       const normalizedDepartmentId = departmentId || undefined;
       const batchCount = await tx.stockBatch.count({ where: { stockItemId: id } });
 
@@ -175,8 +178,8 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
         const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
-        if (available < quantity) throw new Error(`Insufficient stock in department. Available: ${available}, requested: ${quantity}`);
-        let remaining = quantity;
+        if (available < effectiveQuantity) throw new Error(`Insufficient stock in department. Available: ${available}, requested: ${effectiveQuantity}`);
+        let remaining = effectiveQuantity;
         for (const batch of batches) {
           if (remaining <= 0) break;
           const move = Math.min(batch.quantity, remaining);
@@ -195,24 +198,24 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       }
 
       if (isOutgoing) {
-        await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, quantity);
+        await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
         const updated = await tx.stockItem.updateMany({
-          where: { id, currentStock: { gte: quantity } },
-          data: { currentStock: { decrement: quantity } },
+          where: { id, currentStock: { gte: effectiveQuantity } },
+          data: { currentStock: { decrement: effectiveQuantity } },
         });
         if (updated.count !== 1) throw new Error('Insufficient hospital-wide stock');
       } else {
-        await increaseDepartmentStockBalance(tx, id, normalizedDepartmentId, quantity);
-        await tx.stockItem.update({ where: { id }, data: { currentStock: { increment: quantity } } });
+        await increaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        await tx.stockItem.update({ where: { id }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
       const updatedItem = await tx.stockItem.findUnique({ where: { id } });
       if (!updatedItem) throw new Error('Stock item not found');
       await tx.stockTransaction.create({
         data: {
-          stockItemId: id, transactionType, quantity: Math.abs(quantity),
+          stockItemId: id, transactionType, quantity: effectiveQuantity,
           balanceAfter: updatedItem.currentStock, reference, notes,
-          performedBy: performedBy || 'system', departmentId: normalizedDepartmentId,
+          performedBy: performedBy || 'system', departmentId: normalizedDepartmentId, adjustmentDirection,
         },
       });
       return updatedItem;
