@@ -1305,7 +1305,7 @@ export default function StockManagement() {
                   </label>
                 <textarea 
                   rows={2}
-                  required={transactionData.transactionType === 'write_off'}
+                  required={['write_off', 'adjustment'].includes(transactionData.transactionType)}
                   value={transactionData.notes}
                   onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })}
                   className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 
