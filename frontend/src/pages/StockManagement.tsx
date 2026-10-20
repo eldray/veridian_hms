@@ -308,6 +308,34 @@ export default function StockManagement() {
     return { label: 'IN STOCK', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' };
   };
 
+  // Department quantities are derived from the department-owned batches. currentStock
+  // remains the hospital-wide aggregate for compatibility with existing reports/workflows.
+  const getInventoryBreakdown = (item: StockItem) => {
+    const batches = ((item as any).StockBatch || []) as Array<any>;
+    const byDepartment = new Map<string, { id: string; name: string; quantity: number }>();
+    let batchTotal = 0;
+    for (const batch of batches) {
+      if (!batch.isActive) continue;
+      const quantity = Math.max(0, Number(batch.quantity) || 0);
+      batchTotal += quantity;
+      if (!batch.departmentId) continue;
+      const id = String(batch.departmentId);
+      const name = batch.department?.name || 'Department';
+      const current = byDepartment.get(id) || { id, name, quantity: 0 };
+      current.quantity += quantity;
+      byDepartment.set(id, current);
+    }
+    const hospitalTotal = Math.max(Number(item.currentStock) || 0, batchTotal);
+    const departmentId = (user as any)?.departmentId;
+    const currentDepartment = departmentId ? (byDepartment.get(String(departmentId))?.quantity || 0) : null;
+    return {
+      hospitalTotal,
+      currentDepartment,
+      departments: [...byDepartment.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      hasDepartmentBatches: byDepartment.size > 0
+    };
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header with Back Button */}
@@ -620,12 +648,31 @@ export default function StockManagement() {
                   </div>
 
                   <div className="space-y-2 text-sm mb-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--text-secondary)]">Current Stock:</span>
-                      <span className={`font-bold ${isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-primary)]'}`}>
-                        {item.currentStock} {item.unitOfMeasure}
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-[var(--text-secondary)]">Department Stock:</span>
+                      <span className="font-bold text-[var(--text-primary)] text-right">
+                        {getInventoryBreakdown(item).currentDepartment === null
+                          ? 'Select department'
+                          : `${getInventoryBreakdown(item).currentDepartment} ${item.unitOfMeasure}`}
                       </span>
                     </div>
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-[var(--text-secondary)]">Hospital Total:</span>
+                      <span className="font-bold text-[var(--icon-cyan-text)] text-right">
+                        {getInventoryBreakdown(item).hospitalTotal} {item.unitOfMeasure}
+                      </span>
+                    </div>
+                    {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
+                      <div className="border-t border-[var(--border-color)] pt-2 mt-2">
+                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Department breakdown</p>
+                        {getInventoryBreakdown(item).departments.map(d => (
+                          <div key={d.id} className="flex justify-between gap-2 text-xs">
+                            <span className="text-[var(--text-secondary)]">{d.name}</span>
+                            <span className="text-[var(--text-primary)]">{d.quantity} {item.unitOfMeasure}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-[var(--text-secondary)]">Reorder Level:</span>
                       <span className="font-medium text-[var(--text-primary)]">{item.reorderLevel}</span>
@@ -684,7 +731,7 @@ export default function StockManagement() {
           <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)]">
             <div className="col-span-4">Item</div>
             <div className="col-span-2 text-center">Category</div>
-            <div className="col-span-2 text-center">Current Stock</div>
+            <div className="col-span-2 text-center">Department / Hospital Total</div>
             <div className="col-span-1 text-center">Reorder</div>
             <div className="col-span-1 text-center">Cost</div>
             <div className="col-span-2 text-center">Actions</div>
@@ -722,10 +769,26 @@ export default function StockManagement() {
                     </span>
                   </div>
                   <div className="col-span-2 text-center">
-                    <span className={`font-medium text-sm ${isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-primary)]'}`}>
-                      {item.currentStock}
-                    </span>
-                    <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    <div className="text-xs text-[var(--text-secondary)]">This department</div>
+                    <div className="font-semibold text-sm text-[var(--text-primary)]">
+                      {getInventoryBreakdown(item).currentDepartment === null ? '—' : getInventoryBreakdown(item).currentDepartment}
+                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    </div>
+                    <div className="text-xs text-[var(--text-secondary)] mt-1">Hospital total</div>
+                    <div className="font-bold text-sm text-[var(--icon-cyan-text)]">
+                      {getInventoryBreakdown(item).hospitalTotal}
+                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    </div>
+                    {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
+                      <details className="mt-1 text-left">
+                        <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By department</summary>
+                        {getInventoryBreakdown(item).departments.map(d => (
+                          <div key={d.id} className="flex justify-between gap-2 text-xs mt-1">
+                            <span>{d.name}</span><span>{d.quantity}</span>
+                          </div>
+                        ))}
+                      </details>
+                    )}
                   </div>
                   <div className="col-span-1 text-center">
                     <span className="text-sm text-[var(--text-primary)]">{item.reorderLevel}</span>
