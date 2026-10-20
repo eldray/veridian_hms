@@ -533,7 +533,8 @@ export class EncounterService extends BaseService {
         select: { departmentId: true },
       });
       if (!dispensingUser) throw new NotFoundError('Dispensing user not found');
-      const departmentId = dispensingUser.departmentId ?? null;
+      const departmentId = dispensingUser.departmentId;
+      if (!departmentId) throw new ValidationError('Assign the dispensing user to a pharmacy/issuing department before dispensing');
       const now = new Date();
 
       // Claim this prescription inside the same transaction before changing stock. The
@@ -568,34 +569,33 @@ export class EncounterService extends BaseService {
       }
 
       if (anyBatches > 0) {
-        selectedBatch = await tx.stockBatch.findFirst({
+        const availableBatches = await tx.stockBatch.findMany({
           where: {
-            stockItemId: stockItem.id,
-            departmentId,
-            wardId: null,
-            isActive: true,
-            expiryDate: { gt: now },
-            quantity: { gte: quantity },
+            stockItemId: stockItem.id, departmentId, wardId: null,
+            isActive: true, expiryDate: { gt: now }, quantity: { gt: 0 },
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
-        if (!selectedBatch) {
-          throw new ValidationError('No active, unexpired batch in your department has enough stock for this dispense');
+        const availableQuantity = availableBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+        if (availableQuantity < quantity) {
+          throw new ValidationError(`Insufficient usable batch stock in your department. Available: ${availableQuantity}, requested: ${quantity}`);
         }
-
-        const batchUpdate = await tx.stockBatch.updateMany({
-          where: {
-            id: selectedBatch.id,
-            departmentId,
-            wardId: null,
-            isActive: true,
-            expiryDate: { gt: now },
-            quantity: { gte: quantity },
-          },
-          data: { quantity: { decrement: quantity } },
-        });
-        if (batchUpdate.count !== 1) {
-          throw new ValidationError('Batch stock changed during dispensing. Refresh the stock and try again');
+        selectedBatch = availableBatches[0];
+        let remaining = quantity;
+        for (const batch of availableBatches) {
+          if (remaining <= 0) break;
+          const move = Math.min(batch.quantity, remaining);
+          const batchUpdate = await tx.stockBatch.updateMany({
+            where: {
+              id: batch.id, departmentId, wardId: null, isActive: true,
+              expiryDate: { gt: now }, quantity: { gte: move },
+            },
+            data: { quantity: { decrement: move } },
+          });
+          if (batchUpdate.count !== 1) {
+            throw new ValidationError('Batch stock changed during dispensing. Refresh the stock and try again');
+          }
+          remaining -= move;
         }
       }
 
