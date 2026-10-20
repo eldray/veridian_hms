@@ -181,7 +181,20 @@ export class StockItemService extends BaseService {
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
       if (initialStock > 0) {
-        await increaseDepartmentStockBalance(tx, created.id, data.departmentId ? String(data.departmentId) : undefined, initialStock);
+        const departmentId = data.departmentId ? String(data.departmentId) : undefined;
+        await increaseDepartmentStockBalance(tx, created.id, departmentId, initialStock);
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: created.id,
+            transactionType: 'purchase',
+            quantity: initialStock,
+            balanceAfter: initialStock,
+            reference: 'OPENING-STOCK',
+            notes: 'Opening stock balance',
+            performedBy: userId || undefined,
+            departmentId,
+          },
+        });
       }
       if (hasOpeningBatch) {
         await this.repo.addBatchWithinTransaction(
