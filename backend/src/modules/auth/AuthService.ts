@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import crypto from 'crypto';
 import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
@@ -68,10 +68,10 @@ export class AuthService {
       role: role as any,
       seniority,
       permissions,
-      departmentId,
+      departmentId: departmentId || '',
     };
-    const accessToken = jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN });
-    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY });
+    const accessToken = jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] });
+    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY as SignOptions['expiresIn'] });
     return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
   }
 
