@@ -255,6 +255,13 @@ export class StockItemService extends BaseService {
     return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
   }
 
+  async allocateUnassignedStock(stockItemId: string, departmentId: string, quantity: number, performedBy?: string) {
+    if (!stockItemId?.trim()) throw new ValidationError('Stock item ID is required');
+    if (!departmentId?.trim()) throw new ValidationError('Receiving department is required');
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new ValidationError('Allocation quantity must be a positive whole number');
+    return this.repo.allocateUnassignedStockSafely(stockItemId, departmentId, quantity, performedBy);
+  }
+
   async getStockTransactions(id: string, page: number = 1, limit: number = 50) {
     const transactions = await this.repo.getTransactions(id, page, limit);
     return { transactions, pagination: { page, limit, total: transactions.length, pages: 1 } }; // Simplified pagination for brevity
