@@ -26,7 +26,8 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         InvoiceItem: { include: { StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } } } },
         StockTransaction: { include: { StockItem: { select: { name: true, drugCode: true } } } },
         User: { select: { fullName: true, username: true } },
-        receivedAtDepartment: { select: { id: true, name: true } } // ✅ NEW
+        receivedAtDepartment: { select: { id: true, name: true } },
+        receivedAtWard: { select: { id: true, wardName: true } }
       }
     });
   }
@@ -53,7 +54,8 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           totalAmount: data.totalAmount,
           notes: data.notes,
           createdById,
-          receivedAtDepartmentId: data.receivedAtDepartmentId // ✅ NEW: Assign receiving location
+          receivedAtDepartmentId: data.receivedAtDepartmentId || null,
+          receivedAtWardId: data.receivedAtWardId || null
         }
       });
 
@@ -82,18 +84,39 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           if (!batchExpiry || !Number.isFinite(batchExpiry.getTime()) || batchExpiry <= new Date()) {
             throw new Error(`A future expiry date is required for batch-tracked item ${stockItem.name}`);
           }
-          await tx.stockBatch.create({
-            data: {
+          const batchLocation = {
+            departmentId: data.receivedAtDepartmentId || null,
+            wardId: data.receivedAtWardId || null,
+          };
+          const existingBatch = await tx.stockBatch.findFirst({
+            where: {
               stockItemId: item.stockItemId, batchNumber: item.batchNumber,
-              expiryDate: batchExpiry,
-              quantity: item.quantity, costPrice: item.unitCost, receivedDate: new Date(),
-              departmentId: data.receivedAtDepartmentId // ✅ NEW: Physical location of the batch
-            }
+              ...batchLocation,
+            },
           });
+          if (existingBatch) {
+            if (existingBatch.expiryDate.getTime() !== batchExpiry.getTime()) {
+              throw new Error(`Batch ${item.batchNumber} for ${stockItem.name} already exists at this location with a different expiry date.`);
+            }
+            await tx.stockBatch.update({
+              where: { id: existingBatch.id },
+              data: { quantity: { increment: item.quantity }, costPrice: item.unitCost, isActive: true },
+            });
+          } else {
+            await tx.stockBatch.create({
+              data: {
+                stockItemId: item.stockItemId, batchNumber: item.batchNumber,
+                expiryDate: batchExpiry, quantity: item.quantity, costPrice: item.unitCost,
+                receivedDate: new Date(), ...batchLocation,
+              },
+            });
+          }
         }
 
         // Keep the location ledger in sync with the batch/receipt and hospital aggregate.
-        await increaseDepartmentStockBalance(tx, item.stockItemId, data.receivedAtDepartmentId, item.quantity);
+        await increaseDepartmentStockBalance(
+          tx, item.stockItemId, data.receivedAtDepartmentId || null, item.quantity, data.receivedAtWardId || null,
+        );
 
         // 3. Create Stock Transaction
         await tx.stockTransaction.create({
@@ -101,7 +124,8 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             stockItemId: item.stockItemId, transactionType: 'purchase', quantity: item.quantity,
             balanceAfter: stockItem.currentStock + item.quantity, reference: data.invoiceNumber,
             invoiceId: invoice.id, performedBy: createdById || undefined,
-            departmentId: data.receivedAtDepartmentId // ✅ NEW: Log where the purchase happened
+            departmentId: data.receivedAtDepartmentId || undefined,
+            wardId: data.receivedAtWardId || undefined
           }
         });
 
@@ -128,26 +152,42 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
       // The entire delete runs transactionally; any failed line cancels all reversals.
       for (const item of invoice.InvoiceItem) {
         if (item.batchNumber) {
+          const outgoingSinceReceipt = await tx.stockTransaction.count({
+            where: {
+              stockItemId: item.stockItemId,
+              departmentId: invoice.receivedAtDepartmentId || null,
+              wardId: invoice.receivedAtWardId || null,
+              transactionDate: { gte: invoice.createdAt },
+              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off'] },
+            },
+          });
+          if (outgoingSinceReceipt > 0) {
+            throw new Error(`Cannot delete invoice: stock for batch ${item.batchNumber} may have been consumed or transferred since receipt.`);
+          }
           const batch = await tx.stockBatch.findFirst({
             where: {
               stockItemId: item.stockItemId,
               batchNumber: item.batchNumber,
               departmentId: invoice.receivedAtDepartmentId || null,
-              wardId: null,
-              quantity: item.quantity,
+              wardId: invoice.receivedAtWardId || null,
+              quantity: { gte: item.quantity },
             },
           });
-          if (!batch) {
-            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} for item ${item.stockItemId} is no longer intact at the receiving location.`);
+          if (!batch) throw new Error(`Cannot delete invoice: batch ${item.batchNumber} for item ${item.stockItemId} no longer has enough stock at the receiving location.`);
+          const remainingBatchQty = batch.quantity - item.quantity;
+          if (remainingBatchQty === 0) {
+            await tx.stockBatch.delete({ where: { id: batch.id } });
+          } else {
+            await tx.stockBatch.update({ where: { id: batch.id }, data: { quantity: { decrement: item.quantity } } });
           }
-          await tx.stockBatch.delete({ where: { id: batch.id } });
         } else {
           const outgoingSinceReceipt = await tx.stockTransaction.count({
             where: {
               stockItemId: item.stockItemId,
               departmentId: invoice.receivedAtDepartmentId || null,
+              wardId: invoice.receivedAtWardId || null,
               transactionDate: { gte: invoice.createdAt },
-              transactionType: { in: ['sale', 'requisition', 'transfer_out'] },
+              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off'] },
             },
           });
           if (outgoingSinceReceipt > 0) {
@@ -155,7 +195,9 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           }
         }
 
-        await decreaseDepartmentStockBalance(tx, item.stockItemId, invoice.receivedAtDepartmentId, item.quantity);
+        await decreaseDepartmentStockBalance(
+          tx, item.stockItemId, invoice.receivedAtDepartmentId || null, item.quantity, invoice.receivedAtWardId || null,
+        );
         const reversed = await tx.stockItem.updateMany({
           where: { id: item.stockItemId, currentStock: { gte: item.quantity } },
           data: { currentStock: { decrement: item.quantity } }
