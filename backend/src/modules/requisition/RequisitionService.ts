@@ -157,13 +157,23 @@ export class RequisitionService extends BaseService {
     return requisition;
   }
 
-  async deleteRequisition(id: string) {
+  async deleteRequisition(id: string, userId: string | undefined) {
     this.logInfo('Deleting requisition', { id });
     const existingRequisition = await this.repository.findById(id);
     if (!existingRequisition) throw new Error('Requisition not found');
 
     if (existingRequisition.status !== 'draft') {
       throw new Error('Only draft requisitions can be deleted');
+    }
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    if (user.role !== 'admin' && existingRequisition.requestedById !== userId) {
+      throw new ValidationError('Only the original requester or an administrator can delete a draft requisition');
     }
 
     await this.repository.delete(id);
@@ -210,6 +220,16 @@ export class RequisitionService extends BaseService {
 
     if (existingRequisition.status !== 'draft') {
       throw new Error('Only draft requisitions can be updated');
+    }
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    if (user.role !== 'admin' && existingRequisition.requestedById !== userId) {
+      throw new ValidationError('Only the original requester or an administrator can update a draft requisition');
     }
 
     const requisition = await this.repository.update(id, data, existingRequisition);
