@@ -17,7 +17,7 @@ All changes in this branch are targeted edits to current-main files. The reposit
 - Added positive whole-number validation for stock adjustments, batch receipts, and stock transactions.
 - Added batch receipt validation for batch number, expiry/received dates, quantity, cost price, and optional department assignment.
 - Prevented an opening stock quantity from being counted twice when a new item is created with an opening batch; the API now rejects conflicting positive values for both inputs and returns the refreshed stock item after batch receipt.
-- Restricted stock transaction history and requisition transaction list routes to admin, pharmacist, and accounts roles, while preserving the existing create/update/delete role rules.
+- Restricted stock transaction history and requisition transaction list routes to admin, pharmacist, and accounts roles, while preserving the existing create/update/delete role rules. Generic stock transaction creation and reversal are now blocked for items with batch records because those generic paths only update aggregate stock and would otherwise desynchronize batch quantities.
 - Hardened encounter dispensing: quantity validation, verifies medication belongs to the requested attendance/encounter, guards aggregate stock decrement, and uses an active unexpired batch from the dispensing user's department when batch tracking exists for the item. Batch and aggregate quantities are decremented in the same database transaction. Legacy aggregate-only items remain supported only when the item has no batch records.
 
 ## Important design limitations
@@ -45,6 +45,6 @@ These are source-level edits through the GitHub file API. No local dependency in
 Recommended validation:
 - Frontend: typecheck/build and verify currency display on payment summary, history, amount input, and success toast.
 - Backend: typecheck/build and test stock item creation with and without opening batches; reject invalid dates, zero/negative/fractional quantities, and duplicate batch identifiers.
-- Pharmacy: test department isolation, expired/inactive batches, concurrent attempts to dispense the same prescription, concurrent stock consumption, and a quantity requiring more than one batch. The generic stock-transaction creation path also updates aggregate stock without updating batch balances; batch-tracked items must not use that generic path until purchase, adjustment, and requisition operations are made batch-aware. Add a guard or batch-aware implementation before enabling batch tracking for items used by those workflows.
+- Pharmacy: test department isolation, expired/inactive batches, concurrent attempts to dispense the same prescription, concurrent stock consumption, and a quantity requiring more than one batch. Confirm generic stock transaction creation and reversal are rejected for batch-tracked items. Purchase receipts, adjustments, requisitions, and reversals still need dedicated batch-aware workflows before those operations can be used with batch-tracked stock.
 - Security: test role-denied responses for stock transaction history and requisition transaction endpoints.
 - Database: inspect existing stock aggregate vs batch totals before turning on batch-based dispensing for all items.
