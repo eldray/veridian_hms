@@ -42,6 +42,7 @@ export interface CreateProcedureTemplateRequest {
   cashPrice: number;
   nhisPrice?: number;
   insurancePrice: number;
+  corporatePrice?: number;
   vatRate?: number;
   isTaxable?: boolean;
   isActive?: boolean;
@@ -81,6 +82,7 @@ export interface UpdateProcedureTemplateRequest {
   cashPrice?: number;
   nhisPrice?: number;
   insurancePrice?: number;
+  corporatePrice?: number;
   vatRate?: number;
   isTaxable?: boolean;
   isActive?: boolean;
@@ -127,6 +129,7 @@ export interface ProcedureTemplateResponse {
     cashPrice: number;
     nhisPrice: number;
     insurancePrice: number;
+    corporatePrice: number;
     vatRate: number;
     isTaxable: boolean;
   };

@@ -2,6 +2,7 @@ import { PrismaClient, Ward, PaymentMode } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { WardRepository } from './WardRepository';
 import { CreateWardDTO, UpdateWardDTO, WardFilters, WardWithAvailability, AvailableBedResponse, WardChargeCalculation } from './WardTypes';
+import { resolveWardDailyRate } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
@@ -25,9 +26,9 @@ export class WardService extends BaseService {
         occupancyRate: ward.totalBeds > 0 ? (ward.occupiedBeds / ward.totalBeds) * 100 : 0,
         pricingByPaymentMode: {
           [PaymentMode.cash]: cash,
-          [PaymentMode.nhis]: toNumber(ward.dailyNHISRate) || cash * 0.8,
-          [PaymentMode.private_insurance]: toNumber(ward.dailyInsuranceRate) || cash * 0.9,
-          [PaymentMode.corporate]: toNumber(ward.dailyInsuranceRate) || cash * 0.85
+          [PaymentMode.nhis]: resolveWardDailyRate(ward, 'nhis'),
+          [PaymentMode.private_insurance]: resolveWardDailyRate(ward, 'private_insurance'),
+          [PaymentMode.corporate]: resolveWardDailyRate(ward, 'corporate')
         }
       };
     });
@@ -45,9 +46,9 @@ export class WardService extends BaseService {
       currentAdmissions: ward._count.Admission,
       pricingByPaymentMode: {
         [PaymentMode.cash]: cash,
-        [PaymentMode.nhis]: toNumber(ward.dailyNHISRate) || cash * 0.8,
-        [PaymentMode.private_insurance]: toNumber(ward.dailyInsuranceRate) || cash * 0.9,
-        [PaymentMode.corporate]: toNumber(ward.dailyInsuranceRate) || cash * 0.85
+        [PaymentMode.nhis]: resolveWardDailyRate(ward, 'nhis'),
+        [PaymentMode.private_insurance]: resolveWardDailyRate(ward, 'private_insurance'),
+        [PaymentMode.corporate]: resolveWardDailyRate(ward, 'corporate')
       }
     };
   }
@@ -60,8 +61,10 @@ export class WardService extends BaseService {
     
     const wardData = {
       ...data, occupiedBeds: 0, isActive: true,
-      dailyNHISRate: data.dailyNHISRate || data.dailyCashRate * 0.8,
-      dailyInsuranceRate: data.dailyInsuranceRate || data.dailyCashRate * 0.9,
+      // No invented discounts: a rate left blank is stored as 0 and billed at the cash rate (see utils/pricing.ts)
+      dailyNHISRate: data.dailyNHISRate || 0,
+      dailyInsuranceRate: data.dailyInsuranceRate || 0,
+      dailyCorporateRate: data.dailyCorporateRate || 0,
       vatRate: data.vatRate || 0, isTaxable: data.isTaxable ?? true,
       isNHISCovered: data.isNHISCovered ?? true, nhisRequiresAuth: data.nhisRequiresAuth ?? false,
       isPrivateInsExempted: data.isPrivateInsExempted ?? false, requiresAuthorization: data.requiresAuthorization ?? false
@@ -107,9 +110,9 @@ export class WardService extends BaseService {
           wardName: bed.Ward.wardName, wardType: bed.Ward.wardType, isWardActive: bed.Ward.isActive,
           dailyRates: {
             cash,
-            nhis: toNumber(bed.Ward.dailyNHISRate) || cash * 0.8,
-            insurance: toNumber(bed.Ward.dailyInsuranceRate) || cash * 0.9,
-            corporate: toNumber(bed.Ward.dailyInsuranceRate) || cash * 0.85
+            nhis: resolveWardDailyRate(bed.Ward, 'nhis'),
+            insurance: resolveWardDailyRate(bed.Ward, 'private_insurance'),
+            corporate: resolveWardDailyRate(bed.Ward, 'corporate')
           }
         };
       }),
@@ -152,8 +155,9 @@ export class WardService extends BaseService {
         occupancyRate: ((ward.occupiedBeds / ward.totalBeds) * 100).toFixed(2),
         revenuePotential: {
           cash: available * cash,
-          nhis: available * (toNumber(ward.dailyNHISRate) || cash * 0.8),
-          corporate: available * (toNumber(ward.dailyInsuranceRate) || cash * 0.85)
+          nhis: available * resolveWardDailyRate(ward, 'nhis'),
+          insurance: available * resolveWardDailyRate(ward, 'private_insurance'),
+          corporate: available * resolveWardDailyRate(ward, 'corporate')
         }
       };
     });

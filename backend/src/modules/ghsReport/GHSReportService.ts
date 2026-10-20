@@ -2,6 +2,8 @@ import { cacheReadMethods } from '../../utils/ttlCache';
 import { PrismaClient, Gender } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { GHSReportRepository } from './GHSReportRepository';
+import { buildFormA, formAToCSV, FormASection, ageGroup } from './formA';
+import { buildFPReturns } from './fpReturns';
 
 // ─── Types & Constants (Keep exactly as you defined them) ────────────────────
 export type GHSAgeGroup = '<28d' | '1-11m' | '1-4' | '5-9' | '10-14' | '15-17' | '18-19' | '20-34' | '35-49' | '50-59' | '60-69' | '70+';
@@ -13,7 +15,7 @@ export interface TopDiagnosis { diagnosisId: string; diagnosisName: string; icdC
 export interface ConsultingRoomRegisterEntry { date: string; attendanceNumber: string; patientNo: string; nhisNo: string | null; patientName: string; address: string; age: number; ageGroup: string; telephone: string; sex: string; patientType: 'NEW' | 'OLD'; pregnant: boolean; isNHIS: boolean; provisionalDiagnosis: string; labTestsRequested: string; labResults: string; principalDiagnosis: string; newDiagnosis: string; oldDiagnosis: string; additionalDiagnosis: string; newAdditionalDiagnosis: string; oldAdditionalDiagnosis: string; drugsPrescribed: string; drugsGiven: string; referredTo: string | null; referredFrom: string | null; clinician: string; attendanceId: string; }
 export interface ConsultingRoomRegisterReport { period: { startDate: Date; endDate: Date; date: string; week?: number; month?: string; }; facility: { name: string; district: string; ghfCode: string; }; summary: { totalPatients: number; newPatients: number; oldPatients: number; nhisPatients: number; cashPatients: number; pregnantWomen: number; referrals: number; }; entries: ConsultingRoomRegisterEntry[]; generatedAt: Date; }
 export interface GHSMorbidityReport { period: { startDate: Date; endDate: Date; year: number; month: number }; facility: { name: string; district: string; region: string; ghfCode: string }; communicableImmunizable: Record<string, AgeSexBreakdown>; communicableNonImmunizable: Record<string, AgeSexBreakdown>; nonCommunicable: Record<string, AgeSexBreakdown>; mentalHealth: Record<string, AgeSexBreakdown>; specializedConditions: Record<string, AgeSexBreakdown>; obstetricsGynaecology: Record<string, AgeSexBreakdown>; reproductiveTract: Record<string, AgeSexBreakdown>; injuries: Record<string, AgeSexBreakdown>; reAttendancesReferrals: Record<string, AgeSexBreakdown>; topDiagnoses: TopDiagnosis[]; totals: { totalAttendances: number; totalNewCases: number; totalReAttendances: number; totalReferrals: number; }; }
-export interface FormAReport { period: { startDate: Date; endDate: Date; year: number; month: number; monthName: string; }; facility: { name: string; district: string; region: string; ghfCode: string; }; antenatal: any; delivery: any; postnatal: any; abortions: any; referrals: any; birthAbnormalities: any; newbornComplications: any; maleInvolvement: any; generatedAt: Date; }
+export interface FormAReport { period: { startDate: Date; endDate: Date; year: number; month: number; monthName: string; }; facility: { name: string; district: string; region: string; ghfCode: string; }; form: { sections: FormASection[]; notCaptured: string[] }; generatedAt: Date; }
 export interface IPDReport { period: { startDate: Date; endDate: Date; year: number; month: number }; facility: { name: string; district: string; region: string; ghfCode: string }; ageGroups: Record<IPD_AgeGroup, { admissions: { insured: { male: number; female: number }; nonInsured: { male: number; female: number } }; deaths: { insured: { male: number; female: number }; nonInsured: { male: number; female: number } }; }>; malaria: { under5Admitted: number; above5Admitted: number; under5Deaths: number; above5Deaths: number }; totals: { totalAdmissions: number; totalDeaths: number; insured: { admissions: number; deaths: number }; nonInsured: { admissions: number; deaths: number }; }; }
 export interface MalariaReport { period: { startDate: Date; endDate: Date; year: number; month: number }; facility: { name: string; district: string; ghfCode: string }; opdMalaria: { under5: { suspected: number; tested: number; confirmed: number; treatedWithACT: number }; above5: { suspected: number; tested: number; confirmed: number; treatedWithACT: number }; }; testing: { microscopy: number; microscopyPositive: number; rdt: number; rdtPositive: number }; commodities: Record<string, { openingStock: number; dispensed: number; closingStock: number; stockOutDays: number }>; }
 export interface OPDReport { period: { startDate: Date; endDate: Date; year: number; month: number }; facility: { name: string; district: string; ghfCode: string }; ageGroups: Record<OPD_AgeGroup, { insured: { male: number; female: number }; nonInsured: { male: number; female: number }; new: number; old: number; }>; totals: { totalAttendances: number; insured: { male: number; female: number; total: number }; nonInsured: { male: number; female: number; total: number }; new: number; old: number; }; }
@@ -140,21 +142,28 @@ export class GHSReportService extends BaseService {
 
   async generateFamilyPlanningReport(query: any) {
     const { startDate, endDate } = this.parseDateParams(query);
-    const { fpAttendances } = await this.repository.getFPData(startDate, this.eod(endDate));
-    const facility = await this.repository.getFacility();
-    const calculateAge = (dob: Date, asOf: Date) => { let age = asOf.getFullYear() - dob.getFullYear(); const m = asOf.getMonth() - dob.getMonth(); if (m < 0 || (m === 0 && asOf.getDate() < dob.getDate())) age--; return Math.max(0, age); };
-    const ageGroups = { '15-19 years': 0, '20-34 years': 0, '35-49 years': 0, '50+ years': 0 };
+    const end = this.eod(endDate);
+    const [inputs, facility] = await Promise.all([this.repository.getFPReturnsInputs(startDate, end), this.repository.getFacility()]);
+    const { services } = inputs;
+    const returns = buildFPReturns({ ...inputs, start: startDate, end });
+
+    const ageGroups: Record<string, number> = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
     const methodMix: Record<string, number> = {};
-    for (const fp of fpAttendances) {
-      const age = calculateAge(fp.Attendance.Patient.dateOfBirth, fp.date);
-      if (age >= 15 && age <= 19) ageGroups['15-19 years']++; else if (age >= 20 && age <= 34) ageGroups['20-34 years']++; else if (age >= 35 && age <= 49) ageGroups['35-49 years']++; else if (age >= 50) ageGroups['50+ years']++;
-      const method = fp.ServiceCatalog.name; methodMix[method] = (methodMix[method] || 0) + 1;
-    }
+    services.forEach((s: any) => {
+      const g = ageGroup(s.patient?.dateOfBirth, s.serviceDate);
+      if (g) ageGroups[g]++;
+      const label = String(s.method).replace(/_/g, ' ');
+      methodMix[label] = (methodMix[label] || 0) + 1;
+    });
     return {
-      facility: { name: facility?.name ?? 'General Hospital', district: facility?.ghsDistrictCode ?? 'Unknown', ghfCode: facility?.ghaHFCode ?? 'Unknown' },
-      period: { startDate, endDate, generated: new Date().toISOString().split('T')[0] },
-      summary: { totalFPClients: new Set(fpAttendances.map((f: any) => f.Attendance.patientId)).size, totalFPVisits: fpAttendances.length },
-      demographicBreakdown: ageGroups, methodMix, generatedAt: new Date()
+      facility: { name: facility?.name ?? 'Health Facility', district: facility?.ghsDistrictCode ?? 'Unknown', region: 'Unknown', ghfCode: facility?.ghaHFCode ?? 'Unknown' },
+      period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1, monthName: startDate.toLocaleString('en-GB', { month: 'long' }), generated: new Date().toISOString().split('T')[0] },
+      summary: {
+        totalFPClients: new Set(services.map((s: any) => s.patientId)).size,
+        totalFPVisits: services.length,
+        newAcceptors: services.filter((s: any) => s.isNewAcceptor).length,
+      },
+      demographicBreakdown: ageGroups, methodMix, returns, generatedAt: new Date(),
     };
   }
 
@@ -220,106 +229,14 @@ export class GHSReportService extends BaseService {
 
   async generateFormAReport(startDate: Date, endDate: Date): Promise<FormAReport> {
     const end = this.eod(endDate);
-    const [bookings, visits, deliveries, postnatalAttendances, antenatalAttendances, labTests, medications, referrals, abortionRecords, shortMothers, hospital, newbornRecords] = await this.repository.getFormAData(startDate, end);
-
-    const getAgeGroup = (dob: Date, refDate: Date): string => {
-      const age = this.calculateAge(dob, refDate);
-      if (age < 15) return '10-14'; if (age < 20) return '15-19'; if (age < 25) return '20-24';
-      if (age < 30) return '25-29'; if (age < 35) return '30-34'; return '35+';
-    };
-
-    const ageAtRegistration = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    bookings.forEach((b: any) => { ageAtRegistration[getAgeGroup(b.patient.dateOfBirth, b.bookingDate)]++; });
-
-    const parity = { '0': 0, '1-2': 0, '3-4': 0, '5+': 0 };
-    bookings.forEach((b: any) => { if (b.para === 0) parity['0']++; else if (b.para <= 2) parity['1-2']++; else if (b.para <= 4) parity['3-4']++; else parity['5+']++; });
-
-    const firstTrimester = bookings.filter((b: any) => b.gestationalAgeWeeks !== null && b.gestationalAgeWeeks < 13).length;
-    const secondTrimester = bookings.filter((b: any) => b.gestationalAgeWeeks !== null && b.gestationalAgeWeeks >= 13 && b.gestationalAgeWeeks < 28).length;
-    const thirdTrimester = bookings.filter((b: any) => b.gestationalAgeWeeks !== null && b.gestationalAgeWeeks >= 28).length;
-
-    const iptpDoses = { dose1: visits.filter((v: any) => v.iptpGiven && v.iptpDoseNumber === 1).length, dose2: visits.filter((v: any) => v.iptpGiven && v.iptpDoseNumber === 2).length, dose3: visits.filter((v: any) => v.iptpGiven && v.iptpDoseNumber === 3).length, dose4: visits.filter((v: any) => v.iptpGiven && v.iptpDoseNumber === 4).length, dose5Plus: visits.filter((v: any) => v.iptpGiven && (v.iptpDoseNumber ?? 0) >= 5).length };
-    const ttVaccination = { dose1: visits.filter((v: any) => v.ttGiven && v.ttDoseNumber === 1).length, dose2: visits.filter((v: any) => v.ttGiven && v.ttDoseNumber === 2).length, dose3: visits.filter((v: any) => v.ttGiven && v.ttDoseNumber === 3).length, dose4: visits.filter((v: any) => v.ttGiven && v.ttDoseNumber === 4).length, dose5: visits.filter((v: any) => v.ttGiven && v.ttDoseNumber === 5).length, tt2Plus: visits.filter((v: any) => v.ttGiven && (v.ttDoseNumber ?? 0) >= 2).length };
-    
-    const ifaGiven3Times = bookings.filter((b: any) => visits.filter((v: any) => v.bookingId === b.id && (v.ironGiven || v.folateGiven)).length >= 3).length;
-    const ifaGiven6Times = bookings.filter((b: any) => visits.filter((v: any) => v.bookingId === b.id && (v.ironGiven || v.folateGiven)).length >= 6).length;
-    const making4thVisit = bookings.filter((b: any) => visits.filter((v: any) => v.bookingId === b.id).length >= 4).length;
-    const making8thVisit = bookings.filter((b: any) => visits.filter((v: any) => v.bookingId === b.id).length >= 8).length;
-
-    const syphilisTests = labTests.filter((l: any) => { const name = (l.LabTestTemplate?.name ?? '').toLowerCase(); return name.includes('syphilis') || name.includes('vdrl') || name.includes('rpr'); });
-    const syphilisTested = syphilisTests.length;
-    const syphilisPositive = syphilisTests.filter((l: any) => { const result = JSON.stringify(l.result).toLowerCase(); return result.includes('positive') || result.includes('reactive'); }).length;
-    const syphilisTreated = medications.filter((m: any) => { const name = (m.StockItem?.name ?? m.name).toLowerCase(); return name.includes('penicillin') || name.includes('benzathine'); }).length;
-
-    const tbTests = labTests.filter((l: any) => { const name = (l.LabTestTemplate?.name ?? '').toLowerCase(); return name.includes('tb') || name.includes('tuberculosis') || name.includes('afp'); });
-    const tbScreened = tbTests.length;
-    const tbPositive = tbTests.filter((l: any) => { const result = JSON.stringify(l.result).toLowerCase(); return result.includes('positive') || result.includes('reactive'); }).length;
-    const tbTreated = medications.filter((m: any) => { const name = (m.StockItem?.name ?? m.name).toLowerCase(); return name.includes('rifampicin') || name.includes('isoniazid') || name.includes('ethambutol'); }).length;
-
-    const hepBTests = labTests.filter((l: any) => { const name = (l.LabTestTemplate?.name ?? '').toLowerCase(); return name.includes('hepatitis') || name.includes('hbsag') || name.includes('hep b'); });
-    const hepatitisBScreened = hepBTests.length;
-    const hepatitisBPositive = hepBTests.filter((l: any) => { const result = JSON.stringify(l.result).toLowerCase(); return result.includes('positive'); }).length;
-    const hepatitisBProphylaxis = postnatalAttendances.filter((a: any) => a.Medication?.some((m: any) => (m.StockItem?.name ?? m.name).toLowerCase().includes('hepatitis') || (m.StockItem?.name ?? m.name).toLowerCase().includes('hep b'))).length;
-
-    const hivPositiveKnown = bookings.filter((b: any) => b.hivStatus === 'Positive').length;
-    const onARV = medications.filter((m: any) => { const name = (m.StockItem?.name ?? m.name).toLowerCase(); return name.includes('arv') || name.includes('antiretroviral') || name.includes('tenofovir') || name.includes('lamivudine') || name.includes('efavirenz'); }).length;
-    const partnerTested = 0; const coupleTesting = 0; const babyOnProphylaxis = newbornRecords.filter((n: any) => false).length;
-    const malePartnerInvolvedANC = bookings.filter((b: any) => (b as any).malePartnerInvolved === true).length;
-
-    const ageAtDelivery = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    deliveries.forEach((d: any) => { ageAtDelivery[getAgeGroup(d.patient.dateOfBirth, d.deliveryDate)]++; });
-
-    const placeOfDelivery = { private_hospital: deliveries.filter((d: any) => d.placeOfDelivery === 'private_hospital').length, government_hospital: deliveries.filter((d: any) => d.placeOfDelivery === 'government_hospital').length, health_centre: deliveries.filter((d: any) => d.placeOfDelivery === 'health_centre').length, clinic: deliveries.filter((d: any) => d.placeOfDelivery === 'clinic').length, chag_facility: deliveries.filter((d: any) => d.placeOfDelivery === 'chag_facility').length, private_midwife: deliveries.filter((d: any) => d.placeOfDelivery === 'private_midwife').length, tba_trained: deliveries.filter((d: any) => d.placeOfDelivery === 'tba_trained').length, tba_untrained: deliveries.filter((d: any) => d.placeOfDelivery === 'tba_untrained').length, home: deliveries.filter((d: any) => d.placeOfDelivery === 'home').length, en_route: deliveries.filter((d: any) => d.placeOfDelivery === 'en_route').length, mines_facility: deliveries.filter((d: any) => d.placeOfDelivery === 'mines_facility').length, quasi_govt_institution: deliveries.filter((d: any) => d.placeOfDelivery === 'quasi_govt_institution').length };
-    
-    const attendant = { doctor: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('doctor')).length, midwife: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('midwife')).length, nurse: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('nurse')).length, community_health_officer: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('cho') || d.attendant?.toLowerCase().includes('community health')).length, tba_trained: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('tba') && d.attendant?.toLowerCase().includes('trained')).length, tba_untrained: deliveries.filter((d: any) => d.attendant?.toLowerCase().includes('tba') && !d.attendant?.toLowerCase().includes('trained')).length, other: deliveries.filter((d: any) => !['doctor', 'midwife', 'nurse', 'cho', 'tba'].some(k => d.attendant?.toLowerCase().includes(k))).length };
-    
-    const primigravidaeDeliveries = deliveries.filter((d: any) => { const booking = bookings.find((b: any) => b.id === d.antenatalBookingId); return booking?.para === 0; });
-    const birthWeightByParity = { primigravidae: { below2_5: primigravidaeDeliveries.filter((d: any) => d.birthWeight != null && d.birthWeight < 2.5).length, above2_5: primigravidaeDeliveries.filter((d: any) => d.birthWeight != null && d.birthWeight >= 2.5).length }, multipara: { below2_5: deliveries.filter((d: any) => { const booking = bookings.find((b: any) => b.id === d.antenatalBookingId); return booking && booking.para > 0 && d.birthWeight != null && d.birthWeight < 2.5; }).length, above2_5: deliveries.filter((d: any) => { const booking = bookings.find((b: any) => b.id === d.antenatalBookingId); return booking && booking.para > 0 && d.birthWeight != null && d.birthWeight >= 2.5; }).length } };
-    
-    const primigravidaeLive = primigravidaeDeliveries.filter((d: any) => d.deliveryOutcome === 'live_birth');
-    const primigravidae = { liveBirths: { male: primigravidaeLive.filter((d: any) => d.Newborn?.some((n: any) => n.gender === 'male')).length, female: primigravidaeLive.filter((d: any) => d.Newborn?.some((n: any) => n.gender === 'female')).length }, stillbirths: { fresh: primigravidaeDeliveries.filter((d: any) => d.deliveryOutcome === 'stillbirth_fresh').length, macerated: primigravidaeDeliveries.filter((d: any) => d.deliveryOutcome === 'stillbirth_macerated').length } };
-    
-    const essentialNewbornCare = { breastfeedingWithin30Min: newbornRecords.filter((n: any) => n.breastfeedingWithin30Min).length, eyeProphylaxisGiven: newbornRecords.filter((n: any) => n.eyeProphylaxisGiven).length, cordCareChlorhexidine: newbornRecords.filter((n: any) => n.cordCareMethod === 'chlorhexidine').length, cordCareMethylated: newbornRecords.filter((n: any) => n.cordCareMethod === 'methylated_spirit').length, cordCareDry: newbornRecords.filter((n: any) => n.cordCareMethod === 'dry_cord').length, babyWeightAt6to10Days: newbornRecords.filter((n: any) => n.babyWeightAt6to10Days != null).length };
-    
-    const morbidities = { vvfSeen: deliveries.filter((d: any) => d.complications?.some((c: string) => c.toLowerCase().includes('fistula') || c.toLowerCase().includes('vvf'))).length, vvfRepaired: 0, vvfReferred: deliveries.filter((d: any) => d.referralTo != null && d.complications?.some((c: string) => c.toLowerCase().includes('fistula'))).length, dropFoot: deliveries.filter((d: any) => d.complications?.some((c: string) => c.toLowerCase().includes('drop foot') || c.toLowerCase().includes('foot drop'))).length, puerperalPsychosis: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => dx.Diagnosis?.name.toLowerCase().includes('psychosis') || dx.Diagnosis?.name.toLowerCase().includes('puerperal'))).length, endometritis: deliveries.filter((d: any) => d.complications?.some((c: string) => c.toLowerCase().includes('endometritis') || c.toLowerCase().includes('infection'))).length, mastitis: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => dx.Diagnosis?.name.toLowerCase().includes('mastitis'))).length };
-    
-    const maternalDeathsByAge = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    deliveries.filter((d: any) => d.maternalOutcome !== 'alive').forEach((d: any) => { maternalDeathsByAge[getAgeGroup(d.patient.dateOfBirth, d.deliveryDate)]++; });
-    const neonatalDeathsBreakdown = { early_0_7days: deliveries.filter((d: any) => d.deliveryOutcome === 'neonatal_death').length, late_8_28days: 0, post_neonatal_1_11months: 0 };
-    
-    const pncDay1or2 = postnatalAttendances.filter((a: any) => { const delivery = deliveries.find((d: any) => d.patientId === a.patientId); if (!delivery) return (a as any).dayNumber <= 2; return ((a.dateTime.getTime() - delivery.deliveryDate.getTime()) / (1000 * 60 * 60 * 24)) <= 2; }).length;
-    const pncDay3to7 = postnatalAttendances.filter((a: any) => { const delivery = deliveries.find((d: any) => d.patientId === a.patientId); if (!delivery) return (a as any).dayNumber >= 3 && (a as any).dayNumber <= 7; const days = (a.dateTime.getTime() - delivery.deliveryDate.getTime()) / (1000 * 60 * 60 * 24); return days >= 3 && days <= 7; }).length;
-    const pncDay8Plus = postnatalAttendances.filter((a: any) => { const delivery = deliveries.find((d: any) => d.patientId === a.patientId); if (!delivery) return (a as any).dayNumber >= 8; return ((a.dateTime.getTime() - delivery.deliveryDate.getTime()) / (1000 * 60 * 60 * 24)) >= 8; }).length;
-    
-    const ageAtPNC = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    postnatalAttendances.forEach((a: any) => { if (a.Patient?.dateOfBirth) ageAtPNC[getAgeGroup(a.Patient.dateOfBirth, a.dateTime)]++; });
-    
-    const fpMethodBreakdown = { pill: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('pill')).length, injectable: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('inject') || a.familyPlanningMethodAccepted?.toLowerCase().includes('depo')).length, implant: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('implant')).length, iud: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('iud') || a.familyPlanningMethodAccepted?.toLowerCase().includes('coil')).length, condom: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('condom')).length, sterilization: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted?.toLowerCase().includes('steril') || a.familyPlanningMethodAccepted?.toLowerCase().includes('tubal')).length, other: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted && !['pill', 'inject', 'implant', 'iud', 'condom', 'steril'].some(k => a.familyPlanningMethodAccepted?.toLowerCase().includes(k))).length };
-    const malePartnerInvolvedPNC = postnatalAttendances.filter((a: any) => (a as any).malePartnerInvolved === true).length;
-    
-    const abortionsByAge = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    abortionRecords.forEach((a: any) => { abortionsByAge[getAgeGroup(a.patient.dateOfBirth, a.abortionDate)]++; });
-    const abortions = { total: abortionRecords.length, byType: { spontaneous: abortionRecords.filter((a: any) => a.abortionType === 'spontaneous').length, induced_safe: abortionRecords.filter((a: any) => a.abortionType === 'induced_safe').length, induced_unsafe: abortionRecords.filter((a: any) => a.abortionType === 'induced_unsafe').length, septic: abortionRecords.filter((a: any) => a.abortionType === 'septic').length, incomplete: abortionRecords.filter((a: any) => a.abortionType === 'incomplete').length, complete: abortionRecords.filter((a: any) => a.abortionType === 'complete').length, missed: abortionRecords.filter((a: any) => a.abortionType === 'missed').length, recurrent: abortionRecords.filter((a: any) => a.abortionType === 'recurrent').length }, byMethod: { medical: abortionRecords.filter((a: any) => a.method === 'medical').length, surgical_d_and_c: abortionRecords.filter((a: any) => a.method === 'surgical_d_and_c').length, surgical_mva: abortionRecords.filter((a: any) => a.method === 'surgical_mva').length, other: abortionRecords.filter((a: any) => a.method === 'other' || !a.method).length }, complications: abortionRecords.filter((a: any) => a.complication != null && a.complication !== '').length, byAge: abortionsByAge, postAbortionFPAccepted: abortionRecords.filter((a: any) => (a as any).postAbortionFPAccepted === true).length };
-    
-    const referralsByAge = { '10-14': 0, '15-19': 0, '20-24': 0, '25-29': 0, '30-34': 0, '35+': 0 };
-    referrals.forEach((r: any) => { const dob = r.attendance?.Patient?.dateOfBirth || r.patient?.dateOfBirth; if (dob) referralsByAge[getAgeGroup(dob, r.referralDate)]++; });
-    const referralsData = { total: referrals.length, antenatal: { in: referrals.filter((r: any) => r.referralType === 'incoming' && r.attendance?.attendanceType === 'antenatal').length, out: referrals.filter((r: any) => r.referralType === 'outgoing' && r.attendance?.attendanceType === 'antenatal').length }, labor: { in: referrals.filter((r: any) => r.referralType === 'incoming' && r.attendance?.attendanceType === 'delivery').length, out: referrals.filter((r: any) => r.referralType === 'outgoing' && r.attendance?.attendanceType === 'delivery').length }, postnatal: { in: referrals.filter((r: any) => r.referralType === 'incoming' && r.attendance?.attendanceType === 'postnatal').length, out: referrals.filter((r: any) => r.referralType === 'outgoing' && r.attendance?.attendanceType === 'postnatal').length }, byAge: referralsByAge };
-    
-    const anomalies = newbornRecords.flatMap((n: any) => n.anomalies || []);
-    const birthAbnormalities = { hareLip: anomalies.filter((a: string) => a.toLowerCase().includes('hare lip') || a.toLowerCase().includes('cleft lip')).length, anencephaly: anomalies.filter((a: string) => a.toLowerCase().includes('anencephaly')).length, talipes: anomalies.filter((a: string) => a.toLowerCase().includes('talipes') || a.toLowerCase().includes('club foot')).length, hydrocephalus: anomalies.filter((a: string) => a.toLowerCase().includes('hydrocephalus')).length, spinaBifida: anomalies.filter((a: string) => a.toLowerCase().includes('spina bifida')).length, cleftPalate: anomalies.filter((a: string) => a.toLowerCase().includes('cleft palate')).length, downSyndrome: anomalies.filter((a: string) => a.toLowerCase().includes('down') || a.toLowerCase().includes('trisomy')).length, other: anomalies.filter((a: string) => !['hare lip', 'cleft', 'anencephaly', 'talipes', 'hydrocephalus', 'spina', 'down', 'trisomy'].some(k => a.toLowerCase().includes(k))).length };
-    
-    const newbornComplications = { asphyxia: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((d: any) => d.Diagnosis?.name.toLowerCase().includes('asphyxia'))).length, jaundice: postnatalAttendances.filter((a: any) => (a as any).jaundice === true || a.AttendanceDiagnosis?.some((d: any) => d.Diagnosis?.name.toLowerCase().includes('jaundice'))).length, sepsis: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((d: any) => d.Diagnosis?.name.toLowerCase().includes('sepsis'))).length, ophthalmia: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((d: any) => d.Diagnosis?.name.toLowerCase().includes('ophthalmia'))).length, umbilicalInfection: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.some((d: any) => d.Diagnosis?.name.toLowerCase().includes('umbilical') || d.Diagnosis?.name.toLowerCase().includes('cord infection'))).length, prematurity: deliveries.filter((d: any) => d.gestationWeeks != null && d.gestationWeeks < 37).length, congenitalAnomaly: newbornRecords.filter((n: any) => n.anomalies?.length > 0).length, other: 0 };
-    
-    const maleInvolvement = { anc: malePartnerInvolvedANC, delivery: deliveries.filter((d: any) => (d as any).malePartnerPresentDelivery === true).length, pnc: malePartnerInvolvedPNC, familyPlanning: postnatalAttendances.filter((a: any) => (a as any).malePartnerInvolvedFP === true).length, cwc: 0 };
-    
+    const { hospital, ...inputs } = await this.repository.getFormAInputs(startDate, end);
+    const form = buildFormA(inputs as any);
     return {
-      period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1, monthName: startDate.toLocaleString('default', { month: 'long' }) },
+      period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1, monthName: startDate.toLocaleString('en-GB', { month: 'long' }) },
       facility: { name: hospital?.name ?? 'Private Health Facility', district: hospital?.ghsDistrictCode ?? 'Unknown', region: 'Unknown', ghfCode: hospital?.ghaHFCode ?? 'Unknown' },
-      antenatal: { newRegistrants: bookings.length, totalAttendances: visits.length, making4thVisit, making8thVisit, td2Plus: ttVaccination.tt2Plus, mothersBelow150cm: shortMothers.length, seenAt36Weeks: visits.filter((v: any) => v.gestationalAgeWeeks != null && v.gestationalAgeWeeks >= 36 && v.gestationalAgeWeeks <= 38).length, iptp: iptpDoses, ttVaccination, itnDistributed: bookings.filter((b: any) => (b as any).itnGiven === true).length, ironFolateGiven: visits.filter((v: any) => v.ironGiven || v.folateGiven).length, ifa3Times: ifaGiven3Times, ifa6Times: ifaGiven6Times, malariaTested: visits.filter((v: any) => v.malariaTestDone).length, malariaPositive: visits.filter((v: any) => v.malariaTestResult === 'Positive').length, malariaTreated: visits.filter((v: any) => v.malariaTreatmentGiven).length, highRisk: bookings.filter((b: any) => b.riskLevel === 'high').length, anaemiaAtBooking: bookings.filter((b: any) => b.hbBooking != null && b.hbBooking < 11).length, severeAnaemiaAtBooking: bookings.filter((b: any) => b.hbBooking != null && b.hbBooking < 7).length, anaemiaAt36Weeks: visits.filter((v: any) => (v as any).hbLevel != null && (v as any).hbLevel < 11).length, referralsMade: visits.filter((v: any) => v.referralMade).length, firstVisits: visits.filter((v: any) => v.visitNumber === 1).length, fourthVisits: visits.filter((v: any) => v.visitNumber === 4).length, registration1stTrimester: firstTrimester, registration2ndTrimester: secondTrimester, registration3rdTrimester: thirdTrimester, parity, ageAtRegistration, syphilisTested, syphilisPositive, syphilisTreated, tbScreened, tbPositive, tbTreated, hepatitisBScreened, hepatitisBPositive, hepatitisBProphylaxis, hivTested: bookings.filter((b: any) => b.hivStatus != null).length, hivPositive: hivPositiveKnown, onARVTreatment: onARV, partnerTested, coupleTesting, babyOnProphylaxis, malePartnerInvolved: malePartnerInvolvedANC },
-      delivery: { totalDeliveries: deliveries.length, spontaneousVertex: deliveries.filter((d: any) => d.deliveryType === 'spontaneous_vertex').length, assistedBreech: deliveries.filter((d: any) => d.deliveryType === 'assisted_breech').length, vacuum: deliveries.filter((d: any) => d.deliveryType === 'vacuum').length, forceps: deliveries.filter((d: any) => d.deliveryType === 'forceps').length, caesareanSection: deliveries.filter((d: any) => d.deliveryType === 'caesarean_section').length, multiple: deliveries.filter((d: any) => d.deliveryType === 'multiple').length, liveBirths: deliveries.filter((d: any) => d.deliveryOutcome === 'live_birth').length, stillbirthsFresh: deliveries.filter((d: any) => d.deliveryOutcome === 'stillbirth_fresh').length, stillbirthsMacerated: deliveries.filter((d: any) => d.deliveryOutcome === 'stillbirth_macerated').length, neonatalDeaths: deliveries.filter((d: any) => d.deliveryOutcome === 'neonatal_death').length, maternalDeaths: deliveries.filter((d: any) => d.maternalOutcome !== 'alive').length, lowBirthWeight: deliveries.filter((d: any) => d.birthWeight != null && d.birthWeight < 2.5).length, birthWeightBelow2_5: deliveries.filter((d: any) => d.birthWeight != null && d.birthWeight < 2.5).length, birthWeightAbove2_5: deliveries.filter((d: any) => d.birthWeight != null && d.birthWeight >= 2.5).length, birthWeightByParity, placeOfDelivery, attendant, primigravidae, essentialNewbornCare, morbidities, maternalDeathsByAge, maternalDeathsAudited: deliveries.filter((d: any) => (d as any).maternalDeathsAudited === true).length, neonatalDeathsBreakdown, ageAtDelivery },
-      postnatal: { newMothers: deliveries.length, totalVisits: postnatalAttendances.length, pncDay1or2, pncDay3to7, pncDay8Plus, ageAtPNC, familyPlanningAccepted: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted != null).length, postPartumFPAcceptors: postnatalAttendances.filter((a: any) => a.familyPlanningMethodAccepted != null).length, fpMethodBreakdown, exclusiveBreastfeeding: postnatalAttendances.filter((a: any) => a.breastfeedingStatus === 'exclusive').length, exclusiveBFAtDischarge: postnatalAttendances.filter((a: any) => a.breastfeedingStatus === 'exclusive').length, immunizationGiven: postnatalAttendances.filter((a: any) => a.Medication?.some((m: any) => (m.StockItem?.name ?? m.name).toLowerCase().includes('vaccine'))).length, complications: postnatalAttendances.filter((a: any) => a.AttendanceDiagnosis?.length > 0).length, malePartnerInvolved: malePartnerInvolvedPNC },
-      abortions, referrals: referralsData, birthAbnormalities, newbornComplications, maleInvolvement, generatedAt: new Date(),
-    };
+      form,
+      generatedAt: new Date(),
+    } as FormAReport;
   }
 
   async generateIPDReport(startDate: Date, endDate: Date): Promise<IPDReport> {
@@ -520,45 +437,7 @@ export class GHSReportService extends BaseService {
     return rows.join('\n');
   }
 
-  static exportFormAToCSV(report: FormAReport): string {
-    const rows: string[] = [];
-    rows.push('"GHANA HEALTH SERVICE - MONTHLY MIDWIVES RETURNS (FORM A)"', `"Facility Name","${report.facility.name}"`, `"District","${report.facility.district}"`, `"Region","${report.facility.region}"`, `"GHF Code","${report.facility.ghfCode}"`, `"Reporting Period","${report.period.monthName} ${report.period.year}"`, '');
-    rows.push('"SECTION 1: ANTENATAL CARE"', '"A. NEW REGISTRANTS"', `"Total New Registrants",${report.antenatal.newRegistrants}`, '');
-    rows.push('"B. AGE AT REGISTRATION"', '"Age Group","Number"'); Object.entries(report.antenatal.ageAtRegistration).forEach(([age, count]) => rows.push(`"${age}",${count}`)); rows.push('');
-    rows.push('"C. PARITY"', '"Parity","Number"'); Object.entries(report.antenatal.parity).forEach(([parity, count]) => rows.push(`"${parity}",${count}`)); rows.push('');
-    rows.push('"D. DURATION AT REGISTRATION (Trimester)"', `"1st Trimester (<13 weeks)",${report.antenatal.registration1stTrimester}`, `"2nd Trimester (13-27 weeks)",${report.antenatal.registration2ndTrimester}`, `"3rd Trimester (28+ weeks)",${report.antenatal.registration3rdTrimester}`, '');
-    rows.push('"E. IPTp DOSES"', `"IPTp-1",${report.antenatal.iptp.dose1}`, `"IPTp-2",${report.antenatal.iptp.dose2}`, `"IPTp-3",${report.antenatal.iptp.dose3}`, `"IPTp-4",${report.antenatal.iptp.dose4}`, `"IPTp-5+",${report.antenatal.iptp.dose5Plus}`, '');
-    rows.push('"F. TT VACCINATION"', `"TT-1",${report.antenatal.ttVaccination.dose1}`, `"TT-2",${report.antenatal.ttVaccination.dose2}`, `"TT-3",${report.antenatal.ttVaccination.dose3}`, `"TT-4",${report.antenatal.ttVaccination.dose4}`, `"TT-5",${report.antenatal.ttVaccination.dose5}`, `"TT2+ (Protected)",${report.antenatal.ttVaccination.tt2Plus}`, '');
-    rows.push('"G. SCREENINGS"', `"Syphilis Tested",${report.antenatal.syphilisTested}`, `"Syphilis Positive",${report.antenatal.syphilisPositive}`, `"Syphilis Treated",${report.antenatal.syphilisTreated}`, `"TB Screened",${report.antenatal.tbScreened}`, `"TB Positive",${report.antenatal.tbPositive}`, `"TB Treated",${report.antenatal.tbTreated}`, `"Hepatitis B Screened",${report.antenatal.hepatitisBScreened}`, `"Hepatitis B Positive",${report.antenatal.hepatitisBPositive}`, `"Hepatitis B Prophylaxis",${report.antenatal.hepatitisBProphylaxis}`, '');
-    rows.push('"H. PMTCT CASCADE"', `"HIV Tested",${report.antenatal.hivTested}`, `"HIV Positive",${report.antenatal.hivPositive}`, `"On ARV Treatment",${report.antenatal.onARVTreatment}`, `"Partner Tested",${report.antenatal.partnerTested}`, `"Couple Testing",${report.antenatal.coupleTesting}`, `"Baby on Prophylaxis",${report.antenatal.babyOnProphylaxis}`, '');
-    rows.push('"I. ANAEMIA"', `"Anaemia at Booking (<11 g/dl)",${report.antenatal.anaemiaAtBooking}`, `"Severe Anaemia (<7 g/dl)",${report.antenatal.severeAnaemiaAtBooking}`, `"Anaemia at 36 Weeks",${report.antenatal.anaemiaAt36Weeks}`, '');
-    rows.push('"J. VISIT MILESTONES"', `"Making 4th Visit",${report.antenatal.making4thVisit}`, `"Making 8th Visit",${report.antenatal.making8thVisit}`, `"Mothers Seen at 36 Weeks",${report.antenatal.seenAt36Weeks}`, `"Mothers Below 150cm",${report.antenatal.mothersBelow150cm}`, '');
-    rows.push('"K. MALE INVOLVEMENT IN ANC"', `"Male Partner Involved",${report.antenatal.malePartnerInvolved}`, '');
-    rows.push('"SECTION 2: DELIVERIES"', `"Total Deliveries",${report.delivery.totalDeliveries}`, '');
-    rows.push('"A. DELIVERY TYPE"', `"Spontaneous Vertex",${report.delivery.spontaneousVertex}`, `"Assisted Breech",${report.delivery.assistedBreech}`, `"Vacuum",${report.delivery.vacuum}`, `"Forceps",${report.delivery.forceps}`, `"Caesarean Section",${report.delivery.caesareanSection}`, `"Multiple",${report.delivery.multiple}`, '');
-    rows.push('"B. OUTCOMES"', `"Live Births",${report.delivery.liveBirths}`, `"Stillbirths (Fresh)",${report.delivery.stillbirthsFresh}`, `"Stillbirths (Macerated)",${report.delivery.stillbirthsMacerated}`, `"Neonatal Deaths",${report.delivery.neonatalDeaths}`, `"Maternal Deaths",${report.delivery.maternalDeaths}`, '');
-    rows.push('"C. BIRTH WEIGHT"', `"Low Birth Weight (<2.5kg)",${report.delivery.lowBirthWeight}`, `"Below 2.5kg",${report.delivery.birthWeightBelow2_5}`, `"2.5kg and Above",${report.delivery.birthWeightAbove2_5}`, '');
-    rows.push('"D. BIRTH WEIGHT BY PARITY"', '"Parity","<2.5kg",">=2.5kg"', `"Primigravidae",${report.delivery.birthWeightByParity.primigravidae.below2_5},${report.delivery.birthWeightByParity.primigravidae.above2_5}`, `"Multipara",${report.delivery.birthWeightByParity.multipara.below2_5},${report.delivery.birthWeightByParity.multipara.above2_5}`, '');
-    rows.push('"E. PLACE OF DELIVERY"'); Object.entries(report.delivery.placeOfDelivery).forEach(([place, count]) => { if (count > 0) rows.push(`"${place.replace(/_/g, ' ')}",${count}`); }); rows.push('');
-    rows.push('"F. ATTENDANT TYPE"'); Object.entries(report.delivery.attendant).forEach(([attendant, count]) => { if (count > 0) rows.push(`"${attendant.replace(/_/g, ' ')}",${count}`); }); rows.push('');
-    rows.push('"G. PRIMIGRAVIDAE OUTCOMES"', '"Outcome","Male","Female"', `"Live Births",${report.delivery.primigravidae.liveBirths.male},${report.delivery.primigravidae.liveBirths.female}`, `"Stillbirths (Fresh)",${report.delivery.primigravidae.stillbirths.fresh},-`, `"Stillbirths (Macerated)",${report.delivery.primigravidae.stillbirths.macerated},-`, '');
-    rows.push('"H. ESSENTIAL NEWBORN CARE"', `"Breastfeeding Within 30 Minutes",${report.delivery.essentialNewbornCare.breastfeedingWithin30Min}`, `"Eye Prophylaxis Given",${report.delivery.essentialNewbornCare.eyeProphylaxisGiven}`, `"Cord Care - Chlorhexidine",${report.delivery.essentialNewbornCare.cordCareChlorhexidine}`, `"Cord Care - Methylated Spirit",${report.delivery.essentialNewbornCare.cordCareMethylated}`, `"Cord Care - Dry Cord",${report.delivery.essentialNewbornCare.cordCareDry}`, `"Baby Weight at 6-10 Days",${report.delivery.essentialNewbornCare.babyWeightAt6to10Days}`, '');
-    rows.push('"I. MATERNAL MORBIDITIES"', `"VVF Seen",${report.delivery.morbidities.vvfSeen}`, `"VVF Repaired",${report.delivery.morbidities.vvfRepaired}`, `"VVF Referred",${report.delivery.morbidities.vvfReferred}`, `"Drop Foot",${report.delivery.morbidities.dropFoot}`, `"Puerperal Psychosis",${report.delivery.morbidities.puerperalPsychosis}`, `"Endometritis",${report.delivery.morbidities.endometritis}`, `"Mastitis",${report.delivery.morbidities.mastitis}`, '');
-    rows.push('"J. MATERNAL DEATHS BY AGE"'); Object.entries(report.delivery.maternalDeathsByAge).forEach(([age, count]) => { if (count > 0) rows.push(`"${age}",${count}`); }); rows.push(`"Maternal Deaths Audited",${report.delivery.maternalDeathsAudited}`, '');
-    rows.push('"K. NEONATAL DEATHS BREAKDOWN"', `"Early (0-7 days)",${report.delivery.neonatalDeathsBreakdown.early_0_7days}`, `"Late (8-28 days)",${report.delivery.neonatalDeathsBreakdown.late_8_28days}`, `"Post-neonatal (1-11 months)",${report.delivery.neonatalDeathsBreakdown.post_neonatal_1_11months}`, '');
-    rows.push('"SECTION 3: POSTNATAL CARE"', `"New Mothers",${report.postnatal.newMothers}`, `"Total PNC Visits",${report.postnatal.totalVisits}`, '');
-    rows.push('"A. PNC TIMING"', `"1st PNC on Day 1-2",${report.postnatal.pncDay1or2}`, `"1st PNC on Day 3-7",${report.postnatal.pncDay3to7}`, `"1st PNC Day 8+",${report.postnatal.pncDay8Plus}`, '');
-    rows.push('"B. FAMILY PLANNING"', `"FP Accepted",${report.postnatal.familyPlanningAccepted}`, `"Post-Partum FP Acceptors",${report.postnatal.postPartumFPAcceptors}`, '"FP Method Breakdown"'); Object.entries(report.postnatal.fpMethodBreakdown).forEach(([method, count]) => { if (count > 0) rows.push(`"${method}",${count}`); }); rows.push('');
-    rows.push('"C. BREASTFEEDING"', `"Exclusive Breastfeeding",${report.postnatal.exclusiveBreastfeeding}`, `"Exclusive BF at Discharge",${report.postnatal.exclusiveBFAtDischarge}`, '');
-    rows.push('"D. MALE INVOLVEMENT IN PNC"', `"Male Partner Involved",${report.postnatal.malePartnerInvolved}`, '');
-    rows.push('"SECTION 4: ABORTIONS"', `"Total Abortions",${report.abortions.total}`, '"By Type"'); Object.entries(report.abortions.byType).forEach(([type, count]) => { if (count > 0) rows.push(`"${type.replace(/_/g, ' ')}",${count}`); }); rows.push(`"Post-Abortion FP Accepted",${report.abortions.postAbortionFPAccepted}`, '');
-    rows.push('"SECTION 5: REFERRALS"', `"Total Referrals",${report.referrals.total}`, `"Antenatal In",${report.referrals.antenatal.in}`, `"Antenatal Out",${report.referrals.antenatal.out}`, `"Labor In",${report.referrals.labor.in}`, `"Labor Out",${report.referrals.labor.out}`, `"Postnatal In",${report.referrals.postnatal.in}`, `"Postnatal Out",${report.referrals.postnatal.out}`, '');
-    rows.push('"SECTION 6: BIRTH ABNORMALITIES"'); Object.entries(report.birthAbnormalities).forEach(([abnormality, count]) => { if (count > 0) rows.push(`"${abnormality.replace(/([A-Z])/g, ' $1').trim()}",${count}`); }); rows.push('');
-    rows.push('"SECTION 7: NEWBORN COMPLICATIONS"'); Object.entries(report.newbornComplications).forEach(([complication, count]) => { if (count > 0) rows.push(`"${complication.replace(/([A-Z])/g, ' $1').trim()}",${count}`); }); rows.push('');
-    rows.push('"SECTION 8: MALE INVOLVEMENT SUMMARY"'); Object.entries(report.maleInvolvement).forEach(([activity, count]) => { rows.push(`"${activity.toUpperCase()}",${count}`); }); rows.push('');
-    rows.push(`"Report Generated","${report.generatedAt.toISOString()}"`);
-    return rows.join('\n');
-  }
+  static exportFormAToCSV(report: FormAReport): string { return formAToCSV(report as any); }
 
   static exportIPDToCSV(report: IPDReport): string {
     return [ '"IPD Morbidity & Mortality Report"', `"Facility Name","${report.facility.name}"`, `"District","${report.facility.district}"`, `"GHF Code","${report.facility.ghfCode}"`, `"Reporting Period","${report.period.startDate.toISOString().split('T')[0]}","to","${report.period.endDate.toISOString().split('T')[0]}"`, '', '"MALARIA IN INPATIENTS"', `"Under 5 Admitted","${report.malaria.under5Admitted}"`, `"5+ Admitted","${report.malaria.above5Admitted}"`, `"Under 5 Deaths","${report.malaria.under5Deaths}"`, `"5+ Deaths","${report.malaria.above5Deaths}"`, '', '"SUMMARY"', `"Total Admissions","${report.totals.totalAdmissions}"`, `"Total Deaths","${report.totals.totalDeaths}"` ].join('\n');

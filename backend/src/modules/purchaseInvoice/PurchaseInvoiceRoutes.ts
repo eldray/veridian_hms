@@ -2,42 +2,50 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { purchaseInvoiceController } from './PurchaseInvoiceController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { UserRole } from '@prisma/client';
 
 export const createPurchaseInvoiceRoutes = () => {
   const router = Router();
 
-  // ✅ Global Auth
   router.use(protect);
+
+  // ── Central role lists ──
+  const READERS: UserRole[] = ['super_admin', 'admin', 'accounts', 'pharmacist'];
+  const WRITERS: UserRole[] = ['super_admin', 'admin', 'accounts'];
+  const DELETERS: UserRole[] = ['super_admin', 'admin'];
 
   // ==========================================
   // ROUTES
   // ==========================================
 
-  // Read access for Admin, Accounts, and Pharmacist
-  router.get('/', requireRole(['admin', 'accounts', 'pharmacist']), purchaseInvoiceController.getInvoices);
-  router.get('/suppliers', requireRole(['admin', 'accounts', 'pharmacist']), purchaseInvoiceController.getSuppliers);
-  router.get('/stats', requireRole(['admin', 'accounts']), purchaseInvoiceController.getInvoiceStats);
-  router.get('/:id', requireRole(['admin', 'accounts', 'pharmacist']), purchaseInvoiceController.getInvoiceById);
+  // Read
+  router.get('/',         requireRole(READERS), purchaseInvoiceController.getInvoices);
+  router.get('/suppliers', requireRole(READERS), purchaseInvoiceController.getSuppliers);
+  router.get('/stats',    requireRole(['super_admin', 'admin', 'accounts']), purchaseInvoiceController.getInvoiceStats);
+  router.get('/:id',      requireRole(READERS), purchaseInvoiceController.getInvoiceById);
 
-  // Write access restricted to Admin/Accounts
+  // Create
   router.post(
     '/',
-    requireRole(['admin', 'accounts']),
+    requireRole(WRITERS),
     [
-      body('invoiceNumber').notEmpty(), 
-      body('supplierName').notEmpty(), 
+      body('invoiceNumber').notEmpty(),
+      body('supplierName').notEmpty(),
       body('invoiceDate').isISO8601(),
-      body('totalAmount').isFloat({ min: 0 }), 
+      body('totalAmount').isFloat({ min: 0 }),
       body('invoiceItems').isArray({ min: 1 }),
-      body('invoiceItems.*.stockItemId').notEmpty(), 
+      body('invoiceItems.*.stockItemId').notEmpty(),
       body('invoiceItems.*.quantity').isInt({ min: 1 }),
-      body('invoiceItems.*.unitCost').isFloat({ min: 0 })
+      body('invoiceItems.*.unitCost').isFloat({ min: 0 }),
     ],
-    purchaseInvoiceController.createInvoice
+    purchaseInvoiceController.createInvoice,
   );
 
-  router.put('/:id', requireRole(['admin', 'accounts']), purchaseInvoiceController.updateInvoice);
-  router.delete('/:id', requireRole(['admin']), purchaseInvoiceController.deleteInvoice);
+  // Update
+  router.put('/:id', requireRole(WRITERS), purchaseInvoiceController.updateInvoice);
+
+  // Delete
+  router.delete('/:id', requireRole(DELETERS), purchaseInvoiceController.deleteInvoice);
 
   return router;
 };

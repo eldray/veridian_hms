@@ -1,6 +1,7 @@
 // cron/wardChargeCron.ts - Daily Ward Charge Generation (ALL BUGS FIXED)
 import { PrismaClient, PaymentMode } from '@prisma/client';
 import { getCounterService } from '../services/CounterService';
+import { resolveWardDailyRate } from '../utils/pricing';
 
 import prisma from '../core/database/prisma.client';
 
@@ -110,7 +111,6 @@ export class WardChargeService {
         // ✅ FIXED: Determine daily rate based on payment mode
         const paymentMode = attendance.paymentMode || 'cash';
         const ward = attendance.Ward;
-        let dailyRate = 0;
         let nhisPrice = 0;
         let cashPrice = 0;
         let insurancePrice = 0;
@@ -118,24 +118,24 @@ export class WardChargeService {
 
         // ✅ FIXED: Use toNumber() for all Decimal fields
         const wardCashRate = toNumber(ward.dailyCashRate);
-        const wardNHISRate = toNumber(ward.dailyNHISRate);
-        const wardInsuranceRate = toNumber(ward.dailyInsuranceRate);
+
+        // Same rules as services (utils/pricing.ts): a missing or uncovered payer rate means the cash rate,
+        // and a corporate account with no corporate rate gets its discount off cash. No invented 80/90/85% rates.
+        let dailyRate = resolveWardDailyRate(ward, paymentMode, {
+          corporateDiscountPercent: toNumber(attendance.CorporateAccount?.discountPercentage)
+        });
 
         switch (paymentMode) {
           case 'nhis':
-            dailyRate = wardNHISRate > 0 ? wardNHISRate : wardCashRate * 0.8;
             nhisPrice = dailyRate;
             break;
 
           case 'private_insurance':
-            dailyRate = wardInsuranceRate > 0 ? wardInsuranceRate : wardCashRate * 0.9;
             insurancePrice = dailyRate;
             break;
 
           case 'corporate':
-            dailyRate = wardInsuranceRate > 0 ? wardInsuranceRate : wardCashRate * 0.85;
             corporatePrice = dailyRate;
-            insurancePrice = dailyRate; // Corporate uses insurance rate
             console.log(`🏢 Corporate ward charge for admission ${admission.id}: GHS ${dailyRate}`);
             if (attendance.CorporateAccount) {
               console.log(`   Corporate Account: ${attendance.CorporateAccount.companyName}`);
@@ -144,7 +144,6 @@ export class WardChargeService {
 
           case 'cash':
           default:
-            dailyRate = wardCashRate;
             cashPrice = dailyRate;
             break;
         }

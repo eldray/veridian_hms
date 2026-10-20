@@ -1,5 +1,5 @@
 import React from 'react';
-import { Attendance } from '../types';
+import type { Attendance } from '../../types';
 import { Activity, Clock, PlayCircle, Edit } from 'lucide-react';
 
 interface AttendanceStatusCardProps {

@@ -15,6 +15,7 @@ import { createPatientRoutes } from './patient/PatientRoutes';
 import { createEncounterRoutes } from './encounter/EncounterRoutes';
 import { protect } from '../middleware/authMiddleware';
 import { realtimeBroadcast, eventsHandler } from '../services/realtime';
+import { auditWrites } from '../middleware/auditWrites';
 import { apiRateLimiter, reportRangeGuard } from '../middleware/apiLimits';
 import { createAppointmentRoutes } from './appointment/AppointmentRoutes';
 import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
@@ -84,6 +85,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use(apiRateLimiter);
   app.use(['/reports', '/ghs-reports', '/clinical-reports'], reportRangeGuard);
   app.use(realtimeBroadcast);
+  app.use(auditWrites(prisma)); // every successful write by a logged-in user goes into the audit log
   app.get('/events', protect, eventsHandler);
   console.log('✅ Live updates (SSE) mounted at /events');
 

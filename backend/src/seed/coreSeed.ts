@@ -27,7 +27,9 @@ const prisma = new PrismaClient();
 // Helpers
 // ─────────────────────────────────────────────────────────────
 const readJSON = (fileName: string) => {
-  const filePath = path.join(__dirname, '..', 'data', fileName);
+  // SEED_DATA_DIR lets the packaged desktop app point at the data files it ships next to the bundle
+  const dataDir = process.env.SEED_DATA_DIR || path.join(__dirname, '..', 'data');
+  const filePath = path.join(dataDir, fileName);
   if (!fs.existsSync(filePath)) {
     console.warn(`⚠️ File not found: ${filePath}`);
     return null;
@@ -268,6 +270,8 @@ const addSchemaDefaults = (data: any, type: string) => {
         dailyNHISRate: data.dailyNHISRate ?? data.nhisPrice ?? data.nhisDailyRate ?? 0,
         dailyInsuranceRate:
           data.dailyInsuranceRate ?? data.insurancePrice ?? data.insuranceDailyRate ?? 0,
+        dailyCorporateRate:
+          data.dailyCorporateRate ?? data.corporatePrice ?? data.corporateDailyRate ?? 0,
       };
 
     default:
@@ -297,7 +301,7 @@ const createServicePricing = async (
       cashPrice: pricing.cashPrice ?? 0,
       nhisPrice: pricing.nhisPrice ?? 0,
       insurancePrice: pricing.insurancePrice ?? 0,
-      corporatePrice: pricing.corporatePrice ?? pricing.insurancePrice ?? 0,
+      corporatePrice: pricing.corporatePrice ?? 0, // 0 = billed with the corporate fallback (account discount off cash, else cash)
       vatRate: 0,
       isTaxable: false,
       isActive: true,
@@ -865,6 +869,8 @@ export const seedCoreData = async (force: boolean = false) => {
     const stockFiles = ['medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json'];
     let totalStockProcessed = 0;
     const stockItemMap = new Map();
+    // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
+    const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number }>();
 
     for (const file of stockFiles) {
       const items = readJSON(file);
@@ -895,6 +901,21 @@ export const seedCoreData = async (force: boolean = false) => {
             update: stockData,
           });
           stockItemMap.set(item.drugCode, stockItem);
+
+          // cash = sellingPrice, insurance = insurancePrice. In the NHIS list and medications2.json the
+          // insurancePrice equals unitPrice, and that is the real NHIA tariff, so it is also the NHIS price.
+          // medications1 / consumables only hold a cost in unitPrice: NHIS stays 0 (not NHIS-priced), so the
+          // patient pays the cash price. Corporate stays 0 and falls back to cash (or the account discount).
+          const unit = Number(item.unitPrice ?? 0);
+          const sell = Number(item.sellingPrice ?? 0);
+          const ins = Number(item.insurancePrice ?? 0);
+          const isNhiaTariff = unit > 0 && Math.abs(ins - unit) < 0.005;
+          const cashPrice = sell > 0 ? sell : Math.round(unit * 1.2 * 100) / 100;
+          stockPriceMap.set(item.drugCode, {
+            cashPrice,
+            insurancePrice: ins > 0 ? ins : cashPrice,
+            nhisPrice: isNhiaTariff ? unit : 0,
+          });
           totalStockProcessed++;
 
           if (totalStockProcessed % 50 === 0) {
@@ -908,56 +929,104 @@ export const seedCoreData = async (force: boolean = false) => {
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
 
-    // ── STEP 12b: Opening stock into Main Store ───────────────
-    const mainStore = await prisma.department.findFirst({ where: { name: 'Main Store' } });
-    if (!mainStore) {
-      console.warn('⚠️ Main Store department not found, skipping stock placement');
-    } else {
-      const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
-      let placedCount = 0;
+    // ── STEP 12b: Opening stock, placed by DEPARTMENT ─────────
+    // Default: every item is split between the Pharmacy (dispensing stock) and the Main Store (warehouse).
+    // Per-item override in the JSON data files:
+    //   "department": "Laboratory"                              -> all stock goes to that department
+    //   "stockLocations": [{ "department": "Pharmacy", "quantity": 30 }, { "department": "Main Store", "quantity": 70 }]
+    // The department quantities always add up to the item's currentStock.
+    const DEFAULT_STOCK_SPLIT = [
+      { department: 'Pharmacy', share: 0.4 },
+      { department: 'Main Store', share: 0.6 },
+    ];
+    const deptByName = new Map<string, any>();
+    const getDept = async (name: string) => {
+      if (!deptByName.has(name)) {
+        deptByName.set(name, await prisma.department.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } }));
+      }
+      return deptByName.get(name);
+    };
 
-      for (const [, stockItem] of stockItemMap) {
-        const quantity = stockItem.currentStock ?? 0;
+    const missing = [];
+    for (const d of DEFAULT_STOCK_SPLIT) if (!(await getDept(d.department))) missing.push(d.department);
+    if (missing.length) {
+      console.warn(`⚠️ Departments not found for default stock placement: ${missing.join(', ')}. Items will only be placed in the departments that exist.`);
+    }
+
+    const sourceByDrugCode = new Map<string, any>();
+    for (const file of stockFiles) {
+      const items = readJSON(file);
+      if (Array.isArray(items)) for (const it of items) if (it?.drugCode) sourceByDrugCode.set(it.drugCode, it);
+    }
+
+    const openingExpiry = new Date(Date.now() + 2 * 365 * 24 * 60 * 60 * 1000);
+    let placedCount = 0;
+    const perDepartment: Record<string, number> = {};
+
+    for (const [drugCode, stockItem] of stockItemMap) {
+      const total = stockItem.currentStock ?? 0;
+      if (total <= 0) continue;
+      const source = sourceByDrugCode.get(drugCode) || {};
+
+      // Work out [{ dept, quantity }] for this item
+      let plan: Array<{ dept: any; quantity: number }> = [];
+      if (Array.isArray(source.stockLocations) && source.stockLocations.length > 0) {
+        for (const loc of source.stockLocations) {
+          const dept = await getDept(loc.department);
+          if (!dept) { console.warn(`⚠️ ${drugCode}: department "${loc.department}" not found, skipped`); continue; }
+          plan.push({ dept, quantity: Math.max(0, Math.floor(loc.quantity ?? 0)) });
+        }
+      } else if (source.department) {
+        const dept = await getDept(source.department);
+        if (dept) plan.push({ dept, quantity: total });
+        else console.warn(`⚠️ ${drugCode}: department "${source.department}" not found, using default split`);
+      }
+      if (plan.length === 0) {
+        const targets = [];
+        for (const d of DEFAULT_STOCK_SPLIT) {
+          const dept = await getDept(d.department);
+          if (dept) targets.push({ dept, share: d.share });
+        }
+        let allocated = 0;
+        plan = targets.map((t, i) => {
+          const quantity = i === targets.length - 1 ? total - allocated : Math.floor(total * t.share);
+          allocated += quantity;
+          return { dept: t.dept, quantity };
+        });
+      }
+
+      for (const { dept, quantity } of plan) {
         if (quantity <= 0) continue;
         try {
           await prisma.stockBatch.upsert({
-            where: { stockItemId_batchNumber: { stockItemId: stockItem.id, batchNumber: 'OPENING' } },
+            where: { stockItemId_batchNumber_departmentId: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id } },
             create: {
-              stockItemId: stockItem.id,
-              batchNumber: 'OPENING',
-              expiryDate: openingExpiry,
-              quantity,
-              costPrice: stockItem.costPrice,
-              departmentId: mainStore.id,
-              isActive: true,
+              stockItemId: stockItem.id, batchNumber: 'OPENING', expiryDate: openingExpiry, quantity,
+              costPrice: stockItem.costPrice, departmentId: dept.id, isActive: true,
             },
-            update: { quantity, departmentId: mainStore.id },
+            update: { quantity, isActive: true },
           });
 
           const existingTxn = await prisma.stockTransaction.findFirst({
-            where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE' },
+            where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE', departmentId: dept.id },
           });
           if (!existingTxn) {
             await prisma.stockTransaction.create({
               data: {
-                stockItemId: stockItem.id,
-                transactionType: 'purchase',
-                quantity,
-                balanceAfter: quantity,
-                reference: 'OPENING-BALANCE',
-                notes: 'Opening stock balance (seed)',
-                performedBy: adminId,
-                departmentId: mainStore.id,
+                stockItemId: stockItem.id, transactionType: 'purchase', quantity, balanceAfter: quantity,
+                reference: 'OPENING-BALANCE', notes: `Opening stock balance (seed) - ${dept.name}`,
+                performedBy: adminId, departmentId: dept.id,
               },
             });
           }
+          perDepartment[dept.name] = (perDepartment[dept.name] || 0) + 1;
           placedCount++;
         } catch (error: any) {
-          console.error(`❌ Stock placement for ${stockItem.drugCode}:`, error.message);
+          console.error(`❌ Stock placement for ${stockItem.drugCode} in ${dept.name}:`, error.message);
         }
       }
-      console.log(`✅ Placed ${placedCount} stock items into Main Store (opening batches + transactions)`);
     }
+    console.log(`✅ Placed opening stock: ${placedCount} batches (${Object.entries(perDepartment).map(([n, c]) => `${n}: ${c}`).join(', ')})`);
 
     // ── STEP 13: Service catalog ──────────────────────────────
     console.log('🔄 Creating unified service catalog with pricing...');
@@ -1034,8 +1103,11 @@ export const seedCoreData = async (force: boolean = false) => {
     }
 
     for (const [drugCode, stockItem] of stockItemMap) {
-      const pricing = pricingConfig.medications?.[drugCode] || {
-        cashPrice: 50, nhisPrice: 35, insurancePrice: 45,
+      // An explicit entry in servicePricing.json wins; otherwise use the item's own prices from its JSON file.
+      // Last resort (no prices at all): cost + 20%. All of these are placeholders until real price lists are loaded.
+      const costBased = Math.round(Number(stockItem.costPrice ?? 0) * 1.2 * 100) / 100;
+      const pricing = pricingConfig.medications?.[drugCode] || stockPriceMap.get(drugCode) || {
+        cashPrice: costBased, nhisPrice: 0, insurancePrice: costBased,
       };
       serviceCatalogEntries.push({
         name: stockItem.name,
@@ -1047,6 +1119,7 @@ export const seedCoreData = async (force: boolean = false) => {
         stockItemId: stockItem.id,
         isActive: true,
         pricing,
+        metadata: { pricingSource: 'seed-placeholder' }, // replace with real price lists, then drop this flag
       });
     }
 
@@ -1122,6 +1195,7 @@ export const seedCoreData = async (force: boolean = false) => {
             cashPrice: ward.dailyCashRate ?? ward.cashPrice ?? ward.cashDailyRate ?? 100,
             nhisPrice: ward.dailyNHISRate ?? ward.nhisPrice ?? ward.nhisDailyRate ?? 50,
             insurancePrice: ward.dailyInsuranceRate ?? ward.insurancePrice ?? ward.insuranceDailyRate ?? 80,
+            corporatePrice: ward.dailyCorporateRate ?? ward.corporatePrice ?? ward.corporateDailyRate ?? 0,
           };
 
           const serviceCatalogData = addSchemaDefaults({

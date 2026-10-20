@@ -36,11 +36,13 @@ async function createAuditLog(data: {
   performedById?: string; ipAddress?: string; previousState?: any;
   newState?: any; metadata?: Record<string, any>;
 }) {
+  // performedById must be a real user (foreign key); skip silently instead of failing with 'system'
+  if (!data.performedById) return;
   try {
     await prisma.auditLog.create({
       data: {
         entityType: data.entityType, entityId: data.entityId, action: data.action,
-        performedById: data.performedById || 'system', ipAddress: data.ipAddress,
+        performedById: data.performedById, ipAddress: data.ipAddress,
         previousState: data.previousState || null, newState: data.newState || null,
         metadata: data.metadata || {}
       }

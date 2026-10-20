@@ -7,6 +7,7 @@ import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
   ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
@@ -725,23 +726,32 @@ export default function PatientDetails() {
 
           {/* ============ PROFILE ============ */}
           {activeTab === 'profile' && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3">Basic Information</h3>
-                <InfoRow label="Full Name" value={getPatientFullName(patient)} />
-                <InfoRow label="Folder Number" value={patient.folderNumber || 'N/A'} />
-                <InfoRow label="Gender" value={patient.gender || 'N/A'} />
-                <InfoRow label="Date of Birth" value={formatDate(patient.dateOfBirth)} />
-                <InfoRow label="Age" value={patient.ageDisplay || `${patient.age || 'N/A'} years`} />
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <Users className="h-4 w-4 text-[var(--icon-cyan-text)]" />
+                    Basic information
+                  </h3>
+                  <InfoRow label="Full Name" value={getPatientFullName(patient)} />
+                  <InfoRow label="Folder Number" value={patient.folderNumber || 'N/A'} />
+                  <InfoRow label="Gender" value={patient.gender || 'N/A'} />
+                  <InfoRow label="Date of Birth" value={formatDate(patient.dateOfBirth)} />
+                  <InfoRow label="Age" value={patient.ageDisplay || `${patient.age || 'N/A'} years`} />
+                </div>
+                <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
+                  <h3 className="mb-3 flex items-center gap-2 text-xs font-semibold text-[var(--text-primary)]">
+                    <MapPin className="h-4 w-4 text-[var(--icon-cyan-text)]" />
+                    Contact information
+                  </h3>
+                  <InfoRow label="Contact" value={patient.contact || 'N/A'} />
+                  <InfoRow label="Address" value={patient.address || 'No address'} />
+                  {patient.additionalInfo?.email && (
+                    <InfoRow label="Email" value={patient.additionalInfo.email} />
+                  )}
+                </div>
               </div>
-              <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
-                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wide mb-3">Contact Information</h3>
-                <InfoRow label="Contact" value={patient.contact || 'N/A'} />
-                <InfoRow label="Address" value={patient.address || 'No address'} />
-                {patient.additionalInfo?.email && (
-                  <InfoRow label="Email" value={patient.additionalInfo.email} />
-                )}
-              </div>
+              <CompactAdditionalInfo patient={patient} />
             </div>
           )}
 

@@ -14,9 +14,21 @@ export interface CreateAntenatalBookingInput {
   hbLevel?: number;
   vdrl?: string;
   bookingWeight?: number;
+  bookingHeight?: number;
   bookingBP?: string;
+  bookingHb?: number;
+  hepatitisBStatus?: string;
+  syphilisStatus?: string;
+  partnerHIVStatus?: string;
+  hivKnownPositive?: boolean;
+  malePartnerInvolved?: boolean;
+  itnGiven?: boolean;
+  ironGiven?: boolean;
+  folateGiven?: boolean;
+  ttDosesGiven?: number;
+  iptpDosesGiven?: number;
   previousCSection?: boolean;
-  previousComplications?: string;
+  previousComplications?: string | string[];
   iptpDoses?: any;
   ttDoses?: any;
   iptp1Date?: Date;
@@ -49,6 +61,16 @@ export interface UpdateAntenatalBookingInput {
   hbLevel?: number;
   vdrl?: string;
   currentAttendanceId?: string;
+  malePartnerInvolved?: boolean;
+  partnerHivStatus?: string;
+  hivKnownPositive?: boolean;
+  hepatitisBStatus?: string;
+  bookingHeight?: number;
+  bookingWeight?: number;
+  bookingBP?: string;
+  itnGiven?: boolean;
+  ironFolateGiven?: boolean;
+  previousCSection?: boolean;
 }
 
 export interface CreateANCVisitInput {
@@ -108,6 +130,8 @@ export interface CreateDeliveryRecordInput {
   malePartnerPresentPNC?: boolean;
   maternalDeathsAudited?: boolean;
   auditNotes?: string;
+  referralTo?: string;
+  Newborn?: { create: any[] } | any[];
   createdById: string;
 }
 
@@ -124,6 +148,7 @@ export interface CreatePostnatalRecordInput {
   familyPlanningDiscussed?: boolean;
   familyPlanningMethodAccepted?: string;
   notes?: string;
+  [key: string]: any; // remaining postnatal fields are whitelisted in the repository
   createdById: string;
 }
 

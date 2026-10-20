@@ -16,15 +16,36 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
     const lmp = new Date(data.lmp);
     const edd = this.calculateEDD(lmp);
-    
+    const tt = Math.min(Math.max(Number(data.ttDosesGiven) || 0, 0), 5);
+    const iptp = Math.min(Math.max(Number(data.iptpDosesGiven) || 0, 0), 5);
+    const prev = Array.isArray(data.previousComplications) ? data.previousComplications.join(', ') : data.previousComplications;
+    const hb = data.hbLevel ?? (data.bookingHb != null && data.bookingHb !== ('' as any) ? Number(data.bookingHb) : undefined);
+    const hbNum = hb != null && !Number.isNaN(Number(hb)) ? Number(hb) : undefined;
+    const numOrU = (v: any) => (v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v));
+    const doseDates: any = {};
+    for (let i = 1; i <= tt; i++) doseDates[`tt${i}Date`] = new Date();
+    for (let i = 1; i <= iptp; i++) doseDates[`iptp${i}Date`] = new Date();
+
     return this.getModel().create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
         bookingDate: new Date(), lmp, edd, gravida: data.gravida, para: data.para,
-        gestationalAgeWeeks: data.gestationalAgeWeeks, riskLevel: data.riskLevel || 'low',
-        riskFactors: data.riskFactors || [], bloodGroup: data.bloodGroup, hivStatus: data.hivStatus,
-        hbLevel: data.hbLevel, vdrl: data.vdrl, isActive: true, isCompleted: false,
-        createdById: data.createdById, iptpDoses: {}, ttDoses: {}
+        gestationalAgeWeeks: numOrU(data.gestationalAgeWeeks), gestationalAgeAtBooking: numOrU(data.gestationalAgeWeeks),
+        riskLevel: data.riskLevel || 'low',
+        riskFactors: data.riskFactors || [], bloodGroup: data.bloodGroup, hivStatus: data.hivStatus || undefined,
+        hbLevel: hbNum, hbBooking: hbNum, anaemiaDiagnosed: hbNum != null && hbNum < 11,
+        vdrl: data.vdrl || data.syphilisStatus || undefined,
+        hepatitisBStatus: data.hepatitisBStatus || undefined,
+        partnerHivStatus: data.partnerHIVStatus || undefined,
+        hivKnownPositive: !!data.hivKnownPositive,
+        malePartnerInvolved: !!data.malePartnerInvolved,
+        bookingHeight: numOrU(data.bookingHeight), bookingWeight: numOrU(data.bookingWeight),
+        bookingBP: data.bookingBP || undefined,
+        previousCSection: !!data.previousCSection, previousComplications: prev || undefined,
+        itnGiven: !!data.itnGiven, itnGivenDate: data.itnGiven ? new Date() : undefined,
+        ironFolateGiven: !!(data.ironGiven || data.folateGiven),
+        iptpDoses: { count: iptp }, ttDoses: { count: tt }, ...doseDates,
+        isActive: true, isCompleted: false, createdById: data.createdById
       },
       include: { patient: true }
     });
@@ -66,7 +87,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateBooking(id: string, data: UpdateAntenatalBookingInput): Promise<any> {
-    return this.getModel().update({ where: { id }, data, include: { patient: true } });
+    const allowed = ['gravida', 'para', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors', 'isActive', 'isCompleted', 'deliveryDate',
+      'deliveryOutcome', 'deliveryRecordId', 'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved',
+      'partnerHivStatus', 'hivKnownPositive', 'hepatitisBStatus', 'bookingHeight', 'bookingWeight', 'bookingBP', 'itnGiven',
+      'ironFolateGiven', 'previousCSection'];
+    const clean: any = {};
+    for (const k of allowed) if ((data as any)[k] !== undefined) clean[k] = (data as any)[k];
+    if (clean.hbLevel != null) { clean.hbBooking = clean.hbLevel; clean.anaemiaDiagnosed = Number(clean.hbLevel) < 11; }
+    return this.getModel().update({ where: { id }, data: clean, include: { patient: true } });
   }
 
   async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }): Promise<any> {
@@ -125,7 +153,21 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   // ===================== DELIVERY RECORDS =====================
+  private mapNewborns(input: any): any[] {
+    const list: any[] = Array.isArray(input) ? input : Array.isArray(input?.create) ? input.create : [];
+    return list.map((b: any, i: number) => ({
+      order: b.order ?? i + 1, birthWeight: Number(b.birthWeight) || 0, gender: b.gender || 'other',
+      apgarScore1min: b.apgarScore1min ?? null, apgarScore5min: b.apgarScore5min ?? null,
+      resuscitation: !!b.resuscitation, outcome: b.outcome || 'alive', anomalies: b.anomalies || [],
+      referredTo: b.referredTo || null, breastfeedingWithin30Min: !!b.breastfeedingWithin30Min,
+      eyeProphylaxisGiven: !!b.eyeProphylaxisGiven, cordCareMethod: b.cordCareMethod || 'dry_cord',
+      babyWeightAt6to10Days: b.babyWeightAt6to10Days ?? null,
+      weightAt6to10DaysDate: b.weightAt6to10DaysDate ? new Date(b.weightAt6to10DaysDate) : null
+    }));
+  }
+
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
+    const babies = this.mapNewborns((data as any).Newborn);
     return this.prisma.deliveryRecord.create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
@@ -135,7 +177,10 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
         complications: data.complications || [], notes: data.notes, malePartnerPresentANC: data.malePartnerPresentANC || false,
         malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
-        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, createdById: data.createdById
+        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, referralTo: data.referralTo,
+        birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
+        createdById: data.createdById,
+        ...(babies.length ? { Newborn: { create: babies } } : {})
       },
       include: { patient: true, attendance: true, Newborn: true }
     });
@@ -207,13 +252,25 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== POSTNATAL RECORDS =====================
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
+    const d: any = data;
+    const arr = (v: any) => (Array.isArray(v) ? v : []);
     return this.prisma.postnatalRecord.create({
       data: {
-        patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
-        deliveryRecordId: data.deliveryRecordId, examinationDate: data.examinationDate, dayNumber: data.dayNumber || 1,
-        maternalCondition: data.maternalCondition, breastfeedingStatus: data.breastfeedingStatus, babyCondition: data.babyCondition,
-        familyPlanningDiscussed: data.familyPlanningDiscussed || false, familyPlanningMethodAccepted: data.familyPlanningMethodAccepted,
-        notes: data.notes, createdById: data.createdById, maternalComplications: [], babyDangerSigns: []
+        patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
+        deliveryRecordId: d.deliveryRecordId, examinationDate: d.examinationDate, dayNumber: d.dayNumber || 1,
+        maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
+        bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
+        lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
+        breastfeedingStatus: d.breastfeedingStatus, breastfeedingDifficulties: arr(d.breastfeedingDifficulties), latching: d.latching,
+        babyCondition: d.babyCondition, babyWeight: d.babyWeight, babyTemperature: d.babyTemperature, babyFeeding: d.babyFeeding,
+        jaundice: !!d.jaundice, jaundiceSeverity: d.jaundiceSeverity, cordCondition: d.cordCondition,
+        bcgGiven: !!d.bcgGiven, opv0Given: !!d.opv0Given, hepB0Given: !!d.hepB0Given,
+        familyPlanningDiscussed: !!d.familyPlanningDiscussed, familyPlanningMethodAccepted: d.familyPlanningMethodAccepted,
+        maternalDangerSigns: arr(d.maternalDangerSigns), babyDangerSigns: arr(d.babyDangerSigns),
+        referralMade: !!d.referralMade, referredTo: d.referredTo, referralReason: d.referralReason,
+        nextVisitDate: d.nextVisitDate ? new Date(d.nextVisitDate) : undefined, nextVisitType: d.nextVisitType,
+        malePartnerPresentPNC: !!d.malePartnerPresentPNC,
+        notes: d.notes, createdById: d.createdById
       },
       include: { patient: true, deliveryRecord: true }
     });

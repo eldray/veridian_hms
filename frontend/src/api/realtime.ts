@@ -21,6 +21,7 @@ type Handler = () => void;
 
 const FALLBACK_POLL_MS = 45_000;
 const MAX_BACKOFF_MS = 30_000;
+const STALL_MS = 70_000; // no bytes (not even the 25 s heartbeat) for this long = connection is dead
 
 const subscribers = new Map<string, Set<Handler>>(); // topic -> handlers
 const pendingTimers = new Map<Handler, number>();     // handler -> scheduled re-fetch
@@ -83,9 +84,16 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 async function connectLoop() {
   while (running) {
     abort = new AbortController();
+    // Watchdog: the server pings every 25 s. A half-dead connection (sleep, Wi-Fi drop, busy server)
+    // never errors, it just goes silent, and the app then looks frozen until a reload. Cut it and reconnect.
+    const mine = abort;
+    let lastActivity = Date.now();
+    const watchdog = window.setInterval(() => {
+      if (Date.now() - lastActivity > STALL_MS) mine.abort();
+    }, 10_000);
     try {
       const token = localStorage.getItem('auth_token');
-      if (!token) { await sleep(5000); continue; } // not logged in yet
+      if (!token) { window.clearInterval(watchdog); await sleep(5000); continue; } // not logged in yet
 
       const base = String(import.meta.env.VITE_API_URL || '/api').replace(/\/$/, '');
       const res = await fetch(`${base}/events`, {
@@ -112,6 +120,7 @@ async function connectLoop() {
       for (;;) {
         const { value, done } = await reader.read();
         if (done) break;
+        lastActivity = Date.now(); // data or a heartbeat ping arrived
         buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
         let end: number;
         while ((end = buffer.indexOf('\n\n')) >= 0) {
@@ -122,6 +131,7 @@ async function connectLoop() {
     } catch {
       /* dropped or aborted: fall through to the reconnect wait */
     }
+    window.clearInterval(watchdog);
     connected = false;
     if (!running) return;
     startPolling();

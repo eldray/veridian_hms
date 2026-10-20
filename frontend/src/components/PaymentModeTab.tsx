@@ -10,17 +10,15 @@ import {
   RefreshCw,
   CheckCircle,
   ChevronRight,
-  Building,
   Briefcase,
-  Users,
   User,
   Phone,
   Mail,
-  Calendar as CalendarIcon,
 } from 'lucide-react';
 import { useToast } from '../store/toastStore';
-import type { PaymentMode, InsuranceDetails, InsuranceProvider, CorporateAccount } from '../types';
-import { useState, useEffect } from 'react';
+import type { PaymentMode, InsuranceDetails, InsuranceProvider } from '../types';
+import { useCorporateStore, type CorporateAccount } from '../store/corporateStore';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import NewAttendanceModal from './NewAttendanceModal';
 
 interface PaymentModeTabProps {
@@ -50,6 +48,48 @@ interface PaymentModeTabProps {
 }
 
 type ModeKey = 'cash' | 'nhis' | 'private_insurance' | 'corporate';
+
+const getCoverageDuration = (startDate: string, endDate: string) => {
+  if (!startDate || !endDate) return null;
+
+  const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+  const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+  const start = new Date(startYear, startMonth - 1, startDay);
+  const end = new Date(endYear, endMonth - 1, endDay);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
+    return { label: 'Enter a valid end date', active: false };
+  }
+  if (start > today) {
+    return { label: `Coverage starts ${start.toLocaleDateString()}`, active: false };
+  }
+  if (end < today) {
+    return { label: 'Coverage expired', active: false };
+  }
+
+  let months = (end.getFullYear() - today.getFullYear()) * 12 + end.getMonth() - today.getMonth();
+  if (end.getDate() < today.getDate()) months -= 1;
+  if (months >= 1) {
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+    const parts = [
+      years ? `${years} year${years === 1 ? '' : 's'}` : '',
+      remainingMonths ? `${remainingMonths} month${remainingMonths === 1 ? '' : 's'}` : '',
+    ].filter(Boolean);
+    return { label: `${parts.join(' ')} left`, active: true };
+  }
+
+  const remainingDays = Math.ceil((end.getTime() - today.getTime()) / 86_400_000);
+  if (remainingDays >= 14) {
+    const weeks = Math.floor(remainingDays / 7);
+    return { label: `${weeks} week${weeks === 1 ? '' : 's'} left`, active: true };
+  }
+  return { label: `${remainingDays + 1} day${remainingDays === 0 ? '' : 's'} left`, active: true };
+};
 
 const MODES: {
   key: ModeKey;
@@ -166,6 +206,7 @@ export default function PaymentModeTab({
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [selectedPaymentMode, setSelectedPaymentMode] = useState<PaymentMode>('cash');
   const [showNewEmployeeForm, setShowNewEmployeeForm] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState('');
   const [newEmployeeData, setNewEmployeeData] = useState({
     employeeId: '',
     firstName: '',
@@ -177,33 +218,99 @@ export default function PaymentModeTab({
   });
   const [selectedCorporateAccount, setSelectedCorporateAccount] = useState<string>('');
   const { error: toastError, success } = useToast();
+  const { currentEmployees, getCorporateEmployees } = useCorporateStore();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Stabilize the store function with a ref so it doesn't retrigger effects
+  // ─────────────────────────────────────────────────────────────────────────
+  const getCorporateEmployeesRef = useRef(getCorporateEmployees);
   useEffect(() => {
-    console.log('🔍 PaymentModeTab Debug:', {
-      insuranceProviders,
-      corporateAccounts,
-      providersCount: insuranceProviders.length,
-      corporateCount: corporateAccounts.length,
-      paymentMode,
-      isLoadingProviders,
-      isLoadingCorporate,
+    getCorporateEmployeesRef.current = getCorporateEmployees;
+  }, [getCorporateEmployees]);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Memoize derived safe objects so parent state changes don't recreate
+  // new object references on every render (which was feeding the loop).
+  // ─────────────────────────────────────────────────────────────────────────
+  const safeInsurance: InsuranceDetails = useMemo(
+    () =>
+      insuranceDetails || {
+        insuranceNumber: '',
+        providerId: '',
+        providerName: '',
+        startDate: '',
+        endDate: '',
+        isActive: false,
+      },
+    [insuranceDetails]
+  );
+
+  const safeCorporate: any = useMemo(
+    () =>
+      corporateDetails || {
+        accountId: '',
+        employeeId: '',
+        companyName: '',
+        employeeCode: '',
+      },
+    [corporateDetails]
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Memoize filtered lists so they don't create new array references
+  // on every render (which caused children to rerender unnecessarily).
+  // ─────────────────────────────────────────────────────────────────────────
+  const privateProviders = useMemo(
+    () => insuranceProviders.filter((p) => p.type === 'private' && p.isActive),
+    [insuranceProviders]
+  );
+
+  const activeCorporateAccounts = useMemo(
+    () => corporateAccounts.filter((c) => c.isActive !== false),
+    [corporateAccounts]
+  );
+
+  const filteredCorporateEmployees = useMemo(() => {
+    const list = currentEmployees || [];
+    const query = employeeSearch.trim().toLowerCase();
+    if (!query) return list;
+    return list.filter((employee: any) => {
+      const fullName = `${employee.firstName || ''} ${employee.lastName || ''}`.trim();
+      const searchableText = [
+        fullName,
+        employee.employeeId || '',
+        employee.department || '',
+        employee.position || '',
+        employee.email || '',
+      ]
+        .join(' ')
+        .toLowerCase();
+      return searchableText.includes(query);
     });
-  }, [insuranceProviders, corporateAccounts, paymentMode, isLoadingProviders, isLoadingCorporate]);
+  }, [currentEmployees, employeeSearch]);
 
-  const safeInsurance: InsuranceDetails = insuranceDetails || {
-    insuranceNumber: '',
-    providerId: '',
-    providerName: '',
-    startDate: '',
-    endDate: '',
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Single, guarded sync effect for accountId.
+  // Previously there were TWO effects that bounced state back and forth,
+  // causing an infinite render loop when corporate fields were updated.
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    const accountId = corporateDetails?.accountId || '';
+    if (accountId && accountId !== selectedCorporateAccount) {
+      setSelectedCorporateAccount(accountId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [corporateDetails?.accountId]);
 
-  const safeCorporate: any = corporateDetails || {
-    accountId: '',
-    employeeId: '',
-    companyName: '',
-    employeeCode: '',
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // FIX: Fetch employees only when the account actually changes.
+  // Use the ref to avoid re-running when the store function identity changes.
+  // ─────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (selectedCorporateAccount) {
+      void getCorporateEmployeesRef.current(selectedCorporateAccount);
+    }
+  }, [selectedCorporateAccount]);
 
   const updateInsuranceField = (field: string, value: any) => {
     onInsuranceDetailsChange({ ...safeInsurance, [field]: value });
@@ -217,6 +324,8 @@ export default function PaymentModeTab({
 
   const isInsuranceValid = () => {
     if (!safeInsurance.insuranceNumber || !safeInsurance.startDate || !safeInsurance.endDate)
+      return false;
+    if (!getCoverageDuration(safeInsurance.startDate, safeInsurance.endDate)?.active)
       return false;
     if (paymentMode === 'private_insurance' && !safeInsurance.providerId)
       return false;
@@ -247,7 +356,7 @@ export default function PaymentModeTab({
     setShowAttendanceModal(true);
   };
 
-  const handleAttendanceSuccess = (attendance: any) => {
+  const handleAttendanceSuccess = () => {
     setShowAttendanceModal(false);
     success('Attendance Created', 'New visit has been created successfully');
   };
@@ -305,17 +414,9 @@ export default function PaymentModeTab({
     }
   };
 
-  const privateProviders = insuranceProviders.filter(
-    (p) => p.type === 'private' && p.isActive
-  );
-
-  const activeCorporateAccounts = corporateAccounts.filter(
-    (c) => c.isActive !== false
-  );
-
   const activeMode = MODES.find((m) => m.key === paymentMode) ?? null;
   const canCreateAttendance =
-    paymentMode === 'cash' || 
+    paymentMode === 'cash' ||
     (paymentMode === 'nhis' && isInsuranceValid()) ||
     (paymentMode === 'private_insurance' && isInsuranceValid()) ||
     (paymentMode === 'corporate' && isCorporateValid());
@@ -735,6 +836,9 @@ export default function PaymentModeTab({
                     selectedCorporateAccount={selectedCorporateAccount}
                     setSelectedCorporateAccount={setSelectedCorporateAccount}
                     onAddEmployee={handleAddEmployee}
+                    filteredCorporateEmployees={filteredCorporateEmployees}
+                    employeeSearch={employeeSearch}
+                    setEmployeeSearch={setEmployeeSearch}
                   />
                 )}
               </div>
@@ -800,6 +904,7 @@ function NHISForm({
         </FormField>
       </FormRow>
 
+      <CoverageDuration startDate={safeInsurance.startDate} endDate={safeInsurance.endDate} />
       <InsuranceNote />
 
       {patientId && (
@@ -928,6 +1033,7 @@ function PrivateForm({
         </FormField>
       </FormRow>
 
+      <CoverageDuration startDate={safeInsurance.startDate} endDate={safeInsurance.endDate} />
       <InsuranceNote />
 
       {patientId && (
@@ -964,10 +1070,13 @@ function CorporateForm({
   selectedCorporateAccount,
   setSelectedCorporateAccount,
   onAddEmployee,
+  filteredCorporateEmployees,
+  employeeSearch,
+  setEmployeeSearch,
 }: any) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-      
+
       {/* Corporate Account Selection */}
       <FormField label="Corporate Account *">
         {isLoadingCorporate ? (
@@ -1022,11 +1131,14 @@ function CorporateForm({
             value={selectedCorporateAccount || safeCorporate.accountId}
             onChange={(e) => {
               const accountId = e.target.value;
+              setEmployeeSearch('');
               setSelectedCorporateAccount(accountId);
               updateCorporateField('accountId', accountId);
               const selectedAccount = corporateAccounts.find((c: any) => c.id === accountId);
               if (selectedAccount) {
                 updateCorporateField('companyName', selectedAccount.companyName);
+                updateCorporateField('employeeId', '');
+                setNewEmployeeData((prev: any) => ({ ...prev, employeeId: '' }));
               }
             }}
             style={inputStyle}
@@ -1041,21 +1153,84 @@ function CorporateForm({
         )}
       </FormField>
 
-      {/* Employee ID / Code */}
-      <FormField label="Employee ID / Code *">
-        <input
-          type="text"
-          required
-          value={safeCorporate.employeeId || newEmployeeData.employeeId}
-          onChange={(e) => {
-            updateCorporateField('employeeId', e.target.value);
-            setNewEmployeeData({ ...newEmployeeData, employeeId: e.target.value });
-          }}
-          placeholder="e.g. EMP-12345"
-          style={inputStyle}
-        />
+      {/* Employee selection */}
+      <FormField label="Select employee *">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <input
+            type="text"
+            value={employeeSearch}
+            onChange={(e) => setEmployeeSearch(e.target.value)}
+            placeholder="Search by name, ID, department, email"
+            style={inputStyle}
+            disabled={!selectedCorporateAccount}
+          />
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 6,
+              maxHeight: 160,
+              overflowY: 'auto',
+              padding: 6,
+              background: 'var(--bg-main)',
+              border: '0.5px solid var(--border-color)',
+              borderRadius: 8,
+            }}
+          >
+            {!selectedCorporateAccount ? (
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', padding: '8px 6px' }}>
+                Select a corporate account to load employees.
+              </div>
+            ) : filteredCorporateEmployees.length === 0 ? (
+              <div style={{ fontSize: 10, color: 'var(--text-tertiary)', padding: '8px 6px' }}>
+                No employees match this search.
+              </div>
+            ) : (
+              filteredCorporateEmployees.map((employee: any) => {
+                const isSelected = (safeCorporate.employeeId || '').toString() === (employee.employeeId || '').toString();
+                return (
+                  <button
+                    key={employee.id}
+                    type="button"
+                    onClick={() => {
+                      const employeeId = employee.employeeId || employee.id;
+                      updateCorporateField('employeeId', employeeId);
+                      setNewEmployeeData((prev: any) => ({ ...prev, employeeId }));
+                      setEmployeeSearch(`${employee.firstName || ''} ${employee.lastName || ''}`.trim());
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 8,
+                      width: '100%',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: isSelected ? '1px solid var(--icon-indigo-text)' : '0.5px solid var(--border-color)',
+                      background: isSelected ? 'var(--icon-indigo-bg)' : 'var(--bg-card)',
+                      color: 'var(--text-primary)',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                    }}
+                  >
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500 }}>
+                        {employee.firstName} {employee.lastName}
+                      </span>
+                      <span style={{ fontSize: 10, color: 'var(--text-secondary)' }}>
+                        {employee.employeeId || 'No employee ID'}
+                        {employee.department ? ` • ${employee.department}` : ''}
+                      </span>
+                    </div>
+                    {isSelected && <CheckCircle style={{ width: 12, height: 12, color: 'var(--icon-indigo-text)' }} />}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
         <p style={{ fontSize: 10, color: 'var(--text-tertiary)', marginTop: 4 }}>
-          The employee ID provided by the corporate account
+          Search the company employees and select the linked person.
         </p>
       </FormField>
 
@@ -1087,9 +1262,9 @@ function CorporateForm({
         </div>
 
         {showNewEmployeeForm ? (
-          <div style={{ 
-            background: 'var(--bg-main)', 
-            borderRadius: 8, 
+          <div style={{
+            background: 'var(--bg-main)',
+            borderRadius: 8,
             padding: 12,
             border: '0.5px solid var(--border-color)'
           }}>
@@ -1162,9 +1337,9 @@ function CorporateForm({
           <>
             {/* Display patient info that will be used */}
             {patientName && (
-              <div style={{ 
-                padding: '8px 10px', 
-                background: 'var(--bg-main)', 
+              <div style={{
+                padding: '8px 10px',
+                background: 'var(--bg-main)',
                 borderRadius: 6,
                 marginBottom: 8,
                 fontSize: 11,
@@ -1253,6 +1428,23 @@ function InsuranceNote() {
         Insurance must be active and unexpired. Patients with expired coverage cannot create new attendances.
       </p>
     </div>
+  );
+}
+
+function CoverageDuration({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const duration = getCoverageDuration(startDate, endDate);
+  if (!duration) return null;
+  return (
+    <p
+      role="status"
+      style={{
+        margin: 0,
+        fontSize: 11,
+        color: duration.active ? 'var(--icon-green-text)' : 'var(--icon-yellow-text)',
+      }}
+    >
+      {duration.label}
+    </p>
   );
 }
 

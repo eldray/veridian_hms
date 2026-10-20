@@ -186,7 +186,7 @@ export class DocumentService {
         Admission Date: ${encounter.dateTime}
         Discharge Date: ${new Date().toLocaleDateString()}
         Diagnoses: ${diagnoses}
-        Treatment Summary: ${encounter.treatmentPlan || 'Not specified'}
+        Treatment Summary: ${(encounter.clinicalNotes as any)?.treatmentPlan || encounter.treatmentPlan || 'Not specified'}
         Follow-up Instructions: Please schedule a follow-up appointment in 2 weeks
       `;
 

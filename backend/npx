@@ -10,7 +10,7 @@ npx prisma studio	View/edit database data visually
 # 1. Stop your server (Ctrl+C)
 
 # 2. Reset and drop everything
-npx prisma migrate reset --force --skip-seed
+npx prisma@6 migrate reset --force --skip-seed
 
 # 3. Push the schema fresh
 npx prisma db push --force-reset

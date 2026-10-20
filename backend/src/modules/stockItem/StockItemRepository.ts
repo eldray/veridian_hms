@@ -23,7 +23,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
-      include: { StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' } } }
+      include: {
+        StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' } },
+        // Current patient prices (cash / NHIS / insurance / corporate) live on the item's catalog entry
+        ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
+      }
     });
   }
 
@@ -35,7 +39,8 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         StockTransaction: { orderBy: { transactionDate: 'desc' }, take: 20 },
         InvoiceItem: { include: { Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         RequisitionItem: { include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true, createdAt: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
-        StockBatch: { orderBy: { receivedDate: 'desc' } }
+        StockBatch: { orderBy: { receivedDate: 'desc' } },
+        ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
       }
     });
   }
@@ -43,10 +48,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async hasDependencies(id: string) {
     const item = await this.getModel().findUnique({
       where: { id },
-      include: { Medication: { take: 1 }, StockTransaction: { take: 1 }, InvoiceItem: { take: 1 }, RequisitionItem: { take: 1 }, StockBatch: { take: 1 } }
+      include: { Medication: { take: 1 }, StockTransaction: { take: 1 }, InvoiceItem: { take: 1 }, RequisitionItem: { take: 1 }, StockBatch: { take: 1 }, transferItems: { take: 1 } }
     });
     if (!item) throw new Error('Stock item not found');
-    return item.Medication.length > 0 || item.StockTransaction.length > 0 || item.InvoiceItem.length > 0 || item.RequisitionItem.length > 0 || item.StockBatch.length > 0;
+    return item.Medication.length > 0 || item.StockTransaction.length > 0 || item.InvoiceItem.length > 0 || item.RequisitionItem.length > 0 || item.StockBatch.length > 0 || item.transferItems.length > 0;
   }
 
   // ✅ PRODUCTION FIX: Thread-safe inventory update using atomic decrement
@@ -153,6 +158,34 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     const where: any = {};
     if (startDate && endDate) where.transactionDate = { gte: startDate, lte: endDate };
     return this.prisma.stockTransaction.findMany({ where, include: { StockItem: { select: { name: true, category: true, isMedication: true, costPrice: true } } }, orderBy: { transactionDate: 'desc' } });
+  }
+
+  /** Every stock transaction in the period, oldest first, so balances can be chained. Newest `limit` rows when there are more. */
+  async getLedgerTransactions(opts: { startDate?: Date; endDate?: Date; category?: string; stockItemId?: string; transactionType?: string; limit: number }) {
+    const where: any = {};
+    if (opts.startDate || opts.endDate) {
+      where.transactionDate = {};
+      if (opts.startDate) where.transactionDate.gte = opts.startDate;
+      if (opts.endDate) where.transactionDate.lte = opts.endDate;
+    }
+    if (opts.stockItemId) where.stockItemId = opts.stockItemId;
+    if (opts.transactionType) where.transactionType = opts.transactionType;
+    if (opts.category) where.StockItem = { category: opts.category };
+    const total = await this.prisma.stockTransaction.count({ where });
+    const rows = await this.prisma.stockTransaction.findMany({
+      where,
+      orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+      skip: Math.max(0, total - opts.limit),
+      take: opts.limit,
+      include: {
+        StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, drugCode: true, costPrice: true } },
+        User: { select: { fullName: true } },
+        Department: { select: { name: true } },
+        Requisition: { select: { requisitionNumber: true } },
+        Invoice: { select: { invoiceNumber: true, supplierName: true } },
+      },
+    });
+    return { rows, total };
   }
 
   async getTransactionsForUsageReport(startDate: Date) {

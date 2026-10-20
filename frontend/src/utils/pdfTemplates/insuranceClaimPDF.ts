@@ -1,5 +1,6 @@
 // src/utils/pdfTemplates/insuranceClaimPDF.ts - REDESIGNED PROFESSIONAL VERSION
 import type { Hospital } from '../../types';
+import { NHIS_ATTENDANCE_OPTIONS, mapAttendanceToNHIS } from '../nhisAttendanceMapping';
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -153,13 +154,10 @@ export const generateInsuranceClaimHTML = (
   const mdcCode = claim?.mdcCode || principalGDRG?.slice(0, 4) || 'OPDC';
   const ageSplit = age >= 12 ? 'A' : 'C';
   const providerName = claim?.InsuranceProvider?.name || claim?.insuranceProvider?.name || 'N/A';
-  const typeOfService = attendance?.Admission ? 'In-Patient' : 'Out-Patient';
+  const mappedNHIS = mapAttendanceToNHIS(attendance?.attendanceType, !!attendance?.Admission);
+  const typeOfService = mappedNHIS.typeOfService === 'IPD' ? 'In-Patient' : 'Out-Patient';
   const serviceOutcome = attendance?.status === 'completed' ? 'Discharged' : 'Continued';
-  const typeOfAttendance = attendance?.attendanceType === 'emergency_acute' ? 'Emergency/Acute Episode' 
-    : attendance?.attendanceType === 'antenatal' ? 'ANC' 
-    : attendance?.attendanceType === 'delivery' ? 'Delivery'
-    : attendance?.attendanceType === 'surgery' ? 'Surgery'
-    : 'Chronic/Follow-up';
+  const typeOfAttendance = NHIS_ATTENDANCE_OPTIONS.find(o => o.value === mappedNHIS.typeOfAttendance)?.label || 'Emergency/Acute Episode';
 
   // Calculate totals
   const medicationsTotal = medications.reduce((sum: number, m: any) => sum + ((m.quantity || 1) * (m.unitPrice || m.dispensedUnitCost || 0)), 0);

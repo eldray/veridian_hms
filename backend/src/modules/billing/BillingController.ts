@@ -102,6 +102,20 @@ export class BillingController extends BaseController {
     return this.ok(res, stats, 'Statistics retrieved successfully');
   });
 
+  getCollections = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const dateFrom = typeof req.query.dateFrom === 'string' ? new Date(req.query.dateFrom) : null;
+    const dateTo = typeof req.query.dateTo === 'string' ? new Date(req.query.dateTo) : null;
+    if (!dateFrom || !dateTo || Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
+      return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    }
+    if (dateFrom > dateTo) {
+      return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
+    }
+
+    const collections = await this.service.getCollections(dateFrom, dateTo);
+    return this.ok(res, collections, 'Payment collections retrieved successfully');
+  });
+
   // ============================================
   // GET BILL LINE ITEMS
   // ============================================

@@ -3,6 +3,7 @@ import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } fro
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
+import { resolveUnitPrice } from '../../utils/pricing';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -325,18 +326,23 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const paymentMode: PaymentMode = attendance.paymentMode;
 
+      // Corporate patients with no corporate price get their account's discount off the cash price
+      let corporateDiscountPercent = 0;
+      if (paymentMode === 'corporate' && attendance.corporateAccountId) {
+        const account = await tx.corporateAccount.findUnique({ where: { id: attendance.corporateAccountId }, select: { discountPercentage: true } });
+        corporateDiscountPercent = toNumber(account?.discountPercentage);
+      }
+
+      // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
       const priceFor = (catalog: any, qty: number): { unitPrice: number; lineTotal: number } => {
         const price = catalog?.pricing?.[0];
-        let unitPrice = 0;
-        if (price) {
-          switch (paymentMode) {
-            case 'cash': unitPrice = toNumber(price.cashPrice); break;
-            case 'nhis': unitPrice = toNumber(price.nhisPrice); break;
-            case 'private_insurance': unitPrice = toNumber(price.insurancePrice); break;
-            case 'corporate': unitPrice = toNumber(price.corporatePrice) > 0 ? toNumber(price.corporatePrice) : toNumber(price.cashPrice); break;
-            default: unitPrice = toNumber(price.cashPrice);
-          }
-        }
+        const unitPrice = price
+          ? resolveUnitPrice(price, paymentMode, {
+              isNHISCovered: catalog?.isNHISCovered,
+              isPrivateInsuranceExempted: catalog?.isPrivateInsuranceExempted,
+              corporateDiscountPercent
+            })
+          : 0;
         return { unitPrice, lineTotal: unitPrice * qty };
       };
 

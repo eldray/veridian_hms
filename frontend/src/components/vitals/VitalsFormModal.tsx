@@ -1,6 +1,8 @@
-// src/components/vitals/VitalsFormModal.tsx - WITH ANC FIELDS
+// src/components/vitals/VitalsFormModal.tsx
+// General vitals only. Antenatal findings (FHR, fundal height, presentation, G/P...) are
+// entered from the Antenatal page (ANC visit form), not here.
 import React, { useState, useEffect } from 'react';
-import { X, Heart, Thermometer, Activity, Gauge, Weight, Ruler, TrendingUp, Baby, Shield, Droplet } from 'lucide-react';
+import { X, Heart, Thermometer, Activity, Gauge, Weight, Ruler, TrendingUp } from 'lucide-react';
 import { BloodPressureInput } from './BloodPressureInput';
 import type { VitalsEntry } from '../../types';
 
@@ -11,6 +13,7 @@ interface VitalsFormModalProps {
   isLoading: boolean;
   initialData?: VitalsEntry;
   isEditing?: boolean;
+  /** Kept so existing callers still compile; antenatal findings are entered on the Antenatal page. */
   isAntenatal?: boolean;
   attendanceId?: string | null;
   attendanceType?: string;
@@ -23,9 +26,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
   isLoading,
   initialData,
   isEditing = false,
-  isAntenatal = false,
-  attendanceId,
-  attendanceType,
 }) => {
   const [formData, setFormData] = useState<VitalsEntry>({
     bloodPressure: '',
@@ -35,12 +35,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
     spo2: undefined,
     weight: undefined,
     height: undefined,
-    // ANC fields
-    fetalHeartRate: undefined,
-    fundalHeight: undefined,
-    presentingPart: '',
-    fetalMovement: false,
-    oedema: false,
     notes: '',
   });
 
@@ -54,11 +48,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
         spo2: initialData.spo2,
         weight: initialData.weight,
         height: initialData.height,
-        fetalHeartRate: initialData.fetalHeartRate,
-        fundalHeight: initialData.fundalHeight,
-        presentingPart: initialData.presentingPart || '',
-        fetalMovement: initialData.fetalMovement || false,
-        oedema: initialData.oedema || false,
         notes: initialData.notes || '',
       });
     } else {
@@ -70,11 +59,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
         spo2: undefined,
         weight: undefined,
         height: undefined,
-        fetalHeartRate: undefined,
-        fundalHeight: undefined,
-        presentingPart: '',
-        fetalMovement: false,
-        oedema: false,
         notes: '',
       });
     }
@@ -90,14 +74,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       formData.respiration !== undefined ||
       formData.spo2 !== undefined ||
       formData.weight !== undefined ||
-      formData.height !== undefined ||
-      (isAntenatal && (
-        formData.fetalHeartRate !== undefined ||
-        formData.fundalHeight !== undefined ||
-        formData.presentingPart ||
-        formData.fetalMovement ||
-        formData.oedema
-      ));
+      formData.height !== undefined;
 
     if (!hasAnyValue) {
       alert('Please enter at least one vital sign');
@@ -116,11 +93,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       spo2: undefined,
       weight: undefined,
       height: undefined,
-      fetalHeartRate: undefined,
-      fundalHeight: undefined,
-      presentingPart: '',
-      fetalMovement: false,
-      oedema: false,
       notes: '',
     });
   };
@@ -134,23 +106,11 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
       spo2: undefined,
       weight: undefined,
       height: undefined,
-      fetalHeartRate: undefined,
-      fundalHeight: undefined,
-      presentingPart: '',
-      fetalMovement: false,
-      oedema: false,
       notes: '',
     });
     onClose();
   };
 
-  // Presenting part options
-  const presentingPartOptions = [
-    { value: 'cephalic', label: 'Cephalic (Head down)' },
-    { value: 'breech', label: 'Breech (Feet down)' },
-    { value: 'transverse', label: 'Transverse (Sideways)' },
-    { value: 'unknown', label: 'Unknown/Not determined' },
-  ];
 
   if (!isOpen) return null;
 
@@ -169,7 +129,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
               </h2>
               <p className="text-sm text-[var(--text-secondary)]">
                 {isEditing ? 'Update patient vital signs' : 'Enter patient vital signs'}
-                {isAntenatal && ' (includes antenatal assessment)'}
               </p>
             </div>
           </div>
@@ -332,101 +291,6 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
               </div>
             </div>
           </div>
-
-          {/* ✅ ANC SPECIFIC FIELDS - Only show if attendance is antenatal */}
-          {isAntenatal && (
-            <div className="border-t border-[var(--border-color)] pt-4 space-y-4">
-              <div className="flex items-center gap-2">
-                <Baby className="w-5 h-5 text-pink-500" />
-                <h3 className="text-md font-semibold text-[var(--text-primary)]">Antenatal Assessment</h3>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                {/* Fetal Heart Rate */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-pink-500" />
-                    Fetal Heart Rate (bpm)
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    placeholder="120-160"
-                    value={formData.fetalHeartRate || ''}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      fetalHeartRate: e.target.value ? parseInt(e.target.value) : undefined 
-                    }))}
-                    disabled={isLoading}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
-                  />
-                </div>
-
-                {/* Fundal Height */}
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
-                    <Ruler className="w-4 h-4 text-pink-500" />
-                    Fundal Height (cm)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.5"
-                    placeholder="24-32"
-                    value={formData.fundalHeight || ''}
-                    onChange={(e) => setFormData(prev => ({ 
-                      ...prev, 
-                      fundalHeight: e.target.value ? parseFloat(e.target.value) : undefined 
-                    }))}
-                    disabled={isLoading}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
-                  />
-                </div>
-
-                {/* Presenting Part */}
-                <div className="space-y-2 col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-primary)] flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-pink-500" />
-                    Presenting Part
-                  </label>
-                  <select
-                    value={formData.presentingPart}
-                    onChange={(e) => setFormData(prev => ({ ...prev, presentingPart: e.target.value }))}
-                    disabled={isLoading}
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)]"
-                  >
-                    <option value="">Select presenting part...</option>
-                    {presentingPartOptions.map(opt => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Checkboxes */}
-                <div className="col-span-2 flex gap-6">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.fetalMovement}
-                      onChange={(e) => setFormData(prev => ({ ...prev, fetalMovement: e.target.checked }))}
-                      disabled={isLoading}
-                      className="w-4 h-4 rounded border-[var(--border-color)] text-pink-500 focus:ring-pink-500"
-                    />
-                    <span className="text-sm text-[var(--text-primary)]">Fetal Movement Present</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.oedema}
-                      onChange={(e) => setFormData(prev => ({ ...prev, oedema: e.target.checked }))}
-                      disabled={isLoading}
-                      className="w-4 h-4 rounded border-[var(--border-color)] text-pink-500 focus:ring-pink-500"
-                    />
-                    <span className="text-sm text-[var(--text-primary)]">Oedema Present</span>
-                  </label>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Notes */}
           <div className="space-y-2">

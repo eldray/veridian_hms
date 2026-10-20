@@ -116,13 +116,30 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
 
   // ✅ FIXED: Historical Pricing Logic (Expire old, create new)
   async updatePricing(serviceCatalogId: string, data: any) {
+    // Start from the price that is active now, so changing ONE price (say cash) keeps NHIS, insurance,
+    // corporate and VAT instead of dropping them (the new row used to hold only the fields that were sent).
+    const current = await this.prisma.servicePricing.findFirst({
+      where: { serviceCatalogId, isActive: true },
+      orderBy: { effectiveDate: 'desc' }
+    });
+    const merged: any = {
+      ...(current
+        ? {
+            cashPrice: current.cashPrice, nhisPrice: current.nhisPrice, insurancePrice: current.insurancePrice,
+            corporatePrice: current.corporatePrice, vatRate: current.vatRate, isTaxable: current.isTaxable
+          }
+        : {}),
+      ...data
+    };
+    if (merged.insurancePrice === undefined) merged.insurancePrice = merged.cashPrice;
+
     await this.prisma.servicePricing.updateMany({
       where: { serviceCatalogId, isActive: true },
       data: { isActive: false, expiryDate: new Date() }
     });
-    
+
     return this.prisma.servicePricing.create({
-      data: { serviceCatalogId, ...data, isActive: true, effectiveDate: new Date() }
+      data: { serviceCatalogId, ...merged, isActive: true, effectiveDate: new Date() }
     });
   }
 

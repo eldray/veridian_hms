@@ -1,64 +1,39 @@
-// src/pages/Admissions.tsx - UPDATED with Ward Management button and proper data display
-
-import { useLiveRefresh } from '../api/realtime';
-import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+// src/pages/Admissions.tsx — Full rewrite, theme-consistent
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { useHospitalStore } from '../store/hospitalStore';
-import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { useLiveRefresh } from '../api/realtime';
+import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
-  Search,
-  Plus,
-  Users,
-  Hospital,
-  Calendar,
-  ArrowRight,
-  Clock,
-  CheckCircle,
-  X,
-  RefreshCw,
-  User,
-  Stethoscope,
-  FileText,
-  Building,
-  Phone,
-  IdCard,
-  Printer,
-  LogOut,
-  Bed,
-  AlertCircle,
-  Loader2,
-  Eye,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-  Activity,
-  ClipboardList,
-  Pill,
-  Microscope,
-  AlertTriangle,
-  ClockIcon,
-  LayoutDashboard,
-  Building2,
-  Moon,
-  Sun
+  Search, Users, Hospital, Calendar, Clock, CheckCircle, X,
+  RefreshCw, FileText, Bed, Loader2, Eye, ChevronLeft, ChevronRight,
+  ClipboardList, Building2, Moon, Sun, ArrowRight, LogOut,
+  Hash, LayoutGrid, List, CircleDot, Filter, MapPin, Baby, Heart,
 } from 'lucide-react';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Types & helpers
+// ─────────────────────────────────────────────────────────────────────────────
 
 type DateFilterType = 'today' | 'yesterday' | 'custom';
 type TabType = 'all' | 'active' | 'discharged';
+type ViewMode = 'table' | 'cards';
 
-// Helper functions
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined => {
-  return entity?._id || entity?.id;
-};
+const getEntityId = (entity: { id?: string; _id?: string } | null | undefined): string | undefined =>
+  entity?._id || entity?.id;
 
 const getPatientName = (patient: any): string => {
   if (!patient) return 'Unknown Patient';
-  return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  return (
+    patient.name ||
+    patient.fullName ||
+    `${patient.surname || ''} ${patient.otherNames || ''}`.trim() ||
+    'Unknown Patient'
+  );
 };
 
 const calculateAge = (dateOfBirth: string): number => {
@@ -67,54 +42,197 @@ const calculateAge = (dateOfBirth: string): number => {
   const birthDate = new Date(dateOfBirth);
   let age = today.getFullYear() - birthDate.getFullYear();
   const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
+  return Math.max(0, age);
 };
+
+const initials = (name: string) =>
+  name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
+
+const formatDate = (dateString: string) => {
+  if (!dateString) return '—';
+  try {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return 'Invalid Date';
+  }
+};
+
+const formatTimeOnly = (dateString: string) => {
+  if (!dateString) return '—';
+  try {
+    return new Date(dateString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  } catch {
+    return '—';
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared style tokens (matches DashboardLayout / WardManagement patterns)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const cardStyle: React.CSSProperties = {
+  background: 'var(--bg-card)',
+  borderColor: 'var(--border-color)',
+  boxShadow: 'var(--shadow-sm)',
+};
+
+const inputStyle: React.CSSProperties = {
+  background: 'var(--bg-main)',
+  borderColor: 'var(--border-color)',
+  color: 'var(--text-primary)',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Badges
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AdmissionTypeBadge: React.FC<{ type: string }> = ({ type }) => {
+  const base =
+    'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border';
+
+  const variant = (() => {
+    switch (type) {
+      case 'day_surgery':
+        return { bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', Icon: Sun, label: 'DAY SURGERY' };
+      case 'detention':
+        return { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', Icon: Moon, label: 'OBSERVATION' };
+      case 'antenatal':
+        return { bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)', Icon: Baby, label: 'ANTENATAL' };
+      case 'delivery':
+        return { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', Icon: Heart, label: 'DELIVERY' };
+      case 'formal_ipd':
+      default:
+        return { bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', Icon: Hospital, label: 'IPD' };
+    }
+  })();
+
+  const { Icon } = variant;
+
+  return (
+    <span
+      className={base}
+      style={{
+        background: variant.bg,
+        color: variant.color,
+        borderColor: 'var(--border-color)',
+      }}
+    >
+      <Icon className="w-2.5 h-2.5" />
+      {variant.label}
+    </span>
+  );
+};
+
+const StatusBadge: React.FC<{ isDischarged: boolean }> = ({ isDischarged }) => {
+  if (isDischarged) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+        style={{
+          background: 'var(--bg-main)',
+          color: 'var(--text-secondary)',
+          borderColor: 'var(--border-color)',
+        }}
+      >
+        <CheckCircle className="w-2.5 h-2.5" />
+        DISCHARGED
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+      style={{
+        background: 'var(--icon-green-bg)',
+        color: 'var(--icon-green-text)',
+        borderColor: 'var(--border-color)',
+      }}
+    >
+      <CircleDot className="w-2.5 h-2.5 animate-pulse" />
+      ACTIVE
+    </span>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main
+// ─────────────────────────────────────────────────────────────────────────────
 
 export default function Admissions() {
   const { success, error } = useToast();
-  const { hospital } = useHospitalStore();
+  const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [selectedAdmission, setSelectedAdmission] = useState<any>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [selectedDaycase, setSelectedDaycase] = useState<any>(null);
-  
-  // Date filter states
   const [dateFilter, setDateFilter] = useState<DateFilterType>('today');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [isDischarging, setIsDischarging] = useState(false);
+  const [isConverting, setIsConverting] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const saved = localStorage.getItem('admissionsViewMode');
+    return (saved as ViewMode) || 'table';
+  });
 
-  const { admissions, getAdmissions, convertDaycaseToIPD, dischargePatient, getDetentionPatients, getFormalIPDPatients, detentionPatients, formalIPDPatients } = useAdmissionStore();
+  const {
+    admissions,
+    getAdmissions,
+    convertDaycaseToIPD,
+    dischargePatient,
+    getDetentionPatients,
+    getFormalIPDPatients,
+  } = useAdmissionStore();
   const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances, updateAttendance, dischargeFromEncounter } = useAttendanceStore();
-  const { user, hasRole } = useAuthStore();
+  const { attendances, getAttendances } = useAttendanceStore();
+  const { hasRole } = useAuthStore();
 
-  // Get date range helper
-  const getDateRange = (): { startDate: Date; endDate: Date } | null => {
+  useEffect(() => {
+    localStorage.setItem('admissionsViewMode', viewMode);
+  }, [viewMode]);
+
+  const canDischarge = hasRole(['admin', 'doctor']);
+  const canConvert = hasRole(['admin', 'doctor']);
+
+  // ── Date range (memoized so live refresh sees fresh closures) ───────────
+  const getDateRange = useCallback((): { startDate: Date; endDate: Date } | null => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
-    
+
     switch (dateFilter) {
       case 'today':
         return { startDate: today, endDate: endOfDay };
-      case 'yesterday':
+      case 'yesterday': {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
         const endOfYesterday = new Date(yesterday);
         endOfYesterday.setHours(23, 59, 59, 999);
         yesterday.setHours(0, 0, 0, 0);
         return { startDate: yesterday, endDate: endOfYesterday };
+      }
       case 'custom':
         if (customStartDate && customEndDate) {
           const start = new Date(customStartDate);
@@ -127,51 +245,59 @@ export default function Admissions() {
       default:
         return null;
     }
-  };
+  }, [dateFilter, customStartDate, customEndDate]);
 
-  const loadData = async () => {
+  // ── Data loading ────────────────────────────────────────────────────────
+  const loadData = useCallback(async () => {
     try {
       setRefreshing(true);
-      setIsLoading(true);
-      // All pages (100 per request). Attendances are limited to the selected date window,
-      // which is the same window this page filters on anyway.
+      if (!hasLoadedOnce) setIsLoading(true);
       const range = getDateRange();
       await Promise.all([
         getAdmissions({ limit: 2000 }),
         loadPatients(),
         getAttendances({
           limit: 5000,
-          ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+          ...(range
+            ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
+            : {}),
         }),
         getDetentionPatients(),
         getFormalIPDPatients(),
       ]);
     } catch (err: any) {
-      console.error('❌ Error loading admissions data:', err);
-      error('Load Failed', err.response?.data?.message || 'Failed to load admissions data');
+      error('Load Failed', err?.response?.data?.message || 'Failed to load admissions data');
     } finally {
       setIsLoading(false);
       setRefreshing(false);
+      setHasLoadedOnce(true);
     }
-  };
+  }, [getAdmissions, loadPatients, getAttendances, getDetentionPatients, getFormalIPDPatients, getDateRange, hasLoadedOnce, error]);
 
-  // Live updates: a new admission, discharge, transfer, bed change or visit change
-  // quietly refreshes the lists (no spinner, patients are not reloaded).
-  useLiveRefresh(['admissions', 'encounters', 'nursing'], async () => {
-    const range = getDateRange();
-    await Promise.all([
-      getAdmissions({ limit: 2000 }, { silent: true }),
-      getAttendances({
-        limit: 5000,
-        ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
-      }, { silent: true }),
-      getDetentionPatients(),
-      getFormalIPDPatients(),
-    ]);
-  }, !(dateFilter === 'custom' && !(customStartDate && customEndDate)));
+  // ── Live refresh ────────────────────────────────────────────────────────
+  useLiveRefresh(
+    ['admissions', 'encounters', 'nursing'],
+    async () => {
+      const range = getDateRange();
+      await Promise.all([
+        getAdmissions({ limit: 2000 }, { silent: true }),
+        getAttendances(
+          {
+            limit: 5000,
+            ...(range
+              ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
+              : {}),
+          },
+          { silent: true },
+        ),
+        getDetentionPatients(),
+        getFormalIPDPatients(),
+      ]);
+    },
+    !(dateFilter === 'custom' && !(customStartDate && customEndDate)),
+  );
 
   useEffect(() => {
-    // Reload when the date window changes (custom range: wait until both dates are set)
     if (dateFilter === 'custom' && !(customStartDate && customEndDate)) return;
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -181,82 +307,71 @@ export default function Admissions() {
     setCurrentPage(1);
   }, [searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
 
-  // ============================================
-  // BUILD ALL ADMISSIONS (Formal IPD + Detention + Daycase)
-  // ============================================
-  
-  // 1. Get formal IPD admissions (excluding detention)
-  const formalIPD = useMemo(() => admissions.filter(a => a.admissionType !== 'detention_observation'), [admissions]);
-  
-  // 2. Get detention/observation admissions
-  const detention = useMemo(() => admissions.filter(a => a.admissionType === 'detention_observation'), [admissions]);
-  
-  // 3. Get day surgery patients from attendances
-  const daycasePatients = useMemo(() => {
-    return attendances.filter(a => 
-      a.encounterCategory === 'daycase' && 
-      a.status === 'admitted'
-    );
-  }, [attendances]);
-  
-  // 4. Transform daycase patients to admission-like objects
-  const virtualDaycaseAdmissions = useMemo(() => {
-    return daycasePatients.map(att => ({
-      id: att.id,
-      admissionNumber: att.attendanceNumber || `DAY-${att.id.slice(-8)}`,
-      attendanceId: att.id,
-      admissionDate: att.dateTime || att.createdAt,
-      dischargeDate: null,
-      admissionType: 'day_surgery',
-      admissionSource: 'opd',
-      dischargeStatus: null,
-      dailyNotes: [],
-      createdAt: att.createdAt,
-      updatedAt: att.updatedAt,
-      attendance: att,
-      isDaySurgery: true,
-      isVirtual: true,
-      status: 'admitted',
-      displayType: 'day_surgery'
-    }));
-  }, [daycasePatients]);
-  
-  // 5. Combine all admissions
+  // ── Derived lists ───────────────────────────────────────────────────────
+  const formalIPD = useMemo(
+    () => admissions.filter((a) => a.admissionType !== 'detention_observation'),
+    [admissions],
+  );
+  const detention = useMemo(
+    () => admissions.filter((a) => a.admissionType === 'detention_observation'),
+    [admissions],
+  );
+
+  const daycasePatients = useMemo(
+    () => attendances.filter((a) => a.encounterCategory === 'daycase' && a.status === 'admitted'),
+    [attendances],
+  );
+
+  const virtualDaycaseAdmissions = useMemo(
+    () =>
+      daycasePatients.map((att) => ({
+        id: att.id,
+        admissionNumber: att.attendanceNumber || `DAY-${att.id.slice(-8)}`,
+        attendanceId: att.id,
+        admissionDate: att.dateTime || att.createdAt,
+        dischargeDate: null,
+        admissionType: 'day_surgery',
+        admissionSource: 'opd',
+        dischargeStatus: null,
+        dailyNotes: [],
+        createdAt: att.createdAt,
+        updatedAt: att.updatedAt,
+        attendance: att,
+        isDaySurgery: true,
+        isVirtual: true,
+        status: 'admitted',
+        displayType: 'day_surgery',
+      })),
+    [daycasePatients],
+  );
 
   const allAdmissions = useMemo(() => {
-    // 1. Get formal IPD from admissions store
-    const formal = formalIPD.map(adm => ({
+    const formal = formalIPD.map((adm) => ({
       ...adm,
       isDaySurgery: false,
       isDetention: false,
       isVirtual: false,
       status: adm.dischargeDate ? 'discharged' : 'admitted',
-      displayType: 'formal_ipd'
+      displayType: 'formal_ipd',
     }));
-    
-    // 2. Get detention from admissions store
-    const detentionList = detention.map(adm => ({
+    const detentionList = detention.map((adm) => ({
       ...adm,
       isDaySurgery: false,
       isDetention: true,
       isVirtual: false,
       status: adm.dischargeDate ? 'discharged' : 'admitted',
-      displayType: 'detention'
+      displayType: 'detention',
     }));
-    
-    // 3. Get day surgery from attendances
     const daySurgery = virtualDaycaseAdmissions;
-    
-    // 4. ✅ NEW: Get admitted patients from attendances that don't have admission records
-    //    This is the FALLBACK for when admissions store is empty
     const admittedFromAttendances = attendances
-      .filter(a => 
-        a.status === 'admitted' && 
-        a.encounterCategory === 'ipd' &&
-        !formal.some(f => f.attendanceId === a.id) &&
-        !detentionList.some(d => d.attendanceId === a.id)
+      .filter(
+        (a) =>
+          a.status === 'admitted' &&
+          a.encounterCategory === 'ipd' &&
+          !formal.some((f) => f.attendanceId === a.id) &&
+          !detentionList.some((d) => d.attendanceId === a.id),
       )
-      .map(att => ({
+      .map((att) => ({
         id: att.id,
         admissionNumber: att.attendanceNumber || `ADM-${att.id.slice(-8)}`,
         attendanceId: att.id,
@@ -273,43 +388,40 @@ export default function Admissions() {
         isDetention: false,
         isVirtual: true,
         status: 'admitted',
-        displayType: 'formal_ipd'
+        displayType: 'formal_ipd',
       }));
-    
-    // Remove duplicates
-    const existingAttendanceIds = new Set([...formal, ...detentionList].map(a => a.attendanceId));
-    const uniqueDaySurgery = daySurgery.filter(o => !existingAttendanceIds.has(o.attendanceId));
-    const uniqueFromAttendances = admittedFromAttendances.filter(a => !existingAttendanceIds.has(a.attendanceId));
-    
-    const result = [...formal, ...detentionList, ...uniqueDaySurgery, ...uniqueFromAttendances];
-    console.log(`📊 Combined admissions: ${result.length} (${formal.length} formal, ${detentionList.length} detention, ${uniqueDaySurgery.length} day surgery, ${uniqueFromAttendances.length} from attendances)`);
-    
-    return result;
+
+    const existingAttendanceIds = new Set(
+      [...formal, ...detentionList].map((a) => a.attendanceId),
+    );
+    const uniqueDaySurgery = daySurgery.filter((o) => !existingAttendanceIds.has(o.attendanceId));
+    const uniqueFromAttendances = admittedFromAttendances.filter(
+      (a) => !existingAttendanceIds.has(a.attendanceId),
+    );
+
+    return [...formal, ...detentionList, ...uniqueDaySurgery, ...uniqueFromAttendances];
   }, [formalIPD, detention, virtualDaycaseAdmissions, attendances]);
 
-  // Filter admissions by search, date, and tab
   const filteredAdmissions = useMemo(() => {
     if (!allAdmissions.length) return [];
-    
     const dateRange = getDateRange();
-    
-    const filtered = allAdmissions.filter(admission => {
-      // Date filtering
+
+    const filtered = allAdmissions.filter((admission) => {
       if (dateRange) {
         const admissionDate = new Date(admission.admissionDate);
-        if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) {
-          return false;
-        }
+        if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
       }
-      
-      // Tab filtering
-      const isDischarged = admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
+
+      const isDischarged =
+        admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
+
       if (activeTab === 'active' && isDischarged) return false;
       if (activeTab === 'discharged' && !isDischarged) return false;
-      
-      // Search filtering
+
       if (searchQuery) {
-        const patient = admission.attendance?.Patient || patients.find(p => p.id === admission.attendance?.patientId);
+        const patient =
+          admission.attendance?.Patient ||
+          patients.find((p) => p.id === admission.attendance?.patientId);
         const fullName = patient ? getPatientName(patient) : '';
         const lower = searchQuery.toLowerCase();
         return (
@@ -319,558 +431,984 @@ export default function Admissions() {
           admission.attendance?.complaints?.toLowerCase().includes(lower)
         );
       }
-      
       return true;
     });
-    
-    return filtered.sort((a, b) => 
-      new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime()
+
+    return filtered.sort(
+      (a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime(),
     );
-  }, [allAdmissions, patients, searchQuery, dateFilter, customStartDate, customEndDate, activeTab]);
+  }, [allAdmissions, patients, searchQuery, getDateRange, activeTab]);
 
-  const activeAdmissions = filteredAdmissions.filter(a => !a.dischargeDate);
-  const dischargedAdmissions = filteredAdmissions.filter(a => a.dischargeDate);
-  
-  // Counts by type
-  const formalIPDCount = filteredAdmissions.filter(a => a.displayType === 'formal_ipd' && !a.dischargeDate).length;
-  const detentionCount = filteredAdmissions.filter(a => a.displayType === 'detention' && !a.dischargeDate).length;
-  const daySurgeryCount = filteredAdmissions.filter(a => a.displayType === 'day_surgery' && !a.dischargeDate).length;
+  const activeAdmissions = filteredAdmissions.filter((a) => !a.dischargeDate);
+  const dischargedAdmissions = filteredAdmissions.filter((a) => a.dischargeDate);
+  const formalIPDCount = filteredAdmissions.filter(
+    (a) => a.displayType === 'formal_ipd' && !a.dischargeDate,
+  ).length;
+  const detentionCount = filteredAdmissions.filter(
+    (a) => a.displayType === 'detention' && !a.dischargeDate,
+  ).length;
+  const daySurgeryCount = filteredAdmissions.filter(
+    (a) => a.displayType === 'day_surgery' && !a.dischargeDate,
+  ).length;
 
-  // Pagination
   const totalPages = Math.ceil(filteredAdmissions.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedAdmissions = filteredAdmissions.slice(startIndex, startIndex + itemsPerPage);
-
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
   const getDateFilterDisplay = () => {
     switch (dateFilter) {
-      case 'today': return 'Today';
-      case 'yesterday': return 'Yesterday';
-      case 'custom': 
+      case 'today':
+        return 'Today';
+      case 'yesterday':
+        return 'Yesterday';
+      case 'custom':
         if (customStartDate && customEndDate) {
-          const formatDate = (date: string) => new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-          return `${formatDate(customStartDate)} - ${formatDate(customEndDate)}`;
+          const fmt = (d: string) =>
+            new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          return `${fmt(customStartDate)} – ${fmt(customEndDate)}`;
         }
         return 'Custom Range';
-      default: return 'Today';
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '—';
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-      });
-    } catch {
-      return 'Invalid Date';
-    }
-  };
-
-  const formatDateTime = (dateString: string) => {
-    if (!dateString) return '—';
-    try {
-      return new Date(dateString).toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return 'Invalid Date';
-    }
-  };
-
-  const getStatusBadge = (admission: any) => {
-    if (admission.dischargeDate) {
-      return <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-700">DISCHARGED</span>;
-    }
-    
-    switch (admission.displayType) {
-      case 'day_surgery':
-        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-700">
-          <Sun className="w-3 h-3" />
-          DAY SURGERY
-        </span>;
-      case 'detention':
-        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-700">
-          <Moon className="w-3 h-3" />
-          OBSERVATION (12-72h)
-        </span>;
-      case 'formal_ipd':
       default:
-        return <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-700">
-          <Hospital className="w-3 h-3" />
-          ADMITTED (IPD)
-        </span>;
-    }
-  };
-
-  const getTypeIcon = (admission: any) => {
-    switch (admission.displayType) {
-      case 'day_surgery':
-        return <Sun className="w-4 h-4 text-purple-600" />;
-      case 'detention':
-        return <Moon className="w-4 h-4 text-orange-600" />;
-      case 'formal_ipd':
-      default:
-        return <Hospital className="w-4 h-4 text-green-600" />;
+        return 'Today';
     }
   };
 
   const getLengthOfStay = (admission: any) => {
-    const start = new Date(admission.admissionDate);
-    const end = admission.dischargeDate ? new Date(admission.dischargeDate) : new Date();
-    const days = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-    return days;
+    const start = new Date(admission.admissionDate).getTime();
+    const end = admission.dischargeDate
+      ? new Date(admission.dischargeDate).getTime()
+      : Date.now();
+    return Math.max(0, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
   };
 
-  const handleConvertToIPD = async (daycaseAdmission: any) => {
+  // ── Handlers ────────────────────────────────────────────────────────────
+  const handleConvertToIPD = (daycaseAdmission: any) => {
     setSelectedDaycase(daycaseAdmission);
     setShowConvertModal(true);
   };
 
   const confirmConvertToIPD = async () => {
     if (!selectedDaycase) return;
-    
+    setIsConverting(true);
     try {
-      await convertDaycaseToIPD(selectedDaycase.attendanceId, {
-        admissionType: 'emergency'
-      });
+      await convertDaycaseToIPD(selectedDaycase.attendanceId, { admissionType: 'emergency' });
       success('Converted', 'Day surgery patient converted to formal IPD admission');
       await loadData();
       setShowConvertModal(false);
       setSelectedDaycase(null);
     } catch (err: any) {
-      error('Conversion Failed', err.message);
+      error('Conversion Failed', err?.message || 'Failed to convert');
+    } finally {
+      setIsConverting(false);
     }
   };
 
-  const handleDischargePatient = async (admission: any) => {
+  const handleDischargePatient = (admission: any) => {
     setSelectedAdmission(admission);
     setShowDischargeModal(true);
   };
 
   const confirmDischarge = async () => {
     if (!selectedAdmission) return;
-    
+    setIsDischarging(true);
     try {
       await dischargePatient(selectedAdmission.attendanceId, {
         dischargeDate: new Date().toISOString(),
-        dischargeStatus: 'home'
+        dischargeStatus: 'home',
       });
       success('Patient Discharged', 'Patient has been successfully discharged');
       await loadData();
       setShowDischargeModal(false);
       setSelectedAdmission(null);
     } catch (err: any) {
-      error('Discharge Failed', err.message);
+      error('Discharge Failed', err?.message || 'Failed to discharge');
+    } finally {
+      setIsDischarging(false);
     }
   };
 
-  const canDischarge = hasRole(['admin', 'doctor']);
-  const canConvert = hasRole(['admin', 'doctor']);
-
-  // Navigate to ward management
-  const navigateToWardManagement = () => {
-    window.location.href = '/dashboard/wards';
-  };
-
-  if (isLoading && !refreshing) {
+  // ── Initial full-page loader (cold start only) ──────────────────────────
+  if (isLoading && !hasLoadedOnce) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Loading Admissions...</h2>
+      <div
+        className="min-h-screen flex items-center justify-center p-6"
+        style={{ background: 'var(--bg-main)' }}
+      >
+        <div
+          className="text-center p-8 rounded-xl border"
+          style={cardStyle}
+        >
+          <Loader2
+            className="w-10 h-10 mx-auto mb-4 animate-spin"
+            style={{ color: 'var(--icon-cyan-text)' }}
+          />
+          <h2 className="text-lg font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+            Loading Admissions…
+          </h2>
+          <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            Fetching patient list
+          </p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Admissions</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Manage IPD admissions, observation cases, and day surgery patients
-          </p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {filteredAdmissions.length} total • {formalIPDCount} IPD • {detentionCount} Observation • {daySurgeryCount} Day Surgery • {dischargedAdmissions.length} Discharged
-          </p>
+    <div className="space-y-4 p-4 sm:p-6" style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
+
+      {/* ═══════════ Header ═══════════ */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center"
+            style={{ background: 'var(--icon-cyan-text)' }}
+          >
+            <Hospital className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+              Patient Admissions
+            </h1>
+            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              Manage IPD admissions, observation cases, and day surgery patients
+            </p>
+            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+              {filteredAdmissions.length} total · {formalIPDCount} IPD · {detentionCount} Obs ·{' '}
+              {daySurgeryCount} Day Surgery · {dischargedAdmissions.length} Discharged
+            </p>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {/* ✅ Ward Management Button - RESTORED */}
+
+        <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={navigateToWardManagement}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-700 hover:text-white transition-all text-sm font-medium"
+            onClick={() => navigate('/dashboard/wards')}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
+            style={{
+              background: 'var(--icon-purple-bg)',
+              color: 'var(--icon-purple-text)',
+            }}
           >
             <Building2 className="w-4 h-4" />
-            Ward Management
+            <span className="hidden sm:inline">Ward Management</span>
           </button>
-          
+
           <button
             onClick={loadData}
             disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
+            aria-label="Refresh"
+            title="Refresh"
+            className="p-2 rounded-lg border transition-all disabled:opacity-50"
+            style={{ ...cardStyle, color: 'var(--text-secondary)' }}
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-1 border border-[var(--border-color)] flex gap-1">
-        <button
-          onClick={() => setActiveTab('all')}
-          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'all'
-              ? 'bg-cyan-100 text-cyan-700'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-          }`}
-        >
-          All ({filteredAdmissions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('active')}
-          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'active'
-              ? 'bg-green-100 text-green-700'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-          }`}
-        >
-          Active ({activeAdmissions.length})
-        </button>
-        <button
-          onClick={() => setActiveTab('discharged')}
-          className={`flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-            activeTab === 'discharged'
-              ? 'bg-gray-100 text-gray-700'
-              : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-          }`}
-        >
-          Discharged ({dischargedAdmissions.length})
-        </button>
+      {/* ═══════════ Stats row (compact tiles) ═══════════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { label: 'Active IPD',  value: formalIPDCount,              Icon: Hospital,    bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)' },
+          { label: 'Observation', value: detentionCount,              Icon: Moon,        bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' },
+          { label: 'Day Surgery', value: daySurgeryCount,             Icon: Sun,         bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
+          { label: 'Discharged',  value: dischargedAdmissions.length, Icon: CheckCircle, bg: 'var(--bg-main)',        color: 'var(--text-secondary)' },
+        ].map((s) => {
+          const Icon = s.Icon;
+          return (
+            <div
+              key={s.label}
+              className="rounded-xl px-4 py-3.5 border transition-shadow"
+              style={cardStyle}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  {s.label}
+                </span>
+                <div
+                  className="w-8 h-8 rounded-lg flex items-center justify-center"
+                  style={{ background: s.bg }}
+                >
+                  <Icon className="w-4 h-4" style={{ color: s.color }} />
+                </div>
+              </div>
+              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                {s.value}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Date Filter Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="flex flex-wrap items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
-            <span className="text-sm font-medium text-[var(--text-primary)]">Show:</span>
-          </div>
-          
-          <div className="flex gap-2">
+      {/* ═══════════ Tabs ═══════════ */}
+      <div
+        className="rounded-xl border p-1 flex gap-1"
+        style={cardStyle}
+      >
+        {[
+          { id: 'all',        label: 'All',        count: filteredAdmissions.length },
+          { id: 'active',     label: 'Active',     count: activeAdmissions.length },
+          { id: 'discharged', label: 'Discharged', count: dischargedAdmissions.length },
+        ].map((t) => {
+          const isActive = activeTab === t.id;
+          return (
             <button
-              onClick={() => { setDateFilter('today'); setShowDatePicker(false); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'today'
-                  ? 'bg-cyan-100 text-cyan-700'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
+              key={t.id}
+              onClick={() => setActiveTab(t.id as TabType)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all"
+              style={
+                isActive
+                  ? { background: 'var(--icon-cyan-text)', color: '#fff', boxShadow: 'var(--shadow-sm)' }
+                  : { color: 'var(--text-secondary)', background: 'transparent' }
+              }
             >
-              Today
+              {t.label}
+              <span
+                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={
+                  isActive
+                    ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
+                    : { background: 'var(--bg-main)', color: 'var(--text-secondary)' }
+                }
+              >
+                {t.count}
+              </span>
             </button>
-            <button
-              onClick={() => { setDateFilter('yesterday'); setShowDatePicker(false); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'yesterday'
-                  ? 'bg-cyan-100 text-cyan-700'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
-              Yesterday
-            </button>
-            <button
-              onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'custom'
-                  ? 'bg-cyan-100 text-cyan-700'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
-              Custom
-            </button>
+          );
+        })}
+      </div>
+
+      {/* ═══════════ Toolbar ═══════════ */}
+      <div className="rounded-xl border" style={cardStyle}>
+        <div className="p-3">
+          <div className="flex flex-col lg:flex-row gap-3">
+            {/* Search */}
+            <div className="flex-1 relative">
+              <Search
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+                style={{ color: 'var(--text-tertiary)' }}
+              />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by patient name, folder number, admission number…"
+                className="w-full pl-10 pr-9 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-2 transition-all"
+                style={inputStyle}
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-3 top-1/2 -translate-y-1/2"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+
+            {/* Desktop filters */}
+            <div className="hidden lg:flex items-center gap-2">
+              <Calendar className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+              <div
+                className="flex gap-1 rounded-lg p-1 border"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
+                {[
+                  { id: 'today',     label: 'Today' },
+                  { id: 'yesterday', label: 'Yesterday' },
+                  { id: 'custom',    label: 'Custom' },
+                ].map((d) => (
+                  <button
+                    key={d.id}
+                    onClick={() => {
+                      setDateFilter(d.id as DateFilterType);
+                      setShowDatePicker(d.id === 'custom');
+                    }}
+                    className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                    style={
+                      dateFilter === d.id
+                        ? {
+                            background: 'var(--bg-card)',
+                            color: 'var(--icon-cyan-text)',
+                            boxShadow: 'var(--shadow-sm)',
+                          }
+                        : { color: 'var(--text-secondary)' }
+                    }
+                  >
+                    {d.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* View toggle */}
+              <div
+                className="flex items-center rounded-lg p-1 border"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+              >
+                {(['table', 'cards'] as ViewMode[]).map((mode) => {
+                  const Icon = mode === 'table' ? List : LayoutGrid;
+                  const isActive = viewMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      onClick={() => setViewMode(mode)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
+                      style={
+                        isActive
+                          ? {
+                              background: 'var(--bg-card)',
+                              color: 'var(--icon-cyan-text)',
+                              boxShadow: 'var(--shadow-sm)',
+                            }
+                          : { color: 'var(--text-tertiary)' }
+                      }
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {mode === 'table' ? 'Table' : 'Cards'}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
+          {/* Custom date range */}
           {showDatePicker && dateFilter === 'custom' && (
-            <div className="flex items-center gap-3 ml-auto">
+            <div
+              className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t"
+              style={{ borderColor: 'var(--border-color)' }}
+            >
               <input
                 type="date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
+                style={inputStyle}
               />
-              <span className="text-[var(--text-secondary)]">to</span>
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                to
+              </span>
               <input
                 type="date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
+                style={inputStyle}
               />
+              <span className="ml-auto text-xs" style={{ color: 'var(--text-tertiary)' }}>
+                Showing:{' '}
+                <strong style={{ color: 'var(--text-primary)' }}>{getDateFilterDisplay()}</strong>
+              </span>
             </div>
           )}
-          
-          <div className="text-xs text-[var(--text-secondary)] ml-auto">
-            Showing: {getDateFilterDisplay()}
+
+          {/* Mobile controls */}
+          <div
+            className="lg:hidden flex items-center gap-2 mt-3 pt-3 border-t flex-wrap"
+            style={{ borderColor: 'var(--border-color)' }}
+          >
+            <Calendar className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
+            <div
+              className="flex gap-1 rounded-lg p-1 border flex-1"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
+              {[
+                { id: 'today',     label: 'Today' },
+                { id: 'yesterday', label: 'Yest.' },
+                { id: 'custom',    label: 'Custom' },
+              ].map((d) => (
+                <button
+                  key={d.id}
+                  onClick={() => {
+                    setDateFilter(d.id as DateFilterType);
+                    setShowDatePicker(d.id === 'custom');
+                  }}
+                  className="flex-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all"
+                  style={
+                    dateFilter === d.id
+                      ? {
+                          background: 'var(--bg-card)',
+                          color: 'var(--icon-cyan-text)',
+                          boxShadow: 'var(--shadow-sm)',
+                        }
+                      : { color: 'var(--text-secondary)' }
+                  }
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <div
+              className="flex items-center rounded-lg p-1 border"
+              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+            >
+              {(['table', 'cards'] as ViewMode[]).map((mode) => {
+                const Icon = mode === 'table' ? List : LayoutGrid;
+                const isActive = viewMode === mode;
+                return (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    aria-label={mode === 'table' ? 'Table view' : 'Cards view'}
+                    className="px-2.5 py-1.5 rounded-md transition-all"
+                    style={
+                      isActive
+                        ? {
+                            background: 'var(--bg-card)',
+                            color: 'var(--icon-cyan-text)',
+                            boxShadow: 'var(--shadow-sm)',
+                          }
+                        : { color: 'var(--text-tertiary)' }
+                    }
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Search Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by patient name, folder number, admission number..."
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-blue-500 text-sm"
-          />
-        </div>
-      </div>
-
-      {/* Admissions Table */}
+      {/* ═══════════ List ═══════════ */}
       {filteredAdmissions.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
-          <Hospital className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
-            {searchQuery ? 'No Admissions Found' : 'No Active Admissions'}
+        <div className="rounded-xl p-12 text-center border" style={cardStyle}>
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+            style={{ background: 'var(--icon-cyan-bg)' }}
+          >
+            <Hospital className="w-8 h-8" style={{ color: 'var(--icon-cyan-text)' }} />
+          </div>
+          <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            {searchQuery ? 'No Admissions Found' : 'No Admissions Yet'}
           </h3>
-          <p className="text-[var(--text-secondary)] text-sm">
-            {searchQuery 
-              ? 'No records match your search criteria.'
-              : 'No patients are currently admitted or under observation.'
-            }
+          <p className="text-sm max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
+            {searchQuery
+              ? 'No records match your search or filter criteria.'
+              : 'No patients are currently admitted or under observation for this period.'}
           </p>
         </div>
-      ) : (
+      ) : viewMode === 'table' ? (
         <>
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">ID/Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Admission Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Stay</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {paginatedAdmissions.map((admission) => {
-                  const patient = admission.attendance?.Patient || patients.find(p => p.id === admission.attendance?.patientId);
-                  const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
-                  const wardName = admission.attendance?.Ward?.wardName || '—';
-                  const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
-                  const isDischarged = !!admission.dischargeDate;
-                  const stayDays = getLengthOfStay(admission);
-                  
-                  return (
-                    <tr key={admission.id} className={`hover:bg-[var(--bg-main)] transition-colors ${
-                      admission.displayType === 'detention' ? 'bg-orange-50/20' : 
-                      admission.displayType === 'day_surgery' ? 'bg-purple-50/20' : ''
-                    }`}>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-cyan-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <User className="w-4 h-4 text-cyan-600" />
+          {/* ── Table ── */}
+          <div className="rounded-xl border overflow-hidden" style={cardStyle}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead
+                  className="border-b"
+                  style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                >
+                  <tr>
+                    {['Patient', 'Type', 'ID', 'Admission', 'Location', 'Stay', 'Status', 'Actions'].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
+                        style={{ color: 'var(--text-tertiary)' }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedAdmissions.map((admission) => {
+                    const patient =
+                      admission.attendance?.Patient ||
+                      patients.find((p) => p.id === admission.attendance?.patientId);
+                    const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
+                    const wardName = admission.attendance?.Ward?.wardName || '—';
+                    const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
+                    const isDischarged = !!admission.dischargeDate;
+                    const stayDays = getLengthOfStay(admission);
+
+                    const avatarBg =
+                      admission.displayType === 'day_surgery'
+                        ? 'var(--icon-purple-bg)'
+                        : admission.displayType === 'detention'
+                        ? 'var(--icon-orange-bg)'
+                        : 'var(--icon-green-bg)';
+
+                    return (
+                      <tr
+                        key={admission.id}
+                        className="transition-colors"
+                        style={{ borderTop: '1px solid var(--border-color)' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-main)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-9 h-9 rounded-full border flex items-center justify-center flex-shrink-0"
+                              style={{ background: avatarBg, borderColor: 'var(--border-color)' }}
+                            >
+                              <span className="text-[10px] font-bold" style={{ color: 'var(--text-primary)' }}>
+                                {initials(fullName)}
+                              </span>
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                                {fullName}
+                              </p>
+                              <p className="text-[10px] flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
+                                <span className="font-mono">{patient?.folderNumber || '—'}</span>
+                                <span className="opacity-40">·</span>
+                                <span>{patient?.gender || '—'}</span>
+                                <span className="opacity-40">·</span>
+                                <span>
+                                  {patient?.dateOfBirth ? `${calculateAge(patient.dateOfBirth)}y` : '?'}
+                                </span>
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="font-semibold text-[var(--text-primary)] text-sm">{fullName}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {patient?.folderNumber || 'No Folder'} • {patient?.gender || '—'} • {patient?.dateOfBirth ? calculateAge(patient.dateOfBirth) : '?'} yrs
+                        </td>
+                        <td className="px-4 py-3">
+                          <AdmissionTypeBadge type={admission.displayType} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className="text-xs font-mono font-semibold px-2 py-0.5 rounded border"
+                            style={{
+                              color: 'var(--text-primary)',
+                              background: 'var(--bg-main)',
+                              borderColor: 'var(--border-color)',
+                            }}
+                          >
+                            {admission.admissionNumber}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="text-xs">
+                            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                              {formatDate(admission.admissionDate)}
+                            </p>
+                            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                              {formatTimeOnly(admission.admissionDate)}
                             </p>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          {getTypeIcon(admission)}
-                          {getStatusBadge(admission)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-mono text-[var(--text-primary)]">
-                          {admission.admissionNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">
-                          <p className="font-medium text-[var(--text-primary)]">
-                            {formatDate(admission.admissionDate)}
-                          </p>
-                          <p className="text-[var(--text-secondary)] text-xs">
-                            {formatDateTime(admission.admissionDate)}
-                          </p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Bed className="w-3 h-3 text-[var(--text-secondary)]" />
-                          <span className="text-[var(--text-primary)]">{wardName}</span>
-                          <span className="text-[var(--text-secondary)]">/</span>
-                          <span className="font-mono text-[var(--text-secondary)]">{bedNumber}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-[var(--text-primary)]">
-                          {stayDays} day{stayDays !== 1 ? 's' : ''}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(admission)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
-                          {/* View Admission Details */}
-                          <Link
-                            to={`/dashboard/admissions/${admission.id}`}
-                            className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-700 hover:text-white transition-colors"
-                            title="View Admission Details"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </Link>
-                          
-                          {/* View Medical Records */}
-                          {admission.attendance?.id && (
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1 text-xs">
+                            <MapPin className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
+                            <span className="truncate" style={{ color: 'var(--text-primary)' }}>
+                              {wardName}
+                            </span>
+                            <span style={{ color: 'var(--text-tertiary)' }}>/</span>
+                            <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                              {bedNumber}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                            {stayDays} day{stayDays !== 1 ? 's' : ''}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <StatusBadge isDischarged={isDischarged} />
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
                             <Link
-                              to={`/dashboard/medical-entries/${admission.attendance.id}`}
-                              className="p-2 bg-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-700 hover:text-white transition-colors"
-                              title="View Medical Records"
+                              to={`/dashboard/admissions/${admission.id}`}
+                              aria-label="View admission details"
+                              title="View Admission Details"
+                              className="p-1.5 rounded-lg transition-all"
+                              style={{ color: 'var(--text-tertiary)' }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.color = 'var(--icon-cyan-text)';
+                                e.currentTarget.style.background = 'var(--icon-cyan-bg)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.color = 'var(--text-tertiary)';
+                                e.currentTarget.style.background = 'transparent';
+                              }}
                             >
-                              <Eye className="w-4 h-4" />
+                              <FileText className="w-3.5 h-3.5" />
                             </Link>
-                          )}
-                          
-                          {/* Convert to IPD (only for day surgery) */}
-                          {admission.displayType === 'day_surgery' && !isDischarged && canConvert && (
-                            <button
-                              onClick={() => handleConvertToIPD(admission)}
-                              className="p-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-700 hover:text-white transition-colors"
-                              title="Convert to IPD"
-                            >
-                              <ArrowRight className="w-4 h-4" />
-                            </button>
-                          )}
-                          
-                          {/* Discharge Button */}
-                          {!isDischarged && canDischarge && (
-                            <button
-                              onClick={() => handleDischargePatient(admission)}
-                              className="p-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-700 hover:text-white transition-colors"
-                              title="Discharge Patient"
-                            >
-                              <LogOut className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                            {admission.attendance?.id && (
+                              <Link
+                                to={`/dashboard/medical-entries/${admission.attendance.id}`}
+                                aria-label="View medical records"
+                                title="View Medical Records"
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--icon-purple-text)';
+                                  e.currentTarget.style.background = 'var(--icon-purple-bg)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-tertiary)';
+                                  e.currentTarget.style.background = 'transparent';
+                                }}
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </Link>
+                            )}
+                            {admission.displayType === 'day_surgery' && !isDischarged && canConvert && (
+                              <button
+                                onClick={() => handleConvertToIPD(admission)}
+                                aria-label="Convert to IPD"
+                                title="Convert to IPD"
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--icon-purple-text)';
+                                  e.currentTarget.style.background = 'var(--icon-purple-bg)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-tertiary)';
+                                  e.currentTarget.style.background = 'transparent';
+                                }}
+                              >
+                                <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {!isDischarged && canDischarge && (
+                              <button
+                                onClick={() => handleDischargePatient(admission)}
+                                aria-label="Discharge patient"
+                                title="Discharge Patient"
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--icon-green-text)';
+                                  e.currentTarget.style.background = 'var(--icon-green-bg)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-tertiary)';
+                                  e.currentTarget.style.background = 'transparent';
+                                }}
+                              >
+                                <LogOut className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)} of {filteredAdmissions.length}
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-colors"
+          {/* ── Pagination ── */}
+          {filteredAdmissions.length > 0 && (
+            <div className="rounded-xl p-4 border" style={cardStyle}>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Showing <strong style={{ color: 'var(--text-primary)' }}>{startIndex + 1}</strong> to{' '}
+                    <strong style={{ color: 'var(--text-primary)' }}>
+                      {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)}
+                    </strong>{' '}
+                    of <strong style={{ color: 'var(--text-primary)' }}>{filteredAdmissions.length}</strong>
+                  </div>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1.5 text-xs rounded-lg border"
+                    style={inputStyle}
                   >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-colors"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n} per page
+                      </option>
+                    ))}
+                  </select>
                 </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      aria-label="Previous page"
+                      className="p-2 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="px-3 py-1 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      aria-label="Next page"
+                      className="p-2 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        /* ═══════════ Cards view ═══════════ */
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {paginatedAdmissions.map((admission) => {
+              const patient =
+                admission.attendance?.Patient ||
+                patients.find((p) => p.id === admission.attendance?.patientId);
+              const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
+              const wardName = admission.attendance?.Ward?.wardName || '—';
+              const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
+              const isDischarged = !!admission.dischargeDate;
+              const stayDays = getLengthOfStay(admission);
+
+              const avatarBg =
+                admission.displayType === 'day_surgery'
+                  ? 'var(--icon-purple-bg)'
+                  : admission.displayType === 'detention'
+                  ? 'var(--icon-orange-bg)'
+                  : 'var(--icon-green-bg)';
+
+              return (
+                <div
+                  key={admission.id}
+                  className="rounded-xl border transition-all overflow-hidden flex flex-col"
+                  style={cardStyle}
+                >
+                  {/* Header */}
+                  <div
+                    className="p-4 pb-3 border-b"
+                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <AdmissionTypeBadge type={admission.displayType} />
+                      <StatusBadge isDischarged={isDischarged} />
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded-xl border flex items-center justify-center flex-shrink-0"
+                        style={{ background: avatarBg, borderColor: 'var(--border-color)' }}
+                      >
+                        <span className="text-xs font-bold" style={{ color: 'var(--text-primary)' }}>
+                          {initials(fullName)}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-bold truncate" style={{ color: 'var(--text-primary)' }}>
+                          {fullName}
+                        </p>
+                        <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
+                          #{patient?.folderNumber || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-4 space-y-2.5 flex-1 text-xs">
+                    {[
+                      { icon: Hash,     label: 'Admission #',    value: admission.admissionNumber, mono: true },
+                      { icon: Calendar, label: 'Admitted',       value: formatDate(admission.admissionDate) },
+                      {
+                        icon: MapPin,
+                        label: 'Location',
+                        value: `${wardName} / ${bedNumber}`,
+                      },
+                      {
+                        icon: Clock,
+                        label: 'Length of stay',
+                        value: `${stayDays} day${stayDays !== 1 ? 's' : ''}`,
+                        bold: true,
+                      },
+                    ].map((row) => {
+                      const Icon = row.icon;
+                      return (
+                        <div key={row.label} className="flex items-center justify-between gap-2">
+                          <span
+                            className="flex items-center gap-1"
+                            style={{ color: 'var(--text-tertiary)' }}
+                          >
+                            <Icon className="w-3 h-3" />
+                            {row.label}
+                          </span>
+                          <span
+                            className={`truncate max-w-[60%] text-right ${row.mono ? 'font-mono' : ''} ${
+                              row.bold ? 'font-semibold' : 'font-medium'
+                            }`}
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            {row.value}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div
+                    className="px-4 py-3 border-t flex items-center justify-between gap-2"
+                    style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <Link
+                        to={`/dashboard/admissions/${admission.id}`}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all"
+                        style={{ background: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' }}
+                      >
+                        <FileText className="w-3 h-3" />
+                        Details
+                      </Link>
+                      {admission.attendance?.id && (
+                        <Link
+                          to={`/dashboard/medical-entries/${admission.attendance.id}`}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg transition-all"
+                          style={{ background: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' }}
+                        >
+                          <Eye className="w-3 h-3" />
+                          Records
+                        </Link>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-0.5">
+                      {admission.displayType === 'day_surgery' && !isDischarged && canConvert && (
+                        <button
+                          onClick={() => handleConvertToIPD(admission)}
+                          aria-label="Convert to IPD"
+                          title="Convert to IPD"
+                          className="p-1.5 rounded-lg transition-all"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--icon-purple-text)';
+                            e.currentTarget.style.background = 'var(--icon-purple-bg)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--text-tertiary)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {!isDischarged && canDischarge && (
+                        <button
+                          onClick={() => handleDischargePatient(admission)}
+                          aria-label="Discharge patient"
+                          title="Discharge"
+                          className="p-1.5 rounded-lg transition-all"
+                          style={{ color: 'var(--text-tertiary)' }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--icon-green-text)';
+                            e.currentTarget.style.background = 'var(--icon-green-bg)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--text-tertiary)';
+                            e.currentTarget.style.background = 'transparent';
+                          }}
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* ── Pagination ── */}
+          {filteredAdmissions.length > 0 && (
+            <div className="rounded-xl p-4 border" style={cardStyle}>
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                    Showing <strong style={{ color: 'var(--text-primary)' }}>{startIndex + 1}</strong> to{' '}
+                    <strong style={{ color: 'var(--text-primary)' }}>
+                      {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)}
+                    </strong>{' '}
+                    of <strong style={{ color: 'var(--text-primary)' }}>{filteredAdmissions.length}</strong>
+                  </div>
+                  <select
+                    value={itemsPerPage}
+                    onChange={(e) => {
+                      setItemsPerPage(Number(e.target.value));
+                      setCurrentPage(1);
+                    }}
+                    className="px-2 py-1.5 text-xs rounded-lg border"
+                    style={inputStyle}
+                  >
+                    {[10, 25, 50, 100].map((n) => (
+                      <option key={n} value={n}>
+                        {n} per page
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {totalPages > 1 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      aria-label="Previous page"
+                      className="p-2 rounded-lg border transition-colors disabled:opacity-40"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="px-3 py-1 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      aria-label="Next page"
+                      className="p-2 rounded-lg border transition-colors disabled:opacity-40"
+                      style={{ borderColor: 'var(--border-color)' }}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
         </>
       )}
 
-      {/* Convert Modal */}
-      {showConvertModal && selectedDaycase && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-            <div className="p-6 border-b border-[var(--border-color)]">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Convert to IPD Admission</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Convert this day surgery patient to formal IPD admission?
-              </p>
-            </div>
-            <div className="p-6 flex gap-3 justify-end">
-              <button
-                onClick={() => setShowConvertModal(false)}
-                className="px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmConvertToIPD}
-                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
-              >
-                Convert to IPD
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ═══════════ Convert Modal ═══════════ */}
+      <ConfirmationModal
+        isOpen={showConvertModal}
+        onClose={() => {
+          setShowConvertModal(false);
+          setSelectedDaycase(null);
+        }}
+        onConfirm={confirmConvertToIPD}
+        title="Convert to IPD"
+        message="Convert this day surgery patient to a formal IPD admission? This will create a full inpatient record."
+        confirmText="Convert to IPD"
+        cancelText="Cancel"
+        type="info"
+        isLoading={isConverting}
+      />
 
-      {/* Discharge Modal */}
-      {showDischargeModal && selectedAdmission && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-md w-full border border-[var(--border-color)]">
-            <div className="p-6 border-b border-[var(--border-color)]">
-              <h3 className="text-lg font-bold text-[var(--text-primary)]">Confirm Discharge</h3>
-              <p className="text-sm text-[var(--text-secondary)] mt-1">
-                Are you sure you want to discharge this patient?
-              </p>
-            </div>
-            <div className="p-6 flex gap-3 justify-end">
-              <button
-                onClick={() => setShowDischargeModal(false)}
-                className="px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDischarge}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all"
-              >
-                Confirm Discharge
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* ═══════════ Discharge Modal ═══════════ */}
+      <ConfirmationModal
+        isOpen={showDischargeModal}
+        onClose={() => {
+          setShowDischargeModal(false);
+          setSelectedAdmission(null);
+        }}
+        onConfirm={confirmDischarge}
+        title="Confirm Discharge"
+        message="Are you sure you want to discharge this patient? Their bed will be freed and the admission will be marked as complete. This cannot be undone."
+        confirmText="Confirm Discharge"
+        cancelText="Cancel"
+        type="warning"
+        isLoading={isDischarging}
+      />
     </div>
   );
 }

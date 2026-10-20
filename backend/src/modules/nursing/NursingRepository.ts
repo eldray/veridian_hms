@@ -7,6 +7,12 @@ import {
   NursingTaskFilters,
 } from './NursingTypes';
 
+/** One id, or several as "id1,id2,id3": lets a screen load many patients in ONE request instead of one each. */
+const idFilter = (value: string): string | { in: string[] } => {
+  const ids = String(value).split(',').map((v) => v.trim()).filter(Boolean);
+  return ids.length > 1 ? { in: ids.slice(0, 200) } : ids[0] ?? value;
+};
+
 export class NursingRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'medicationDose');
@@ -27,6 +33,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
           frequency: true,
           instructions: true,
           attendanceId: true,
+          status: true,
         },
       },
     };
@@ -43,8 +50,11 @@ export class NursingRepository extends BaseRepository<any, any, any> {
       if (fromDate) where.scheduledAt.gte = fromDate;
       if (toDate) where.scheduledAt.lte = toDate;
     }
-    if (attendanceId) where.medication = { attendanceId };
-    if (patientId) where.medication = { ...(where.medication ?? {}), Attendance: { patientId } };
+    where.medication = {
+      status: { not: 'cancelled' },
+      ...(attendanceId ? { attendanceId: idFilter(attendanceId) } : {}),
+      ...(patientId ? { Attendance: { patientId } } : {}),
+    };
 
     const result = await this.findManyWithPagination({
       where,
@@ -66,7 +76,7 @@ export class NursingRepository extends BaseRepository<any, any, any> {
 
   async findDosesByMedication(medicationId: string) {
     return this.prisma.medicationDose.findMany({
-      where: { medicationId },
+      where: { medicationId, medication: { status: { not: 'cancelled' } } },
       orderBy: { doseNumber: 'asc' },
       include: this.doseInclude(),
     });
@@ -167,7 +177,7 @@ async findNotes(filters: NursingNoteFilters) {
 
   const where: any = {};
   if (patientId) where.patientId = patientId;
-  if (attendanceId) where.attendanceId = attendanceId;
+  if (attendanceId) where.attendanceId = idFilter(attendanceId);
   if (admissionId) where.admissionId = admissionId;
   if (shift) where.shift = shift;
   if (noteType) where.noteType = noteType;
@@ -243,7 +253,7 @@ async findTasks(filters: NursingTaskFilters) {
 
   const where: any = {};
   if (patientId) where.patientId = patientId;
-  if (attendanceId) where.attendanceId = attendanceId;
+  if (attendanceId) where.attendanceId = idFilter(attendanceId);
   if (admissionId) where.admissionId = admissionId;
   if (status) where.status = Array.isArray(status) ? { in: status } : status;
   if (priority) where.priority = priority;

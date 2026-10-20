@@ -42,7 +42,10 @@ export type SecondaryDiagnosisType = 'comorbidity' | 'complication';
 
 // Billing
 export type BillStatus = 'draft' | 'pending' | 'partial' | 'paid' | 'cancelled';
-export type ClaimStatus = 'draft' | 'not_required' | 'pending' | 'submitted' | 'approved' | 'partially_approved' | 'rejected' | 'paid';
+
+
+export type ClaimStatus = 'draft' | 'finalized';
+export type BatchStatus = 'generated' | 'finalized';
 
 // Clinical
 export type LabTestStatus = 'requested' | 'completed' | 'cancelled';
@@ -283,9 +286,8 @@ export interface GDRGTariffDiagnosis {
 }
 
 // Insurance
-export type InsuranceType = 'nhis' | 'private';
+export type InsuranceType = 'nhis' | 'private' | 'corporate';
 export type ClaimSubmissionMethod = 'portal' | 'paper' | 'edi_batch' | 'api';
-export type BatchStatus = 'draft' | 'submitted' | 'acknowledged' | 'partially_paid' | 'paid' | 'disputed';
 
 // Stock & Requisitions
 export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale';
@@ -317,13 +319,37 @@ export interface User {
 // Add the Seniority enum
 export type Seniority = 'TRAINEE' | 'JUNIOR' | 'SENIOR' | 'PRINCIPAL';
 
+
+export interface CorporateAccount {
+  id: string;
+  companyName: string;
+  registrationNumber?: string | null;
+  taxId?: string | null;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address?: string | null;
+  creditLimit: number;
+  currentBalance: number;
+  paymentTerms: number;
+  discountPercentage: number;
+  isActive: boolean;
+  insuranceProviderId?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+
 // ======================
 // PATIENT
 // ======================
 
 export interface InsuranceDetails {
   providerId?: string;
-  memberId: string;
+  providerName?: string;
+  memberId?: string;
+  insuranceNumber?: string;
+  policyNumber?: string;
   groupNumber?: string;
   relationship?: 'self' | 'spouse' | 'child' | 'other';
   startDate: string;
@@ -350,6 +376,35 @@ export interface AdditionalInfo {
   };
 }
 
+export interface PatientAllergy {
+  id?: string;
+  allergen: string;
+  reaction?: string;
+  severity?: 'mild' | 'moderate' | 'severe';
+  notes?: string;
+}
+
+export interface PatientMedicalHistory {
+  id?: string;
+  condition: string;
+  diagnosedAt?: string;
+  notes?: string;
+}
+
+export interface PatientSurgicalHistory {
+  id?: string;
+  procedure: string;
+  surgeryDate?: string;
+  notes?: string;
+}
+
+export interface PatientFamilyHistory {
+  id?: string;
+  relation: string;
+  condition: string;
+  notes?: string;
+}
+
 export interface Patient {
   id: string;
   folderNumber: string;
@@ -360,11 +415,22 @@ export interface Patient {
   contact: string;
   address: string;
   paymentMode?: PaymentMode;
-  insuranceProviderId?: string;
-  insuranceDetails?: InsuranceDetails;
+  insuranceProviderId?: string | null;
+  corporateAccountId?: string | null;
+  corporateEmployeeId?: string | null;
+  nhisNumber?: string | null;
+  nhisExpiryDate?: string | null;
+  nhisActive?: boolean;
+  insuranceDetails?: InsuranceDetails | null;
   additionalInfo?: AdditionalInfo;
+  allergies?: PatientAllergy[];
+  medicalHistories?: PatientMedicalHistory[];
+  surgicalHistories?: PatientSurgicalHistory[];
+  familyHistories?: PatientFamilyHistory[];
   billingAddress?: any;
   employer?: any;
+  age?: number;
+  ageInMonths?: number;
   imageUrl?: string;
   registeredAt: string;
   registeredBy: string;
@@ -498,11 +564,18 @@ export interface Attendance {
 
 export interface Diagnosis {
   id: string;
+  _id?: string;
   name: string;
   icdCode: string;
+  gdrgCode?: string;
   gdrgGroupCode: string;
   variant?: DiagnosisVariant;
   description?: string;
+  cashPrice?: number;
+  insurancePrice?: number;
+  costPrice?: number;
+  vatRate?: number;
+  isTaxable?: boolean;
   isActive: boolean;
   requiresAuthorization: boolean;
   tariffCode?: string;
@@ -514,6 +587,16 @@ export interface Diagnosis {
   
   // Relations
   gdrgTariffDiagnoses?: GDRGTariffDiagnosis[];
+}
+
+export interface DiagnosisTemplate extends Diagnosis {
+  _id?: string;
+}
+
+export interface ProgressNote {
+  note: string;
+  createdAt: string;
+  createdBy: string;
 }
 
 // ======================
@@ -621,90 +704,136 @@ export interface InsuranceProvider {
   updatedAt: string;
 }
 
-export interface ClaimSubmissionBatch {
+export type ClaimItemCategory =
+  | 'diagnosis'
+  | 'investigation'
+  | 'medicine'
+  | 'procedure'
+  | 'service'
+  | 'gdrg';
+
+export interface InsuranceClaimItem {
+  id: string;
+  claimId: string;
+
+  billLineItemId?: string | null;
+  serviceCatalogId?: string | null;
+  diagnosisId?: string | null;
+  gdrgTariffId?: string | null;
+  labTestId?: string | null;
+  scanId?: string | null;
+  procedureId?: string | null;
+  medicationId?: string | null;
+
+  itemNumber: number;
+  itemCategory: ClaimItemCategory;
+  itemType?: string | null;
+  code: string;
+  description: string;
+  quantity: number;
+  noOfDays?: number | null;
+  unitPrice: number;
+  lineTotal: number;
+  serviceDate?: string | null;
+
+  authNo?: string | null;
+  clinician?: string | null;
+  prescriberNo?: string | null;
+  medicineType?: string | null;
+  prescriptionText?: string | null;
+
+  createdAt: string;
+
+  // Optional expansions (present when the backend includes them)
+  diagnosis?: Diagnosis;
+  gdrgTariff?: GDRGTariff;
+  serviceCatalog?: ServiceCatalogItem;
+  labTest?: LabTest;
+  scan?: Scan;
+  procedure?: Procedure;
+  medication?: Medication;
+}
+
+export interface ClaimBatch {
   id: string;
   batchNumber: string;
-  insuranceProviderId: string;
-  claimPeriodStart: string;
-  claimPeriodEnd: string;
+
+  insuranceType: InsuranceType;
+  insuranceProviderId?: string | null;
+  corporateAccountId?: string | null;
+
+  periodYear: number;
+  periodMonth: number;
+
   totalClaims: number;
-  totalClaimAmount: number;
-  submissionMethod: ClaimSubmissionMethod;
-  submissionDate?: string;
-  nhiaReferenceNumber?: string;
-  portalBatchId?: string;
+  totalAmount: number;
+
   status: BatchStatus;
-  acknowledgedAt?: string;
-  notes?: string;
-  submittedById?: string;
+  generatedAt: string;
+  finalizedAt?: string | null;
+  finalizedById?: string | null;
+
+  xmlFilePath?: string | null;
+  printFilePath?: string | null;
+  description?: string | null;
+
   createdById: string;
   createdAt: string;
   updatedAt: string;
-  
-  claims: InsuranceClaim[];
+
+  // Relations
+  insuranceProvider?: InsuranceProvider | null;
+  corporateAccount?: CorporateAccount | null;
+  createdBy?: User;
+  finalizedBy?: User | null;
+  claims?: InsuranceClaim[];
+  _count?: { claims: number };
 }
 
 export interface InsuranceClaim {
   id: string;
   claimNumber: string;
-  billId: string;
+
+  billId?: string | null;
   patientId: string;
-  insuranceProviderId: string;
   attendanceId: string;
+  insuranceProviderId: string;
+  corporateAccountId?: string | null;
+
   totalClaimAmount: number;
-  approvedAmount?: number;
-  rejectedAmount?: number;
-  paidAmount?: number;
   status: ClaimStatus;
-  submissionDate?: string;
-  approvalDate?: string;
-  paymentDate?: string;
-  preAuthNumber?: string;
-  batchId?: string;
-  diagnosisCodes: string[];
-  procedureCodes: string[];
-  labTestCodes: string[];
-  serviceCodes: string[];
-  scanCodes: string[];
-  gdrgCodes: string[];
-  nhisServiceCodes: string[];
-  notes?: string;
+
+  finalizedAt?: string | null;
+  finalizedById?: string | null;
+  preAuthNumber?: string | null;
+
+  principalGDRG?: string | null;
+  claimCheckCode?: string | null;
+  typeOfService?: string | null;
+  typeOfAttendance?: string | null;
+  serviceOutcome?: string | null;
+  mdcCode?: string | null;
+  datesOfService?: string[] | null;
+
+  notes?: string | null;
+  metadata?: any;
+
+  batchId?: string | null;
+
   createdById: string;
-  updatedById?: string;
+  updatedById?: string | null;
   createdAt: string;
   updatedAt: string;
-  
-  // Relations
-  bill?: Bill;
-  patient?: Patient;
-  insuranceProvider?: InsuranceProvider;
-  attendance?: Attendance;
-  batch?: ClaimSubmissionBatch;
-}
 
-// types/index.ts - ADD THIS
-export interface BillLineItem {
-  id: string;
-  billId: string;
-  serviceCatalogId?: string;
-  description: string;
-  serviceType: string;
-  quantity: number;
-  unitPrice: number;
-  pricingBasis: PaymentMode;
-  vatRate: number;
-  vatAmount: number;
-  lineTotal: number;
-  insuranceCoveredAmount: number;
-  patientPayableAmount: number;
-  discount: number;
-  isVoided: boolean;
-  voidReason?: string;
-  serviceCatalog?: {
-    name: string;
-    code: string;
-    nhisServiceCode?: string;
-  };
+  // Relations (present when included by the API)
+  items?: InsuranceClaimItem[];
+  InsuranceProvider?: InsuranceProvider;
+  Patient?: Patient;
+  Attendance?: Attendance;
+  Bill?: Bill;
+  CorporateAccount?: CorporateAccount;
+  finalizedBy?: User | null;
+  batch?: ClaimBatch | null;
 }
 
 export interface Bill {
@@ -824,9 +953,10 @@ export interface Ward {
   dailyCashRate: number;
   dailyNHISRate: number;
   dailyInsuranceRate: number;
+  dailyCorporateRate: number;
   createdAt: string;
   updatedAt: string;
-  
+
   beds: Bed[];
   admissions: Admission[];
 }
@@ -1141,6 +1271,17 @@ export interface StockItem {
   expiryDate: string | null;
   isActive: boolean;
   isMedication: boolean;
+  /** Catalog entry holding the item's current patient prices (Prisma Decimals arrive as strings) */
+  ServiceCatalog?: Array<{
+    id: string;
+    code: string;
+    pricing: Array<{
+      cashPrice: number | string;
+      nhisPrice: number | string;
+      insurancePrice: number | string;
+      corporatePrice: number | string;
+    }>;
+  }>;
   createdAt: string;
   updatedAt: string;
 }
@@ -1346,6 +1487,30 @@ export interface HospitalInfo {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+}
+
+export type Hospital = HospitalInfo;
+
+export interface BackupFile {
+  filename: string;
+  size: number;
+  sizeFormatted?: string;
+  createdAt: string;
+  modifiedAt?: string;
+  path?: string;
+}
+
+export interface NHISConfig {
+  providerId: string;
+  facilityCode: string;
+  accreditationNumber: string;
+  tariffVersion: string;
+  claimEndpoint: string;
+  isActive: boolean;
+}
+
+export interface ClinicianSchedule {
+  [key: string]: unknown;
 }
 
 // ======================

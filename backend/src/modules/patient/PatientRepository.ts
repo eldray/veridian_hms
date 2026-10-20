@@ -34,7 +34,13 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
 
   async findByCorporateAccount(corporateAccountId: string, include?: any): Promise<Patient[]> {
     return this.getModel().findMany({
-      where: { insuranceProviderId: corporateAccountId, paymentMode: 'corporate' },
+      where: {
+        paymentMode: 'corporate',
+        OR: [
+          { employer: { path: ['corporateAccountId'], equals: corporateAccountId } },
+          { insuranceProviderId: corporateAccountId }
+        ]
+      },
       include
     });
   }
@@ -63,8 +69,16 @@ export class PatientRepository extends BaseRepository<Patient, CreatePatientDTO,
     if (gender) where.gender = gender;
     if (paymentMode) where.paymentMode = paymentMode;
     if (corporateAccountId) {
-      where.insuranceProviderId = corporateAccountId;
       where.paymentMode = 'corporate';
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            { employer: { path: ['corporateAccountId'], equals: corporateAccountId } },
+            { insuranceProviderId: corporateAccountId }
+          ]
+        }
+      ];
     }
     if (dateFrom || dateTo) {
       where.createdAt = {};

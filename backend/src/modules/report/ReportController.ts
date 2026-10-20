@@ -2,6 +2,20 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { ReportService } from './ReportService';
+import { reportToDocument, documentToCsv, documentToXlsx, documentToPdf } from '../../utils/reportExport';
+
+// Names printed on exported files (match the report names on the Reports screen)
+const REPORT_TITLES: Record<string, string> = {
+  'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
+  'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
+  'form-a': 'Form A - Maternal Health', 'ipd': 'IPD & Mortality', 'malaria': 'Malaria Data',
+  'idsr': 'IDSR Notifiable Diseases', 'family-planning': 'Family Planning',
+  'demographic': 'Demographic Analysis', 'financial': 'Financial Summary', 'insurance': 'Insurance Claims',
+  'attendance': 'Attendance Patterns', 'revenue': 'Revenue Analysis', 'lab': 'Laboratory Report',
+  'scans': 'Radiology Report', 'procedures': 'Procedures Report', 'medications': 'Medications Report',
+  'vitals': 'Vitals Report', 'nhis-expiry': 'NHIS Membership Expiry', 'nhis-claims': 'NHIS Claims Summary',
+  'clinical': 'Clinical Statistics',
+};
 
 export class ReportController {
   private prisma: PrismaClient;
@@ -230,111 +244,64 @@ export class ReportController {
   };
 
   // ==================== EXPORT REPORT ====================
-  // FIXED: was GET with req.body — changed to POST in routes; body is now reliable
+  // The screen posts the report it is showing; the server turns it into a real file.
+  //   format: csv (default) | excel (.xlsx) | pdf | json
   exportReport = async (req: Request, res: Response) => {
     try {
-      const { reportType, format, filters, data } = req.body;
+      const { reportType, format = 'csv', filters, data } = req.body || {};
 
-      if (!reportType || !data) {
+      if (!reportType || !data || typeof data !== 'object') {
         return res.status(400).json({ success: false, message: 'Report type and data are required' });
       }
 
-      let csvContent = '';
-      let filename = `${reportType}_${new Date().toISOString().split('T')[0]}`;
-
-      switch (reportType) {
-        case 'financial':
-          csvContent = this.convertFinancialToCSV(data);
-          filename += '_financial.csv';
-          break;
-        case 'clinical':
-          csvContent = this.convertClinicalToCSV(data);
-          filename += '_clinical.csv';
-          break;
-        case 'revenue':
-          csvContent = this.convertRevenueToCSV(data);
-          filename += '_revenue.csv';
-          break;
-        case 'attendance':
-          csvContent = this.convertAttendanceToCSV(data);
-          filename += '_attendance.csv';
-          break;
-        default:
-          csvContent = this.convertGenericToCSV(data);
-          filename += '.csv';
+      const kind = String(format).toLowerCase();
+      if (!['csv', 'excel', 'xlsx', 'pdf', 'json'].includes(kind)) {
+        return res.status(400).json({ success: false, message: `Unsupported export format: ${format}` });
       }
 
-      if (format !== 'json') {
-        if (!filename.endsWith('.csv')) filename += '.csv';
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        return res.send(csvContent);
+      const title = REPORT_TITLES[String(reportType)] || String(reportType).replace(/[-_]+/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+      const doc = reportToDocument(data, title);
+      // the screen's own title (e.g. "Top 10 Diagnoses") wins over the generic type name
+      if (REPORT_TITLES[String(reportType)]) doc.meta.title = title;
+      if (!doc.meta.period && (filters?.startDate || filters?.endDate)) {
+        doc.meta.period = `${filters.startDate || 'Beginning'} to ${filters.endDate || 'Now'}`;
       }
 
-      res.json({ success: true, data: csvContent, filename });
+      const safe = String(reportType).replace(/[^a-z0-9_-]+/gi, '_').slice(0, 40);
+      const from = String(filters?.startDate || '').slice(0, 10);
+      const to = String(filters?.endDate || '').slice(0, 10);
+      const stamp = from && to ? `${from}_to_${to}` : new Date().toISOString().split('T')[0];
+      const base = `${safe}_${stamp}`;
+
+      if (kind === 'json') {
+        return res.json({ success: true, data: doc, filename: `${base}.json` });
+      }
+
+      let buffer: Buffer;
+      let contentType: string;
+      let filename: string;
+      if (kind === 'pdf') {
+        buffer = await documentToPdf(doc);
+        contentType = 'application/pdf';
+        filename = `${base}.pdf`;
+      } else if (kind === 'csv') {
+        buffer = documentToCsv(doc);
+        contentType = 'text/csv; charset=utf-8';
+        filename = `${base}.csv`;
+      } else {
+        buffer = documentToXlsx(doc);
+        contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+        filename = `${base}.xlsx`;
+      }
+
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition'); // lets the browser read the file name
+      res.setHeader('Content-Length', String(buffer.length));
+      return res.send(buffer);
     } catch (error) {
       console.error('Export error:', error);
       res.status(500).json({ success: false, message: 'Error exporting report' });
     }
   };
-
-  // ── Private CSV helpers ───────────────────────────────────────────────────────
-
-  private convertFinancialToCSV(data: any): string {
-    const headers = ['Period', 'Revenue', 'Expenses', 'Net Income', 'Bills Count'];
-    const rows = (data.monthlyRevenueTrend || []).map((item: any) => [
-      item.period,
-      item.totalRevenue || 0,
-      item.totalExpenses || 0,
-      (item.totalRevenue || 0) - (item.totalExpenses || 0),
-      item.billCount || 0,
-    ]);
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
-  }
-
-  private convertClinicalToCSV(data: any): string {
-    const headers = ['Diagnosis', 'Total Cases', 'Male', 'Female', 'Average Age'];
-    const rows = (data.clinicalReport || data.topDiagnoses || []).map((item: any) => [
-      `"${item.diagnosis || item.diagnosisName || item.name || ''}"`,
-      item.totalCases || 0,
-      item.genderDistribution?.male || item.male || 0,
-      item.genderDistribution?.female || item.female || 0,
-      item.averageAge || 0,
-    ]);
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
-  }
-
-  private convertRevenueToCSV(data: any): string {
-    const headers = ['Date', 'Amount', 'Payment Method', 'Bill Number'];
-    const rows = (data.dailyRevenue || []).map((item: any) => [
-      item.date,
-      item.amount || 0,
-      item.paymentMethod || 'N/A',
-      item.billNumber || 'N/A',
-    ]);
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
-  }
-
-  private convertAttendanceToCSV(data: any): string {
-    const headers = ['Date', 'Patient Name', 'Type', 'Payment Mode', 'Status'];
-    const rows = (data.attendances || []).map((item: any) => [
-      item.date,
-      `"${item.patientName || ''}"`,
-      item.attendanceType || 'N/A',
-      item.paymentMode || 'N/A',
-      item.status || 'N/A',
-    ]);
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
-  }
-
-  private convertGenericToCSV(data: any): string {
-    if (Array.isArray(data) && data.length > 0) {
-      const headers = Object.keys(data[0]);
-      const rows = data.map(item =>
-        headers.map(h => `"${JSON.stringify(item[h] || '').replace(/"/g, '""')}"`)
-      );
-      return [headers, ...rows].map(row => row.join(',')).join('\n');
-    }
-    return JSON.stringify(data, null, 2);
-  }
 }

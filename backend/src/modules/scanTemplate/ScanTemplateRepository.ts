@@ -159,6 +159,7 @@ export class ScanTemplateRepository {
           cashPrice: data.cashPrice,
           nhisPrice: data.nhisPrice || 0,
           insurancePrice: data.insurancePrice,
+          corporatePrice: data.corporatePrice || 0, // 0 = use the corporate fallback (account discount off cash, else cash)
           vatRate: data.vatRate ? data.vatRate : 0,
           isTaxable: data.isTaxable !== undefined ? data.isTaxable : true,
           isActive: true,
@@ -222,8 +223,17 @@ if (
       if (
         data.cashPrice !== undefined ||
         data.nhisPrice !== undefined ||
-        data.insurancePrice !== undefined
+        data.insurancePrice !== undefined ||
+        data.corporatePrice !== undefined ||
+        data.vatRate !== undefined ||
+        data.isTaxable !== undefined
       ) {
+        // Read the price that is active NOW (existingTemplate.pricing holds every row, expired ones too, unordered)
+        const existingPricing = await tx.servicePricing.findFirst({
+          where: { serviceCatalogId: id, isActive: true },
+          orderBy: { effectiveDate: 'desc' }
+        });
+
         // Expire old pricing
         await tx.servicePricing.updateMany({
           where: { serviceCatalogId: id, isActive: true },
@@ -231,13 +241,13 @@ if (
         });
 
         // Create new pricing record
-        const existingPricing = existingTemplate.pricing?.[0];
         await tx.servicePricing.create({
           data: {
             serviceCatalogId: id,
             cashPrice: data.cashPrice ?? existingPricing?.cashPrice ?? 0,
             nhisPrice: data.nhisPrice ?? existingPricing?.nhisPrice ?? 0,
             insurancePrice: data.insurancePrice ?? existingPricing?.insurancePrice ?? 0,
+            corporatePrice: data.corporatePrice ?? existingPricing?.corporatePrice ?? 0,
             vatRate: data.vatRate ?? existingPricing?.vatRate ?? 0,
             isTaxable: data.isTaxable ?? existingPricing?.isTaxable ?? true,
             isActive: true,

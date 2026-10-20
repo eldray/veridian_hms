@@ -1,4 +1,4 @@
-// src/pages/LabResultEntry.tsx - Laboratory Results Entry Page
+// src/pages/LabResultEntry.tsx — Laboratory Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -13,52 +13,22 @@ import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
-  ChevronLeft,
-  FlaskConical,
-  Printer,
-  RefreshCw,
-  AlertCircle,
-  Plus,
-  Clock,
-  CheckCircle,
-  Activity,
-  User,
-  Calendar,
-  X,
-  Edit,
-  FileText,
-  Microscope,
-  TrendingUp,
-  TrendingDown,
-  AlertTriangle,
-  Save,
-  MessageSquare
+  ChevronLeft, FlaskConical, Printer, RefreshCw, AlertCircle,
+  Plus, Clock, CheckCircle, Activity, User, Calendar, X, Edit,
+  FileText, Microscope, TrendingUp, TrendingDown, AlertTriangle,
+  Save, MessageSquare, Hash, Phone, Info, ChevronDown,
+  ChevronRight, Sparkles, TestTube, Stethoscope, Building2,
+  BedDouble, Play, Wand2, BarChart3, ArrowUp, ArrowDown,
+  CircleDot, Minus, ChevronUp, Maximize2,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
 
-const getStatusBadge = (status: string) => {
-  const config: Record<string, { bg: string; text: string; label: string }> = {
-    requested: { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Pending' },
-    in_progress: { bg: 'bg-blue-100', text: 'text-blue-700', label: 'In Progress' },
-    completed: { bg: 'bg-green-100', text: 'text-green-700', label: 'Completed' },
-    cancelled: { bg: 'bg-red-100', text: 'text-red-700', label: 'Cancelled' },
-  };
-  const c = config[status] || config.requested;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${c.bg} ${c.text}`}>
-      {c.label}
-    </span>
-  );
-};
+// ── Result flag helpers ───────────────────────────────────────────────────────
+type FlagInfo = { flag: string; color: string };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const getTestName = (test: any): string =>
-  test?.name || test?.LabTestTemplate?.name || test?.ServiceCatalog?.name || 'Unknown Test';
-
-const getResultFlag = (value: number | string, normalRange?: string): { flag: string; color: string } => {
+const getResultFlag = (value: number | string, normalRange?: string): FlagInfo => {
   if (!normalRange) return { flag: '', color: 'text-gray-600' };
   const cleaned = normalRange.replace(/[–—]/g, '-');
   const rangeMatch = cleaned.match(/([<>])?\s*(\d+(?:\.\d+)?)\s*-?\s*(\d+(?:\.\d+)?)?/);
@@ -85,7 +55,7 @@ const getResultFlag = (value: number | string, normalRange?: string): { flag: st
   return { flag: '', color: 'text-gray-600' };
 };
 
-const computeParamFlag = (param: any): { flag: string; color: string } => {
+const computeParamFlag = (param: any): FlagInfo => {
   const { value, lowThreshold, highThreshold, normalRange, fieldType } = param || {};
   if (fieldType && fieldType !== 'number') return { flag: '', color: 'text-gray-600' };
   if (value === '' || value === null || value === undefined) return { flag: '', color: 'text-gray-600' };
@@ -128,8 +98,67 @@ const buildParametersForTest = (test: any): any[] => {
   return [];
 };
 
-// ── Multi-param result form ────────────────────────────────────────────────────
+const getTestName = (test: any): string =>
+  test?.name || test?.LabTestTemplate?.name || test?.ServiceCatalog?.name || 'Unknown Test';
 
+// ── Reusable pills ────────────────────────────────────────────────────────────
+const PriorityPill: React.FC<{ priority: string }> = ({ priority }) => {
+  const map: Record<string, string> = {
+    stat:   'bg-red-100 text-red-700 border-red-200',
+    urgent: 'bg-orange-100 text-orange-700 border-orange-200',
+    routine:'bg-blue-100 text-blue-700 border-blue-200',
+  };
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[priority] || map.routine}`}>
+      {priority === 'stat' && <AlertTriangle className="w-2.5 h-2.5" />}
+      {priority?.toUpperCase() || 'ROUTINE'}
+    </span>
+  );
+};
+
+const FlagPill: React.FC<{ flag: string }> = ({ flag }) => {
+  if (!flag) return <span className="text-[var(--text-tertiary)]">—</span>;
+  const map: Record<string, string> = {
+    HIGH: 'bg-red-100 text-red-700 border-red-200',
+    LOW:  'bg-yellow-100 text-yellow-700 border-yellow-200',
+    NL:   'bg-green-100 text-green-700 border-green-200',
+  };
+  const Icon = flag === 'HIGH' ? ArrowUp : flag === 'LOW' ? ArrowDown : CheckCircle;
+  return (
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold border ${map[flag] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+      <Icon className="w-2.5 h-2.5" />
+      {flag}
+    </span>
+  );
+};
+
+// ── Reusable section wrapper ──────────────────────────────────────────────────
+const ResultSection: React.FC<{
+  title: string;
+  count: number;
+  icon: React.ElementType;
+  accent: string;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}> = ({ title, count, icon: Icon, accent, actions, children }) => (
+  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+    <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between gap-3">
+      <h3 className="font-semibold text-sm text-[var(--text-primary)] flex items-center gap-2">
+        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${accent}`}>
+          <Icon className="w-3.5 h-3.5" />
+        </div>
+        {title}
+        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+          {count}
+        </span>
+      </h3>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
+    {children}
+  </div>
+);
+
+// ── Multi-param result modal ──────────────────────────────────────────────────
 const MultiParameterResultForm: React.FC<{
   test: any;
   onSave: (parameters: any[]) => Promise<void>;
@@ -153,10 +182,10 @@ const MultiParameterResultForm: React.FC<{
   };
 
   const renderValueInput = (param: any, idx: number) => {
-    const cls = 'w-full px-2 py-1 bg-[var(--bg-main)] border border-[var(--border-color)] rounded text-sm';
+    const cls = 'w-full px-2.5 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all';
     if (param.fieldType === 'select') return (
       <select value={param.value || ''} onChange={e => update(idx, 'value', e.target.value)} className={cls}>
-        <option value="">-- Select --</option>
+        <option value="">— Select —</option>
         {(param.options || []).map((o: string) => <option key={o} value={o}>{o}</option>)}
       </select>
     );
@@ -176,40 +205,107 @@ const MultiParameterResultForm: React.FC<{
     );
   };
 
+  const filledCount = parameters.filter(p => p.value !== '' && p.value !== null && p.value !== undefined).length;
+  const progress = parameters.length > 0 ? Math.round((filledCount / parameters.length) * 100) : 0;
+  const abnormalCount = parameters.filter(p => {
+    const f = computeParamFlag(p);
+    return f.flag === 'HIGH' || f.flag === 'LOW';
+  }).length;
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={onCancel} />
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-4xl w-full max-h-[85vh] overflow-y-auto border border-[var(--border-color)]">
-          <div className="sticky top-0 bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
-            <h2 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
-              <FlaskConical className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-              Enter Results: {getTestName(test)}
-            </h2>
-            <button onClick={onCancel} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
-              <X className="w-4 h-4 text-[var(--text-secondary)]" />
-            </button>
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+        <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)]">
+
+          {/* Header */}
+          <div className="relative bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 px-6 py-5 text-white flex-shrink-0">
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-transparent" />
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center flex-shrink-0">
+                  <FlaskConical className="w-6 h-6 text-cyan-300" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="text-lg font-bold truncate text-white">
+                    Enter Results
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5 truncate">
+                    {getTestName(test)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onCancel}
+                className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 text-slate-300 hover:text-white"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Live progress strip */}
+            <div className="mt-4 grid grid-cols-3 gap-2">
+              <div className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Parameters</p>
+                <p className="text-sm font-bold text-white">{filledCount} / {parameters.length}</p>
+              </div>
+              <div className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Abnormal</p>
+                <p className={`text-sm font-bold ${abnormalCount > 0 ? 'text-red-300' : 'text-white'}`}>
+                  {abnormalCount} flagged
+                </p>
+              </div>
+              <div className="bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
+                <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Progress</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        progress === 100 ? 'bg-green-400' : 'bg-cyan-400'
+                      }`}
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-bold text-white">{progress}%</span>
+                </div>
+              </div>
+            </div>
+
+            {abnormalCount > 0 && (
+              <div className="mt-3 flex items-center gap-2 bg-red-500/20 border border-red-400/40 rounded-lg px-3 py-2">
+                <AlertCircle className="w-4 h-4 text-red-300 flex-shrink-0" />
+                <p className="text-xs font-semibold text-red-200">
+                  {abnormalCount} abnormal result{abnormalCount > 1 ? 's' : ''} detected — review before saving
+                </p>
+              </div>
+            )}
           </div>
 
-          <div className="p-5 space-y-4">
-            <div className="overflow-x-auto">
+          {/* Body */}
+          <div className="flex-1 overflow-y-auto p-6" style={{ scrollbarWidth: 'thin' }}>
+            <div className="overflow-x-auto rounded-xl border border-[var(--border-color)]">
               <table className="w-full text-sm">
                 <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                   <tr>
-                    <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Parameter</th>
-                    <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
-                    <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
-                    <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Units</th>
-                    <th className="px-3 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] w-[32%]">Parameter</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Result</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Normal Range</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Units</th>
+                    <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Flag</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--border-color)]">
                   {parameters.map((param, idx) => {
                     const flagInfo = computeParamFlag(param);
                     return (
-                      <tr key={param.fieldName || idx}>
+                      <tr key={param.fieldName || idx} className={`transition-colors ${
+                        flagInfo.flag === 'HIGH' ? 'bg-red-50/40' :
+                        flagInfo.flag === 'LOW' ? 'bg-yellow-50/40' : ''
+                      }`}>
                         <td className="px-3 py-2 font-medium text-[var(--text-primary)]">
-                          {param.name}{param.required && <span className="text-red-500 ml-1">*</span>}
+                          {param.name}
+                          {param.required && <span className="text-red-500 ml-1">*</span>}
                         </td>
                         <td className="px-3 py-2">{renderValueInput(param, idx)}</td>
                         <td className="px-3 py-2">
@@ -218,16 +314,14 @@ const MultiParameterResultForm: React.FC<{
                             value={param.normalRange || ''}
                             onChange={e => update(idx, 'normalRange', e.target.value)}
                             placeholder="e.g., 4.0–11.0"
-                            className="w-full px-2 py-1 bg-[var(--bg-main)] border border-[var(--border-color)] rounded text-sm text-[var(--text-secondary)]"
+                            className="w-full px-2.5 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                           />
                         </td>
-                        <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap">
+                        <td className="px-3 py-2 text-[var(--text-secondary)] whitespace-nowrap text-xs">
                           {param.unit || '—'}
                         </td>
                         <td className="px-3 py-2">
-                          {flagInfo.flag && (
-                            <span className={`text-xs font-medium ${flagInfo.color}`}>{flagInfo.flag}</span>
-                          )}
+                          <FlagPill flag={flagInfo.flag} />
                         </td>
                       </tr>
                     );
@@ -235,17 +329,33 @@ const MultiParameterResultForm: React.FC<{
                 </tbody>
               </table>
             </div>
+          </div>
 
-            <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
-              <button onClick={onCancel}
-                className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors text-sm">
-                Cancel
-              </button>
-              <button onClick={() => onSave(parameters)} disabled={isSaving}
-                className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50">
-                {isSaving ? 'Saving...' : 'Save Results'}
-              </button>
-            </div>
+          {/* Footer */}
+          <div className="flex-shrink-0 border-t border-[var(--border-color)] bg-[var(--bg-card)] px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
+            <button
+              onClick={onCancel}
+              className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onSave(parameters)}
+              disabled={isSaving}
+              className="flex items-center gap-2 px-5 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold shadow-sm shadow-cyan-500/20 transition-all"
+            >
+              {isSaving ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save Results
+                </>
+              )}
+            </button>
           </div>
         </div>
       </div>
@@ -264,7 +374,7 @@ export default function LabResultEntry() {
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // ── State ──
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState('');
@@ -275,15 +385,13 @@ export default function LabResultEntry() {
   const [isMultiParamModalOpen, setIsMultiParamModalOpen] = useState(false);
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [showSendResult, setShowSendResult] = useState(false);
-  const [sendResultTest, setSendResultTest] = useState<any>(null);  // which test to send
+  const [sendResultTest, setSendResultTest] = useState<any>(null);
 
-  // Single-result form fields
   const [result, setResult] = useState('');
   const [normalRange, setNormalRange] = useState('');
   const [units, setUnits] = useState('');
   const [notes, setNotes] = useState('');
 
-  // ── Stores ─────────────────────────────────────────────────────────────────
   const { attendances, getAttendances, updateLabTestStatus } = useAttendanceStore();
   const { patients, loadPatients, fetchPatient } = usePatientStore();
   const { user } = useAuthStore();
@@ -294,7 +402,7 @@ export default function LabResultEntry() {
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
   const [labTests, setLabTests] = useState<any[]>([]);
 
-  // ── Load ───────────────────────────────────────────────────────────────────
+  // ── Load ──
   const loadData = async () => {
     try {
       setRefreshing(true);
@@ -338,7 +446,6 @@ export default function LabResultEntry() {
 
   useEffect(() => { loadData(); }, [id]);
 
-  // ── Attendance change ──────────────────────────────────────────────────────
   const handleAttendanceChange = (attendanceId: string) => {
     const att = allAttendances.find(a => a.id === attendanceId);
     if (att) {
@@ -356,7 +463,6 @@ export default function LabResultEntry() {
     setResultEntryTest(null);
   };
 
-  // ── Workflow actions ───────────────────────────────────────────────────────
   const handleMarkInProgress = async (testId: string) => {
     if (!selectedAttendanceId) return;
     try {
@@ -435,13 +541,11 @@ export default function LabResultEntry() {
     }
   };
 
-  // ── Print a single completed test result ──────────────────────────────────
   const handlePrintResult = async (test: any) => {
     if (!patient || !attendance) { toastError('Error', 'Missing patient or attendance info'); return; }
     setPrintingId(test.id);
     try {
       const parameters = test.result?.parameters || [];
-      // Build a flat array of result lines whether multi-param or single-value
       const resultLines = parameters.length > 0
         ? parameters
         : [{ name: getTestName(test), value: typeof test.result === 'object' ? test.result?.value : test.result, normalRange: test.normalRange, unit: test.units }];
@@ -469,7 +573,6 @@ export default function LabResultEntry() {
     }
   };
 
-  // ── Print ALL completed results at once ───────────────────────────────────
   const handlePrintAll = async () => {
     if (!patient || !attendance) { toastError('Error', 'Missing patient or attendance info'); return; }
     if (!completedTests.length) { toastError('Nothing to print', 'No completed lab results'); return; }
@@ -512,13 +615,23 @@ export default function LabResultEntry() {
     success('Test requested', 'Lab test added successfully');
   };
 
-  // ── Derived ────────────────────────────────────────────────────────────────
+  // ── Derived ──
   const canAddEntries = attendance && ['pending', 'admitted'].includes(attendance.status);
   const canUpdateLabTest = attendance && ['pending', 'admitted'].includes(attendance.status);
 
   const pendingTests = labTests.filter(t => t.status === 'requested');
   const inProgressTests = labTests.filter(t => t.status === 'in_progress');
   const completedTests = labTests.filter(t => t.status === 'completed');
+
+  const abnormalCount = useMemo(() => {
+    return completedTests.reduce((acc, test) => {
+      const params = test.result?.parameters || [];
+      return acc + params.filter((p: any) => {
+        const f = computeParamFlag(p);
+        return f.flag === 'HIGH' || f.flag === 'LOW';
+      }).length;
+    }, 0);
+  }, [completedTests]);
 
   const calculateAge = (dob: string): number => {
     if (!dob) return 0;
@@ -528,12 +641,11 @@ export default function LabResultEntry() {
     return age;
   };
 
-  // ── Loading / not found ────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
       <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-        <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Laboratory Data...</h2>
+        <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Laboratory Data…</h2>
       </div>
     </div>
   );
@@ -541,11 +653,11 @@ export default function LabResultEntry() {
   if (!patient) return (
     <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
       <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-        <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
+        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
         <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
         <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
         <button onClick={() => navigate('/dashboard/laboratory')}
-          className="mt-4 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+          className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all">
           Back to Waiting List
         </button>
       </div>
@@ -554,60 +666,71 @@ export default function LabResultEntry() {
 
   const patientFullName = getPatientName(patient);
   const patientAge = patient.age || calculateAge(patient.dateOfBirth);
+  const totalTests = labTests.length;
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-5 p-4 sm:p-6">
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      {/* ── HEADER ── */}
+      <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button onClick={() => navigate('/dashboard/laboratory')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]">
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
+            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors">
+            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <FlaskConical className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center shadow-sm shadow-cyan-500/20">
+            <FlaskConical className="w-5 h-5 text-white" />
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Laboratory Results</h1>
-            <p className="text-sm text-[var(--text-secondary)]">{patientFullName}</p>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-[var(--text-primary)]">Laboratory Results</h1>
+            <p className="text-xs text-[var(--text-secondary)] truncate">
+              {patientFullName} · {totalTests} test{totalTests !== 1 ? 's' : ''}
+              {abnormalCount > 0 && (
+                <span className="ml-2 inline-flex items-center gap-1 text-red-600 font-semibold">
+                  <AlertTriangle className="w-3 h-3" />
+                  {abnormalCount} abnormal
+                </span>
+              )}
+            </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Request test */}
           <button onClick={() => setShowLabModal(true)} disabled={!canAddEntries}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-all text-sm disabled:opacity-50">
-            <Plus className="w-4 h-4" /> Request Test
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all text-sm font-semibold disabled:opacity-50 shadow-sm shadow-cyan-500/20">
+            <Plus className="w-4 h-4" />
+            <span className="hidden sm:inline">Request Test</span>
+            <span className="sm:hidden">New</span>
           </button>
 
-          {/* Print all completed results */}
           {completedTests.length > 0 && (
-            <button onClick={handlePrintAll} disabled={printingId === 'all'}
-              className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] transition-all text-sm disabled:opacity-50">
-              <Printer className={`w-4 h-4 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
-              Print All
-            </button>
-          )}
-
-          {/* Send all results via SendDocumentModal */}
-          {completedTests.length > 0 && (
-            <button onClick={() => { setSendResultTest(null); setShowSendResult(true); }}
-              className="flex items-center gap-2 px-4 py-2 border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all text-sm">
-              <MessageSquare className="w-4 h-4" /> Send Results
-            </button>
+            <>
+              <button onClick={handlePrintAll} disabled={printingId === 'all'}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm font-medium"
+                title="Print all completed results">
+                <Printer className={`w-4 h-4 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
+                <span className="hidden sm:inline">Print All</span>
+                <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-main)] font-bold">
+                  {completedTests.length}
+                </span>
+              </button>
+              <button onClick={() => { setSendResultTest(null); setShowSendResult(true); }}
+                className="p-2 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-all"
+                title="Send all results">
+                <MessageSquare className="w-4 h-4" />
+              </button>
+            </>
           )}
 
           <button onClick={loadData} disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]">
+            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
+            title="Refresh">
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
           </button>
         </div>
       </div>
 
-      {/* ── SEND DOCUMENT MODAL ─────────────────────────────────────────────── */}
+      {/* ── SEND MODAL ── */}
       <SendDocumentModal
         open={showSendResult}
         onClose={() => { setShowSendResult(false); setSendResultTest(null); }}
@@ -616,7 +739,7 @@ export default function LabResultEntry() {
         entityId={sendResultTest?.id || selectedAttendanceId}
       />
 
-      {/* ── PATIENT / ATTENDANCE SELECTOR ───────────────────────────────────── */}
+      {/* ── SELECTOR ── */}
       <PatientAttendanceSelector
         patients={[patient]}
         attendances={allAttendances}
@@ -633,161 +756,194 @@ export default function LabResultEntry() {
         onClearSelection={handleClearSelection}
       />
 
-      {/* No attendance selected */}
       {!selectedAttendanceId && (
-        <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-8 text-center">
-          <Calendar className="w-12 h-12 text-[var(--icon-yellow-text)] mx-auto mb-3 opacity-50" />
-          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No Attendance Selected</h3>
-          <p className="text-[var(--text-secondary)]">Please select an attendance from the dropdown above to manage lab tests.</p>
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-10 text-center shadow-sm">
+          <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Calendar className="w-8 h-8 text-yellow-600" />
+          </div>
+          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Attendance Selected</h3>
+          <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto">
+            Select an attendance from the dropdown above to manage lab tests.
+          </p>
         </div>
       )}
 
-      {/* ── MAIN CONTENT ────────────────────────────────────────────────────── */}
+      {/* ── MAIN CONTENT ── */}
       {selectedAttendanceId && attendance && (
         <>
           {/* Patient info card */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Patient Information
-              </h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Full Name</p>
-                  <p className="text-sm font-medium text-[var(--text-primary)] mt-1">{patientFullName}</p>
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+            <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-cyan-100 to-cyan-50 border border-cyan-200 flex items-center justify-center shadow-sm">
+                  <User className="w-5 h-5 text-cyan-600" />
                 </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Folder Number</p>
-                  <p className="text-sm font-mono text-[var(--text-primary)] mt-1">{patient.folderNumber}</p>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-bold text-[var(--text-primary)] text-base">{patientFullName}</h3>
+                    <span className="text-xs text-[var(--text-secondary)]">
+                      {patient.gender === 'male' ? '♂' : patient.gender === 'female' ? '♀' : '·'} · {patientAge}y
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
+                    <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
+                      <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
+                      {patient.folderNumber}
+                    </span>
+                    {patient.contact && (
+                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Phone className="w-2.5 h-2.5" />
+                        {patient.contact}
+                      </span>
+                    )}
+                    {(attendance.ward?.wardName || attendance.bed?.bedNumber) && (
+                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
+                        <BedDouble className="w-2.5 h-2.5" />
+                        {attendance.ward?.wardName || '—'} / {attendance.bed?.bedNumber || '—'}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Age & Gender</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-1 capitalize">{patientAge} years · {patient.gender || '—'}</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
+                  <span className="text-xs font-mono text-[var(--text-secondary)]">
+                    #{attendance.attendanceNumber || 'New Visit'}
+                  </span>
                 </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Ward / Bed</p>
-                  <p className="text-sm text-[var(--text-primary)] mt-1">
-                    {attendance.ward?.wardName || '—'} / {attendance.bed?.bedNumber || '—'}
-                  </p>
+                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
+                  <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
+                  </span>
                 </div>
+                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                  attendance.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
+                  attendance.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
+                  'bg-gray-50 text-gray-700 border-gray-200'
+                }`}>
+                  {attendance.status?.replace(/_/g, ' ')}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Read-only warning */}
           {!canUpdateLabTest && (
-            <div className="bg-[var(--icon-yellow-bg)] border border-[var(--icon-yellow-text)] rounded-xl p-4 flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-              <p className="text-sm text-[var(--icon-yellow-text)]">
-                This visit is <strong>{attendance.status}</strong>. Tests can be viewed but not processed.
-              </p>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm text-yellow-800 font-medium">Read-only view</p>
+                <p className="text-xs text-yellow-700 mt-0.5">
+                  This visit is <strong>{attendance.status}</strong>. Tests can be viewed but not processed.
+                </p>
+              </div>
             </div>
           )}
 
           {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3">
             {[
-              { count: pendingTests.length, label: 'Pending Tests', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
+              { count: pendingTests.length, label: 'Pending', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
               { count: inProgressTests.length, label: 'In Progress', color: 'text-blue-600', bg: 'bg-blue-100', Icon: Activity },
               { count: completedTests.length, label: 'Completed', color: 'text-green-600', bg: 'bg-green-100', Icon: CheckCircle },
-            ].map(s => (
-              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={`text-2xl font-bold ${s.color}`}>{s.count}</p>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">{s.label}</p>
+            ].map(s => {
+              const Icon = s.Icon;
+              return (
+                <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow">
+                  <div className="w-9 h-9 rounded-lg flex items-center justify-center mb-1.5 ${s.bg}">
+                    <Icon className={`w-4.5 h-4.5 ${s.color}`} />
                   </div>
-                  <div className={`w-10 h-10 ${s.bg} rounded-lg flex items-center justify-center`}>
-                    <s.Icon className={`w-5 h-5 ${s.color}`} />
-                  </div>
+                  <p className={`text-2xl font-bold ${s.color} leading-tight`}>{s.count}</p>
+                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
-          {/* ── PENDING TESTS ──────────────────────────────────────────────── */}
+          {/* ── PENDING TESTS ── */}
           {pendingTests.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-yellow-500" />
-                  Pending Tests ({pendingTests.length})
-                </h3>
-              </div>
+            <ResultSection
+              title="Pending Tests"
+              count={pendingTests.length}
+              icon={Clock}
+              accent="bg-yellow-100 text-yellow-600"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Test Name</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Priority</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Requested On</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Actions</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Test Name</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Priority</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Requested</th>
+                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
-                    {pendingTests.map(test => {
-                      const priorityCls = test.priority === 'stat' ? 'bg-red-100 text-red-700' :
-                        test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700';
-                      return (
-                        <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                          <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{getTestName(test)}</td>
-                          <td className="px-4 py-3">
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${priorityCls}`}>
-                              {test.priority || 'routine'}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-[var(--text-secondary)]">
-                            {test.requestedAt ? new Date(test.requestedAt).toLocaleString() : '—'}
-                          </td>
-                          <td className="px-4 py-3">
-                            {canUpdateLabTest && (
-                              <button onClick={() => handleMarkInProgress(test.id)}
-                                className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg text-xs hover:bg-blue-700 hover:text-white transition-all">
-                                Start Processing
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {pendingTests.map(test => (
+                      <tr key={test.id} className="hover:bg-cyan-50/30 transition-colors group">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-sm text-[var(--text-primary)]">{getTestName(test)}</p>
+                          {test.LabTestTemplate?.specimenType && (
+                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 flex items-center gap-1">
+                              <TestTube className="w-2.5 h-2.5" />
+                              {test.LabTestTemplate.specimenType}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <PriorityPill priority={test.priority || 'routine'} />
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
+                          {test.requestedAt ? new Date(test.requestedAt).toLocaleString() : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {canUpdateLabTest && (
+                            <button onClick={() => handleMarkInProgress(test.id)}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded-lg text-xs font-semibold hover:bg-cyan-600 hover:text-white transition-all">
+                              <Play className="w-3 h-3" />
+                              Start
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </ResultSection>
           )}
 
-          {/* ── IN PROGRESS ────────────────────────────────────────────────── */}
+          {/* ── IN PROGRESS ── */}
           {inProgressTests.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-blue-500" />
-                  In Progress ({inProgressTests.length})
-                </h3>
-              </div>
+            <ResultSection
+              title="In Progress"
+              count={inProgressTests.length}
+              icon={Activity}
+              accent="bg-blue-100 text-blue-600"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Test Name</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Started On</th>
-                      <th className="px-4 py-3 text-left font-semibold text-[var(--text-secondary)]">Actions</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Test Name</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Started</th>
+                      <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)]">
                     {inProgressTests.map(test => (
-                      <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3 font-medium text-[var(--text-primary)]">{getTestName(test)}</td>
-                        <td className="px-4 py-3 text-[var(--text-secondary)]">
+                      <tr key={test.id} className="hover:bg-blue-50/30 transition-colors">
+                        <td className="px-4 py-3">
+                          <p className="font-semibold text-sm text-[var(--text-primary)]">{getTestName(test)}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">
                           {test.updatedAt ? new Date(test.updatedAt).toLocaleString() : '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 text-right">
                           <button onClick={() => handleOpenResultEntry(test)}
-                            className="px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs hover:bg-green-700 hover:text-white transition-all">
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-green-100 text-green-700 rounded-lg text-xs font-semibold hover:bg-green-600 hover:text-white transition-all">
+                            <FileText className="w-3 h-3" />
                             Enter Result
                           </button>
                         </td>
@@ -796,106 +952,114 @@ export default function LabResultEntry() {
                   </tbody>
                 </table>
               </div>
-            </div>
+            </ResultSection>
           )}
 
-          {/* ── COMPLETED RESULTS ──────────────────────────────────────────── */}
+          {/* ── COMPLETED RESULTS ── */}
           {completedTests.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
-                  Completed Results ({completedTests.length})
-                </h3>
-                {/* Print all + send all shortcut in section header */}
-                <div className="flex items-center gap-2">
+            <ResultSection
+              title="Completed Results"
+              count={completedTests.length}
+              icon={CheckCircle}
+              accent="bg-green-100 text-green-600"
+              actions={
+                <>
                   <button onClick={handlePrintAll} disabled={printingId === 'all'}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
-                    <Printer className={`w-3.5 h-3.5 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
-                    Print All
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card)] hover:text-cyan-600 hover:border-cyan-300 transition-all disabled:opacity-50">
+                    <Printer className={`w-3 h-3 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
+                    <span className="hidden sm:inline">Print All</span>
                   </button>
                   <button onClick={() => { setSendResultTest(null); setShowSendResult(true); }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all">
-                    <MessageSquare className="w-3.5 h-3.5" /> Send All
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-medium border border-green-200 text-green-700 rounded-lg hover:bg-green-50 transition-all">
+                    <MessageSquare className="w-3 h-3" />
+                    <span className="hidden sm:inline">Send All</span>
                   </button>
-                </div>
-              </div>
-
-              <div className="max-h-[600px] overflow-y-auto divide-y divide-[var(--border-color)]">
+                </>
+              }
+            >
+              <div className="divide-y divide-[var(--border-color)]">
                 {completedTests.map(test => {
-                  const hasParameters = test.result && typeof test.result === 'object' && test.result.parameters;
+                  const hasParameters = test.result && typeof test.result === 'object' && Array.isArray(test.result.parameters);
                   const parameters = hasParameters ? test.result.parameters : [];
+                  const abnormalInTest = parameters.filter((p: any) => {
+                    const f = computeParamFlag(p);
+                    return f.flag === 'HIGH' || f.flag === 'LOW';
+                  }).length;
 
                   return (
                     <div key={test.id}>
-                      {/* Test header row */}
-                      <div className="bg-[var(--bg-main)] px-4 py-2.5 border-b border-[var(--border-color)]">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-semibold text-sm text-[var(--text-primary)]">{getTestName(test)}</h4>
-                            <p className="text-[10px] text-[var(--text-secondary)]">
+                      {/* Test header */}
+                      <div className="bg-[var(--bg-main)]/50 px-4 py-3 border-b border-[var(--border-color)]">
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <h4 className="font-semibold text-sm text-[var(--text-primary)] truncate">{getTestName(test)}</h4>
+                              {abnormalInTest > 0 && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold bg-red-100 text-red-700 border border-red-200 flex-shrink-0">
+                                  <AlertTriangle className="w-2.5 h-2.5" />
+                                  {abnormalInTest} abnormal
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 flex items-center gap-1.5">
+                              <Clock className="w-2.5 h-2.5" />
                               Completed: {test.completedAt ? new Date(test.completedAt).toLocaleString() : '—'}
+                              {test.LabTestTemplate?.specimenType && (
+                                <>
+                                  <span className="opacity-40">·</span>
+                                  <TestTube className="w-2.5 h-2.5" />
+                                  {test.LabTestTemplate.specimenType}
+                                </>
+                              )}
                             </p>
                           </div>
-                          {/* Per-test actions: print, send, edit */}
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handlePrintResult(test)}
-                              disabled={printingId === test.id}
-                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all disabled:opacity-40"
-                              title="Print this result"
-                            >
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            <button onClick={() => handlePrintResult(test)} disabled={printingId === test.id}
+                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
+                              title="Print">
                               <Printer className={`w-3.5 h-3.5 ${printingId === test.id ? 'animate-pulse' : ''}`} />
                             </button>
-                            <button
-                              onClick={() => { setSendResultTest(test); setShowSendResult(true); }}
+                            <button onClick={() => { setSendResultTest(test); setShowSendResult(true); }}
                               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-                              title="Send this result"
-                            >
+                              title="Send">
                               <MessageSquare className="w-3.5 h-3.5" />
                             </button>
-                            <button
-                              onClick={() => handleOpenResultEntry(test)}
+                            <button onClick={() => handleOpenResultEntry(test)}
                               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 transition-all"
-                              title="Edit result"
-                            >
+                              title="Edit">
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
                       </div>
 
-                      {/* Multi-parameter results table */}
+                      {/* Parameters table */}
                       {hasParameters && parameters.length > 0 ? (
                         <div className="overflow-x-auto">
                           <table className="w-full text-xs">
-                            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                            <thead className="bg-[var(--bg-main)]/30 border-b border-[var(--border-color)]">
                               <tr>
-                                <th className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)] w-[35%]">Parameter</th>
-                                <th className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)]">Result</th>
-                                <th className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)]">Normal Range</th>
-                                <th className="px-4 py-2 text-left font-semibold text-[var(--text-secondary)]">Flag</th>
+                                <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] w-[35%]">Parameter</th>
+                                <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Result</th>
+                                <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Normal Range</th>
+                                <th className="px-4 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Flag</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-[var(--border-color)]">
                               {parameters.map((param: any, idx: number) => {
                                 const flagInfo = computeParamFlag(param);
+                                const rowBg = flagInfo.flag === 'HIGH' ? 'bg-red-50/40' :
+                                              flagInfo.flag === 'LOW' ? 'bg-yellow-50/40' : '';
                                 return (
-                                  <tr key={param.fieldName || idx} className="hover:bg-[var(--bg-main)] transition-colors">
+                                  <tr key={param.fieldName || idx} className={`${rowBg} hover:bg-cyan-50/30 transition-colors`}>
                                     <td className="px-4 py-2 font-medium text-[var(--text-primary)]">{param.name}</td>
                                     <td className={`px-4 py-2 font-mono ${flagInfo.color}`}>
-                                      {param.value || '—'}{param.unit && <span className="text-[10px] ml-1">{param.unit}</span>}
+                                      {param.value || '—'}
+                                      {param.unit && <span className="text-[10px] ml-1 opacity-70">{param.unit}</span>}
                                     </td>
                                     <td className="px-4 py-2 text-[var(--text-secondary)]">{param.normalRange || '—'}</td>
                                     <td className="px-4 py-2">
-                                      {flagInfo.flag && (
-                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${flagInfo.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
-                                            flagInfo.flag === 'LOW' ? 'bg-yellow-100 text-yellow-700' :
-                                              'bg-green-100 text-green-700'
-                                          }`}>
-                                          {flagInfo.flag}
-                                        </span>
-                                      )}
+                                      <FlagPill flag={flagInfo.flag} />
                                     </td>
                                   </tr>
                                 );
@@ -908,56 +1072,62 @@ export default function LabResultEntry() {
                         <div className="p-4">
                           <div className="grid grid-cols-3 gap-4">
                             <div>
-                              <span className="text-xs text-[var(--text-secondary)]">Result</span>
-                              <p className="text-sm font-mono text-[var(--text-primary)]">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Result</span>
+                              <p className="text-sm font-mono text-[var(--text-primary)] mt-1">
                                 {typeof test.result === 'object' ? test.result?.value || '—' : test.result || '—'}
                                 {test.units && <span className="text-xs text-[var(--text-secondary)] ml-1">{test.units}</span>}
                               </p>
                             </div>
                             <div>
-                              <span className="text-xs text-[var(--text-secondary)]">Normal Range</span>
-                              <p className="text-sm text-[var(--text-primary)]">{test.normalRange || '—'}</p>
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Normal Range</span>
+                              <p className="text-sm text-[var(--text-primary)] mt-1">{test.normalRange || '—'}</p>
                             </div>
                             <div>
-                              <span className="text-xs text-[var(--text-secondary)]">Flag</span>
-                              {(() => {
-                                const fi = getResultFlag(
-                                  typeof test.result === 'object' ? test.result?.value : test.result,
-                                  test.normalRange
-                                );
-                                return fi.flag ? (
-                                  <span className={`px-2 py-0.5 rounded text-xs font-bold ${fi.flag === 'HIGH' ? 'bg-red-100 text-red-700' :
-                                      fi.flag === 'LOW' ? 'bg-yellow-100 text-yellow-700' :
-                                        'bg-green-100 text-green-700'
-                                    }`}>{fi.flag}</span>
-                                ) : <span className="text-[var(--text-secondary)]">—</span>;
-                              })()}
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Flag</span>
+                              <div className="mt-1">
+                                {(() => {
+                                  const fi = getResultFlag(
+                                    typeof test.result === 'object' ? test.result?.value : test.result,
+                                    test.normalRange
+                                  );
+                                  return fi.flag ? <FlagPill flag={fi.flag} /> : <span className="text-[var(--text-tertiary)]">—</span>;
+                                })()}
+                              </div>
                             </div>
                           </div>
                         </div>
                       )}
 
                       {test.notes && (
-                        <div className="px-4 py-2 border-t border-[var(--border-color)] bg-blue-50">
-                          <p className="text-xs text-blue-700">📝 {test.notes}</p>
+                        <div className="px-4 py-2.5 border-t border-[var(--border-color)] bg-blue-50">
+                          <p className="text-xs text-blue-800 flex items-start gap-1.5">
+                            <Info className="w-3 h-3 flex-shrink-0 mt-0.5" />
+                            <span><strong>Notes:</strong> {test.notes}</span>
+                          </p>
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-            </div>
+            </ResultSection>
           )}
 
           {/* Empty state */}
           {!pendingTests.length && !inProgressTests.length && !completedTests.length && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-8 text-center">
-              <Microscope className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-              <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-1">No Lab Tests</h3>
-              <p className="text-sm text-[var(--text-secondary)]">No laboratory tests have been requested for this visit</p>
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center shadow-sm">
+              <div className="w-16 h-16 bg-cyan-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Microscope className="w-8 h-8 text-cyan-400" />
+              </div>
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Lab Tests Yet</h3>
+              <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto mb-4">
+                No laboratory tests have been requested for this visit.
+              </p>
               {canAddEntries && (
-                <button onClick={() => setShowLabModal(true)} className="mt-3 text-[var(--icon-cyan-text)] text-sm hover:underline">
-                  Request a test
+                <button onClick={() => setShowLabModal(true)}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 text-sm font-semibold transition-all shadow-sm shadow-cyan-500/20">
+                  <Plus className="w-4 h-4" />
+                  Request First Test
                 </button>
               )}
             </div>
@@ -965,62 +1135,100 @@ export default function LabResultEntry() {
         </>
       )}
 
-      {/* ── SINGLE RESULT ENTRY MODAL ────────────────────────────────────────── */}
+      {/* ── SINGLE RESULT ENTRY MODAL ── */}
       {resultEntryTest && !isMultiParamModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" onClick={() => setResultEntryTest(null)} />
-          <div className="flex min-h-full items-center justify-center p-4">
-            <div className="relative bg-[var(--bg-card)] rounded-xl shadow-xl max-w-md w-full border border-[var(--border-color)]">
-              <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
-                <h3 className="font-semibold text-[var(--text-primary)]">Enter Results: {getTestName(resultEntryTest)}</h3>
-                <button onClick={() => setResultEntryTest(null)} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
-                  <X className="w-4 h-4 text-[var(--text-secondary)]" />
-                </button>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setResultEntryTest(null)} />
+          <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+            <div className="relative bg-[var(--bg-card)] rounded-2xl shadow-2xl max-w-md w-full border border-[var(--border-color)] overflow-hidden">
+
+              <div className="relative bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 px-5 py-4 text-white">
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-transparent" />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-9 h-9 rounded-lg bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center flex-shrink-0">
+                      <FlaskConical className="w-4.5 h-4.5 text-cyan-300" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-bold text-white truncate">Enter Result</h3>
+                      <p className="text-[11px] text-slate-400 truncate">{getTestName(resultEntryTest)}</p>
+                    </div>
+                  </div>
+                  <button onClick={() => setResultEntryTest(null)}
+                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 text-slate-300 hover:text-white">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
               <div className="p-5 space-y-4">
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Result *</label>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
+                    Result <span className="text-red-500">*</span>
+                  </label>
                   <input type="text" value={result} onChange={e => setResult(e.target.value)}
                     placeholder="Enter result value" autoFocus
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Normal Range</label>
+                    <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Normal Range</label>
                     <input type="text" value={normalRange} onChange={e => setNormalRange(e.target.value)}
                       placeholder="e.g., 4.0–11.0"
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+                      className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-cyan-500 transition-all" />
                   </div>
                   <div>
-                    <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Units</label>
+                    <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Units</label>
                     <input type="text" value={units} onChange={e => setUnits(e.target.value)}
                       placeholder="e.g., g/dL"
-                      className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+                      className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-cyan-500 transition-all" />
                   </div>
                 </div>
+
+                {/* Live flag preview */}
+                {result && normalRange && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
+                      Auto-flag:
+                    </span>
+                    <FlagPill flag={getResultFlag(result, normalRange).flag} />
+                  </div>
+                )}
+
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label>
+                  <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Notes</label>
                   <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                    placeholder="Additional comments..."
-                    className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm resize-none" />
+                    placeholder="Additional comments…"
+                    className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-cyan-500 resize-none transition-all" />
                 </div>
-                <div className="flex gap-3 pt-2">
-                  <button onClick={() => setResultEntryTest(null)}
-                    className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm">
-                    Cancel
-                  </button>
-                  <button onClick={handleSingleResultSubmit} disabled={isSubmitting || !result.trim()}
-                    className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50">
-                    {isSubmitting ? 'Saving...' : 'Save Result'}
-                  </button>
-                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3">
+                <button onClick={() => setResultEntryTest(null)}
+                  className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium transition-all">
+                  Cancel
+                </button>
+                <button onClick={handleSingleResultSubmit} disabled={isSubmitting || !result.trim()}
+                  className="flex items-center gap-2 px-5 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold shadow-sm shadow-cyan-500/20 transition-all">
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      Save Result
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── MULTI-PARAMETER RESULT MODAL ─────────────────────────────────────── */}
+      {/* ── MULTI-PARAM MODAL ── */}
       {isMultiParamModalOpen && resultEntryTest && (
         <MultiParameterResultForm
           test={resultEntryTest}
@@ -1030,7 +1238,7 @@ export default function LabResultEntry() {
         />
       )}
 
-      {/* ── LAB TEST REQUEST MODAL ───────────────────────────────────────────── */}
+      {/* ── LAB TEST MODAL ── */}
       {selectedAttendanceId && (
         <LabTestModal
           isOpen={showLabModal}

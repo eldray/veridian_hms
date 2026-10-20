@@ -56,6 +56,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
             Medication: { include: { StockItem: true, ServiceCatalog: true } },
             Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
             referral: true,
+            Admission: true,
           }
         },
         Bill: true,

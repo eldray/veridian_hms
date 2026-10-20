@@ -48,6 +48,24 @@ const MONTHS = [
 ];
 
 // ─────────────────────────────────────────────
+// Safe accessors — leaves may contain junk from the store
+// ─────────────────────────────────────────────
+
+type AnyLeave = any;
+
+/** Keep only objects with a string id and a string status. */
+const isLeaveRecord = (x: unknown): x is AnyLeave =>
+  !!x && typeof x === 'object'
+  && typeof (x as any).id === 'string'
+  && typeof (x as any).status === 'string';
+
+/** Sanitize whatever came out of the store into a clean array. */
+const sanitizeLeaves = (raw: unknown): AnyLeave[] => {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(isLeaveRecord);
+};
+
+// ─────────────────────────────────────────────
 // Reject modal
 // ─────────────────────────────────────────────
 const RejectModal: React.FC<{
@@ -120,7 +138,9 @@ type ViewMode = 'pending' | 'history' | 'yearly';
 
 export default function LeaveManagement() {
   const {
-    leaves, total, isLoading,
+    leaves: rawLeaves,
+    total,
+    isLoading,
     fetchLeaves, approveLeave, rejectLeave, deleteLeave,
   } = useLeaveStore();
   const { users, getAllUsers } = useUserStore();
@@ -137,6 +157,9 @@ export default function LeaveManagement() {
   const [actioningId, setActioningId] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
 
+  // Sanitize once — everything downstream works with clean records
+  const leaves = useMemo(() => sanitizeLeaves(rawLeaves), [rawLeaves]);
+
   // ── Data loading ─────────────────────────────
   useEffect(() => {
     void getAllUsers({ isActive: true });
@@ -149,7 +172,6 @@ export default function LeaveManagement() {
     } else if (view === 'history') {
       void fetchLeaves({ limit: 200 });
     } else {
-      // yearly — load everything for the year
       const from = new Date(year, 0, 1).toISOString();
       const to = new Date(year, 11, 31, 23, 59, 59).toISOString();
       void fetchLeaves({ fromDate: from, toDate: to, limit: 1000 });
@@ -198,10 +220,6 @@ export default function LeaveManagement() {
     return Array.from(byStaff.values()).sort((a, b) => a.name.localeCompare(b.name));
   }, [visibleLeaves, filterUser]);
 
-  /**
-   * Given a leave, month index, and target year, return the portion of
-   * the leave that falls within that month of that year, or null.
-   */
   const portionInMonth = (leave: any, month: number) => {
     const monthStart = new Date(year, month, 1);
     const monthEnd = new Date(year, month + 1, 0, 23, 59, 59);

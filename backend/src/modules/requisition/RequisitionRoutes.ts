@@ -19,18 +19,21 @@ export function createRequisitionRoutes(prisma: PrismaClient): Router {
   // ==========================================
   // Doctors, Nurses, Midwives, Records can create and view their requisitions
   router.get('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.getRequisitions as any);
+  // Search items with supplier/requester quantities (must be declared before '/:id')
+  router.get('/stock-lookup', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.lookupStock as any);
   router.get('/:id', controller.getRequisitionById as any);
-  router.post('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.createRequisition);
+  router.post('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.createRequisition);
   
   // Only the original requester or Admin can edit/delete a DRAFT
-  router.put('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.updateRequisition);
-  router.delete('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.deleteRequisition as any);
+  router.put('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.updateRequisition);
+  router.delete('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.deleteRequisition as any);
 
   // ==========================================
   // STORE / ADMIN ROUTES (Approving & Fulfilling)
   // ==========================================
   // Only Admin, Pharmacist, or Store Manager can approve items or change status
-  router.patch('/:id/status', requireRole(['admin', 'pharmacist', 'records']), controller.updateRequisitionStatus);
+  // Requesters submit/cancel; the supplying department approves/fulfils. Who may do what is enforced in the service.
+  router.patch('/:id/status', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.updateRequisitionStatus);
   router.post('/:id/approve-items', requireRole(['admin', 'pharmacist']), controller.approveRequisitionItems);
 
   return router;

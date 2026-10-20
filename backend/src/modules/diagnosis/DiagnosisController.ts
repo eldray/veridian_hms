@@ -19,7 +19,10 @@ export class DiagnosisController extends BaseController {
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       // ✅ Use BaseController's safe pagination parser
-      const { page, limit } = this.getPaginationParams(req);
+      // Diagnoses are a reference list (thousands of ICD rows). Same approach as lab tests/scans/procedures:
+      // allow up to 1000 per request and default to 1000 when the caller sends no limit.
+      const { page } = this.getPaginationParams(req, 1000);
+      const limit = req.query.limit ? this.getPaginationParams(req, 1000).limit : 1000;
       const { morbidityGroup, isActive, search, searchField } = req.query;
 
       const filters = {

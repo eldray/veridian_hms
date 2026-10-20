@@ -1,5 +1,5 @@
 // src/utils/pdfTemplates/receiptPDF.ts - REDESIGNED PROFESSIONAL VERSION
-import type { Bill, Patient, Payment, Hospital } from '../types';
+import type { Bill, Patient, Payment, HospitalInfo } from '../../types';
 
 export const generateReceiptHTML = (
   bill: any,

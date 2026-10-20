@@ -12,7 +12,8 @@ export interface CreateEncounterDTO {
   nhisCCC?: string;
   insuranceProviderId?: string;
   corporateAccountId?: string;
-  complaint?: string; // Mapped to medicalNotes in Service
+  complaint?: string;
+  complaints?: string;
   medicalNotes?: string; // ✅ ADDED: Direct schema field
   clinicalNotes?: any;   // ✅ ADDED: JSON field for flexible SOAP notes
   referredFrom?: string;
@@ -27,14 +28,29 @@ export interface CreateEncounterDTO {
 export interface UpdateEncounterDTO {
   status?: AttendanceStatus;
   complaint?: string;
+  complaints?: string;
   medicalNotes?: string;
   clinicalNotes?: any; // ✅ ADDED
   treatmentPlan?: string;
   followUpDate?: Date;
+  dateTime?: Date;
+  attendanceType?: CreateEncounterDTO['attendanceType'];
+  paymentMode?: CreateEncounterDTO['paymentMode'];
+  nhisCCC?: string;
+  insuranceProviderId?: string | null;
+  corporateAccountId?: string | null;
   encounterCategory?: 'opd' | 'ipd' | 'daycase';
   bedId?: string | null;
   wardId?: string | null;
   admissionType?: string;
+  updatedById?: string;
+
+  // Legacy SOAP fields kept for compatibility with older clients; normalized server-side
+  historyPresentingComplaint?: string;
+  onsetDurationQuality?: string;
+  physicalExamination?: string;
+  treatmentNotes?: any[];
+  physicianNotes?: any[];
 }
 
 export interface BaseWorklistItem {
@@ -50,7 +66,22 @@ export interface BaseWorklistItem {
 }
 
 export interface AddDiagnosisDTO { diagnosisId: string; diagnosisType: 'primary' | 'additional' | 'provisional'; notes?: string; presentOnAdmission?: 'Y' | 'N' | 'U'; }
-export interface AddVitalsDTO { bloodPressure?: string; temperature?: number; pulse?: number; respiration?: number; spo2?: number; weight?: number; height?: number; muac?: number; notes?: string; }
+export interface AddVitalsDTO {
+  bloodPressure?: string;
+  temperature?: number;
+  pulse?: number;
+  respiration?: number;
+  spo2?: number;
+  weight?: number;
+  height?: number;
+  muac?: number;
+  notes?: string;
+  fetalHeartRate?: number;
+  fundalHeight?: number;
+  presentingPart?: string;
+  fetalMovement?: boolean;
+  oedema?: boolean;
+}
 export interface AddPrescriptionDTO { stockItemId: string; serviceCatalogId: string; dosage: string; frequency: string; duration: string; route?: string; instructions?: string; quantity?: number; }
 export type AddMedicationDTO = AddPrescriptionDTO;
 export interface AddLabTestDTO { templateId: string; serviceCatalogId?: string; priority?: 'routine' | 'urgent' | 'stat'; notes?: string; }

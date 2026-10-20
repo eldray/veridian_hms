@@ -9,8 +9,6 @@ import {
   FileText,
   Download,
   Eye,
-  CheckCircle,
-  XCircle,
   DollarSign,
   PlayCircle,
   Calendar,
@@ -19,19 +17,13 @@ import {
   RefreshCw,
   Shield,
   ArrowLeft,
-  Edit,
   Lock,
   Printer,
   Building,
-  Layers,
-  Users,
-  CreditCard,
-  AlertCircle,
-  Trash2,
   Briefcase,
-  Filter,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
@@ -45,26 +37,26 @@ export default function InsuranceClaims() {
     nhisClaims,
     getNHISClaims,
     generateNHISClaim,
-    
+
     // Private Claims
     privateClaims,
     getPrivateInsuranceClaims,
     generatePrivateInsuranceClaim,
-    
-    // Corporate Claims (to be added to store)
+
+    // Corporate Claims
     corporateClaims,
     getCorporateClaims,
     generateCorporateClaim,
-    
+
     // Common
     finalizeClaim,
-    generateClaimXML,
-    generateClaimPrint,
-    getFinalizedClaimsTotal,
-    finalizedClaimsTotal,
-    
+    downloadClaimXml,
+    printClaim,
+    getClaimsSummary,
+    summary,
+
     // UI State
-    isLoading: claimsLoading
+    isLoading: claimsLoading,
   } = useInsuranceStore();
 
   const { attendances, getAttendances, isLoading: attendanceLoading } = useAttendanceStore();
@@ -77,7 +69,7 @@ export default function InsuranceClaims() {
   const [processingClaims, setProcessingClaims] = useState<Set<string>>(new Set());
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -85,18 +77,21 @@ export default function InsuranceClaims() {
   const isLoading = claimsLoading || attendanceLoading;
 
   // Get current claims based on active tab
-  const currentClaims = activeTab === 'nhis' ? nhisClaims : activeTab === 'private' ? privateClaims : corporateClaims;
+  const currentClaims =
+    activeTab === 'nhis' ? nhisClaims : activeTab === 'private' ? privateClaims : corporateClaims;
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, startDate, endDate]);
 
   const loadData = async () => {
+    const filters: any = {};
+    if (startDate) filters.startDate = startDate;
+    if (endDate) filters.endDate = endDate;
+
+    // 1) Claims list — failure here should surface to the user.
     try {
-      const filters: any = {};
-      if (startDate) filters.startDate = startDate;
-      if (endDate) filters.endDate = endDate;
-      
       if (activeTab === 'nhis') {
         await getNHISClaims(filters);
       } else if (activeTab === 'private') {
@@ -104,28 +99,44 @@ export default function InsuranceClaims() {
       } else if (activeTab === 'corporate') {
         await getCorporateClaims(filters);
       }
-      
-      await getAttendances();
-      await getFinalizedClaimsTotal({ type: activeTab === 'corporate' ? 'corporate' : activeTab });
-      
-      success('Data loaded', `${activeTab.toUpperCase()} claims ready`);
     } catch (error: any) {
-      toastError('Load failed', error?.message || 'Could not fetch data');
+      toastError('Load failed', error?.response?.data?.message || error?.message || 'Could not fetch claims');
+    }
+
+    // 2) Attendance worklist — non-fatal.
+    try {
+      await getAttendances();
+    } catch {
+      /* non-fatal */
+    }
+
+    // 3) Summary — non-fatal; failure must not blank the table.
+    try {
+      await getClaimsSummary(activeTab);
+    } catch {
+      /* non-fatal */
     }
   };
 
   const getPatientFullName = (patient: any) => {
     if (!patient) return 'Unknown';
-    return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown';
+    return (
+      patient.name ||
+      patient.fullName ||
+      `${patient.surname || ''} ${patient.otherNames || ''}`.trim() ||
+      'Unknown'
+    );
   };
 
   // Get eligible attendances based on active tab
   const getEligibleAttendances = () => {
-    const paymentMode = activeTab === 'nhis' ? 'nhis' : activeTab === 'private' ? 'private_insurance' : 'corporate';
-    return attendances.filter(att =>
-      att.paymentMode === paymentMode &&
-      att.status === 'completed' &&
-      !currentClaims.some(c => c.attendanceId === att.id)
+    const paymentMode =
+      activeTab === 'nhis' ? 'nhis' : activeTab === 'private' ? 'private_insurance' : 'corporate';
+    return attendances.filter(
+      (att) =>
+        att.paymentMode === paymentMode &&
+        att.status === 'completed' &&
+        !currentClaims.some((c) => c.attendanceId === att.id)
     );
   };
 
@@ -140,9 +151,14 @@ export default function InsuranceClaims() {
     paid: currentClaims.filter((c: any) => c.status === 'paid').length,
     rejected: currentClaims.filter((c: any) => c.status === 'rejected').length,
     totalAmount: currentClaims.reduce((sum: number, c: any) => sum + (c.totalClaimAmount || 0), 0),
-    approvedAmount: currentClaims.filter((c: any) => c.status === 'approved').reduce((sum: number, c: any) => sum + (c.approvedAmount || 0), 0),
-    paidAmount: currentClaims.filter((c: any) => c.status === 'paid').reduce((sum: number, c: any) => sum + (c.paidAmount || 0), 0),
-    finalizedAmount: finalizedClaimsTotal?.totalAmount || 0
+    approvedAmount: currentClaims
+      .filter((c: any) => c.status === 'approved')
+      .reduce((sum: number, c: any) => sum + (c.approvedAmount || 0), 0),
+    paidAmount: currentClaims
+      .filter((c: any) => c.status === 'paid')
+      .reduce((sum: number, c: any) => sum + (c.paidAmount || 0), 0),
+    // summary.finalized is the server's authoritative "finalized/submitted" total.
+    finalizedAmount: summary?.finalized?.totalAmount || 0,
   };
 
   // Filter claims by search and status
@@ -152,9 +168,9 @@ export default function InsuranceClaims() {
       getPatientFullName(claim.patient).toLowerCase().includes(searchTerm.toLowerCase()) ||
       claim.insuranceProvider?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       claim.corporateAccount?.companyName?.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     const matchesStatus = filterStatus === 'all' || claim.status === filterStatus;
-    
+
     let matchesDate = true;
     if (startDate && claim.Attendance?.dateTime) {
       const claimDate = new Date(claim.Attendance.dateTime);
@@ -167,7 +183,7 @@ export default function InsuranceClaims() {
       end.setHours(23, 59, 59, 999);
       matchesDate = matchesDate && claimDate <= end;
     }
-    
+
     return matchesSearch && matchesStatus && matchesDate;
   });
 
@@ -185,8 +201,8 @@ export default function InsuranceClaims() {
 
   const handleGenerateClaim = async (attendanceId: string) => {
     try {
-      setProcessingClaims(prev => new Set(prev).add(attendanceId));
-      
+      setProcessingClaims((prev) => new Set(prev).add(attendanceId));
+
       if (activeTab === 'nhis') {
         await generateNHISClaim(attendanceId);
         success('NHIS Claim Generated', 'Claim draft created successfully');
@@ -197,13 +213,16 @@ export default function InsuranceClaims() {
         await generateCorporateClaim(attendanceId);
         success('Corporate Claim Generated', 'Claim created successfully');
       }
-      
+
       await loadData();
       setShowPendingAttendances(false);
     } catch (error: any) {
-      toastError('Generation failed', error.message || 'Could not generate claim');
+      toastError(
+        'Generation failed',
+        error?.response?.data?.message || error?.message || 'Could not generate claim'
+      );
     } finally {
-      setProcessingClaims(prev => {
+      setProcessingClaims((prev) => {
         const newSet = new Set(prev);
         newSet.delete(attendanceId);
         return newSet;
@@ -213,14 +232,14 @@ export default function InsuranceClaims() {
 
   const handleFinalizeClaim = async (claimId: string) => {
     try {
-      setProcessingClaims(prev => new Set(prev).add(claimId));
+      setProcessingClaims((prev) => new Set(prev).add(claimId));
       await finalizeClaim(claimId);
       success('Claim finalized', 'Claim is now ready for submission');
       await loadData();
     } catch (error: any) {
-      toastError('Finalize failed', error.message || 'Could not finalize claim');
+      toastError('Finalize failed', error?.response?.data?.message || error?.message || 'Could not finalize claim');
     } finally {
-      setProcessingClaims(prev => {
+      setProcessingClaims((prev) => {
         const newSet = new Set(prev);
         newSet.delete(claimId);
         return newSet;
@@ -230,13 +249,14 @@ export default function InsuranceClaims() {
 
   const handleDownloadXML = async (claimId: string) => {
     try {
-      setProcessingClaims(prev => new Set(prev).add(claimId));
-      await generateClaimXML(claimId);
-      success('XML downloaded', 'Claim XML file ready for submission');
+      setProcessingClaims((prev) => new Set(prev).add(claimId));
+      // Store method opens the XML URL in a new tab.
+      downloadClaimXml(claimId);
+      success('XML ready', 'Claim XML file is downloading');
     } catch (error: any) {
-      toastError('Download failed', error.message || 'Could not generate XML');
+      toastError('Download failed', error?.message || 'Could not generate XML');
     } finally {
-      setProcessingClaims(prev => {
+      setProcessingClaims((prev) => {
         const newSet = new Set(prev);
         newSet.delete(claimId);
         return newSet;
@@ -246,13 +266,14 @@ export default function InsuranceClaims() {
 
   const handlePrintClaim = async (claimId: string) => {
     try {
-      setProcessingClaims(prev => new Set(prev).add(claimId));
-      await generateClaimPrint(claimId);
+      setProcessingClaims((prev) => new Set(prev).add(claimId));
+      // Store method opens the print URL in a new tab.
+      printClaim(claimId);
       success('Print ready', 'Claim data ready for printing');
     } catch (error: any) {
-      toastError('Print failed', error.message || 'Could not generate print format');
+      toastError('Print failed', error?.message || 'Could not generate print format');
     } finally {
-      setProcessingClaims(prev => {
+      setProcessingClaims((prev) => {
         const newSet = new Set(prev);
         newSet.delete(claimId);
         return newSet;
@@ -262,19 +283,27 @@ export default function InsuranceClaims() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'paid': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'submitted': return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'draft': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      default: return 'bg-gray-100 text-gray-600 border-gray-200';
+      case 'approved':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'rejected':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'paid':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'submitted':
+        return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'draft':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      default:
+        return 'bg-gray-100 text-gray-600 border-gray-200';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'submitted': return 'Finalized';
-      default: return status.charAt(0).toUpperCase() + status.slice(1);
+      case 'submitted':
+        return 'Finalized';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -303,13 +332,16 @@ export default function InsuranceClaims() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-900">Insurance Claims</h1>
-            <p className="text-sm text-gray-500">Manage NHIS, Private Insurance, and Corporate Claims</p>
+            <p className="text-sm text-gray-500">
+              Manage NHIS, Private Insurance, and Corporate Claims
+            </p>
             <p className="text-xs text-gray-400 mt-0.5">
-              {filteredClaims.length} claims • {currentStats.totalAmount.toFixed(2)} total • Showing: {getDateFilterDisplay()}
+              {filteredClaims.length} claims • {currentStats.totalAmount.toFixed(2)} total • Showing:{' '}
+              {getDateFilterDisplay()}
             </p>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate('/dashboard/insurance-providers')}
@@ -317,6 +349,13 @@ export default function InsuranceClaims() {
           >
             <Shield className="w-4 h-4" />
             Providers
+          </button>
+          <button
+            onClick={() => navigate('/dashboard/insurance-claims/batches')}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all text-sm text-gray-700"
+          >
+            <Layers className="w-4 h-4" />
+            Claim Batches
           </button>
           {eligibleAttendances.length > 0 && (
             <button
@@ -351,7 +390,6 @@ export default function InsuranceClaims() {
             setStartDate('');
             setEndDate('');
             setCurrentPage(1);
-            loadData();
           }}
           className={`px-6 py-3 text-sm font-medium transition-all relative ${
             activeTab === 'nhis'
@@ -375,7 +413,6 @@ export default function InsuranceClaims() {
             setStartDate('');
             setEndDate('');
             setCurrentPage(1);
-            loadData();
           }}
           className={`px-6 py-3 text-sm font-medium transition-all relative ${
             activeTab === 'private'
@@ -399,7 +436,6 @@ export default function InsuranceClaims() {
             setStartDate('');
             setEndDate('');
             setCurrentPage(1);
-            loadData();
           }}
           className={`px-6 py-3 text-sm font-medium transition-all relative ${
             activeTab === 'corporate'
@@ -440,11 +476,15 @@ export default function InsuranceClaims() {
           <div className="text-xs text-gray-500 mt-1">Paid</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-gray-900">GHS {currentStats.totalAmount.toFixed(2)}</div>
+          <div className="text-lg font-bold text-gray-900">
+            GHS {currentStats.totalAmount.toFixed(2)}
+          </div>
           <div className="text-xs text-gray-500 mt-1">Total Claimed</div>
         </div>
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
-          <div className="text-lg font-bold text-green-600">GHS {currentStats.approvedAmount.toFixed(2)}</div>
+          <div className="text-lg font-bold text-green-600">
+            GHS {currentStats.approvedAmount.toFixed(2)}
+          </div>
           <div className="text-xs text-gray-500 mt-1">Approved Total</div>
         </div>
       </div>
@@ -454,7 +494,13 @@ export default function InsuranceClaims() {
         <div className="bg-white rounded-xl p-5 shadow-sm border border-green-200">
           <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <PlayCircle className="w-5 h-5 text-green-600" />
-            Eligible for {activeTab === 'nhis' ? 'NHIS' : activeTab === 'private' ? 'Private Insurance' : 'Corporate'} Claims ({eligibleAttendances.length})
+            Eligible for{' '}
+            {activeTab === 'nhis'
+              ? 'NHIS'
+              : activeTab === 'private'
+              ? 'Private Insurance'
+              : 'Corporate'}{' '}
+            Claims ({eligibleAttendances.length})
           </h2>
           <div className="space-y-3">
             {eligibleAttendances.slice(0, 5).map((att) => (
@@ -462,7 +508,9 @@ export default function InsuranceClaims() {
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h3 className="font-semibold text-gray-900 text-sm">{att.attendanceNumber}</h3>
+                      <h3 className="font-semibold text-gray-900 text-sm">
+                        {att.attendanceNumber}
+                      </h3>
                       <span className="text-xs text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
                         Completed
                       </span>
@@ -515,9 +563,11 @@ export default function InsuranceClaims() {
             <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
             <input
               type="text"
-              placeholder={activeTab === 'corporate' 
-                ? "Search by claim number, patient, or company..." 
-                : "Search by claim number, patient, or provider..."}
+              placeholder={
+                activeTab === 'corporate'
+                  ? 'Search by claim number, patient, or company...'
+                  : 'Search by claim number, patient, or provider...'
+              }
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
@@ -558,7 +608,10 @@ export default function InsuranceClaims() {
 
             <select
               value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+              onChange={(e) => {
+                setItemsPerPage(Number(e.target.value));
+                setCurrentPage(1);
+              }}
               className="px-3 py-2.5 border border-gray-200 rounded-lg bg-gray-50 text-gray-900 text-sm"
             >
               <option value={10}>10 per page</option>
@@ -572,8 +625,11 @@ export default function InsuranceClaims() {
       {/* Claims Table */}
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse">
+          {[1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse"
+            >
               <div className="h-4 bg-gray-200 rounded w-1/4 mb-3"></div>
               <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
               <div className="h-3 bg-gray-200 rounded w-2/3"></div>
@@ -583,7 +639,15 @@ export default function InsuranceClaims() {
       ) : filteredClaims.length === 0 ? (
         <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 text-center">
           <FileText className="w-14 h-14 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500">No {activeTab === 'nhis' ? 'NHIS' : activeTab === 'private' ? 'Private Insurance' : 'Corporate'} claims found</p>
+          <p className="text-gray-500">
+            No{' '}
+            {activeTab === 'nhis'
+              ? 'NHIS'
+              : activeTab === 'private'
+              ? 'Private Insurance'
+              : 'Corporate'}{' '}
+            claims found
+          </p>
           {eligibleAttendances.length > 0 && (
             <p className="text-gray-400 text-sm mt-1">
               {eligibleAttendances.length} completed visits ready for claims
@@ -596,46 +660,74 @@ export default function InsuranceClaims() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Claim Number</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Patient</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    Claim Number
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    Patient
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
                     {activeTab === 'corporate' ? 'Corporate Account' : 'Provider'}
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Claim Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Approved</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Paid</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Submitted</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Claim Amount
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Approved
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">
+                    Paid
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">
+                    Submitted
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-500 uppercase">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {paginatedClaims.map((claim: any) => (
-                  <tr key={claim.id} className="hover:bg-gray-50 transition-colors duration-150">
+                  <tr
+                    key={claim.id}
+                    className="hover:bg-gray-50 transition-colors duration-150"
+                  >
                     <td className="px-4 py-3">
-                      <span className="font-mono text-sm font-medium text-gray-900">{claim.claimNumber}</span>
+                      <span className="font-mono text-sm font-medium text-gray-900">
+                        {claim.claimNumber}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-gray-900">{getPatientFullName(claim.patient)}</div>
                       {claim.Attendance?.attendanceNumber && (
-                        <div className="text-xs text-gray-500">{claim.Attendance.attendanceNumber}</div>
+                        <div className="text-xs text-gray-500">
+                          {claim.Attendance.attendanceNumber}
+                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-gray-700">
-                        {activeTab === 'corporate' 
-                          ? (claim.corporateAccount?.companyName || '—')
-                          : (claim.insuranceProvider?.name || '—')
-                        }
+                        {activeTab === 'corporate'
+                          ? claim.corporateAccount?.companyName || '—'
+                          : claim.insuranceProvider?.name || '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(claim.status)}`}>
+                      <span
+                        className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(
+                          claim.status
+                        )}`}
+                      >
                         {getStatusLabel(claim.status)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <span className="font-medium text-gray-900">GHS {claim.totalClaimAmount?.toFixed(2)}</span>
+                      <span className="font-medium text-gray-900">
+                        GHS {claim.totalClaimAmount?.toFixed(2)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-gray-700">
@@ -649,7 +741,9 @@ export default function InsuranceClaims() {
                     </td>
                     <td className="px-4 py-3">
                       <span className="text-gray-700">
-                        {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
+                        {claim.submissionDate
+                          ? new Date(claim.submissionDate).toLocaleDateString()
+                          : '—'}
                       </span>
                     </td>
                     <td className="px-4 py-3">
@@ -674,7 +768,7 @@ export default function InsuranceClaims() {
                             </button>
                           </>
                         )}
-                        <button 
+                        <button
                           onClick={() => navigate(`/dashboard/insurance-claims/${claim.id}/edit`)}
                           className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                           title={claim.status === 'draft' ? 'Edit Claim' : 'View Claim'}
@@ -704,7 +798,9 @@ export default function InsuranceClaims() {
             <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="text-sm text-gray-500">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredClaims.length)} of {filteredClaims.length} claim records
+                  Showing {startIndex + 1} to{' '}
+                  {Math.min(startIndex + itemsPerPage, filteredClaims.length)} of{' '}
+                  {filteredClaims.length} claim records
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -714,7 +810,7 @@ export default function InsuranceClaims() {
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
-                  
+
                   {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                     let pageNum;
                     if (totalPages <= 5) {

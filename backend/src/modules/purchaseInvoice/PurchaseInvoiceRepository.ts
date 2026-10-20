@@ -84,7 +84,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           data: {
             stockItemId: item.stockItemId, transactionType: 'purchase', quantity: item.quantity,
             balanceAfter: stockItem.currentStock + item.quantity, reference: data.invoiceNumber,
-            invoiceId: invoice.id, performedBy: createdById || 'system',
+            invoiceId: invoice.id, performedBy: createdById || undefined,
             departmentId: data.receivedAtDepartmentId // ✅ NEW: Log where the purchase happened
           }
         });

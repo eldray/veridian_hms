@@ -7,10 +7,12 @@ export interface CreatePatientDTO {
   contact: string;
   address: string;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
-  insuranceProviderId?: string;
-  corporateAccountId?: string;
-  corporateEmployeeId?: string;
+  insuranceProviderId?: string | null;
+  corporateAccountId?: string | null;
+  corporateEmployeeId?: string | null;
   nhisNumber?: string;
+  nhisExpiryDate?: Date | string | null;
+  nhisActive?: boolean;
   phoneNumber?: string;
   email?: string;
   insuranceDetails?: any;
@@ -18,6 +20,10 @@ export interface CreatePatientDTO {
   billingAddress?: any;
   employer?: any;
   imageUrl?: string;
+  allergies?: CreateAllergyDTO[];
+  medicalHistories?: CreateMedicalHistoryDTO[];
+  surgicalHistories?: CreateSurgicalHistoryDTO[];
+  familyHistories?: CreateFamilyHistoryDTO[];
 }
 
 export interface UpdatePatientDTO extends Partial<CreatePatientDTO> {}
@@ -81,5 +87,17 @@ export interface CreateAllergyDTO {
 export interface CreateMedicalHistoryDTO {
   condition: string;
   diagnosedAt?: Date | string;
+  notes?: string;
+}
+
+export interface CreateSurgicalHistoryDTO {
+  procedure: string;
+  surgeryDate?: Date | string;
+  notes?: string;
+}
+
+export interface CreateFamilyHistoryDTO {
+  relation: string;
+  condition: string;
   notes?: string;
 }

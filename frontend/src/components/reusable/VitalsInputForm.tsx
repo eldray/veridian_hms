@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Vitals } from '../types';
+import type { Vitals } from '../../types';
 import { useToast } from '../../store/toastStore';
 import {
   Heart,

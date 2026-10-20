@@ -1,5 +1,5 @@
 // src/utils/pdfTemplates/combinedPrescriptionPDF.ts - REDESIGNED PROFESSIONAL VERSION
-import type { Patient, Attendance, Hospital } from '../../types';
+import type { Patient, Attendance, HospitalInfo } from '../../types';
 
 export const generateCombinedPrescriptionHTML = (
   medications: any[],

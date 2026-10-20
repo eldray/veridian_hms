@@ -1144,7 +1144,7 @@ getServiceCatalogs: async (filters = {}) => {
     set({ isLoading: true });
     try {
       // Use the imported getServiceCatalog function instead
-      const response = await getServiceCatalog({ 
+      const response = await apiGetServiceCatalog({ 
         serviceType: serviceType, 
         isActive: true, 
         limit: 10000 
@@ -1162,7 +1162,7 @@ getServiceCatalogs: async (filters = {}) => {
   getServiceCategories: async () => {
     try {
       // Use the imported getServiceMetadata function
-      const metadata = await getServiceMetadata();
+      const metadata = await apiGetServiceMetadata();
       return metadata?.categories || [];
     } catch (error) {
       console.error('Error fetching service categories:', error);
@@ -1173,7 +1173,7 @@ getServiceCatalogs: async (filters = {}) => {
   getServiceTypes: async () => {
     try {
       // Use the imported getServiceMetadata function
-      const metadata = await getServiceMetadata();
+      const metadata = await apiGetServiceMetadata();
       return metadata?.serviceTypes || [];
     } catch (error) {
       console.error('Error fetching service types:', error);

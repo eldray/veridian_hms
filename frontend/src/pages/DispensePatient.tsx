@@ -1,4 +1,4 @@
-// src/pages/DispensePatient.tsx - REDESIGNED
+// src/pages/DispensePatient.tsx - REDESIGNED v3 (two-column card grid)
 import { useLiveRefresh } from '../api/realtime';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -10,16 +10,41 @@ import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
+import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
+import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft, Pill, CheckCircle, Package, Printer, RefreshCw,
   AlertCircle, User, X, Plus, FileText, Zap, History,
-  Calendar, Clock, MessageSquare,
+  Calendar, Clock, MessageSquare, Stethoscope,
 } from 'lucide-react';
 import SendDocumentModal from '../components/SendDocumentModal';
 
-const getEntityId = (entity: { id?: string; _id?: string } | null) => entity?.id || entity?._id;
+const getEntityId = (entity: { id?: string; _id?: string } | null) =>
+  entity?.id || entity?._id;
+
+/** Safely coerce any value to a finite number. */
+const toNum = (v: any, fallback = 0): number => {
+  if (v === null || v === undefined || v === '') return fallback;
+  const n = typeof v === 'number' ? v : parseFloat(String(v));
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const formatDate = (d?: string | Date | null) => {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+};
+
+const formatTime = (d?: string | Date | null) => {
+  if (!d) return '—';
+  const dt = new Date(d);
+  if (isNaN(dt.getTime())) return '—';
+  return dt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+};
 
 // ── Status badge ──────────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -36,29 +61,26 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
-// ── Stock level indicator ─────────────────────────────────────────────────────
-const StockLevel: React.FC<{ available: number; needed: number; unit: string }> = ({ available, needed, unit }) => {
-  const ok = available >= needed;
-  const low = available > 0 && available < needed;
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${ok ? 'bg-[var(--icon-green-text)]' : low ? 'bg-[var(--icon-yellow-text)]' : 'bg-[var(--icon-red-text)]'}`} />
-      <span className={`text-xs font-semibold ${ok ? 'text-[var(--icon-green-text)]' : low ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-red-text)]'}`}>
-        {available}
-      </span>
-      <span className="text-[10px] text-[var(--text-tertiary)]">{unit}</span>
-    </div>
-  );
-};
+// ── Column label + value primitives ──────────────────────────────────────────
+const Col: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
+  label, children, className = '',
+}) => (
+  <div className={`min-w-0 ${className}`}>
+    <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] leading-tight mb-0.5">
+      {label}
+    </p>
+    <div className="leading-tight">{children}</div>
+  </div>
+);
 
 // ── Dispense modal ────────────────────────────────────────────────────────────
 const DispenseModal: React.FC<{
   medication: any; stockItem: any;
   onConfirm: (qty: number) => void; onClose: () => void; isProcessing: boolean;
 }> = ({ medication, stockItem, onConfirm, onClose, isProcessing }) => {
-  const [quantity, setQuantity] = useState(medication.quantity || 1);
-  const max = stockItem?.currentStock || medication.quantity || 1;
-  const unitCost = medication.unitCost || stockItem?.costPrice || 0;
+  const [quantity, setQuantity] = useState(toNum(medication.quantity, 1));
+  const max = toNum(stockItem?.currentStock, toNum(medication.quantity, 1));
+  const unitCost = toNum(medication.unitCost, toNum(stockItem?.costPrice, 0));
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
@@ -76,7 +98,6 @@ const DispenseModal: React.FC<{
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Drug info */}
           <div className="px-3 py-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
             <p className="text-xs font-bold text-[var(--text-primary)]">{medication.name}</p>
             <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
@@ -84,7 +105,6 @@ const DispenseModal: React.FC<{
             </p>
           </div>
 
-          {/* Quantity */}
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Quantity</p>
             <div className="flex items-center gap-3">
@@ -103,7 +123,6 @@ const DispenseModal: React.FC<{
             </div>
           </div>
 
-          {/* Cost summary */}
           <div className="grid grid-cols-2 gap-2">
             <div className="px-3 py-2 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
               <p className="text-[10px] text-[var(--text-tertiary)]">Unit cost</p>
@@ -155,6 +174,10 @@ export default function DispensePatient() {
   const [printingId, setPrintingId] = useState<string | null>(null);
   const [showSendRx, setShowSendRx] = useState(false);
   const [isPrescribeModalOpen, setIsPrescribeModalOpen] = useState(false);
+  const [isConsumableModalOpen, setIsConsumableModalOpen] = useState(false);
+  const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+  const [consumableUses, setConsumableUses] = useState<any[]>([]);
+  const [bulkDispensing, setBulkDispensing] = useState(false);
   const [dispenseModal, setDispenseModal] = useState<{ isOpen: boolean; medication: any; stockItem: any }>({
     isOpen: false, medication: null, stockItem: null,
   });
@@ -187,7 +210,7 @@ export default function DispensePatient() {
         if (pick) {
           setSelectedAttendanceId(pick.id);
           setAttendance(pick);
-          setPrescriptions((pick.Medication || []).filter((m: any) => m.status === 'prescribed'));
+          setPrescriptions((pick.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
         }
       }
     } catch (err: any) {
@@ -200,32 +223,30 @@ export default function DispensePatient() {
 
   useEffect(() => { loadData(); }, [id]);
 
-  // Live updates: a doctor adds or cancels a prescription while the pharmacist has the patient open.
-  // Only this visit is refreshed; items already dispensed on screen are kept, and nothing changes
-  // while a dispense is in progress.
+  useEffect(() => {
+    if (!selectedAttendanceId) {
+      setConsumableUses([]);
+      return;
+    }
+    getEncounterConsumableUses(selectedAttendanceId)
+      .then(response => setConsumableUses(Array.isArray(response?.data) ? response.data : []))
+      .catch((err: any) => toastError('Consumable history unavailable', err?.response?.data?.message || err.message));
+  }, [selectedAttendanceId]);
+
   useLiveRefresh(['encounters'], async () => {
     if (!selectedAttendanceId || dispensingId || dispenseModal.isOpen) return;
     const fresh: any = await refreshAttendance(selectedAttendanceId);
     if (!fresh || !Array.isArray(fresh.Medication)) return;
-    const byId = new Map<string, any>(fresh.Medication.map((m: any) => [m.id, m]));
     setAttendance((prev: any) => (prev && prev.id === fresh.id ? { ...prev, ...fresh } : prev));
-    setPrescriptions((prev: any[]) => {
-      const known = new Set(prev.map((m) => m.id));
-      const kept = prev
-        .filter((m) => byId.has(m.id) || m.status !== 'prescribed')           // cancelled prescriptions disappear
-        .map((m) => (byId.has(m.id) ? { ...m, ...byId.get(m.id) } : m));       // status changes made elsewhere
-      const added = fresh.Medication.filter((m: any) => !known.has(m.id) && m.status === 'prescribed');
-      return [...kept, ...added];
-    });
+    setPrescriptions(fresh.Medication.filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
   });
-
 
   const handleAttendanceChange = (attId: string) => {
     const att = allAttendances.find(a => a.id === attId);
     if (att) {
       setSelectedAttendanceId(attId);
       setAttendance(att);
-      setPrescriptions((att.Medication || []).filter((m: any) => m.status === 'prescribed'));
+      setPrescriptions((att.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
     }
   };
 
@@ -233,7 +254,10 @@ export default function DispensePatient() {
 
   const handleDispenseClick = (med: any) => {
     const stock = getStockFor(med);
-    if (!stock || stock.currentStock < 1) { toastError('Out of stock', `${med.name} has no stock`); return; }
+    if (!stock || toNum(stock.currentStock) < 1) {
+      toastError('Out of stock', `${med.name} has no stock`);
+      return;
+    }
     setDispenseModal({ isOpen: true, medication: med, stockItem: stock });
   };
 
@@ -247,17 +271,61 @@ export default function DispensePatient() {
         dispensedAt: new Date().toISOString(),
         dispensedById: user?.id,
         quantity,
-        dispensedUnitCost: stockItem?.costPrice || medication.unitCost || 0,
+        dispensedUnitCost: toNum(stockItem?.costPrice, toNum(medication.unitCost, 0)),
         batchNumber: stockItem?.batchNumber || null,
       });
       success(medication.name, `${quantity} unit(s) dispensed`);
-      await Promise.all([getAttendances(), getStockItems(), getAttendance(attendance.id), calculateBill(attendance.id)]);
-      setPrescriptions(p => p.map(m => m.id === medication.id ? { ...m, status: 'dispensed' } : m));
+      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
+      const refreshedAttendance = await getAttendance(attendance.id);
+      setAttendance(refreshedAttendance);
+      setPrescriptions((refreshedAttendance?.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
     } catch (err: any) {
       toastError('Dispense failed', err.response?.data?.message || err.message);
     } finally {
       setDispensingId(null);
       setDispenseModal({ isOpen: false, medication: null, stockItem: null });
+    }
+  };
+
+  const handleBulkDispenseReady = async () => {
+    if (!attendance?.id) return;
+    const ready = prescriptions.filter(
+      m => m.status === 'prescribed' &&
+        toNum(getStockFor(m)?.currentStock) >= toNum(m.quantity, 1)
+    );
+    if (!ready.length) {
+      toastError('Nothing ready', 'No prescriptions have sufficient stock');
+      return;
+    }
+    setBulkDispensing(true);
+    let okCount = 0;
+    try {
+      for (const m of ready) {
+        setDispensingId(m.id);
+        try {
+          const stock = getStockFor(m);
+          await updateMedicationStatus(attendance.id, m.id, {
+            status: 'dispensed',
+            dispensedAt: new Date().toISOString(),
+            dispensedById: user?.id,
+            quantity: toNum(m.quantity, 1),
+            dispensedUnitCost: toNum(stock?.costPrice, toNum(m.unitCost, 0)),
+            batchNumber: stock?.batchNumber || null,
+          });
+          okCount++;
+        } catch {/* continue */}
+      }
+      success('Bulk dispense', `${okCount} of ${ready.length} item(s) dispensed`);
+      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
+      const refreshed = await getAttendance(attendance.id);
+      setAttendance(refreshed);
+      setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
+        ['prescribed', 'dispensed'].includes(m.status)));
+    } catch (err: any) {
+      toastError('Bulk dispense failed', err.message);
+    } finally {
+      setDispensingId(null);
+      setBulkDispensing(false);
     }
   };
 
@@ -268,7 +336,16 @@ export default function DispensePatient() {
     setPrintingId(med?.id || 'all');
     try {
       const html = generatePDF('combinedPrescription', {
-        medications: meds.map((m: any) => ({ name: m.name, dosage: m.dosage || 'As directed', frequency: m.frequency, duration: m.duration, quantity: m.quantity || 1, route: m.route || 'oral', instructions: m.instructions, prescribedAt: m.prescribedAt || new Date().toISOString() })),
+        medications: meds.map((m: any) => ({
+          name: m.name,
+          dosage: m.dosage || 'As directed',
+          frequency: m.frequency,
+          duration: m.duration,
+          quantity: toNum(m.quantity, 1),
+          route: m.route || 'oral',
+          instructions: m.instructions,
+          prescribedAt: m.prescribedAt || new Date().toISOString(),
+        })),
         patient: { ...patient, fullName: getPatientName(patient) },
         attendance,
         prescriberName: user?.fullName || 'Unknown',
@@ -280,10 +357,46 @@ export default function DispensePatient() {
   };
 
   const canDispense = attendance && ['pending', 'admitted'].includes(attendance.status);
-  const prescribedMeds = prescriptions.filter(m => m.status === 'prescribed');
+  const refreshConsumableUses = async () => {
+    if (!selectedAttendanceId) return;
+    const response = await getEncounterConsumableUses(selectedAttendanceId);
+    setConsumableUses(Array.isArray(response?.data) ? response.data : []);
+  };
+  const afterConsumableChange = async () => {
+    setIsConsumableModalOpen(false);
+    setEditingConsumable(null);
+    await Promise.all([refreshConsumableUses(), getStockItems()]);
+  };
+  const handleDeleteConsumable = async (use: any) => {
+    if (!window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    try {
+      await deleteEncounterConsumableUse(selectedAttendanceId, use.id);
+      success('Consumable use deleted', 'The stock was restored.');
+      await Promise.all([refreshConsumableUses(), getStockItems()]);
+    } catch (err: any) {
+      toastError('Could not delete consumable use', err?.response?.data?.message || err.message);
+    }
+  };
+  const prescribedMeds = prescriptions;
+  const pendingDispenseCount = prescribedMeds.filter(m => m.status === 'prescribed').length;
+  const readyToDispenseCount = prescribedMeds.filter(
+    m => m.status === 'prescribed' &&
+      toNum(getStockFor(m)?.currentStock) >= toNum(m.quantity, 1)
+  ).length;
+
   const dispensedHistory = useMemo(() => (attendance?.Medication || [])
     .filter((m: any) => m.status === 'dispensed')
-    .sort((a: any, b: any) => new Date(b.dispensedAt).getTime() - new Date(a.dispensedAt).getTime()), [attendance]);
+    .sort((a: any, b: any) =>
+      new Date(b.dispensedAt || 0).getTime() - new Date(a.dispensedAt || 0).getTime()),
+    [attendance]);
+
+  const dispensedTotal = useMemo(
+    () => dispensedHistory.reduce(
+      (sum: number, m: any) => sum + toNum(m.dispensedUnitCost) * toNum(m.quantity, 1),
+      0
+    ),
+    [dispensedHistory]
+  );
 
   const calcAge = (dob: string) => {
     if (!dob) return 0;
@@ -299,7 +412,6 @@ export default function DispensePatient() {
   const paymentLabel = attendance?.paymentMode === 'nhis' ? 'NHIS'
     : attendance?.paymentMode === 'private_insurance' ? 'Private Ins.' : 'Cash';
 
-  // ── Loading ──────────────────────────────────────────────────────────────
   if (isLoading) return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="text-center">
@@ -354,6 +466,12 @@ export default function DispensePatient() {
               <Plus className="w-3.5 h-3.5" /> Add Prescription
             </button>
           )}
+          {canDispense && (
+            <button onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+              <Package className="w-3.5 h-3.5" /> Add Consumable
+            </button>
+          )}
           {prescribedMeds.length > 0 && (
             <button onClick={() => handlePrint()} disabled={printingId === 'all'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
@@ -387,7 +505,13 @@ export default function DispensePatient() {
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={pid => { setSelectedPatientId(pid); setAllAttendances(attendances.filter(a => a.patientId === pid)); setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
+        onPatientSelect={pid => {
+          setSelectedPatientId(pid);
+          setAllAttendances(attendances.filter(a => a.patientId === pid));
+          setSelectedAttendanceId('');
+          setAttendance(null);
+          setPrescriptions([]);
+        }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
       />
@@ -447,9 +571,9 @@ export default function DispensePatient() {
           {/* ── STATS STRIP ───────────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
             {[
-              { label: 'To dispense', value: prescribedMeds.length, icon: <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />, bg: 'bg-[var(--icon-purple-bg)]' },
+              { label: 'To dispense', value: pendingDispenseCount, icon: <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />, bg: 'bg-[var(--icon-purple-bg)]' },
               { label: 'Dispensed', value: dispensedHistory.length, icon: <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />, bg: 'bg-[var(--icon-green-bg)]' },
-              { label: 'Total prescribed', value: prescribedMeds.length + dispensedHistory.length, icon: <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />, bg: 'bg-[var(--icon-cyan-bg)]' },
+              { label: 'Total prescribed', value: prescribedMeds.length, icon: <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />, bg: 'bg-[var(--icon-cyan-bg)]' },
             ].map(s => (
               <div key={s.label} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-4 py-3 flex items-center gap-3">
                 <div className={`w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>{s.icon}</div>
@@ -461,18 +585,34 @@ export default function DispensePatient() {
             ))}
           </div>
 
-          {/* ── PRESCRIBED MEDICATIONS ────────────────────────────────── */}
+          {/* ═══════════════════════════════════════════════════════════
+              PRESCRIBED MEDICATIONS — column-card grid
+              ═══════════════════════════════════════════════════════════ */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-wrap">
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Prescribed Medications</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  Prescribed Medications
+                </span>
                 {prescribedMeds.length > 0 && (
                   <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]">
                     {prescribedMeds.length}
                   </span>
                 )}
               </div>
+              {prescribedMeds.length > 0 && canDispense && readyToDispenseCount > 0 && (
+                <button
+                  onClick={handleBulkDispenseReady}
+                  disabled={bulkDispensing || !!dispensingId}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                >
+                  {bulkDispensing
+                    ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    : <Zap className="w-3 h-3" />}
+                  Dispense Ready ({readyToDispenseCount})
+                </button>
+              )}
             </div>
 
             {prescribedMeds.length === 0 ? (
@@ -490,72 +630,257 @@ export default function DispensePatient() {
               <div className="divide-y divide-[var(--border-color)]">
                 {prescribedMeds.map((med: any) => {
                   const stock = getStockFor(med);
-                  const avail = stock?.currentStock || 0;
-                  const needed = med.quantity || 1;
+                  const avail = toNum(stock?.currentStock);
+                  const needed = toNum(med.quantity, 1);
                   const hasStock = avail >= needed;
                   const lowStock = avail > 0 && avail < needed;
                   const noStock = avail === 0;
+                  const unitCost = toNum(
+                    med.dispensedUnitCost,
+                    toNum(med.unitCost, toNum(stock?.costPrice, 0))
+                  );
+                  const isDispensed = med.status === 'dispensed';
+                  const unit = stock?.unitOfMeasure || 'units';
+
+                  const prescriberName =
+                    med.prescribedBy?.fullName ||
+                    med.prescriber?.fullName ||
+                    med.prescribedByName ||
+                    '—';
+                  const prescribedAtRaw =
+                    med.prescribedAt || med.createdAt || attendance?.dateTime;
 
                   return (
-                    <div key={med.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors group">
-                      {/* Drug info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-[var(--text-primary)]">{med.name}</p>
-                        <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
-                          {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
-                        </p>
-                        {med.instructions && (
-                          <p className="text-[10px] text-[var(--text-secondary)] mt-0.5 italic truncate max-w-xs">{med.instructions}</p>
-                        )}
+                    <div
+                      key={med.id}
+                      className="px-4 py-3 hover:bg-[var(--bg-main)] transition-colors"
+                    >
+                      {/* ═══ Desktop grid of columns ═══ */}
+                      <div className="hidden lg:grid lg:grid-cols-[2fr_1.1fr_0.6fr_1.2fr_0.9fr_1fr_0.9fr_0.9fr_0.8fr_auto] gap-3 items-center">
+                        {/* 1. Medication */}
+                        <Col label="Medication">
+                          <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                            {med.name}
+                          </p>
+                        </Col>
+
+                        {/* 2. Dosage / Frequency */}
+                        <Col label="Dosage · Freq">
+                          <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                            {[med.dosage, med.frequency].filter(Boolean).join(' · ') || 'As directed'}
+                          </p>
+                          {med.duration && (
+                            <p className="text-[10px] text-[var(--text-tertiary)] truncate">
+                              {med.duration}
+                            </p>
+                          )}
+                        </Col>
+
+                        {/* 3. Qty */}
+                        <Col label="Qty">
+                          <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
+                        </Col>
+
+                        {/* 4. Stock */}
+                        <Col label="In Stock">
+                          {noStock && !isDispensed ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
+                              <AlertCircle className="w-3 h-3" /> Out of stock
+                            </span>
+                          ) : lowStock && !isDispensed ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">
+                              <AlertCircle className="w-3 h-3" /> Low: {avail} / {needed}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
+                              <CheckCircle className="w-3 h-3" /> {avail} {unit}
+                            </span>
+                          )}
+                        </Col>
+
+                        {/* 5. Unit Cost */}
+                        <Col label="Unit Cost">
+                          <p className="text-xs font-semibold text-[var(--text-primary)]">
+                            GHS {unitCost.toFixed(2)}
+                          </p>
+                        </Col>
+
+                        {/* 6. Total */}
+                        <Col label="Total">
+                          <p className="text-xs font-bold text-[var(--icon-green-text)]">
+                            GHS {(unitCost * needed).toFixed(2)}
+                          </p>
+                        </Col>
+
+                        {/* 7. Prescriber */}
+                        <Col label="Prescribed By">
+                          <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                            {prescriberName}
+                          </p>
+                        </Col>
+
+                        {/* 8. Date & Time */}
+                        <Col label="Prescribed On">
+                          <p className="text-[11px] text-[var(--text-secondary)]">
+                            {formatDate(prescribedAtRaw)}
+                          </p>
+                          <p className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
+                            <Clock className="w-2.5 h-2.5" />
+                            {formatTime(prescribedAtRaw)}
+                          </p>
+                        </Col>
+
+                        {/* 9. Status */}
+                        <Col label="Status">
+                          {isDispensed
+                            ? <StatusBadge status="dispensed" />
+                            : noStock
+                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
+                                Blocked
+                              </span>
+                            : <StatusBadge status="prescribed" />}
+                        </Col>
+
+                        {/* 10. Actions */}
+                        <Col label="Action">
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => handlePrint(med)}
+                              disabled={printingId === med.id}
+                              title="Print this prescription"
+                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] transition-all disabled:opacity-40"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
+                            {canDispense && !isDispensed && hasStock && (
+                              <button
+                                onClick={() => handleDispenseClick(med)}
+                                disabled={dispensingId === med.id || bulkDispensing}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                              >
+                                {dispensingId === med.id
+                                  ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
+                              </button>
+                            )}
+                            {canDispense && !isDispensed && lowStock && (
+                              <button
+                                onClick={() => handleDispenseClick(med)}
+                                disabled={dispensingId === med.id || bulkDispensing}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                              >
+                                <Zap className="w-3.5 h-3.5" /> Partial
+                              </button>
+                            )}
+                            {canDispense && !isDispensed && noStock && (
+                              <span className="text-[10px] font-semibold text-[var(--icon-red-text)] px-2 py-1 rounded-lg bg-[var(--icon-red-bg)]">
+                                Restock
+                              </span>
+                            )}
+                            {isDispensed && (
+                              <span className="text-[10px] text-[var(--icon-green-text)] font-semibold px-2">✓ Done</span>
+                            )}
+                            {!canDispense && !isDispensed && (
+                              <span className="text-[10px] text-[var(--text-tertiary)] px-2">Read only</span>
+                            )}
+                          </div>
+                        </Col>
                       </div>
 
-                      {/* Qty needed */}
-                      <div className="text-center w-16 flex-shrink-0">
-                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">Needed</p>
-                        <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
-                      </div>
+                      {/* ═══ Mobile / tablet: 2-col grid per attribute ═══ */}
+                      <div className="lg:hidden space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold text-[var(--text-primary)]">{med.name}</p>
+                            <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">
+                              {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
+                            </p>
+                          </div>
+                          <StatusBadge status={isDispensed ? 'dispensed' : 'prescribed'} />
+                        </div>
 
-                      {/* Stock */}
-                      <div className="w-24 flex-shrink-0">
-                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">In stock</p>
-                        <StockLevel available={avail} needed={needed} unit={stock?.unitOfMeasure || 'units'} />
-                      </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                          <Col label="Qty">
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{needed}</p>
+                          </Col>
+                          <Col label="In Stock">
+                            <p className={`text-sm font-bold ${
+                              noStock ? 'text-[var(--icon-red-text)]'
+                              : lowStock ? 'text-[var(--icon-yellow-text)]'
+                              : 'text-[var(--icon-green-text)]'
+                            }`}>{avail} <span className="text-[10px] font-normal text-[var(--text-tertiary)]">{unit}</span></p>
+                          </Col>
+                          <Col label="Unit Cost">
+                            <p className="text-xs font-semibold text-[var(--text-primary)]">
+                              GHS {unitCost.toFixed(2)}
+                            </p>
+                          </Col>
+                          <Col label="Total">
+                            <p className="text-xs font-bold text-[var(--icon-green-text)]">
+                              GHS {(unitCost * needed).toFixed(2)}
+                            </p>
+                          </Col>
+                          <Col label="Prescribed By">
+                            <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                              {prescriberName}
+                            </p>
+                          </Col>
+                          <Col label="Prescribed On">
+                            <p className="text-[11px] text-[var(--text-secondary)]">
+                              {formatDate(prescribedAtRaw)}
+                            </p>
+                            <p className="text-[10px] text-[var(--text-tertiary)]">
+                              {formatTime(prescribedAtRaw)}
+                            </p>
+                          </Col>
+                        </div>
 
-                      {/* Prescribed date */}
-                      <div className="hidden md:block w-24 flex-shrink-0">
-                        <p className="text-[10px] text-[var(--text-tertiary)] mb-0.5">Prescribed</p>
-                        <p className="text-[11px] text-[var(--text-secondary)]">
-                          {med.prescribedAt ? new Date(med.prescribedAt).toLocaleDateString() : '—'}
-                        </p>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <button onClick={() => handlePrint(med)} disabled={printingId === med.id}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-40">
-                          <Printer className="w-3.5 h-3.5" />
-                        </button>
-
-                        {canDispense && hasStock && (
-                          <button onClick={() => handleDispenseClick(med)} disabled={dispensingId === med.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all">
-                            {dispensingId === med.id
-                              ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                              : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handlePrint(med)}
+                            disabled={printingId === med.id}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40"
+                          >
+                            <Printer className="w-3.5 h-3.5" /> Print
                           </button>
-                        )}
-                        {canDispense && lowStock && (
-                          <button onClick={() => handleDispenseClick(med)} disabled={dispensingId === med.id}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all">
-                            <Zap className="w-3.5 h-3.5" /> Partial ({avail})
-                          </button>
-                        )}
-                        {canDispense && noStock && (
-                          <span className="text-xs font-semibold text-[var(--icon-red-text)] px-3 py-1.5 rounded-lg bg-[var(--icon-red-bg)]">Out of stock</span>
-                        )}
-                        {!canDispense && (
-                          <span className="text-[10px] text-[var(--text-tertiary)]">Read only</span>
-                        )}
+
+                          {canDispense && !isDispensed && hasStock && (
+                            <button
+                              onClick={() => handleDispenseClick(med)}
+                              disabled={dispensingId === med.id || bulkDispensing}
+                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                            >
+                              {dispensingId === med.id
+                                ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
+                            </button>
+                          )}
+                          {canDispense && !isDispensed && lowStock && (
+                            <button
+                              onClick={() => handleDispenseClick(med)}
+                              disabled={dispensingId === med.id || bulkDispensing}
+                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                            >
+                              <Zap className="w-3.5 h-3.5" /> Partial ({avail})
+                            </button>
+                          )}
+                          {canDispense && !isDispensed && noStock && (
+                            <span className="flex-1 text-center text-xs font-semibold text-[var(--icon-red-text)] px-3 py-2 rounded-lg bg-[var(--icon-red-bg)]">
+                              Out of stock
+                            </span>
+                          )}
+                          {isDispensed && (
+                            <span className="flex-1 text-center text-xs font-semibold text-[var(--icon-green-text)] px-3 py-2 rounded-lg bg-[var(--icon-green-bg)]">
+                              ✓ Dispensed
+                            </span>
+                          )}
+                          {!canDispense && !isDispensed && (
+                            <span className="flex-1 text-center text-xs text-[var(--text-tertiary)] px-3 py-2">
+                              Read only
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -564,62 +889,258 @@ export default function DispensePatient() {
             )}
           </div>
 
-          {/* ── DISPENSED HISTORY ─────────────────────────────────────── */}
-          {dispensedHistory.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                <span className="text-xs font-semibold text-[var(--text-primary)]">Consumables Used</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{consumableUses.length}</span>
+              </div>
+              {canDispense && (
+                <button onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
+                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                  <Plus className="w-3 h-3" /> Add Consumable
+                </button>
+              )}
+            </div>
+            <ConsumableUsesPanel uses={consumableUses}
+              onEdit={canDispense ? use => { setEditingConsumable(use); setIsConsumableModalOpen(true); } : undefined}
+              onDelete={canDispense ? handleDeleteConsumable : undefined} />
+          </div>
+
+          {/* ═══════════════════════════════════════════════════════════
+              DISPENSED THIS VISIT — SAME column-card grid
+              ═══════════════════════════════════════════════════════════ */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+              <div className="flex items-center gap-2">
                 <History className="w-4 h-4 text-[var(--icon-green-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Dispensed This Visit</span>
+                <span className="text-xs font-semibold text-[var(--text-primary)]">
+                  Dispensed This Visit
+                </span>
                 <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
                   {dispensedHistory.length}
                 </span>
               </div>
-              <div className="divide-y divide-[var(--border-color)]">
-                {dispensedHistory.map((med: any) => (
-                  <div key={med.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors">
-                    <div className="w-7 h-7 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
-                      <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-[var(--text-primary)]">{med.name}</p>
-                      <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{med.dosage || '—'}</p>
-                    </div>
-                    <div className="text-center w-16 flex-shrink-0">
-                      <p className="text-[10px] text-[var(--text-tertiary)]">Qty</p>
-                      <p className="text-xs font-bold text-[var(--icon-green-text)]">{med.quantity || 1}</p>
-                    </div>
-                    <div className="w-28 flex-shrink-0">
-                      <p className="text-[10px] text-[var(--text-tertiary)]">Total</p>
-                      <p className="text-xs font-semibold text-[var(--text-primary)]">
-                        GHS {((med.dispensedUnitCost || 0) * (med.quantity || 1)).toFixed(2)}
-                      </p>
-                    </div>
-                    <div className="hidden md:block flex-shrink-0">
-                      <p className="text-[10px] text-[var(--text-tertiary)]">Dispensed by</p>
-                      <p className="text-[11px] text-[var(--text-secondary)]">{med.dispensedBy?.fullName || '—'}</p>
-                    </div>
-                    <div className="flex-shrink-0 text-right">
-                      <p className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1 justify-end">
-                        <Clock className="w-3 h-3" />
-                        {med.dispensedAt ? new Date(med.dispensedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
-                      </p>
-                      <p className="text-[10px] text-[var(--text-tertiary)]">
-                        {med.dispensedAt ? new Date(med.dispensedAt).toLocaleDateString() : ''}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Total row */}
-              <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
-                <span className="text-xs font-semibold text-[var(--text-secondary)]">Total dispensed value</span>
-                <span className="text-sm font-bold text-[var(--icon-green-text)]">
-                  GHS {dispensedHistory.reduce((sum: number, m: any) => sum + (m.dispensedUnitCost || 0) * (m.quantity || 1), 0).toFixed(2)}
-                </span>
-              </div>
+              {dispensedHistory.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">
+                    Total value
+                  </span>
+                  <span className="text-sm font-bold text-[var(--icon-green-text)]">
+                    GHS {dispensedTotal.toFixed(2)}
+                  </span>
+                </div>
+              )}
             </div>
-          )}
+
+            {dispensedHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <div className="opacity-20"><History className="w-10 h-10" /></div>
+                <p className="text-xs text-[var(--text-tertiary)]">
+                  Nothing dispensed for this visit yet
+                </p>
+                {pendingDispenseCount > 0 && (
+                  <p className="text-[10px] text-[var(--text-tertiary)]">
+                    {pendingDispenseCount} item{pendingDispenseCount > 1 ? 's' : ''} waiting above
+                  </p>
+                )}
+              </div>
+            ) : (
+              <>
+                <div className="divide-y divide-[var(--border-color)]">
+                  {dispensedHistory.map((med: any) => {
+                    const qty = toNum(med.quantity, 1);
+                    const unitCost = toNum(med.dispensedUnitCost);
+                    const total = unitCost * qty;
+                    const dispenserName =
+                      med.dispensedBy?.fullName ||
+                      med.dispensedByName ||
+                      '—';
+
+                    return (
+                      <div
+                        key={med.id}
+                        className="relative px-4 py-3 hover:bg-[var(--bg-main)] transition-colors group"
+                      >
+                        {/* Left accent bar */}
+                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-[var(--icon-green-text)] opacity-60" />
+
+                        {/* ═══ Desktop grid of columns ═══ */}
+                        <div className="hidden lg:grid lg:grid-cols-[2fr_1.1fr_0.6fr_0.9fr_1fr_1.2fr_1fr_0.9fr_auto] gap-3 items-center">
+                          {/* 1. Medication */}
+                          <Col label="Medication">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-5 h-5 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
+                                <CheckCircle className="w-3 h-3 text-[var(--icon-green-text)]" />
+                              </div>
+                              <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                {med.name}
+                              </p>
+                            </div>
+                          </Col>
+
+                          {/* 2. Dosage / Frequency */}
+                          <Col label="Dosage · Freq">
+                            <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                              {[med.dosage, med.frequency].filter(Boolean).join(' · ') || 'As directed'}
+                            </p>
+                            {med.duration && (
+                              <p className="text-[10px] text-[var(--text-tertiary)] truncate">
+                                {med.duration}
+                              </p>
+                            )}
+                          </Col>
+
+                          {/* 3. Qty */}
+                          <Col label="Qty">
+                            <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                          </Col>
+
+                          {/* 4. Unit Cost */}
+                          <Col label="Unit Cost">
+                            <p className="text-xs font-semibold text-[var(--text-primary)]">
+                              GHS {unitCost.toFixed(2)}
+                            </p>
+                          </Col>
+
+                          {/* 5. Total */}
+                          <Col label="Total">
+                            <p className="text-xs font-bold text-[var(--icon-green-text)]">
+                              GHS {total.toFixed(2)}
+                            </p>
+                          </Col>
+
+                          {/* 6. Dispensed By */}
+                          <Col label="Dispensed By">
+                            <p className="text-[11px] text-[var(--text-secondary)] truncate flex items-center gap-1">
+                              <User className="w-3 h-3 flex-shrink-0" />
+                              {dispenserName}
+                            </p>
+                          </Col>
+
+                          {/* 7. Date & Time */}
+                          <Col label="Dispensed On">
+                            <p className="text-[11px] text-[var(--text-secondary)]">
+                              {formatDate(med.dispensedAt)}
+                            </p>
+                            <p className="text-[10px] text-[var(--text-tertiary)] flex items-center gap-1">
+                              <Clock className="w-2.5 h-2.5" />
+                              {formatTime(med.dispensedAt)}
+                            </p>
+                          </Col>
+
+                          {/* 8. Batch */}
+                          <Col label="Batch">
+                            {med.batchNumber ? (
+                              <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)] inline-block truncate max-w-full">
+                                {med.batchNumber}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-[var(--text-tertiary)]">—</span>
+                            )}
+                          </Col>
+
+                          {/* 9. Action */}
+                          <Col label="Action">
+                            <button
+                              onClick={() => handlePrint(med)}
+                              disabled={printingId === med.id}
+                              title="Re-print dispensing receipt"
+                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all disabled:opacity-40"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+                          </Col>
+                        </div>
+
+                        {/* ═══ Mobile / tablet: 2-col grid ═══ */}
+                        <div className="lg:hidden space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
+                              <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
+                            </div>
+                            <p className="text-sm font-semibold text-[var(--text-primary)] flex-1 truncate">
+                              {med.name}
+                            </p>
+                            <StatusBadge status="dispensed" />
+                          </div>
+
+                          <p className="text-[11px] text-[var(--text-tertiary)]">
+                            {[med.dosage, med.frequency, med.duration].filter(Boolean).join(' · ') || 'As directed'}
+                          </p>
+
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            <Col label="Qty">
+                              <p className="text-sm font-bold text-[var(--text-primary)]">{qty}</p>
+                            </Col>
+                            <Col label="Unit Cost">
+                              <p className="text-xs font-semibold text-[var(--text-primary)]">
+                                GHS {unitCost.toFixed(2)}
+                              </p>
+                            </Col>
+                            <Col label="Total">
+                              <p className="text-xs font-bold text-[var(--icon-green-text)]">
+                                GHS {total.toFixed(2)}
+                              </p>
+                            </Col>
+                            <Col label="Dispensed By">
+                              <p className="text-[11px] text-[var(--text-secondary)] truncate">
+                                {dispenserName}
+                              </p>
+                            </Col>
+                            <Col label="Dispensed On">
+                              <p className="text-[11px] text-[var(--text-secondary)]">
+                                {formatDate(med.dispensedAt)}
+                              </p>
+                              <p className="text-[10px] text-[var(--text-tertiary)]">
+                                {formatTime(med.dispensedAt)}
+                              </p>
+                            </Col>
+                            <Col label="Batch">
+                              {med.batchNumber ? (
+                                <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)] inline-block">
+                                  {med.batchNumber}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-[var(--text-tertiary)]">—</span>
+                              )}
+                            </Col>
+                          </div>
+
+                          <button
+                            onClick={() => handlePrint(med)}
+                            disabled={printingId === med.id}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40"
+                          >
+                            <Printer className="w-3.5 h-3.5" /> Re-print
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Receipt-style total footer */}
+                <div className="flex items-center justify-between px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                    <span className="text-[11px] font-medium text-[var(--text-secondary)]">
+                      {dispensedHistory.length} item{dispensedHistory.length > 1 ? 's' : ''} dispensed
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">
+                      Total
+                    </p>
+                    <p className="text-base font-bold text-[var(--icon-green-text)] leading-tight">
+                      GHS {dispensedTotal.toFixed(2)}
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </>
       )}
 
@@ -640,7 +1161,11 @@ export default function DispensePatient() {
           onClose={() => setIsPrescribeModalOpen(false)}
           onSuccess={async () => {
             setIsPrescribeModalOpen(false);
-            await Promise.all([getAttendances(), getAttendance(attendance?.id), calculateBill(attendance?.id)]);
+            await Promise.all([
+              getAttendances(),
+              getAttendance(attendance?.id),
+              calculateBill(attendance?.id),
+            ]);
             success('Added', 'Prescription added successfully');
             await loadData();
           }}
@@ -649,6 +1174,17 @@ export default function DispensePatient() {
           canAdd={!!canDispense}
           userId={user?.id}
           userName={user?.fullName}
+        />
+      )}
+      {attendance && (
+        <ConsumableModal
+          isOpen={isConsumableModalOpen}
+          onClose={() => { setIsConsumableModalOpen(false); setEditingConsumable(null); }}
+          onSuccess={afterConsumableChange}
+          encounterId={attendance.id}
+          stockItems={stockItems}
+          canAdd={!!canDispense}
+          existingUse={editingConsumable}
         />
       )}
     </div>

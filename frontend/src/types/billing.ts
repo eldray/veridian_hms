@@ -51,3 +51,34 @@ export interface PaymentFilters {
   dateFrom?: string;
   dateTo?: string;
 }
+
+export interface BillingCollectionItem {
+  id: string;
+  description: string;
+  quantity: number;
+  serviceCategory: string;
+  serviceType: string;
+  amount: number;
+}
+
+export interface BillingCollectionPayment {
+  id: string;
+  transactionDate: string;
+  amount: number;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
+  collector: { id: string; fullName: string; username: string };
+  bill: {
+    id: string;
+    billNumber: string;
+    patient: { surname: string; otherNames: string; folderNumber: string };
+  };
+  items: BillingCollectionItem[];
+}
+
+export interface BillingCollectionsReport {
+  totalAmount: number;
+  paymentCount: number;
+  payments: BillingCollectionPayment[];
+}

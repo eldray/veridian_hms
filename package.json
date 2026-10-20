@@ -8,13 +8,14 @@
   "scripts": {
     "client": "cd frontend && npm run dev",
     "server": "cd backend && npm run dev",
-    "start": "concurrently \"npm run client\" \"npm run server\"",
+    "start": "concurrently \"npm run client\" \"npm run server\" \"electron .\"",
     "start:public": "concurrently \"npm run client\" \"npm run server:public\"",
     "server:public": "cd backend && node server.js",
     "electron:dev": "concurrently \"npm run client\" \"npm run server\" \"electron .\"",
     "electron:preview": "electron .",
     "build:win": "node build-win.js",
-    "build:clean": "node -e \"['release','build/backend','backend/dist','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\"" 
+    "build:win:dir": "node build-win.js --dir",
+    "build:clean": "node -e \"['release','build/backend','backend/dist-bundle','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\""
   },
   "dependencies": {
     "concurrently": "^9.1.2"
@@ -22,6 +23,7 @@
   "devDependencies": {
     "baseline-browser-mapping": "^2.10.38",
     "electron": "^36.0.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.0.0",
+    "prisma": "^6.19.3"
   }
 }

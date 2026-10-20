@@ -1,5 +1,5 @@
 import React from 'react';
-import { Attendance, Patient } from '../types';
+import type { Attendance, Patient } from '../../types';
 import { Calendar, Edit } from 'lucide-react';
 
 interface AttendanceSelectionProps {

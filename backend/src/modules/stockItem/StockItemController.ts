@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { parseReportRange } from '../../utils/reportDates';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { StockItemService } from './StockItemService';
@@ -16,12 +17,13 @@ export class StockItemController extends BaseController {
   }
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.create(req.body);
+    const result = await this.service.create(req.body, req.user?.id);
     return this.created(res, result, 'Stock item created successfully');
   });
 
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { page, limit } = this.getPaginationParams(req);
+    // Stock list is a reference list: allow up to 1000 per request (repository already caps at 1000)
+    const { page, limit } = this.getPaginationParams(req, 1000);
     const result = await this.service.getAll({ ...req.query, page, limit });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Stock items retrieved');
   });
@@ -32,7 +34,7 @@ export class StockItemController extends BaseController {
   });
 
   update = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.update(req.params.id, req.body);
+    const result = await this.service.update(req.params.id, req.body, req.user?.id);
     return this.ok(res, result, 'Stock item updated');
   });
 
@@ -85,7 +87,8 @@ export class StockItemController extends BaseController {
   });
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getMovementSummary(req.query.startDate ? new Date(req.query.startDate as string) : undefined, req.query.endDate ? new Date(req.query.endDate as string) : undefined, req.query.category as string);
+    const range = parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
+    const result = await this.service.getMovementSummary(range?.gte, range?.lte, req.query.category as string | undefined, { stockItemId: req.query.stockItemId as string | undefined, transactionType: req.query.transactionType as string | undefined });
     return this.ok(res, result, 'Movement summary retrieved');
   });
 

@@ -727,6 +727,9 @@ const renderFormAReport = () => {
   const renderFamilyPlanningReport = () => {
     const report = familyPlanningReport as any;
     if (!report) return <EmptyState message="No family planning data available" />;
+    if (report.returns) {
+      return <FormAReportView data={{ ...report, form: report.returns, title: 'Monthly Family Planning Returns', filePrefix: 'GHS_FP_Returns' }} />;
+    }
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

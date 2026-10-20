@@ -28,6 +28,7 @@ export interface MarDose {
     frequency: string | null;
     instructions: string | null;
     attendanceId: string;
+    status: string;
   };
 }
 

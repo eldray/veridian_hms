@@ -314,13 +314,8 @@ export default function NursingPatientWorkspace() {
       else if (latestVitals.pulse > 100) list.push({ level: 'warning', message: `Tachycardia: ${latestVitals.pulse} bpm` });
       else if (latestVitals.pulse < 50) list.push({ level: 'warning', message: `Bradycardia: ${latestVitals.pulse} bpm` });
     }
-    if (isAntenatal && latestVitals.fetalHeartRate !== undefined) {
-      if (latestVitals.fetalHeartRate < 110 || latestVitals.fetalHeartRate > 160) {
-        list.push({ level: 'critical', message: `Abnormal FHR: ${latestVitals.fetalHeartRate} bpm` });
-      }
-    }
     return list;
-  }, [latestVitals, isAntenatal]);
+  }, [latestVitals]);
 
   const dosesDueNow = useMemo(
     () => doses.filter((d) => d.status === 'due' || d.status === 'scheduled'),

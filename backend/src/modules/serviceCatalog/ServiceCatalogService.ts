@@ -2,6 +2,7 @@ import { PrismaClient, ServiceType, ServiceCategory } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ServiceCatalogRepository } from './ServiceCatalogRepository';
 import { ValidationError, NotFoundError } from '../../utils/errors';
+import { resolveUnitPrice, isPayerCovered } from '../../utils/pricing';
 
 export class ServiceCatalogService extends BaseService {
   private repo: ServiceCatalogRepository;
@@ -107,7 +108,7 @@ export class ServiceCatalogService extends BaseService {
           cashPrice: parseFloat(data.cashPrice),
           nhisPrice: parseFloat(data.nhisPrice || 0),
           insurancePrice: parseFloat(data.insurancePrice ?? data.cashPrice),
-          corporatePrice: parseFloat(data.corporatePrice ?? data.insurancePrice ?? data.cashPrice),
+          corporatePrice: parseFloat(data.corporatePrice ?? 0), // 0 = use the corporate fallback (account discount off cash, else cash)
           vatRate: parseFloat(data.vatRate || 0),
           isTaxable: data.isTaxable ?? true,
           effectiveDate: new Date(), isActive: true,
@@ -214,11 +215,13 @@ export class ServiceCatalogService extends BaseService {
     const p = service.pricing;
     let isCovered = false, coverageAmount = 0, patientPayable = 0, price = 0;
 
+    // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
+    const opts = { isNHISCovered: service.isNHISCovered, isPrivateInsuranceExempted: service.isPrivateInsuranceExempted };
     switch (paymentMode) {
       case 'cash': price = p.cashPrice; patientPayable = price; break;
-      case 'nhis': price = p.nhisPrice; isCovered = service.isNHISCovered; coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
-      case 'private_insurance': price = p.insurancePrice; isCovered = !service.isPrivateInsuranceExempted; coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
-      case 'corporate': price = p.corporatePrice; isCovered = true; coverageAmount = price; patientPayable = 0; break;
+      case 'nhis': isCovered = isPayerCovered(p, 'nhis', opts); price = resolveUnitPrice(p, 'nhis', opts); coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
+      case 'private_insurance': isCovered = isPayerCovered(p, 'private_insurance', opts); price = resolveUnitPrice(p, 'private_insurance', opts); coverageAmount = isCovered ? price : 0; patientPayable = isCovered ? 0 : p.cashPrice; break;
+      case 'corporate': price = resolveUnitPrice(p, 'corporate', opts); isCovered = true; coverageAmount = price; patientPayable = 0; break;
     }
 
     return { serviceId, serviceName: service.name, paymentMode, price, isCovered, coverageAmount, patientPayable, allPrices: { cashPrice: p.cashPrice, nhisPrice: p.nhisPrice, insurancePrice: p.insurancePrice, corporatePrice: p.corporatePrice } };
@@ -232,11 +235,13 @@ export class ServiceCatalogService extends BaseService {
     const qty = Math.max(1, quantity);
     let unitPrice = 0, totalAmount = 0, coverageAmount = 0, patientAmount = 0, vatAmount = 0;
 
+    // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
+    const opts = { isNHISCovered: service.isNHISCovered, isPrivateInsuranceExempted: service.isPrivateInsuranceExempted };
     switch (paymentMode) {
       case 'cash': unitPrice = p.cashPrice; totalAmount = unitPrice * qty; patientAmount = totalAmount; break;
-      case 'nhis': unitPrice = p.nhisPrice; totalAmount = p.cashPrice * qty; coverageAmount = service.isNHISCovered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break;
-      case 'private_insurance': unitPrice = p.insurancePrice; totalAmount = p.cashPrice * qty; coverageAmount = !service.isPrivateInsuranceExempted ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break;
-      case 'corporate': unitPrice = p.corporatePrice; totalAmount = unitPrice * qty; coverageAmount = totalAmount; patientAmount = 0; break;
+      case 'nhis': { const covered = isPayerCovered(p, 'nhis', opts); unitPrice = resolveUnitPrice(p, 'nhis', opts); totalAmount = p.cashPrice * qty; coverageAmount = covered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break; }
+      case 'private_insurance': { const covered = isPayerCovered(p, 'private_insurance', opts); unitPrice = resolveUnitPrice(p, 'private_insurance', opts); totalAmount = p.cashPrice * qty; coverageAmount = covered ? unitPrice * qty : 0; patientAmount = totalAmount - coverageAmount; break; }
+      case 'corporate': unitPrice = resolveUnitPrice(p, 'corporate', opts); totalAmount = unitPrice * qty; coverageAmount = totalAmount; patientAmount = 0; break;
     }
 
     if (p.isTaxable && p.vatRate > 0) { vatAmount = (patientAmount * p.vatRate) / 100; patientAmount += vatAmount; }
@@ -280,7 +285,7 @@ export class ServiceCatalogService extends BaseService {
 
         await this.prisma.$transaction(async (tx) => {
           const created = await tx.serviceCatalog.create({ data: { name: svc.name, code: svc.code, serviceType: svc.serviceType, serviceCategory: svc.serviceCategory || 'opd', isNHISCovered: svc.isNHISCovered ?? true, createdById: userId } });
-          await tx.servicePricing.create({ data: { serviceCatalogId: created.id, cashPrice: parseFloat(svc.cashPrice) || 0, nhisPrice: parseFloat(svc.nhisPrice) || 0, insurancePrice: parseFloat(svc.insurancePrice ?? svc.cashPrice), corporatePrice: parseFloat(svc.corporatePrice ?? svc.insurancePrice ?? svc.cashPrice), effectiveDate: new Date(), isActive: true } });
+          await tx.servicePricing.create({ data: { serviceCatalogId: created.id, cashPrice: parseFloat(svc.cashPrice) || 0, nhisPrice: parseFloat(svc.nhisPrice) || 0, insurancePrice: parseFloat(svc.insurancePrice ?? svc.cashPrice), corporatePrice: parseFloat(svc.corporatePrice ?? 0), effectiveDate: new Date(), isActive: true } });
         });
         results.created++;
       } catch (err: any) { results.errors.push(`Error for '${svc.code}': ${err.message}`); results.skipped++; }

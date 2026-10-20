@@ -21,11 +21,12 @@ export class RequisitionController extends BaseController {
   // GET ALL REQUISITIONS
   getRequisitions = async (req: Request, res: Response) => {
     try {
-      const { departmentId, wardId, status, urgency, page, limit } = req.query;
+      const { departmentId, wardId, supplyingDepartmentId, status, urgency, page, limit } = req.query;
 
       const params = {
         departmentId: departmentId as string | undefined,
         wardId: wardId as string | undefined,
+        supplyingDepartmentId: supplyingDepartmentId as string | undefined,
         status: status as string | undefined,
         urgency: urgency as string | undefined,
         page: page ? parseInt(page as string) : 1,
@@ -35,6 +36,23 @@ export class RequisitionController extends BaseController {
       const result = await this.service.getAllRequisitions(params);
 
       return this.ok(res, result.requisitions, 'Requisitions fetched successfully', result.pagination);
+    } catch (error: any) {
+      return this.error(res, error);
+    }
+  };
+
+  // SEARCH ITEMS WITH SUPPLIER / REQUESTER QUANTITIES
+  lookupStock = async (req: Request, res: Response) => {
+    try {
+      const { supplierDepartmentId, requesterDepartmentId, q, limit, inStockOnly } = req.query;
+      const items = await this.service.lookupStock({
+        supplierDepartmentId: supplierDepartmentId as string,
+        requesterDepartmentId: requesterDepartmentId as string | undefined,
+        q: q as string | undefined,
+        limit: limit ? parseInt(limit as string) : 25,
+        inStockOnly: inStockOnly === 'true'
+      });
+      return this.ok(res, items, 'Stock lookup');
     } catch (error: any) {
       return this.error(res, error);
     }

@@ -21,7 +21,7 @@ interface PatientSummarySidebarProps {
 
 interface Alert { level: 'critical' | 'warning'; message: string }
 
-function buildVitalAlerts(vitals: any, isAntenatal: boolean): Alert[] {
+function buildVitalAlerts(vitals: any): Alert[] {
   const alerts: Alert[] = [];
   if (!vitals) return alerts;
 
@@ -48,10 +48,6 @@ function buildVitalAlerts(vitals: any, isAntenatal: boolean): Alert[] {
   if (vitals.respiration !== undefined) {
     if (vitals.respiration > 25)  alerts.push({ level: 'critical', message: `Tachypnoea: RR ${vitals.respiration}/min` });
     else if (vitals.respiration < 10) alerts.push({ level: 'critical', message: `Bradypnoea: RR ${vitals.respiration}/min` });
-  }
-  if (isAntenatal && vitals.fetalHeartRate !== undefined) {
-    if (vitals.fetalHeartRate < 110 || vitals.fetalHeartRate > 160)
-      alerts.push({ level: 'critical', message: `Abnormal FHR: ${vitals.fetalHeartRate} bpm (normal 110–160)` });
   }
   return alerts;
 }
@@ -123,7 +119,7 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
   tasks,
   isAntenatal,
 }) => {
-  const alerts = buildVitalAlerts(latestVitals, isAntenatal);
+  const alerts = buildVitalAlerts(latestVitals);
 
   // Medications due in the next 2 hours or overdue
   const medsDue = medications.filter(m => {
@@ -192,19 +188,6 @@ export const PatientSummarySidebar: React.FC<PatientSummarySidebarProps> = ({
               )}
               {latestVitals.weight !== undefined && (
                 <VitalChip label="Weight" value={`${latestVitals.weight}`} unit=" kg" />
-              )}
-              {isAntenatal && latestVitals.fetalHeartRate !== undefined && (
-                <div className="col-span-2">
-                  <VitalChip
-                    label="Fetal Heart Rate"
-                    value={`${latestVitals.fetalHeartRate}`}
-                    unit=" bpm"
-                    alert={latestVitals.fetalHeartRate < 110 || latestVitals.fetalHeartRate > 160}
-                  />
-                </div>
-              )}
-              {isAntenatal && latestVitals.fundalHeight !== undefined && (
-                <VitalChip label="Fundal Ht." value={`${latestVitals.fundalHeight}`} unit=" cm" />
               )}
             </div>
           )}

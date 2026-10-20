@@ -4,10 +4,19 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+backend/logs/
+
+backend/src/seed/.seed_status.json
+
+uploads/claim-batches/*.xml
+uploads/claim-batches/*.html
+
 # Production builds
 dist/
 build/
 release/
+coverage/
+.nyc_output/
 
 # Environment variables
 .env
@@ -15,6 +24,20 @@ release/
 .env.development.local
 .env.test.local
 .env.production.local
+.env.*
+!.env.example
+!.env.*.example
+
+# Runtime data
+uploads/
+backups/
+logs/
+
+# Local databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 
 # IDE
 .vscode/
@@ -25,3 +48,11 @@ release/
 # OS
 .DS_Store
 Thumbs.db
+Desktop.ini
+
+# Temporary files and build caches
+*.tmp
+*.temp
+*.tsbuildinfo
+tmp/
+temp/

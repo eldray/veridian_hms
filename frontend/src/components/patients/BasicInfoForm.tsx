@@ -1,5 +1,6 @@
 // src/components/BasicInfoForm.tsx
 import { User, Calendar, Phone, MapPin, Camera, Upload, X } from 'lucide-react';
+import type { AdditionalInfo } from '../../types';
 
 interface BasicInfoFormProps {
   formData: {
@@ -10,22 +11,7 @@ interface BasicInfoFormProps {
     contact: string;
     address: string;
   };
-  additionalInfo: {
-    title?: string;
-    email: string;
-    houseNumber: string;
-    idType?: string;
-    idNumber: string;
-    bloodType?: string;
-    occupation: string;
-    nextOfKin: string;
-    emergencyContact: {
-      name: string;
-      relationship: string;
-      phone: string;
-    };
-  };
-  ageDisplay: string;
+  additionalInfo: AdditionalInfo;
   imagePreview: string;
   isUploadingImage: boolean;
   isEditMode: boolean;
@@ -52,7 +38,6 @@ const labelCls = 'block text-xs font-medium text-[var(--text-secondary)] mb-1';
 export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
   formData,
   additionalInfo,
-  ageDisplay,
   imagePreview,
   isUploadingImage,
   isEditMode,

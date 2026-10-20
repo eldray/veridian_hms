@@ -1,9 +1,10 @@
-// src/pages/Departments.tsx - REDESIGNED
-import { useEffect, useState, React } from 'react';
+// src/pages/Departments.tsx - REDESIGNED (both pickers now searchable)
+import React, { useEffect, useState } from 'react';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import api from '../api/api';
+import AsyncSelect from 'react-select/async';
 import {
   Plus, Search, Building, Users, Edit, Trash2, RefreshCw,
   UserCheck, Calendar, Crown, ArrowLeft, Grid3x3, List,
@@ -39,7 +40,7 @@ const ModalShell: React.FC<{
   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
     <div className={`relative bg-[var(--bg-card)] rounded-xl w-full ${maxW} border border-[var(--border-color)] overflow-hidden flex flex-col`}
-      style={{ maxHeight: '85vh', boxShadow: 'var(--shadow-md)' }}>
+      style={{ maxHeight: '90vh', boxShadow: 'var(--shadow-md)' }}>
       <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${iconBg}`}>{icon}</div>
@@ -79,6 +80,30 @@ const SkeletonCard = () => (
   </div>
 );
 
+// Shared react-select styling (portal-friendly, escapes modal overflow)
+const rsStyles = {
+  control: (base: any) => ({
+    ...base,
+    backgroundColor: 'var(--bg-main)',
+    borderColor: 'var(--border-color)',
+    minHeight: '42px',
+    fontSize: '13px',
+  }),
+  menuPortal: (base: any) => ({ ...base, zIndex: 9999 }),
+  menu: (base: any) => ({ ...base, zIndex: 9999 }),
+  input: (base: any) => ({ ...base, color: 'var(--text-primary)' }),
+  placeholder: (base: any) => ({ ...base, color: 'var(--text-tertiary)' }),
+  singleValue: (base: any) => ({ ...base, color: 'var(--text-primary)' }),
+  option: (base: any) => ({ ...base, fontSize: '13px' }),
+  multiValue: (base: any) => ({ ...base, backgroundColor: 'var(--icon-cyan-bg)' }),
+  multiValueLabel: (base: any) => ({ ...base, color: 'var(--icon-cyan-text)', fontSize: '11px', fontWeight: 600 }),
+  multiValueRemove: (base: any) => ({
+    ...base,
+    color: 'var(--icon-cyan-text)',
+    ':hover': { backgroundColor: 'var(--icon-cyan-text)', color: 'white' },
+  }),
+};
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function Departments() {
   const {
@@ -87,7 +112,7 @@ export default function Departments() {
     getDepartmentUsers, assignUserToDepartment, removeUserFromDepartment,
     eligibleHeads, departmentUsers, isLoading,
   } = useDepartmentStore();
-  const { user } = useAuthStore();
+const { user, hasRole } = useAuthStore();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -100,6 +125,7 @@ export default function Departments() {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [selectedDept, setSelectedDept] = useState<any>(null);
   const [selectedUserId, setSelectedUserId] = useState('');
+  const [pickedUserIds, setPickedUserIds] = useState<string[]>([]);
 
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
@@ -166,8 +192,10 @@ export default function Departments() {
   };
 
   const openHeadModal = async (dept: any) => {
-    setSelectedDept(dept); setSelectedUserId(dept.head?.id || '');
-    await getEligibleHeads(); setShowHeadModal(true);
+    setSelectedDept(dept);
+    setSelectedUserId(dept.head?.id || '');
+    await getEligibleHeads();
+    setShowHeadModal(true);
   };
 
   const handleAssignHead = async () => {
@@ -187,21 +215,34 @@ export default function Departments() {
   };
 
   const openStaffModal = async (dept: any) => {
-    setSelectedDept(dept); setSelectedUserId('');
-    await loadAllUsers(); await getDepartmentUsers(dept.id);
+    setSelectedDept(dept);
+    setSelectedUserId('');
+    setPickedUserIds([]);
+    await loadAllUsers();
+    await getDepartmentUsers(dept.id);
     setShowStaffModal(true);
   };
 
   const handleAssignUser = async () => {
-    if (!selectedDept || !selectedUserId) return;
+    if (!selectedDept || pickedUserIds.length === 0) return;
     setAssigningUser(true);
     try {
-      await assignUserToDepartment(selectedDept.id, { userId: selectedUserId });
-      success('Assigned', 'User added to department');
-      await getDepartmentUsers(selectedDept.id); await getDepartments();
-      setSelectedUserId(''); await loadAllUsers();
-    } catch (err: any) { error('Failed', err.message); }
-    finally { setAssigningUser(false); }
+      for (const userId of pickedUserIds) {
+        await assignUserToDepartment(selectedDept.id, { userId });
+      }
+      success(
+        'Added',
+        `${pickedUserIds.length} user${pickedUserIds.length === 1 ? '' : 's'} added to ${selectedDept.name}`,
+      );
+      setPickedUserIds([]);
+      await getDepartmentUsers(selectedDept.id);
+      await getDepartments();
+      await loadAllUsers();
+    } catch (err: any) {
+      error('Failed', err.message || 'Could not add some users');
+    } finally {
+      setAssigningUser(false);
+    }
   };
 
   const handleRemoveUser = async (userId: string, userName: string) => {
@@ -210,7 +251,9 @@ export default function Departments() {
     try {
       await removeUserFromDepartment(selectedDept.id, userId);
       success('Removed', `${userName} removed`);
-      await getDepartmentUsers(selectedDept.id); await getDepartments(); await loadAllUsers();
+      await getDepartmentUsers(selectedDept.id);
+      await getDepartments();
+      await loadAllUsers();
     } catch (err: any) { error('Failed', err.message); }
     finally { setRemovingId(null); }
   };
@@ -220,7 +263,7 @@ export default function Departments() {
     return map[iconName] || Building;
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = hasRole(['admin', 'super_admin']);
 
   return (
     <div className="space-y-4">
@@ -247,7 +290,6 @@ export default function Departments() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* View toggle */}
           <div className="flex gap-0.5 p-0.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
             {(['list', 'grid'] as const).map(m => (
               <button key={m} onClick={() => setViewMode(m)}
@@ -310,7 +352,6 @@ export default function Departments() {
             const Icon = getDeptIcon(dept.icon || 'building');
             return (
               <div key={dept.id} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden hover:shadow-md transition-all group">
-                {/* Color strip */}
                 <div className="h-1 w-full" style={{ background: dept.color || '#0891b2' }} />
 
                 <div className="p-4">
@@ -322,8 +363,7 @@ export default function Departments() {
                       </div>
                       <div>
                         <h3 className="text-sm font-bold text-[var(--text-primary)] leading-tight">{dept.name}</h3>
-                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold mt-0.5 ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                          }`}>
+                        <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold mt-0.5 ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'}`}>
                           {dept.isActive ? <CheckCircle className="w-2.5 h-2.5" /> : <XCircle className="w-2.5 h-2.5" />}
                           {dept.isActive ? 'Active' : 'Inactive'}
                         </span>
@@ -335,7 +375,6 @@ export default function Departments() {
                     <p className="text-[11px] text-[var(--text-secondary)] line-clamp-2 mb-3">{dept.description}</p>
                   )}
 
-                  {/* Stats row */}
                   <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] mb-3">
                     <div className="flex items-center gap-1.5 flex-1">
                       <Users className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
@@ -400,19 +439,16 @@ export default function Departments() {
             {filtered.map(dept => {
               const Icon = getDeptIcon(dept.icon || 'building');
               return (
-                <div key={dept.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors group">
-                  {/* Color dot + icon */}
+                <div key={dept.id} className="flex items-center gap-4 px-4 py-3 hover:bg-[var(--bg-main)] transition-colors">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white flex-shrink-0"
                     style={{ background: dept.color || '#0891b2' }}>
                     <Icon className="w-4 h-4" />
                   </div>
 
-                  {/* Name + description */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-xs font-semibold text-[var(--text-primary)]">{dept.name}</p>
-                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                        }`}>
+                      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold ${dept.isActive ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'}`}>
                         {dept.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </div>
@@ -421,50 +457,56 @@ export default function Departments() {
                     )}
                   </div>
 
-                  {/* Head */}
                   <div className="w-44 flex-shrink-0 hidden md:block">
                     {dept.head ? (
-                      <div className="flex items-center gap-1.5">
+                      <button onClick={() => isAdmin && openHeadModal(dept)}
+                        disabled={!isAdmin}
+                        className="flex items-center gap-1.5 text-left w-full group/head">
                         <div className="w-6 h-6 rounded-full bg-[var(--icon-yellow-bg)] flex items-center justify-center flex-shrink-0">
                           <Crown className="w-3 h-3 text-[var(--icon-yellow-text)]" />
                         </div>
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate">{dept.head.fullName}</p>
+                          <p className="text-[11px] font-semibold text-[var(--text-primary)] truncate group-hover/head:text-[var(--icon-yellow-text)] transition-colors">
+                            {dept.head.fullName}
+                          </p>
                           <p className="text-[10px] text-[var(--text-tertiary)] capitalize">{dept.head.role?.replace('_', ' ')}</p>
                         </div>
-                      </div>
+                      </button>
                     ) : (
-                      <span className="text-[11px] text-[var(--text-tertiary)] italic">No head assigned</span>
+                      isAdmin ? (
+                        <button onClick={() => openHeadModal(dept)}
+                          className="flex items-center gap-1.5 text-[var(--icon-yellow-text)] hover:underline text-[11px] font-semibold">
+                          <Crown className="w-3.5 h-3.5" /> Assign Head
+                        </button>
+                      ) : (
+                        <span className="text-[11px] text-[var(--text-tertiary)] italic">No head assigned</span>
+                      )
                     )}
                   </div>
 
-                  {/* Staff count */}
                   <div className="flex items-center gap-1.5 w-16 flex-shrink-0 hidden sm:flex">
                     <Users className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
                     <span className="text-xs font-bold text-[var(--text-primary)]">{dept._count?.users || 0}</span>
                     <span className="text-[10px] text-[var(--text-tertiary)]">staff</span>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {isAdmin && !dept.head && (
-                      <button onClick={() => openHeadModal(dept)} title="Assign Head"
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] transition-all">
-                        <Crown className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    {isAdmin && dept.head && (
-                      <button onClick={() => handleRemoveHead(dept)} title="Remove Head"
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
-                        <UserMinus className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                    <button onClick={() => openStaffModal(dept)} title="Manage Staff"
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
-                      <Users className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     {isAdmin && (
                       <>
+                        <button onClick={() => openHeadModal(dept)} title={dept.head ? 'Change Head' : 'Assign Head'}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] transition-all">
+                          <Crown className="w-3.5 h-3.5" />
+                        </button>
+                        {dept.head && (
+                          <button onClick={() => handleRemoveHead(dept)} title="Remove Head"
+                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
+                            <UserMinus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button onClick={() => openStaffModal(dept)} title="Manage Staff"
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
+                          <Users className="w-3.5 h-3.5" />
+                        </button>
                         <button onClick={() => openEdit(dept)} title="Edit"
                           className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all">
                           <Edit className="w-3.5 h-3.5" />
@@ -484,122 +526,373 @@ export default function Departments() {
       )}
 
       {/* ── ASSIGN HEAD MODAL ─────────────────────────────────────────── */}
-      {showHeadModal && selectedDept && (
-        <ModalShell title="Assign Department Head" subtitle={selectedDept.name}
-          icon={<Crown className="w-4 h-4 text-[var(--icon-yellow-text)]" />}
-          iconBg="bg-[var(--icon-yellow-bg)]"
-          onClose={() => { setShowHeadModal(false); setSelectedDept(null); setSelectedUserId(''); }}
-          footer={
-            <div className="flex gap-3">
-              <button onClick={() => { setShowHeadModal(false); setSelectedDept(null); setSelectedUserId(''); }}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all">
-                Cancel
-              </button>
-              <button onClick={handleAssignHead} disabled={!selectedUserId}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all">
-                Assign as Head
-              </button>
-            </div>
-          }>
-          <div className="space-y-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Select Head of Department</p>
-              <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)} className={inputCls}>
-                <option value="">— Select a user —</option>
-                {(eligibleHeads || []).map(u => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} · {u.role?.replace('_', ' ')} ({u.seniority})
-                  </option>
-                ))}
-              </select>
-              {(eligibleHeads || []).length === 0 && (
-                <p className="text-[10px] text-[var(--icon-red-text)] mt-1.5">No eligible users. Heads require SENIOR or PRINCIPAL seniority.</p>
-              )}
-            </div>
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--icon-yellow-bg)] border border-[var(--border-color)]">
-              <Shield className="w-3.5 h-3.5 text-[var(--icon-yellow-text)] flex-shrink-0 mt-0.5" />
-              <p className="text-[10px] text-[var(--icon-yellow-text)]">
-                Department heads must have <strong>SENIOR</strong> or <strong>PRINCIPAL</strong> seniority level.
-              </p>
-            </div>
-          </div>
-        </ModalShell>
-      )}
+      {showHeadModal && selectedDept && (() => {
+        // Async loader for the searchable head picker
+        const loadHeadOptions = (input: string) =>
+          new Promise<any[]>((resolve) => {
+            const q = input.trim().toLowerCase();
+            const matches = (eligibleHeads || [])
+              .filter((u: any) =>
+                !q ||
+                u.fullName?.toLowerCase().includes(q) ||
+                u.username?.toLowerCase().includes(q) ||
+                u.role?.toLowerCase().includes(q) ||
+                u.seniority?.toLowerCase().includes(q),
+              )
+              .slice(0, 40);
+            resolve(matches);
+          });
 
-      {/* ── MANAGE STAFF MODAL ────────────────────────────────────────── */}
-      {showStaffModal && selectedDept && (
-        <ModalShell title="Manage Staff" subtitle={selectedDept.name}
-          icon={<Users className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-          iconBg="bg-[var(--icon-cyan-bg)]"
-          onClose={() => { setShowStaffModal(false); setSelectedDept(null); setSelectedUserId(''); }}
-          footer={
-            <button onClick={() => { setShowStaffModal(false); setSelectedDept(null); setSelectedUserId(''); }}
-              className="w-full py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all">
-              Close
-            </button>
-          }>
-          <div className="space-y-5">
-            {/* Current staff */}
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                Current Staff · {departmentUsers.length}
-              </p>
-              {departmentUsers.length === 0 ? (
-                <div className="flex flex-col items-center gap-2 py-8 rounded-xl bg-[var(--bg-main)] border border-[var(--border-color)]">
-                  <Users className="w-8 h-8 text-[var(--text-tertiary)] opacity-30" />
-                  <p className="text-xs text-[var(--text-tertiary)]">No staff assigned yet</p>
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-52 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-                  {departmentUsers.map((staff: any) => (
-                    <div key={staff.id} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] group">
-                      <div className="w-7 h-7 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                        <User className="w-3.5 h-3.5 text-[var(--icon-cyan-text)]" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-xs font-semibold text-[var(--text-primary)]">{staff.fullName}</p>
-                          {staff.seniority && <SeniorityBadge seniority={staff.seniority} />}
-                        </div>
-                        <p className="text-[10px] text-[var(--text-tertiary)] capitalize">{staff.role?.replace('_', ' ')}</p>
-                      </div>
-                      <button onClick={() => handleRemoveUser(staff.id, staff.fullName)}
-                        disabled={removingId === staff.id}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50">
-                        {removingId === staff.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <UserMinus className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+        const currentHead = (eligibleHeads || []).find((u: any) => u.id === selectedUserId);
 
-            {/* Add staff */}
-            <div className="pt-4 border-t border-[var(--border-color)]">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Add Staff Member</p>
-              <div className="flex gap-2">
-                <select value={selectedUserId} onChange={e => setSelectedUserId(e.target.value)}
-                  className={`${inputCls} flex-1`} disabled={loadingUsers || assigningUser}>
-                  <option value="">— Select a user —</option>
-                  {availableUsers.map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} · {u.role?.replace('_', ' ')} {u.seniority ? `(${u.seniority})` : ''}
-                    </option>
-                  ))}
-                </select>
-                <button onClick={handleAssignUser} disabled={!selectedUserId || assigningUser}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all flex-shrink-0">
-                  {assigningUser ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
-                  Add
+        return (
+          <ModalShell
+            title="Assign Department Head"
+            subtitle={selectedDept.name}
+            icon={<Crown className="w-4 h-4 text-[var(--icon-yellow-text)]" />}
+            iconBg="bg-[var(--icon-yellow-bg)]"
+            maxW="max-w-xl"
+            onClose={() => { setShowHeadModal(false); setSelectedDept(null); setSelectedUserId(''); }}
+            footer={
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowHeadModal(false); setSelectedDept(null); setSelectedUserId(''); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignHead}
+                  disabled={!selectedUserId}
+                  className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                >
+                  Assign as Head
                 </button>
               </div>
-              {availableUsers.length === 0 && !loadingUsers && (
-                <p className="text-[10px] text-[var(--icon-yellow-text)] mt-1.5">All users are already assigned to this department.</p>
+            }
+          >
+            <div className="space-y-4">
+              {selectedDept.head && (
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
+                  <div className="w-8 h-8 rounded-full bg-[var(--icon-yellow-bg)] flex items-center justify-center flex-shrink-0">
+                    <Crown className="w-4 h-4 text-[var(--icon-yellow-text)]" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Current Head</p>
+                    <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{selectedDept.head.fullName}</p>
+                  </div>
+                  {selectedDept.head.seniority && <SeniorityBadge seniority={selectedDept.head.seniority} />}
+                </div>
               )}
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                  {selectedDept.head ? 'Replace with' : 'Select Head of Department'}
+                </p>
+
+                <AsyncSelect<any, false>
+                  cacheOptions={false}
+                  defaultOptions
+                  loadOptions={loadHeadOptions}
+                  value={currentHead || null}
+                  onChange={(sel: any) => setSelectedUserId(sel?.id || '')}
+                  getOptionValue={(o: any) => o.id}
+                  getOptionLabel={(o: any) =>
+                    `${o.fullName}${o.role ? ` · ${o.role.replace('_', ' ')}` : ''}${o.seniority ? ` (${o.seniority})` : ''}`
+                  }
+                  formatOptionLabel={(o: any, meta: any) => (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                          {o.fullName}
+                        </div>
+                        <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                          {o.role?.replace('_', ' ')}
+                          {o.specialization ? ` · ${o.specialization}` : ''}
+                        </div>
+                      </div>
+                      {meta.context === 'menu' && o.seniority && (
+                        <div className="shrink-0">
+                          <SeniorityBadge seniority={o.seniority} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  placeholder="Search by name, username, role or seniority…"
+                  noOptionsMessage={({ inputValue }) =>
+                    inputValue ? `No eligible heads match "${inputValue}"` : 'Type to search users'
+                  }
+                  loadingMessage={() => 'Loading…'}
+                  isClearable
+                  className="text-sm"
+                  classNamePrefix="react-select"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+                  menuPosition="fixed"
+                  styles={rsStyles}
+                />
+
+                {(eligibleHeads || []).length === 0 && (
+                  <p className="text-[10px] text-[var(--icon-red-text)] mt-1.5">
+                    No eligible users. Heads require SENIOR or PRINCIPAL seniority.
+                  </p>
+                )}
+              </div>
+
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-[var(--icon-yellow-bg)] border border-[var(--border-color)]">
+                <Shield className="w-3.5 h-3.5 text-[var(--icon-yellow-text)] flex-shrink-0 mt-0.5" />
+                <p className="text-[10px] text-[var(--icon-yellow-text)]">
+                  Department heads must have <strong>SENIOR</strong> or <strong>PRINCIPAL</strong> seniority level.
+                </p>
+              </div>
             </div>
-          </div>
-        </ModalShell>
-      )}
+          </ModalShell>
+        );
+      })()}
+
+      {/* ── MANAGE STAFF MODAL ────────────────────────────────────────── */}
+      {showStaffModal && selectedDept && (() => {
+        const headId = selectedDept.head?.id;
+        const order: Record<string, number> = { PRINCIPAL: 0, SENIOR: 1, JUNIOR: 2, TRAINEE: 3 };
+        const grouped = [...departmentUsers].sort((a: any, b: any) => {
+          if (a.id === headId && b.id !== headId) return -1;
+          if (b.id === headId && a.id !== headId) return 1;
+          return (order[a.seniority] ?? 9) - (order[b.seniority] ?? 9);
+        });
+
+        const pickedLabels = pickedUserIds
+          .map(id => availableUsers.find((u: any) => u.id === id)?.fullName)
+          .filter(Boolean);
+
+        const loadUserOptions = (input: string) =>
+          new Promise<any[]>((resolve) => {
+            const q = input.trim().toLowerCase();
+            const matches = availableUsers
+              .filter((u: any) =>
+                !q ||
+                u.fullName?.toLowerCase().includes(q) ||
+                u.username?.toLowerCase().includes(q) ||
+                u.role?.toLowerCase().includes(q) ||
+                u.seniority?.toLowerCase().includes(q),
+              )
+              .slice(0, 40);
+            resolve(matches);
+          });
+
+        return (
+          <ModalShell
+            title="Manage Staff"
+            subtitle={selectedDept.name}
+            icon={<Users className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+            iconBg="bg-[var(--icon-cyan-bg)]"
+            maxW="max-w-2xl"
+            onClose={() => {
+              setShowStaffModal(false);
+              setSelectedDept(null);
+              setSelectedUserId('');
+              setPickedUserIds([]);
+            }}
+            footer={
+              <button
+                onClick={() => {
+                  setShowStaffModal(false);
+                  setSelectedDept(null);
+                  setSelectedUserId('');
+                  setPickedUserIds([]);
+                }}
+                className="w-full py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all"
+              >
+                Done
+              </button>
+            }
+          >
+            <div className="space-y-5">
+
+              <section>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                    Current Staff
+                  </p>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                    {departmentUsers.length}
+                  </span>
+                </div>
+
+                {departmentUsers.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 rounded-xl bg-[var(--bg-main)] border border-[var(--border-color)]">
+                    <Users className="w-8 h-8 text-[var(--text-tertiary)] opacity-30" />
+                    <p className="text-xs text-[var(--text-tertiary)]">No staff assigned yet</p>
+                    <p className="text-[10px] text-[var(--text-tertiary)]">Use the picker below to add the first member</p>
+                  </div>
+                ) : (
+                  <div
+                    className="space-y-1.5 max-h-72 overflow-y-auto pr-1"
+                    style={{ scrollbarWidth: 'thin' }}
+                  >
+                    {grouped.map((staff: any) => {
+                      const isHead = staff.id === headId;
+                      return (
+                        <div
+                          key={staff.id}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg border group transition-colors ${
+                            isHead
+                              ? 'bg-[var(--icon-yellow-bg)] border-[var(--icon-yellow-text)]/30'
+                              : 'bg-[var(--bg-main)] border-[var(--border-color)]'
+                          }`}
+                        >
+                          <div
+                            className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                              isHead
+                                ? 'bg-[var(--icon-yellow-text)] text-white'
+                                : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                            }`}
+                          >
+                            {isHead ? <Crown className="w-4 h-4" /> : <User className="w-4 h-4" />}
+                          </div>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                                {staff.fullName}
+                              </p>
+                              {staff.seniority && <SeniorityBadge seniority={staff.seniority} />}
+                              {isHead && (
+                                <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--icon-yellow-text)] text-white">
+                                  HEAD
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                              {staff.role?.replace('_', ' ')}
+                              {staff.specialization ? ` · ${staff.specialization}` : ''}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {!isHead && (staff.seniority === 'SENIOR' || staff.seniority === 'PRINCIPAL') && (
+                              <button
+                                onClick={async () => {
+                                  if (!window.confirm(`Make ${staff.fullName} the head of ${selectedDept.name}?`)) return;
+                                  try {
+                                    await assignDepartmentHead(selectedDept.id, staff.id);
+                                    success('Promoted', `${staff.fullName} is now head of ${selectedDept.name}`);
+                                    await loadData();
+                                    await getDepartmentUsers(selectedDept.id);
+                                  } catch (err: any) {
+                                    error('Failed', err.message);
+                                  }
+                                }}
+                                className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] transition-all"
+                                title="Make Head"
+                              >
+                                <Crown className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleRemoveUser(staff.id, staff.fullName)}
+                              disabled={removingId === staff.id}
+                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50"
+                              title="Remove from department"
+                            >
+                              {removingId === staff.id ? (
+                                <Loader className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <UserMinus className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+
+              <section className="pt-4 border-t border-[var(--border-color)]">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+                  Add Staff
+                </p>
+
+                <AsyncSelect<any, true>
+                  isMulti
+                  cacheOptions={false}
+                  defaultOptions
+                  loadOptions={loadUserOptions}
+                  value={availableUsers.filter((u: any) => pickedUserIds.includes(u.id))}
+                  onChange={(selected) =>
+                    setPickedUserIds((selected || []).map((s: any) => s.id))
+                  }
+                  getOptionValue={(o: any) => o.id}
+                  getOptionLabel={(o: any) =>
+                    `${o.fullName}${o.role ? ` · ${o.role.replace('_', ' ')}` : ''}${o.seniority ? ` (${o.seniority})` : ''}`
+                  }
+                  formatOptionLabel={(o: any, meta: any) => (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                          {o.fullName}
+                        </div>
+                        <div className="text-[10px] text-[var(--text-tertiary)] capitalize">
+                          {o.role?.replace('_', ' ')}
+                          {o.specialization ? ` · ${o.specialization}` : ''}
+                        </div>
+                      </div>
+                      {meta.context === 'menu' && o.seniority && (
+                        <div className="shrink-0">
+                          <SeniorityBadge seniority={o.seniority} />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  placeholder={
+                    loadingUsers
+                      ? 'Loading users…'
+                      : availableUsers.length === 0
+                        ? 'All users are already in this department'
+                        : 'Search by name, username, role or seniority…'
+                  }
+                  noOptionsMessage={({ inputValue }) =>
+                    inputValue ? `No users match "${inputValue}"` : 'Type to search users'
+                  }
+                  loadingMessage={() => 'Loading…'}
+                  isDisabled={loadingUsers || availableUsers.length === 0}
+                  className="text-sm"
+                  classNamePrefix="react-select"
+                  menuPortalTarget={typeof document !== 'undefined' ? document.body : undefined}
+                  menuPosition="fixed"
+                  styles={rsStyles}
+                />
+
+                {pickedUserIds.length > 0 && (
+                  <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-[10px] text-[var(--text-tertiary)] truncate">
+                      {pickedUserIds.length} selected
+                      {pickedLabels.length > 0 ? `: ${pickedLabels.slice(0, 3).join(', ')}${pickedLabels.length > 3 ? ` +${pickedLabels.length - 3} more` : ''}` : ''}
+                    </p>
+                    <button
+                      onClick={handleAssignUser}
+                      disabled={assigningUser}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all shrink-0"
+                    >
+                      {assigningUser ? (
+                        <Loader className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <UserPlus className="w-3.5 h-3.5" />
+                      )}
+                      Add {pickedUserIds.length > 1 ? `all ${pickedUserIds.length}` : ''}
+                    </button>
+                  </div>
+                )}
+
+                {availableUsers.length === 0 && !loadingUsers && departmentUsers.length > 0 && (
+                  <p className="text-[10px] text-[var(--icon-yellow-text)] mt-2">
+                    All users are already assigned to this department.
+                  </p>
+                )}
+              </section>
+            </div>
+          </ModalShell>
+        );
+      })()}
 
       {/* ── CREATE / EDIT FORM MODAL ───────────────────────────────────── */}
       {showForm && (
@@ -654,7 +947,6 @@ export default function Departments() {
               </div>
             </div>
 
-            {/* Preview */}
             <div className="flex items-center gap-3 p-3 rounded-xl bg-[var(--bg-main)] border border-[var(--border-color)]">
               <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white flex-shrink-0"
                 style={{ background: formData.color }}>

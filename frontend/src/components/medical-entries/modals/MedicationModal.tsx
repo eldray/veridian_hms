@@ -1,6 +1,6 @@
-// src/components/medical-entries/modals/MedicationModal.tsx - FIXED (No infinite loop)
-import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, Pill, CheckCircle, AlertCircle, Shield } from 'lucide-react';
+// src/components/medical-entries/modals/MedicationModal.tsx
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { X, Search, Pill, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAttendanceStore } from '../../../store/attendanceStore';
 import { useMedicalServicesStore } from '../../../store/medicalServicesStore';
 import { useToast } from '../../../store/toastStore';
@@ -15,13 +15,38 @@ interface MedicationModalProps {
   userId?: string;
 }
 
+function useDebounced<T>(value: T, delay = 150): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(t);
+  }, [value, delay]);
+  return debounced;
+}
+
+const FREQUENCIES = [
+  { value: 'once',  label: 'Once daily' },
+  { value: 'bd',    label: 'Twice daily (BD)' },
+  { value: 'tds',   label: 'Three times daily (TDS)' },
+  { value: 'qid',   label: 'Four times daily (QID)' },
+  { value: 'stat',  label: 'STAT (immediately)' },
+  { value: 'prn',   label: 'As needed (PRN)' },
+  { value: 'nocte', label: 'At night (nocte)' },
+  { value: 'mane',  label: 'In morning (mane)' },
+];
+
+const ROUTES = [
+  { value: 'oral', label: 'Oral' },
+  { value: 'iv', label: 'Intravenous (IV)' },
+  { value: 'im', label: 'Intramuscular (IM)' },
+  { value: 'sc', label: 'Subcutaneous (SC)' },
+  { value: 'topical', label: 'Topical' },
+  { value: 'inhalation', label: 'Inhalation' },
+  { value: 'rectal', label: 'Rectal' },
+];
+
 export const MedicationModal: React.FC<MedicationModalProps> = ({
-  isOpen,
-  onClose,
-  onSuccess,
-  attendanceId,
-  stockItems,
-  canAdd,
+  isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMed, setSelectedMed] = useState<any>(null);
@@ -29,91 +54,81 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
-  const [durationUnit, setDurationUnit] = useState<'days' | 'weeks'>('days');
   const [route, setRoute] = useState('oral');
   const [instructions, setInstructions] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [medicationServiceCatalogs, setMedicationServiceCatalogs] = useState<any[]>([]);
-  
-  // ✅ Add ref to prevent multiple loads
-  const hasLoaded = useRef(false);
+
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const hasTriggeredCatalogLoad = useRef(false);
+  const debouncedSearch = useDebounced(searchTerm, 150);
 
   const { addMedication } = useAttendanceStore();
   const { serviceCatalog, getServiceCatalog } = useMedicalServicesStore();
   const { success, error } = useToast();
 
-  // ✅ FIXED: Load service catalogs only once when modal opens
+  // Reset on open
   useEffect(() => {
-    if (isOpen && !hasLoaded.current) {
-      hasLoaded.current = true;
-      const loadServiceCatalogs = async () => {
-        try {
-          await getServiceCatalog({ serviceType: 'medication' });
-        } catch (err) {
-          console.error('Error loading medication service catalogs:', err);
-        }
-      };
-      loadServiceCatalogs();
-    }
-    
-    // Reset the ref when modal closes
-    if (!isOpen) {
-      hasLoaded.current = false;
-    }
-  }, [isOpen, getServiceCatalog]);
+    if (!isOpen) return;
+    setSearchTerm('');
+    setSelectedMed(null);
+    setSelectedServiceCatalog(null);
+    setDosage('');
+    setFrequency('');
+    setDuration('');
+    setRoute('oral');
+    setInstructions('');
+    setShowDropdown(false);
+    hasTriggeredCatalogLoad.current = false;
+    const t = setTimeout(() => searchInputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [isOpen]);
 
-  // ✅ FIXED: Update medicationServiceCatalogs when serviceCatalog changes (but don't trigger re-fetch)
+  // Escape to close
   useEffect(() => {
-    if (serviceCatalog.length > 0) {
-      const medServices = serviceCatalog.filter(sc => sc.stockItemId);
-      setMedicationServiceCatalogs(medServices);
-    }
-  }, [serviceCatalog]);
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
 
-  // Filter medications (only isMedication = true)
-  const medicationStockItems = stockItems.filter(s => s.isMedication && s.isActive);
+  // Lazy: fetch the medication service catalog only once the user starts typing
+  useEffect(() => {
+    if (!isOpen || hasTriggeredCatalogLoad.current) return;
+    if (debouncedSearch.trim().length < 2) return;
+    hasTriggeredCatalogLoad.current = true;
+    getServiceCatalog({ serviceType: 'medication', limit: 5000 }).catch(err => {
+      console.error('Failed to load medication service catalog:', err);
+    });
+  }, [isOpen, debouncedSearch, getServiceCatalog]);
 
-  const filteredMeds = medicationStockItems.filter(med =>
-    med.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    med.drugCode?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    med.strength?.toLowerCase().includes(searchTerm.toLowerCase())
+  const medicationServiceCatalogs = useMemo(
+    () => serviceCatalog.filter(sc => sc.stockItemId),
+    [serviceCatalog],
   );
 
-  const frequencyOptions = [
-    { value: 'once', label: 'Once Daily' },
-    { value: 'bd', label: 'Twice Daily (BD)' },
-    { value: 'tds', label: 'Three Times Daily (TDS)' },
-    { value: 'qid', label: 'Four Times Daily (QID)' },
-    { value: 'stat', label: 'STAT (Immediately)' },
-    { value: 'prn', label: 'As Needed (PRN)' },
-    { value: 'nocte', label: 'At Night (Nocte)' },
-    { value: 'mane', label: 'In Morning (Mane)' },
-  ];
+  const medicationStockItems = useMemo(
+    () => stockItems.filter(s => s.isMedication && s.isActive),
+    [stockItems],
+  );
 
-  const routeOptions = [
-    { value: 'oral', label: 'Oral' },
-    { value: 'iv', label: 'Intravenous (IV)' },
-    { value: 'im', label: 'Intramuscular (IM)' },
-    { value: 'sc', label: 'Subcutaneous (SC)' },
-    { value: 'topical', label: 'Topical' },
-    { value: 'inhalation', label: 'Inhalation' },
-    { value: 'rectal', label: 'Rectal' },
-  ];
+  const filteredMeds = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase();
+    if (!q) return [];
+    return medicationStockItems.filter(m =>
+      m.name?.toLowerCase().includes(q) ||
+      m.drugCode?.toLowerCase().includes(q) ||
+      m.strength?.toLowerCase().includes(q)
+    ).slice(0, 40);
+  }, [medicationStockItems, debouncedSearch]);
 
-  const handleSelectMed = (med: any) => {
-    setSelectedMed(med);
-    setSearchTerm(med.name);
+  const handleSelect = (m: any) => {
+    setSelectedMed(m);
+    setSearchTerm(m.name);
     setShowDropdown(false);
-    
-    // Find the service catalog for this medication
-    const serviceCat = medicationServiceCatalogs.find(sc => sc.stockItemId === med.id);
-    setSelectedServiceCatalog(serviceCat || null);
-    
-    // Auto-populate dosage from strength if available
-    if (med.strength && !dosage) {
-      setDosage(med.strength);
-    }
+    const svc = medicationServiceCatalogs.find(sc => sc.stockItemId === m.id);
+    setSelectedServiceCatalog(svc || null);
+    if (m.strength && !dosage) setDosage(m.strength);
   };
 
   const clearSelection = () => {
@@ -123,334 +138,306 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     setDosage('');
     setFrequency('');
     setDuration('');
-    setDurationUnit('days');
     setRoute('oral');
     setInstructions('');
-  };
-
-  const getDurationDisplay = () => {
-    if (!duration) return '';
-    return `${duration} ${durationUnit}`;
+    searchInputRef.current?.focus();
   };
 
   const handleSubmit = async () => {
-    if (!attendanceId) {
-      error('No Attendance', 'Please select an attendance first');
-      return;
-    }
-
-    if (!selectedMed) {
-      error('No Medication', 'Please select a medication');
-      return;
-    }
-
-    if (!selectedServiceCatalog) {
-      error('No Pricing', 'This medication has no pricing configured. Please contact administrator.');
-      return;
-    }
-
-    if (!dosage) {
-      error('Missing Dosage', 'Please enter the dosage');
-      return;
-    }
-
-    if (!frequency) {
-      error('Missing Frequency', 'Please select the frequency');
-      return;
-    }
+    if (!attendanceId) { error('No attendance', 'Please select an attendance first.'); return; }
+    if (!selectedMed) { error('No medication', 'Please select a medication.'); return; }
+    if (!selectedServiceCatalog) { error('No pricing', 'This medication has no pricing configured.'); return; }
+    if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
+    if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
 
     setIsSubmitting(true);
     try {
       await addMedication(attendanceId, {
         stockItemId: selectedMed.id,
         serviceCatalogId: selectedServiceCatalog.id,
-        dosage: dosage,
-        frequency: frequency,
-        duration: getDurationDisplay(),
-        route: route,
-        instructions: instructions,
+        dosage: dosage.trim(),
+        frequency,
+        duration: duration.trim(),
+        route,
+        instructions: instructions.trim(),
       });
-
-      success('Medication Prescribed', `${selectedMed.name} has been prescribed`);
+      success('Medication prescribed', `${selectedMed.name} has been prescribed.`);
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Prescription Failed', err.message || 'Could not prescribe medication');
+      error('Prescription failed', err.response?.data?.message || err.message || 'Could not prescribe medication');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const outOfStock = selectedMed ? selectedMed.currentStock === 0 : false;
-  const lowStockWarning = selectedMed && selectedMed.currentStock > 0 && selectedMed.currentStock < (selectedMed.reorderLevel || 50);
-  const hasPricing = selectedServiceCatalog !== null;
-
   if (!isOpen) return null;
 
+  const hasPricing = !!selectedServiceCatalog;
+  const isOutOfStock = !!selectedMed && selectedMed.currentStock === 0;
+  const isLowStock = !!selectedMed && selectedMed.currentStock > 0 && selectedMed.currentStock < (selectedMed.reorderLevel || 50);
+  const canEdit = !!selectedMed && hasPricing;
+
+  const inputCls = 'w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-green-text)] disabled:opacity-60';
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="flex min-h-full items-center justify-center p-4">
-        <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto border border-gray-200 dark:border-gray-700">
-          {/* Header */}
-          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between z-10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center">
-                <Pill className="w-5 h-5 text-green-600 dark:text-green-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white">Prescribe Medication</h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  Select a medication and specify dosage
-                </p>
-              </div>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+
+      <div className="relative w-full max-w-2xl rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl flex flex-col max-h-[90vh] overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-4 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-[var(--icon-green-bg)] flex items-center justify-center">
+              <Pill className="h-4 w-4 text-[var(--icon-green-text)]" />
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-            >
-              <X className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-            </button>
+            <div>
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Prescribe medication</h2>
+              <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">Select a medication and specify dosage</p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
 
-          {/* Form */}
-          <div className="p-6 space-y-5">
-            {/* Medication Search */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Search Medication *
-              </label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => {
-                    setSearchTerm(e.target.value);
-                    setShowDropdown(true);
-                    if (selectedMed) setSelectedMed(null);
-                  }}
-                  onFocus={() => setShowDropdown(true)}
-                  placeholder="Search by drug name or code..."
-                  className="w-full pl-10 pr-3 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm"
-                  disabled={!canAdd}
-                />
-              </div>
-
-              {/* Dropdown */}
-              {showDropdown && searchTerm && filteredMeds.length > 0 && (
-                <div className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 shadow-lg">
-                  {filteredMeds.map((med) => {
-                    const isOutOfStock = med.currentStock === 0;
-                    const isLowStock = med.currentStock > 0 && med.currentStock < (med.reorderLevel || 50);
-                    const hasServiceCat = medicationServiceCatalogs.some(sc => sc.stockItemId === med.id);
-                    
-                    return (
-                      <button
-                        key={med.id}
-                        onClick={() => handleSelectMed(med)}
-                        className={`w-full text-left p-3 hover:bg-gray-50 dark:hover:bg-gray-800 border-b border-gray-100 dark:border-gray-800 last:border-b-0 transition-colors ${isOutOfStock ? 'opacity-70' : ''}`}
-                      >
-                        <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                          {med.name}
-                          {!hasServiceCat && (
-                            <span className="ml-2 text-xs text-red-500">(No pricing)</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs flex-wrap">
-                          <span className="text-gray-500 dark:text-gray-400">
-                            {med.strength || 'No strength specified'}
-                          </span>
-                          <span className={`flex items-center gap-1 ${isOutOfStock ? 'text-red-600 dark:text-red-400' : isLowStock ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                            <AlertCircle className="w-3 h-3" />
-                            Stock: {med.currentStock}
-                          </span>
-                          {!hasServiceCat && (
-                            <span className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded text-xs">
-                              No Pricing
-                            </span>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+          {/* Medication search */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+              Medication
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--text-tertiary)]" />
+              <input
+                ref={searchInputRef}
+                value={searchTerm}
+                onChange={e => {
+                  setSearchTerm(e.target.value);
+                  setShowDropdown(true);
+                  if (selectedMed) setSelectedMed(null);
+                }}
+                onFocus={() => setShowDropdown(true)}
+                placeholder="Search by drug name, code, or strength…"
+                className={`${inputCls} pl-9`}
+                disabled={!canAdd}
+                autoComplete="off"
+              />
             </div>
 
-            {/* Selected Medication Display */}
-            {selectedMed && (
-              <div className={`rounded-lg p-3 border ${
-                !hasPricing 
-                  ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800'
-                  : outOfStock 
-                    ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' 
-                    : lowStockWarning 
-                      ? 'bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800' 
-                      : 'bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="font-semibold text-gray-900 dark:text-white text-sm">
-                      {selectedMed.name}
-                    </div>
-                    <div className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
-                      {selectedMed.strength || 'Strength N/A'} • Stock: {selectedMed.currentStock}
-                    </div>
-                  </div>
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                </div>
-                
-                {/* Pricing error */}
-                {!hasPricing && (
-                  <div className="mt-3 flex items-start gap-2 p-2 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-800">
-                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-red-700 dark:text-red-300">
-                      <span className="font-semibold">PRICING ERROR:</span> This medication has no service catalog entry. Cannot prescribe until pricing is configured.
-                    </div>
-                  </div>
-                )}
-                
-                {/* Out of stock warning */}
-                {hasPricing && outOfStock && (
-                  <div className="mt-3 flex items-start gap-2 p-2 rounded bg-red-100 dark:bg-red-950/50 border border-red-200 dark:border-red-800">
-                    <AlertCircle className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-red-700 dark:text-red-300">
-                      <span className="font-semibold">OUT OF STOCK:</span> This medication has 0 units available. Prescription will be recorded but cannot be dispensed until restocked.
-                    </div>
-                  </div>
-                )}
-                
-                {/* Low stock warning */}
-                {hasPricing && lowStockWarning && !outOfStock && (
-                  <div className="mt-3 flex items-start gap-2 p-2 rounded bg-amber-100 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800">
-                    <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-amber-700 dark:text-amber-300">
-                      <span className="font-semibold">Low stock alert:</span> Only {selectedMed.currentStock} units available. Consider prescribing alternative or requesting restock.
-                    </div>
-                  </div>
-                )}
+            {showDropdown && debouncedSearch && filteredMeds.length > 0 && (
+              <div
+                className="mt-1 max-h-56 overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm"
+                style={{ scrollbarWidth: 'thin' }}
+              >
+                {filteredMeds.map(m => {
+                  const out = m.currentStock === 0;
+                  const low = m.currentStock > 0 && m.currentStock < (m.reorderLevel || 50);
+                  const noPricing = !medicationServiceCatalogs.some(sc => sc.stockItemId === m.id);
+                  const displayName = [m.name, m.strength].filter(Boolean).join(' ');
+                  return (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => handleSelect(m)}
+                      className="w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{displayName}</p>
+                          {m.drugCode && (
+                            <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{m.drugCode}</p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5 shrink-0">
+                          <span
+                            className={`text-[11px] font-semibold ${
+                              out ? 'text-[var(--icon-red-text)]'
+                              : low ? 'text-[var(--icon-yellow-text)]'
+                              : 'text-[var(--icon-green-text)]'
+                            }`}
+                          >
+                            {m.currentStock} in stock
+                          </span>
+                          {noPricing && (
+                            <span className="text-[10px] text-[var(--icon-red-text)]">No pricing</span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
 
-            {/* Dosage & Frequency Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Dosage *
-                </label>
-                <input
-                  type="text"
-                  value={dosage}
-                  onChange={(e) => setDosage(e.target.value)}
-                  placeholder="e.g., 500mg, 1 tablet"
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white text-sm"
-                  disabled={!selectedMed || !hasPricing}
-                />
+            {showDropdown && debouncedSearch && filteredMeds.length === 0 && (
+              <div className="mt-1 p-4 text-center rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]">
+                <AlertCircle className="w-6 h-6 text-[var(--text-tertiary)] mx-auto mb-2" />
+                <p className="text-xs text-[var(--text-secondary)]">
+                  No medications match "{debouncedSearch}".
+                </p>
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Frequency *
-                </label>
-                <select
-                  value={frequency}
-                  onChange={(e) => setFrequency(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white text-sm"
-                  disabled={!selectedMed || !hasPricing}
-                >
-                  <option value="">Select frequency...</option>
-                  {frequencyOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
+            )}
+          </div>
 
-            {/* Duration & Route Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Duration
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="e.g., 7"
-                    className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white text-sm"
-                    disabled={!selectedMed || !hasPricing}
-                  />
-                  <select
-                    value={durationUnit}
-                    onChange={(e) => setDurationUnit(e.target.value as 'days' | 'weeks')}
-                    className="w-24 px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 text-gray-900 dark:text-white text-sm"
-                    disabled={!selectedMed || !hasPricing}
+          {/* Selected medication summary */}
+          {selectedMed && (
+            <div
+              className={`rounded-lg p-3 border ${
+                !hasPricing
+                  ? 'border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)]'
+                  : isOutOfStock
+                  ? 'border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)]'
+                  : isLowStock
+                  ? 'border-[var(--icon-yellow-text)]/30 bg-[var(--icon-yellow-bg)]'
+                  : 'border-[var(--border-color)] bg-[var(--bg-main)]'
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                    {[selectedMed.name, selectedMed.strength].filter(Boolean).join(' ')}
+                  </p>
+                  <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                    {selectedMed.currentStock} {selectedMed.unitOfMeasure || 'unit(s)'} in stock
+                    {selectedMed.drugCode ? ` · ${selectedMed.drugCode}` : ''}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  {!isOutOfStock && <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
+                  <button
+                    type="button"
+                    onClick={clearSelection}
+                    className="text-[11px] text-[var(--icon-cyan-text)] hover:underline"
                   >
-                    <option value="days">Days</option>
-                    <option value="weeks">Weeks</option>
-                  </select>
+                    Change
+                  </button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  Route of Administration
-                </label>
-                <select
-                  value={route}
-                  onChange={(e) => setRoute(e.target.value)}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white text-sm"
-                  disabled={!selectedMed || !hasPricing}
-                >
-                  {routeOptions.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
 
-            {/* Instructions */}
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Instructions (Optional)
+              {!hasPricing && (
+                <p className="mt-2 text-[10px] text-[var(--icon-red-text)]">
+                  No pricing configured. Contact an administrator before prescribing.
+                </p>
+              )}
+              {hasPricing && isOutOfStock && (
+                <p className="mt-2 text-[10px] text-[var(--icon-red-text)]">
+                  Out of stock. Prescription can be recorded but cannot be dispensed until restocked.
+                </p>
+              )}
+              {hasPricing && isLowStock && (
+                <p className="mt-2 text-[10px] text-[var(--icon-yellow-text)]">
+                  Low stock — only {selectedMed.currentStock} units available.
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Prescription row: Dosage · Frequency · Duration · Route */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Dosage
               </label>
-              <textarea
-                value={instructions}
-                onChange={(e) => setInstructions(e.target.value)}
-                rows={2}
-                placeholder="e.g., Take with food, avoid alcohol, etc."
-                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 text-sm resize-none"
-                disabled={!selectedMed || !hasPricing}
+              <input
+                value={dosage}
+                onChange={e => setDosage(e.target.value)}
+                placeholder="500mg"
+                className={inputCls}
+                disabled={!canEdit}
+                autoComplete="off"
               />
             </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Frequency
+              </label>
+              <select
+                value={frequency}
+                onChange={e => setFrequency(e.target.value)}
+                className={inputCls}
+                disabled={!canEdit}
+              >
+                <option value="">Select…</option>
+                {FREQUENCIES.map(f => (
+                  <option key={f.value} value={f.value}>{f.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Duration
+              </label>
+              <input
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
+                placeholder="7 days"
+                className={inputCls}
+                disabled={!canEdit}
+                autoComplete="off"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+                Route
+              </label>
+              <select
+                value={route}
+                onChange={e => setRoute(e.target.value)}
+                className={inputCls}
+                disabled={!canEdit}
+              >
+                {ROUTES.map(r => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleSubmit}
-              disabled={!selectedMed || !selectedServiceCatalog || !dosage || !frequency || isSubmitting}
-              className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-all duration-200 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <div className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Prescribing...
-                </div>
-              ) : (
-                'Prescribe Medication'
-              )}
-            </button>
+          {/* Instructions */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+              Instructions <span className="normal-case font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={instructions}
+              onChange={e => setInstructions(e.target.value)}
+              rows={2}
+              placeholder="e.g. Take with food, avoid alcohol…"
+              className={`${inputCls} resize-none`}
+              disabled={!canEdit}
+            />
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 border-t border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-4 flex-shrink-0">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!canEdit || !dosage.trim() || !frequency || isSubmitting}
+            className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
+          >
+            {isSubmitting
+              ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Prescribing…</>
+              : <>Prescribe medication</>}
+          </button>
         </div>
       </div>
     </div>

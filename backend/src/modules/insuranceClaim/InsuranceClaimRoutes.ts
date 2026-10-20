@@ -1,52 +1,42 @@
+// backend/src/modules/insuranceClaim/InsuranceClaimRouter.ts
 import { Router } from 'express';
 import { insuranceClaimController } from './InsuranceClaimController';
+import { createClaimBatchRoutes } from './ClaimBatchRouter';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import {
+  validate,
+  GenerateClaimSchema,
+  UpdateClaimDraftSchema,
+  ReplaceClaimItemsSchema,
+} from './InsuranceClaimValidators';
 
 export const createInsuranceClaimRoutes = () => {
   const router = Router();
   router.use(protect);
 
-  // ==========================================
-  // SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
-  // ==========================================
+  router.use('/batches', createClaimBatchRoutes());
 
-  // NHIS CLAIM ROUTES
-  router.post('/nhis/generate', requireRole(['admin', 'accounts']), insuranceClaimController.generateNHISClaim);
-  router.get('/nhis', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getNHISClaims);
+  router.get('/summary', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaimsSummary);
 
-  // PRIVATE INSURANCE CLAIM ROUTES
-  router.post('/private/generate', requireRole(['admin', 'accounts']), insuranceClaimController.generatePrivateInsuranceClaim);
-  router.get('/private', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getPrivateInsuranceClaims);
+  router.post('/nhis/generate', requireRole(['admin', 'accounts']), validate(GenerateClaimSchema), insuranceClaimController.generateNHISClaim);
+  router.get('/nhis', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listNHISClaims);
 
-  // CORPORATE CLAIM ROUTES
-  router.post('/corporate/generate', requireRole(['admin', 'accounts']), insuranceClaimController.generateCorporateClaim);
-  router.get('/corporate', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getCorporateClaims);
+  router.post('/private/generate', requireRole(['admin', 'accounts']), validate(GenerateClaimSchema), insuranceClaimController.generatePrivateClaim);
+  router.get('/private', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listPrivateClaims);
 
-  // FINALIZED TOTAL ROUTE
-  router.get('/finalized/total', requireRole(['admin', 'accounts']), insuranceClaimController.getFinalizedClaimsTotal);
+  router.post('/corporate/generate', requireRole(['admin', 'accounts']), validate(GenerateClaimSchema), insuranceClaimController.generateCorporateClaim);
+  router.get('/corporate', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listCorporateClaims);
 
-  // CLAIM BATCH ROUTES (Admin & Accounts only)
-  router.post('/batches', requireRole(['admin', 'accounts']), insuranceClaimController.createClaimBatch);
-  router.get('/batches', requireRole(['admin', 'accounts']), insuranceClaimController.getClaimBatches);
-  router.get('/batches/:id', requireRole(['admin', 'accounts']), insuranceClaimController.getClaimBatch);
-  router.post('/batches/:batchId/claims', requireRole(['admin', 'accounts']), insuranceClaimController.addClaimsToBatch);
-  router.delete('/batches/:batchId/claims', requireRole(['admin', 'accounts']), insuranceClaimController.removeClaimsFromBatch);
-  router.post('/batches/:batchId/generate-xml', requireRole(['admin', 'accounts']), insuranceClaimController.generateBatchXML);
-  router.patch('/batches/:batchId/status', requireRole(['admin', 'accounts']), insuranceClaimController.updateBatchStatus);
-  router.delete('/batches/:batchId', requireRole(['admin', 'accounts']), insuranceClaimController.deleteClaimBatch);
+  router.get('/attendance/:attendanceId', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaimByAttendanceId);
 
-  // ==========================================
-  // DYNAMIC CLAIM ID ROUTES (PUT THESE LAST)
-  // ==========================================
-  router.get('/attendance/:attendanceId', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getClaimByAttendanceId);
-  router.patch('/:claimId/draft', requireRole(['admin', 'accounts']), insuranceClaimController.updateClaimDraft);
+  router.get('/:claimId/xml', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.downloadClaimXml);
+  router.get('/:claimId/print', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.printClaim);
+  router.patch('/:claimId/draft', requireRole(['admin', 'accounts']), validate(UpdateClaimDraftSchema), insuranceClaimController.updateDraft);
+  router.put('/:claimId/items', requireRole(['admin', 'accounts']), validate(ReplaceClaimItemsSchema), insuranceClaimController.replaceItems);
   router.patch('/:claimId/finalize', requireRole(['admin', 'accounts']), insuranceClaimController.finalizeClaim);
-  router.patch('/:claimId/status', requireRole(['admin', 'accounts']), insuranceClaimController.updateClaimStatus);
-  router.patch('/:claimId', requireRole(['admin', 'accounts']), insuranceClaimController.updateInsuranceClaim);
-  router.post('/:claimId/generate-xml', requireRole(['admin', 'accounts']), insuranceClaimController.generateClaimXML);
-  router.get('/:claimId/print', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.generateClaimPrint);
-  router.get('/:id', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getInsuranceClaim);
-  router.get('/', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.getAllInsuranceClaims);
+
+  router.get('/:id', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaim);
+  router.get('/', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listClaims);
 
   return router;
 };

@@ -1,18 +1,19 @@
+// backend/src/shared/base/BaseController.ts
 import { Request, Response, NextFunction, RequestHandler } from 'express';
-import { 
-  createSuccessResponse, 
-  createPaginatedResponse, 
+import {
+  createSuccessResponse,
+  createPaginatedResponse,
   createErrorResponse,
-  ApiResponse 
 } from '../types/ApiResponse';
+import { normalizeResponse } from '../../utils/normalizeResponse';
 
 export abstract class BaseController {
   protected ok(res: Response, data: any, message?: string, meta?: Record<string, any>): Response {
-    return res.json(createSuccessResponse(data, message, meta));
+    return res.json(createSuccessResponse(normalizeResponse(data), message, meta));
   }
 
   protected created(res: Response, data: any, message?: string): Response {
-    return res.status(201).json(createSuccessResponse(data, message));
+    return res.status(201).json(createSuccessResponse(normalizeResponse(data), message));
   }
 
   protected noContent(res: Response): Response {
@@ -23,38 +24,39 @@ export abstract class BaseController {
     res: Response,
     data: any[],
     pagination: { page: number; limit: number; total: number },
-    message?: string
+    message?: string,
   ): Response {
-    return res.json(createPaginatedResponse(data, pagination, message));
+    return res.json(createPaginatedResponse(normalizeResponse(data), pagination, message));
   }
 
-  /**
-   * ✅ PRODUCTION FIX: Intercepts Prisma errors to return correct HTTP status codes
-   */
   protected error(res: Response, err: any): Response {
-    // Handle Prisma Known Request Errors
     if (err.code === 'P2002') {
       const fields = err.meta?.target?.join(', ') || 'field';
       return this.badRequest(res, `Duplicate entry. The ${fields} must be unique.`);
     }
-    if (err.code === 'P2025') {
-      return this.notFound(res, 'Record');
-    }
+    if (err.code === 'P2025') return this.notFound(res, 'Record');
     if (err.code === 'P2003') {
       return this.badRequest(res, 'Invalid reference: The related record does not exist.');
     }
 
-    // AppError.status is the STRING 'fail'/'error'; only use a real HTTP status number.
     const candidates = [err.statusCode, err.status];
-    const status: number =
+    let status: number =
       candidates.find((v) => Number.isInteger(v) && v >= 400 && v < 600) ?? 500;
+
+    if (status === 500 && !err.code && err instanceof Error) {
+      const msg = String(err.message || '');
+      const looksLikeUserError =
+        /cannot|must|required|already|invalid|not (found|eligible|submitted|configured|allowed)|exactly one|is not/i.test(msg);
+      if (looksLikeUserError) status = 400;
+    }
+
     const message = err.message || 'Internal server error';
     const errors = err.errors || undefined;
 
     console.error(`[Controller Error] ${message}`, {
       name: err.name,
       code: err.code,
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     });
 
     return res.status(status).json(createErrorResponse(message, errors, status));
@@ -92,9 +94,6 @@ export abstract class BaseController {
     return { userId: user.id || user.userId, role: user.role };
   }
 
-  /**
-   * ✅ PRODUCTION FIX: Strictly typed async handler wrapper
-   */
   protected asyncHandler(fn: (req: Request, res: Response, next: NextFunction) => Promise<any>): RequestHandler {
     return (req: Request, res: Response, next: NextFunction) => {
       Promise.resolve(fn(req, res, next)).catch(next);

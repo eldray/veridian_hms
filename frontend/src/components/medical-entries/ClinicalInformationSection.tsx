@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Diagnosis, DiagnosisTemplate } from '../../types';
+import type { Diagnosis, DiagnosisTemplate } from '../../types';
 import { AlertCircle, Save, CheckCircle2, Stethoscope, FileText, Edit, Clock, User, Search, X, DollarSign, Shield } from 'lucide-react';
 
 interface ClinicalInformationSectionProps {
@@ -215,7 +215,7 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
   const handleDiagnosisSelect = (selectedTemplate: DiagnosisTemplate) => {
     if (!selectedTemplate) return;
     
-    const diagnosisData: Diagnosis = {
+    const diagnosisData = {
       _id: selectedTemplate._id || '',
       name: selectedTemplate.name || '',
       icdCode: selectedTemplate.icdCode || '',

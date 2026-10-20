@@ -86,8 +86,17 @@ export const useNursingStore = create<NursingState>((set, get) => ({
   fetchDoses: async (filters) => {
     set({ dosesLoading: true, dosesError: null });
     try {
-      const { doses } = await getMarDoses(filters);
-      set({ doses, dosesLoading: false });
+      // Backend returns at most 500 doses per request. attendanceId may hold several ids ("a,b,c"),
+      // so a whole ward loads in a few pages instead of one request per patient.
+      const PAGE = 500;
+      const doses: any[] = [];
+      for (let page = 1; page <= 6; page++) {
+        const res = await getMarDoses({ ...filters, page, limit: PAGE });
+        doses.push(...res.doses);
+        const total = Number((res.pagination as any)?.total);
+        if (res.doses.length < PAGE || (Number.isFinite(total) && doses.length >= total)) break;
+      }
+      set({ doses: doses as any, dosesLoading: false });
     } catch (err: any) {
       set({
         dosesLoading: false,

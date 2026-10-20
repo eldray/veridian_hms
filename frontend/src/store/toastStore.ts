@@ -1,5 +1,6 @@
 // src/store/toastStore.ts
 import { create } from 'zustand';
+import { useCallback, useMemo } from 'react';
 import { Toast, ToastType } from '../components/Toast';
 
 interface ToastState {
@@ -78,17 +79,30 @@ export const useToastStore = create<ToastState>((set, get) => ({
 
 // Helper hook with memoization to prevent re-renders
 export const useToast = () => {
-  const { addToast } = useToastStore();
-  
-  // Memoized functions to prevent recreation on every render
-  return {
-    success: (title: string, message?: string, duration?: number) =>
+  const addToast = useToastStore((state) => state.addToast);
+  const success = useCallback(
+    (title: string, message?: string, duration?: number) =>
       addToast({ type: 'success', title, message, duration }),
-    error: (title: string, message?: string, duration?: number) =>
+    [addToast],
+  );
+  const error = useCallback(
+    (title: string, message?: string, duration?: number) =>
       addToast({ type: 'error', title, message, duration }),
-    warning: (title: string, message?: string, duration?: number) =>
+    [addToast],
+  );
+  const warning = useCallback(
+    (title: string, message?: string, duration?: number) =>
       addToast({ type: 'warning', title, message, duration }),
-    info: (title: string, message?: string, duration?: number) =>
+    [addToast],
+  );
+  const info = useCallback(
+    (title: string, message?: string, duration?: number) =>
       addToast({ type: 'info', title, message, duration }),
-  };
+    [addToast],
+  );
+
+  return useMemo(
+    () => ({ success, error, warning, info }),
+    [success, error, warning, info],
+  );
 };

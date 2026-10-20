@@ -64,6 +64,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
     asthma: existingRecord?.asthma || false,
     epilepsy: existingRecord?.epilepsy || false,
     hivStatus: existingRecord?.hivStatus || '',
+    hivKnownPositive: existingRecord?.hivKnownPositive || false,
     syphilisStatus: existingRecord?.syphilisStatus || '',
     hepatitisBStatus: existingRecord?.hepatitisBStatus || '',
     
@@ -165,7 +166,17 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
           gravida: formData.gravida,
           para: formData.para,
           riskLevel: formData.riskLevel,
-          // Add other updatable fields as needed
+          hivStatus: formData.hivStatus || undefined,
+          hivKnownPositive: formData.hivKnownPositive,
+          bloodGroup: formData.bloodGroup || undefined,
+          hbLevel: formData.bookingHb ? parseFloat(formData.bookingHb) : undefined,
+          vdrl: formData.syphilisStatus || undefined,
+          hepatitisBStatus: formData.hepatitisBStatus || undefined,
+          malePartnerInvolved: formData.malePartnerInvolved,
+          itnGiven: formData.itnGiven,
+          bookingHeight: formData.bookingHeight ? parseFloat(formData.bookingHeight) : undefined,
+          bookingWeight: formData.bookingWeight ? parseFloat(formData.bookingWeight) : undefined,
+          bookingBP: formData.bookingBP || undefined,
         };
         await updateAntenatalRecord(existingRecord.id, updateData);
         success('Success', 'Pregnancy record updated successfully');
@@ -177,9 +188,32 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
           lmp: formData.lmp,  // Required
           gravida: formData.gravida,  // Required
           para: formData.para,  // Required
-          riskLevel: formData.riskLevel || 'low',  // Optional with default
+          riskLevel: formData.riskLevel || 'low',
+          riskFactors: formData.riskFactors,
+          gestationalAgeWeeks: formData.gestationalAgeWeeks ? parseInt(formData.gestationalAgeWeeks) : undefined,
+          previousCSection: formData.previousCSection,
+          previousComplications: [
+            ...formData.previousComplications,
+            ...(formData.previousComplicationsOther ? [formData.previousComplicationsOther] : []),
+          ],
+          hivStatus: formData.hivStatus || undefined,
+          hivKnownPositive: formData.hivKnownPositive,
+          syphilisStatus: formData.syphilisStatus || undefined,
+          hepatitisBStatus: formData.hepatitisBStatus || undefined,
+          partnerHIVStatus: formData.partnerHIVStatus || undefined,
+          bloodGroup: formData.bloodGroup || undefined,
+          bookingHb: formData.bookingHb ? parseFloat(formData.bookingHb) : undefined,
+          bookingHeight: formData.bookingHeight,
+          bookingWeight: formData.bookingWeight,
+          bookingBP: formData.bookingBP || undefined,
+          ttDosesGiven: formData.ttDosesGiven,
+          iptpDosesGiven: formData.iptpDosesGiven,
+          ironGiven: formData.ironGiven,
+          folateGiven: formData.folateGiven,
+          itnGiven: formData.itnGiven,
+          malePartnerInvolved: formData.malePartnerInvolved,
         };
-        
+
         console.log('Sending to backend:', createData);
         await registerAntenatalBooking(createData);
         success('Success', 'Pregnancy record created successfully');
@@ -500,6 +534,10 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       <option value="Negative">Negative</option>
                       <option value="Unknown">Unknown</option>
                     </select>
+                    <label className="flex items-center gap-2 text-xs mt-1">
+                      <input type="checkbox" checked={formData.hivKnownPositive} onChange={(e) => handleChange('hivKnownPositive', e.target.checked)} />
+                      Known positive before this pregnancy
+                    </label>
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Syphilis Status</label>

@@ -56,6 +56,11 @@ export interface VitalsEntry {
   spo2?: number;
   weight?: number;
   height?: number;
+  fetalHeartRate?: number;
+  fundalHeight?: number;
+  presentingPart?: string;
+  fetalMovement?: boolean;
+  oedema?: boolean;
   notes?: string;
 }
 
