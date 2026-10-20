@@ -79,6 +79,7 @@ interface StockTransaction {
   stockItemId: string;
   transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out' | 'write_off';
   quantity: number;
+  adjustmentDirection?: 'increase' | 'decrease' | null;
   balanceAfter: number;
   reference?: string;
   notes?: string;
