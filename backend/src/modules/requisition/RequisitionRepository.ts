@@ -298,6 +298,19 @@ export class RequisitionRepository {
         throw new Error('Only submitted requisitions can be approved');
       }
 
+      const lines = await tx.requisitionItem.findMany({ where: { requisitionId: id }, select: { id: true, quantityRequested: true } });
+      const lineIds = new Set(lines.map(line => line.id));
+      const submittedIds = new Set(approvedItems.map(item => item.requisitionItemId));
+      if (submittedIds.size !== approvedItems.length || submittedIds.size !== lineIds.size || [...submittedIds].some(itemId => !lineIds.has(itemId))) {
+        throw new Error('Approval must include each line from this requisition exactly once');
+      }
+      for (const item of approvedItems) {
+        const line = lines.find(candidate => candidate.id === item.requisitionItemId)!;
+        if (!Number.isSafeInteger(item.quantityApproved) || item.quantityApproved < 0 || item.quantityApproved > line.quantityRequested) {
+          throw new Error('Approved quantities must be whole numbers between zero and the requested quantity');
+        }
+      }
+
       for (const item of approvedItems) {
         await tx.requisitionItem.update({
           where: { id: item.requisitionItemId },
