@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { StockItemRepository } from './StockItemRepository';
 import { getCounterService } from '../../services/CounterService';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
+import { increaseDepartmentStockBalance } from './StockBalance';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
@@ -179,6 +180,9 @@ export class StockItemService extends BaseService {
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
+      if (initialStock > 0) {
+        await increaseDepartmentStockBalance(tx, created.id, data.departmentId ? String(data.departmentId) : undefined, initialStock);
+      }
       if (hasOpeningBatch) {
         await this.repo.addBatchWithinTransaction(
           tx,
@@ -207,7 +211,7 @@ export class StockItemService extends BaseService {
 
   async update(id: string, updateData: any, userId?: string) {
     // Price fields and relations are not stock-item columns: strip them, then apply the prices to the catalog entry
-    const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, ...cleanData } = updateData;
+    const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, currentStock: _currentStock, stockBalances: _stockBalances, ...cleanData } = updateData;
     return this.prisma.$transaction(async (tx) => {
       const updated = await this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined }, tx);
       await this.savePatientPrices(tx, updated, { cashPrice, nhisPrice, insurancePrice, corporatePrice }, userId);
