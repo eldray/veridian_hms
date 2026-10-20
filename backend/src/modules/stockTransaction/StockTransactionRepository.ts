@@ -51,6 +51,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async createSafely(data: any) {
     return this.prisma.$transaction(async (tx) => {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
+      const effectiveQuantity = Math.abs(Number(quantity));
+      const adjustmentDirection = transactionType === 'adjustment' ? (Number(quantity) < 0 ? 'decrease' : 'increase') : undefined;
 
       if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
         throw new ValidationError('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
@@ -60,13 +62,13 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       const wardId = data.wardId ? String(data.wardId) : undefined;
       if (departmentId && wardId) throw new ValidationError('Select either a department or a ward, not both');
       const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
-      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
+      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off' || (transactionType === 'adjustment' && adjustmentDirection === 'decrease');
 
       // Sales/dispensing from a batch-tracked department must reduce that department's
       // FEFO batches and the hospital aggregate in the same transaction.
       if (isOutgoing && batchCount > 0) {
         if (!departmentId && !wardId) throw new ValidationError('Select the department or ward issuing this stock');
-        let remaining = quantity;
+        let remaining = effectiveQuantity;
         const batches = await tx.stockBatch.findMany({
           where: {
             stockItemId, departmentId: departmentId || null, wardId: wardId || null, quantity: { gt: 0 },
@@ -75,8 +77,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           orderBy: { expiryDate: 'asc' }
         });
         const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
-        if (departmentAvailable < quantity) {
-          throw new ValidationError(`Insufficient stock in the selected department. Available: ${departmentAvailable}, requested: ${quantity}`);
+        if (departmentAvailable < effectiveQuantity) {
+          throw new ValidationError(`Insufficient stock in the selected department. Available: ${departmentAvailable}, requested: ${effectiveQuantity}`);
         }
         for (const batch of batches) {
           if (remaining <= 0) break;
@@ -96,24 +98,24 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       }
 
       if (isOutgoing) {
-        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity, wardId);
+        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
         const updated = await tx.stockItem.updateMany({
-          where: { id: stockItemId, currentStock: { gte: quantity } },
-          data: { currentStock: { decrement: quantity } }
+          where: { id: stockItemId, currentStock: { gte: effectiveQuantity } },
+          data: { currentStock: { decrement: effectiveQuantity } }
         });
         if (updated.count === 0) {
           const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
           throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${quantity}`);
         }
       } else {
-        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity, wardId);
-        await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
+        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
+        await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
       const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
       return tx.stockTransaction.create({
         data: {
-          stockItemId, transactionType, quantity: Math.abs(quantity),
+          stockItemId, transactionType, quantity: effectiveQuantity,
           balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
           requisitionId, invoiceId, departmentId, wardId
         }
