@@ -172,7 +172,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
         deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
-        placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant, birthWeight: data.birthWeight,
+        placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
         gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
         resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
         complications: data.complications || [], notes: data.notes, malePartnerPresentANC: data.malePartnerPresentANC || false,
