@@ -131,6 +131,11 @@ interface PurchaseInvoice {
     id: string;
     name: string;
   };
+  receivedAtWardId?: string;
+  receivedAtWard?: {
+    id: string;
+    wardName: string;
+  };
 }
 
 interface Pagination {
