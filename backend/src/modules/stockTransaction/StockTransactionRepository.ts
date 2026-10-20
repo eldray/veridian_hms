@@ -48,6 +48,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
 
       const departmentId = data.departmentId ? String(data.departmentId) : undefined;
+      const wardId = data.wardId ? String(data.wardId) : undefined;
+      if (departmentId && wardId) throw new ValidationError('Select either a department or a ward, not both');
       const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
 
@@ -58,7 +60,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         let remaining = quantity;
         const batches = await tx.stockBatch.findMany({
           where: {
-            stockItemId, departmentId, wardId: null, quantity: { gt: 0 },
+            stockItemId, departmentId: departmentId || null, wardId: wardId || null, quantity: { gt: 0 },
             ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: new Date() } }),
           },
           orderBy: { expiryDate: 'asc' }
@@ -72,7 +74,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
             where: {
-              id: batch.id, departmentId, wardId: null, quantity: { gte: move },
+              id: batch.id, departmentId: departmentId || null, wardId: wardId || null, quantity: { gte: move },
               ...(transactionType === 'write_off' ? {} : { isActive: true }),
             },
             data: { quantity: { decrement: move } }
@@ -85,7 +87,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       }
 
       if (isOutgoing) {
-        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity, wardId);
         const updated = await tx.stockItem.updateMany({
           where: { id: stockItemId, currentStock: { gte: quantity } },
           data: { currentStock: { decrement: quantity } }
@@ -95,7 +97,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${quantity}`);
         }
       } else {
-        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity, wardId);
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
       }
 
@@ -104,7 +106,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         data: {
           stockItemId, transactionType, quantity: Math.abs(quantity),
           balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
-          requisitionId, invoiceId, departmentId
+          requisitionId, invoiceId, departmentId, wardId
         }
       });
     });
