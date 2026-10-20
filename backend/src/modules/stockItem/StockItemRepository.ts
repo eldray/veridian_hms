@@ -43,16 +43,25 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async findByIdWithRelations(id: string) {
+  async findByIdWithRelations(id: string, filters: any = {}) {
+    const { departmentId, includeAllStockLocations } = filters;
+    const locationWhere = includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__' };
     return this.getModel().findUnique({
       where: { id },
       include: {
         Medication: { include: { Attendance: { select: { attendanceNumber: true, Patient: { select: { surname: true, otherNames: true, folderNumber: true } } } } }, orderBy: { prescribedAt: 'desc' }, take: 50 },
-        StockTransaction: { orderBy: { transactionDate: 'desc' }, take: 20 },
+        StockTransaction: { where: includeAllStockLocations ? {} : locationWhere, orderBy: { transactionDate: 'desc' }, take: 20 },
         InvoiceItem: { include: { Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         RequisitionItem: { include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true, createdAt: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
-        StockBatch: { include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } }, orderBy: { receivedDate: 'desc' } },
-        stockBalances: { include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } } },
+        StockBatch: {
+          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null },
+          include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
+          orderBy: { receivedDate: 'desc' },
+        },
+        stockBalances: {
+          where: locationWhere,
+          include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
+        },
         ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
       }
     });
