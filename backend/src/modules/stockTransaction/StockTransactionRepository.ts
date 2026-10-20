@@ -105,7 +105,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         });
         if (updated.count === 0) {
           const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-          throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${quantity}`);
+          throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${effectiveQuantity}`);
         }
       } else {
         await increaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
