@@ -1,13 +1,12 @@
-import stockItemRoutes from './StockItemRoutes';
+import { createStockItemRoutes as buildStockItemRoutes } from './StockItemRoutes';
 
-export { stockItemRoutes };
+export const stockItemRoutes = buildStockItemRoutes();
 
 export default {
   path: '/stock-items',
   routes: stockItemRoutes
 };
 
-// Helper function for module registration
 export function createStockItemRoutes() {
-  return stockItemRoutes;
+  return buildStockItemRoutes();
 }
