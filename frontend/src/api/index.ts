@@ -2035,6 +2035,9 @@ export const getStockCategories = () =>
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
   api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
 
+export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
+  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
+
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) =>
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
 
