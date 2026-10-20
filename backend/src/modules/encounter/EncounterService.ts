@@ -624,6 +624,42 @@ export class EncounterService extends BaseService {
   // ✅ FIXED: Prisma groupBy syntax error
   // Counts over the whole visit table are the slowest dashboard query at 1M visits (~0.7 s).
   // Cached for 30 s per date range and shared by everyone who asks at the same time.
+  // Consumable stock use: keep controller calls on the transactional repository workflow.
+  async getConsumableUses(encounterId: string) {
+    return this.repository.getConsumableUses(encounterId);
+  }
+
+  async recordConsumableUse(
+    encounterId: string,
+    data: { stockItemId: string; quantity: number; notes?: string },
+    userId: string,
+  ) {
+    if (!data?.stockItemId?.trim()) throw new ValidationError('Stock item is required');
+    if (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+    return this.repository.recordConsumableUse(encounterId, data.stockItemId, Number(data.quantity), data.notes, userId);
+  }
+
+  async updateConsumableUse(
+    encounterId: string,
+    transactionId: string,
+    data: { stockItemId: string; quantity: number; notes?: string },
+    userId: string,
+  ) {
+    if (!data?.stockItemId?.trim()) throw new ValidationError('Stock item is required');
+    if (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+    return this.repository.updateConsumableUse(
+      encounterId, transactionId, data.stockItemId, Number(data.quantity), data.notes, userId,
+    );
+  }
+
+  async deleteConsumableUse(encounterId: string, transactionId: string, userId: string) {
+    return this.repository.deleteConsumableUse(encounterId, transactionId, userId);
+  }
+
   async getEncounterStats(dateFrom?: Date, dateTo?: Date) {
     const key = `encounter-stats:${dateFrom?.toISOString() ?? ''}:${dateTo?.toISOString() ?? ''}`;
     return cached(key, 30_000, () => this.computeEncounterStats(dateFrom, dateTo));
