@@ -4,6 +4,7 @@ import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
+import { decreaseDepartmentStockBalance } from '../stockItem/StockBalance';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
   AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
@@ -595,6 +596,9 @@ export class EncounterService extends BaseService {
         }
       }
 
+      // Department balance and hospital aggregate must change atomically with the batch.
+      await decreaseDepartmentStockBalance(tx, stockItem.id, departmentId, quantity);
+
       // Guarded aggregate decrement prevents concurrent dispenses from creating negative stock.
       const itemUpdate = await tx.stockItem.updateMany({
         where: { id: stockItem.id, currentStock: { gte: quantity } },
@@ -631,6 +635,7 @@ export class EncounterService extends BaseService {
           reference: `Encounter ${encounterId}`,
           notes: selectedBatch ? `Dispensed from batch ${selectedBatch.batchNumber}` : undefined,
           performedBy: userId,
+          departmentId: departmentId || undefined,
         },
       });
 
