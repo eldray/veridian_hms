@@ -1065,7 +1065,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         if (!batch || batch.stockItemId !== stockItemId || batch.departmentId !== departmentId || batch.wardId !== null) {
           throw new ValidationError('Original batch location has changed; manual reconciliation is required');
         }
-        await tx.stockBatch.update({ where: { id: batchId }, data: { quantity: { increment: amount }, isActive: true } });
+        await tx.stockBatch.update({ where: { id: batchId }, data: { quantity: { increment: amount } } });
       }
     } else if (await tx.stockBatch.count({ where: { stockItemId } }) > 0) {
       throw new ValidationError('This historic use has no saved batch allocation; manual reconciliation is required');
