@@ -56,8 +56,8 @@ export class StockItemController extends BaseController {
   });
 
   addStockBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { batchNumber, expiryDate, quantity, costPrice, receivedDate } = req.body;
-    const result = await this.service.addStockBatch(req.params.id, batchNumber, new Date(expiryDate), quantity, costPrice, receivedDate ? new Date(receivedDate) : undefined);
+    const { batchNumber, expiryDate, quantity, costPrice, receivedDate, departmentId } = req.body;
+    const result = await this.service.addStockBatch(req.params.id, batchNumber, new Date(expiryDate), Number(quantity), Number(costPrice), receivedDate ? new Date(receivedDate) : undefined, departmentId ? String(departmentId) : undefined);
     return this.created(res, result, 'Batch added');
   });
 
