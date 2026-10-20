@@ -96,6 +96,7 @@ export default function StockManagement() {
   const [transactionData, setTransactionData] = useState({
     transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'write_off',
     quantity: 0,
+    adjustmentDirection: 'increase' as 'increase' | 'decrease',
     reference: '',
     notes: '',
     departmentId: (user as any)?.departmentId || ''
