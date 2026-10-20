@@ -77,7 +77,7 @@ interface StockItem {
 interface StockTransaction {
   id: string;
   stockItemId: string;
-  transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out';
+  transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out' | 'write_off';
   quantity: number;
   balanceAfter: number;
   reference?: string;
