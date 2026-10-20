@@ -541,7 +541,7 @@ export class EncounterService extends BaseService {
       let selectedBatch: any = null;
 
       if (anyBatches === 0) {
-        if (batchNumber !== undefined && !batchNumber.trim()) {
+        if (batchNumber != null && !batchNumber.trim()) {
           throw new ValidationError('Batch number cannot be blank');
         }
         if (expiryDate !== undefined) {
