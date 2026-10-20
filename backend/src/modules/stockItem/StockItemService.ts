@@ -265,8 +265,11 @@ export class StockItemService extends BaseService {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Stock quantity must be a positive whole number');
     }
-    if (!['purchase', 'adjustment', 'requisition', 'sale'].includes(transactionType)) {
+    if (!['purchase', 'adjustment', 'requisition', 'sale', 'write_off'].includes(transactionType)) {
       throw new ValidationError('Invalid stock transaction type');
+    }
+    if (transactionType === 'write_off' && !String(notes || '').trim()) {
+      throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
     return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
@@ -380,7 +383,7 @@ export class StockItemService extends BaseService {
       let signed: number;
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': signed = q; break;
-        case 'sale': case 'requisition': case 'transfer_out': signed = -q; break;
+        case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
         default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; // adjustment
       }
       lastBalance.set(t.stockItemId, t.balanceAfter);
@@ -416,6 +419,7 @@ export class StockItemService extends BaseService {
         transfersIn: g('transfer_in').count, transferInQuantity: g('transfer_in').quantity,
         transfersOut: g('transfer_out').count, transferOutQuantity: g('transfer_out').quantity,
         adjustments: g('adjustment').count, adjustmentQuantity: g('adjustment').quantity,
+        writeOffs: g('write_off').count, writeOffQuantity: g('write_off').quantity,
       },
     };
 
