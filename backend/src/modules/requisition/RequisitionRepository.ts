@@ -541,8 +541,6 @@ export class RequisitionRepository {
 
         if (remaining > 0) throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
 
-        const supplierAfter = (await this.getDepartmentQuantities(supplierId, [ri.stockItemId], tx)).get(ri.stockItemId) ?? 0;
-
         if (toDepartmentId || toWardId) {
           const destinationName = toDepartmentId
             ? (requisition.departments?.name || 'department')
