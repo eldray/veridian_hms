@@ -24,7 +24,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { name: 'asc' },
       include: {
-        StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' } },
+        StockBatch: { where: { isActive: true }, include: { department: { select: { id: true, name: true } } }, orderBy: { expiryDate: 'asc' } },
         // Current patient prices (cash / NHIS / insurance / corporate) live on the item's catalog entry
         ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
       }
@@ -39,7 +39,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         StockTransaction: { orderBy: { transactionDate: 'desc' }, take: 20 },
         InvoiceItem: { include: { Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         RequisitionItem: { include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true, createdAt: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
-        StockBatch: { orderBy: { receivedDate: 'desc' } },
+        StockBatch: { include: { department: { select: { id: true, name: true } } }, orderBy: { receivedDate: 'desc' } },
         ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
       }
     });
