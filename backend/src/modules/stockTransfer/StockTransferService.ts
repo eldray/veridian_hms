@@ -151,6 +151,9 @@ export class StockTransferService extends BaseService {
 
           qtyToReceive -= qtyToMove;
         }
+        if (qtyToReceive > 0) {
+          throw new Error(`Transfer item ${item.id} no longer has enough usable origin batch stock to receive the full dispatched quantity`);
+        }
       }
 
       return tx.stockTransfer.update({
