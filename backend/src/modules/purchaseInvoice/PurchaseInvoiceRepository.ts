@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO, toNumber } from './PurchaseInvoiceTypes';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
 
 export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -79,6 +80,9 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           });
         }
 
+        // Keep the location ledger in sync with the batch/receipt and hospital aggregate.
+        await increaseDepartmentStockBalance(tx, item.stockItemId, data.receivedAtDepartmentId, item.quantity);
+
         // 3. Create Stock Transaction
         await tx.stockTransaction.create({
           data: {
@@ -108,9 +112,10 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
       const invoice = await tx.invoice.findUnique({ where: { id }, include: { InvoiceItem: true } });
       if (!invoice) throw new Error('Purchase invoice not found');
 
-      // ✅ PRODUCTION FIX: Safely reverse stock using atomic decrements.
-      // If the stock was already dispensed/transferred, this will fail and block the deletion.
+      // Safely reverse both the department balance and the hospital aggregate.
+      // Any failed reversal aborts the complete invoice deletion transaction.
       for (const item of invoice.InvoiceItem) {
+        await decreaseDepartmentStockBalance(tx, item.stockItemId, invoice.receivedAtDepartmentId, item.quantity);
         const reversed = await tx.stockItem.updateMany({
           where: { id: item.stockItemId, currentStock: { gte: item.quantity } },
           data: { currentStock: { decrement: item.quantity } }
@@ -123,7 +128,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         // Delete the associated batch if it still exists and hasn't been moved
         if (item.batchNumber) {
           await tx.stockBatch.deleteMany({
-            where: { stockItemId: item.stockItemId, batchNumber: item.batchNumber, quantity: item.quantity }
+            where: { stockItemId: item.stockItemId, batchNumber: item.batchNumber, departmentId: invoice.receivedAtDepartmentId || null, wardId: null, quantity: item.quantity }
           });
         }
       }
