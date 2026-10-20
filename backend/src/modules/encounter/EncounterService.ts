@@ -62,7 +62,7 @@ export class EncounterService extends BaseService {
       const nhisProvider = await this.prisma.insuranceProvider.findFirst({ where: { type: 'nhis', isActive: true } });
       if (nhisProvider) insuranceProviderId = nhisProvider.id;
     }
-    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = null;
+    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = undefined;
 
     // ✅ PRODUCTION FIX: Wrap entire complex creation flow in a transaction
     return await this.prisma.$transaction(async (tx) => {
