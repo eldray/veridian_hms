@@ -58,8 +58,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         let remaining = quantity;
         const batches = await tx.stockBatch.findMany({
           where: {
-            stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { expiryDate: { gt: new Date() } }),
+            stockItemId, departmentId, wardId: null, quantity: { gt: 0 },
+            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: new Date() } }),
           },
           orderBy: { expiryDate: 'asc' }
         });
@@ -71,7 +71,10 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           if (remaining <= 0) break;
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
-            where: { id: batch.id, quantity: { gte: move }, isActive: true },
+            where: {
+              id: batch.id, quantity: { gte: move },
+              ...(transactionType === 'write_off' ? {} : { isActive: true }),
+            },
             data: { quantity: { decrement: move } }
           });
           if (changed.count !== 1) throw new ValidationError('Stock changed during the sale. Please retry.');
