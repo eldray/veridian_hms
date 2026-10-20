@@ -137,6 +137,17 @@ export const requireRole = (roles: string[]) =>
 
 // Super admins inherit every administrator capability; super-admin-only safeguards are enforced separately.
 export const requireAdmin = requireRole(['admin', 'super_admin']);
+
+// Use for platform-level or destructive operations reserved for super admins.
+export const requireSuperAdmin = (req: any, res: any, next: any) => {
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
+  }
+  if (String(req.user.role).toLowerCase() !== 'super_admin') {
+    return res.status(403).json({ success: false, message: 'Super Admin access required' });
+  }
+  return next();
+};
 export const requireMedicalStaff = requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'sonographer']);
 
 // ✅ NEW: Patient Management Roles
