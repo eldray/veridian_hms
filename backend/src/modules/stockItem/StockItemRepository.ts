@@ -229,12 +229,32 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async getTransactions(id: string, page: number = 1, limit: number = 50) {
-    return this.prisma.stockTransaction.findMany({
-      where: { stockItemId: id },
-      include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true } }, Invoice: { select: { invoiceNumber: true, supplierName: true } } },
-      orderBy: { transactionDate: 'desc' }
-    });
+  async getTransactions(
+    id: string,
+    page: number = 1,
+    limit: number = 50,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
+    const where: any = { stockItemId: id };
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    const safePage = Math.max(1, Math.floor(page));
+    const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
+    const [transactions, total] = await Promise.all([
+      this.prisma.stockTransaction.findMany({
+        where,
+        skip: (safePage - 1) * safeLimit,
+        take: safeLimit,
+        include: {
+          Requisition: { select: { requisitionNumber: true, status: true, urgency: true } },
+          Invoice: { select: { invoiceNumber: true, supplierName: true } },
+          Department: { select: { id: true, name: true } },
+          User: { select: { id: true, fullName: true } },
+        },
+        orderBy: { transactionDate: 'desc' },
+      }),
+      this.prisma.stockTransaction.count({ where }),
+    ]);
+    return { transactions, total, page: safePage, limit: safeLimit, pages: Math.ceil(total / safeLimit) };
   }
 
   async addBatchWithinTransaction(
