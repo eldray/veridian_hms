@@ -314,28 +314,29 @@ export default function StockManagement() {
   // Department quantities are derived from the department-owned batches. currentStock
   // remains the hospital-wide aggregate for compatibility with existing reports/workflows.
   const getInventoryBreakdown = (item: StockItem) => {
-    const batches = ((item as any).StockBatch || []) as Array<any>;
-    const byDepartment = new Map<string, { id: string; name: string; quantity: number }>();
-    let batchTotal = 0;
-    for (const batch of batches) {
-      if (!batch.isActive) continue;
-      const quantity = Math.max(0, Number(batch.quantity) || 0);
-      batchTotal += quantity;
-      if (!batch.departmentId) continue;
-      const id = String(batch.departmentId);
-      const name = batch.department?.name || 'Department';
-      const current = byDepartment.get(id) || { id, name, quantity: 0 };
+    const balances = ((item as any).stockBalances || []) as Array<any>;
+    const locations = new Map<string, { id: string; name: string; quantity: number; departmentId?: string }>();
+    let ledgerTotal = 0;
+    for (const balance of balances) {
+      const quantity = Math.max(0, Number(balance.quantity) || 0);
+      ledgerTotal += quantity;
+      const id = String(balance.locationKey || balance.departmentId || (balance.wardId ? `WARD:${balance.wardId}` : '__UNASSIGNED__'));
+      const name = balance.department?.name || balance.ward?.wardName || 'Unassigned stock';
+      const current = locations.get(id) || { id, name, quantity: 0, departmentId: balance.departmentId || undefined };
       current.quantity += quantity;
-      byDepartment.set(id, current);
+      locations.set(id, current);
     }
-    const hospitalTotal = Math.max(Number(item.currentStock) || 0, batchTotal);
+    // During a staged deployment, fall back to the legacy aggregate until the balance migration runs.
+    const hospitalTotal = balances.length > 0 ? ledgerTotal : Math.max(0, Number(item.currentStock) || 0);
     const departmentId = (user as any)?.departmentId;
-    const currentDepartment = departmentId ? (byDepartment.get(String(departmentId))?.quantity || 0) : null;
+    const currentDepartment = departmentId
+      ? [...locations.values()].filter(location => location.departmentId === String(departmentId)).reduce((sum, location) => sum + location.quantity, 0)
+      : null;
     return {
       hospitalTotal,
       currentDepartment,
-      departments: [...byDepartment.values()].sort((a, b) => a.name.localeCompare(b.name)),
-      hasDepartmentBatches: byDepartment.size > 0
+      departments: [...locations.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      hasDepartmentBatches: locations.size > 0
     };
   };
 
@@ -667,7 +668,7 @@ export default function StockManagement() {
                     </div>
                     {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
                       <div className="border-t border-[var(--border-color)] pt-2 mt-2">
-                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Department breakdown</p>
+                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Stock location breakdown</p>
                         {getInventoryBreakdown(item).departments.map(d => (
                           <div key={d.id} className="flex justify-between gap-2 text-xs">
                             <span className="text-[var(--text-secondary)]">{d.name}</span>
@@ -784,7 +785,7 @@ export default function StockManagement() {
                     </div>
                     {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
                       <details className="mt-1 text-left">
-                        <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By department</summary>
+                        <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By location</summary>
                         {getInventoryBreakdown(item).departments.map(d => (
                           <div key={d.id} className="flex justify-between gap-2 text-xs mt-1">
                             <span>{d.name}</span><span>{d.quantity}</span>
