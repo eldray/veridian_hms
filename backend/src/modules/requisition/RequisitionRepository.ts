@@ -8,6 +8,7 @@ import {
   StockLookupParams,
   StockLookupItem
 } from './RequisitionTypes';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 export class RequisitionRepository {
   private prisma: PrismaClient;
