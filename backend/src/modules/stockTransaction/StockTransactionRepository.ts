@@ -1,5 +1,6 @@
 import { PrismaClient, StockTransactionType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
 import { ValidationError } from '../../utils/errors';
 
 export class StockTransactionRepository extends BaseRepository<any, any, any> {
@@ -78,6 +79,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       }
 
       if (isOutgoing) {
+        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
         const updated = await tx.stockItem.updateMany({
           where: { id: stockItemId, currentStock: { gte: quantity } },
           data: { currentStock: { decrement: quantity } }
@@ -87,6 +89,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${quantity}`);
         }
       } else {
+        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
       }
 
