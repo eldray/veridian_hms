@@ -41,6 +41,39 @@ export class InsuranceClaimService extends BaseService {
     return Math.max(0, age);
   }
 
+
+    /**
+   * NHIS price per medicine, keyed by drug code. Looks the drug up through its service catalog entry
+   * and takes the latest active NHIS price. Drugs with no price are simply absent from the map.
+   */
+  private async nhisMedicinePrices(client: any, codes: string[]): Promise<Map<string, number>> {
+    const prices = new Map<string, number>();
+    const unique = Array.from(new Set(codes.filter(Boolean)));
+    if (!unique.length) return prices;
+
+    const catalogs = await client.serviceCatalog.findMany({
+      where: { OR: [{ code: { in: unique } }, { StockItem: { drugCode: { in: unique } } }] },
+      select: {
+        code: true,
+        StockItem: { select: { drugCode: true } },
+        pricing: {
+          where: { isActive: true, effectiveDate: { lte: new Date() } },
+          orderBy: { effectiveDate: 'desc' },
+          take: 1,
+          select: { nhisPrice: true },
+        },
+      },
+    });
+
+    for (const c of catalogs) {
+      const price = Number(c.pricing?.[0]?.nhisPrice ?? 0);
+      for (const key of [c.StockItem?.drugCode, c.code]) {
+        if (key && unique.includes(key) && (price > 0 || !prices.has(key))) prices.set(key, price);
+      }
+    }
+    return prices;
+  }
+  
   // ==========================================
   // BATCH SERVICES (Fully Restored)
   // ==========================================
@@ -693,6 +726,32 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       medicationId: null,
     };
   });
+
+    // ⬇️ ADD THIS ENTIRE BLOCK — it's missing in the "file name" version
+  let totalClaimAmount: number | undefined;
+  if (claim.InsuranceProvider?.type === 'nhis') {
+    const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
+    const gdrgCode = gdrgRow?.code || claim.principalGDRG;
+    const tariff = gdrgCode
+      ? await this.prisma.gDRGTariff.findUnique({ where: { gdrgCode }, select: { id: true, nhiaTariff: true } })
+      : null;
+    const gdrgAmount = Number(tariff?.nhiaTariff ?? 0);
+    if (gdrgRow && tariff) {
+      gdrgRow.unitPrice = gdrgAmount;
+      gdrgRow.lineTotal = gdrgAmount;
+      gdrgRow.gdrgTariffId = tariff.id;
+    }
+
+    const medRows = rows.filter(r => r.itemCategory === 'medicine');
+    const medPrices = await this.nhisMedicinePrices(this.prisma, medRows.map(r => r.code));
+    let medicinesTotal = 0;
+    for (const r of medRows) {
+      r.unitPrice = medPrices.get(r.code) ?? 0;
+      r.lineTotal = Math.round(r.unitPrice * r.quantity * 100) / 100;
+      medicinesTotal += r.lineTotal;
+    }
+    totalClaimAmount = Math.round((gdrgAmount + medicinesTotal) * 100) / 100;
+  }
 
   await this.prisma.$transaction(async (tx) => {
     await tx.insuranceClaimItem.deleteMany({ where: { claimId } });

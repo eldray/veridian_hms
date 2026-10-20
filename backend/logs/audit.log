@@ -1853,3 +1853,16 @@
 {"filters":{"limit":"100","page":"4"},"level":"info","message":"Getting procedure templates","service":"ProcedureService","timestamp":"2026-10-20 00:51:33"}
 {"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-10-20 00:52:02","where":{}}
 {"level":"info","limit":100,"message":"Fetching all GDRG tariffs","page":1,"service":"GDRGService","timestamp":"2026-10-20 00:52:02","where":{}}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-20 11:22:04"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-20 11:22:04"}
+{"level":"info","message":"Fetching dashboard stats [period=today, start=2026-10-20, end=2026-10-20]","service":"DashboardService","timestamp":"2026-10-20 11:22:04"}
+{"endDate":"2026-10-20T23:59:59.999Z","level":"info","message":"Generating lab report","service":"ClinicalReportsService","startDate":"2026-10-20T00:00:00.000Z","timestamp":"2026-10-20 11:22:04"}
+{"level":"info","message":"Generating scan report","service":"ClinicalReportsService","timestamp":"2026-10-20 11:22:04"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-20 11:22:04"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-20 11:22:04"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-20 11:22:04"}
+{"level":"info","message":"Fetching all requisitions","params":{"limit":100,"page":1,"status":"submitted"},"service":"RequisitionService","timestamp":"2026-10-20 11:22:05"}
+{"filter":{},"level":"info","limit":10,"message":"Fetching beds","page":1,"service":"BedService","timestamp":"2026-10-20 11:22:05"}
+{"filters":{"limit":50,"page":1},"level":"info","limit":50,"message":"Fetching bills","page":1,"service":"BillService","timestamp":"2026-10-20 11:22:05"}
+{"level":"info","message":"Fetching corporate statistics","service":"CorporateService","timestamp":"2026-10-20 11:22:05"}
+{"filters":{"limit":100,"page":1},"level":"info","message":"Searching patients","service":"PatientService","timestamp":"2026-10-20 11:22:06"}
