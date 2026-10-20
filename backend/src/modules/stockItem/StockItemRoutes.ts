@@ -38,7 +38,7 @@ export const createStockItemRoutes = () => {
   // Sub-resources
   router.post('/:id/update-stock', requireRole(['admin', 'pharmacist']), stockItemController.updateStockLevel);
   // Transaction history can expose purchasing, costing, and adjustment details.
-  router.get('/:id/transactions', requireRole(['admin', 'pharmacist', 'accounts']), stockItemController.getTransactions);
+  router.get('/:id/transactions', requireRole(['admin', 'super_admin', 'pharmacist', 'accounts']), stockItemController.getTransactions);
   router.post('/:id/add-batch', requireRole(['admin', 'pharmacist']), stockItemController.addStockBatch);
   router.post('/:id/allocate-stock', requireRole(['admin', 'super_admin']), stockItemController.allocateStock);
   // Medication history may contain patient-linked clinical information.
