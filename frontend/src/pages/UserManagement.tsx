@@ -643,6 +643,7 @@ export default function UserManagement() {
                               >
                                 <FileText className="w-3.5 h-3.5" />
                               </button>
+                              {(user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (
                               <button
                                 onClick={() => setEditingUser(user)}
                                 className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)]"
@@ -650,7 +651,8 @@ export default function UserManagement() {
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
-                              {user.isActive && user.id !== currentUser?.id && (
+                              )}
+                              {user.isActive && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (
                                 <button
                                   onClick={() => setDeactivatingUser(user)}
                                   className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)]"
