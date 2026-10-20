@@ -282,9 +282,17 @@ export class StockItemService extends BaseService {
     return this.repo.allocateUnassignedStockSafely(stockItemId, departmentId, quantity, performedBy);
   }
 
-  async getStockTransactions(id: string, page: number = 1, limit: number = 50) {
-    const transactions = await this.repo.getTransactions(id, page, limit);
-    return { transactions, pagination: { page, limit, total: transactions.length, pages: 1 } }; // Simplified pagination for brevity
+  async getStockTransactions(
+    id: string,
+    page: number = 1,
+    limit: number = 50,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
+    const result = await this.repo.getTransactions(id, page, limit, filters);
+    return {
+      transactions: result.transactions,
+      pagination: { page: result.page, limit: result.limit, total: result.total, pages: result.pages },
+    };
   }
 
   async addStockBatch(
