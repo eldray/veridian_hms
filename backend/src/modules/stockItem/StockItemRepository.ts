@@ -244,6 +244,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     receivedDate?: Date,
     departmentId?: string,
   ) {
+    const existingBatchCount = await tx.stockBatch.count({ where: { stockItemId } });
+    if (existingBatchCount === 0) {
+      const existingItem = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true, name: true } });
+      if (existingItem && existingItem.currentStock > 0) {
+        throw new Error(`Cannot start batch tracking for ${existingItem.name} while ${existingItem.currentStock} units of unbatched stock remain. Reconcile or issue the existing stock first.`);
+      }
+    }
     const batch = await tx.stockBatch.create({
       data: {
         stockItemId, batchNumber, expiryDate, quantity, costPrice,
