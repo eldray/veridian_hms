@@ -7,7 +7,7 @@ import {
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
-import { decreaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
