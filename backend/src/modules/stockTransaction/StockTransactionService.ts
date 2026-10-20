@@ -20,8 +20,8 @@ export class StockTransactionService extends BaseService {
       throw new ValidationError('Stock item ID, transaction type, and quantity are required');
     }
     const quantity = Number(data.quantity);
-    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
-      throw new ValidationError('Stock transaction quantity must be a positive whole number');
+    if (!Number.isSafeInteger(quantity) || quantity === 0 || (quantity < 0 && data.transactionType !== 'adjustment')) {
+      throw new ValidationError('Stock transaction quantity must be a non-zero whole number; negative quantities are only allowed for stock decreases recorded as adjustments');
     }
     const validTypes = ['purchase', 'adjustment', 'requisition', 'sale', 'write_off'];
     if (!validTypes.includes(data.transactionType)) {
