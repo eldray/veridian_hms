@@ -827,33 +827,50 @@ export const deleteDocument = (documentId: string) =>
 // ──────────────────────────────────────────────
 
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  // The backend caps every page at 100, so ask for 100 and trust the server's own page count.
-  // (Asking for 500 made us compute too few pages, so only the first 100 codes ever loaded.)
+  // The backend caps each page at 100 records; follow its pagination metadata.
   const limit = 100;
-  let allTariffs: any[] = [];
-  let totalPages = 1;
+  const allTariffs: any[] = [];
+
+  const unpack = (payload: any) => {
+    if (payload?.success && Array.isArray(payload?.data?.data)) {
+      return {
+        items: payload.data.data,
+        totalPages: Number(payload.data.pagination?.totalPages) ||
+          Math.ceil(Number(payload.data.pagination?.total || 0) / Number(payload.data.pagination?.limit || limit)) || 1,
+      };
+    }
+    if (Array.isArray(payload?.data?.data)) {
+      return {
+        items: payload.data.data,
+        totalPages: Number(payload.data.pagination?.totalPages) ||
+          Math.ceil(Number(payload.data.pagination?.total || 0) / Number(payload.data.pagination?.limit || limit)) || 1,
+      };
+    }
+    if (Array.isArray(payload?.data)) return { items: payload.data, totalPages: 1 };
+    if (Array.isArray(payload)) return { items: payload, totalPages: 1 };
+    return { items: [], totalPages: 1 };
+  };
 
   try {
     const firstResponse = await api.get('/gdrg', { params: { ...filters, page: 1, limit } });
-    const result = firstResponse.data;
+    const firstPage = unpack(firstResponse.data);
+    allTariffs.push(...firstPage.items);
 
-    console.log('🔍 Raw GDRG API response:', result);
-
-    let tariffsData = [];
-    if (result?.success && result?.data?.data) {
-      tariffsData = result.data.data;
-      const pg = result.data.pagination || {};
-      totalPages = pg.totalPages || Math.ceil((pg.total || 0) / (pg.limit || limit)) || 1;
-    } else if (result?.data && Array.isArray(result.data)) {
-      tariffsData = result.data;
-      totalPages = 1;
-    } else if (Array.isArray(result)) {
-      tariffsData = result;
-      totalPages = 1;
+    for (let page = 2; page <= firstPage.totalPages; page += 1) {
+      const response = await api.get('/gdrg', { params: { ...filters, page, limit } });
+      const nextPage = unpack(response.data);
+      allTariffs.push(...nextPage.items);
+      // Avoid an infinite loop if the server unexpectedly omits pagination metadata.
+      if (nextPage.totalPages === 1) break;
     }
 
-    allTariffs = [...tariffsData];
-    // ... rest unchanged ...
+    return allTariffs;
+  } catch (error) {
+    console.error('Failed to load GDRG tariffs:', error);
+    if (allTariffs.length > 0) return allTariffs;
+    throw error;
+  }
+};
 
 export const getGDRGByCode = async (code: string) => {
   const response = await api.get(`/gdrg/${code}`);
