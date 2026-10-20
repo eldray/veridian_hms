@@ -61,3 +61,12 @@ LEFT JOIN (
 WHERE GREATEST(0, s."currentStock" - COALESCE(b."batchTotal", 0)) > 0
 ON CONFLICT ("stockItemId", "locationKey") DO UPDATE
 SET "quantity" = EXCLUDED."quantity", "updatedAt" = CURRENT_TIMESTAMP;
+
+-- Reconcile the legacy aggregate cache to the newly seeded physical balance ledger.
+-- This is necessary where historic batch quantities and currentStock had drifted apart.
+UPDATE "StockItem" s
+SET "currentStock" = COALESCE((
+  SELECT SUM(b."quantity")
+  FROM "stock_item_department_balances" b
+  WHERE b."stockItemId" = s."id"
+), 0);
