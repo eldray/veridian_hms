@@ -152,8 +152,10 @@ export class EncounterController extends BaseController {
     const { encounterId, medicationId } = req.params;
     const { quantity, batchNumber, expiryDate } = req.body;
     const user = req.user!;
+    const normalizedQuantity = Number(quantity);
+    const normalizedExpiryDate = expiryDate ? new Date(expiryDate) : undefined;
 
-    const medication = await this.service.dispenseMedication(encounterId, medicationId, quantity, user.id, batchNumber, expiryDate);
+    const medication = await this.service.dispenseMedication(encounterId, medicationId, normalizedQuantity, user.id, batchNumber, normalizedExpiryDate);
     return this.ok(res, medication, 'Medication dispensed successfully');
   });
 
