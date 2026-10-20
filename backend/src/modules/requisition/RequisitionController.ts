@@ -116,7 +116,7 @@ export class RequisitionController extends BaseController {
   deleteRequisition = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      await this.service.deleteRequisition(id);
+      await this.service.deleteRequisition(id, req.user?.id);
       return this.ok(res, null, 'Requisition deleted successfully');
     } catch (error: any) {
       return this.error(res, error);
