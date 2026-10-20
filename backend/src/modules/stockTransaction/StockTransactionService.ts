@@ -64,8 +64,8 @@ export class StockTransactionService extends BaseService {
     return this.repo.deleteSafely(id);
   }
 
-  async getLowStockAlerts(category?: string) {
-    const items = await this.repo.getLowStockItems(category);
+  async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const items = await this.repo.getLowStockItems(category, filters);
     return items.map(item => ({
       id: item.id, name: item.name, category: item.category, drugCode: item.drugCode,
       currentQuantity: item.currentStock, reorderLevel: item.reorderLevel, unit: item.unitOfMeasure,
