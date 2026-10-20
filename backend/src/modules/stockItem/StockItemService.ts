@@ -129,10 +129,12 @@ export class StockItemService extends BaseService {
     if (!Number.isSafeInteger(initialStock) || initialStock < 0) {
       throw new ValidationError('Initial stock must be a non-negative whole number');
     }
-    const hasOpeningBatch = Boolean(
-      data.batchNumber && data.expiryDate &&
-      data.quantityReceived !== undefined && data.quantityReceived !== null && data.quantityReceived !== ''
-    );
+    const hasOpeningQuantity =
+      data.quantityReceived !== undefined && data.quantityReceived !== null && data.quantityReceived !== '';
+    if (hasOpeningQuantity && !(data.batchNumber && data.expiryDate)) {
+      throw new ValidationError('Batch number and expiry date are required when an opening batch quantity is supplied');
+    }
+    const hasOpeningBatch = Boolean(data.batchNumber && data.expiryDate && hasOpeningQuantity);
     let openingBatchExpiryDate: Date | undefined;
     let openingBatchReceivedDate: Date | undefined;
     if (hasOpeningBatch) {
