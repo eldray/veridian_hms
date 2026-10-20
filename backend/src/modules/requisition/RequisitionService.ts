@@ -270,7 +270,7 @@ export class RequisitionService extends BaseService {
       select: { role: true },
     });
     if (!user) throw new ValidationError('User not found');
-    if (user.role !== 'admin' && existingRequisition.requestedById !== userId) {
+    if (!['admin', 'super_admin'].includes(String(user.role).toLowerCase()) && existingRequisition.requestedById !== userId) {
       throw new ValidationError('Only the original requester or an administrator can update a draft requisition');
     }
 
