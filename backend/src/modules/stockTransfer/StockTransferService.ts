@@ -112,10 +112,16 @@ export class StockTransferService extends BaseService {
           const qtyToMove = Math.min(batch.quantity, qtyToReceive);
 
           // 1. Deduct from Origin Batch
-          await tx.stockBatch.update({
-            where: { id: batch.id },
-            data: { quantity: { decrement: qtyToMove } }
+          const originBatchUpdate = await tx.stockBatch.updateMany({
+            where: {
+              id: batch.id, departmentId: transfer.originId, wardId: null,
+              isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: qtyToMove },
+            },
+            data: { quantity: { decrement: qtyToMove } },
           });
+          if (originBatchUpdate.count !== 1) {
+            throw new Error('Origin batch stock changed during transfer receipt. Please retry.');
+          }
 
           // 2. Create (or merge) Batch in Destination Department
           let destBatch = await tx.stockBatch.findFirst({
