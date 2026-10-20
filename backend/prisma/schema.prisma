@@ -1911,6 +1911,8 @@ model StockTransferItem {
   quantityRequested Int
   quantitySent      Int    @default(0)
   quantityReceived  Int    @default(0)
+  // Exact FEFO batch quantities reserved when dispatched, then received at destination.
+  batchAllocations   Json?
 
   transfer  StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   stockItem StockItem     @relation(fields: [stockItemId], references: [id])
