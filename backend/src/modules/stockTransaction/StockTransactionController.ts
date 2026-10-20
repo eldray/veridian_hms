@@ -66,7 +66,8 @@ export class StockTransactionController extends BaseController {
   });
 
   getRequisitionTransactions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getRequisitionTransactions({ requisitionId: req.query.requisitionId as string, status: req.query.status as string, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role).toLowerCase());
+    const result = await this.service.getRequisitionTransactions({ requisitionId: req.query.requisitionId as string, status: req.query.status as string, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined, departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
     return this.ok(res, result, 'Requisition transactions retrieved');
   });
 
