@@ -354,8 +354,12 @@ export default function StockManagement() {
       current.quantity += quantity;
       locations.set(id, current);
     }
-    // During a staged deployment, fall back to the legacy aggregate until the balance migration runs.
-    const hospitalTotal = balances.length > 0 ? ledgerTotal : Math.max(0, Number(item.currentStock) || 0);
+    // Department users receive only their own balance rows; currentStock is the synchronized hospital aggregate.
+    // Admins can calculate the total directly from all returned locations.
+    const adminView = hasRole(['admin', 'super_admin']);
+    const hospitalTotal = adminView && balances.length > 0
+      ? ledgerTotal
+      : Math.max(0, Number(item.currentStock) || 0);
     const departmentId = (user as any)?.departmentId;
     const currentDepartment = departmentId
       ? [...locations.values()].filter(location => location.departmentId === String(departmentId)).reduce((sum, location) => sum + location.quantity, 0)
