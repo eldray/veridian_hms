@@ -224,14 +224,18 @@ export const useAuthStore = create<AuthState>()(
         apiLogout(refreshToken || undefined).catch(() => {});
       },
 
+      // Super admins inherit all ordinary role-gated UI capabilities.
+      // Backend authorization remains authoritative for every protected action.
       hasRole: (roles) => {
         const { user } = get();
-        return user ? roles.includes(user.role) : false;
+        if (!user) return false;
+        return user.role === 'super_admin' || roles.includes(user.role);
       },
 
       hasAnyRole: (roles) => {
         const { user } = get();
-        return user ? roles.includes(user.role) : false;
+        if (!user) return false;
+        return user.role === 'super_admin' || roles.includes(user.role);
       },
 
       getProfile: async () => {
