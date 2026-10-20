@@ -29,6 +29,20 @@ export class PurchaseInvoiceService extends BaseService {
     const existing = await this.repo.getModel().findUnique({ where: { invoiceNumber: data.invoiceNumber } });
     if (existing) throw new Error('Invoice number already exists');
 
+    const hasDepartment = Boolean(data.receivedAtDepartmentId);
+    const hasWard = Boolean(data.receivedAtWardId);
+    if (hasDepartment === hasWard) throw new Error('Select exactly one receiving location: a department/store or a ward');
+    if (!data.invoiceItems || data.invoiceItems.length === 0) throw new Error('At least one stock item is required on a purchase invoice');
+    const seenStockItems = new Set<string>();
+    for (const item of data.invoiceItems) {
+      if (!item.stockItemId) throw new Error('Every invoice line must identify a stock item');
+      if (seenStockItems.has(item.stockItemId)) throw new Error('A stock item can appear only once per invoice; combine duplicate lines');
+      seenStockItems.add(item.stockItemId);
+      if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) throw new Error('Purchase quantities must be positive whole numbers');
+      if (!Number.isFinite(item.unitCost) || item.unitCost < 0) throw new Error('Unit cost must be a valid non-negative amount');
+    }
+    if (!Number.isFinite(data.totalAmount) || data.totalAmount < 0) throw new Error('Invoice total must be a valid non-negative amount');
+
     return this.repo.create(data, createdById);
   }
 
