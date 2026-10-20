@@ -14,6 +14,7 @@ export interface AuthRequest extends Request {
     username: string;
     fullName: string;
     email?: string;
+    departmentId?: string;
     permissions?: string[];
   };
 }
@@ -64,6 +65,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
         username: true,
         fullName: true,
         email: true,
+        departmentId: true,
         role: true,
         seniority: true,
         isActive: true,
@@ -95,6 +97,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       username: currentUser.username,
       fullName: currentUser.fullName,
       email: currentUser.email ?? undefined,
+      departmentId: currentUser.departmentId ?? undefined,
       permissions: Array.from(currentPermissions)
     };
 
