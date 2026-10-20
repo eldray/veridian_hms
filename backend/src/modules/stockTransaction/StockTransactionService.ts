@@ -30,7 +30,7 @@ export class StockTransactionService extends BaseService {
     if (data.transactionType === 'write_off' && !String(data.notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
-    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || ''));
+    const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
     if (!isAdmin && !data.departmentId) throw new ValidationError('Assign this user to a department before recording stock movements');
     if (data.departmentId && data.wardId) throw new ValidationError('Select either a department or a ward, not both');
     if (data.wardId && !isAdmin) {
