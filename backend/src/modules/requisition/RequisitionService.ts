@@ -77,7 +77,7 @@ export class RequisitionService extends BaseService {
       select: { role: true, departmentId: true },
     });
     if (!user) throw new ValidationError('User not found');
-    const isAdmin = user.role === 'admin' || user.role === 'super_admin';
+    const isAdmin = ['admin', 'super_admin'].includes(String(user.role || '').toLowerCase());
     const isRequester = requisition.requestedById === userId;
     const isDepartmentParticipant = !!user.departmentId &&
       (user.departmentId === requisition.requestingDepartmentId ||
