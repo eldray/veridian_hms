@@ -56,7 +56,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       // Sales/dispensing from a batch-tracked department must reduce that department's
       // FEFO batches and the hospital aggregate in the same transaction.
       if (isOutgoing && batchCount > 0) {
-        if (!departmentId) throw new ValidationError('Select the department issuing this stock');
+        if (!departmentId && !wardId) throw new ValidationError('Select the department or ward issuing this stock');
         let remaining = quantity;
         const batches = await tx.stockBatch.findMany({
           where: {
