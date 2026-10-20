@@ -1,1 +1,1 @@
-ALTER TABLE "stock_transactions" ADD COLUMN "batchAllocations" JSONB;
+ALTER TABLE "StockTransaction" ADD COLUMN "batchAllocations" JSONB;
