@@ -46,6 +46,23 @@ describe('stock transaction validation', () => {
     })).rejects.toBeInstanceOf(ValidationError);
   });
 
+  it('requires internal transfers to use the dedicated transfer workflow', async () => {
+    await expect(service.create({
+      stockItemId: 'item-1',
+      transactionType: 'transfer_out',
+      quantity: 1,
+      role: 'admin',
+      departmentId: 'pharmacy',
+    })).rejects.toBeInstanceOf(ValidationError);
+    await expect(service.create({
+      stockItemId: 'item-1',
+      transactionType: 'transfer_in',
+      quantity: 1,
+      role: 'admin',
+      departmentId: 'ward',
+    })).rejects.toBeInstanceOf(ValidationError);
+  });
+
   it('only allows administrators to select a ward directly', async () => {
     await expect(service.create({
       stockItemId: 'item-1',
