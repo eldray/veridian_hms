@@ -45,7 +45,7 @@ export class StockItemController extends BaseController {
 
   updateStockLevel = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { quantity, transactionType, reference, notes } = req.body;
-    const result = await this.service.updateStockLevel(req.params.id, quantity, transactionType as StockTransactionType, reference, notes, req.user?.id);
+    const result = await this.service.updateStockLevel(req.params.id, Number(quantity), transactionType as StockTransactionType, reference, notes, req.user?.id);
     return this.ok(res, result, 'Stock level updated');
   });
 
