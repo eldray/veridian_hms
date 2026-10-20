@@ -83,8 +83,8 @@ export class StockTransactionService extends BaseService {
   // REPORTS (Preserved exactly, Fixed Decimal Math)
   // ==========================================
 
-  async getStockValuation(category?: string) {
-    const stockItems = await this.repo.getValuationData(category);
+  async getStockValuation(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const stockItems = await this.repo.getValuationData(category, filters);
     
     // ✅ FIXED: Safely parse Decimals before math
     const totalValue = stockItems.reduce((sum, item) => sum + (toNumber(item.costPrice) * item.currentStock), 0);
