@@ -281,11 +281,27 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   // ✅ FIXED: Prisma doesn't support comparing two fields directly. We fetch and filter in memory.
-  async getLowStockItems(category?: string) {
+  async getLowStockItems(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const where: any = { isActive: true };
     if (category) where.category = category;
-    const items = await this.getModel().findMany({ where, orderBy: { currentStock: 'asc' }, include: { StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' }, take: 3 } } });
-    return items.filter(i => i.currentStock <= i.reorderLevel);
+    const items = await this.getModel().findMany({
+      where,
+      orderBy: { currentStock: 'asc' },
+      include: {
+        StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' }, take: 3 },
+        stockBalances: filters.includeAllStockLocations ? true : {
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+          select: { quantity: true },
+        },
+      },
+    });
+    const scopedItems = items.map((item: any) => ({
+      ...item,
+      currentStock: filters.includeAllStockLocations
+        ? item.currentStock
+        : item.stockBalances.reduce((sum: number, balance: any) => sum + balance.quantity, 0),
+    }));
+    return scopedItems.filter(item => item.currentStock <= item.reorderLevel);
   }
 
   async getExpiringBatches(daysThreshold: number = 90) {
