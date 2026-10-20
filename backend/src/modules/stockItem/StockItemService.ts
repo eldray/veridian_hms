@@ -261,15 +261,34 @@ export class StockItemService extends BaseService {
     return { message: 'Stock item deleted successfully' };
   }
 
-  async updateStockLevel(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string, departmentId?: string) {
+  async updateStockLevel(
+    id: string,
+    quantity: number,
+    transactionType: StockTransactionType,
+    reference?: string,
+    notes?: string,
+    performedBy?: string,
+    departmentId?: string,
+    role?: string,
+  ) {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Stock quantity must be a positive whole number');
     }
     if (!['purchase', 'adjustment', 'requisition', 'sale', 'write_off'].includes(transactionType)) {
       throw new ValidationError('Invalid stock transaction type');
     }
+    const isAdmin = ['admin', 'super_admin'].includes(String(role || '').toLowerCase());
+    if (transactionType === 'adjustment' && !isAdmin) {
+      throw new ValidationError('Only an administrator may record a stock adjustment');
+    }
+    if (transactionType === 'adjustment' && !String(notes || '').trim()) {
+      throw new ValidationError('A reason is required for every stock adjustment');
+    }
     if (transactionType === 'write_off' && !String(notes || '').trim()) {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
+    }
+    if (!isAdmin && !departmentId) {
+      throw new ValidationError('Assign this user to a department before recording stock movements');
     }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
     return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
