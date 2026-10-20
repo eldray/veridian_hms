@@ -63,7 +63,7 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
   async getBatchesByDepartment(stockItemId: string, departmentId: string, tx?: any) {
     const client = tx || this.prisma;
     return client.stockBatch.findMany({
-      where: { stockItemId, departmentId, wardId: null, quantity: { gt: 0 } },
+      where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
       orderBy: { expiryDate: 'asc' } // First Expiry, First Out!
     });
   }
