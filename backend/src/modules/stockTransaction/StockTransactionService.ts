@@ -123,16 +123,15 @@ export class StockTransactionService extends BaseService {
       const requisitions = itemTxs.filter((t: any) => t.transactionType === 'requisition').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const writeOffs = itemTxs.filter((t: any) => t.transactionType === 'write_off').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const transfersOut = itemTxs.filter((t: any) => t.transactionType === 'transfer_out').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const adjustments = itemTxs.filter((t: any) => t.transactionType === 'adjustment').reduce((sum: number, t: any) => sum + t.quantity, 0);
+      const adjustmentIn = itemTxs.filter((t: any) => t.transactionType === 'adjustment' && t.adjustmentDirection !== 'decrease').reduce((sum: number, t: any) => sum + t.quantity, 0);
+      const adjustmentOut = itemTxs.filter((t: any) => t.transactionType === 'adjustment' && t.adjustmentDirection === 'decrease').reduce((sum: number, t: any) => sum + t.quantity, 0);
 
-      // Internal transfers reduce the source department's balance, but do not change
-      // the hospital-wide total. The report is location-scoped, so count transfer_out
-      // as an outflow for the source location.
-      const totalOut = sales + requisitions + writeOffs + transfersOut;
-      const totalIn = purchases + transfersIn + (adjustments > 0 ? adjustments : 0);
+      // Internal transfers affect the source/destination location but not the hospital total.
+      const totalOut = sales + requisitions + writeOffs + transfersOut + adjustmentOut;
+      const totalIn = purchases + transfersIn + adjustmentIn;
       const netChange = totalIn - totalOut;
 
-      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: item.currentStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: Math.abs(adjustments), closingStock: item.currentStock, netChange };
+      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: item.currentStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: adjustmentIn + adjustmentOut, adjustmentIn, adjustmentOut, closingStock: item.currentStock, netChange };
     });
 
     const totals = movementSummary.reduce((acc, item) => {
