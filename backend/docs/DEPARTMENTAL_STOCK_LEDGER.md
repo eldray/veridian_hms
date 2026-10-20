@@ -40,6 +40,7 @@ The inventory ledger now stores balances per stock location. Department balances
 
 - A purchase or stock receipt increases the receiving location and hospital total.
 - Dispensing/sale reduces the issuing department and hospital total in one transaction.
+- Expiry/damage write-offs require a reason and reduce the affected department and hospital total in one transaction.
 - A department-to-department transfer reduces the origin and increases the destination; the hospital total is unchanged.
 - A requisition to a ward moves stock into a ward balance and keeps the hospital total unchanged.
 - Legacy unassigned stock can be allocated to a department by an administrator without changing the hospital total.
