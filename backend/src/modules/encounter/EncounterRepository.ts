@@ -625,6 +625,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         }) : [];
+        const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
         if (batchCount > 0) {
           const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
           if (available < qty) {
@@ -642,6 +643,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
               data: { quantity: { decrement: move } },
             });
             if (changed.count !== 1) throw new ConflictError('Batch stock changed during dispensing; please retry');
+            batchAllocations.push({
+              batchId: batch.id,
+              batchNumber: batch.batchNumber,
+              quantity: move,
+              expiryDate: batch.expiryDate,
+              costPrice: String(batch.costPrice),
+            });
             remaining -= move;
           }
         }
@@ -660,9 +668,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
           data: {
             status: 'dispensed', quantity: qty, dispensedAt: new Date(), dispensedById: actorId,
-            dispensedBatchNumber: data.batchNumber ?? (batchCount === 1 ? batches[0]?.batchNumber : undefined),
-            dispensedExpiryDate: data.expiryDate ? new Date(data.expiryDate) : (batchCount === 1 ? batches[0]?.expiryDate : undefined),
-            dispensedUnitCost: batchCount === 1 ? batches[0]?.costPrice ?? stockItem.costPrice : stockItem.costPrice,
+            dispensedBatchNumber: batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined,
+            dispensedExpiryDate: batchAllocations.length === 1 ? batchAllocations[0].expiryDate : undefined,
+            dispensedUnitCost: batchAllocations.length === 1 ? batchAllocations[0].costPrice : stockItem.costPrice,
           },
         });
         if (claimed.count !== 1) throw new ConflictError('Medication has already been dispensed or is no longer available');
@@ -671,9 +679,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         updateData.quantity = qty;
         updateData.dispensedAt = new Date();
         updateData.dispensedById = actorId;
-        updateData.dispensedBatchNumber = data.batchNumber ?? (batchCount === 1 ? batches[0]?.batchNumber : undefined);
-        updateData.dispensedExpiryDate = data.expiryDate ? new Date(data.expiryDate) : (batchCount === 1 ? batches[0]?.expiryDate : undefined);
-        updateData.dispensedUnitCost = batchCount === 1 ? batches[0]?.costPrice ?? stockItem.costPrice : stockItem.costPrice;
+        updateData.dispensedBatchNumber = batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined;
+        updateData.dispensedExpiryDate = batchAllocations.length === 1 ? batchAllocations[0].expiryDate : undefined;
+        updateData.dispensedUnitCost = batchAllocations.length === 1 ? batchAllocations[0].costPrice : stockItem.costPrice;
 
         const current = await tx.stockItem.findUnique({
           where: { id: stockItem.id }, select: { currentStock: true },
@@ -686,6 +694,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             reference: `Encounter ${encounterId}`,
             notes: batchCount > 0 ? 'Dispensed using FEFO batch allocation' : 'Dispensed from unbatched department stock',
             departmentId,
+            batchAllocations: batchAllocations as any,
           },
         });
       } else if (data.quantity !== undefined) {
