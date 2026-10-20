@@ -1301,7 +1301,7 @@ export default function StockManagement() {
               
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    {transactionData.transactionType === 'write_off' ? 'Write-off reason *' : 'Notes'}
+                    {['write_off', 'adjustment'].includes(transactionData.transactionType) ? 'Reason *' : 'Notes'}
                   </label>
                 <textarea 
                   rows={2}
