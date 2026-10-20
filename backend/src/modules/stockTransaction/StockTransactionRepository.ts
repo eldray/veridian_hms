@@ -51,6 +51,10 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
 
+      if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
+        throw new ValidationError('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
+      }
+
       const departmentId = data.departmentId ? String(data.departmentId) : undefined;
       const wardId = data.wardId ? String(data.wardId) : undefined;
       if (departmentId && wardId) throw new ValidationError('Select either a department or a ward, not both');
