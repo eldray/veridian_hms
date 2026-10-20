@@ -203,7 +203,8 @@ export default function StockManagement() {
     try {
       await createStockTransaction({
         stockItemId: selectedItem.id,
-        ...transactionData
+        ...transactionData,
+        departmentId: (user as any)?.departmentId || undefined
       });
       success('Recorded', 'Transaction completed successfully');
       setShowTransactionForm(false);
