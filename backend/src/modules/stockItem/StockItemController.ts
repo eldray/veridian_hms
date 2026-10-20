@@ -51,6 +51,12 @@ export class StockItemController extends BaseController {
     return this.ok(res, result, 'Stock level updated');
   });
 
+  allocateStock = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { departmentId, quantity } = req.body;
+    const result = await this.service.allocateUnassignedStock(req.params.id, String(departmentId || ''), Number(quantity), req.user?.id);
+    return this.ok(res, result, 'Stock allocated to department without changing hospital total');
+  });
+
   getTransactions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const result = await this.service.getStockTransactions(req.params.id, page, limit);
