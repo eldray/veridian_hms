@@ -123,9 +123,11 @@ export const requireRole = (roles: string[]) =>
     if (!req.user) {
       return res.status(401).json({ success: false, status: 'fail', message: 'Authentication required' });
     }
-    // super_admin is a universal bypass
-    if (req.user.role === 'super_admin') return next();
-    if (!roles.includes(req.user.role)) {
+    // Normalize role casing consistently so Super Admin inherits all ordinary roles.
+    const userRole = String(req.user.role || '').toLowerCase();
+    const allowedRoles = roles.map((role) => String(role).toLowerCase());
+    if (userRole === 'super_admin') return next();
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         status: 'fail',
