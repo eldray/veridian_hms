@@ -111,7 +111,7 @@ export class StockTransactionService extends BaseService {
 
     const movementSummary = stockItems.map(item => {
       const itemTxs = transactions.filter((t: any) => t.stockItemId === item.id);
-      const purchases = itemTxs.filter((t: any) => t.transactionType === 'purchase').reduce((sum: number, t: any) => sum + t.quantity, 0);
+      const purchases = itemTxs.filter((t: any) => t.transactionType === 'purchase' || t.transactionType === 'transfer_in').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const sales = itemTxs.filter((t: any) => t.transactionType === 'sale').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const requisitions = itemTxs.filter((t: any) => t.transactionType === 'requisition').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const writeOffs = itemTxs.filter((t: any) => t.transactionType === 'write_off').reduce((sum: number, t: any) => sum + t.quantity, 0);
