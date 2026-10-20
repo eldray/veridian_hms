@@ -57,7 +57,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         if (!departmentId) throw new ValidationError('Select the department issuing this stock');
         let remaining = quantity;
         const batches = await tx.stockBatch.findMany({
-          where: { stockItemId, departmentId, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
+          where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
           orderBy: { expiryDate: 'asc' }
         });
         const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
