@@ -1,6 +1,7 @@
 import { PrismaClient, StockTransactionType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+
 import { ValidationError } from '../../utils/errors';
 
 export class StockTransactionRepository extends BaseRepository<any, any, any> {
