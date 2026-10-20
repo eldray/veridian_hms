@@ -847,7 +847,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-[var(--text-secondary)]">
-                          {invoice.receivedAtDepartment?.name || '—'}
+                          {invoice.receivedAtWard?.wardName || invoice.receivedAtDepartment?.name || '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
