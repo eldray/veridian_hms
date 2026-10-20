@@ -804,6 +804,7 @@ model Ward {
   Requisition      Requisition[]
   stockBatches     StockBatch[]
   stockBalances    StockItemDepartmentBalance[]
+  stockTransactions StockTransaction[]
 }
 
 // ============================================================
@@ -1781,6 +1782,7 @@ model StockTransaction {
   requisitionId   String?
   invoiceId       String?
   departmentId    String?
+  wardId          String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -1788,6 +1790,7 @@ model StockTransaction {
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
   Department  Department?  @relation(fields: [departmentId], references: [id])
+  Ward        Ward?        @relation(fields: [wardId], references: [id])
   User        User?        @relation("StockTransaction_performedBy", fields: [performedBy], references: [id])
 
   @@index([stockItemId, transactionDate])
@@ -1796,6 +1799,7 @@ model StockTransaction {
   @@index([requisitionId])
   @@index([invoiceId])
   @@index([departmentId])
+  @@index([wardId])
   @@index([departmentId, transactionDate])
 }
 
