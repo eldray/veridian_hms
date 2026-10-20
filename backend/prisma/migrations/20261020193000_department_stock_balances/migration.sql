@@ -30,12 +30,11 @@ SELECT
   'seed_' || md5("stockItemId" || ':' || "departmentId"),
   "stockItemId",
   "departmentId",
-  "departmentId",
+  COALESCE("departmentId", '__UNASSIGNED__'),
   SUM("quantity"),
   CURRENT_TIMESTAMP,
   CURRENT_TIMESTAMP
 FROM "stock_batches"
-WHERE "departmentId" IS NOT NULL
 GROUP BY "stockItemId", "departmentId"
 ON CONFLICT ("stockItemId", "locationKey") DO UPDATE
 SET "quantity" = EXCLUDED."quantity", "updatedAt" = CURRENT_TIMESTAMP;
@@ -60,7 +59,8 @@ LEFT JOIN (
 ) b ON b."stockItemId" = s."id"
 WHERE GREATEST(0, s."currentStock" - COALESCE(b."batchTotal", 0)) > 0
 ON CONFLICT ("stockItemId", "locationKey") DO UPDATE
-SET "quantity" = EXCLUDED."quantity", "updatedAt" = CURRENT_TIMESTAMP;
+SET "quantity" = "stock_item_department_balances"."quantity" + EXCLUDED."quantity",
+    "updatedAt" = CURRENT_TIMESTAMP;
 
 -- Reconcile the legacy aggregate cache to the newly seeded physical balance ledger.
 -- This is necessary where historic batch quantities and currentStock had drifted apart.
