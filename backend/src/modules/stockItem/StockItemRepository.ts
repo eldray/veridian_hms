@@ -95,9 +95,15 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async addBatchSafely(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date) {
+  async addBatchSafely(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date, departmentId?: string) {
     return this.prisma.$transaction(async (tx) => {
-      const batch = await tx.stockBatch.create({ data: { stockItemId, batchNumber, expiryDate, quantity, costPrice, receivedDate: receivedDate || new Date() } });
+      const batch = await tx.stockBatch.create({
+        data: {
+          stockItemId, batchNumber, expiryDate, quantity, costPrice,
+          receivedDate: receivedDate || new Date(),
+          ...(departmentId ? { departmentId } : {}),
+        },
+      });
       await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
       const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
       
