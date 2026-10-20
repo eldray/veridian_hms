@@ -17,7 +17,9 @@ export class StockItemController extends BaseController {
   }
 
   create = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.create(req.body, req.user?.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const data = { ...req.body, departmentId: isAdmin ? req.body.departmentId : req.user?.departmentId };
+    const result = await this.service.create(data, req.user?.id);
     return this.created(res, result, 'Stock item created successfully');
   });
 
