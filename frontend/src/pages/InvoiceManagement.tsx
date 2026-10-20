@@ -1018,20 +1018,42 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Received At Department/Store *
+                    Received At Department/Store or Ward *
                   </label>
-                  <select
-                    required
-                    disabled={!!editingInvoice}
-                    value={formData.receivedAtDepartmentId}
-                    onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]"
-                  >
-                    <option value="">Select department...</option>
-                    {departments.map(dept => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={formData.receivingLocationType}
+                      disabled={!!editingInvoice}
+                      onChange={e => setFormData({ ...formData, receivingLocationType: e.target.value as 'department' | 'ward', receivedAtDepartmentId: '', receivedAtWardId: '' })}
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                    >
+                      <option value="department">Department / Store</option>
+                      <option value="ward">Ward</option>
+                    </select>
+                    {formData.receivingLocationType === 'department' ? (
+                      <select
+                        required
+                        disabled={!!editingInvoice}
+                        value={formData.receivedAtDepartmentId}
+                        onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
+                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                      >
+                        <option value="">Select department...</option>
+                        {departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                      </select>
+                    ) : (
+                      <select
+                        required
+                        disabled={!!editingInvoice}
+                        value={formData.receivedAtWardId}
+                        onChange={e => setFormData({ ...formData, receivedAtWardId: e.target.value })}
+                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                      >
+                        <option value="">Select ward...</option>
+                        {wards.filter(ward => ward.isActive).map(ward => <option key={ward.id} value={ward.id}>{ward.wardName}</option>)}
+                      </select>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
