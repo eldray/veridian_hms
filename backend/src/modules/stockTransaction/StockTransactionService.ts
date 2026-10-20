@@ -44,15 +44,15 @@ export class StockTransactionService extends BaseService {
     return this.repo.findAllWithFilters(filters);
   }
 
-  async getById(id: string) {
-    const tx = await this.repo.findByIdWithRelations(id);
+  async getById(id: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const tx = await this.repo.findByIdWithRelations(id, filters);
     if (!tx) throw new NotFoundError('Stock transaction not found');
     return tx;
   }
 
-  async update(id: string, data: any) {
+  async update(id: string, data: any, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     this.logInfo('Updating transaction notes', { id });
-    const existing = await this.repo.findByIdWithRelations(id);
+    const existing = await this.repo.findByIdWithRelations(id, filters);
     if (!existing) throw new Error('Stock transaction not found');
     return this.repo.updateNotes(id, data.notes, data.reference);
   }
