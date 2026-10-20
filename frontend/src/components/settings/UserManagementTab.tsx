@@ -143,6 +143,7 @@ export default function UserManagementTab() {
   const getRoleColor = (role: string) => {
     const colors: Record<string, string> = {
       admin: 'bg-red-100 text-red-800',
+      super_admin: 'bg-purple-100 text-purple-800',
       doctor: 'bg-blue-100 text-blue-800',
       nurse: 'bg-green-100 text-green-800',
       midwife: 'bg-purple-100 text-purple-800',
