@@ -559,15 +559,15 @@ export class EncounterService extends BaseService {
   async removeMedication(id: string, medId: string) { return this.repository.removeMedication(id, medId); }
   
   async addLabTest(id: string, data: AddLabTestDTO, userId: string) { return this.repository.addLabTest(id, data, userId); }
-  async updateLabTestStatus(id: string, status: string, results: any, userId?: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
+  async updateLabTestStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
   async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
   
   async addScan(id: string, data: AddScanDTO, userId: string) { return this.repository.addScan(id, data, userId); }
-  async updateScanStatus(id: string, status: string, results: any) { return this.repository.updateScanStatus(id, status, results); }
+  async updateScanStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateScanStatus(id, status, results, userId); }
   async removeScan(id: string, scanId: string) { return this.repository.removeScan(id, scanId); }
   
   async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
-  async updateProcedureStatus(id: string, status: string, data: any) { return this.repository.updateProcedureStatus(id, status, data); }
+  async updateProcedureStatus(id: string, status: string, data: any, userId: string) { return this.repository.updateProcedureStatus(id, status, data, userId); }
   async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
