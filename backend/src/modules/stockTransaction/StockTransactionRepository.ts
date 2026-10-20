@@ -117,7 +117,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         data: {
           stockItemId, transactionType, quantity: effectiveQuantity,
           balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
-          requisitionId, invoiceId, departmentId, wardId
+          requisitionId, invoiceId, departmentId, wardId, adjustmentDirection
         }
       });
     });
