@@ -187,7 +187,7 @@ export class RequisitionService extends BaseService {
       select: { role: true },
     });
     if (!user) throw new ValidationError('User not found');
-    if (user.role !== 'admin' && existingRequisition.requestedById !== userId) {
+    if (!['admin', 'super_admin'].includes(String(user.role).toLowerCase()) && existingRequisition.requestedById !== userId) {
       throw new ValidationError('Only the original requester or an administrator can delete a draft requisition');
     }
 
@@ -217,11 +217,26 @@ export class RequisitionService extends BaseService {
     }
     await this.assertCanAct(existing, userId, 'approved');
     if (existing?.supplyingDepartmentId) {
-      const qty = await this.repository.getDepartmentQuantities(existing.supplyingDepartmentId, existing.RequisitionItem.map((i: any) => i.stockItemId));
+      const itemIds = existing.RequisitionItem.map((i: any) => i.stockItemId);
+      const qty = await this.repository.getDepartmentQuantities(existing.supplyingDepartmentId, itemIds);
       for (const a of data.approvedItems) {
         const line = existing.RequisitionItem.find((i: any) => i.id === a.requisitionItemId);
-        if (line && a.quantityApproved > (qty.get(line.stockItemId) ?? 0)) {
-          throw new ValidationError(`Cannot approve ${a.quantityApproved} of ${line.StockItem?.name}: ${existing.supplyingDepartment?.name || 'the supplier'} only has ${qty.get(line.stockItemId) ?? 0}`);
+        if (!line || a.quantityApproved === 0) continue;
+        let available = qty.get(line.stockItemId);
+        if (available === undefined) {
+          const batchCount = await this.prisma.stockBatch.count({ where: { stockItemId: line.stockItemId } });
+          if (batchCount === 0) {
+            const balance = await this.prisma.stockItemDepartmentBalance.findUnique({
+              where: { stockItemId_locationKey: { stockItemId: line.stockItemId, locationKey: existing.supplyingDepartmentId } },
+              select: { quantity: true },
+            });
+            available = balance?.quantity ?? 0;
+          } else {
+            available = 0;
+          }
+        }
+        if (a.quantityApproved > available) {
+          throw new ValidationError(`Cannot approve ${a.quantityApproved} of ${line.StockItem?.name}: ${existing.supplyingDepartment?.name || 'the supplier'} only has ${available}`);
         }
       }
     }
