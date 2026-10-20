@@ -610,7 +610,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
 
         const dispensingUser = await tx.user.findUnique({
-          where: { id: actorId }, select: { departmentId: true },
+          where: { id: actorId }, select: { departmentId: true, role: true },
         });
         const departmentId = dispensingUser?.departmentId;
         if (!departmentId) throw new ValidationError('Assign the dispensing user to a pharmacy/issuing department before dispensing');
@@ -1123,7 +1123,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         data: { notes: `Consumable use edit in progress: ${previous.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
-      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true } });
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
       if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
       if (!['admin', 'super_admin'].includes(String(actor.role).toLowerCase()) && previous.departmentId !== actor.departmentId) throw new ValidationError('You can only edit consumable use recorded by your own department');
       const previousBalance = await this.restoreConsumableStock(tx, previous.stockItemId, previous.quantity, previous.departmentId, previous.batchAllocations);
