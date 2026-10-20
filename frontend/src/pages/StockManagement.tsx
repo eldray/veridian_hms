@@ -64,6 +64,7 @@ export default function StockManagement() {
   // Admins and pharmacists can add/edit stock; only admins can delete (matches the backend route)
   const isAdmin = hasRole(['admin', 'pharmacist']);
   const canDelete = hasRole(['admin', 'super_admin']);
+  const canAllocateStock = hasRole(['admin', 'super_admin']);
 
   // Show the server's message (e.g. "Drug code already in use") instead of axios' generic one
   const apiError = (err: any, fallback: string): string =>
@@ -738,7 +739,7 @@ export default function StockManagement() {
                       >
                         Stock In/Out
                       </button>
-                      {canDelete && (
+                      {canAllocateStock && (
                         <button
                           onClick={() => {
                             setSelectedItem(item);
@@ -857,7 +858,7 @@ export default function StockManagement() {
                         >
                           <TrendingUp className="w-3.5 h-3.5" />
                         </button>
-                        {canDelete && (
+                        {canAllocateStock && (
                           <button
                             onClick={() => {
                               setSelectedItem(item);
