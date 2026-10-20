@@ -2,6 +2,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { UserRole, Seniority } from '@prisma/client';
+import prisma from '../core/database/prisma.client';
 
 // ✅ ADD THIS - AuthRequest interface for typed authenticated requests
 export interface AuthRequest extends Request {
@@ -29,7 +30,8 @@ interface DecodedToken {
 
 const isSuperAdminOrAdmin = (role?: string) => role === 'super_admin' || role === 'admin';
 
-// ✅ Core JWT Protection (No DB hits)
+// JWT verification is followed by a database check so deactivated accounts and
+// changed roles/permissions take effect without waiting for token expiry.
 export const protect = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
@@ -38,33 +40,77 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       return;
     }
 
-    const token = authHeader.split(' ')[1];
-    if (!process.env.JWT_SECRET) {
+    const token = authHeader.slice('Bearer '.length).trim();
+    if (!token) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+    const secret = process.env.JWT_SECRET;
+    if (!secret || secret.length < 32) {
       res.status(500).json({ success: false, message: 'Server configuration error' });
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET) as DecodedToken;
-    
-    // Attach user directly from JWT payload
+    const decoded = jwt.verify(token, secret) as DecodedToken;
+    if (!decoded.userId) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: {
+        id: true,
+        username: true,
+        fullName: true,
+        email: true,
+        role: true,
+        seniority: true,
+        isActive: true,
+        roles: {
+          include: {
+            permissions: {
+              select: { permission: { select: { name: true } } }
+            }
+          }
+        }
+      }
+    });
+
+    if (!currentUser || !currentUser.isActive) {
+      res.status(401).json({ success: false, message: 'Account is inactive or no longer exists' });
+      return;
+    }
+
+    const currentPermissions = new Set<string>();
+    currentUser.roles.forEach((role: any) => {
+      role.permissions.forEach((rp: any) => currentPermissions.add(rp.permission.name));
+    });
+
     (req as AuthRequest).user = {
-      id: decoded.userId,
-      userId: decoded.userId,
-      role: decoded.role,
-      seniority: decoded.seniority,
-      username: decoded.username,
-      fullName: decoded.fullName,
-      email: decoded.email,
-      permissions: decoded.permissions || []
+      id: currentUser.id,
+      userId: currentUser.id,
+      role: currentUser.role,
+      seniority: currentUser.seniority,
+      username: currentUser.username,
+      fullName: currentUser.fullName,
+      email: currentUser.email ?? undefined,
+      permissions: Array.from(currentPermissions)
     };
-    
+
     next();
   } catch (error) {
     if (error instanceof jwt.TokenExpiredError) {
       res.status(401).json({ success: false, message: 'Token expired' });
       return;
     }
-    res.status(401).json({ success: false, message: 'Invalid token' });
+    if (error instanceof jwt.JsonWebTokenError) {
+      res.status(401).json({ success: false, message: 'Invalid token' });
+      return;
+    }
+    // Fail closed if the database-backed authentication check is unavailable.
+    console.error('Authentication state check failed');
+    res.status(503).json({ success: false, message: 'Authentication service temporarily unavailable' });
   }
 };
 
