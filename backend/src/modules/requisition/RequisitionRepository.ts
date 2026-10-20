@@ -522,9 +522,21 @@ export class RequisitionRepository {
         // Move the ledger balances first within this transaction. Any later batch or
         // validation failure rolls these changes back, preserving all-or-nothing fulfilment.
         const supplierBalance = await decreaseDepartmentStockBalance(tx, ri.stockItemId, supplierId, qty);
+        // Department-to-department transfers remain inside the hospital aggregate.
+        // Ward requests are issued for use (wards are not stock-holding locations in
+        // this workflow), so they leave the supplier balance and hospital-wide stock.
         const destinationBalance = toDepartmentId
           ? await increaseDepartmentStockBalance(tx, ri.stockItemId, toDepartmentId, qty)
-          : await increaseDepartmentStockBalance(tx, ri.stockItemId, null, qty, toWardId);
+          : null;
+        if (toWardId) {
+          const updatedAggregate = await tx.stockItem.updateMany({
+            where: { id: ri.stockItemId, currentStock: { gte: qty } },
+            data: { currentStock: { decrement: qty } },
+          });
+          if (updatedAggregate.count !== 1) {
+            throw new Error(`Insufficient hospital-wide stock for ${ri.StockItem.name} while issuing to a ward`);
+          }
+        }
 
         const batchCount = await tx.stockBatch.count({ where: { stockItemId: ri.stockItemId } });
         const batches = batchCount > 0 ? await tx.stockBatch.findMany({
@@ -549,13 +561,16 @@ export class RequisitionRepository {
           });
           if (dec.count === 0) throw new Error(`Stock for ${ri.StockItem.name} changed while fulfilling. Please retry.`);
 
-          if (toDepartmentId || toWardId) {
+          // Only department requests receive stock into another stock-holding
+          // location. Ward requests consume/issue the quantity, so the source batch
+          // is decremented without creating a duplicate ward batch.
+          if (toDepartmentId) {
             const existing = await tx.stockBatch.findFirst({
               where: {
                 stockItemId: ri.stockItemId,
                 batchNumber: batch.batchNumber,
-                departmentId: toDepartmentId || null,
-                wardId: toWardId || null,
+                departmentId: toDepartmentId,
+                wardId: null,
               }
             });
             if (existing) {
@@ -564,9 +579,7 @@ export class RequisitionRepository {
               await tx.stockBatch.create({
                 data: {
                   stockItemId: ri.stockItemId, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate,
-                  costPrice: batch.costPrice, quantity: move,
-                  ...(toDepartmentId ? { departmentId: toDepartmentId } : {}),
-                  ...(toWardId ? { wardId: toWardId } : {}),
+                  costPrice: batch.costPrice, quantity: move, departmentId: toDepartmentId,
                   receivedDate: new Date()
                 }
               });
@@ -579,28 +592,37 @@ export class RequisitionRepository {
           throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
         }
 
-        if (toDepartmentId || toWardId) {
-          const destinationName = toDepartmentId
-            ? (requisition.departments?.name || 'department')
-            : (requisition.ward?.wardName || 'ward');
+        if (toDepartmentId) {
+          const destinationName = requisition.departments?.name || 'department';
           await tx.stockTransaction.createMany({
             data: [
               {
                 stockItemId: ri.stockItemId, transactionType: 'transfer_out', quantity: qty,
                 balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
                 reference: `REQ-${reference}`,
-                notes: `Issued to ${destinationName} on requisition ${reference}`, performedBy: userId || undefined
+                notes: `Transferred to ${destinationName} on requisition ${reference}`, performedBy: userId || undefined
               },
               {
                 stockItemId: ri.stockItemId, transactionType: 'transfer_in', quantity: qty,
-                balanceAfter: destinationBalance.quantity,
-                ...(toDepartmentId ? { departmentId: toDepartmentId } : {}),
-                ...(toWardId ? { wardId: toWardId } : {}),
+                balanceAfter: destinationBalance!.quantity, departmentId: toDepartmentId,
                 requisitionId: id, reference: `REQ-${reference}`,
                 notes: `Received from ${requisition.supplyingDepartment?.name || 'supplier'} on requisition ${reference}`,
                 performedBy: userId || undefined
               }
             ]
+          });
+        } else if (toWardId) {
+          const updatedItem = await tx.stockItem.findUnique({
+            where: { id: ri.stockItemId }, select: { currentStock: true },
+          });
+          await tx.stockTransaction.create({
+            data: {
+              stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
+              balanceAfter: updatedItem!.currentStock, departmentId: supplierId, requisitionId: id,
+              reference: `REQ-${reference}`,
+              notes: `Issued to ward ${requisition.ward?.wardName || toWardId} on requisition ${reference}`,
+              performedBy: userId || undefined,
+            }
           });
         }
 
