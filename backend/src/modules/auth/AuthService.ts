@@ -8,7 +8,13 @@ import {
   AuthResponse, TokenPayload,
 } from './AuthTypes';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters');
+  }
+  return secret;
+};
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const REFRESH_TOKEN_EXPIRY = '7d';
 const SALT_ROUNDS = 12;
@@ -64,8 +70,8 @@ export class AuthService {
       permissions,
       departmentId,
     };
-    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
-    const refreshToken = jwt.sign({ userId, type: 'refresh' }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
+    const accessToken = jwt.sign(payload, getJwtSecret(), { expiresIn: JWT_EXPIRES_IN });
+    const refreshToken = jwt.sign({ userId, type: 'refresh' }, getJwtSecret(), { expiresIn: REFRESH_TOKEN_EXPIRY });
     return { accessToken, refreshToken, expiresIn: this.parseExpiresIn(JWT_EXPIRES_IN) };
   }
 
@@ -148,7 +154,8 @@ export class AuthService {
     const resetExpiry = new Date(Date.now() + 3600000);
 
     await this.repository.updateUser(user.id, { resetToken, resetExpiry });
-    console.log(`🔑 Password reset token for ${username}: ${resetToken}`);
+    // Never log password-reset tokens. A secure delivery and token-consumption flow
+    // must be configured before this feature can be considered operational.
 
     return { success: true, message: 'If the account exists, a reset link was sent.' };
   }
