@@ -114,8 +114,38 @@ export class StockTransferService extends BaseService {
           throw new Error(`Insufficient stock in Origin for item ${item.stockItemId}. Available: ${totalAvailable}, Requested: ${item.quantityRequested}`);
         }
         
-        // Mark as sent
-        await tx.stockTransferItem.update({ where: { id: item.id }, data: { quantitySent: item.quantityRequested } });
+        // Reserve physical stock at dispatch so the origin cannot sell/use it again
+        // while the transfer is in transit. Persist exact batch allocations for receipt.
+        const qty = item.quantityRequested;
+        const originBalanceAfter = await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qty);
+        const allocations: Array<{ batchId: string; quantity: number; batchNumber: string; expiryDate: Date; costPrice: any }> = [];
+        let remaining = qty;
+        if (batchCount > 0) {
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const take = Math.min(batch.quantity, remaining);
+            const claimed = await tx.stockBatch.updateMany({
+              where: { id: batch.id, departmentId: transfer.originId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: take } },
+              data: { quantity: { decrement: take } },
+            });
+            if (claimed.count !== 1) throw new Error('Origin batch stock changed during dispatch. Refresh and retry.');
+            allocations.push({ batchId: batch.id, quantity: take, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate, costPrice: batch.costPrice });
+            remaining -= take;
+          }
+          if (remaining > 0) throw new Error('Not enough eligible batch stock to reserve the full transfer quantity');
+        }
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: qty,
+            balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
+            reference: transfer.transferNumber, notes: `Dispatched to ${transfer.destinationId}; stock reserved in transit`, performedBy: userId,
+            batchAllocations: allocations.length ? allocations as any : undefined,
+          },
+        });
+        await tx.stockTransferItem.update({
+          where: { id: item.id },
+          data: { quantitySent: qty, batchAllocations: allocations.length ? allocations as any : undefined },
+        });
       }
 
       // Claim the approved transfer exactly once. This guards against two
@@ -140,137 +170,63 @@ export class StockTransferService extends BaseService {
   // ==========================================
   async receiveTransfer(id: string, userId: string) {
     this.logInfo('Receiving stock transfer', { id });
-
     return this.prisma.$transaction(async (tx) => {
       const transfer = await tx.stockTransfer.findUnique({ where: { id }, include: { items: true, origin: true, destination: true } });
       if (!transfer || transfer.status !== 'dispatched') throw new Error('Transfer must be dispatched before receiving');
 
-      // Atomically claim receipt before touching balances. If two users click
-      // Receive together, only one transaction can claim the dispatched state.
-      // Any later error rolls this status change back with the stock movements.
       const receiptClaim = await tx.stockTransfer.updateMany({
         where: { id, status: 'dispatched', receivedAt: null },
         data: { status: 'received', receivedAt: new Date() },
       });
-      if (receiptClaim.count !== 1) {
-        throw new Error('Transfer has already been received or its status changed. Refresh and try again.');
-      }
+      if (receiptClaim.count !== 1) throw new Error('Transfer has already been received or its status changed. Refresh and try again.');
 
       for (const item of transfer.items) {
-        if (item.quantityReceived !== 0) {
-          throw new Error(`Transfer item ${item.id} already has received quantity; refusing to apply stock movement twice`);
-        }
-        let qtyToReceive = item.quantitySent;
+        if (item.quantityReceived !== 0) throw new Error(`Transfer item ${item.id} already has received quantity; refusing duplicate receipt`);
+        const qty = item.quantitySent;
+        if (!Number.isSafeInteger(qty) || qty <= 0) throw new Error(`Transfer item ${item.id} has no valid dispatched quantity`);
 
-        if (!Number.isSafeInteger(qtyToReceive) || qtyToReceive <= 0) {
-          throw new Error(`Transfer item ${item.id} has no valid dispatched quantity`);
-        }
-        // Internal transfer moves the balance between departments without changing
-        // StockItem.currentStock (the hospital-wide aggregate).
-        const originBalanceAfter = await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qtyToReceive);
-        const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qtyToReceive);
+        // Origin stock and batches were already deducted/reserved at dispatch.
+        // Receipt only adds the reserved quantity to the destination, preserving hospital total.
+        const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qty);
+        const allocations = Array.isArray(item.batchAllocations) ? item.batchAllocations as Array<{ batchId: string; quantity: number; batchNumber: string; expiryDate: string | Date; costPrice: any }> : [];
 
-        // Batch-tracked items move their physical batches. Non-batch supplies move only
-        // their location balances; both paths preserve the hospital-wide total.
-        const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
-        const originBatches = batchCount > 0
-          ? await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx)
-          : [];
-
-        for (const batch of originBatches) {
-          if (qtyToReceive <= 0) break;
-
-          const qtyToMove = Math.min(batch.quantity, qtyToReceive);
-
-          // 1. Deduct from Origin Batch
-          const originBatchUpdate = await tx.stockBatch.updateMany({
-            where: {
-              id: batch.id, departmentId: transfer.originId, wardId: null,
-              isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: qtyToMove },
-            },
-            data: { quantity: { decrement: qtyToMove } },
-          });
-          if (originBatchUpdate.count !== 1) {
-            throw new Error('Origin batch stock changed during transfer receipt. Please retry.');
-          }
-
-          // 2. Create (or merge) Batch in Destination Department
-          let destBatch = await tx.stockBatch.findFirst({
-            where: { stockItemId: item.stockItemId, batchNumber: batch.batchNumber, departmentId: transfer.destinationId, wardId: null }
-          });
-
-          if (destBatch) {
-            // Merge into existing batch at destination
-            await tx.stockBatch.update({ where: { id: destBatch.id }, data: { quantity: { increment: qtyToMove } } });
-          } else {
-            // Create a new batch record at destination (Batch Splitting)
-            await tx.stockBatch.create({
-              data: {
-                stockItemId: item.stockItemId,
-                batchNumber: batch.batchNumber, // Keeps the same batch number for traceability!
-                expiryDate: batch.expiryDate,
-                costPrice: batch.costPrice,
-                quantity: qtyToMove,
-                departmentId: transfer.destinationId, // ✅ Assigns to the new location
-                receivedDate: new Date()
-              }
+        if (allocations.length) {
+          const allocated = allocations.reduce((sum, a) => sum + Number(a.quantity), 0);
+          if (allocated !== qty) throw new Error(`Saved batch allocations for transfer item ${item.id} do not match dispatched quantity`);
+          for (const allocation of allocations) {
+            const existing = await tx.stockBatch.findFirst({
+              where: { stockItemId: item.stockItemId, batchNumber: allocation.batchNumber, departmentId: transfer.destinationId, wardId: null },
             });
+            if (existing) {
+              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: allocation.quantity } } });
+            } else {
+              await tx.stockBatch.create({
+                data: {
+                  stockItemId: item.stockItemId, batchNumber: allocation.batchNumber,
+                  expiryDate: new Date(allocation.expiryDate), costPrice: allocation.costPrice,
+                  quantity: allocation.quantity, departmentId: transfer.destinationId, receivedDate: new Date(),
+                },
+              });
+            }
           }
-
-          // 3. Create Audit Transactions (Global stock doesn't change, we just log the movement)
-          await tx.stockTransaction.create({
-            data: {
-              stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: qtyToMove,
-              balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
-              reference: transfer.transferNumber, notes: `Transferred to ${transfer.destination.name}`, performedBy: userId
-            }
-          });
-
-          await tx.stockTransaction.create({
-            data: {
-              stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: qtyToMove,
-              balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
-              reference: transfer.transferNumber, notes: `Received from ${transfer.origin.name}`, performedBy: userId
-            }
-          });
-
-          // 4. Update the transfer item record
-          await tx.stockTransferItem.update({
-            where: { id: item.id },
-            data: { quantityReceived: { increment: qtyToMove } }
-          });
-
-          qtyToReceive -= qtyToMove;
+        } else {
+          // Backward compatibility for transfers created before batch allocations were saved.
+          const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+          if (batchCount > 0) throw new Error(`Transfer item ${item.id} has no saved batch allocations. Reconcile this legacy transfer before receipt.`);
         }
-        if (batchCount > 0 && qtyToReceive > 0) {
-          throw new Error(`Transfer item ${item.id} no longer has enough usable origin batch stock to receive the full dispatched quantity`);
-        }
-        if (batchCount === 0) {
-          await tx.stockTransaction.createMany({
-            data: [
-              {
-                stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: item.quantitySent,
-                balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
-                reference: transfer.transferNumber, notes: `Transferred to ${transfer.destination.name}`, performedBy: userId,
-              },
-              {
-                stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: item.quantitySent,
-                balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
-                reference: transfer.transferNumber, notes: `Received from ${transfer.origin.name}`, performedBy: userId,
-              },
-            ],
-          });
-          await tx.stockTransferItem.update({
-            where: { id: item.id },
-            data: { quantityReceived: item.quantitySent },
-          });
-        }
+
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: qty,
+            balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
+            reference: transfer.transferNumber, notes: `Received reserved stock from ${transfer.origin.name}`, performedBy: userId,
+            batchAllocations: allocations.length ? allocations as any : undefined,
+          },
+        });
+        await tx.stockTransferItem.update({ where: { id: item.id }, data: { quantityReceived: qty } });
       }
 
-      return tx.stockTransfer.findUnique({
-        where: { id },
-        include: { origin: true, destination: true, items: true },
-      });
+      return tx.stockTransfer.findUnique({ where: { id }, include: { origin: true, destination: true, items: true } });
     });
   }
 }
