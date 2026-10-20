@@ -23,12 +23,15 @@ export class StockTransactionService extends BaseService {
     if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Stock transaction quantity must be a positive whole number');
     }
-    const validTypes = ['purchase', 'adjustment', 'requisition', 'sale'];
+    const validTypes = ['purchase', 'adjustment', 'requisition', 'sale', 'write_off'];
     if (!validTypes.includes(data.transactionType)) {
       throw new ValidationError(`Invalid transaction type. Must be one of: ${validTypes.join(', ')}`);
     }
+    if (data.transactionType === 'write_off' && !String(data.notes || '').trim()) {
+      throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
+    }
     data.quantity = quantity;
-    
+
     return this.repo.createSafely(data);
   }
 
