@@ -1,6 +1,7 @@
 // src/pages/StockManagement.tsx - FULLY FIXED VERSION
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
+import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
@@ -39,6 +40,7 @@ export default function StockManagement() {
     isLoading
   } = useStockStore();
   const { user, hasRole } = useAuthStore();
+  const { departments, getDepartments } = useDepartmentStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -103,7 +105,8 @@ export default function StockManagement() {
     try {
       await Promise.all([
         getStockItems(),
-        getLowStockItems()
+        getLowStockItems(),
+        getDepartments({ isActive: true })
       ]);
       setCurrentPage(1);
     } catch (err) {
@@ -1163,13 +1166,9 @@ export default function StockManagement() {
                   className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
                 >
                   <option value="">Choose department</option>
-                  {Array.from(new Map((((selectedItem as any).StockBatch || []) as any[])
-                    .filter(b => b.departmentId && b.department)
-                    .map(b => [String(b.departmentId), { id: String(b.departmentId), name: b.department.name }])).values())
-                    .map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  {(user as any)?.departmentId && !(((selectedItem as any).StockBatch || []) as any[]).some(b => String(b.departmentId) === String((user as any).departmentId)) && (
-                    <option value={(user as any).departmentId}>My department</option>
-                  )}
+                  {departments.filter((d: any) => d.isActive !== false).map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
                 </select>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">For sales from batch-tracked stock, choose the department issuing the item. Hospital total reduces automatically.</p>
               </div>
