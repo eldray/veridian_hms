@@ -540,6 +540,20 @@ export class EncounterService extends BaseService {
       const anyBatches = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
       let selectedBatch: any = null;
 
+      if (anyBatches === 0) {
+        if (batchNumber !== undefined && !batchNumber.trim()) {
+          throw new ValidationError('Batch number cannot be blank');
+        }
+        if (expiryDate !== undefined) {
+          if (!(expiryDate instanceof Date) || !Number.isFinite(expiryDate.getTime())) {
+            throw new ValidationError('A valid batch expiry date is required');
+          }
+          if (expiryDate <= now) {
+            throw new ValidationError('Expired medication cannot be dispensed');
+          }
+        }
+      }
+
       if (anyBatches > 0) {
         selectedBatch = await tx.stockBatch.findFirst({
           where: {
