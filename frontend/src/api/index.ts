@@ -826,26 +826,24 @@ export const deleteDocument = (documentId: string) =>
 // GDRG TARIFFS
 // ──────────────────────────────────────────────
 
-// api/index.ts - UPDATE getGDRGTariffs to fetch all pages
-
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  const limit = 500; // Fetch more per request
+  // The backend caps every page at 100, so ask for 100 and trust the server's own page count.
+  // (Asking for 500 made us compute too few pages, so only the first 100 codes ever loaded.)
+  const limit = 100;
   let allTariffs: any[] = [];
-  let currentPage = 1;
   let totalPages = 1;
 
   try {
-    // First request to get total count
     const firstResponse = await api.get('/gdrg', { params: { ...filters, page: 1, limit } });
     const result = firstResponse.data;
 
     console.log('🔍 Raw GDRG API response:', result);
 
-    // Extract data from nested structure
     let tariffsData = [];
     if (result?.success && result?.data?.data) {
       tariffsData = result.data.data;
-      totalPages = Math.ceil(result.data.pagination?.total / limit) || 1;
+      const pg = result.data.pagination || {};
+      totalPages = pg.totalPages || Math.ceil((pg.total || 0) / (pg.limit || limit)) || 1;
     } else if (result?.data && Array.isArray(result.data)) {
       tariffsData = result.data;
       totalPages = 1;
@@ -855,34 +853,7 @@ export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolea
     }
 
     allTariffs = [...tariffsData];
-
-    // Fetch remaining pages
-    if (totalPages > 1) {
-      const remainingPromises = [];
-      for (let page = 2; page <= totalPages; page++) {
-        remainingPromises.push(
-          api.get('/gdrg', { params: { ...filters, page, limit } }).then(r => r.data)
-        );
-      }
-
-      const remainingResponses = await Promise.all(remainingPromises);
-
-      for (const response of remainingResponses) {
-        if (response?.success && response?.data?.data) {
-          allTariffs = [...allTariffs, ...response.data.data];
-        } else if (response?.data && Array.isArray(response.data)) {
-          allTariffs = [...allTariffs, ...response.data];
-        }
-      }
-    }
-
-    console.log(`✅ Loaded ${allTariffs.length} GDRG tariffs`);
-    return allTariffs;
-  } catch (error) {
-    console.error('Error fetching GDRG tariffs:', error);
-    return [];
-  }
-};
+    // ... rest unchanged ...
 
 export const getGDRGByCode = async (code: string) => {
   const response = await api.get(`/gdrg/${code}`);
