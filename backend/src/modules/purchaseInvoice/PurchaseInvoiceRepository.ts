@@ -1,7 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO, toNumber } from './PurchaseInvoiceTypes';
-import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockBalance';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+
 
 export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
