@@ -121,6 +121,85 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  async allocateUnassignedStockSafely(
+    stockItemId: string,
+    departmentId: string,
+    quantity: number,
+    performedBy?: string,
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      if (!departmentId) throw new Error('Receiving department is required');
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new Error('Allocation quantity must be a positive whole number');
+      const item = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true, currentStock: true } });
+      if (!item) throw new Error('Stock item not found');
+
+      const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
+      let remaining = quantity;
+      const sourceBatches = batchCount > 0
+        ? await tx.stockBatch.findMany({
+            where: {
+              stockItemId, departmentId: null, wardId: null, isActive: true,
+              quantity: { gt: 0 }, expiryDate: { gt: new Date() },
+            },
+            orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+          })
+        : [];
+      const usableUnassignedBatches = sourceBatches.reduce((sum, batch) => sum + batch.quantity, 0);
+      if (batchCount > 0 && usableUnassignedBatches < quantity) {
+        throw new Error(`This item is batch-tracked. Only ${usableUnassignedBatches} usable unassigned batch units can be allocated; requested ${quantity}. Expired or unbatched stock must be reconciled first.`);
+      }
+
+      const unassignedBalance = await decreaseDepartmentStockBalance(tx, stockItemId, null, quantity);
+      const destinationBalance = await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+
+      for (const batch of sourceBatches) {
+        if (remaining <= 0) break;
+        const move = Math.min(batch.quantity, remaining);
+        const changed = await tx.stockBatch.updateMany({
+          where: { id: batch.id, departmentId: null, wardId: null, quantity: { gte: move }, isActive: true },
+          data: { quantity: { decrement: move } },
+        });
+        if (changed.count !== 1) throw new Error('Unassigned batch stock changed during allocation. Please retry.');
+
+        const existing = await tx.stockBatch.findFirst({
+          where: {
+            stockItemId, batchNumber: batch.batchNumber, departmentId,
+            wardId: null, expiryDate: batch.expiryDate,
+          },
+        });
+        if (existing) {
+          await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move }, isActive: true } });
+        } else {
+          await tx.stockBatch.create({
+            data: {
+              stockItemId, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate,
+              costPrice: batch.costPrice, quantity: move, departmentId, receivedDate: batch.receivedDate,
+            },
+          });
+        }
+        remaining -= move;
+      }
+
+      await tx.stockTransaction.createMany({
+        data: [
+          {
+            stockItemId, transactionType: 'transfer_out', quantity,
+            balanceAfter: unassignedBalance.quantity, reference: 'STOCK-ALLOCATION',
+            notes: `Allocated legacy/unassigned stock to department ${departmentId}`,
+            performedBy: performedBy || undefined,
+          },
+          {
+            stockItemId, transactionType: 'transfer_in', quantity,
+            balanceAfter: destinationBalance.quantity, departmentId, reference: 'STOCK-ALLOCATION',
+            notes: 'Received allocation from unassigned hospital stock',
+            performedBy: performedBy || undefined,
+          },
+        ],
+      });
+      return { stockItemId, departmentId, quantity, hospitalTotal: item.currentStock };
+    });
+  }
+
   async getTransactions(id: string, page: number = 1, limit: number = 50) {
     return this.prisma.stockTransaction.findMany({
       where: { stockItemId: id },
