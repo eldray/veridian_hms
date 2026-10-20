@@ -87,7 +87,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     departmentId?: string,
   ) {
     return this.prisma.$transaction(async (tx) => {
-      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition';
+      const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
       const normalizedDepartmentId = departmentId || undefined;
       const batchCount = await tx.stockBatch.count({ where: { stockItemId: id } });
 
@@ -95,7 +95,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
         const now = new Date();
         const batches = await tx.stockBatch.findMany({
-          where: { stockItemId: id, departmentId: normalizedDepartmentId, wardId: null, isActive: true, expiryDate: { gt: now }, quantity: { gt: 0 } },
+          where: {
+            stockItemId: id, departmentId: normalizedDepartmentId, wardId: null, isActive: true,
+            quantity: { gt: 0 },
+            ...(transactionType === 'write_off' ? {} : { expiryDate: { gt: now } }),
+          },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
         const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
