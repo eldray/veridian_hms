@@ -345,7 +345,7 @@ export class StockItemService extends BaseService {
 
   async getExpiringBatches(days: number) { return this.repo.getExpiringBatches(days); }
   async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
-    const items = await this.repo.getLowStockItems(category, filters);
+    const items: any[] = await this.repo.getLowStockItems(category, filters);
     return { totalLowStock: items.length, criticalCount: items.filter(i => i.currentStock === 0).length, warningCount: items.filter(i => i.currentStock > 0 && i.currentStock <= i.reorderLevel).length, items };
   }
   async getCategories() { return this.repo.getCategories(); }
@@ -355,7 +355,7 @@ export class StockItemService extends BaseService {
   // ==========================================
 
   async getValueSummary(category?: string) {
-    const stockItems = await this.repo.getItemsForValueReport(category);
+    const stockItems: any[] = await this.repo.getItemsForValueReport(category);
     return {
       totalItems: stockItems.length,
       medications: stockItems.filter(i => i.isMedication).length,
@@ -376,12 +376,12 @@ export class StockItemService extends BaseService {
 
   async getExpiryReport(days: number = 30, category?: string) {
     const today = new Date(); const futureDate = new Date(); futureDate.setDate(today.getDate() + days);
-    const stockItems = await this.repo.getItemsForExpiryReport(category);
+    const stockItems: any[] = await this.repo.getItemsForExpiryReport(category);
 
     const expiringSoon = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) >= today && new Date(item.expiryDate) <= futureDate);
     const expired = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) < today);
     const healthy = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) > futureDate);
-    const expiringBatches = await this.repo.getExpiringBatches(days);
+    const expiringBatches: any[] = await this.repo.getExpiringBatches(days);
 
     return {
       summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue: expiringSoon.reduce((sum, i) => sum + (toNumber(i.costPrice) * i.currentStock), 0), expiringBatches: expiringBatches.length },
