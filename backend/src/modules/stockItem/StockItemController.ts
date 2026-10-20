@@ -36,7 +36,11 @@ export class StockItemController extends BaseController {
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getById(req.params.id);
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role));
+    const result = await this.service.getById(req.params.id, {
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations,
+    });
     return this.ok(res, result, 'Stock item retrieved');
   });
 
