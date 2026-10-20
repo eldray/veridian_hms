@@ -45,6 +45,6 @@ These are source-level edits through the GitHub file API. No local dependency in
 Recommended validation:
 - Frontend: typecheck/build and verify currency display on payment summary, history, amount input, and success toast.
 - Backend: typecheck/build and test stock item creation with and without opening batches; reject invalid dates, zero/negative/fractional quantities, and duplicate batch identifiers.
-- Pharmacy: test department isolation, expired/inactive batches, concurrent dispenses, and a quantity requiring more than one batch.
+- Pharmacy: test department isolation, expired/inactive batches, concurrent attempts to dispense the same prescription, concurrent stock consumption, and a quantity requiring more than one batch. The generic stock-transaction creation path also updates aggregate stock without updating batch balances; batch-tracked items must not use that generic path until purchase, adjustment, and requisition operations are made batch-aware. Add a guard or batch-aware implementation before enabling batch tracking for items used by those workflows.
 - Security: test role-denied responses for stock transaction history and requisition transaction endpoints.
 - Database: inspect existing stock aggregate vs batch totals before turning on batch-based dispensing for all items.
