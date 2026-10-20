@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 import { ValidationError } from '../src/utils/errors';
