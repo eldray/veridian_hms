@@ -317,8 +317,8 @@ export class StockItemService extends BaseService {
   }
 
   async getExpiringBatches(days: number) { return this.repo.getExpiringBatches(days); }
-  async getLowStockAlerts(category?: string) {
-    const items = await this.repo.getLowStockItems(category);
+  async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const items = await this.repo.getLowStockItems(category, filters);
     return { totalLowStock: items.length, criticalCount: items.filter(i => i.currentStock === 0).length, warningCount: items.filter(i => i.currentStock > 0 && i.currentStock <= i.reorderLevel).length, items };
   }
   async getCategories() { return this.repo.getCategories(); }
