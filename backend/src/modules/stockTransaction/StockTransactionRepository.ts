@@ -133,6 +133,23 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('Stock adjustments cannot be reversed safely because the stored transaction does not preserve the adjustment direction. Record a correcting adjustment with an audit note instead.');
       }
 
+      // Do not let a generic transaction delete silently desynchronise the
+      // operational record that originally moved stock (invoice, requisition,
+      // or clinical dispensing/consumable use). Those require their own audited
+      // reversal/correction workflow.
+      if (transaction.invoiceId || transaction.requisitionId) {
+        throw new ValidationError('This stock movement is linked to an invoice or requisition. Correct it through the original workflow so stock and source records remain consistent.');
+      }
+      const notes = String(transaction.notes || '');
+      const reference = String(transaction.reference || '');
+      if (
+        /^Dispensed\b/i.test(notes) ||
+        /^Consumable use:/i.test(notes) ||
+        /^Encounter\s/i.test(reference)
+      ) {
+        throw new ValidationError('This stock movement is linked to a clinical encounter. Use the encounter correction workflow rather than deleting its stock ledger entry.');
+      }
+
       // Reversing an aggregate-only transaction cannot correctly restore/decrement batch
       // balances. Require a dedicated batch-aware reversal for batch-tracked items.
       const batchCount = await tx.stockBatch.count({ where: { stockItemId: transaction.stockItemId } });
