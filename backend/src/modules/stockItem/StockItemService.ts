@@ -203,8 +203,8 @@ export class StockItemService extends BaseService {
   }
 
   async getAll(filters: any) { return this.repo.findAllWithFilters(filters); }
-  async getById(id: string) {
-    const item = await this.repo.findByIdWithRelations(id);
+  async getById(id: string, filters: any = {}) {
+    const item = await this.repo.findByIdWithRelations(id, filters);
     if (!item) throw new NotFoundError('Stock item not found');
     return item;
   }
