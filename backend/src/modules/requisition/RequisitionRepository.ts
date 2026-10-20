@@ -381,6 +381,7 @@ export class RequisitionRepository {
       by: ['stockItemId'],
       where: {
         departmentId,
+        wardId: null,
         stockItemId: { in: stockItemIds },
         isActive: true,
         quantity: { gt: 0 },
