@@ -86,8 +86,8 @@ export class StockTransferService extends BaseService {
         }
         // Internal transfer moves the balance between departments without changing
         // StockItem.currentStock (the hospital-wide aggregate).
-        await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qtyToReceive);
-        await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qtyToReceive);
+        const originBalanceAfter = await decreaseDepartmentStockBalance(tx, item.stockItemId, transfer.originId, qtyToReceive);
+        const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qtyToReceive);
 
         // ✅ FEFO: Get batches from Origin, sorted by Expiry Date
         const originBatches = await this.repo.getBatchesByDepartment(item.stockItemId, transfer.originId, tx);
@@ -130,7 +130,7 @@ export class StockTransferService extends BaseService {
           await tx.stockTransaction.create({
             data: {
               stockItemId: item.stockItemId, transactionType: 'transfer_out', quantity: qtyToMove,
-              balanceAfter: batch.quantity - qtyToMove, departmentId: transfer.originId,
+              balanceAfter: originBalanceAfter.quantity, departmentId: transfer.originId,
               reference: transfer.transferNumber, notes: `Transferred to ${transfer.destination.name}`, performedBy: userId
             }
           });
@@ -138,7 +138,7 @@ export class StockTransferService extends BaseService {
           await tx.stockTransaction.create({
             data: {
               stockItemId: item.stockItemId, transactionType: 'transfer_in', quantity: qtyToMove,
-              balanceAfter: qtyToMove, departmentId: transfer.destinationId,
+              balanceAfter: destinationBalanceAfter.quantity, departmentId: transfer.destinationId,
               reference: transfer.transferNumber, notes: `Received from ${transfer.origin.name}`, performedBy: userId
             }
           });
