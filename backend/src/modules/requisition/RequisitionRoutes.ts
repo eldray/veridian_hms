@@ -34,7 +34,8 @@ export function createRequisitionRoutes(prisma: PrismaClient): Router {
   // Only Admin, Pharmacist, or Store Manager can approve items or change status
   // Requesters submit/cancel; the supplying department approves/fulfils. Who may do what is enforced in the service.
   router.patch('/:id/status', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'pharmacist']), controller.updateRequisitionStatus);
-  router.post('/:id/approve-items', requireRole(['admin', 'pharmacist']), controller.approveRequisitionItems);
+  // Supplying-department authorization is enforced in RequisitionService; administrators can approve across departments.
+  router.post('/:id/approve-items', requireRole(['admin', 'super_admin', 'pharmacist']), controller.approveRequisitionItems);
 
   return router;
 }
