@@ -109,6 +109,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const transaction = await tx.stockTransaction.findUnique({ where: { id } });
       if (!transaction) throw new Error('Transaction not found');
+      if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') {
+        throw new ValidationError('Internal transfer entries cannot be deleted individually. Use the dedicated transfer/reconciliation workflow.');
+      }
 
       // Reversing an aggregate-only transaction cannot correctly restore/decrement batch
       // balances. Require a dedicated batch-aware reversal for batch-tracked items.
