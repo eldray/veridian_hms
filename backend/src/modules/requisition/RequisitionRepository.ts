@@ -458,6 +458,12 @@ export class RequisitionRepository {
         .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }))
         .filter(l => l.qty > 0);
       if (lines.length === 0) throw new Error('No approved quantities to fulfil');
+      const invalidLine = lines.find(({ ri, qty }) =>
+        !Number.isSafeInteger(qty) || qty <= 0 || qty > ri.quantityRequested
+      );
+      if (invalidLine) {
+        throw new Error(`Approved quantity for ${invalidLine.ri.StockItem.name} must be a positive whole number and cannot exceed the requested quantity`);
+      }
 
       const supplierId = requisition.supplyingDepartmentId;
       const reference = requisition.requisitionNumber;
@@ -508,7 +514,10 @@ export class RequisitionRepository {
 
           // guarded decrement at the supplier
           const dec = await tx.stockBatch.updateMany({
-            where: { id: batch.id, quantity: { gte: move } },
+            where: {
+              id: batch.id, departmentId: supplierId, wardId: null, isActive: true,
+              expiryDate: { gt: new Date() }, quantity: { gte: move }
+            },
             data: { quantity: { decrement: move } }
           });
           if (dec.count === 0) throw new Error(`Stock for ${ri.StockItem.name} changed while fulfilling. Please retry.`);
