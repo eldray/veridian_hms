@@ -31,6 +31,12 @@ export class StockTransactionService extends BaseService {
       throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
     }
     const isAdmin = ['admin', 'super_admin'].includes(String(data.role || '').toLowerCase());
+    if (data.transactionType === 'adjustment' && !isAdmin) {
+      throw new ValidationError('Only an administrator may record a stock adjustment. Include an audit note explaining the reason.');
+    }
+    if (data.transactionType === 'adjustment' && !String(data.notes || '').trim()) {
+      throw new ValidationError('A reason is required for every stock adjustment');
+    }
     if (!isAdmin && !data.departmentId) throw new ValidationError('Assign this user to a department before recording stock movements');
     if (data.departmentId && data.wardId) throw new ValidationError('Select either a department or a ward, not both');
     if (data.wardId && !isAdmin) {
