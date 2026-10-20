@@ -91,7 +91,8 @@ export default function StockManagement() {
     transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale',
     quantity: 0,
     reference: '',
-    notes: ''
+    notes: '',
+    departmentId: (user as any)?.departmentId || ''
   });
 
   useEffect(() => {
@@ -204,7 +205,7 @@ export default function StockManagement() {
       await createStockTransaction({
         stockItemId: selectedItem.id,
         ...transactionData,
-        departmentId: (user as any)?.departmentId || undefined
+        departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined
       });
       success('Recorded', 'Transaction completed successfully');
       setShowTransactionForm(false);
@@ -281,7 +282,8 @@ export default function StockManagement() {
       transactionType: 'purchase',
       quantity: 0,
       reference: '',
-      notes: ''
+      notes: '',
+      departmentId: (user as any)?.departmentId || ''
     });
   };
 
@@ -653,7 +655,7 @@ export default function StockManagement() {
                       <span className="text-[var(--text-secondary)]">Department Stock:</span>
                       <span className="font-bold text-[var(--text-primary)] text-right">
                         {getInventoryBreakdown(item).currentDepartment === null
-                          ? 'Select department'
+                          ? (hasRole(['admin', 'super_admin']) ? 'See breakdown' : 'Not assigned')
                           : `${getInventoryBreakdown(item).currentDepartment} ${item.unitOfMeasure}`}
                       </span>
                     </div>
@@ -1145,6 +1147,25 @@ export default function StockManagement() {
                 </select>
               </div>
               
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Issuing / Receiving Department</label>
+                <select
+                  value={transactionData.departmentId}
+                  onChange={e => setTransactionData({ ...transactionData, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                >
+                  <option value="">Choose department</option>
+                  {Array.from(new Map((((selectedItem as any).StockBatch || []) as any[])
+                    .filter(b => b.departmentId && b.department)
+                    .map(b => [String(b.departmentId), { id: String(b.departmentId), name: b.department.name }])).values())
+                    .map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                  {(user as any)?.departmentId && !(((selectedItem as any).StockBatch || []) as any[]).some(b => String(b.departmentId) === String((user as any).departmentId)) && (
+                    <option value={(user as any).departmentId}>My department</option>
+                  )}
+                </select>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">For sales from batch-tracked stock, choose the department issuing the item. Hospital total reduces automatically.</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label>
                 <input 
