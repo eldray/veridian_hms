@@ -118,9 +118,19 @@ export class StockTransferService extends BaseService {
         await tx.stockTransferItem.update({ where: { id: item.id }, data: { quantitySent: item.quantityRequested } });
       }
 
-      return tx.stockTransfer.update({
+      // Claim the approved transfer exactly once. This guards against two
+      // dispatch requests racing and both treating the same transfer as pending.
+      const dispatchClaim = await tx.stockTransfer.updateMany({
+        where: { id, status: 'approved' },
+        data: { status: 'dispatched', dispatchedAt: new Date() },
+      });
+      if (dispatchClaim.count !== 1) {
+        throw new Error('Transfer was already dispatched or its status changed. Refresh and try again.');
+      }
+
+      return tx.stockTransfer.findUnique({
         where: { id },
-        data: { status: 'dispatched', dispatchedAt: new Date() }
+        include: { items: true, origin: true, destination: true },
       });
     });
   }
@@ -135,7 +145,21 @@ export class StockTransferService extends BaseService {
       const transfer = await tx.stockTransfer.findUnique({ where: { id }, include: { items: true, origin: true, destination: true } });
       if (!transfer || transfer.status !== 'dispatched') throw new Error('Transfer must be dispatched before receiving');
 
+      // Atomically claim receipt before touching balances. If two users click
+      // Receive together, only one transaction can claim the dispatched state.
+      // Any later error rolls this status change back with the stock movements.
+      const receiptClaim = await tx.stockTransfer.updateMany({
+        where: { id, status: 'dispatched', receivedAt: null },
+        data: { status: 'received', receivedAt: new Date() },
+      });
+      if (receiptClaim.count !== 1) {
+        throw new Error('Transfer has already been received or its status changed. Refresh and try again.');
+      }
+
       for (const item of transfer.items) {
+        if (item.quantityReceived !== 0) {
+          throw new Error(`Transfer item ${item.id} already has received quantity; refusing to apply stock movement twice`);
+        }
         let qtyToReceive = item.quantitySent;
 
         if (!Number.isSafeInteger(qtyToReceive) || qtyToReceive <= 0) {
@@ -243,10 +267,9 @@ export class StockTransferService extends BaseService {
         }
       }
 
-      return tx.stockTransfer.update({
+      return tx.stockTransfer.findUnique({
         where: { id },
-        data: { status: 'received', receivedAt: new Date() },
-        include: { origin: true, destination: true, items: true }
+        include: { origin: true, destination: true, items: true },
       });
     });
   }
