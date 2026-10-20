@@ -3084,6 +3084,7 @@ enum StockTransactionType {
   sale
   transfer_in
   transfer_out
+  write_off
 }
 
 enum RequisitionStatus {
