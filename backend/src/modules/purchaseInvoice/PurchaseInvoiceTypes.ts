@@ -18,7 +18,8 @@ export interface CreatePurchaseInvoiceDTO {
   notes?: string | null;
   invoiceItems: PurchaseInvoiceItemDTO[];
   // ✅ NEW: Which physical store/department received this invoice?
-  receivedAtDepartmentId?: string; 
+  receivedAtDepartmentId?: string;
+  receivedAtWardId?: string;
 }
 
 export interface UpdatePurchaseInvoiceDTO {
