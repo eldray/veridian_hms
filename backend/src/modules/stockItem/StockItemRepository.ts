@@ -76,7 +76,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
         const now = new Date();
         const batches = await tx.stockBatch.findMany({
-          where: { stockItemId: id, departmentId: normalizedDepartmentId, isActive: true, expiryDate: { gt: now }, quantity: { gt: 0 } },
+          where: { stockItemId: id, departmentId: normalizedDepartmentId, wardId: null, isActive: true, expiryDate: { gt: now }, quantity: { gt: 0 } },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
         const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
