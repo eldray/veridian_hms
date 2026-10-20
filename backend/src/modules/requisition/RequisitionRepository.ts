@@ -217,6 +217,9 @@ export class RequisitionRepository {
     userId: string | undefined,
     notes?: string
   ) {
+    if (status === 'fulfilled') {
+      throw new Error('Requisitions can only be marked fulfilled by the atomic stock-fulfilment workflow');
+    }
     const updateData: Prisma.RequisitionUncheckedUpdateInput = {
       status: status as any,
       updatedAt: new Date()
