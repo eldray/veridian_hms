@@ -7,6 +7,7 @@ import {
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
+import { decreaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -561,31 +562,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
-    const actorId = await this.requireActorId(userId);
-    return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
-      if (!med) throw new Error('Medication not found');
-      if (med.stockItemId && med.StockItem && med.StockItem.currentStock < quantity) throw new Error('Insufficient stock');
-
-      // Update medication status
-      const updatedMed = await tx.medication.update({
-        where: { id: medicationId },
-        data: { status: 'dispensed', dispensedAt: new Date(), dispensedById: actorId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, quantity }
-      });
-
-      // Deduct stock safely
-      if (med.stockItemId && med.StockItem) {
-        await tx.stockItem.update({
-          where: { id: med.stockItemId },
-          data: { currentStock: { decrement: quantity } }
-        });
-        // Log transaction
-        await tx.stockTransaction.create({
-          data: { stockItemId: med.stockItemId, transactionType: 'sale', quantity: -quantity, balanceAfter: med.StockItem.currentStock - quantity, performedBy: actorId, reference: medicationId }
-        });
-      }
-      return updatedMed;
-    });
+    // Keep the legacy repository entry point on the same guarded inventory path.
+    return this.updateMedication(encounterId, medicationId, {
+      status: 'dispensed', quantity, batchNumber, expiryDate,
+    }, userId);
   }
 
   // Generic medication update: handles dispensing (atomic stock deduction, guarded
@@ -605,7 +585,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id: medicationId },
         include: { StockItem: true },
       });
-      if (!med) throw new Error('Medication not found');
+      if (!med || med.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
 
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
@@ -613,44 +593,105 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (data.administeredDoses !== undefined) updateData.administeredDoses = data.administeredDoses;
 
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
+      if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
+        throw new ValidationError('A dispensed quantity cannot be edited directly; use a documented stock correction workflow');
+      }
 
       if (isDispensing) {
-        const qty = data.quantity ?? med.quantity ?? 1;
-
-        if (med.stockItemId) {
-          if (!med.StockItem || med.StockItem.currentStock < qty) {
-            throw new Error(`Insufficient stock. Available: ${med.StockItem?.currentStock || 0}`);
-          }
-          await tx.stockItem.update({
-            where: { id: med.stockItemId },
-            data: { currentStock: { decrement: qty } },
-          });
-          const after = await tx.stockItem.findUnique({
-            where: { id: med.stockItemId },
-            select: { currentStock: true },
-          });
-          await tx.stockTransaction.create({
-            data: {
-              stockItemId: med.stockItemId,
-              transactionType: 'sale',
-              quantity: -qty,
-              balanceAfter: after?.currentStock ?? med.StockItem.currentStock - qty,
-              performedBy: actorId,
-              reference: medicationId,
-            },
-          });
+        const qty = Number(data.quantity ?? med.quantity ?? 1);
+        if (!Number.isSafeInteger(qty) || qty <= 0) {
+          throw new ValidationError('Dispensed quantity must be a positive whole number');
         }
+        if (med.status !== 'prescribed') {
+          throw new ValidationError('Only prescribed medication can be dispensed');
+        }
+        if (!med.stockItemId || !med.StockItem) {
+          throw new ValidationError('This medication is not linked to a stock item');
+        }
+
+        const dispensingUser = await tx.user.findUnique({
+          where: { id: actorId }, select: { departmentId: true },
+        });
+        const departmentId = dispensingUser?.departmentId;
+        if (!departmentId) throw new ValidationError('Assign the dispensing user to a pharmacy/issuing department before dispensing');
+
+        const stockItem = med.StockItem;
+        const now = new Date();
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
+        const batches = batchCount > 0 ? await tx.stockBatch.findMany({
+          where: {
+            stockItemId: stockItem.id, departmentId, wardId: null, isActive: true,
+            expiryDate: { gt: now }, quantity: { gt: 0 },
+          },
+          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+        }) : [];
+        if (batchCount > 0) {
+          const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+          if (available < qty) {
+            throw new ValidationError(`Insufficient usable batch stock in your department. Available: ${available}, requested: ${qty}`);
+          }
+          let remaining = qty;
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const move = Math.min(batch.quantity, remaining);
+            const changed = await tx.stockBatch.updateMany({
+              where: {
+                id: batch.id, departmentId, wardId: null, isActive: true,
+                expiryDate: { gt: now }, quantity: { gte: move },
+              },
+              data: { quantity: { decrement: move } },
+            });
+            if (changed.count !== 1) throw new ConflictError('Batch stock changed during dispensing; please retry');
+            remaining -= move;
+          }
+        }
+
+        // One transaction keeps the physical batches, department ledger and hospital
+        // aggregate aligned. For unbatched legacy items, the department balance is
+        // still required and no aggregate-only fallback is permitted.
+        await decreaseDepartmentStockBalance(tx, stockItem.id, departmentId, qty);
+        const stockChanged = await tx.stockItem.updateMany({
+          where: { id: stockItem.id, currentStock: { gte: qty } },
+          data: { currentStock: { decrement: qty } },
+        });
+        if (stockChanged.count !== 1) throw new ValidationError(`Insufficient hospital-wide stock. Available: ${stockItem.currentStock}`);
+
+        const claimed = await tx.medication.updateMany({
+          where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
+          data: {
+            status: 'dispensed', quantity: qty, dispensedAt: new Date(), dispensedById: actorId,
+            dispensedBatchNumber: data.batchNumber ?? (batchCount === 1 ? batches[0]?.batchNumber : undefined),
+            dispensedExpiryDate: data.expiryDate ? new Date(data.expiryDate) : (batchCount === 1 ? batches[0]?.expiryDate : undefined),
+            dispensedUnitCost: batchCount === 1 ? batches[0]?.costPrice ?? stockItem.costPrice : stockItem.costPrice,
+          },
+        });
+        if (claimed.count !== 1) throw new ConflictError('Medication has already been dispensed or is no longer available');
+
+        updateData.status = 'dispensed';
         updateData.quantity = qty;
-        updateData.dispensedAt = data.dispensedAt ? new Date(data.dispensedAt) : new Date();
+        updateData.dispensedAt = new Date();
         updateData.dispensedById = actorId;
-        if (data.batchNumber !== undefined) updateData.dispensedBatchNumber = data.batchNumber;
-        updateData.dispensedUnitCost = data.dispensedUnitCost ?? med.StockItem?.costPrice ?? null;
+        updateData.dispensedBatchNumber = data.batchNumber ?? (batchCount === 1 ? batches[0]?.batchNumber : undefined);
+        updateData.dispensedExpiryDate = data.expiryDate ? new Date(data.expiryDate) : (batchCount === 1 ? batches[0]?.expiryDate : undefined);
+        updateData.dispensedUnitCost = batchCount === 1 ? batches[0]?.costPrice ?? stockItem.costPrice : stockItem.costPrice;
+
+        const current = await tx.stockItem.findUnique({
+          where: { id: stockItem.id }, select: { currentStock: true },
+        });
+        if (!current) throw new NotFoundError('Stock item', stockItem.id);
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: stockItem.id, transactionType: 'sale', quantity: qty,
+            balanceAfter: current.currentStock, performedBy: actorId,
+            reference: `Encounter ${encounterId}`,
+            notes: batchCount > 0 ? 'Dispensed using FEFO batch allocation' : 'Dispensed from unbatched department stock',
+            departmentId,
+          },
+        });
       } else if (data.quantity !== undefined) {
         updateData.quantity = data.quantity;
       }
 
-      // ✅ NEW: when marked administered, log it on the due dose row.
-      // The UI passes doseId explicitly now; fall back to the next pending one.
       if (data.status === 'administered') {
         updateData.administeredAt = data.administeredAt ? new Date(data.administeredAt) : new Date();
         updateData.administeredById = actorId;
@@ -659,28 +700,17 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const updated = await tx.medication.update({
         where: { id: medicationId },
         data: updateData,
-        include: {
-          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-        },
+        include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
       });
 
-      // Handle the MAR write outside the medication transaction? No — keep it inside.
       if (data.status === 'administered') {
-        // If the caller sent a specific doseId, use it. Otherwise pick the next pending.
-        let dose = data.doseId
-          ? await tx.medicationDose.findUnique({ where: { id: data.doseId } })
-          : null;
-
+        let dose = data.doseId ? await tx.medicationDose.findUnique({ where: { id: data.doseId } }) : null;
         if (!dose) {
           dose = await tx.medicationDose.findFirst({
-            where: {
-              medicationId,
-              status: { in: ['scheduled', 'due', 'late'] },
-            },
+            where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
             orderBy: { doseNumber: 'asc' },
           });
         }
-
         if (dose) {
           await tx.medicationDose.update({
             where: { id: dose.id },
