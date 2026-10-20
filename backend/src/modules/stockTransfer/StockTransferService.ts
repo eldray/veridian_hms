@@ -105,7 +105,7 @@ export class StockTransferService extends BaseService {
 
           // 2. Create (or merge) Batch in Destination Department
           let destBatch = await tx.stockBatch.findFirst({
-            where: { stockItemId: item.stockItemId, batchNumber: batch.batchNumber, departmentId: transfer.destinationId }
+            where: { stockItemId: item.stockItemId, batchNumber: batch.batchNumber, departmentId: transfer.destinationId, wardId: null }
           });
 
           if (destBatch) {
