@@ -93,7 +93,7 @@ export default function StockManagement() {
 
   // Transaction data aligned with StockTransaction schema
   const [transactionData, setTransactionData] = useState({
-    transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale',
+    transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'write_off',
     quantity: 0,
     reference: '',
     notes: '',
@@ -1243,6 +1243,7 @@ export default function StockManagement() {
                   <option value="sale">Sale (Remove Stock)</option>
                   <option value="adjustment">Adjustment (Manual)</option>
                   <option value="requisition">Requisition (Remove Stock)</option>
+                  <option value="write_off">Expiry / Damage Write-off (Remove Stock)</option>
                 </select>
               </div>
               
@@ -1285,9 +1286,12 @@ export default function StockManagement() {
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    {transactionData.transactionType === 'write_off' ? 'Write-off reason *' : 'Notes'}
+                  </label>
                 <textarea 
-                  rows={2} 
+                  rows={2}
+                  required={transactionData.transactionType === 'write_off'}
                   value={transactionData.notes}
                   onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })}
                   className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 
