@@ -39,7 +39,7 @@ export class RequisitionService extends BaseService {
     if (!userId) throw new ValidationError('User not authenticated');
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, departmentId: true } });
     if (!user) throw new ValidationError('User not found');
-    if (user.role === 'admin') return;
+    if (['admin', 'super_admin'].includes(String(user.role).toLowerCase())) return;
 
     const isRequester = requisition.requestedById === userId || (!!user.departmentId && user.departmentId === requisition.requestingDepartmentId);
     const isSupplier = !!requisition.supplyingDepartmentId && user.departmentId === requisition.supplyingDepartmentId;
@@ -106,7 +106,7 @@ export class RequisitionService extends BaseService {
 
     // The requester is the user's OWN department (or a ward they pick). Admins may choose any department.
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true, role: true } });
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(String(user?.role || '').toLowerCase());
 
     if (!data.requestingWardId) {
       if (!isAdmin || !data.requestingDepartmentId) data.requestingDepartmentId = user?.departmentId || data.requestingDepartmentId;
@@ -199,11 +199,22 @@ export class RequisitionService extends BaseService {
     this.logInfo('Approving requisition items', { id, itemCount: data.approvedItems.length });
     if (!data.approvedItems || data.approvedItems.length === 0) throw new Error('At least one approved item is required');
 
+    const seenItems = new Set<string>();
     for (const a of data.approvedItems) {
-      if (!Number.isInteger(a.quantityApproved) || a.quantityApproved < 0) throw new ValidationError('Approved quantities must be whole numbers (0 or more)');
+      if (!a.requisitionItemId || seenItems.has(a.requisitionItemId)) throw new ValidationError('Each requisition line must be included only once');
+      seenItems.add(a.requisitionItemId);
+      if (!Number.isSafeInteger(a.quantityApproved) || a.quantityApproved < 0) throw new ValidationError('Approved quantities must be whole numbers (0 or more)');
     }
     const existing: any = await this.repository.findById(id);
-    if (existing) await this.assertCanAct(existing, userId, 'approved');
+    if (!existing) throw new ValidationError('Requisition not found');
+    if (existing.status !== 'submitted') throw new ValidationError('Only submitted requisitions can be approved');
+    const linesById = new Map((existing.RequisitionItem || []).map((line: any) => [line.id, line]));
+    for (const a of data.approvedItems) {
+      const line: any = linesById.get(a.requisitionItemId);
+      if (!line) throw new ValidationError('An approved item does not belong to this requisition');
+      if (a.quantityApproved > line.quantityRequested) throw new ValidationError(`Approved quantity cannot exceed requested quantity for ${line.StockItem?.name || 'item'}`);
+    }
+    await this.assertCanAct(existing, userId, 'approved');
     if (existing?.supplyingDepartmentId) {
       const qty = await this.repository.getDepartmentQuantities(existing.supplyingDepartmentId, existing.RequisitionItem.map((i: any) => i.stockItemId));
       for (const a of data.approvedItems) {
