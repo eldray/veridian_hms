@@ -59,6 +59,13 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
       for (const item of data.invoiceItems) {
         const stockItem = await tx.stockItem.findUnique({ where: { id: item.stockItemId } });
         if (!stockItem) throw new Error(`Stock item not found: ${item.stockItemId}`);
+        const existingBatchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+        if (existingBatchCount > 0 && !item.batchNumber) {
+          throw new Error(`Item ${stockItem.name} is batch-tracked; batch number and expiry date are required for every receipt.`);
+        }
+        if (existingBatchCount === 0 && item.batchNumber && stockItem.currentStock > 0) {
+          throw new Error(`Item ${stockItem.name} has unbatched stock remaining. Reconcile or issue it before starting batch tracking.`);
+        }
 
         // 1. Create Invoice Item
         await tx.invoiceItem.create({
