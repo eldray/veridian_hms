@@ -86,6 +86,9 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     performedBy?: string,
     departmentId?: string,
   ) {
+    if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
+      throw new Error('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
+    }
     return this.prisma.$transaction(async (tx) => {
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off';
       const normalizedDepartmentId = departmentId || undefined;
