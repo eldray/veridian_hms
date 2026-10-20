@@ -50,14 +50,21 @@ export class StockTransferService extends BaseService {
       }
     }
 
-    const [origin, destination, stockItems] = await Promise.all([
+    const [origin, destination, stockItems, requester] = await Promise.all([
       this.prisma.department.findUnique({ where: { id: data.originId }, select: { id: true } }),
       this.prisma.department.findUnique({ where: { id: data.destinationId }, select: { id: true } }),
       this.prisma.stockItem.findMany({
         where: { id: { in: [...seenItems] }, isActive: true },
         select: { id: true, name: true },
       }),
+      this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, departmentId: true, isActive: true } }),
     ]);
+    if (!requester?.isActive) throw new ValidationError('An active signed-in user is required to request a transfer');
+    const role = String(requester.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    if (!isAdmin && requester.departmentId !== data.originId) {
+      throw new ValidationError('You can only request a transfer from your assigned department');
+    }
     if (!origin) throw new NotFoundError('Origin department', data.originId);
     if (!destination) throw new NotFoundError('Destination department', data.destinationId);
     if (stockItems.length !== seenItems.size) {
