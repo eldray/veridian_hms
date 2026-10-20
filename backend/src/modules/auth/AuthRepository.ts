@@ -100,4 +100,8 @@ export class AuthRepository {
   async deleteRefreshTokenForUser(userId: string): Promise<void> {
     await this.prisma.refreshToken.deleteMany({ where: { userId } });
   }
+
+  async deleteRefreshTokenForUser(userId: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  }
 }
