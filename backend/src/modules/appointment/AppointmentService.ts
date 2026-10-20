@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, AttendanceType } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { AppointmentRepository } from './AppointmentRepository';
 import { CreateAppointmentDTO, UpdateAppointmentDTO, AppointmentFilters } from './AppointmentTypes';
@@ -141,8 +141,8 @@ export class AppointmentService extends BaseService {
     });
   }
 
-  private mapAppointmentType(type: string): string {
-    const mapping: Record<string, string> = {
+  private mapAppointmentType(type: string): AttendanceType {
+    const mapping: Record<string, AttendanceType> = {
       'consultation': 'general_consultation', 'antenatal': 'antenatal', 'postnatal': 'postnatal',
       'procedure': 'surgery', 'follow_up': 'chronic_followup', 'vaccination': 'general_consultation',
       'lab_test': 'general_consultation', 'scan': 'general_consultation', 'other': 'general_consultation'
