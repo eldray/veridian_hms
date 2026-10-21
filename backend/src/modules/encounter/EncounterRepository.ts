@@ -665,7 +665,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         // One transaction keeps the physical batches, department ledger and hospital
         // aggregate aligned. For unbatched legacy items, the department balance is
         // still required and no aggregate-only fallback is permitted.
-        await decreaseDepartmentStockBalance(tx, stockItem.id, departmentId, qty);
+        const departmentBalance = await decreaseDepartmentStockBalance(tx, stockItem.id, departmentId, qty);
         const stockChanged = await tx.stockItem.updateMany({
           where: { id: stockItem.id, currentStock: { gte: qty } },
           data: { currentStock: { decrement: qty } },
@@ -698,7 +698,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         await tx.stockTransaction.create({
           data: {
             stockItemId: stockItem.id, transactionType: 'sale', quantity: qty,
-            balanceAfter: current.currentStock, performedBy: actorId,
+            // balanceAfter is a location snapshot, not the hospital-wide aggregate.
+            balanceAfter: departmentBalance.quantity, performedBy: actorId,
             reference: `Encounter ${encounterId}`,
             notes: batchCount > 0 ? 'Dispensed using FEFO batch allocation' : 'Dispensed from unbatched department stock',
             departmentId,
