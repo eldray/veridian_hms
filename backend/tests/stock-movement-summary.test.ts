@@ -108,3 +108,34 @@ describe('stock expiry report', () => {
     expect(report.expired[0].id).toBe('expired-item');
   });
 });
+
+
+describe('historical stock movement balances', () => {
+  it('backs out movements after the report end date before calculating closing stock', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getMovementData: async () => ({
+        stockItems: [{ id: 'item-1', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', currentStock: 70 }],
+        transactions: [
+          { stockItemId: 'item-1', transactionType: 'purchase', quantity: 10 },
+          { stockItemId: 'item-1', transactionType: 'sale', quantity: 2 },
+        ],
+        transactionsAfterEnd: [
+          { stockItemId: 'item-1', transactionType: 'sale', quantity: 5 },
+        ],
+      }),
+    };
+
+    const report = await service.getMovementSummary({
+      departmentId: 'pharmacy',
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-10T23:59:59Z'),
+    });
+
+    expect(report.items[0]).toMatchObject({
+      openingStock: 65,
+      closingStock: 75,
+      netChange: 8,
+    });
+  });
+});
