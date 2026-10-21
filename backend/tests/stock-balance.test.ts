@@ -88,6 +88,42 @@ describe('purchase receipt batch integrity', () => {
     receivedAtDepartmentId: 'pharmacy',
   } as any;
 
+  it('rejects zero, negative, or fractional purchase quantities before opening a stock transaction', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 10,
+      isActive: true,
+    };
+    const { repository, batchUpdate } = makeRepository(existingBatch);
+
+    await expect(repository.create({
+      ...receipt,
+      invoiceItems: [{ ...receipt.invoiceItems[0], quantity: -2 }],
+    }, 'user-1')).rejects.toThrow(/positive whole numbers/i);
+    await expect(repository.create({
+      ...receipt,
+      invoiceItems: [{ ...receipt.invoiceItems[0], quantity: 1.5 }],
+    }, 'user-1')).rejects.toThrow(/positive whole numbers/i);
+    expect(batchUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects negative or non-finite purchase item costs', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 10,
+      isActive: true,
+    };
+    const { repository, batchUpdate } = makeRepository(existingBatch);
+
+    await expect(repository.create({
+      ...receipt,
+      invoiceItems: [{ ...receipt.invoiceItems[0], unitCost: -1 }],
+    }, 'user-1')).rejects.toThrow(/finite, non-negative amount/i);
+    expect(batchUpdate).not.toHaveBeenCalled();
+  });
+
   it('rejects an existing batch with a different cost without changing its quantity or metadata', async () => {
     const existingBatch = {
       id: 'batch-1',
