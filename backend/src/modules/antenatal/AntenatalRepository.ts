@@ -222,7 +222,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async deleteBooking(id: string): Promise<void> {
-    await this.getModel().delete({ where: { id } });
+    // Pregnancy bookings are part of the longitudinal maternal record. Deactivate
+    // rather than hard-delete so linked ANC visits, delivery and postnatal history
+    // remain available for continuity of care and audit.
+    const booking = await this.getModel().findUnique({ where: { id }, select: { id: true } });
+    if (!booking) throw new NotFoundError('Antenatal booking', id);
+    await this.getModel().update({ where: { id }, data: { isActive: false } });
   }
 
   // ===================== ANC VISITS =====================
