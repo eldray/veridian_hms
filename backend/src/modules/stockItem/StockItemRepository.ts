@@ -561,7 +561,16 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
-    const where: any = { transactionType: { in: ['sale', 'requisition'] }, transactionDate: { gte: startDate } };
+    const where: any = {
+      transactionType: { in: ['sale', 'requisition'] },
+      transactionDate: { gte: startDate },
+      // Edited/deleted consumable rows remain in the ledger for audit history,
+      // but should not be counted as current usage alongside their correction.
+      NOT: [
+        { notes: { startsWith: 'Consumable use: [EDITED]' } },
+        { notes: { startsWith: 'Consumable use: [DELETED]' } },
+      ],
+    };
     if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
     return this.prisma.stockTransaction.findMany({
       where,
