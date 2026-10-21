@@ -757,6 +757,7 @@ describe('medication administration schedule parsing', () => {
     expect((service as any).parseFrequency('BD')).toEqual({ intervalHours: 12, dosesPerDay: 2 });
     expect((service as any).parseFrequency('TDS')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
     expect((service as any).parseFrequency('every 8 hours')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
+    expect((service as any).parseFrequency('q6h')).toEqual({ intervalHours: 6, dosesPerDay: 4 });
   });
 
   it('rejects an unknown frequency instead of silently scheduling it once daily', () => {
