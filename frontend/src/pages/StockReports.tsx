@@ -491,6 +491,7 @@ export default function StockReports() {
       add('Total Items', reportData.totalItems, 'cyan', undefined, Package);
       add('Medications', reportData.medications, 'green', undefined, Boxes);
       add('Total Value', reportData.totalValue, 'purple', (v) => `₵${Number(v).toFixed(2)}`, DollarSign);
+      add('Batch Discrepancies', reportData.batchQuantityDiscrepancies ?? 0, 'orange', undefined, AlertTriangle);
       add('Low Stock', reportData.lowStockItems, 'red', undefined, AlertTriangle);
       add('Out of Stock', reportData.outOfStockItems, 'red', undefined, AlertTriangle);
       add('Expiring Soon', reportData.expiringSoon, 'yellow', undefined, Calendar);
