@@ -1,5 +1,6 @@
 // src/components/delivery/DeliveryModal.tsx — clinical palette
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Hospital, Baby, AlertTriangle, Plus, Trash2, FileText } from 'lucide-react';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { useToast } from '../../store/toastStore';
@@ -34,6 +35,7 @@ interface DeliveryModalProps {
 export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, patientId, existingDelivery,
 }) => {
+  const navigate = useNavigate();
   const { recordDelivery, updateDeliveryRecord, isLoading } = useDeliveryStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
@@ -104,6 +106,18 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       }
     }
   }, [existingDelivery]);
+
+  const handleReferFromDelivery = () => {
+    const params = new URLSearchParams({ patientId, attendanceId, source: 'Delivery Record' });
+    const reason = [formData.complications.join('; '), formData.maternalOutcome !== 'alive' ? formData.maternalOutcome : '', ...newborns.filter(b => b.outcome !== 'alive').map(b => `Newborn ${b.order}: ${b.outcome}`)].filter(Boolean).join('; ');
+    params.set('reason', reason || 'Delivery-related clinical assessment requires referral');
+    const notes = [formData.notes, formData.auditNotes].filter(Boolean).join('\n');
+    if (notes) params.set('notes', notes);
+    if (formData.referralTo) params.set('facility', formData.referralTo);
+    params.set('urgency', (formData.maternalOutcome !== 'alive' || newborns.some(b => b.outcome !== 'alive') || formData.complications.length) ? 'urgent' : 'routine');
+    navigate(`/dashboard/referrals?${params.toString()}`);
+    onClose();
+  };
 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -227,7 +241,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                 </p>
               </div>
             </div>
-            <button onClick={onClose}
+            <button type="button" onClick={handleReferFromDelivery}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-300 text-cyan-700 hover:bg-cyan-50">
+                    Refer Patient
+                  </button>
+                  <button onClick={onClose}
               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] transition-all">
               <X className="w-4 h-4" />
             </button>
