@@ -748,6 +748,42 @@ describe('hospital-wide movement filter reconciliation', () => {
   });
 });
 
+
+describe('department movement filter reconciliation', () => {
+  it('keeps location opening and closing balances correct when filtered by movement type', async () => {
+    const service = new StockItemService({} as any);
+    const item = { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 100 };
+    (service as any).repo = {
+      getLedgerTransactions: async () => ({
+        total: 1,
+        rows: [
+          { id: 's1', stockItemId: 'gloves', transactionType: 'sale', quantity: 2, balanceAfter: 10, transactionDate: new Date('2026-10-05T00:00:00Z'), StockItem: item },
+        ],
+        reconciliationRows: [
+          { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, balanceAfter: 12, adjustmentDirection: null, StockItem: item },
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, balanceAfter: 10, adjustmentDirection: null, StockItem: item },
+        ],
+        transactionsAfterEnd: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00Z'),
+      new Date('2026-10-10T23:59:59.999Z'),
+      undefined,
+      { departmentId: 'pharmacy', transactionType: 'sale' },
+    );
+
+    expect(report.items[0]).toMatchObject({
+      openingStock: 2,
+      closingStock: 10,
+      quantityIn: 0,
+      quantityOut: 2,
+    });
+    expect(report.summary.totalTransactions).toBe(1);
+  });
+});
+
 describe('historical movement data retrieval', () => {
   it('fetches post-period movements without the activity-type filter for reconciliation', async () => {
     const queries: any[] = [];
@@ -770,13 +806,19 @@ describe('historical movement data retrieval', () => {
       limit: 5000,
     });
 
-    expect(queries).toHaveLength(2);
+    expect(queries).toHaveLength(3);
     expect(queries[0].where.transactionType).toBe('sale');
-    expect(queries[1].where.transactionDate).toEqual({
-      gt: new Date('2026-10-10T23:59:59.999Z'),
-    });
     expect(queries[1].where.transactionType).toBeUndefined();
     expect(queries[1].where.departmentId).toBe('pharmacy');
+    expect(queries[1].where.transactionDate).toEqual({
+      gte: new Date('2026-10-01T00:00:00Z'),
+      lte: new Date('2026-10-10T23:59:59.999Z'),
+    });
+    expect(queries[2].where.transactionDate).toEqual({
+      gt: new Date('2026-10-10T23:59:59.999Z'),
+    });
+    expect(queries[2].where.transactionType).toBeUndefined();
+    expect(queries[2].where.departmentId).toBe('pharmacy');
     expect(result.transactionsAfterEnd).toEqual([]);
     expect(queries[0].include.StockItem.select.currentStock).toBe(true);
   });
