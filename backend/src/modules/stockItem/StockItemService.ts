@@ -354,8 +354,8 @@ export class StockItemService extends BaseService {
   // REPORTS (Preserved exactly, Fixed Decimal Math)
   // ==========================================
 
-  async getValueSummary(category?: string) {
-    const stockItems: any[] = await this.repo.getItemsForValueReport(category);
+  async getValueSummary(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const stockItems: any[] = await this.repo.getItemsForValueReport(category, filters);
 
     // Use the actual cost recorded on each remaining batch. For legacy/unbatched
     // units, retain the catalogue item's costPrice as the fallback valuation.
@@ -364,11 +364,14 @@ export class StockItemService extends BaseService {
     const valuedItems = stockItems.map((item: any) => {
       const batches = Array.isArray(item.StockBatch) ? item.StockBatch : [];
       const batchQuantity = batches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
+      const currentStock = filters.includeAllStockLocations
+        ? Number(item.currentStock) || 0
+        : (Array.isArray(item.stockBalances) ? item.stockBalances.reduce((sum: number, balance: any) => sum + (Number(balance.quantity) || 0), 0) : 0);
       const batchValue = batches.reduce((sum: number, batch: any) => {
         const quantity = Math.max(0, Number(batch.quantity) || 0);
         return sum + toNumber(batch.costPrice) * quantity;
       }, 0);
-      const unbatchedQuantity = Math.max(0, Number(item.currentStock) - batchQuantity);
+      const unbatchedQuantity = Math.max(0, currentStock - batchQuantity);
       const unbatchedValue = toNumber(item.costPrice) * unbatchedQuantity;
       return {
         ...item,
@@ -376,7 +379,8 @@ export class StockItemService extends BaseService {
         batchValue,
         unbatchedQuantity,
         unbatchedValue,
-        stockDiscrepancy: Math.max(0, batchQuantity - Number(item.currentStock)),
+        currentStock,
+        stockDiscrepancy: Math.max(0, batchQuantity - currentStock),
         totalValue: batchValue + unbatchedValue,
       };
     });
