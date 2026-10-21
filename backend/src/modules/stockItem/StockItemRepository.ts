@@ -605,7 +605,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     // Movement ledgers are location-scoped by default. Only explicitly authorized
     // callers may request the hospital-wide ledger.
     if (!opts.includeAllStockLocations) {
-      where.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+      where.departmentId = opts.departmentId ?? null;
       where.wardId = null;
     }
     if (opts.startDate || opts.endDate) {
