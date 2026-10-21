@@ -353,3 +353,34 @@ describe('postnatal record creation validation', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 });
+
+
+describe('ANC danger-sign and referral completeness', () => {
+  it('requires danger-sign details before creating an ANC visit', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    await expect(repository.createVisit({
+      visitDate: new Date(), attendanceId: 'attendance-1', bookingId: 'booking-1',
+      recordedById: 'midwife-1', dangerSignsPresent: true, dangerSignsList: [],
+    } as any)).rejects.toThrow(/at least one danger sign/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('requires a referral destination when an ANC visit is marked referred', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    await expect(repository.createVisit({
+      visitDate: new Date(), attendanceId: 'attendance-1', bookingId: 'booking-1',
+      recordedById: 'midwife-1', referralMade: true, referredTo: '  ',
+    } as any)).rejects.toThrow(/referral destination/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects an ANC follow-up date earlier than the visit date', async () => {
+    const repository = new AntenatalRepository({} as any);
+    const visitDate = new Date('2026-10-10T12:00:00.000Z');
+    const nextVisitDate = new Date('2026-10-09T12:00:00.000Z');
+    await expect(repository.updateVisit('visit-1', { visitDate, nextVisitDate } as any))
+      .rejects.toThrow(/cannot be before the ANC visit date/i);
+  });
+});
