@@ -931,9 +931,18 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
+      if (medication.status === 'dispensed' || medication.status === 'administered') {
+        throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary cancellation; document a dispensing return or clinical correction');
+      }
+      if (medication.status === 'cancelled') {
+        throw new ConflictError('This medication is already cancelled');
+      }
+      if (medication.status !== 'prescribed') {
+        throw new ConflictError('Only a prescribed, not-yet-dispensed medication can be cancelled');
+      }
 
       const cancelled = await tx.medication.update({
         where: { id: medication.id },
