@@ -198,13 +198,15 @@ export default function AttendanceDetails() {
 
   // ── Patient lookup ─────────────────────────────
   const findPatient = (attendance: any) => {
-    if (attendance?.patient?.surname) return attendance.patient;
-    const pid = (typeof attendance.patientId === 'object' 
-      ? attendance.patientId.id 
+    // Prisma's relation is named "Patient"; some API responses normalize it to "patient".
+    // Prefer the embedded record because it now includes allergy and history details.
+    const embeddedPatient = attendance?.patient ?? attendance?.Patient;
+    if (embeddedPatient?.surname) return embeddedPatient;
+
+    const pid = (typeof attendance.patientId === 'object'
+      ? attendance.patientId.id
       : attendance.patientId) ||
-      (typeof attendance.patient === 'object' 
-        ? attendance.patient.id 
-        : null);
+      (typeof embeddedPatient === 'object' ? embeddedPatient.id : null);
 
     return pid ? patients.find(p => p.id === pid) : null;
   };
@@ -550,6 +552,54 @@ export default function AttendanceDetails() {
           )}
         </div>
       </div>
+
+      {/* Medication safety: show recorded allergies across every attendance tab. */}
+      {patient && (
+        <section
+          role="alert"
+          aria-label="Patient allergy information"
+          className={`rounded-xl border p-4 ${
+            Array.isArray(patient.allergies) && patient.allergies.length > 0
+              ? 'border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30'
+              : 'border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/20'
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <AlertTriangle className={`mt-0.5 h-5 w-5 shrink-0 ${
+              Array.isArray(patient.allergies) && patient.allergies.length > 0
+                ? 'text-red-700 dark:text-red-300'
+                : 'text-amber-700 dark:text-amber-300'
+            }`} />
+            <div className="min-w-0 flex-1">
+              <h2 className={`text-sm font-bold ${
+                Array.isArray(patient.allergies) && patient.allergies.length > 0
+                  ? 'text-red-800 dark:text-red-200'
+                  : 'text-amber-800 dark:text-amber-200'
+              }`}>
+                {Array.isArray(patient.allergies) && patient.allergies.length > 0
+                  ? 'RECORDED ALLERGIES — CHECK BEFORE PRESCRIBING'
+                  : 'ALLERGY STATUS NOT DOCUMENTED'}
+              </h2>
+              {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
+                <ul className="mt-2 space-y-1.5">
+                  {patient.allergies.map((allergy: any) => (
+                    <li key={allergy.id || `${allergy.allergen}-${allergy.reaction || ''}`} className="text-sm text-red-900 dark:text-red-100">
+                      <span className="font-semibold">{allergy.allergen}</span>
+                      {allergy.severity && <span> · {allergy.severity} severity</span>}
+                      {allergy.reaction && <span> — Reaction: {allergy.reaction}</span>}
+                      {allergy.notes && <span> ({allergy.notes})</span>}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-1 text-sm text-amber-900 dark:text-amber-100">
+                  No allergy records were returned for this patient. Confirm allergy status directly with the patient or caregiver before prescribing or dispensing; do not assume this means “no known allergies.”
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Stats Banner */}
       <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
