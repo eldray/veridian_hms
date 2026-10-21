@@ -174,20 +174,81 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== ANC VISITS =====================
   async createVisit(data: CreateANCVisitInput): Promise<any> {
-    return this.prisma.aNCVisit.create({
-      data: {
-        bookingId: data.bookingId, attendanceId: data.attendanceId, visitNumber: data.visitNumber, visitDate: data.visitDate,
-        gestationalAgeWeeks: data.gestationalAgeWeeks, weight: data.weight, bloodPressure: data.bloodPressure,
-        fundalHeight: data.fundalHeight, fetalHeartRate: data.fetalHeartRate, fetalMovements: data.fetalMovements,
-        presentation: data.presentation, iptpGiven: data.iptpGiven || false, iptpDoseNumber: data.iptpDoseNumber,
-        iptpDrug: data.iptpDrug, ttGiven: data.ttGiven || false, ttDoseNumber: data.ttDoseNumber,
-        ironGiven: data.ironGiven || false, folateGiven: data.folateGiven || false, calciumGiven: data.calciumGiven || false,
-        malariaTestDone: data.malariaTestDone || false, malariaTestResult: data.malariaTestResult,
-        malariaTreatmentGiven: data.malariaTreatmentGiven || false, dangerSignsPresent: data.dangerSignsPresent || false,
-        dangerSignsList: data.dangerSignsList || [], referralMade: data.referralMade || false, referredTo: data.referredTo,
-        nextVisitDate: data.nextVisitDate, returnInstructions: data.returnInstructions, recordedById: data.recordedById
-      },
-      include: { recordedBy: { select: { fullName: true, role: true } } }
+    return this.prisma.$transaction(async (tx) => {
+      const [attendance, booking] = await Promise.all([
+        tx.attendance.findUnique({
+          where: { id: data.attendanceId },
+          select: { id: true, patientId: true, attendanceType: true },
+        }),
+        tx.antenatalBooking.findUnique({ where: { id: data.bookingId } }),
+      ]);
+      if (!attendance) throw new NotFoundError('ANC attendance', data.attendanceId);
+      if (!booking) throw new NotFoundError('Antenatal booking', data.bookingId);
+      if (attendance.patientId !== booking.patientId) {
+        throw new ValidationError('ANC visit attendance and booking must belong to the same patient');
+      }
+      if (attendance.attendanceType !== 'antenatal') {
+        throw new ValidationError('ANC visit must be linked to an antenatal attendance');
+      }
+
+      const existingVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: data.attendanceId } });
+      if (existingVisit && existingVisit.bookingId !== booking.id) {
+        throw new ConflictError('This attendance is already linked to a different ANC booking');
+      }
+      if (!existingVisit && (!booking.isActive || booking.isCompleted)) {
+        throw new ConflictError('A new ANC visit cannot be added to a closed pregnancy booking');
+      }
+
+      const visitFields = {
+        visitDate: data.visitDate,
+        gestationalAgeWeeks: data.gestationalAgeWeeks,
+        gestationalAgeDays: data.gestationalAgeDays,
+        weight: data.weight,
+        bloodPressure: data.bloodPressure,
+        fundalHeight: data.fundalHeight,
+        fetalHeartRate: data.fetalHeartRate,
+        fetalMovements: data.fetalMovements,
+        presentation: data.presentation,
+        iptpGiven: data.iptpGiven ?? false,
+        iptpDoseNumber: data.iptpDoseNumber,
+        iptpDrug: data.iptpDrug,
+        ttGiven: data.ttGiven ?? false,
+        ttDoseNumber: data.ttDoseNumber,
+        ironGiven: data.ironGiven ?? false,
+        folateGiven: data.folateGiven ?? false,
+        calciumGiven: data.calciumGiven ?? false,
+        malariaTestDone: data.malariaTestDone ?? false,
+        malariaTestResult: data.malariaTestResult,
+        malariaTreatmentGiven: data.malariaTreatmentGiven ?? false,
+        dangerSignsPresent: data.dangerSignsPresent ?? false,
+        dangerSignsList: data.dangerSignsList ?? [],
+        referralMade: data.referralMade ?? false,
+        referredTo: data.referredTo,
+        nextVisitDate: data.nextVisitDate,
+        returnInstructions: data.returnInstructions,
+      };
+
+      // Encounter creation already seeds a blank ANC visit. Update that record instead
+      // of attempting a second insert for the same attendance and losing the submitted form.
+      if (existingVisit) {
+        return tx.aNCVisit.update({
+          where: { id: existingVisit.id },
+          data: visitFields,
+          include: { recordedBy: { select: { fullName: true, role: true } } },
+        });
+      }
+
+      const visitCount = await tx.aNCVisit.count({ where: { bookingId: booking.id } });
+      return tx.aNCVisit.create({
+        data: {
+          bookingId: booking.id,
+          attendanceId: attendance.id,
+          visitNumber: visitCount + 1,
+          ...visitFields,
+          recordedById: data.recordedById,
+        },
+        include: { recordedBy: { select: { fullName: true, role: true } } },
+      });
     });
   }
 
