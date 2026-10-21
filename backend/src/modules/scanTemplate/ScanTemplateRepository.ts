@@ -330,13 +330,9 @@ if (
 
   async findDistinctScanTypes(): Promise<string[]> {
     const templates = await this.prisma.serviceCatalog.findMany({
-      where: {
-        serviceType: 'scan',
-        metadata: {
-          path: ['scanType'],
-          string_not: ''
-        }
-      },
+      // JSON path string filters vary across Prisma versions; read scan metadata
+      // and filter the scanType value safely in application code below.
+      where: { serviceType: 'scan' },
       select: { metadata: true }
     });
 
