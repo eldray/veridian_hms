@@ -343,7 +343,9 @@ export class StockItemService extends BaseService {
     return this.repo.addBatchSafely(stockItemId, batchNumber.trim(), expiryDate, quantity, costPrice, received, departmentId);
   }
 
-  async getExpiringBatches(days: number) { return this.repo.getExpiringBatches(days); }
+  async getExpiringBatches(days: number, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    return this.repo.getExpiringBatches(days, filters);
+  }
   async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const items: any[] = await this.repo.getLowStockItems(category, filters);
     return { totalLowStock: items.length, criticalCount: items.filter(i => i.currentStock === 0).length, warningCount: items.filter(i => i.currentStock > 0 && i.currentStock <= i.reorderLevel).length, items };
@@ -406,12 +408,16 @@ export class StockItemService extends BaseService {
     };
   }
 
-  async getExpiryReport(days: number = 30, category?: string) {
+  async getExpiryReport(
+    days: number = 30,
+    category?: string,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
     const safeDays = Number.isSafeInteger(Number(days)) && Number(days) >= 0 ? Math.min(Number(days), 3650) : 30;
     const today = new Date();
     const futureDate = new Date();
     futureDate.setDate(today.getDate() + safeDays);
-    const stockItems: any[] = await this.repo.getItemsForExpiryReport(category);
+    const stockItems: any[] = await this.repo.getItemsForExpiryReport(category, filters);
 
     // Report lot-level expiry for batch-tracked stock, while retaining legacy
     // item-level expiry for stock records created before batch tracking.
@@ -440,7 +446,7 @@ export class StockItemService extends BaseService {
       const expiry = legacyExpiry(item);
       return expiry ? isHealthy(expiry) : false;
     });
-    const expiringBatches: any[] = await this.repo.getExpiringBatches(safeDays);
+    const expiringBatches: any[] = await this.repo.getExpiringBatches(safeDays, filters);
     const expiringValue = expiringSoon.reduce((sum: number, item: any) => {
       const batches = itemBatches(item);
       if (itemHasBatchData(item)) {
