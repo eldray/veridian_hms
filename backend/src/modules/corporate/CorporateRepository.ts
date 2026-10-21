@@ -332,7 +332,7 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
       const patientEncounters = patientAttendances.map(att => {
         const bill = att.Bill;
         // ✅ FIXED: Use toNumber() for all Decimal fields
-        const items = (bill?.BillLineItem || []).map(item => ({
+        const items = (bill?.BillLineItem || []).map((item: any) => ({
           itemName: item.description,
           category: item.serviceType || 'General',
           quantity: item.quantity,
