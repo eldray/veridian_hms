@@ -877,6 +877,67 @@ describe('hospital-wide transfer stock reconciliation', () => {
   });
 });
 
+describe('legacy adjustment at the start of a report period', () => {
+  it('uses the latest pre-period location snapshot to infer a legacy adjustment decrease', async () => {
+    const adjustment = {
+      id: 'legacy-adjustment-1',
+      stockItemId: 'item-1',
+      transactionType: 'adjustment',
+      quantity: 3,
+      adjustmentDirection: null,
+      balanceAfter: 7,
+      transactionDate: new Date('2026-10-02T10:00:00.000Z'),
+      createdAt: new Date('2026-10-02T10:00:00.000Z'),
+      StockItem: {
+        id: 'item-1',
+        name: 'Gloves',
+        category: 'Consumable',
+        unitOfMeasure: 'box',
+        costPrice: 2,
+        currentStock: 7,
+      },
+      User: null,
+      Department: { name: 'Pharmacy' },
+      Requisition: null,
+      Invoice: null,
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getLedgerTransactions: vi.fn().mockResolvedValue({
+        rows: [adjustment],
+        total: 1,
+        transactionsBeforeStart: [{
+          stockItemId: 'item-1',
+          transactionType: 'purchase',
+          quantity: 10,
+          adjustmentDirection: null,
+          balanceAfter: 10,
+          transactionDate: new Date('2026-09-30T10:00:00.000Z'),
+          createdAt: new Date('2026-09-30T10:00:00.000Z'),
+        }],
+        reconciliationRows: [adjustment],
+        transactionsAfterEnd: [],
+        locationBalances: [{ stockItemId: 'item-1', quantity: 7 }],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2026-10-20T23:59:59.999Z'),
+      undefined,
+      { departmentId: 'pharmacy' },
+    );
+
+    expect(report.items[0]).toEqual(expect.objectContaining({
+      stockItemId: 'item-1',
+      openingStock: 10,
+      closingStock: 7,
+      quantityIn: 0,
+      quantityOut: 3,
+    }));
+  });
+});
+
 describe('legacy adjustment historical stock reconciliation', () => {
   it('uses location balance snapshots to reverse an untyped adjustment after the report end', async () => {
     const periodPurchase = {
