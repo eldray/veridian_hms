@@ -827,44 +827,63 @@ export const deleteDocument = (documentId: string) =>
 // ──────────────────────────────────────────────
 
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  // The backend caps each page at 100 records; follow its pagination metadata.
+  // BaseController.paginated() returns { success, data: [...], meta: { page, limit, total, totalPages } }.
+  // Keep compatibility with older nested pagination response formats too.
   const limit = 100;
   const allTariffs: any[] = [];
 
   const unpack = (payload: any) => {
-    if (payload?.success && Array.isArray(payload?.data?.data)) {
-      return {
-        items: payload.data.data,
-        totalPages: Number(payload.data.pagination?.totalPages) ||
-          Math.ceil(Number(payload.data.pagination?.total || 0) / Number(payload.data.pagination?.limit || limit)) || 1,
-      };
-    }
-    if (Array.isArray(payload?.data?.data)) {
-      return {
-        items: payload.data.data,
-        totalPages: Number(payload.data.pagination?.totalPages) ||
-          Math.ceil(Number(payload.data.pagination?.total || 0) / Number(payload.data.pagination?.limit || limit)) || 1,
-      };
-    }
-    if (Array.isArray(payload?.data)) return { items: payload.data, totalPages: 1 };
-    if (Array.isArray(payload)) return { items: payload, totalPages: 1 };
-    return { items: [], totalPages: 1 };
+    const items = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.data?.data)
+        ? payload.data.data
+        : Array.isArray(payload?.tariffs)
+          ? payload.tariffs
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+    const pagination = payload?.meta ?? payload?.pagination ??
+      payload?.data?.pagination ?? payload?.data?.meta ?? {};
+    const total = Number(pagination.total) || 0;
+    const pageLimit = Number(pagination.limit) || limit;
+    const totalPages = Number(pagination.totalPages ?? pagination.pages) ||
+      (total > 0 ? Math.ceil(total / pageLimit) : 1);
+
+    return { items, totalPages: Math.max(1, totalPages) };
   };
 
   try {
-    const firstResponse = await api.get('/gdrg', { params: { ...filters, page: 1, limit } });
+    const firstResponse = await api.get('/gdrg', {
+      params: { ...filters, page: 1, limit },
+    });
     const firstPage = unpack(firstResponse.data);
     allTariffs.push(...firstPage.items);
 
-    for (let page = 2; page <= firstPage.totalPages; page += 1) {
-      const response = await api.get('/gdrg', { params: { ...filters, page, limit } });
-      const nextPage = unpack(response.data);
-      allTariffs.push(...nextPage.items);
-      // Avoid an infinite loop if the server unexpectedly omits pagination metadata.
-      if (nextPage.totalPages === 1) break;
+    // Fetch a few pages concurrently without flooding the API.
+    for (let startPage = 2; startPage <= firstPage.totalPages; startPage += 5) {
+      const endPage = Math.min(startPage + 4, firstPage.totalPages);
+      const responses = await Promise.all(
+        Array.from({ length: endPage - startPage + 1 }, (_, index) =>
+          api.get('/gdrg', {
+            params: { ...filters, page: startPage + index, limit },
+          })
+        )
+      );
+      for (const response of responses) {
+        allTariffs.push(...unpack(response.data).items);
+      }
     }
 
-    return allTariffs;
+    // Protect consumers from duplicate rows if a proxy or stale page returns overlap.
+    const seen = new Set<string>();
+    return allTariffs.filter((tariff) => {
+      const key = String(tariff?.id ?? tariff?.gdrgCode ?? '');
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   } catch (error) {
     console.error('Failed to load GDRG tariffs:', error);
     if (allTariffs.length > 0) return allTariffs;
