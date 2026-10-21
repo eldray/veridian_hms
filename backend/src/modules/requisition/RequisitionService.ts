@@ -158,7 +158,15 @@ export class RequisitionService extends BaseService {
     const existingRequisition = await this.repository.findById(id);
     if (!existingRequisition) throw new Error('Requisition not found');
 
-    // ✅ FIXED: Enforce State Machine
+    // Approval must go through approveRequisitionItems so every line is
+    // explicitly approved and checked against the supplying department's stock.
+    // The generic status endpoint must not bypass that audited workflow.
+    if (data.status === 'approved') {
+      throw new ValidationError('Use the item-approval workflow to approve a requisition');
+    }
+
+    // Enforce the state machine; repository update uses this observed status as
+    // an atomic compare-and-set guard against concurrent transitions.
     const currentStatus = existingRequisition.status;
     const allowedNextStatuses = VALID_TRANSITIONS[currentStatus] || [];
 
