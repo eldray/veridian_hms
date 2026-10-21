@@ -120,10 +120,21 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             if (!existingBatch.isActive) {
               throw new Error(`Batch ${item.batchNumber} for ${stockItem.name} is inactive at this location. Reconcile the batch before receiving more stock.`);
             }
-            await tx.stockBatch.update({
-              where: { id: existingBatch.id },
+            // Recheck active state, expiry, and lot metadata at the atomic
+            // increment so a batch cannot become ineligible between read and write.
+            const incremented = await tx.stockBatch.updateMany({
+              where: {
+                id: existingBatch.id,
+                isActive: true,
+                expiryDate: { gt: new Date() },
+                expiryDate: batchExpiry,
+                costPrice: item.unitCost,
+              },
               data: { quantity: { increment: item.quantity } },
             });
+            if (incremented.count !== 1) {
+              throw new Error(`Batch ${item.batchNumber} changed or expired during receipt. Please retry and reconcile if needed.`);
+            }
           } else {
             await tx.stockBatch.create({
               data: {
