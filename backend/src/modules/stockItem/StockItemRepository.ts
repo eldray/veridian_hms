@@ -654,14 +654,15 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     // pre-period snapshot for each item represented in the complete period ledger.
     // A single latest-row lookup per item avoids loading the item's entire history.
     let transactionsBeforeStart: any[] = [];
-    if (opts.startDate && !opts.includeAllStockLocations) {
+    const periodStart = opts.startDate;
+    if (periodStart && !opts.includeAllStockLocations) {
       const periodRows = reconciliationRows.length ? reconciliationRows : rows;
       const itemIds = [...new Set(periodRows.map((row: any) => row.stockItemId).filter(Boolean))];
       transactionsBeforeStart = (await Promise.all(itemIds.map((stockItemId) =>
         this.prisma.stockTransaction.findFirst({
           where: {
             stockItemId,
-            transactionDate: { lt: opts.startDate },
+            transactionDate: { lt: periodStart },
             departmentId: opts.departmentId ?? null,
             wardId: null,
           },
