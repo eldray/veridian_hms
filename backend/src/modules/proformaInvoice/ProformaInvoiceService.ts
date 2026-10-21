@@ -168,8 +168,8 @@ export class ProformaInvoiceService extends BaseService {
     return this.prisma.$transaction(async (tx) => {
       const billNumber = getCounterService().nextBillNumber(); // ✅ FIXED: No more Math.random()
       
-      const insuranceCovered = existing.items.reduce((sum, item) => sum + toNumber(item.insuranceCoverage), 0);
-      const patientPayable = existing.items.reduce((sum, item) => sum + toNumber(item.patientResponsibility), 0) - toNumber(existing.discount);
+      const insuranceCovered = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoverage), 0);
+      const patientPayable = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.patientResponsibility), 0) - toNumber(existing.discount);
 
       const bill = await tx.bill.create({
         data: {
