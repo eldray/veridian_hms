@@ -617,3 +617,24 @@ describe('completed clinical record edit protection', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+
+describe('primary diagnosis removal protection', () => {
+  it('requires a replacement primary diagnosis before removing one from a multi-diagnosis encounter', async () => {
+    const deleteMany = vi.fn();
+    const tx: any = {
+      attendanceDiagnosis: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'link-1', diagnosisType: 'primary' }),
+        count: vi.fn().mockResolvedValue(1),
+        deleteMany,
+      },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
+      .rejects.toThrow(/assign another diagnosis as primary/i);
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+});
