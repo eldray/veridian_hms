@@ -604,3 +604,36 @@ describe('purchase receipt batch expiry race protection', () => {
     expect(tx.stockTransaction.create).not.toHaveBeenCalled();
   });
 });
+
+
+describe('calendar-day batch expiry semantics', () => {
+  it('accepts a batch whose recorded expiry date is today at midnight', async () => {
+    const expiryToday = new Date();
+    expiryToday.setHours(0, 0, 0, 0);
+    const tx: any = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findFirst: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockImplementation(async ({ data }: any) => ({ id: 'batch-today', ...data })),
+      },
+      stockItemDepartmentBalance: {
+        upsert: vi.fn().mockResolvedValue({ quantity: 2 }),
+      },
+      stockItem: {
+        update: vi.fn().mockResolvedValue({ id: 'item-today', currentStock: 2 }),
+      },
+      stockTransaction: {
+        create: vi.fn().mockResolvedValue({ id: 'movement-today' }),
+      },
+    };
+    const repository = new StockItemRepository({} as any);
+
+    const batch = await repository.addBatchWithinTransaction(
+      tx, 'item-today', 'LOT-TODAY', expiryToday, 2, 1, new Date(), 'pharmacy',
+    );
+
+    expect(batch.expiryDate).toEqual(expiryToday);
+    expect(tx.stockBatch.create).toHaveBeenCalled();
+    expect(tx.stockItemDepartmentBalance.upsert).toHaveBeenCalled();
+  });
+});
