@@ -253,7 +253,7 @@ export class RequisitionRepository {
       where: { id },
       include: {
         departments: { select: { name: true } },
-        ward: { select: { name: true } },
+        ward: { select: { wardName: true } },
         requestedBy: { select: { fullName: true } },
         approvedBy: { select: { fullName: true } },
         RequisitionItem: {
