@@ -951,13 +951,19 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   }
 
   async removeLabTest(encounterId: string, labOrderId: string) {
-    // Always scope a mutation to both IDs from the URL. A valid order ID alone
-    // must never let one encounter cancel another patient's investigation.
+    // Scope by encounter and only cancel orders that have not been completed.
+    const current = await this.prisma.labTest.findFirst({
+      where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled laboratory order cannot be cancelled again');
+    }
     const result = await this.prisma.labTest.updateMany({
-      where: { id: labOrderId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      where: { id: labOrderId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
     });
-    if (result.count === 0) throw new NotFoundError('Lab order in encounter', labOrderId);
+    if (result.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
     return { id: labOrderId, status: 'cancelled' };
   }
 
@@ -1085,11 +1091,18 @@ async addScan(encounterId: string, data: any, userId: string) {
   }
 
   async removeScan(encounterId: string, scanId: string) {
+    const current = await this.prisma.scan.findFirst({
+      where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Scan in encounter', scanId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled scan order cannot be cancelled again');
+    }
     const result = await this.prisma.scan.updateMany({
-      where: { id: scanId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
     });
-    if (result.count === 0) throw new NotFoundError('Scan in encounter', scanId);
+    if (result.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
     return { id: scanId, status: 'cancelled' };
   }
 
@@ -1159,11 +1172,18 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeProcedure(encounterId: string, procedureId: string) {
+    const current = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled procedure cannot be cancelled again');
+    }
     const result = await this.prisma.procedure.updateMany({
-      where: { id: procedureId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      where: { id: procedureId, attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } },
       data: { status: 'cancelled' },
     });
-    if (result.count === 0) throw new NotFoundError('Procedure in encounter', procedureId);
+    if (result.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
     return { id: procedureId, status: 'cancelled' };
   }
 
