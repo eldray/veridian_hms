@@ -2,6 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { TransferQueryParams } from './StockTransferTypes';
 
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+};
+
 export class StockTransferRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'stockTransfer');
@@ -70,7 +76,7 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
   async getBatchesByDepartment(stockItemId: string, departmentId: string, tx?: any) {
     const client = tx || this.prisma;
     return client.stockBatch.findMany({
-      where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
+      where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gte: startOfCurrentDay() } },
       // Deterministic FEFO: earliest expiry first, then oldest received batch.
       orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
     });
