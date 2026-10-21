@@ -46,6 +46,21 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   }
 
   async create(data: CreatePurchaseInvoiceDTO, createdById: string) {
+    if (!Array.isArray(data.invoiceItems) || data.invoiceItems.length === 0) {
+      throw new Error('A purchase invoice must contain at least one item.');
+    }
+    if (!Number.isFinite(data.totalAmount) || data.totalAmount < 0) {
+      throw new Error('Purchase invoice total must be a finite, non-negative amount.');
+    }
+    for (const item of data.invoiceItems) {
+      if (!Number.isSafeInteger(item.quantity) || item.quantity <= 0) {
+        throw new Error('Purchase receipt quantities must be positive whole numbers.');
+      }
+      if (!Number.isFinite(item.unitCost) || item.unitCost < 0) {
+        throw new Error('Purchase item cost must be a finite, non-negative amount.');
+      }
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.create({
         data: {
