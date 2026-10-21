@@ -649,7 +649,16 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         select: { stockItemId: true, transactionType: true, quantity: true, adjustmentDirection: true },
       });
     }
-    return { rows, total, transactionsAfterEnd, reconciliationRows };
+    // Current location balances provide the anchor needed to calculate historical
+    // closing stock for department reports when later movements occurred after the
+    // requested end date. Hospital-wide reports continue to use StockItem.currentStock.
+    const locationBalances = !opts.includeAllStockLocations && opts.departmentId
+      ? await this.prisma.stockItemDepartmentBalance.findMany({
+          where: { departmentId: opts.departmentId, wardId: null },
+          select: { stockItemId: true, quantity: true },
+        })
+      : [];
+    return { rows, total, transactionsAfterEnd, reconciliationRows, locationBalances };
   }
 
   async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
