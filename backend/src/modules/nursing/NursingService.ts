@@ -57,6 +57,7 @@ export class NursingService extends BaseService {
     if (['stat', 'once', 'single dose', 'single'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
 
     let m = f.match(/^(?:every\s+)?(\d+)\s*(?:hours?|h)(?:\s+apart)?$/);
+    if (!m) m = f.match(/^q\s*(\d+)\s*h(?:ours?)?$/);
     if (!m) m = f.match(/^(\d+)\s*hourly$/);
     if (m) {
       const h = Number(m[1]);
