@@ -2,6 +2,52 @@ import { describe, expect, it, vi } from 'vitest';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
 
+
+import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
+
+describe('purchase receipt location snapshots', () => {
+  it('records the receiving location balance rather than the hospital aggregate', async () => {
+    const stockTransactionCreate = vi.fn().mockResolvedValue({ id: 'movement-1' });
+    const balanceUpsert = vi.fn().mockResolvedValue({ quantity: 7 });
+    const tx: any = {
+      invoice: {
+        create: vi.fn().mockResolvedValue({ id: 'invoice-1', createdAt: new Date('2026-10-20T00:00:00Z') }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'invoice-1' }),
+      },
+      stockItem: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves', currentStock: 100 }),
+        update: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 107 }),
+      },
+      stockBatch: { count: vi.fn().mockResolvedValue(0) },
+      invoiceItem: { create: vi.fn().mockResolvedValue({ id: 'invoice-item-1' }) },
+      stockItemDepartmentBalance: { upsert: balanceUpsert },
+      stockTransaction: { create: stockTransactionCreate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new PurchaseInvoiceRepository(prisma);
+
+    await repository.create({
+      invoiceNumber: 'INV-TEST-1',
+      supplierName: 'Test supplier',
+      invoiceDate: '2026-10-20',
+      totalAmount: 70,
+      invoiceItems: [{ stockItemId: 'item-1', quantity: 7, unitCost: 10 }],
+      receivedAtDepartmentId: 'pharmacy',
+    } as any, 'user-1');
+
+    expect(balanceUpsert).toHaveBeenCalled();
+    expect(stockTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        stockItemId: 'item-1',
+        transactionType: 'purchase',
+        quantity: 7,
+        departmentId: 'pharmacy',
+        balanceAfter: 7,
+      }),
+    });
+  });
+});
+
 describe('department stock balance ledger', () => {
   it('creates a department balance using the department id as the stable location key', async () => {
     const upsert = vi.fn().mockResolvedValue({ quantity: 12 });
