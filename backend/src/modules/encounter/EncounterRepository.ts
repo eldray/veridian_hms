@@ -431,7 +431,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     }
     if (data.bloodPressure !== undefined && data.bloodPressure !== null && String(data.bloodPressure).trim() !== '') {
       const value = String(data.bloodPressure).trim();
-      const match = value.match(/^(\\d{2,3})\\s*\\/\\s*(\\d{2,3})(?:\\s*mmhg)?$/i);
+      const match = value.match(/^(\d{2,3})\s*\/\s*(\d{2,3})(?:\s*mmhg)?$/i);
       if (!match) throw new ValidationError('Blood pressure must use systolic/diastolic format, for example 120/80');
       const systolic = Number(match[1]);
       const diastolic = Number(match[2]);
