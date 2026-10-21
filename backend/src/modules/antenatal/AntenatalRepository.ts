@@ -174,6 +174,32 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== ANC VISITS =====================
   async createVisit(data: CreateANCVisitInput): Promise<any> {
+    const visitDate = new Date(data.visitDate);
+    if (Number.isNaN(visitDate.getTime())) throw new ValidationError('ANC visit date must be valid');
+    const nextVisitDate = data.nextVisitDate ? new Date(data.nextVisitDate) : undefined;
+    if (nextVisitDate && Number.isNaN(nextVisitDate.getTime())) throw new ValidationError('Next ANC visit date must be valid');
+    if (data.gestationalAgeWeeks !== undefined && (!Number.isInteger(Number(data.gestationalAgeWeeks)) || Number(data.gestationalAgeWeeks) < 0 || Number(data.gestationalAgeWeeks) > 42)) {
+      throw new ValidationError('Gestational age must be between 0 and 42 weeks');
+    }
+    if (data.gestationalAgeDays !== undefined && (!Number.isInteger(Number(data.gestationalAgeDays)) || Number(data.gestationalAgeDays) < 0 || Number(data.gestationalAgeDays) > 6)) {
+      throw new ValidationError('Gestational age days must be between 0 and 6');
+    }
+    if (data.weight !== undefined && (!Number.isFinite(Number(data.weight)) || Number(data.weight) <= 0 || Number(data.weight) > 350)) {
+      throw new ValidationError('Weight must be a valid value in kilograms');
+    }
+    if (data.fundalHeight !== undefined && (!Number.isFinite(Number(data.fundalHeight)) || Number(data.fundalHeight) < 0 || Number(data.fundalHeight) > 60)) {
+      throw new ValidationError('Fundal height must be between 0 and 60 cm');
+    }
+    if (data.fetalHeartRate !== undefined && (!Number.isInteger(Number(data.fetalHeartRate)) || Number(data.fetalHeartRate) < 60 || Number(data.fetalHeartRate) > 200)) {
+      throw new ValidationError('Fetal heart rate must be between 60 and 200 bpm');
+    }
+    if (data.iptpDoseNumber !== undefined && (!Number.isInteger(Number(data.iptpDoseNumber)) || Number(data.iptpDoseNumber) < 1 || Number(data.iptpDoseNumber) > 5)) {
+      throw new ValidationError('IPTp dose number must be between 1 and 5');
+    }
+    if (data.ttDoseNumber !== undefined && (!Number.isInteger(Number(data.ttDoseNumber)) || Number(data.ttDoseNumber) < 1 || Number(data.ttDoseNumber) > 5)) {
+      throw new ValidationError('TT dose number must be between 1 and 5');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const [attendance, booking] = await Promise.all([
         tx.attendance.findUnique({
@@ -200,7 +226,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
 
       const visitFields = {
-        visitDate: data.visitDate,
+        visitDate,
         gestationalAgeWeeks: data.gestationalAgeWeeks,
         gestationalAgeDays: data.gestationalAgeDays,
         weight: data.weight,
@@ -224,7 +250,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         dangerSignsList: data.dangerSignsList ?? [],
         referralMade: data.referralMade ?? false,
         referredTo: data.referredTo,
-        nextVisitDate: data.nextVisitDate,
+        nextVisitDate,
         returnInstructions: data.returnInstructions,
       };
 
