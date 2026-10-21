@@ -558,7 +558,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       isActive: true,
       OR: [
         { expiryDate: { not: null } },
-        { StockBatch: { some: { isActive: true, quantity: { gt: 0 }, ...batchLocationWhere } } },
+        { StockBatch: { some: { quantity: { gt: 0 }, ...batchLocationWhere } } },
       ],
     };
     if (category) where.category = category;
@@ -568,7 +568,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         id: true, name: true, category: true, currentStock: true, expiryDate: true,
         unitOfMeasure: true, costPrice: true,
         StockBatch: {
-          where: { isActive: true, quantity: { gt: 0 }, ...batchLocationWhere },
+          // Include inactive batches with remaining quantity too: expired-in-transit
+          // stock is deliberately marked inactive, but must remain visible for expiry
+          // and reconciliation reports until it is written off or otherwise corrected.
+          where: { quantity: { gt: 0 }, ...batchLocationWhere },
           select: { batchNumber: true, expiryDate: true, quantity: true, costPrice: true },
           orderBy: { expiryDate: 'asc' },
         },
