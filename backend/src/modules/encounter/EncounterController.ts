@@ -66,7 +66,8 @@ export class EncounterController extends BaseController {
   updateStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
-    const encounter = await this.service.updateEncounterStatus(id, status);
+    const user = req.user!;
+    const encounter = await this.service.updateEncounterStatus(id, status, user.id);
     return this.ok(res, encounter, `Encounter status updated to ${status}`);
   });
 
