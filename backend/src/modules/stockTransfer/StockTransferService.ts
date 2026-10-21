@@ -6,6 +6,12 @@ import { getCounterService } from '../../services/CounterService';
 import { ValidationError, NotFoundError } from '../../utils/errors';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
+// Batch expiry is a calendar date; lots remain usable through that date.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
 
 export class StockTransferService extends BaseService {
   private repo: StockTransferRepository;
@@ -132,7 +138,7 @@ export class StockTransferService extends BaseService {
             if (remaining <= 0) break;
             const take = Math.min(batch.quantity, remaining);
             const claimed = await tx.stockBatch.updateMany({
-              where: { id: batch.id, departmentId: transfer.originId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: take } },
+              where: { id: batch.id, departmentId: transfer.originId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: take } },
               data: { quantity: { decrement: take } },
             });
             if (claimed.count !== 1) throw new Error('Origin batch stock changed during dispatch. Refresh and retry.');
