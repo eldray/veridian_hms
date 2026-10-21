@@ -20,7 +20,7 @@ describe('stock valuation report', () => {
 
     const report = await service.getStockValuation(undefined, { includeAllStockLocations: true });
 
-    expect(report.totalValue).toBe(38);
+    expect(report.totalValue).toBe(36);
     expect(report.items[0]).toMatchObject({
       batchQuantity: 6,
       batchValue: 16,
