@@ -594,6 +594,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (!med || med.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
 
+      // Dispensing is a stock-changing, one-way transition. Never allow a generic
+      // medication edit to reset a dispensed order to "prescribed", because that
+      // would permit the same prescription to deduct stock a second time.
+      if (med.status === 'dispensed' && data.status !== undefined &&
+          !['dispensed', 'administered'].includes(String(data.status))) {
+        throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
+      }
+
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
