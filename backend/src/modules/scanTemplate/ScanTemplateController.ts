@@ -1,6 +1,6 @@
 // ScanTemplateController.ts - HTTP request handlers for scan template module
 
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { body, validationResult } from 'express-validator';
 import { ScanTemplateService } from './ScanTemplateService';
 import { ServiceCategory } from '@prisma/client';
@@ -13,8 +13,8 @@ import {
 /**
  * Async handler wrapper to catch promise rejections
  */
-const asyncHandler = (fn: Function) => {
-  return (req: Request, res: Response, next: Function) => {
+const asyncHandler = (fn: (req: Request, res: Response, next: NextFunction) => Promise<unknown>) => {
+  return (req: Request, res: Response, next: NextFunction) => {
     Promise.resolve(fn(req, res, next)).catch(next);
   };
 };
@@ -41,7 +41,7 @@ export class ScanTemplateController {
 
     const result = await this.service.getAllScanTemplates(params);
 
-    res.json(result);
+    return res.json(result);
   });
 
   // GET SCAN TEMPLATE BY ID
@@ -50,7 +50,7 @@ export class ScanTemplateController {
 
     const template = await this.service.getScanTemplateById(id);
 
-    res.json(template);
+    return res.json(template);
   });
 
   // CREATE SCAN TEMPLATE
@@ -76,7 +76,7 @@ export class ScanTemplateController {
 
       const templateWithPricing = await this.service.getScanTemplateById(template.id);
 
-      res.status(201).json(templateWithPricing);
+      return res.status(201).json(templateWithPricing);
     })
   ];
 
@@ -103,7 +103,7 @@ export class ScanTemplateController {
 
       const templateWithPricing = await this.service.getScanTemplateById(template.id);
 
-      res.json(templateWithPricing);
+      return res.json(templateWithPricing);
     })
   ];
 
@@ -113,25 +113,25 @@ export class ScanTemplateController {
 
     await this.service.deleteScanTemplate(id);
 
-    res.json({ message: 'Scan template deleted successfully' });
+    return res.json({ message: 'Scan template deleted successfully' });
   });
 
   // GET SCAN CATEGORIES
   getScanCategories = asyncHandler(async (req: Request, res: Response) => {
     const categories = await this.service.getScanCategories();
-    res.json(categories);
+    return res.json(categories);
   });
 
   // GET SCAN BODY PARTS
   getScanBodyParts = asyncHandler(async (req: Request, res: Response) => {
     const bodyParts = await this.service.getScanBodyParts();
-    res.json(bodyParts);
+    return res.json(bodyParts);
   });
 
   // GET SCAN TYPES
   getScanTypes = asyncHandler(async (req: Request, res: Response) => {
     const scanTypes = await this.service.getScanTypes();
-    res.json(scanTypes);
+    return res.json(scanTypes);
   });
 
   // BULK UPDATE SCAN TEMPLATES
@@ -142,6 +142,6 @@ export class ScanTemplateController {
 
     const result = await this.service.bulkUpdateScanTemplates(data);
 
-    res.json(result);
+    return res.json(result);
   });
 }
