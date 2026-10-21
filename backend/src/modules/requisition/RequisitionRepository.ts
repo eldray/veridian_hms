@@ -492,25 +492,38 @@ export class RequisitionRepository {
       if (!requisition) throw new Error('Requisition not found');
       if (requisition.status !== 'approved') throw new Error('Only approved requisitions can be fulfilled');
 
-      // Claim fulfillment before stock changes. Competing requests cannot issue the
-      // same requisition twice; any later failure rolls this status claim back.
+      const toDepartmentId = requisition.requestingDepartmentId;
+      const toWardId = requisition.requestingWardId;
+      if (Boolean(toDepartmentId) === Boolean(toWardId)) {
+        throw new Error('A requisition must identify exactly one receiving department or ward');
+      }
+
+      // Validate every stored line before filtering zero-approved quantities. A
+      // malformed negative/non-integer quantity must never disappear silently
+      // while the remaining lines are fulfilled.
+      const requestedLines = requisition.RequisitionItem
+        .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }));
+      const invalidLine = requestedLines.find(({ ri, qty }) =>
+        !Number.isSafeInteger(ri.quantityRequested) ||
+        ri.quantityRequested <= 0 ||
+        !Number.isSafeInteger(qty) ||
+        qty < 0 ||
+        qty > ri.quantityRequested
+      );
+      if (invalidLine) {
+        throw new Error(`Approved quantity for ${invalidLine.ri.StockItem.name} must be a whole number between zero and the positive requested quantity`);
+      }
+      const lines = requestedLines.filter(l => l.qty > 0);
+      if (lines.length === 0) throw new Error('No approved quantities to fulfil');
+
+      // Claim fulfillment only after validating the saved destination and every
+      // line. Competing requests cannot issue the same requisition twice.
       const fulfillmentClaim = await tx.requisition.updateMany({
         where: { id, status: 'approved' },
         data: { status: 'fulfilled', fulfilledById: userId, fulfilledAt: new Date() },
       });
       if (fulfillmentClaim.count !== 1) {
         throw new Error('This requisition has already been fulfilled or its status changed. Refresh and try again.');
-      }
-
-      const lines = requisition.RequisitionItem
-        .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }))
-        .filter(l => l.qty > 0);
-      if (lines.length === 0) throw new Error('No approved quantities to fulfil');
-      const invalidLine = lines.find(({ ri, qty }) =>
-        !Number.isSafeInteger(qty) || qty <= 0 || qty > ri.quantityRequested
-      );
-      if (invalidLine) {
-        throw new Error(`Approved quantity for ${invalidLine.ri.StockItem.name} must be a positive whole number and cannot exceed the requested quantity`);
       }
 
       const supplierId = requisition.supplyingDepartmentId;
@@ -543,12 +556,6 @@ export class RequisitionRepository {
           .map(l => `${l.ri.StockItem.name}: requested ${l.qty}, ${requisition.supplyingDepartment?.name || 'supplier'} has ${supplierQty.get(l.ri.stockItemId) ?? 0}`)
           .join('; ');
         throw new Error(`Insufficient stock at ${requisition.supplyingDepartment?.name || 'the supplying department'}: ${details}`);
-      }
-
-      const toDepartmentId = requisition.requestingDepartmentId;
-      const toWardId = requisition.requestingWardId;
-      if (!toDepartmentId && !toWardId) {
-        throw new Error('Select a receiving department or ward before fulfilling this requisition');
       }
 
       for (const { ri, qty } of lines) {
