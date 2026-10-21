@@ -71,6 +71,7 @@ export interface UpdateAntenatalBookingInput {
   bookingWeight?: number;
   bookingBP?: string;
   itnGiven?: boolean;
+  itnGivenDate?: Date | null;
   ironFolateGiven?: boolean;
   previousCSection?: boolean;
 }
