@@ -466,12 +466,6 @@ export default function DispensePatient() {
               <Plus className="w-3.5 h-3.5" /> Add Prescription
             </button>
           )}
-          {canDispense && (
-            <button onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-              <Package className="w-3.5 h-3.5" /> Add Consumable
-            </button>
-          )}
           {prescribedMeds.length > 0 && (
             <button onClick={() => handlePrint()} disabled={printingId === 'all'}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
