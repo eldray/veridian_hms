@@ -2,6 +2,7 @@
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { NursingRepository } from './NursingRepository';
+import { ValidationError } from '../../utils/errors';
 import {
   MarFilters,
   ScheduleDosesInput,
@@ -38,6 +39,9 @@ export class NursingService extends BaseService {
     const { intervalHours, dosesPerDay } = this.parseFrequency(frequency);
     const days = this.parseDurationDays(duration);
     const requiredDoses = Math.max(1, dosesPerDay * days);
+    if (requiredDoses > 10000) {
+      throw new ValidationError('This prescription would create more than 10,000 scheduled doses; verify the frequency and duration');
+    }
 
     const firstDoseAt = new Date(prescribedAt);
     firstDoseAt.setMinutes(0, 0, 0);
@@ -52,10 +56,15 @@ export class NursingService extends BaseService {
 
     if (['stat', 'once', 'single dose', 'single'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
 
-    let m = f.match(/every\s+(\d+)\s*h/);
-    if (m) { const h = parseInt(m[1], 10); return { intervalHours: h, dosesPerDay: Math.max(1, Math.floor(24 / h)) }; }
-    m = f.match(/(\d+)\s*hourly/);
-    if (m) { const h = parseInt(m[1], 10); return { intervalHours: h, dosesPerDay: Math.max(1, Math.floor(24 / h)) }; }
+    let m = f.match(/^(?:every\s+)?(\d+)\s*(?:hours?|h)(?:\s+apart)?$/);
+    if (!m) m = f.match(/^(\d+)\s*hourly$/);
+    if (m) {
+      const h = Number(m[1]);
+      if (!Number.isInteger(h) || h < 1 || h > 24) {
+        throw new ValidationError('Medication frequency interval must be between 1 and 24 hours');
+      }
+      return { intervalHours: h, dosesPerDay: Math.max(1, Math.floor(24 / h)) };
+    }
 
     if (['od', 'once daily', 'daily', 'nocte', 'mane', 'om', 'on'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
     if (['bd', 'bid', 'twice daily', 'twice a day', 'b.i.d'].includes(f)) return { intervalHours: 12, dosesPerDay: 2 };
@@ -63,7 +72,7 @@ export class NursingService extends BaseService {
     if (['qds', 'qid', 'four times daily', 'four times a day', 'q.i.d'].includes(f)) return { intervalHours: 6, dosesPerDay: 4 };
     if (['prn', 'as needed', 'sos'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
 
-    return { intervalHours: 24, dosesPerDay: 1 };
+    throw new ValidationError('Unsupported medication frequency. Use a recognized schedule such as stat, OD, BD, TDS, QDS or every 8 hours');
   }
 
   private parseDurationDays(duration: string | null): number {
@@ -71,14 +80,20 @@ export class NursingService extends BaseService {
     const d = String(duration).toLowerCase().trim();
     const numMatch = d.match(/(\d+)/);
     if (!numMatch) {
-      if (d.includes('week')) return 7;
-      if (d.includes('month')) return 30;
-      return 1;
+      const wordNumber: Record<string, number> = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10 };
+      const word = Object.keys(wordNumber).find((candidate) => new RegExp('\\b' + candidate + '\\b').test(d));
+      if (!word) throw new ValidationError('Medication duration must specify a number of days, weeks or months');
+      const n = wordNumber[word];
+      const days = d.includes('week') ? n * 7 : d.includes('month') ? n * 30 : n;
+      if (days < 1 || days > 365) throw new ValidationError('Medication duration must be between 1 and 365 days');
+      return days;
     }
-    const n = parseInt(numMatch[1], 10);
-    if (d.includes('week')) return n * 7;
-    if (d.includes('month')) return n * 30;
-    return n;
+    const n = Number(numMatch[1]);
+    const days = d.includes('week') ? n * 7 : d.includes('month') ? n * 30 : n;
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      throw new ValidationError('Medication duration must be between 1 and 365 days');
+    }
+    return days;
   }
 
   // ═══════════════════════════════════════════════════════════
