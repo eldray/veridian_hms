@@ -375,17 +375,53 @@ export class StockItemService extends BaseService {
   }
 
   async getExpiryReport(days: number = 30, category?: string) {
-    const today = new Date(); const futureDate = new Date(); futureDate.setDate(today.getDate() + days);
+    const safeDays = Number.isSafeInteger(Number(days)) && Number(days) >= 0 ? Math.min(Number(days), 3650) : 30;
+    const today = new Date();
+    const futureDate = new Date();
+    futureDate.setDate(today.getDate() + safeDays);
     const stockItems: any[] = await this.repo.getItemsForExpiryReport(category);
 
-    const expiringSoon = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) >= today && new Date(item.expiryDate) <= futureDate);
-    const expired = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) < today);
-    const healthy = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) > futureDate);
-    const expiringBatches: any[] = await this.repo.getExpiringBatches(days);
+    // Report lot-level expiry for batch-tracked stock, while retaining legacy
+    // item-level expiry for stock records created before batch tracking.
+    const itemHasBatchData = (item: any) => Array.isArray(item.StockBatch) && item.StockBatch.length > 0;
+    const itemBatches = (item: any) => (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
+    const legacyExpiry = (item: any) => item.expiryDate ? new Date(item.expiryDate) : null;
+    const isSoon = (date: Date) => date >= today && date <= futureDate;
+    const isExpired = (date: Date) => date < today;
+    const isHealthy = (date: Date) => date > futureDate;
+
+    const expiringSoon = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isSoon(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isSoon(expiry) : false;
+    });
+    const expired = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isExpired(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isExpired(expiry) : false;
+    });
+    const healthy = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isHealthy(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isHealthy(expiry) : false;
+    });
+    const expiringBatches: any[] = await this.repo.getExpiringBatches(safeDays);
+    const expiringValue = expiringSoon.reduce((sum: number, item: any) => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) {
+        return sum + batches
+          .filter((batch: any) => isSoon(new Date(batch.expiryDate)))
+          .reduce((batchSum: number, batch: any) => batchSum + toNumber(batch.costPrice) * Number(batch.quantity), 0);
+      }
+      return sum + toNumber(item.costPrice) * Number(item.currentStock);
+    }, 0);
 
     return {
-      summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue: expiringSoon.reduce((sum, i) => sum + (toNumber(i.costPrice) * i.currentStock), 0), expiringBatches: expiringBatches.length },
-      expiringSoon: expiringSoon.slice(0, 50), expired: expired.slice(0, 50), expiringBatches: expiringBatches.slice(0, 50), reportPeriod: days
+      summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue, expiringBatches: expiringBatches.length },
+      expiringSoon: expiringSoon.slice(0, 50), expired: expired.slice(0, 50), expiringBatches: expiringBatches.slice(0, 50), reportPeriod: safeDays
     };
   }
 
