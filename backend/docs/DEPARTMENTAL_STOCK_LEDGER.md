@@ -49,6 +49,10 @@ The inventory ledger now stores balances per stock location. Department balances
 
 ## Important deployment note
 
-This repository did not have a complete checked-in Prisma migration baseline before this change. For that reason, the partial SQL migrations were not left in the migrations directory: applying partial migrations to a fresh database would fail because the rest of the schema would not be created. Use the schema push + backfill sequence above for this rollout, and establish a complete migration baseline before relying on `prisma migrate deploy` for fresh installations.
+The migrations directory currently contains **incremental SQL migrations, not a complete initial schema baseline**. A brand-new database cannot be created from those migration files alone. Do not treat a successful Prisma schema validation/client generation as proof that `prisma migrate deploy` works on a fresh database.
+
+For the current departmental-stock rollout, use the documented `prisma db push` + backfill procedure only after taking a backup and confirming the target database. Do not then run `prisma migrate deploy` against that same database until a complete, reconciled migration baseline has been prepared; otherwise the incremental migrations may try to add columns that `db push` already created. Existing installations should first have their current schema and `_prisma_migrations` state reviewed by an administrator before choosing a deployment path.
+
+The patient CCC column and stock changes also need to be reconciled into the eventual baseline. Never create a baseline by marking migrations as applied without checking the actual database schema.
 
 Do not run the backfill script twice as a routine operation. It adds any residual legacy quantity to the unassigned balance on conflict. Take a backup and inspect the ledger before repeating it.
