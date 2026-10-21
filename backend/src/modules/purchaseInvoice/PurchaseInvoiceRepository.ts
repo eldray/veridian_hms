@@ -115,15 +115,16 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         }
 
         // Keep the location ledger in sync with the batch/receipt and hospital aggregate.
-        await increaseDepartmentStockBalance(
+        const locationBalance = await increaseDepartmentStockBalance(
           tx, item.stockItemId, data.receivedAtDepartmentId || null, item.quantity, data.receivedAtWardId || null,
         );
 
-        // 3. Create Stock Transaction
+        // 3. Create Stock Transaction. balanceAfter is a location snapshot, not
+        // the hospital aggregate; reports use it to reconcile department/ward stock.
         await tx.stockTransaction.create({
           data: {
             stockItemId: item.stockItemId, transactionType: 'purchase', quantity: item.quantity,
-            balanceAfter: stockItem.currentStock + item.quantity, reference: data.invoiceNumber,
+            balanceAfter: locationBalance.quantity, reference: data.invoiceNumber,
             invoiceId: invoice.id, performedBy: createdById || undefined,
             departmentId: data.receivedAtDepartmentId || undefined,
             wardId: data.receivedAtWardId || undefined
