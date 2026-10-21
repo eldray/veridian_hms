@@ -3,6 +3,7 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance, StockIt
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
+import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 
 describe('purchase receipt location snapshots', () => {
   it('records the receiving location balance rather than the hospital aggregate', async () => {
