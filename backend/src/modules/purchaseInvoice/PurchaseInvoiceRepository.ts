@@ -206,11 +206,26 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           if (!batch.isActive) {
             throw new Error(`Cannot delete invoice: batch ${item.batchNumber} is inactive. Reconcile the batch before reversing the receipt.`);
           }
-          const remainingBatchQty = batch.quantity - item.quantity;
+          // Atomically reserve the receipt quantity being reversed. A concurrent
+          // sale/dispense must not let invoice deletion decrement below zero or
+          // delete a batch whose quantity changed after the read above.
+          const batchReversal = await tx.stockBatch.updateMany({
+            where: {
+              id: batch.id,
+              quantity: { gte: item.quantity },
+              isActive: true,
+              expiryDate: item.expiryDate,
+              costPrice: item.unitCost,
+            },
+            data: { quantity: { decrement: item.quantity } },
+          });
+          if (batchReversal.count !== 1) {
+            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} changed during reversal. Refresh and reconcile the receipt.`);
+          }
           if (remainingBatchQty === 0) {
-            await tx.stockBatch.delete({ where: { id: batch.id } });
-          } else {
-            await tx.stockBatch.update({ where: { id: batch.id }, data: { quantity: { decrement: item.quantity } } });
+            // If a concurrent valid receipt adds the same lot after the decrement,
+            // delete only an actually empty row and preserve the newly received stock.
+            await tx.stockBatch.deleteMany({ where: { id: batch.id, quantity: 0 } });
           }
         } else {
           const outgoingSinceReceipt = await tx.stockTransaction.count({
