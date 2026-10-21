@@ -137,7 +137,8 @@ export class StockItemController extends BaseController {
   });
 
   getRequisitionSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getRequisitionSummary(req.query.startDate ? new Date(req.query.startDate as string) : undefined, parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined)?.lte, req.query.status as RequisitionStatus);
+    const range = parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
+    const result = await this.service.getRequisitionSummary(range?.gte, range?.lte, req.query.status as RequisitionStatus);
     return this.ok(res, result, 'Requisition summary retrieved');
   });
 
