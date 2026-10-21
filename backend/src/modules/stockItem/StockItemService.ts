@@ -470,7 +470,7 @@ export class StockItemService extends BaseService {
    */
   async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total, transactionsAfterEnd = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
+    const { rows, total, transactionsAfterEnd = [], reconciliationRows = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
@@ -525,6 +525,32 @@ export class StockItemService extends BaseService {
     }
 
     if (extra.includeAllStockLocations) {
+      // The visible rows may be filtered by movement type or capped at LIMIT.
+      // Use the full movement set for opening/closing reconciliation so filters
+      // change activity totals, not the underlying stock balance.
+      if (reconciliationRows.length) {
+        const fullNetByItem = new Map<string, number>();
+        for (const transaction of reconciliationRows as any[]) {
+          if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') continue;
+          const q = Math.abs(Number(transaction.quantity) || 0);
+          let signed = q;
+          switch (transaction.transactionType) {
+            case 'purchase': signed = q; break;
+            case 'sale': case 'requisition': case 'write_off': signed = -q; break;
+            case 'adjustment':
+              signed = transaction.adjustmentDirection === 'decrease' ? -q
+                : transaction.adjustmentDirection === 'increase' ? q
+                : Number(transaction.quantity) < 0 ? -q : q;
+              break;
+            default: signed = Number(transaction.quantity) < 0 ? -q : q;
+          }
+          fullNetByItem.set(transaction.stockItemId, (fullNetByItem.get(transaction.stockItemId) || 0) + signed);
+        }
+        for (const item of items.values()) {
+          item.aggregateNetChange = fullNetByItem.get(item.stockItemId) || 0;
+        }
+      }
+
       const afterEndNetByItem = new Map<string, number>();
       for (const transaction of transactionsAfterEnd as any[]) {
         if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') continue;
