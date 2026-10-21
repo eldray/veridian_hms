@@ -552,7 +552,7 @@ export class StockItemService extends BaseService {
 
     const itemList = [...items.values()].sort((a, b) => (b.quantityIn + b.quantityOut) - (a.quantityIn + a.quantityOut));
     const g = (k: string) => byType[k] ?? { count: 0, quantity: 0, value: 0 };
-    const aggregateNetChange = itemList.reduce((sum, item) => sum + item.openingStock * 0 + (item.closingStock - item.openingStock), 0);
+    const aggregateNetChange = itemList.reduce((sum, item) => sum + item.closingStock - item.openingStock, 0);
     const summary = {
       totalTransactions: total, totalIn, totalOut, netChange: extra.includeAllStockLocations ? aggregateNetChange : totalIn - totalOut, itemsMoved: itemList.length,
       byType: {
