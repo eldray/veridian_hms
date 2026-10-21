@@ -602,6 +602,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
       }
 
+      // Keep stock-changing dispensing transitions one-way. A dispensed prescription
+      // must not be reset to prescribed through a generic update, which could permit
+      // the same prescription to deduct stock a second time.
+      if (med.status === 'dispensed' && data.status !== undefined &&
+          !['dispensed', 'administered'].includes(String(data.status))) {
+        throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
+      }
+
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
