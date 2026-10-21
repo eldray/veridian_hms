@@ -432,7 +432,7 @@ describe('batch receipt expiry race protection', () => {
       where: {
         id: 'batch-1',
         isActive: true,
-        expiryDate: { gt: expect.any(Date) },
+        expiryDate: { gte: expect.any(Date) },
       },
       data: { quantity: { increment: 3 } },
     });
