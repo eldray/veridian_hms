@@ -133,7 +133,7 @@ describe('historical stock movement balances', () => {
     });
 
     expect(report.items[0]).toMatchObject({
-      openingStock: 65,
+      openingStock: 67,
       closingStock: 75,
       netChange: 8,
     });
