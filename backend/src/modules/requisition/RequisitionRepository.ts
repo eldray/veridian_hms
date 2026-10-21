@@ -592,6 +592,10 @@ export class RequisitionRepository {
                 batchNumber: batch.batchNumber,
                 departmentId: toDepartmentId,
                 wardId: null,
+                // Keep distinct lots separate even when suppliers reuse a batch number.
+                // A transfer must preserve the source lot's expiry and acquisition cost.
+                expiryDate: batch.expiryDate,
+                costPrice: batch.costPrice,
               }
             });
             if (existing) {
