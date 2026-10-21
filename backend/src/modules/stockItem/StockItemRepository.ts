@@ -469,8 +469,8 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     daysThreshold: number = 90,
     filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
   ) {
-    const thresholdDate = new Date();
-    thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
+    const thresholdDate = startOfCurrentDay();
+    thresholdDate.setUTCDate(thresholdDate.getUTCDate() + daysThreshold);
     return this.prisma.stockBatch.findMany({
       where: {
         expiryDate: { lte: thresholdDate, gte: startOfCurrentDay() },
