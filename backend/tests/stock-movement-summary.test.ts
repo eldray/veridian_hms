@@ -727,7 +727,10 @@ describe('hospital-wide movement filter reconciliation', () => {
           { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, adjustmentDirection: null, StockItem: item },
           { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, adjustmentDirection: null, StockItem: item },
         ],
-        transactionsAfterEnd: [],
+        transactionsAfterEnd: [
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 3, adjustmentDirection: null },
+        ],
+        locationBalances: [{ stockItemId: 'gloves', quantity: 13 }],
       }),
     };
 
@@ -795,6 +798,12 @@ describe('historical movement data retrieval', () => {
           return [];
         },
       },
+      stockItemDepartmentBalance: {
+        findMany: async (args: any) => {
+          queries.push({ locationBalanceQuery: args });
+          return [{ stockItemId: 'item-1', quantity: 0 }];
+        },
+      },
     } as any);
 
     const result = await repository.getLedgerTransactions({
@@ -806,7 +815,7 @@ describe('historical movement data retrieval', () => {
       limit: 5000,
     });
 
-    expect(queries).toHaveLength(3);
+    expect(queries).toHaveLength(4);
     expect(queries[0].where.transactionType).toBe('sale');
     expect(queries[1].where.transactionType).toBeUndefined();
     expect(queries[1].where.departmentId).toBe('pharmacy');
@@ -821,5 +830,7 @@ describe('historical movement data retrieval', () => {
     expect(queries[2].where.departmentId).toBe('pharmacy');
     expect(result.transactionsAfterEnd).toEqual([]);
     expect(queries[0].include.StockItem.select.currentStock).toBe(true);
+    expect(queries[3].locationBalanceQuery.where).toEqual({ departmentId: 'pharmacy', wardId: null });
+    expect(result.locationBalances).toEqual([{ stockItemId: 'item-1', quantity: 0 }]);
   });
 });
