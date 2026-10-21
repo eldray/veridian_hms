@@ -645,6 +645,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
     const d: any = data;
     const arr = (v: any) => (Array.isArray(v) ? v : []);
+    const examinationDate = new Date(d.examinationDate);
+    if (Number.isNaN(examinationDate.getTime())) throw new ValidationError('Postnatal examination date must be valid');
+    if (examinationDate.getTime() > Date.now()) throw new ValidationError('Postnatal examination date cannot be in the future');
+    if (d.dayNumber !== undefined && (!Number.isInteger(Number(d.dayNumber)) || Number(d.dayNumber) < 1 || Number(d.dayNumber) > 365)) {
+      throw new ValidationError('Postnatal day number must be between 1 and 365');
+    }
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: d.attendanceId },
@@ -674,7 +680,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       return tx.postnatalRecord.create({
         data: {
           patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
-          deliveryRecordId: d.deliveryRecordId, examinationDate: d.examinationDate, dayNumber: d.dayNumber || 1,
+          deliveryRecordId: d.deliveryRecordId, examinationDate, dayNumber: d.dayNumber ?? 1,
           maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
           bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
           lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
