@@ -798,3 +798,42 @@ describe('prescription and MAR atomicity', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 });
+
+
+describe('ANC booking closure requires a confirmed outcome', () => {
+  it('does not invent a delivery date or assume the pregnancy outcome', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({
+      antenatalBooking: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'booking-1' }),
+        update,
+      },
+    } as any);
+
+    await expect(repository.closeBooking('booking-1', {}))
+      .rejects.toThrow(/confirmed pregnancy outcome date is required/i);
+    await expect(repository.closeBooking('booking-1', {
+      deliveryDate: new Date(Date.now() - 24 * 60 * 60 * 1000),
+    })).rejects.toThrow(/confirmed pregnancy outcome is required/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('closes a booking only with the explicitly recorded outcome and date', async () => {
+    const deliveryDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false, isCompleted: true });
+    const repository = new AntenatalRepository({
+      antenatalBooking: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'booking-1' }),
+        update,
+      },
+    } as any);
+
+    await repository.closeBooking('booking-1', { deliveryDate, deliveryOutcome: 'live_birth' });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'booking-1' },
+      data: expect.objectContaining({
+        isActive: false, isCompleted: true, deliveryDate, deliveryOutcome: 'live_birth',
+      }),
+    }));
+  });
+});
