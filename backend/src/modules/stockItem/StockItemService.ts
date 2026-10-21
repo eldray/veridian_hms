@@ -356,21 +356,49 @@ export class StockItemService extends BaseService {
 
   async getValueSummary(category?: string) {
     const stockItems: any[] = await this.repo.getItemsForValueReport(category);
+
+    // Use the actual cost recorded on each remaining batch. For legacy/unbatched
+    // units, retain the catalogue item's costPrice as the fallback valuation.
+    // If batch quantities exceed aggregate stock, value the recorded batches and
+    // expose the discrepancy rather than silently hiding it.
+    const valuedItems = stockItems.map((item: any) => {
+      const batches = Array.isArray(item.StockBatch) ? item.StockBatch : [];
+      const batchQuantity = batches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
+      const batchValue = batches.reduce((sum: number, batch: any) => {
+        const quantity = Math.max(0, Number(batch.quantity) || 0);
+        return sum + toNumber(batch.costPrice) * quantity;
+      }, 0);
+      const unbatchedQuantity = Math.max(0, Number(item.currentStock) - batchQuantity);
+      const unbatchedValue = toNumber(item.costPrice) * unbatchedQuantity;
+      return {
+        ...item,
+        batchQuantity,
+        batchValue,
+        unbatchedQuantity,
+        unbatchedValue,
+        stockDiscrepancy: Math.max(0, batchQuantity - Number(item.currentStock)),
+        totalValue: batchValue + unbatchedValue,
+      };
+    });
+
+    const totalValue = valuedItems.reduce((sum: number, item: any) => sum + item.totalValue, 0);
     return {
-      totalItems: stockItems.length,
-      medications: stockItems.filter(i => i.isMedication).length,
-      nonMedications: stockItems.filter(i => !i.isMedication).length,
-      totalValue: stockItems.reduce((sum, i) => sum + (toNumber(i.costPrice) * i.currentStock), 0), // ✅ FIXED
-      lowStockItems: stockItems.filter(i => i.currentStock <= i.reorderLevel).length,
-      outOfStockItems: stockItems.filter(i => i.currentStock === 0).length,
-      byCategory: stockItems.reduce((acc, item) => {
+      totalItems: valuedItems.length,
+      medications: valuedItems.filter((item: any) => item.isMedication).length,
+      nonMedications: valuedItems.filter((item: any) => !item.isMedication).length,
+      totalValue,
+      lowStockItems: valuedItems.filter((item: any) => item.currentStock <= item.reorderLevel).length,
+      outOfStockItems: valuedItems.filter((item: any) => item.currentStock === 0).length,
+      batchQuantityDiscrepancies: valuedItems.filter((item: any) => item.stockDiscrepancy > 0).length,
+      byCategory: valuedItems.reduce((acc: Record<string, any>, item: any) => {
         const cat = item.category || 'Uncategorized';
         if (!acc[cat]) acc[cat] = { count: 0, value: 0, items: [] };
         acc[cat].count++;
-        acc[cat].value += (toNumber(item.costPrice) * item.currentStock); // ✅ FIXED
+        acc[cat].value += item.totalValue;
         acc[cat].items.push(item.name);
         return acc;
-      }, {} as Record<string, any>)
+      }, {} as Record<string, any>),
+      items: valuedItems,
     };
   }
 
