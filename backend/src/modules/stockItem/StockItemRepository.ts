@@ -614,6 +614,24 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       },
     });
 
+    // Reconcile balances from the complete movement set, even when the displayed
+    // ledger is filtered by transaction type or capped for response size.
+    let reconciliationRows: any[] = [];
+    if (opts.includeAllStockLocations) {
+      const reconciliationWhere = { ...where };
+      delete reconciliationWhere.transactionType;
+      const reconciliationTotal = await this.prisma.stockTransaction.count({ where: reconciliationWhere });
+      if (opts.transactionType || reconciliationTotal > rows.length) {
+        reconciliationRows = await this.prisma.stockTransaction.findMany({
+          where: reconciliationWhere,
+          orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+          include: {
+            StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, costPrice: true, currentStock: true } },
+          },
+        });
+      }
+    }
+
     // Hospital-wide historical closing balances must be based on the aggregate item
     // balance, not a department-specific balanceAfter snapshot. Fetch all movements
     // after the report end (without the activity-type filter) so the service can
@@ -631,7 +649,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         select: { stockItemId: true, transactionType: true, quantity: true, adjustmentDirection: true },
       });
     }
-    return { rows, total, transactionsAfterEnd };
+    return { rows, total, transactionsAfterEnd, reconciliationRows };
   }
 
   async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
