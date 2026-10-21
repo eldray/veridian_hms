@@ -483,14 +483,20 @@ export class StockItemService extends BaseService {
    */
   async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total, transactionsAfterEnd = [], reconciliationRows = [], locationBalances = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
+    const { rows, total, transactionsBeforeStart = [], transactionsAfterEnd = [], reconciliationRows = [], locationBalances = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
     // When the report is filtered to adjustments, the preceding visible row may
-    // not be the preceding stock movement. Resolve legacy adjustments against the
-    // full chronological location ledger when it is available.
+    // not be the preceding stock movement. Seed the chronological ledger with the
+    // last pre-period location snapshot so legacy adjustments at the start of the
+    // report period can be signed from their actual balance change.
     const reconciledSignedById = new Map<string, number>();
     if (!extra.includeAllStockLocations && reconciliationRows.length) {
       const previousLocationBalance = new Map<string, number>();
+      for (const transaction of transactionsBeforeStart as any[]) {
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousLocationBalance.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
       for (const transaction of reconciliationRows as any[]) {
         const q = Math.abs(Number(transaction.quantity) || 0);
         const previous = previousLocationBalance.get(transaction.stockItemId);
@@ -621,6 +627,11 @@ export class StockItemService extends BaseService {
       const fullNetByItem = new Map<string, number>();
       const closingByItem = new Map<string, number>();
       const previousBalanceByItem = new Map<string, number>();
+      for (const transaction of transactionsBeforeStart as any[]) {
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousBalanceByItem.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
       for (const transaction of fullLedgerRows as any[]) {
         const itemId = transaction.stockItemId;
         const q = Math.abs(Number(transaction.quantity) || 0);
