@@ -703,7 +703,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (d.nextVisitDate) {
       const nextDate = new Date(d.nextVisitDate);
       if (Number.isNaN(nextDate.getTime())) throw new ValidationError('Next postnatal visit date must be valid');
-      if (nextDate.getTime() < new Date(new Date().toDateString()).getTime()) throw new ValidationError('Next postnatal visit date cannot be in the past');
+      if (new Date(nextDate.toDateString()).getTime() < new Date(examinationDate.toDateString()).getTime()) {
+        throw new ValidationError('Next postnatal visit date cannot be before the examination date');
+      }
     }
     if (d.bloodPressure != null && String(d.bloodPressure).trim() !== '') {
       const parts = String(d.bloodPressure).trim().replace(/ /g, '').replace('-', '/').split('/');
@@ -841,8 +843,16 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.examinationDate !== undefined && clean.examinationDate > new Date()) {
       throw new ValidationError('Postnatal examination date cannot be in the future');
     }
-    if (clean.nextVisitDate !== undefined && clean.nextVisitDate !== null && clean.nextVisitDate < new Date()) {
-      throw new ValidationError('Next postnatal visit date cannot be in the past');
+    if (clean.examinationDate !== undefined || clean.nextVisitDate !== undefined) {
+      const existingDates = await this.prisma.postnatalRecord.findUnique({
+        where: { id }, select: { examinationDate: true, nextVisitDate: true },
+      });
+      if (!existingDates) throw new NotFoundError('Postnatal record', id);
+      const effectiveExaminationDate = clean.examinationDate ?? existingDates.examinationDate;
+      const effectiveNextVisitDate = clean.nextVisitDate === undefined ? existingDates.nextVisitDate : clean.nextVisitDate;
+      if (effectiveNextVisitDate && new Date(effectiveNextVisitDate.toDateString()).getTime() < new Date(new Date(effectiveExaminationDate).toDateString()).getTime()) {
+        throw new ValidationError('Next postnatal visit date cannot be before the examination date');
+      }
     }
     if (clean.maternalCondition !== undefined && !['good', 'fair', 'poor', 'critical'].includes(clean.maternalCondition)) {
       throw new ValidationError('Unsupported maternal condition');
