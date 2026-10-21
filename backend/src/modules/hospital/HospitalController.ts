@@ -18,7 +18,7 @@ export class HospitalController extends BaseController {
   getHospitals = async (req: AuthRequest, res: Response) => {
     try {
       const hospitals = await this.hospitalService.getAllHospitals();
-      this.ok(res, hospitals, 'Hospitals retrieved successfully');
+      return this.ok(res, hospitals, 'Hospitals retrieved successfully');
     } catch (error) {
       return this.error(res, error);
     }
@@ -33,7 +33,7 @@ export class HospitalController extends BaseController {
         return this.notFound(res, 'Hospital');
       }
 
-      this.ok(res, hospital, 'Hospital retrieved successfully');
+      return this.ok(res, hospital, 'Hospital retrieved successfully');
     } catch (error) {
       return this.error(res, error);
     }
@@ -51,7 +51,7 @@ export class HospitalController extends BaseController {
 
       const hospital = await this.hospitalService.createHospital(hospitalData);
 
-      this.created(res, hospital, 'Hospital created successfully');
+      return this.created(res, hospital, 'Hospital created successfully');
     } catch (error: any) {
       console.error('Error creating hospital:', error);
 
@@ -76,7 +76,7 @@ export class HospitalController extends BaseController {
 
       const hospital = await this.hospitalService.updateHospital(req.params.id, hospitalData);
 
-      this.ok(res, hospital, 'Hospital updated successfully');
+      return this.ok(res, hospital, 'Hospital updated successfully');
     } catch (error: any) {
       console.error('Error updating hospital:', error);
 
@@ -97,7 +97,7 @@ export class HospitalController extends BaseController {
     try {
       const hospital = await this.hospitalService.deleteHospital(req.params.id);
 
-      this.ok(res, {
+      return this.ok(res, {
         deletedHospital: {
           id: hospital.id,
           name: hospital.name,
@@ -124,7 +124,7 @@ export class HospitalController extends BaseController {
         return this.notFound(res, 'Active hospital');
       }
 
-      this.ok(res, nhisSettings, 'NHIS settings retrieved successfully');
+      return this.ok(res, nhisSettings, 'NHIS settings retrieved successfully');
     } catch (error) {
       return this.error(res, error);
     }
@@ -142,7 +142,7 @@ export class HospitalController extends BaseController {
 
       const hospital = await this.hospitalService.updateActiveHospitalNHISSettings(settingsData);
 
-      this.ok(res, {
+      return this.ok(res, {
         hospital: {
           name: hospital.name,
           nhisFacilityCode: hospital.nhisFacilityCode,
