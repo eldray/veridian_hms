@@ -744,13 +744,26 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         updateData.administeredById = actorId;
       }
 
-      const updated = await tx.medication.update({
-        where: { id: medicationId },
-        data: updateData,
-        include: {
-          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-        },
-      });
+      let updated;
+      if (isDispensing) {
+        const statusUpdate = await tx.medication.updateMany({
+          where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
+          data: updateData,
+        });
+        if (statusUpdate.count !== 1) {
+          throw new ConflictError('This prescription has already changed; refresh before dispensing');
+        }
+        updated = await tx.medication.findUnique({
+          where: { id: medicationId },
+          include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
+        });
+      } else {
+        updated = await tx.medication.update({
+          where: { id: medicationId },
+          data: updateData,
+          include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
+        });
+      }
 
       // Handle the MAR write outside the medication transaction? No — keep it inside.
       if (data.status === 'administered') {
