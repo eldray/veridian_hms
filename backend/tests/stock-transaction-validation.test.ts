@@ -1,10 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
+import { StockItemService } from '../src/modules/stockItem/StockItemService';
 import { ValidationError } from '../src/utils/errors';
 
 describe('stock transaction validation', () => {
   const service = new StockTransactionService({} as any);
+
+  it('rejects expired batches instead of adding them as available stock', async () => {
+    const transaction = vi.fn();
+    const stockService = new StockItemService({ $transaction: transaction } as any);
+    const expiredDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const receivedDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
+
+    await expect(stockService.addStockBatch(
+      'item-1', 'EXPIRED-1', expiredDate, 5, 2, receivedDate, 'pharmacy',
+    )).rejects.toThrow(/expired batches cannot be added/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
 
   it('rejects invalid quantities at the repository boundary before opening a transaction', async () => {
     const transaction = vi.fn();
