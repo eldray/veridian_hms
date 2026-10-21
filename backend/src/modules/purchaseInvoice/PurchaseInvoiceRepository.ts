@@ -181,7 +181,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
               departmentId: invoice.receivedAtDepartmentId || null,
               wardId: invoice.receivedAtWardId || null,
               transactionDate: { gte: invoice.createdAt },
-              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off'] },
+              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off', 'adjustment'] },
             },
           });
           if (outgoingSinceReceipt > 0) {
@@ -197,6 +197,15 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             },
           });
           if (!batch) throw new Error(`Cannot delete invoice: batch ${item.batchNumber} for item ${item.stockItemId} no longer has enough stock at the receiving location.`);
+          if (!item.expiryDate || batch.expiryDate.getTime() !== item.expiryDate.getTime()) {
+            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} expiry metadata no longer matches the original receipt. Reconcile the batch first.`);
+          }
+          if (Number(batch.costPrice) !== Number(item.unitCost)) {
+            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} cost metadata no longer matches the original receipt. Reconcile the batch first.`);
+          }
+          if (!batch.isActive) {
+            throw new Error(`Cannot delete invoice: batch ${item.batchNumber} is inactive. Reconcile the batch before reversing the receipt.`);
+          }
           const remainingBatchQty = batch.quantity - item.quantity;
           if (remainingBatchQty === 0) {
             await tx.stockBatch.delete({ where: { id: batch.id } });
@@ -210,7 +219,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
               departmentId: invoice.receivedAtDepartmentId || null,
               wardId: invoice.receivedAtWardId || null,
               transactionDate: { gte: invoice.createdAt },
-              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off'] },
+              transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off', 'adjustment'] },
             },
           });
           if (outgoingSinceReceipt > 0) {
