@@ -132,6 +132,7 @@ describe('stock transaction validation', () => {
       },
       stockItemDepartmentBalance: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 4 }),
       },
       stockItem: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
