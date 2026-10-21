@@ -166,13 +166,8 @@ export class AntenatalController extends BaseController {
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       
       const data: CreateDeliveryRecordInput = { ...req.body, deliveryDate: new Date(req.body.deliveryDate), createdById: req.user!.id };
+      // Repository saves the delivery and closes its matching active pregnancy in one transaction.
       const record = await this.service.createDeliveryRecord(data);
-      
-      if (req.body.antenatalBookingId) {
-        await this.service.closeBooking(req.body.antenatalBookingId, {
-          deliveryDate: new Date(), deliveryOutcome: req.body.deliveryOutcome || 'delivered', deliveryRecordId: record.id
-        });
-      }
       return this.created(res, record, 'Delivery record created successfully');
     })
   ];
