@@ -186,18 +186,23 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('This item uses batch tracking. Generic transaction reversal is blocked until a batch-aware reversal workflow is available.');
       }
 
+      const reversalQuantity = Math.abs(Number(transaction.quantity));
+      if (!Number.isSafeInteger(reversalQuantity) || reversalQuantity <= 0) {
+        throw new ValidationError('This transaction has an invalid quantity and cannot be safely reversed');
+      }
       const isOutgoing = transaction.transactionType === 'sale' || transaction.transactionType === 'requisition' || transaction.transactionType === 'write_off';
 
       if (isOutgoing) {
-        // Reversing an outgoing transaction restores the same location balance and aggregate.
-        await increaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, transaction.quantity, transaction.wardId);
-        await tx.stockItem.update({ where: { id: transaction.stockItemId }, data: { currentStock: { increment: transaction.quantity } } });
+        // Legacy outgoing rows may store quantity as negative. Reverse the movement
+        // magnitude so the location and aggregate are restored in the correct direction.
+        await increaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, reversalQuantity, transaction.wardId);
+        await tx.stockItem.update({ where: { id: transaction.stockItemId }, data: { currentStock: { increment: reversalQuantity } } });
       } else {
         // Reversing an incoming transaction deducts from the recorded location first.
-        await decreaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, transaction.quantity, transaction.wardId);
+        await decreaseDepartmentStockBalance(tx, transaction.stockItemId, transaction.departmentId, reversalQuantity, transaction.wardId);
         const updated = await tx.stockItem.updateMany({
-          where: { id: transaction.stockItemId, currentStock: { gte: transaction.quantity } },
-          data: { currentStock: { decrement: transaction.quantity } }
+          where: { id: transaction.stockItemId, currentStock: { gte: reversalQuantity } },
+          data: { currentStock: { decrement: reversalQuantity } }
         });
         if (updated.count === 0) throw new Error('Cannot delete transaction - would cause negative stock');
       }
