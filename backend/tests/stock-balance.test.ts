@@ -55,6 +55,7 @@ describe('purchase receipt batch integrity', () => {
       },
       stockItem: {
         findUnique: vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves', currentStock: 100 }),
+        update: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 107 }),
       },
       stockBatch: {
         count: vi.fn().mockResolvedValue(1),
