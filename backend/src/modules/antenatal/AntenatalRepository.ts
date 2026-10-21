@@ -452,6 +452,21 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (attendance.patientId !== data.patientId) {
         throw new ValidationError('Delivery patient must match the patient on the selected attendance');
       }
+      if (attendance.attendanceType !== 'delivery') {
+        throw new ValidationError('Delivery record must be linked to a delivery attendance');
+      }
+      const deliveryDate = new Date(data.deliveryDate);
+      if (Number.isNaN(deliveryDate.getTime())) throw new ValidationError('Delivery date must be valid');
+      if (deliveryDate.getTime() > Date.now()) throw new ValidationError('Delivery date cannot be in the future');
+      if (!['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple'].includes(String(data.deliveryType))) {
+        throw new ValidationError('A supported delivery type is required');
+      }
+      if (!['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death'].includes(String(data.deliveryOutcome))) {
+        throw new ValidationError('A supported delivery outcome is required');
+      }
+      if (!['private_hospital', 'government_hospital', 'health_centre', 'clinic', 'chag_facility', 'private_midwife', 'tba_trained', 'tba_untrained', 'home', 'en_route', 'mines_facility', 'quasi_govt_institution'].includes(String(data.placeOfDelivery || 'private_hospital'))) {
+        throw new ValidationError('A supported place of delivery is required');
+      }
 
       let booking: any = null;
       if (data.antenatalBookingId) {
@@ -483,7 +498,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       const record = await tx.deliveryRecord.create({
         data: {
           patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: booking?.id,
-          deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
+          deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
           placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
           gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
           resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome!,
