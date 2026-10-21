@@ -356,20 +356,52 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     receivedDate?: Date,
     departmentId?: string,
   ) {
+    if (!stockItemId || !batchNumber?.trim()) throw new ValidationError('Stock item and batch number are required');
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new ValidationError('Batch quantity must be a positive whole number');
+    if (!(expiryDate instanceof Date) || Number.isNaN(expiryDate.getTime())) throw new ValidationError('A valid batch expiry date is required');
+    if (!Number.isFinite(Number(costPrice)) || Number(costPrice) < 0) throw new ValidationError('Batch cost price must be a valid non-negative amount');
+
+    const normalizedDepartmentId = departmentId || null;
     const existingBatchCount = await tx.stockBatch.count({ where: { stockItemId } });
     if (existingBatchCount === 0) {
       const existingItem = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true, name: true } });
-      if (existingItem && existingItem.currentStock > 0) {
+      if (!existingItem) throw new Error('Stock item not found while receiving batch');
+      if (existingItem.currentStock > 0) {
         throw new Error(`Cannot start batch tracking for ${existingItem.name} while ${existingItem.currentStock} units of unbatched stock remain. Reconcile or issue the existing stock first.`);
       }
     }
-    const batch = await tx.stockBatch.create({
-      data: {
-        stockItemId, batchNumber, expiryDate, quantity, costPrice,
-        receivedDate: receivedDate || new Date(),
-        ...(departmentId ? { departmentId } : {}),
-      },
+
+    // The database permits one batch row per item, batch number and location.
+    // Reuse it only when expiry and cost match exactly; never blend distinct lots.
+    const existingBatch = await tx.stockBatch.findFirst({
+      where: { stockItemId, batchNumber: batchNumber.trim(), departmentId: normalizedDepartmentId, wardId: null },
     });
+    let batch;
+    if (existingBatch) {
+      if (existingBatch.expiryDate.getTime() !== expiryDate.getTime()) {
+        throw new ValidationError(`Batch ${batchNumber} already exists at this location with a different expiry date`);
+      }
+      if (Number(existingBatch.costPrice) !== Number(costPrice)) {
+        throw new ValidationError(`Batch ${batchNumber} already exists at this location with a different cost price`);
+      }
+      if (!existingBatch.isActive) {
+        throw new ValidationError(`Batch ${batchNumber} is inactive at this location; reconcile it before receiving more stock`);
+      }
+      const incremented = await tx.stockBatch.updateMany({
+        where: { id: existingBatch.id, isActive: true },
+        data: { quantity: { increment: quantity } },
+      });
+      if (incremented.count !== 1) throw new ValidationError('Batch changed during receipt. Please retry.');
+      batch = await tx.stockBatch.findUnique({ where: { id: existingBatch.id } });
+    } else {
+      batch = await tx.stockBatch.create({
+        data: {
+          stockItemId, batchNumber: batchNumber.trim(), expiryDate, quantity, costPrice,
+          receivedDate: receivedDate || new Date(),
+          departmentId: normalizedDepartmentId,
+        },
+      });
+    }
     await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
     await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
     const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
