@@ -394,13 +394,25 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         });
       }
 
+      if (!['alive', 'dead_direct_cause', 'dead_indirect_cause', 'dead_unknown'].includes(String(data.maternalOutcome))) {
+        throw new ValidationError('A confirmed maternal outcome is required');
+      }
+      if (data.gestationWeeks !== undefined && (!Number.isInteger(Number(data.gestationWeeks)) || Number(data.gestationWeeks) < 0 || Number(data.gestationWeeks) > 42)) {
+        throw new ValidationError('Gestational age at delivery must be between 0 and 42 weeks');
+      }
+      for (const [field, value] of [['Apgar score at 1 minute', data.apgarScore1min], ['Apgar score at 5 minutes', data.apgarScore5min]] as const) {
+        if (value !== undefined && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
+          throw new ValidationError(`${field} must be an integer between 0 and 10`);
+        }
+      }
+
       const record = await tx.deliveryRecord.create({
         data: {
           patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: booking?.id,
           deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
           placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
           gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
-          resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
+          resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome,
           complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
           malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
           maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
