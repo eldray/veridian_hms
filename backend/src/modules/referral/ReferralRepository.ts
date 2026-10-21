@@ -123,9 +123,13 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
 
   async updateStatus(id: string, status: ReferralStatus, notes?: any) {
     const updateData: any = { status };
-    if (status === 'accepted' && notes?.acceptanceNotes) { updateData.acceptanceNotes = notes.acceptanceNotes; updateData.acceptedAt = new Date(); }
-    else if (status === 'rejected' && notes?.rejectedReason) { updateData.rejectedReason = notes.rejectedReason; updateData.rejectedAt = new Date(); }
-    else if (status === 'completed') { updateData.completedAt = new Date(); }
+    if (status === 'accepted' && notes?.acceptanceNotes) {
+      updateData.outcomeNotes = notes.acceptanceNotes;
+    } else if (status === 'cancelled' && (notes?.cancellationReason || notes?.rejectedReason)) {
+      updateData.outcomeNotes = notes.cancellationReason || notes.rejectedReason;
+    } else if (status === 'completed') {
+      updateData.completedAt = new Date();
+    }
     if (notes?.outcomeNotes) updateData.outcomeNotes = notes.outcomeNotes;
 
     return this.getModel().update({ where: { id }, data: updateData, include: { patient: { select: { id: true, surname: true, otherNames: true } } } });
