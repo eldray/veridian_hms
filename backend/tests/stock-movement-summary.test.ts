@@ -173,3 +173,41 @@ describe('legacy stock movement quantities', () => {
     });
   });
 });
+
+describe('hospital-wide stock movement reconciliation', () => {
+  it('does not count internal transfers as hospital-wide gains or losses', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getMovementData: async () => ({
+        stockItems: [{ id: 'item-1', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', currentStock: 80 }],
+        transactions: [
+          { stockItemId: 'item-1', transactionType: 'purchase', quantity: 10 },
+          { stockItemId: 'item-1', transactionType: 'transfer_out', quantity: 5 },
+          { stockItemId: 'item-1', transactionType: 'transfer_in', quantity: 5 },
+          { stockItemId: 'item-1', transactionType: 'sale', quantity: 2 },
+        ],
+        transactionsAfterEnd: [
+          { stockItemId: 'item-1', transactionType: 'transfer_out', quantity: 4 },
+          { stockItemId: 'item-1', transactionType: 'sale', quantity: 3 },
+        ],
+      }),
+    };
+
+    const report = await service.getMovementSummary({
+      includeAllStockLocations: true,
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-20T23:59:59.999Z'),
+    });
+
+    expect(report.items[0]).toMatchObject({
+      purchases: 10,
+      transfersIn: 5,
+      transfersOut: 5,
+      sales: 2,
+      openingStock: 75,
+      closingStock: 83,
+      netChange: 8,
+    });
+  });
+});
+
