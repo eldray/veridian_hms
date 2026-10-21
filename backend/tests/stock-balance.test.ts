@@ -549,3 +549,46 @@ describe('legacy unbatched invoice reversal safety', () => {
     expect(tx.invoiceItem.deleteMany).not.toHaveBeenCalled();
   });
 });
+
+
+describe('purchase receipt batch expiry race protection', () => {
+  it('stops before balances change if the existing batch expires or changes before increment', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 10,
+      isActive: true,
+    };
+    const { repository, batchUpdate, tx } = ((): any => {
+      const batchUpdate = vi.fn().mockResolvedValue({ count: 0 });
+      const tx: any = {
+        invoice: {
+          create: vi.fn().mockResolvedValue({ id: 'invoice-1', createdAt: new Date('2026-10-20T00:00:00Z') }),
+          findUnique: vi.fn().mockResolvedValue({ id: 'invoice-1' }),
+        },
+        stockItem: {
+          findUnique: vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves', currentStock: 100 }),
+          update: vi.fn(),
+        },
+        stockBatch: {
+          count: vi.fn().mockResolvedValue(1),
+          findFirst: vi.fn().mockResolvedValue(existingBatch),
+          updateMany: batchUpdate,
+        },
+        invoiceItem: { create: vi.fn() },
+        stockItemDepartmentBalance: { upsert: vi.fn() },
+        stockTransaction: { create: vi.fn() },
+      };
+      const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+      return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate, tx };
+    })();
+
+    await expect(repository.create(receipt, 'user-1'))
+      .rejects.toThrow(/changed or expired during receipt/i);
+
+    expect(batchUpdate).toHaveBeenCalled();
+    expect(tx.stockItemDepartmentBalance.upsert).not.toHaveBeenCalled();
+    expect(tx.stockItem.update).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+  });
+});
