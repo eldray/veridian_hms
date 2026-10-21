@@ -175,7 +175,15 @@ export class StockTransactionService extends BaseService {
       return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: closingStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: adjustmentIn + adjustmentOut, adjustmentIn, adjustmentOut, closingStock, netChange };
     });
 
-    const totals = movementSummary.reduce((acc, item) => {
+    const reportItems = movementSummary.filter(item =>
+      item.purchases > 0 || item.transfersIn > 0 || item.sales > 0 ||
+      item.requisitions > 0 || item.writeOffs > 0 || item.transfersOut > 0 ||
+      item.adjustments !== 0
+    );
+
+    // Keep totals consistent with the item rows shown in the report.
+    // Untouched catalogue items should not inflate opening/closing totals.
+    const totals = reportItems.reduce((acc, item) => {
       acc.totalPurchases += item.purchases;
       acc.totalTransfersIn += item.transfersIn;
       acc.totalSales += item.sales;
@@ -196,6 +204,6 @@ export class StockTransactionService extends BaseService {
       totalOpeningStock: 0, totalClosingStock: 0,
     });
 
-    return { period: { startDate: filters.startDate || null, endDate: filters.endDate || null }, totals, items: movementSummary.filter(item => item.purchases > 0 || item.transfersIn > 0 || item.sales > 0 || item.requisitions > 0 || item.writeOffs > 0 || item.transfersOut > 0 || item.adjustments !== 0) };
+    return { period: { startDate: filters.startDate || null, endDate: filters.endDate || null }, totals, items: reportItems };
   }
 }
