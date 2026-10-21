@@ -95,7 +95,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     : 0;
 
   const showDropdown = !selectedId;
-  const isOutOfStock = !!selected && (Number(selected.currentStock) || 0) <= 0;
+  const isOutOfStock = !!selected && maxQuantity <= 0;
   const isOverMax = !!selected && quantity > maxQuantity;
 
   const handleSelect = (item: any) => {
