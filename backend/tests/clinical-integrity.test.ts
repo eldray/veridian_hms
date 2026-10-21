@@ -183,7 +183,7 @@ describe('maternal record integrity', () => {
     const bookingUpdate = vi.fn().mockResolvedValue({});
     const deliveryCreate = vi.fn().mockResolvedValue(record);
     const tx: any = {
-      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1' }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: {
         findUnique: vi.fn().mockResolvedValue(booking),
         findFirst: vi.fn(),
