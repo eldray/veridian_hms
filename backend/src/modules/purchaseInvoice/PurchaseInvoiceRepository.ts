@@ -7,7 +7,7 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 // recorded day rather than rejecting it at midnight at the start of that day.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 };
 
