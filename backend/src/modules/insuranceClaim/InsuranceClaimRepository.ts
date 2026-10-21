@@ -88,19 +88,26 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   async findBatchesWithFilters(filters: any) {
     const { status, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
-
     if (status) where.status = status;
+    if (filters.insuranceType) where.insuranceType = filters.insuranceType;
+    if (filters.periodYear) where.periodYear = Number(filters.periodYear);
+    if (filters.periodMonth) where.periodMonth = Number(filters.periodMonth);
+
     if (startDate || endDate) {
-      where.batchDate = {};
-      if (startDate) where.batchDate.gte = startDate;
-      if (endDate) {
-        const d = new Date(endDate);
-        d.setHours(23, 59, 59, 999);
-        where.batchDate.lte = d;
+      const start = startDate ? new Date(startDate) : new Date(2000, 0, 1);
+      const end = endDate ? new Date(endDate) : new Date();
+      const firstMonth = start.getFullYear() * 12 + start.getMonth();
+      const lastMonth = end.getFullYear() * 12 + end.getMonth();
+      const periods: Array<{ periodYear: number; periodMonth: number }> = [];
+      for (let month = firstMonth; month <= lastMonth && periods.length < 2400; month += 1) {
+        periods.push({ periodYear: Math.floor(month / 12), periodMonth: (month % 12) + 1 });
       }
+      where.OR = periods;
     }
 
-    const skip = (page - 1) * limit;
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(1000, Math.max(1, Number(limit) || 20));
+    const skip = (safePage - 1) * safeLimit;
 
     const [batches, total] = await Promise.all([
       this.prisma.claimBatch.findMany({
@@ -117,9 +124,9 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
           },
           createdBy: { select: { id: true, fullName: true, username: true } }
         },
-        orderBy: { batchDate: 'desc' },
+        orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }],
         skip,
-        take: limit
+        take: safeLimit
       }),
       this.prisma.claimBatch.count({ where })
     ]);
@@ -127,10 +134,10 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     return {
       data: batches,
       pagination: {
-        page,
-        limit,
+        page: safePage,
+        limit: safeLimit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / safeLimit)
       }
     };
   }
@@ -149,6 +156,70 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         },
         createdBy: { select: { id: true, fullName: true, username: true } }
       }
+    });
+  }
+
+  async findClaimById(id: string) {
+    return this.findByIdWithDetails(id);
+  }
+
+  async findBatchesPaginated(filters: any) {
+    return this.findBatchesWithFilters(filters);
+  }
+
+  async findExistingBatch(
+    insuranceType: string,
+    periodYear: number,
+    periodMonth: number,
+    insuranceProviderId?: string | null,
+    corporateAccountId?: string | null,
+  ) {
+    return this.prisma.claimBatch.findFirst({
+      where: {
+        insuranceType: insuranceType as any,
+        periodYear,
+        periodMonth,
+        insuranceProviderId: insuranceProviderId ?? null,
+        corporateAccountId: corporateAccountId ?? null,
+      },
+    });
+  }
+
+  async findEligibleClaimsForBatch(
+    insuranceType: string,
+    periodYear: number,
+    periodMonth: number,
+    insuranceProviderId?: string | null,
+    corporateAccountId?: string | null,
+  ) {
+    const start = new Date(periodYear, periodMonth - 1, 1);
+    const end = new Date(periodYear, periodMonth, 1);
+    const where: any = {
+      status: 'finalized',
+      batchId: null,
+      Attendance: { dateTime: { gte: start, lt: end } },
+    };
+    if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
+    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
+    if (insuranceType === 'nhis') where.InsuranceProvider = { type: 'nhis' };
+    if (insuranceType === 'private') where.InsuranceProvider = { type: 'private' };
+    if (insuranceType === 'corporate') {
+      where.OR = [
+        { InsuranceProvider: { type: 'corporate' } },
+        ...(corporateAccountId ? [{ corporateAccountId }] : []),
+      ];
+    }
+
+    return this.prisma.insuranceClaim.findMany({
+      where,
+      include: {
+        InsuranceProvider: true,
+        Patient: true,
+        Attendance: true,
+        Bill: true,
+        items: true,
+      },
+      orderBy: { createdAt: 'asc' },
     });
   }
 
