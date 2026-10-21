@@ -1301,7 +1301,26 @@ export default function MedicalEntries() {
               <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
             </div>
             <div>
+              <div className="flex items-center gap-2">
               <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Medical Entries</h1>
+              <button type="button" disabled={!selectedPatientId || !selectedAttendanceId}
+                onClick={() => {
+                  const params = new URLSearchParams({ patientId: selectedPatientId, attendanceId: selectedAttendanceId, source: 'Medical Entries' });
+                  const complaints = String(currentAttendance?.complaints || '');
+                  const diagnosis = diagnosesList.map((d: any) => d.diagnosis?.name || d.diagnosisName || d.name).filter(Boolean).join(', ');
+                  const notes = [hpc, odq, physicalExam].filter(Boolean).join('\n');
+                  if (complaints) params.set('complaints', complaints);
+                  if (diagnosis) params.set('diagnosis', diagnosis);
+                  if (notes) params.set('notes', notes);
+                  if (treatmentPlan) params.set('treatment', treatmentPlan);
+                  params.set('reason', complaints || diagnosis || 'Clinical assessment requires referral');
+                  navigate(`/dashboard/referrals?${params.toString()}`);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Open referral form with this patient and attendance preselected">
+                <span>Refer</span>
+              </button>
+            </div>
               <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Clinical documentation</p>
             </div>
           </div>
