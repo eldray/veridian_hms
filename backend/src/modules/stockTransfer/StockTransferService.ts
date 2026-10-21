@@ -205,12 +205,16 @@ export class StockTransferService extends BaseService {
               if (Number(existing.costPrice) !== Number(allocation.costPrice)) {
                 throw new Error(`Destination already has batch ${allocation.batchNumber} with a different cost price. Reconcile the batch before receiving this transfer.`);
               }
-              if (!existing.isActive) {
+              const expiredAtReceipt = expectedExpiry <= new Date();
+              if (!existing.isActive && !expiredAtReceipt) {
                 throw new Error(`Destination batch ${allocation.batchNumber} is inactive. Reconcile the batch before receiving this transfer.`);
               }
               await tx.stockBatch.update({
                 where: { id: existing.id },
-                data: { quantity: { increment: allocation.quantity } },
+                data: {
+                  quantity: { increment: allocation.quantity },
+                  ...(expiredAtReceipt ? { isActive: false } : {}),
+                },
               });
             } else {
               await tx.stockBatch.create({
@@ -218,6 +222,9 @@ export class StockTransferService extends BaseService {
                   stockItemId: item.stockItemId, batchNumber: allocation.batchNumber,
                   expiryDate: new Date(allocation.expiryDate), costPrice: allocation.costPrice,
                   quantity: allocation.quantity, departmentId: transfer.destinationId, receivedDate: new Date(),
+                  // A batch that expires in transit must be received for reconciliation,
+                  // but must not remain available for dispensing at the destination.
+                  isActive: new Date(allocation.expiryDate) > new Date(),
                 },
               });
             }
