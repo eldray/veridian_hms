@@ -609,7 +609,7 @@ describe('purchase receipt batch expiry race protection', () => {
 describe('calendar-day batch expiry semantics', () => {
   it('accepts a batch whose recorded expiry date is today at midnight', async () => {
     const expiryToday = new Date();
-    expiryToday.setHours(0, 0, 0, 0);
+    expiryToday.setUTCHours(0, 0, 0, 0);
     const tx: any = {
       stockBatch: {
         count: vi.fn().mockResolvedValue(1),
@@ -642,7 +642,7 @@ describe('calendar-day batch expiry semantics', () => {
 describe('clinical dispensing calendar-day expiry', () => {
   it('allows dispensing from a batch whose expiry date is today', async () => {
     const expiryToday = new Date();
-    expiryToday.setHours(0, 0, 0, 0);
+    expiryToday.setUTCHours(0, 0, 0, 0);
     const stockBatchUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const stockTransactionCreate = vi.fn().mockResolvedValue({ id: 'dispense-movement' });
     const tx: any = {
