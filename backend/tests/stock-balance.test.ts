@@ -436,3 +436,71 @@ describe('batch receipt expiry race protection', () => {
     expect(tx.stockTransaction.create).not.toHaveBeenCalled();
   });
 });
+
+
+describe('purchase invoice batch reversal concurrency', () => {
+  it('refuses to reverse a batch whose quantity changed after the invoice read', async () => {
+    const createdAt = new Date('2026-10-01T00:00:00Z');
+    const expiryDate = new Date('2027-10-20T00:00:00Z');
+    const invoice = {
+      id: 'invoice-race',
+      createdAt,
+      receivedAtDepartmentId: 'pharmacy',
+      receivedAtWardId: null,
+      InvoiceItem: [{
+        stockItemId: 'item-1',
+        quantity: 5,
+        batchNumber: 'LOT-1',
+        expiryDate,
+        unitCost: 10,
+      }],
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const balanceUpdateMany = vi.fn();
+    const stockItemUpdateMany = vi.fn();
+    const tx: any = {
+      invoice: { findUnique: vi.fn().mockResolvedValue(invoice) },
+      stockTransaction: {
+        count: vi.fn().mockResolvedValue(0),
+        deleteMany: vi.fn(),
+      },
+      stockBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'batch-1',
+          quantity: 5,
+          expiryDate,
+          costPrice: 10,
+          isActive: true,
+        }),
+        updateMany: batchUpdateMany,
+        deleteMany: vi.fn(),
+      },
+      stockItemDepartmentBalance: {
+        updateMany: balanceUpdateMany,
+        findUnique: vi.fn(),
+      },
+      stockItem: { updateMany: stockItemUpdateMany },
+      invoiceItem: { deleteMany: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new PurchaseInvoiceRepository(prisma);
+
+    await expect(repository.deleteSafely('invoice-race'))
+      .rejects.toThrow(/batch LOT-1 changed during reversal/i);
+
+    expect(batchUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'batch-1',
+        quantity: { gte: 5 },
+        isActive: true,
+        expiryDate,
+        costPrice: 10,
+      },
+      data: { quantity: { decrement: 5 } },
+    });
+    expect(balanceUpdateMany).not.toHaveBeenCalled();
+    expect(stockItemUpdateMany).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.deleteMany).not.toHaveBeenCalled();
+    expect(tx.invoiceItem.deleteMany).not.toHaveBeenCalled();
+  });
+});
