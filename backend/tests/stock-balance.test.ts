@@ -504,3 +504,43 @@ describe('purchase invoice batch reversal concurrency', () => {
     expect(tx.invoiceItem.deleteMany).not.toHaveBeenCalled();
   });
 });
+
+
+describe('legacy unbatched invoice reversal safety', () => {
+  it('blocks reversal when the stock item is now batch-tracked', async () => {
+    const invoice = {
+      id: 'legacy-invoice',
+      createdAt: new Date('2025-01-01T00:00:00Z'),
+      receivedAtDepartmentId: 'pharmacy',
+      receivedAtWardId: null,
+      InvoiceItem: [{
+        stockItemId: 'item-legacy',
+        quantity: 4,
+        batchNumber: null,
+        expiryDate: null,
+        unitCost: 2,
+      }],
+    };
+    const balanceUpdateMany = vi.fn();
+    const stockItemUpdateMany = vi.fn();
+    const tx: any = {
+      invoice: { findUnique: vi.fn().mockResolvedValue(invoice) },
+      stockBatch: { count: vi.fn().mockResolvedValue(1) },
+      stockTransaction: { count: vi.fn(), deleteMany: vi.fn() },
+      stockItemDepartmentBalance: { updateMany: balanceUpdateMany, findUnique: vi.fn() },
+      stockItem: { updateMany: stockItemUpdateMany },
+      invoiceItem: { deleteMany: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new PurchaseInvoiceRepository(prisma);
+
+    await expect(repository.deleteSafely('legacy-invoice'))
+      .rejects.toThrow(/now batch-tracked but this receipt has no batch number/i);
+
+    expect(tx.stockBatch.count).toHaveBeenCalledWith({ where: { stockItemId: 'item-legacy' } });
+    expect(balanceUpdateMany).not.toHaveBeenCalled();
+    expect(stockItemUpdateMany).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.deleteMany).not.toHaveBeenCalled();
+    expect(tx.invoiceItem.deleteMany).not.toHaveBeenCalled();
+  });
+});
