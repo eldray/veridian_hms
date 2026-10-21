@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/services/CounterService', () => ({
+  getCounterService: () => ({ nextPatientNumber: () => 'PAT-TEST-001' }),
+}));
+
 import { PatientService } from '../src/modules/patient/PatientService';
 import { ValidationError } from '../src/utils/errors';
 
