@@ -508,6 +508,18 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (Number.isNaN(date.getTime())) throw new ValidationError('Delivery date must be valid');
       clean.deliveryDate = date;
     }
+    if (clean.deliveryType !== undefined && !['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple'].includes(clean.deliveryType)) {
+      throw new ValidationError('Unsupported delivery type');
+    }
+    if (clean.deliveryOutcome !== undefined && !['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death'].includes(clean.deliveryOutcome)) {
+      throw new ValidationError('Unsupported delivery outcome');
+    }
+    if (clean.maternalOutcome !== undefined && !['alive', 'dead_direct_cause', 'dead_indirect_cause', 'dead_unknown'].includes(clean.maternalOutcome)) {
+      throw new ValidationError('Unsupported maternal outcome');
+    }
+    if (clean.birthWeight !== undefined && (!Number.isFinite(Number(clean.birthWeight)) || Number(clean.birthWeight) < 1 || Number(clean.birthWeight) > 15000)) {
+      throw new ValidationError('Birth weight must be recorded in grams between 1 and 15000');
+    }
     if (clean.gestationWeeks !== undefined && (!Number.isInteger(Number(clean.gestationWeeks)) || Number(clean.gestationWeeks) < 0 || Number(clean.gestationWeeks) > 42)) {
       throw new ValidationError('Gestational age at delivery must be between 0 and 42 weeks');
     }
@@ -675,6 +687,36 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (clean.babyTemperature !== undefined && (!Number.isFinite(Number(clean.babyTemperature)) || Number(clean.babyTemperature) < 30 || Number(clean.babyTemperature) > 45)) {
       throw new ValidationError('Baby temperature must be between 30 and 45 °C');
+    }
+    if (clean.bloodPressure !== undefined && clean.bloodPressure !== null && String(clean.bloodPressure).trim() !== '') {
+      const match = String(clean.bloodPressure).trim().match(/^(\\d{2,3})\\s*[/\\-]\\s*(\\d{2,3})$/);
+      if (!match || Number(match[1]) < 50 || Number(match[1]) > 260 || Number(match[2]) < 20 || Number(match[2]) > 160 || Number(match[1]) <= Number(match[2])) {
+        throw new ValidationError('Maternal blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+      }
+    }
+    if (clean.pulse !== undefined && (!Number.isInteger(Number(clean.pulse)) || Number(clean.pulse) < 20 || Number(clean.pulse) > 250)) {
+      throw new ValidationError('Maternal pulse must be between 20 and 250 bpm');
+    }
+    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 60)) {
+      throw new ValidationError('Fundal height must be between 0 and 60 cm');
+    }
+    if (clean.babyWeight !== undefined && (!Number.isFinite(Number(clean.babyWeight)) || Number(clean.babyWeight) < 0.1 || Number(clean.babyWeight) > 15)) {
+      throw new ValidationError('Baby weight must be between 0.1 and 15 kg');
+    }
+    if (clean.examinationDate !== undefined && clean.examinationDate > new Date()) {
+      throw new ValidationError('Postnatal examination date cannot be in the future');
+    }
+    if (clean.nextVisitDate !== undefined && clean.nextVisitDate !== null && clean.nextVisitDate < new Date()) {
+      throw new ValidationError('Next postnatal visit date cannot be in the past');
+    }
+    if (clean.maternalCondition !== undefined && !['good', 'fair', 'poor', 'critical'].includes(clean.maternalCondition)) {
+      throw new ValidationError('Unsupported maternal condition');
+    }
+    if (clean.babyCondition !== undefined && !['good', 'fair', 'poor', 'critical'].includes(clean.babyCondition)) {
+      throw new ValidationError('Unsupported newborn condition');
+    }
+    if (clean.breastfeedingStatus !== undefined && !['exclusive', 'mixed', 'not_breastfeeding'].includes(clean.breastfeedingStatus)) {
+      throw new ValidationError('Unsupported breastfeeding status');
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid postnatal fields were provided');
     return this.prisma.postnatalRecord.update({
