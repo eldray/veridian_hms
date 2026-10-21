@@ -829,26 +829,56 @@ export default function StockReports() {
       }
 
       case 'financial':
-      default:
-        return reportData.byCategory ? (
-          <section>
-            <SectionHeader icon={DollarSign} title="Inventory value by category" accent="purple" count={Object.keys(reportData.byCategory).length} />
-            <ReportTable
-              caption="Inventory value by category"
-              searchable
-              columns={[
-                { key: 'cat', label: 'Category', sortable: true },
-                { key: 'count', label: 'Count', align: 'center', sortable: true },
-                { key: 'value', label: 'Value', align: 'right', sortable: true },
-              ]}
-              rows={Object.entries(reportData.byCategory).map(([cat, d]: [string, any]) => ({
-                cat: <span className="font-medium">{cat}</span>,
-                count: d.count,
-                value: `₵${Number(d.value || 0).toFixed(2)}`,
-              }))}
-            />
-          </section>
-        ) : null;
+      default: {
+        const discrepancies = (reportData.items || []).filter((item: any) => Number(item.stockDiscrepancy || 0) > 0);
+        return (
+          <>
+            {reportData.byCategory && (
+              <section>
+                <SectionHeader icon={DollarSign} title="Inventory value by category" accent="purple" count={Object.keys(reportData.byCategory).length} />
+                <ReportTable
+                  caption="Inventory value by category"
+                  searchable
+                  columns={[
+                    { key: 'cat', label: 'Category', sortable: true },
+                    { key: 'count', label: 'Count', align: 'center', sortable: true },
+                    { key: 'value', label: 'Value', align: 'right', sortable: true },
+                  ]}
+                  rows={Object.entries(reportData.byCategory).map(([cat, d]: [string, any]) => ({
+                    cat: <span className="font-medium">{cat}</span>,
+                    count: d.count,
+                    value: `₵${Number(d.value || 0).toFixed(2)}`,
+                  }))}
+                />
+              </section>
+            )}
+            <section>
+              <SectionHeader icon={AlertTriangle} title="Batch stock discrepancies" accent="orange" count={discrepancies.length} />
+              <ReportTable
+                caption="Items whose batch quantities differ from the recorded stock balance"
+                empty="No batch quantity discrepancies found"
+                searchable
+                columns={[
+                  { key: 'name', label: 'Item', sortable: true },
+                  { key: 'category', label: 'Category', sortable: true },
+                  { key: 'stock', label: 'Recorded Stock', align: 'center', sortable: true },
+                  { key: 'batches', label: 'Batch Quantity', align: 'center', sortable: true },
+                  { key: 'difference', label: 'Difference (Batch − Stock)', align: 'center', sortable: true },
+                  { key: 'value', label: 'Batch Value', align: 'right', sortable: true },
+                ]}
+                rows={discrepancies.map((item: any) => ({
+                  name: <span className="font-medium">{item.name}</span>,
+                  category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                  stock: Number(item.currentStock || 0),
+                  batches: Number(item.batchQuantity || 0),
+                  difference: <span style={{ color: 'var(--icon-red-text)', fontWeight: 600 }}>{Number(item.batchQuantity || 0) - Number(item.currentStock || 0)}</span>,
+                  value: `₵${Number(item.batchValue || 0).toFixed(2)}`,
+                }))}
+              />
+            </section>
+          </>
+        );
+      }
     }
   };
 
