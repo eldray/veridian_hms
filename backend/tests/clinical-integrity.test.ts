@@ -278,16 +278,34 @@ describe('maternal update validation', () => {
 
 
 describe('investigation and procedure status integrity', () => {
-  it('rejects in_progress for procedures because it is not a supported database status', async () => {
+  it('rejects unsupported procedure statuses before writing', async () => {
     const procedureUpdate = vi.fn();
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: { update: procedureUpdate },
     } as any);
 
-    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
+    await expect(repository.updateProcedureStatus('procedure-1', 'verified', {}, 'staff-1'))
       .rejects.toThrow(/unsupported procedure status/i);
     expect(procedureUpdate).not.toHaveBeenCalled();
+  });
+
+  it('records a procedure entering the in-progress theatre stage', async () => {
+    const procedureUpdate = vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'in_progress' });
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      procedure: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'scheduled' }),
+        update: procedureUpdate,
+      },
+    } as any);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
+      .resolves.toEqual({ id: 'procedure-1', status: 'in_progress' });
+    expect(procedureUpdate).toHaveBeenCalledWith({
+      where: { id: 'procedure-1' },
+      data: { status: 'in_progress', performedById: 'staff-1' },
+    });
   });
 
   it('rejects unsupported laboratory statuses before writing', async () => {
