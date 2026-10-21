@@ -773,6 +773,64 @@ describe('clinical dispensing calendar-day expiry', () => {
 });
 
 
+describe('hospital-wide transfer stock reconciliation', () => {
+  it('treats paired internal transfers as stock-neutral for opening and closing totals', async () => {
+    const item = {
+      id: 'item-1',
+      name: 'Gloves',
+      category: 'Consumable',
+      unitOfMeasure: 'box',
+      costPrice: 2,
+      currentStock: 80,
+    };
+    const transferOut = {
+      id: 'transfer-out-1',
+      stockItemId: 'item-1',
+      transactionType: 'transfer_out',
+      quantity: 6,
+      balanceAfter: 14,
+      transactionDate: new Date('2026-10-10T10:00:00.000Z'),
+      StockItem: item,
+      User: null,
+      Department: { name: 'Pharmacy' },
+      Requisition: null,
+      Invoice: null,
+      adjustmentDirection: null,
+    };
+    const transferIn = {
+      ...transferOut,
+      id: 'transfer-in-1',
+      transactionType: 'transfer_in',
+      balanceAfter: 26,
+      Department: { name: 'Ward' },
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getLedgerTransactions: vi.fn().mockResolvedValue({
+        rows: [transferOut, transferIn],
+        total: 2,
+        reconciliationRows: [transferOut, transferIn],
+        transactionsAfterEnd: [],
+        locationBalances: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2026-10-20T23:59:59.999Z'),
+      undefined,
+      { includeAllStockLocations: true },
+    );
+
+    expect(report.items[0]).toEqual(expect.objectContaining({
+      stockItemId: 'item-1',
+      openingStock: 80,
+      closingStock: 80,
+    }));
+    expect(report.netChange).toBe(0);
+  });
+});
+
 describe('legacy adjustment historical stock reconciliation', () => {
   it('uses location balance snapshots to reverse an untyped adjustment after the report end', async () => {
     const periodPurchase = {
