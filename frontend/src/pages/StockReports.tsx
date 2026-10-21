@@ -616,7 +616,7 @@ export default function StockReports() {
       case 'stock-movement': {
         const typeStyle = (t: string): React.CSSProperties => {
           const inn = t === 'purchase' || t === 'transfer_in';
-          const out = t === 'sale' || t === 'requisition' || t === 'transfer_out';
+          const out = t === 'sale' || t === 'requisition' || t === 'transfer_out' || t === 'write_off';
           return { background: inn ? 'var(--icon-green-bg)' : out ? 'var(--icon-red-bg)' : 'var(--icon-yellow-bg)', color: inn ? 'var(--icon-green-text)' : out ? 'var(--icon-red-text)' : 'var(--icon-yellow-text)' };
         };
         return (
