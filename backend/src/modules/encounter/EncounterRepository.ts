@@ -24,7 +24,7 @@ export const LIVE_RECENT_HOURS = 72;
 // Expiry is recorded as a calendar date. Keep stock eligible through that day.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 };
 
@@ -1521,7 +1521,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // ============================================
 
   async getVitalsWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
       where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
@@ -1547,7 +1547,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async getMedicalWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
       where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
@@ -1724,7 +1724,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async getMaternalWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const maternalAttendances = await this.getModel().findMany({
       where: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] }, OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }] },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
