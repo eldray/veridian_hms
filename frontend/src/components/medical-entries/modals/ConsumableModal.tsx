@@ -130,7 +130,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   const existingUseHasUsableBatches = (() => {
     const allocations = existingUse?.batchAllocations;
     if (!Array.isArray(allocations) || allocations.length === 0) {
-      return !Array.isArray(selected?.StockBatch) || selected.StockBatch.length === 0;
+      return Array.isArray(selected?.StockBatch) && selected.StockBatch.length === 0;
     }
     const batches = Array.isArray(selected?.StockBatch) ? selected.StockBatch : [];
     const now = Date.now();
