@@ -16,12 +16,21 @@ export class StockTransferController extends BaseController {
 
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
-    const result = await this.service.getAllTransfers({ ...req.query, page, limit });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getAllTransfers({
+      ...req.query, page, limit,
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations: isAdmin,
+    });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Transfers retrieved');
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.service.getTransferById(req.params.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    if (!isAdmin && (!req.user?.departmentId || (req.user.departmentId !== result.originId && req.user.departmentId !== result.destinationId))) {
+      return res.status(403).json({ success: false, message: 'You can only view transfers involving your assigned department' });
+    }
     return this.ok(res, result, 'Transfer retrieved');
   });
 
