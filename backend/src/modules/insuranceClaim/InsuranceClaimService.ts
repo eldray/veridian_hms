@@ -82,15 +82,27 @@ export class InsuranceClaimService extends BaseService {
     let targetType = insuranceType;
 
     return this.prisma.$transaction(async (tx) => {
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true } });
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true, Attendance: { select: { dateTime: true } } } });
       if (claims.length !== claimIds.length) throw new Error('One or more claims not found');
       if (!targetType && claims.length > 0) targetType = claims[0].InsuranceProvider?.type;
       if (!targetType) throw new Error('Insurance type must be specified or determinable');
+
+      const firstServiceDate = claims[0].Attendance.dateTime;
+      const periodYear = firstServiceDate.getFullYear();
+      const periodMonth = firstServiceDate.getMonth() + 1;
+      const providerId = claims[0].insuranceProviderId;
+      const corporateAccountId = claims[0].corporateAccountId ?? null;
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
         if (c.InsuranceProvider?.type !== targetType) throw new Error(`Claim ${c.claimNumber} type mismatch`);
         if (c.batchId) throw new Error(`Claim ${c.claimNumber} already batched`);
+        if (c.insuranceProviderId !== providerId) throw new Error('A claim batch cannot contain multiple insurance providers');
+        if ((c.corporateAccountId ?? null) !== corporateAccountId) throw new Error('A claim batch cannot contain multiple corporate accounts');
+        const serviceDate = c.Attendance.dateTime;
+        if (serviceDate.getFullYear() !== periodYear || serviceDate.getMonth() + 1 !== periodMonth) {
+          throw new Error('A claim batch can contain claims from only one service month');
+        }
       }
 
       // ✅ FIXED: Decimal math
@@ -98,7 +110,7 @@ export class InsuranceClaimService extends BaseService {
       const batchNumber = `BATCH-${getCounterService().nextBatchNumber()}`;
 
       const batch = await tx.claimBatch.create({
-        data: { batchNumber, description, totalAmount, status: 'generated', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },
+        data: { batchNumber, insuranceType: targetType as any, insuranceProviderId: providerId, corporateAccountId, periodYear, periodMonth, totalClaims: claims.length, description, totalAmount, status: 'generated', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },
         include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
       });
 
@@ -677,7 +689,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, select: { id: true, status: true } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { type: true } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
