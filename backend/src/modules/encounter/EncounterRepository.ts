@@ -318,21 +318,34 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
-    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id: data.diagnosisId } });
-    if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
 
-    if (data.diagnosisType === 'primary') {
-      await this.prisma.attendanceDiagnosis.updateMany({
-        where: { attendanceId: encounterId, diagnosisType: 'primary' },
-        data: { diagnosisType: 'additional' }
+    // Keep duplicate detection, primary-diagnosis demotion and insertion atomic.
+    // Previously a duplicate-primary request could demote the existing primary
+    // diagnosis before failing the duplicate check.
+    return this.prisma.$transaction(async (tx) => {
+      const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
+      if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
+
+      const existing = await tx.attendanceDiagnosis.findFirst({
+        where: { attendanceId: encounterId, diagnosisId: data.diagnosisId },
       });
-    }
-    const existing = await this.prisma.attendanceDiagnosis.findFirst({ where: { attendanceId: encounterId, diagnosisId: data.diagnosisId } });
-    if (existing) throw new Error('Diagnosis already added to this encounter');
+      if (existing) throw new ConflictError('Diagnosis already added to this encounter');
 
-    return this.prisma.attendanceDiagnosis.create({
-      data: { attendanceId: encounterId, diagnosisId: data.diagnosisId, diagnosisType: data.diagnosisType, notes: data.notes, createdById: actorId, icdCode: diagnosis.icdCode || '' },
-      include: { Diagnosis: true }
+      if (data.diagnosisType === 'primary') {
+        await tx.attendanceDiagnosis.updateMany({
+          where: { attendanceId: encounterId, diagnosisType: 'primary' },
+          data: { diagnosisType: 'additional' },
+        });
+      }
+
+      return tx.attendanceDiagnosis.create({
+        data: {
+          attendanceId: encounterId, diagnosisId: data.diagnosisId,
+          diagnosisType: data.diagnosisType, notes: data.notes,
+          createdById: actorId, icdCode: diagnosis.icdCode || '',
+        },
+        include: { Diagnosis: true },
+      });
     });
   }
 
