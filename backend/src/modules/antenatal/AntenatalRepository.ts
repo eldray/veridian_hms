@@ -220,10 +220,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     const nextVisitDate = data.nextVisitDate ? new Date(data.nextVisitDate) : undefined;
     if (nextVisitDate && Number.isNaN(nextVisitDate.getTime())) throw new ValidationError('Next ANC visit date must be valid');
     if (visitDate.getTime() > Date.now()) throw new ValidationError('ANC visit date cannot be in the future');
-    if (nextVisitDate && nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) {
-      throw new ValidationError('Next ANC visit date cannot be in the past');
-    }
-    if (nextVisitDate && nextVisitDate.getTime() < new Date(new Date(visitDate).toDateString()).getTime()) {
+    // Historical ANC entries are valid: compare the follow-up with the visit date,
+    // not with today's date, so staff can safely back-enter older clinic records.
+    if (nextVisitDate && new Date(nextVisitDate.toDateString()).getTime() < new Date(visitDate.toDateString()).getTime()) {
       throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
     }
     if (data.dangerSignsPresent && (!Array.isArray(data.dangerSignsList) || data.dangerSignsList.length === 0)) {
@@ -372,12 +371,17 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       clean.visitDate = new Date(clean.visitDate);
       if (clean.visitDate.getTime() > Date.now()) throw new ValidationError('ANC visit date cannot be in the future');
     }
-    if (clean.nextVisitDate) {
-      clean.nextVisitDate = new Date(clean.nextVisitDate);
-      if (clean.nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) throw new ValidationError('Next ANC visit date cannot be in the past');
-    }
-    if (clean.nextVisitDate && clean.visitDate && clean.nextVisitDate.getTime() < clean.visitDate.getTime()) {
-      throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
+    if (clean.nextVisitDate) clean.nextVisitDate = new Date(clean.nextVisitDate);
+    if (clean.visitDate !== undefined || clean.nextVisitDate !== undefined) {
+      const existingDates = await this.prisma.aNCVisit.findUnique({
+        where: { id }, select: { visitDate: true, nextVisitDate: true },
+      });
+      if (!existingDates) throw new NotFoundError('ANC visit', id);
+      const effectiveVisitDate = clean.visitDate ?? existingDates.visitDate;
+      const effectiveNextVisitDate = clean.nextVisitDate === undefined ? existingDates.nextVisitDate : clean.nextVisitDate;
+      if (effectiveNextVisitDate && new Date(effectiveNextVisitDate.toDateString()).getTime() < new Date(new Date(effectiveVisitDate).toDateString()).getTime()) {
+        throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
+      }
     }
     if (clean.dangerSignsPresent === true || clean.referralMade === true) {
       const existing = await this.prisma.aNCVisit.findUnique({
