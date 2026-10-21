@@ -259,10 +259,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
     // Preserve the existing multiple-birth replacement behavior, while mapping
     // each newborn explicitly so client-supplied IDs/foreign keys are ignored.
+    const hasNewbornUpdate = Array.isArray(Newborn) || Array.isArray(Newborn?.create);
     const newbornList: any[] = Array.isArray(Newborn)
       ? Newborn
       : Array.isArray(Newborn?.create) ? Newborn.create : [];
-    if (newbornList.length > 0) {
+    if (hasNewbornUpdate) {
       updatePayload.Newborn = {
         deleteMany: {},
         create: newbornList.map((baby: any, index: number) => ({
