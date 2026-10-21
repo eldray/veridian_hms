@@ -672,8 +672,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ValidationError('Invalid medication status');
       }
       if (data.status !== undefined && data.status !== med.status) {
+        // Cancellation must go through removeMedication so pending MAR doses
+        // are discontinued in the same transaction.
         const allowedTransitions: Record<string, string[]> = {
-          prescribed: ['dispensed', 'cancelled'],
+          prescribed: ['dispensed'],
           dispensed: ['administered'],
           administered: [],
           cancelled: [],
