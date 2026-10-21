@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
+import { StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
 
 describe('location-scoped stock value summary', () => {
   it('uses department balances instead of hospital-wide stock for non-admin summaries', async () => {
@@ -265,3 +266,53 @@ describe('hospital-wide stock movement reconciliation', () => {
   });
 });
 
+
+
+describe('stock ledger location scope', () => {
+  it('limits ledger rows to the caller department by default', async () => {
+    let countArgs: any;
+    let findArgs: any;
+    const prisma = {
+      stockTransaction: {
+        count: async (args: any) => { countArgs = args; return 0; },
+        findMany: async (args: any) => { findArgs = args; return []; },
+      },
+    };
+    const repo = new StockItemRepository(prisma as any);
+
+    await repo.getLedgerTransactions({ departmentId: 'pharmacy', limit: 100 });
+
+    expect(countArgs.where.departmentId).toBe('pharmacy');
+    expect(findArgs.where.departmentId).toBe('pharmacy');
+  });
+
+  it('only omits the department restriction when hospital-wide scope is explicitly enabled', async () => {
+    let findArgs: any;
+    const prisma = {
+      stockTransaction: {
+        count: async () => 0,
+        findMany: async (args: any) => { findArgs = args; return []; },
+      },
+    };
+    const repo = new StockItemRepository(prisma as any);
+
+    await repo.getLedgerTransactions({ departmentId: 'pharmacy', includeAllStockLocations: true, limit: 100 });
+
+    expect(findArgs.where.departmentId).toBeUndefined();
+  });
+
+  it('does not silently include unassigned movements when a caller has no department', async () => {
+    let findArgs: any;
+    const prisma = {
+      stockTransaction: {
+        count: async (args: any) => { findArgs = args; return 0; },
+        findMany: async () => [],
+      },
+    };
+    const repo = new StockItemRepository(prisma as any);
+
+    await repo.getLedgerTransactions({ limit: 100 });
+
+    expect(findArgs.where.departmentId).toBe('__NO_DEPARTMENT__');
+  });
+});
