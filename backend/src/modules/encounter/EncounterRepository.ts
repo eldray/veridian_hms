@@ -694,7 +694,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
-      if (data.administeredDoses !== undefined) updateData.administeredDoses = data.administeredDoses;
 
       const isDispensing = data.status === 'dispensed' && med.status === 'prescribed';
 
@@ -742,7 +741,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       // ✅ NEW: when marked administered, log it on the due dose row.
       // The UI passes doseId explicitly now; fall back to the next pending one.
       if (data.status === 'administered') {
-        updateData.administeredAt = data.administeredAt ? new Date(data.administeredAt) : new Date();
+        updateData.administeredAt = new Date();
         updateData.administeredById = actorId;
       }
 
