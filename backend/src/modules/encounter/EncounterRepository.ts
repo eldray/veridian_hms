@@ -572,6 +572,26 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
+
+    // Catch incomplete or impossible prescriptions before creating a medication
+    // record or generating its medication-administration schedule.
+    for (const [field, value] of Object.entries({
+      dosage: data.dosage,
+      frequency: data.frequency,
+      duration: data.duration,
+    })) {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new ValidationError(`${field[0].toUpperCase() + field.slice(1)} is required for a prescription`);
+      }
+    }
+    const quantity = data.quantity === undefined ? 1 : Number(data.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
+      throw new ValidationError('Prescription quantity must be a whole number between 1 and 10000');
+    }
+    if (data.route !== undefined && !String(data.route).trim()) {
+      throw new ValidationError('Route must be provided as a meaningful value or omitted');
+    }
+
     const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
     if (!stockItem) throw new NotFoundError('Stock item', data.stockItemId);
     if (!data.serviceCatalogId) throw new ValidationError('A medication service is required');
@@ -591,7 +611,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         duration: data.duration,
         route: data.route,
         instructions: data.instructions,
-        quantity: data.quantity || 1,
+        quantity,
         status: 'prescribed',
         prescribedById: actorId,
         prescribedAt: new Date(),
