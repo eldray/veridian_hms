@@ -946,3 +946,33 @@ describe('stock report date boundaries', () => {
     expect(parseReportBoundary('', 'end')).toBeUndefined();
   });
 });
+
+
+describe('expiry report calendar-day boundaries', () => {
+  it('does not classify a batch expiring today as already expired', async () => {
+    const expiryToday = new Date();
+    expiryToday.setUTCHours(0, 0, 0, 0);
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getItemsForExpiryReport: async () => [{
+        id: 'item-expiring-today',
+        name: 'Batch expiring today',
+        currentStock: 2,
+        costPrice: 5,
+        expiryDate: null,
+        StockBatch: [{
+          batchNumber: 'TODAY-1',
+          expiryDate: expiryToday,
+          quantity: 2,
+          costPrice: '5.00',
+        }],
+      }],
+      getExpiringBatches: async () => [],
+    };
+
+    const report = await service.getExpiryReport(30);
+
+    expect(report.expiringSoon.map((item: any) => item.id)).toContain('item-expiring-today');
+    expect(report.expired.map((item: any) => item.id)).not.toContain('item-expiring-today');
+  });
+});
