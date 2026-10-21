@@ -436,7 +436,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       include: {
         StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' }, take: 3 },
         stockBalances: filters.includeAllStockLocations ? true : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
           select: { quantity: true },
         },
       },
@@ -487,12 +487,12 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         StockBatch: {
           where: {
             quantity: { gt: 0 },
-            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || null, wardId: null }),
+            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }),
           },
           select: { quantity: true, costPrice: true, isActive: true },
         },
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || null, wardId: null },
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
           select: { quantity: true },
         },
       },
