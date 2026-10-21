@@ -433,9 +433,24 @@ export default function Referrals() {
       (item.id || item._id) === selectedPatientId
     );
     if (!patient) return;
+    const birthDateValue = patient.dateOfBirth || patient.dob || patient.birthDate;
+    let calculatedAge = patient.ageDisplay || patient.age || '';
+    if (!calculatedAge && birthDateValue) {
+      const birthDate = new Date(birthDateValue);
+      if (Number.isFinite(birthDate.getTime())) {
+        const today = new Date();
+        let years = today.getFullYear() - birthDate.getFullYear();
+        const birthdayPending = today.getMonth() < birthDate.getMonth() ||
+          (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate());
+        if (birthdayPending) years -= 1;
+        if (years >= 0 && years <= 125) calculatedAge = String(years);
+      }
+    }
     setStructuredPartI(prev => ({
       ...prev,
       clientName: getPatientName(patient),
+      age: prev.age || String(calculatedAge || ''),
+      sex: prev.sex || String(patient.gender || patient.sex || ''),
     }));
   }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
 
