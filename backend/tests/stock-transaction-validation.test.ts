@@ -95,4 +95,53 @@ describe('stock transaction validation', () => {
       wardId: 'ward-7',
     })).rejects.toBeInstanceOf(ValidationError);
   });
+
+  it('persists exact batch allocations for batch-tracked stock issues', async () => {
+    const createTransaction = vi.fn().mockResolvedValue({ id: 'tx-sale' });
+    const tx = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'batch-1',
+          batchNumber: 'B-001',
+          quantity: 5,
+          expiryDate: new Date('2027-06-01T00:00:00Z'),
+          costPrice: '2.50',
+        }]),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockItem: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ currentStock: 7 }),
+      },
+      stockTransaction: { create: createTransaction },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockTransactionRepository(prisma as any);
+
+    await repository.createSafely({
+      stockItemId: 'item-1',
+      transactionType: 'sale',
+      quantity: 3,
+      departmentId: 'pharmacy',
+      performedBy: 'user-1',
+    });
+
+    expect(createTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        batchAllocations: [{
+          batchId: 'batch-1',
+          batchNumber: 'B-001',
+          quantity: 3,
+          expiryDate: new Date('2027-06-01T00:00:00Z'),
+          costPrice: '2.50',
+        }],
+      }),
+    }));
+  });
 });
