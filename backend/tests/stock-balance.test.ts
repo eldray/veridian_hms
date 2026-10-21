@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance, StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
+import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 
 describe('purchase receipt location snapshots', () => {
   it('records the receiving location balance rather than the hospital aggregate', async () => {
@@ -344,6 +345,46 @@ describe('batch write-off reconciliation', () => {
         transactionType: 'write_off',
         batchAllocations: [expect.objectContaining({ batchId: 'expired-batch', quantity: 1 })],
       }),
+    }));
+  });
+});
+
+
+
+describe('clinical stock movement audit protection', () => {
+  it('prevents editing clinical markers that generic deletion relies on', async () => {
+    const update = vi.fn();
+    const findUnique = vi.fn().mockResolvedValue({
+      notes: 'Consumable use: gloves',
+      reference: 'Encounter ENC-1',
+    });
+    const prisma: any = {
+      stockTransaction: { findUnique, update },
+    };
+    const repository = new StockTransactionRepository(prisma);
+
+    await expect(repository.updateNotes('movement-1', 'routine issue', 'MANUAL-1'))
+      .rejects.toThrow(/clinical stock movement notes and references cannot be edited/i);
+
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('continues to allow ordinary stock transaction notes to be updated', async () => {
+    const update = vi.fn().mockResolvedValue({ id: 'movement-2' });
+    const findUnique = vi.fn().mockResolvedValue({
+      notes: 'Routine stock issue',
+      reference: 'REQ-001',
+    });
+    const prisma: any = {
+      stockTransaction: { findUnique, update },
+    };
+    const repository = new StockTransactionRepository(prisma);
+
+    await repository.updateNotes('movement-2', 'Count verified', 'REQ-001');
+
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'movement-2' },
+      data: { notes: 'Count verified', reference: 'REQ-001' },
     }));
   });
 });
