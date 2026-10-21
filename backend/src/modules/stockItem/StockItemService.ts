@@ -610,14 +610,18 @@ export class StockItemService extends BaseService {
         delete item.aggregateCurrentStock;
         delete item.aggregateNetChange;
       }
-    } else if (reconciliationRows.length) {
+    } else if (reconciliationRows.length || locationBalances.length) {
       // Department ledgers use location-specific balanceAfter snapshots. Reconcile
       // against all movement types so an activity filter or 5,000-row display cap
       // cannot turn the first visible transaction into a false opening balance.
+      // When the complete reconciliation set was not fetched, the visible rows are
+      // still the complete period ledger (the repository fetches the full set when
+      // a movement-type filter or display cap makes that necessary).
+      const fullLedgerRows = reconciliationRows.length ? reconciliationRows : rows;
       const fullNetByItem = new Map<string, number>();
       const closingByItem = new Map<string, number>();
       const previousBalanceByItem = new Map<string, number>();
-      for (const transaction of reconciliationRows as any[]) {
+      for (const transaction of fullLedgerRows as any[]) {
         const itemId = transaction.stockItemId;
         const q = Math.abs(Number(transaction.quantity) || 0);
         const previousBalance = previousBalanceByItem.get(itemId);
