@@ -271,12 +271,25 @@ export class RequisitionRepository {
   }
 
   async delete(id: string) {
-    await this.prisma.requisitionItem.deleteMany({
-      where: { requisitionId: id }
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // Claim deletion only while the requisition is still a draft. This closes
+      // the race where the service checked "draft", another request submitted
+      // it, and this method then deleted a live requisition and its item history.
+      const claim = await tx.requisition.updateMany({
+        where: { id, status: 'draft' },
+        data: { updatedAt: new Date() },
+      });
+      if (claim.count !== 1) {
+        throw new Error('Only a draft requisition can be deleted. It may have changed status; refresh and try again.');
+      }
 
-    return this.prisma.requisition.delete({
-      where: { id }
+      await tx.requisitionItem.deleteMany({
+        where: { requisitionId: id }
+      });
+
+      return tx.requisition.delete({
+        where: { id }
+      });
     });
   }
 
