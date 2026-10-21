@@ -65,7 +65,7 @@ const safeSeed = async (
   name: string,
   seedFn: () => Promise<any>,
   force: boolean,
-  stepKey: keyof SeedingStatus,
+  stepKey: Exclude<keyof SeedingStatus, 'lastRun'>,
   status: SeedingStatus
 ): Promise<{ success: boolean; error?: string; data?: any }> => {
   console.log(`\n📚 STEP: ${name}`);
