@@ -2,6 +2,44 @@ import { describe, expect, it, vi } from 'vitest';
 import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 
+describe('clinical vitals validation', () => {
+  it('rejects malformed blood pressure before opening a database transaction', async () => {
+    const transaction = vi.fn();
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
+
+    await expect(repository.addVitals('attendance-1', { bloodPressure: '120-80' }, 'staff-1'))
+      .rejects.toThrow(/systolic\/diastolic format/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects impossible oxygen saturation before saving', async () => {
+    const transaction = vi.fn();
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
+
+    await expect(repository.addVitals('attendance-1', { spo2: 140 }, 'staff-1'))
+      .rejects.toThrow(/spo₂ must be between 1 and 100/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts valid metric vital values and common blood-pressure format at validation boundary', async () => {
+    const repository = new EncounterRepository({} as any);
+    // Exercise the shared validator directly through the repository prototype for a
+    // deterministic unit test without needing a database connection.
+    expect(() => (repository as any).validateClinicalVitalValues({
+      bloodPressure: '120/80 mmHg',
+      temperature: 36.8,
+      pulse: 76,
+      respiration: 18,
+      spo2: 98,
+      weight: 60,
+      height: 168,
+      muac: 27,
+    })).not.toThrow();
+  });
+});
+
 describe('clinical encounter ownership', () => {
   it('does not cancel a lab order that belongs to another encounter', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
