@@ -152,9 +152,13 @@ export class StockTransactionService extends BaseService {
         .filter((t: any) => t.adjustmentDirection === 'decrease' || (!t.adjustmentDirection && Number(t.quantity) < 0))
         .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
 
-      // Internal transfers affect the source/destination location but not the hospital total.
-      const totalOut = sales + requisitions + writeOffs + transfersOut + adjustmentOut;
-      const totalIn = purchases + transfersIn + adjustmentIn;
+      // Internal transfers affect department-level balances, but they do not
+      // increase or decrease the hospital-wide stock total. A dispatched transfer
+      // remains in transit until receipt, so hospital-wide opening/closing
+      // reconciliation must exclude both transfer directions from net change.
+      const hospitalWide = Boolean(filters.includeAllStockLocations);
+      const totalOut = sales + requisitions + writeOffs + (hospitalWide ? 0 : transfersOut) + adjustmentOut;
+      const totalIn = purchases + (hospitalWide ? 0 : transfersIn) + adjustmentIn;
       const netChange = totalIn - totalOut;
       // currentStock is today's balance. Reverse post-period movements to report
       // the actual closing balance at endDate, then derive the period opening balance.
