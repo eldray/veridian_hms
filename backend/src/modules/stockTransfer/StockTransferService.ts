@@ -83,10 +83,17 @@ export class StockTransferService extends BaseService {
       const transfer = await tx.stockTransfer.findUnique({ where: { id } });
       if (!transfer || transfer.status !== 'requested') throw new Error('Only requested transfers can be approved');
       
-      return tx.stockTransfer.update({
-        where: { id },
-        data: { status: 'approved', approvedById: userId }
+      // Claim approval only while the transfer is still requested. This
+      // prevents concurrent approvals from overwriting the recorded approver.
+      const approvalClaim = await tx.stockTransfer.updateMany({
+        where: { id, status: 'requested' },
+        data: { status: 'approved', approvedById: userId },
       });
+      if (approvalClaim.count !== 1) {
+        throw new Error('Transfer was already approved or its status changed. Refresh and try again.');
+      }
+
+      return tx.stockTransfer.findUnique({ where: { id } });
     });
   }
 
