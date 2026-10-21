@@ -300,23 +300,49 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
-    await this.requireEncounterId(encounterId);
-    const diagnosis = await this.prisma.diagnosis.findUnique({ where: { id: data.diagnosisId } });
-    if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
-
-    if (data.diagnosisType === 'primary') {
-      await this.prisma.attendanceDiagnosis.updateMany({
-        where: { attendanceId: encounterId, diagnosisType: 'primary' },
-        data: { diagnosisType: 'additional' }
-      });
+    if (!data?.diagnosisId?.trim()) throw new ValidationError('A diagnosis must be selected');
+    if (!['primary', 'additional', 'provisional'].includes(String(data.diagnosisType))) {
+      throw new ValidationError('Invalid diagnosis type');
     }
-    const existing = await this.prisma.attendanceDiagnosis.findFirst({ where: { attendanceId: encounterId, diagnosisId: data.diagnosisId } });
-    if (existing) throw new Error('Diagnosis already added to this encounter');
 
-    return this.prisma.attendanceDiagnosis.create({
-      data: { attendanceId: encounterId, diagnosisId: data.diagnosisId, diagnosisType: data.diagnosisType, notes: data.notes, createdById: actorId, icdCode: diagnosis.icdCode || '' },
-      include: { Diagnosis: true }
-    });
+    // Keep duplicate detection, primary-diagnosis replacement, and insertion atomic.
+    // Previously, a duplicate primary diagnosis could demote the existing primary and
+    // then throw, leaving the encounter without its intended primary diagnosis.
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        select: { id: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+      const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
+      if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
+
+      const existing = await tx.attendanceDiagnosis.findFirst({
+        where: { attendanceId: encounterId, diagnosisId: data.diagnosisId },
+        select: { id: true },
+      });
+      if (existing) throw new ConflictError('This diagnosis has already been added to the encounter');
+
+      if (data.diagnosisType === 'primary') {
+        await tx.attendanceDiagnosis.updateMany({
+          where: { attendanceId: encounterId, diagnosisType: 'primary' },
+          data: { diagnosisType: 'additional' },
+        });
+      }
+
+      return tx.attendanceDiagnosis.create({
+        data: {
+          attendanceId: encounterId,
+          diagnosisId: data.diagnosisId,
+          diagnosisType: data.diagnosisType,
+          notes: data.notes,
+          createdById: actorId,
+          icdCode: diagnosis.icdCode || '',
+        },
+        include: { Diagnosis: true },
+      });
+    }, { isolationLevel: 'Serializable' });
   }
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
