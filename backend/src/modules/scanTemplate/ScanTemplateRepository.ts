@@ -334,7 +334,7 @@ if (
         serviceType: 'scan',
         metadata: {
           path: ['scanType'],
-          not: null
+          string_not: ''
         }
       },
       select: { metadata: true }
