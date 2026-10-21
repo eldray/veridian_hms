@@ -226,6 +226,13 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
           // A concurrent valid receipt that increments this lot is preserved.
           await tx.stockBatch.deleteMany({ where: { id: batch.id, quantity: 0 } });
         } else {
+          // Legacy unbatched receipts cannot be reversed safely after the item
+          // has moved to batch tracking: decrementing only aggregate/location
+          // balances would leave physical batch quantities overstated.
+          const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+          if (batchCount > 0) {
+            throw new Error(`Cannot safely delete invoice: item ${item.stockItemId} is now batch-tracked but this receipt has no batch number. Reconcile the legacy receipt first.`);
+          }
           const outgoingSinceReceipt = await tx.stockTransaction.count({
             where: {
               stockItemId: item.stockItemId,
