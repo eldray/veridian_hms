@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
+import { StockItemService } from '../src/modules/stockItem/StockItemService';
 
 describe('department stock movement summary', () => {
   it('reports internal transfers separately and includes them in location balances', async () => {
@@ -43,5 +44,24 @@ describe('department stock movement summary', () => {
       totalTransfersOut: 3,
       totalSales: 2,
     });
+  });
+});
+
+
+describe('stock usage report', () => {
+  it('counts absolute issued quantities and keeps same-name catalogue items separate', async () => {
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getTransactionsForUsageReport: async () => [
+        { stockItemId: 'item-1', transactionType: 'sale', quantity: -3, StockItem: { id: 'item-1', name: 'Paracetamol', category: 'medication', unitOfMeasure: 'tablet', isMedication: true } },
+        { stockItemId: 'item-2', transactionType: 'requisition', quantity: 4, StockItem: { id: 'item-2', name: 'Paracetamol', category: 'medication', unitOfMeasure: 'tablet', isMedication: true } },
+      ],
+    };
+
+    const report = await service.getUsageReport('month', 1);
+
+    expect(report.summary).toMatchObject({ totalItemsDispensed: 2, totalQuantity: 7, medicationsOnly: 2 });
+    expect(report.topItems).toHaveLength(1);
+    expect(report.topItems[0]).toMatchObject({ stockItemId: 'item-2', quantity: 4, requisitionQuantity: 4 });
   });
 });
