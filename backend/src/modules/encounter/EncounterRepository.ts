@@ -21,6 +21,13 @@ export const LIVE_RECENT_HOURS = 72;
  *  - finished work (result completed, drug dispensed): kept for 72 hours so results can be reviewed
  * Older items stay on the patient's record; they just stop crowding the queue.
  */
+// Expiry is recorded as a calendar date. Keep stock eligible through that day.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
 export const WORKLIST_OPEN_DAYS = 30;
 export const WORKLIST_DONE_HOURS = 72;
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
@@ -618,12 +625,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const stockItem = med.StockItem;
         if (!stockItem.isActive) throw new ValidationError('Inactive stock items cannot be dispensed');
         if (!stockItem.isMedication) throw new ValidationError('The linked stock item is not configured as a medication');
-        const now = new Date();
         const batchCount = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
         const batches = batchCount > 0 ? await tx.stockBatch.findMany({
           where: {
             stockItemId: stockItem.id, departmentId, wardId: null, isActive: true,
-            expiryDate: { gt: now }, quantity: { gt: 0 },
+            expiryDate: { gte: startOfCurrentDay() }, quantity: { gt: 0 },
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         }) : [];
@@ -640,7 +646,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             const changed = await tx.stockBatch.updateMany({
               where: {
                 id: batch.id, departmentId, wardId: null, isActive: true,
-                expiryDate: { gt: now }, quantity: { gte: move },
+                expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: move },
               },
               data: { quantity: { decrement: move } },
             });
@@ -1034,7 +1040,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const allocations: Array<{ batchId: string; quantity: number }> = [];
     if (batchCount > 0) {
       const batches = await tx.stockBatch.findMany({
-        where: { stockItemId, departmentId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gt: 0 } },
+        where: { stockItemId, departmentId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gt: 0 } },
         orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
       });
       const available = batches.reduce((sum: number, b: any) => sum + b.quantity, 0);
@@ -1044,7 +1050,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         if (remaining <= 0) break;
         const move = Math.min(batch.quantity, remaining);
         const result = await tx.stockBatch.updateMany({
-          where: { id: batch.id, departmentId, wardId: null, isActive: true, expiryDate: { gt: new Date() }, quantity: { gte: move } },
+          where: { id: batch.id, departmentId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: move } },
           data: { quantity: { decrement: move } },
         });
         if (result.count !== 1) throw new ConflictError('Batch stock changed during consumable use; retry the operation');
