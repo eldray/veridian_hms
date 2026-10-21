@@ -50,17 +50,19 @@ export class AntenatalController extends BaseController {
   ];
 
   updateAntenatalBooking = [
-    body('gravida').optional().isInt({ min: 0 }),
-    body('para').optional().isInt({ min: 0 }),
-    body('edd').optional().isISO8601(),
+    body('gravida').optional().isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
+    body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
+    body('lmp').optional().isISO8601().withMessage('LMP must be a valid date'),
+    body('edd').optional().isISO8601().withMessage('EDD must be a valid date'),
     body('riskLevel').optional().isIn(['low', 'medium', 'high']),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
-      
+
       const data: UpdateAntenatalBookingInput = req.body;
+      if (data.lmp) data.lmp = new Date(data.lmp);
       if (data.edd) data.edd = new Date(data.edd);
-      
+
       const booking = await this.service.updateBooking(req.params.id, data);
       return this.ok(res, booking, 'Antenatal booking updated');
     })
