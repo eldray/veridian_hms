@@ -53,21 +53,38 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     const hb = data.hbLevel ?? (data.bookingHb != null && data.bookingHb !== ('' as any) ? Number(data.bookingHb) : undefined);
     const hbNum = hb != null && !Number.isNaN(Number(hb)) ? Number(hb) : undefined;
     if (hbNum != null && (hbNum <= 0 || hbNum > 25)) throw new ValidationError('Haemoglobin must be a valid value in g/dL');
-    const numOrU = (v: any) => (v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v));
+    const numOrU = (v: any) => (v === '' || v == null || !Number.isFinite(Number(v)) ? undefined : Number(v));
     const doseDates: any = {};
     // Never invent administration dates for historical doses. Save a date only when staff recorded it.
     for (let i = 1; i <= 5; i++) {
-      const ttDate = (data as any)[`tt${i}Date`];
-      const iptpDate = (data as any)[`iptp${i}Date`];
-      if (ttDate) doseDates[`tt${i}Date`] = new Date(ttDate);
-      if (iptpDate) doseDates[`iptp${i}Date`] = new Date(iptpDate);
+      for (const prefix of ['tt', 'iptp']) {
+        const field = `${prefix}${i}Date`;
+        const value = (data as any)[field];
+        if (!value) continue;
+        const doseDate = new Date(value);
+        if (Number.isNaN(doseDate.getTime())) throw new ValidationError(`${field} must be a valid date`);
+        if (doseDate.getTime() > Date.now()) throw new ValidationError(`${field} cannot be in the future`);
+        doseDates[field] = doseDate;
+      }
+    }
+    const bookingWeight = numOrU(data.bookingWeight);
+    const bookingHeight = numOrU(data.bookingHeight);
+    if (bookingWeight !== undefined && (bookingWeight <= 0 || bookingWeight > 350)) {
+      throw new ValidationError('Booking weight must be a valid value in kilograms');
+    }
+    if (bookingHeight !== undefined && (bookingHeight < 30 || bookingHeight > 250)) {
+      throw new ValidationError('Booking height must be between 30 and 250 cm');
+    }
+    const gestation = numOrU(data.gestationalAgeWeeks);
+    if (gestation !== undefined && (!Number.isInteger(gestation) || gestation < 0 || gestation > 42)) {
+      throw new ValidationError('Gestational age must be between 0 and 42 weeks');
     }
 
     return this.getModel().create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
         bookingDate: new Date(), lmp, edd, gravida: data.gravida, para: data.para,
-        gestationalAgeWeeks: numOrU(data.gestationalAgeWeeks), gestationalAgeAtBooking: numOrU(data.gestationalAgeWeeks),
+        gestationalAgeWeeks: gestation, gestationalAgeAtBooking: gestation,
         riskLevel: data.riskLevel || 'low',
         riskFactors: data.riskFactors || [], bloodGroup: data.bloodGroup, hivStatus: data.hivStatus || undefined,
         hbLevel: hbNum, hbBooking: hbNum, anaemiaDiagnosed: hbNum != null && hbNum < 11,
@@ -76,7 +93,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         partnerHivStatus: data.partnerHIVStatus || undefined,
         hivKnownPositive: !!data.hivKnownPositive,
         malePartnerInvolved: !!data.malePartnerInvolved,
-        bookingHeight: numOrU(data.bookingHeight), bookingWeight: numOrU(data.bookingWeight),
+        bookingHeight, bookingWeight,
         bookingBP: data.bookingBP || undefined,
         previousCSection: !!data.previousCSection, previousComplications: prev || undefined,
         itnGiven: !!data.itnGiven, itnGivenDate: data.itnGiven ? new Date() : undefined,
