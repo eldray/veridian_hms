@@ -64,7 +64,7 @@ export class NotificationService extends BaseService {
       }))
     });
 
-    const failedUsers = data.userIds.filter(id => !validUserIds.includes(id));
+    const failedUsers = data.userIds.filter((id: string) => !validUserIds.includes(id));
     return { successCount: validUserIds.length, failCount: failedUsers.length, failedUsers: failedUsers.slice(0, 10) };
   }
 
