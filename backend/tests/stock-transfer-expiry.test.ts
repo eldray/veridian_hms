@@ -108,4 +108,42 @@ describe('stock transfer receipt expiry safety', () => {
     expect(tx.stockTransaction.create).not.toHaveBeenCalled();
   });
 
+
+  it('rejects a non-array saved allocation payload before changing destination stock', async () => {
+    const transfer = {
+      id: 'transfer-malformed-payload',
+      status: 'dispatched',
+      receivedAt: null,
+      destinationId: 'pharmacy',
+      origin: { name: 'Main Store' },
+      destination: { id: 'pharmacy' },
+      items: [{
+        id: 'transfer-item-malformed',
+        stockItemId: 'item-1',
+        quantitySent: 4,
+        quantityReceived: 0,
+        batchAllocations: { quantity: 4, batchNumber: 'LOT-1' },
+      }],
+    };
+    const balanceUpsert = vi.fn();
+    const tx: any = {
+      stockTransfer: {
+        findUnique: vi.fn().mockResolvedValue(transfer),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockItemDepartmentBalance: { upsert: balanceUpsert },
+      stockBatch: { count: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+      stockTransaction: { create: vi.fn() },
+      stockTransferItem: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const service = new StockTransferService(prisma);
+
+    await expect(service.receiveTransfer('transfer-malformed-payload', 'user-1'))
+      .rejects.toThrow(/saved batch allocations.*malformed/i);
+
+    expect(balanceUpsert).not.toHaveBeenCalled();
+    expect(tx.stockBatch.create).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+  });
 });
