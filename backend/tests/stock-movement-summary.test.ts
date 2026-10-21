@@ -475,10 +475,11 @@ describe('stock item transaction balance snapshots', () => {
     const prisma: any = { $transaction: async (callback: any) => callback(tx) };
     const repository = new StockItemRepository(prisma);
 
-    await repository.updateStockLevelSafely('gloves', 3, 'sale' as any, undefined, 'dispense', 'user-1', 'pharmacy');
+    const result = await repository.updateStockLevelSafely('gloves', 3, 'sale' as any, undefined, 'dispense', 'user-1', 'pharmacy');
 
     expect(savedTransaction.departmentId).toBe('pharmacy');
     expect(savedTransaction.balanceAfter).toBe(11);
+    expect(result.currentStock).toBe(11);
   });
 });
 
