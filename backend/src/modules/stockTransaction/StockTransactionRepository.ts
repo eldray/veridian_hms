@@ -4,6 +4,14 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 
 import { ValidationError } from '../../utils/errors';
 
+// Expiry fields are date-only in the UI and are stored at midnight. Treat a
+// batch as usable through its recorded expiry calendar day, not expired at 00:00.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
 export class StockTransactionRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'stockTransaction');
@@ -81,7 +89,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         const batches = await tx.stockBatch.findMany({
           where: {
             stockItemId, departmentId: departmentId || null, wardId: wardId || null, quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: new Date() } }),
+            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
         });
@@ -95,7 +103,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           const changed = await tx.stockBatch.updateMany({
             where: {
               id: batch.id, departmentId: departmentId || null, wardId: wardId || null, quantity: { gte: move },
-              ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: new Date() } }),
+              ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
             },
             data: { quantity: { decrement: move } }
           });
