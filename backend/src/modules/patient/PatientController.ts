@@ -88,7 +88,12 @@ export class PatientController extends BaseController {
 
   createPatient = this.asyncHandler(async (req: Request, res: Response) => {
     const data: CreatePatientDTO = req.body;
-    const patient = await this.service.createPatient(data);
+    // Age fields may be sent by older clients but are derived from dateOfBirth,
+    // so never forward them as Prisma Patient create fields.
+    const cleanData = { ...data } as CreatePatientDTO & { age?: unknown; ageInMonths?: unknown };
+    delete cleanData.age;
+    delete cleanData.ageInMonths;
+    const patient = await this.service.createPatient(cleanData);
     return this.created(res, patient, 'Patient created successfully');
   });
 
