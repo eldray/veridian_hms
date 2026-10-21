@@ -175,9 +175,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
         gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
         resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
-        complications: data.complications || [], notes: data.notes, malePartnerPresentANC: data.malePartnerPresentANC || false,
+        complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
         malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
-        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, referralTo: data.referralTo,
+        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
         birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
         createdById: data.createdById,
         ...(babies.length ? { Newborn: { create: babies } } : {})
