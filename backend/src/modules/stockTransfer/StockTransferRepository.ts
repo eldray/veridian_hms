@@ -12,6 +12,13 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
     const where: any = {};
     if (originId) where.originId = originId;
     if (destinationId) where.destinationId = destinationId;
+    // Keep transfer history scoped to the signed-in user's department unless
+    // the controller explicitly grants an administrator cross-location view.
+    if (!filters.includeAllStockLocations) {
+      const departmentId = String(filters.departmentId || '');
+      if (!departmentId) where.id = '__NO_ACCESS__';
+      else where.OR = [{ originId: departmentId }, { destinationId: departmentId }];
+    }
     if (status) where.status = status;
 
     return this.findManyWithPagination({
