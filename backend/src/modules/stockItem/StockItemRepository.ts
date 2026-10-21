@@ -105,13 +105,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         StockBatch: {
           where: {
             isActive: true,
-            ...(!includeAllStockLocations ? { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null } : {}),
+            ...(!includeAllStockLocations ? { departmentId: departmentId ?? null, wardId: null } : {}),
           },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
           orderBy: { expiryDate: 'asc' },
         },
         stockBalances: {
-          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: includeAllStockLocations ? {} : { departmentId: departmentId ?? null, wardId: null },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
         },
         // Current patient prices (cash / NHIS / insurance / corporate) live on the item's catalog entry
@@ -122,8 +122,8 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
   async findByIdWithRelations(id: string, filters: any = {}) {
     const { departmentId, includeAllStockLocations } = filters;
-    const locationWhere = includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__' };
-    const balanceWhere = includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null };
+    const locationWhere = includeAllStockLocations ? {} : { departmentId: departmentId ?? null };
+    const balanceWhere = includeAllStockLocations ? {} : { departmentId: departmentId ?? null, wardId: null };
     return this.getModel().findUnique({
       where: { id },
       include: {
@@ -132,7 +132,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         InvoiceItem: { include: { Invoice: { select: { invoiceNumber: true, supplierName: true, invoiceDate: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         RequisitionItem: { include: { Requisition: { select: { requisitionNumber: true, status: true, urgency: true, createdAt: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
         StockBatch: {
-          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: includeAllStockLocations ? {} : { departmentId: departmentId ?? null, wardId: null },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
           orderBy: { receivedDate: 'desc' },
         },
@@ -340,7 +340,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
   ) {
     const where: any = { stockItemId: id };
-    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId ?? null;
     const safePage = Math.max(1, Math.floor(page));
     const safeLimit = Math.min(200, Math.max(1, Math.floor(limit)));
     const [transactions, total] = await Promise.all([
@@ -451,7 +451,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       include: {
         StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' }, take: 3 },
         stockBalances: filters.includeAllStockLocations ? true : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: { departmentId: filters.departmentId ?? null, wardId: null },
           select: { quantity: true },
         },
       },
@@ -477,7 +477,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         isActive: true,
         quantity: { gt: 0 },
         ...(!filters.includeAllStockLocations
-          ? { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }
+          ? { departmentId: filters.departmentId ?? null, wardId: null }
           : {}),
       },
       include: {
@@ -485,7 +485,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           select: {
             name: true, category: true, unitOfMeasure: true, currentStock: true,
             stockBalances: filters.includeAllStockLocations ? false as any : {
-              where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+              where: { departmentId: filters.departmentId ?? null, wardId: null },
               select: { quantity: true },
             },
           },
@@ -532,12 +532,12 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         StockBatch: {
           where: {
             quantity: { gt: 0 },
-            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }),
+            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId ?? null, wardId: null }),
           },
           select: { quantity: true, costPrice: true, isActive: true },
         },
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: { departmentId: filters.departmentId ?? null, wardId: null },
           select: { quantity: true },
         },
       },
@@ -553,7 +553,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     // inspect batches and balances physically assigned to that department.
     const batchLocationWhere = filters.includeAllStockLocations
       ? {}
-      : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null };
+      : { departmentId: filters.departmentId ?? null, wardId: null };
     const where: any = {
       isActive: true,
       OR: [
@@ -659,7 +659,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         transactionDate: { gt: opts.endDate },
       };
       if (!opts.includeAllStockLocations) {
-        afterWhere.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+        afterWhere.departmentId = opts.departmentId ?? null;
         afterWhere.wardId = null;
       }
       if (opts.stockItemId) afterWhere.stockItemId = opts.stockItemId;
@@ -692,7 +692,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         { notes: { startsWith: 'Consumable use: [DELETED]' } },
       ],
     };
-    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId ?? null;
     return this.prisma.stockTransaction.findMany({
       where,
       include: { StockItem: { select: { name: true, category: true, unitOfMeasure: true, isMedication: true } } }
