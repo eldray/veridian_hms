@@ -434,7 +434,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   // ==========================================
   // REPORT DATA FETCHERS (Preserved exactly)
   // ==========================================
-  async getItemsForValueReport(category?: string) {
+  async getItemsForValueReport(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const where: any = { isActive: true };
     if (category) where.category = category;
     return this.getModel().findMany({
@@ -443,8 +443,15 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         id: true, name: true, category: true, currentStock: true,
         costPrice: true, reorderLevel: true, isMedication: true,
         StockBatch: {
-          where: { quantity: { gt: 0 } },
+          where: {
+            quantity: { gt: 0 },
+            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || null, wardId: null }),
+          },
           select: { quantity: true, costPrice: true, isActive: true },
+        },
+        stockBalances: filters.includeAllStockLocations ? false as any : {
+          where: { departmentId: filters.departmentId || null, wardId: null },
+          select: { quantity: true },
         },
       },
     });
