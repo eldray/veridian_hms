@@ -103,7 +103,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           orderBy: { expiryDate: 'asc' },
         },
         stockBalances: {
-          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__' },
+          where: includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null },
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
         },
         // Current patient prices (cash / NHIS / insurance / corporate) live on the item's catalog entry
@@ -115,6 +115,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async findByIdWithRelations(id: string, filters: any = {}) {
     const { departmentId, includeAllStockLocations } = filters;
     const locationWhere = includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__' };
+    const balanceWhere = includeAllStockLocations ? {} : { departmentId: departmentId || '__NO_DEPARTMENT__', wardId: null };
     return this.getModel().findUnique({
       where: { id },
       include: {
@@ -128,7 +129,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           orderBy: { receivedDate: 'desc' },
         },
         stockBalances: {
-          where: locationWhere,
+          where: balanceWhere,
           include: { department: { select: { id: true, name: true } }, ward: { select: { id: true, wardName: true } } },
         },
         ServiceCatalog: { select: { id: true, code: true, pricing: { where: { isActive: true }, orderBy: { effectiveDate: 'desc' }, take: 1 } } }
