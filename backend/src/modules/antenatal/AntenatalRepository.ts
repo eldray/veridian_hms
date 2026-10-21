@@ -143,6 +143,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       'ironFolateGiven', 'previousCSection'];
     const clean: any = {};
     for (const k of allowed) if ((data as any)[k] !== undefined) clean[k] = (data as any)[k];
+    if (Object.keys(clean).length === 0) throw new ValidationError('No supported antenatal booking fields were provided');
     if (clean.lmp !== undefined) {
       const lmp = new Date(clean.lmp);
       if (Number.isNaN(lmp.getTime())) throw new ValidationError('A valid last menstrual period (LMP) date is required');
