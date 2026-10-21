@@ -773,6 +773,64 @@ describe('clinical dispensing calendar-day expiry', () => {
 });
 
 
+describe('legacy adjustment historical stock reconciliation', () => {
+  it('uses location balance snapshots to reverse an untyped adjustment after the report end', async () => {
+    const periodPurchase = {
+      id: 'purchase-1',
+      stockItemId: 'item-1',
+      transactionType: 'purchase',
+      quantity: 5,
+      adjustmentDirection: null,
+      balanceAfter: 10,
+      transactionDate: new Date('2026-10-10T10:00:00.000Z'),
+      createdAt: new Date('2026-10-10T10:00:00.000Z'),
+      StockItem: {
+        id: 'item-1',
+        name: 'Gloves',
+        category: 'Consumable',
+        unitOfMeasure: 'box',
+        costPrice: 2,
+        currentStock: 7,
+      },
+      User: null,
+      Department: { name: 'Pharmacy' },
+      Requisition: null,
+      Invoice: null,
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getLedgerTransactions: vi.fn().mockResolvedValue({
+        rows: [periodPurchase],
+        total: 1,
+        reconciliationRows: [periodPurchase],
+        transactionsAfterEnd: [{
+          stockItemId: 'item-1',
+          transactionType: 'adjustment',
+          quantity: 3,
+          adjustmentDirection: null,
+          balanceAfter: 7,
+          transactionDate: new Date('2026-10-21T10:00:00.000Z'),
+          createdAt: new Date('2026-10-21T10:00:00.000Z'),
+        }],
+        locationBalances: [{ stockItemId: 'item-1', quantity: 7 }],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2026-10-20T23:59:59.999Z'),
+      undefined,
+      { departmentId: 'pharmacy' },
+    );
+
+    expect(report.items[0]).toEqual(expect.objectContaining({
+      stockItemId: 'item-1',
+      openingStock: 5,
+      closingStock: 10,
+    }));
+  });
+});
+
 describe('stock batch service expiry calendar', () => {
   it('allows adding a batch whose expiry date is today', async () => {
     const expiryToday = new Date();
