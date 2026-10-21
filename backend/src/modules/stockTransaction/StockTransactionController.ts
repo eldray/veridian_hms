@@ -6,19 +6,12 @@ import { AuthRequest } from '../../middleware/authMiddleware';
 
 
 import prisma from '../../core/database/prisma.client';
+import { parseReportBoundary } from '../../utils/reportDates';
 
-// Date-only report filters represent the full calendar day, not midnight at
-// its start. Preserve explicit timestamps exactly as supplied.
-const parseEndDate = (value: unknown): Date | undefined => {
-  if (typeof value !== 'string' || !value.trim()) return undefined;
-  const raw = value.trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-    const parsed = new Date(raw);
-    return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-  }
-  const parsed = new Date(`${raw}T23:59:59.999`);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
-};
+// Shared parser keeps plain-date start/end boundaries in the same local calendar
+// and preserves explicit timestamp filters.
+const parseStartDate = (value: unknown): Date | undefined => parseReportBoundary(value, 'start');
+const parseEndDate = (value: unknown): Date | undefined => parseReportBoundary(value, 'end');
 
 export class StockTransactionController extends BaseController {
   private service: StockTransactionService;
@@ -40,7 +33,7 @@ export class StockTransactionController extends BaseController {
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
-    const result = await this.service.getAll({ ...req.query, page, limit, departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: parseEndDate(req.query.endDate) });
+    const result = await this.service.getAll({ ...req.query, page, limit, departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin, startDate: parseStartDate(req.query.startDate), endDate: parseEndDate(req.query.endDate) });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Transactions retrieved');
   });
 
