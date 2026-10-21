@@ -51,8 +51,13 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async createSafely(data: any) {
     return this.prisma.$transaction(async (tx) => {
       const { stockItemId, transactionType, quantity, reference, notes, performedBy, requisitionId, invoiceId } = data;
-      const effectiveQuantity = Math.abs(Number(quantity));
-      const adjustmentDirection = transactionType === 'adjustment' ? (Number(quantity) < 0 ? 'decrease' : 'increase') : undefined;
+      const numericQuantity = Number(quantity);
+      if (!stockItemId || !Number.isSafeInteger(numericQuantity) || numericQuantity === 0 ||
+          (numericQuantity < 0 && transactionType !== 'adjustment')) {
+        throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
+      }
+      const effectiveQuantity = Math.abs(numericQuantity);
+      const adjustmentDirection = transactionType === 'adjustment' ? (numericQuantity < 0 ? 'decrease' : 'increase') : undefined;
 
       if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
         throw new ValidationError('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
@@ -75,7 +80,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
             stockItemId, departmentId: departmentId || null, wardId: wardId || null, quantity: { gt: 0 },
             ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: new Date() } }),
           },
-          orderBy: { expiryDate: 'asc' }
+          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
         });
         const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
         if (departmentAvailable < effectiveQuantity) {
