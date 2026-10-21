@@ -220,12 +220,12 @@ export class ReportService {
     const range = parseReportRange(startDate, endDate);
 
     const where: any = {};
-    if (range) where.submissionDate = range;
+    if (range) where.Attendance = { dateTime: range };
     if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
     if (status) where.status = status;
     if (corporateAccountId) where.corporateAccountId = corporateAccountId;
 
-    const sums = { totalClaimAmount: true, approvedAmount: true, rejectedAmount: true, paidAmount: true } as const;
+    const sums = { totalClaimAmount: true } as const;
 
     const [totals, corporateCount, byStatus, byProvider, recent] = await Promise.all([
       this.prisma.insuranceClaim.aggregate({ where, _sum: sums, _count: { _all: true } }),
@@ -236,14 +236,13 @@ export class ReportService {
       this.prisma.insuranceClaim.findMany({
         where,
         select: {
-          id: true, status: true, submissionDate: true, totalClaimAmount: true, approvedAmount: true,
-          rejectedAmount: true, paidAmount: true, corporateAccountId: true,
+          id: true, status: true, finalizedAt: true, createdAt: true, totalClaimAmount: true, corporateAccountId: true,
           InsuranceProvider: { select: { name: true, type: true } },
           Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
           Attendance: { select: { attendanceNumber: true, dateTime: true } },
           CorporateAccount: { select: { companyName: true } },
         },
-        orderBy: { submissionDate: 'desc' },
+        orderBy: { createdAt: 'desc' },
         take: 500,
       }),
     ]);
@@ -255,7 +254,7 @@ export class ReportService {
     const providerById = new Map(providers.map(p => [p.id, p]));
 
     const totalClaimAmount = money(totals._sum.totalClaimAmount);
-    const totalPaidAmount = money(totals._sum.paidAmount);
+    const totalPaidAmount = money(0); // Payment amounts are not stored on InsuranceClaim in the current schema.
 
     return {
       reportType: 'Insurance Claims Analysis' as const,
@@ -266,8 +265,8 @@ export class ReportService {
         corporateClaims: corporateCount,
         regularClaims: totals._count._all - corporateCount,
         totalClaimAmount,
-        totalApprovedAmount: money(totals._sum.approvedAmount),
-        totalRejectedAmount: money(totals._sum.rejectedAmount),
+        totalApprovedAmount: money(byStatus.find(row => row.status === 'finalized')?._sum.totalClaimAmount),
+        totalRejectedAmount: money(0), // Rejected is not a supported ClaimStatus in the current schema.
         totalPaidAmount,
         outstandingAmount: money(totalClaimAmount - totalPaidAmount),
       },
@@ -276,8 +275,8 @@ export class ReportService {
           status: row.status as string,
           claimCount: row._count._all,
           claimAmount: money(row._sum.totalClaimAmount),
-          approvedAmount: money(row._sum.approvedAmount),
-          paidAmount: money(row._sum.paidAmount),
+          approvedAmount: row.status === 'finalized' ? money(row._sum.totalClaimAmount) : money(0),
+          paidAmount: money(0),
         }))
         .sort((a, b) => b.claimAmount - a.claimAmount),
       byProvider: byProvider
@@ -286,16 +285,16 @@ export class ReportService {
           type: providerById.get(row.insuranceProviderId)?.type || '',
           claimCount: row._count._all,
           claimAmount: money(row._sum.totalClaimAmount),
-          paidAmount: money(row._sum.paidAmount),
-          outstanding: money(toNum(row._sum.totalClaimAmount) - toNum(row._sum.paidAmount)),
+          paidAmount: money(0),
+          outstanding: money(row._sum.totalClaimAmount),
         }))
         .sort((a, b) => b.claimAmount - a.claimAmount),
       claimsReport: recent.map(c => ({
         ...c,
         totalClaimAmount: money(c.totalClaimAmount),
-        approvedAmount: c.approvedAmount === null ? null : money(c.approvedAmount),
-        rejectedAmount: c.rejectedAmount === null ? null : money(c.rejectedAmount),
-        paidAmount: c.paidAmount === null ? null : money(c.paidAmount),
+        approvedAmount: c.status === 'finalized' ? money(c.totalClaimAmount) : money(0),
+        rejectedAmount: money(0),
+        paidAmount: money(0),
       })),
       claimsShown: recent.length,
       generatedAt: new Date(),
@@ -576,7 +575,7 @@ export class ReportService {
         InsuranceProvider: { select: { name: true } },
         Bill: true,
       },
-      orderBy: { submissionDate: 'desc' },
+      orderBy: { createdAt: 'desc' },
     });
 
     const today = new Date();
