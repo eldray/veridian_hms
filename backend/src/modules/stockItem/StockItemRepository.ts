@@ -405,15 +405,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         },
       });
     }
-    await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    const locationBalanceAfter = await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
     await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
-    const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-    if (!updatedItem) throw new Error('Stock item not found while receiving batch');
 
     await tx.stockTransaction.create({
       data: {
         stockItemId, transactionType: 'purchase', quantity,
-        balanceAfter: updatedItem.currentStock, reference: `BATCH-${batchNumber}`,
+        balanceAfter: locationBalanceAfter.quantity, reference: `BATCH-${batchNumber}`,
         notes: `Added batch ${batchNumber}`, performedBy: 'system',
         ...(departmentId ? { departmentId } : {}),
       },
