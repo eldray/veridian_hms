@@ -113,8 +113,10 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('This item uses batch tracking. Receive or adjust it through a batch-aware workflow to keep batch and aggregate stock aligned.');
       }
 
+      let locationBalanceAfter: number;
       if (isOutgoing) {
-        await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
+        const balance = await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
+        locationBalanceAfter = balance.quantity;
         const updated = await tx.stockItem.updateMany({
           where: { id: stockItemId, currentStock: { gte: effectiveQuantity } },
           data: { currentStock: { decrement: effectiveQuantity } }
@@ -124,15 +126,16 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           throw new ValidationError(`Insufficient hospital stock. Current: ${item?.currentStock || 0}, requested: ${effectiveQuantity}`);
         }
       } else {
-        await increaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
+        const balance = await increaseDepartmentStockBalance(tx, stockItemId, departmentId, effectiveQuantity, wardId);
+        locationBalanceAfter = balance.quantity;
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
-      const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+      const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
       return tx.stockTransaction.create({
         data: {
           stockItemId, transactionType, quantity: effectiveQuantity,
-          balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
+          balanceAfter: locationBalanceAfter, reference, notes, performedBy: performedBy || 'system',
           requisitionId, invoiceId, departmentId, wardId, adjustmentDirection,
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined
         }
