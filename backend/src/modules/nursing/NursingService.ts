@@ -44,9 +44,13 @@ export class NursingService extends BaseService {
     }
 
     const firstDoseAt = new Date(prescribedAt);
-    firstDoseAt.setMinutes(0, 0, 0);
-    firstDoseAt.setHours(firstDoseAt.getHours() + 1);
+    if (Number.isNaN(firstDoseAt.getTime())) {
+      throw new ValidationError('Prescription date must be valid before scheduling medication doses');
+    }
 
+    // Do not invent a one-hour delay for the first dose. The first dose is due
+    // from the recorded prescription time; the prescriber/nurse determines timing
+    // clinically, especially for urgent and stat medication.
     return { intervalHours, requiredDoses, firstDoseAt };
   }
 
