@@ -170,7 +170,10 @@ export class AntenatalController extends BaseController {
       
       if (req.body.antenatalBookingId) {
         await this.service.closeBooking(req.body.antenatalBookingId, {
-          deliveryDate: new Date(), deliveryOutcome: req.body.deliveryOutcome || 'delivered', deliveryRecordId: record.id
+          // Use the recorded delivery date, not the server's current date.
+          deliveryDate: new Date(req.body.deliveryDate),
+          deliveryOutcome: req.body.deliveryOutcome,
+          deliveryRecordId: record.id
         });
       }
       return this.created(res, record, 'Delivery record created successfully');
@@ -195,18 +198,26 @@ export class AntenatalController extends BaseController {
   });
 
   // ✅ PRESERVED: Your exact transformation logic for multiple births
-  updateDeliveryRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const requestData = { ...req.body };
-    if (requestData.newborns) {
-      requestData.Newborn = requestData.newborns;
-      delete requestData.newborns;
-    }
-    delete requestData.attendanceId;
-    delete requestData.patientId;
-    
-    const record = await this.service.updateDeliveryRecord(req.params.id, requestData);
-    return this.ok(res, record, 'Delivery record updated');
-  });
+  updateDeliveryRecord = [
+    body('deliveryDate').optional().isISO8601().withMessage('Valid delivery date required'),
+    body('deliveryType').optional().isIn(['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple']),
+    body('deliveryOutcome').optional().isIn(['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death']),
+    body('gestationWeeks').optional().isInt({ min: 0, max: 42 }),
+    body('birthWeight').optional().isFloat({ min: 0, max: 10 }),
+    body('apgarScore1min').optional().isInt({ min: 0, max: 10 }),
+    body('apgarScore5min').optional().isInt({ min: 0, max: 10 }),
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      const requestData = { ...req.body };
+      if (requestData.newborns) {
+        requestData.Newborn = requestData.newborns;
+        delete requestData.newborns;
+      }
+      const record = await this.service.updateDeliveryRecord(req.params.id, requestData);
+      return this.ok(res, record, 'Delivery record updated');
+    })
+  ];
 
   deleteDeliveryRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     await this.service.deleteDeliveryRecord(req.params.id);
@@ -246,10 +257,24 @@ export class AntenatalController extends BaseController {
     return this.ok(res, record);
   });
 
-  updatePostnatalRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const record = await this.service.updatePostnatalRecord(req.params.id, req.body);
-    return this.ok(res, record, 'Postnatal record updated');
-  });
+  updatePostnatalRecord = [
+    body('examinationDate').optional().isISO8601().withMessage('Valid examination date required'),
+    body('nextVisitDate').optional({ nullable: true }).isISO8601().withMessage('Valid next visit date required'),
+    body('dayNumber').optional().isInt({ min: 1, max: 60 }),
+    body('maternalCondition').optional().isIn(['good', 'fair', 'poor', 'critical']),
+    body('breastfeedingStatus').optional().isIn(['exclusive', 'mixed', 'not_breastfeeding']),
+    body('babyCondition').optional().isIn(['good', 'fair', 'poor', 'critical']),
+    body('temperature').optional().isFloat({ min: 30, max: 45 }),
+    body('pulse').optional().isInt({ min: 20, max: 250 }),
+    body('bloodPressure').optional().isString().isLength({ max: 30 }),
+    body('referralMade').optional().isBoolean(),
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      const record = await this.service.updatePostnatalRecord(req.params.id, req.body);
+      return this.ok(res, record, 'Postnatal record updated');
+    })
+  ];
 
   deletePostnatalRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     await this.service.deletePostnatalRecord(req.params.id);
