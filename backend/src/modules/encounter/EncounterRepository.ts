@@ -1052,15 +1052,15 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         remaining -= move;
       }
     }
-    await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    const departmentBalance = await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
     const changed = await tx.stockItem.updateMany({
       where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
       data: { currentStock: { decrement: quantity } },
     });
     if (changed.count !== 1) throw new ValidationError(`Insufficient hospital-wide stock for ${item.name}`);
-    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true } });
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
     if (!stock) throw new NotFoundError('Stock item', stockItemId);
-    return { balanceAfter: stock.currentStock, allocations };
+    return { balanceAfter: departmentBalance.quantity, allocations };
   }
 
   private async restoreConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string | null, allocationsValue: any) {
@@ -1081,11 +1081,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     } else if (await tx.stockBatch.count({ where: { stockItemId } }) > 0) {
       throw new ValidationError('This historic use has no saved batch allocation; manual reconciliation is required');
     }
-    await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    const departmentBalance = await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
     await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
-    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { currentStock: true } });
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
     if (!stock) throw new NotFoundError('Stock item', stockItemId);
-    return stock.currentStock;
+    return departmentBalance.quantity;
   }
 
   async recordConsumableUse(encounterId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
