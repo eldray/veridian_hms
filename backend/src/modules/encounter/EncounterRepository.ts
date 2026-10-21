@@ -665,14 +665,36 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id: medicationId, attendanceId: encounterId },
         include: { StockItem: true },
       });
-      if (!med) throw new Error('Medication not found');
+      if (!med) throw new NotFoundError('Medication', medicationId);
+
+      const allowedStatuses = ['prescribed', 'dispensed', 'administered', 'cancelled'];
+      if (data.status !== undefined && !allowedStatuses.includes(data.status)) {
+        throw new ValidationError('Invalid medication status');
+      }
+      if (data.status !== undefined && data.status !== med.status) {
+        const allowedTransitions: Record<string, string[]> = {
+          prescribed: ['dispensed', 'cancelled'],
+          dispensed: ['administered'],
+          administered: [],
+          cancelled: [],
+        };
+        if (!(allowedTransitions[med.status] || []).includes(data.status)) {
+          throw new ValidationError(`Medication cannot transition from "${med.status}" to "${data.status}"`);
+        }
+      }
+      if (data.quantity !== undefined && (!Number.isInteger(data.quantity) || data.quantity <= 0)) {
+        throw new ValidationError('Medication quantity must be a positive whole number');
+      }
+      if (['dispensed', 'administered', 'cancelled'].includes(med.status) && data.quantity !== undefined && data.quantity !== med.quantity) {
+        throw new ValidationError('Quantity cannot be changed after dispensing or cancellation; use the correction workflow');
+      }
 
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
       if (data.administeredDoses !== undefined) updateData.administeredDoses = data.administeredDoses;
 
-      const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
+      const isDispensing = data.status === 'dispensed' && med.status === 'prescribed';
 
       if (isDispensing) {
         const qty = data.quantity ?? med.quantity ?? 1;
@@ -728,8 +750,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (data.status === 'administered') {
         // If the caller sent a specific doseId, use it. Otherwise pick the next pending.
         let dose = data.doseId
-          ? await tx.medicationDose.findUnique({ where: { id: data.doseId } })
+          ? await tx.medicationDose.findFirst({
+              where: { id: data.doseId, medicationId },
+            })
           : null;
+
+        if (data.doseId && !dose) {
+          throw new ValidationError('The selected dose does not belong to this medication');
+        }
 
         if (!dose) {
           dose = await tx.medicationDose.findFirst({
@@ -739,6 +767,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
             },
             orderBy: { doseNumber: 'asc' },
           });
+        }
+
+        if (dose && !['scheduled', 'due', 'late'].includes(dose.status)) {
+          throw new ValidationError('This medication dose has already been actioned and cannot be administered again');
         }
 
         if (dose) {
@@ -766,6 +798,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         select: { id: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
+
+      const existing = await tx.medication.findUnique({
+        where: { id: medication.id },
+        select: { status: true },
+      });
+      if (!existing) throw new NotFoundError('Medication', medicationId);
+      if (existing.status !== 'prescribed') {
+        throw new ValidationError('Only an undispensed prescription can be cancelled here; dispensed medication requires the documented return/correction workflow');
+      }
 
       const cancelled = await tx.medication.update({
         where: { id: medication.id },
