@@ -638,3 +638,32 @@ describe('primary diagnosis removal protection', () => {
     expect(deleteMany).not.toHaveBeenCalled();
   });
 });
+
+
+describe('ANC partial-update clinical completeness', () => {
+  it('does not allow clearing danger-sign details while danger signs remain marked present', async () => {
+    const repository = new AntenatalRepository({
+      aNCVisit: {
+        findUnique: vi.fn().mockResolvedValue({
+          dangerSignsPresent: true, dangerSignsList: ['vaginal_bleeding'],
+          referralMade: false, referredTo: null,
+        }),
+      },
+    } as any);
+    await expect(repository.updateVisit('visit-1', { dangerSignsList: [] } as any))
+      .rejects.toThrow(/at least one danger sign/i);
+  });
+
+  it('does not allow clearing the destination of an existing referral', async () => {
+    const repository = new AntenatalRepository({
+      aNCVisit: {
+        findUnique: vi.fn().mockResolvedValue({
+          dangerSignsPresent: false, dangerSignsList: [],
+          referralMade: true, referredTo: 'Tamale Teaching Hospital',
+        }),
+      },
+    } as any);
+    await expect(repository.updateVisit('visit-1', { referredTo: '  ' } as any))
+      .rejects.toThrow(/referral destination/i);
+  });
+});
