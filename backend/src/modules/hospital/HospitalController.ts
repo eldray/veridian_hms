@@ -20,7 +20,7 @@ export class HospitalController extends BaseController {
       const hospitals = await this.hospitalService.getAllHospitals();
       this.ok(res, hospitals, 'Hospitals retrieved successfully');
     } catch (error) {
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -35,7 +35,7 @@ export class HospitalController extends BaseController {
 
       this.ok(res, hospital, 'Hospital retrieved successfully');
     } catch (error) {
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -60,7 +60,7 @@ export class HospitalController extends BaseController {
         return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -88,7 +88,7 @@ export class HospitalController extends BaseController {
         return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -111,7 +111,7 @@ export class HospitalController extends BaseController {
         return this.notFound(res, 'Hospital');
       }
 
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -126,7 +126,7 @@ export class HospitalController extends BaseController {
 
       this.ok(res, nhisSettings, 'NHIS settings retrieved successfully');
     } catch (error) {
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 
@@ -163,7 +163,7 @@ export class HospitalController extends BaseController {
         return this.conflict(res, 'NHIS facility code already exists');
       }
 
-      this.error(res, error);
+      return this.error(res, error);
     }
   };
 }
