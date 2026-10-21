@@ -161,8 +161,10 @@ export class StockTransactionService extends BaseService {
       // Legacy rows may store outgoing quantities as negative values. Reports
       // normalize movement magnitudes here so totals remain correct for both
       // legacy and new positive-quantity ledger entries.
+      const isReversedConsumableUse = (t: any) =>
+        /^Consumable use:\s*\[(?:EDITED|DELETED)\]/i.test(String(t.notes || ''));
       const sumMagnitude = (type: string) => itemTxs
-        .filter((t: any) => t.transactionType === type)
+        .filter((t: any) => t.transactionType === type && !(type === 'sale' && isReversedConsumableUse(t)))
         .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
       const purchases = sumMagnitude('purchase');
       const transfersIn = sumMagnitude('transfer_in');
@@ -170,7 +172,13 @@ export class StockTransactionService extends BaseService {
       const requisitions = sumMagnitude('requisition');
       const writeOffs = sumMagnitude('write_off');
       const transfersOut = sumMagnitude('transfer_out');
-      const adjustmentRows = itemTxs.filter((t: any) => t.transactionType === 'adjustment');
+      // Reversal rows are necessary to reconcile real stock balances, but they
+      // are not new operational adjustments. Keep them in the signed ledger math
+      // while excluding them from the adjustment activity totals.
+      const adjustmentRows = itemTxs.filter((t: any) =>
+        t.transactionType === 'adjustment' &&
+        !/Consumable use (?:edit|deletion) reversal:/i.test(String(t.notes || ''))
+      );
       const adjustmentIn = adjustmentRows
         .filter((t: any) => t.adjustmentDirection === 'increase' || (!t.adjustmentDirection && Number(t.quantity) >= 0))
         .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
@@ -185,7 +193,10 @@ export class StockTransactionService extends BaseService {
       const hospitalWide = Boolean(filters.includeAllStockLocations);
       const totalOut = sales + requisitions + writeOffs + (hospitalWide ? 0 : transfersOut) + adjustmentOut;
       const totalIn = purchases + (hospitalWide ? 0 : transfersIn) + adjustmentIn;
-      const netChange = totalIn - totalOut;
+      // Reconcile against every ledger movement, including correction entries
+      // for edited/deleted consumable uses. Activity columns intentionally omit
+      // superseded uses and their reversal rows, but the balance must not.
+      const netChange = itemTxs.reduce((sum: number, t: any) => sum + signedMovement(t), 0);
       // currentStock is today's balance. Reverse post-period movements to report
       // the actual closing balance at endDate, then derive the period opening balance.
       const closingStock = item.currentStock - afterEndNetChange;
