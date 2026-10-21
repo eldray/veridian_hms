@@ -352,15 +352,30 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   // ===================== DELIVERY RECORDS =====================
   private mapNewborns(input: any): any[] {
     const list: any[] = Array.isArray(input) ? input : Array.isArray(input?.create) ? input.create : [];
-    return list.map((b: any, i: number) => ({
-      order: b.order ?? i + 1, birthWeight: Number(b.birthWeight) || 0, gender: b.gender || 'other',
-      apgarScore1min: b.apgarScore1min ?? null, apgarScore5min: b.apgarScore5min ?? null,
-      resuscitation: !!b.resuscitation, outcome: b.outcome || 'alive', anomalies: b.anomalies || [],
-      referredTo: b.referredTo || null, breastfeedingWithin30Min: !!b.breastfeedingWithin30Min,
-      eyeProphylaxisGiven: !!b.eyeProphylaxisGiven, cordCareMethod: b.cordCareMethod || 'dry_cord',
-      babyWeightAt6to10Days: b.babyWeightAt6to10Days ?? null,
-      weightAt6to10DaysDate: b.weightAt6to10DaysDate ? new Date(b.weightAt6to10DaysDate) : null
-    }));
+    const allowedOutcomes = ['alive', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'];
+    return list.map((b: any, i: number) => {
+      if (!b || !allowedOutcomes.includes(String(b.outcome))) {
+        throw new ValidationError(`A confirmed outcome is required for newborn ${i + 1}`);
+      }
+      const birthWeight = Number(b.birthWeight);
+      if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 15) {
+        throw new ValidationError(`Newborn ${i + 1} birth weight must be recorded in kilograms between 0 and 15`);
+      }
+      for (const [field, value] of [['Apgar score at 1 minute', b.apgarScore1min], ['Apgar score at 5 minutes', b.apgarScore5min]] as const) {
+        if (value !== undefined && value !== null && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
+          throw new ValidationError(`${field} for newborn ${i + 1} must be an integer between 0 and 10`);
+        }
+      }
+      return {
+        order: b.order ?? i + 1, birthWeight, gender: b.gender || 'other',
+        apgarScore1min: b.apgarScore1min ?? null, apgarScore5min: b.apgarScore5min ?? null,
+        resuscitation: !!b.resuscitation, outcome: b.outcome, anomalies: b.anomalies || [],
+        referredTo: b.referredTo || null, breastfeedingWithin30Min: !!b.breastfeedingWithin30Min,
+        eyeProphylaxisGiven: !!b.eyeProphylaxisGiven, cordCareMethod: b.cordCareMethod || 'dry_cord',
+        babyWeightAt6to10Days: b.babyWeightAt6to10Days ?? null,
+        weightAt6to10DaysDate: b.weightAt6to10DaysDate ? new Date(b.weightAt6to10DaysDate) : null
+      };
+    });
   }
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
