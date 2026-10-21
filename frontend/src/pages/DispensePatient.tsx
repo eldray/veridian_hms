@@ -228,9 +228,17 @@ export default function DispensePatient() {
       setConsumableUses([]);
       return;
     }
+    let active = true;
     getEncounterConsumableUses(selectedAttendanceId)
-      .then(response => setConsumableUses(Array.isArray(response?.data) ? response.data : []))
-      .catch((err: any) => toastError('Consumable history unavailable', err?.response?.data?.message || err.message));
+      .then(response => {
+        const data = response?.data;
+        const uses = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+        if (active) setConsumableUses(uses);
+      })
+      .catch((err: any) => {
+        if (active) toastError('Consumable history unavailable', err?.response?.data?.message || err.message);
+      });
+    return () => { active = false; };
   }, [selectedAttendanceId]);
 
   useLiveRefresh(['encounters'], async () => {
