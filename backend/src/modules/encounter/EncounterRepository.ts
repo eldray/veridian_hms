@@ -566,29 +566,85 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
     const actorId = await this.requireActorId(userId);
-    return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
-      if (!med) throw new Error('Medication not found');
-      if (med.stockItemId && med.StockItem && med.StockItem.currentStock < quantity) throw new Error('Insufficient stock');
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Dispensing quantity must be a positive whole number');
+    }
+    if (expiryDate && Number.isNaN(new Date(expiryDate).getTime())) {
+      throw new ValidationError('A valid expiry date is required when an expiry date is supplied');
+    }
 
-      // Update medication status
-      const updatedMed = await tx.medication.update({
-        where: { id: medicationId },
-        data: { status: 'dispensed', dispensedAt: new Date(), dispensedById: actorId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, quantity }
+    return this.prisma.$transaction(async (tx) => {
+      // Scope the prescription to the requested attendance and allow dispensing once only.
+      const med = await tx.medication.findFirst({
+        where: { id: medicationId, attendanceId: encounterId },
+        include: { StockItem: true },
+      });
+      if (!med) throw new NotFoundError('Medication', medicationId);
+      if (med.status !== 'prescribed') {
+        throw new ValidationError('Only prescribed medication can be dispensed');
+      }
+      if (!med.stockItemId || !med.StockItem || !med.StockItem.isActive || !med.StockItem.isMedication) {
+        throw new ValidationError('The prescribed medication is not linked to an active medication stock item');
+      }
+
+      // Conditional decrement prevents concurrent requests from taking stock below zero.
+      const decremented = await tx.stockItem.updateMany({
+        where: {
+          id: med.stockItemId,
+          isActive: true,
+          isMedication: true,
+          currentStock: { gte: quantity },
+        },
+        data: { currentStock: { decrement: quantity } },
+      });
+      if (decremented.count !== 1) {
+        const current = await tx.stockItem.findUnique({
+          where: { id: med.stockItemId },
+          select: { currentStock: true },
+        });
+        throw new ValidationError(`Insufficient or unavailable stock. Available: ${current?.currentStock ?? 0}`);
+      }
+
+      const after = await tx.stockItem.findUnique({
+        where: { id: med.stockItemId },
+        select: { currentStock: true },
+      });
+      if (!after) throw new NotFoundError('Stock item', med.stockItemId);
+
+      const updated = await tx.medication.updateMany({
+        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
+        data: {
+          status: 'dispensed',
+          dispensedAt: new Date(),
+          dispensedById: actorId,
+          dispensedBatchNumber: batchNumber,
+          dispensedExpiryDate: expiryDate,
+          dispensedUnitCost: med.StockItem.costPrice,
+          quantity,
+        },
+      });
+      if (updated.count !== 1) {
+        // Throwing rolls back the conditional stock decrement and transaction log.
+        throw new ConflictError('This prescription has already changed; refresh before dispensing');
+      }
+
+      await tx.stockTransaction.create({
+        data: {
+          stockItemId: med.stockItemId,
+          transactionType: 'sale',
+          quantity: -quantity,
+          balanceAfter: after.currentStock,
+          performedBy: actorId,
+          reference: medicationId,
+        },
       });
 
-      // Deduct stock safely
-      if (med.stockItemId && med.StockItem) {
-        await tx.stockItem.update({
-          where: { id: med.stockItemId },
-          data: { currentStock: { decrement: quantity } }
-        });
-        // Log transaction
-        await tx.stockTransaction.create({
-          data: { stockItemId: med.stockItemId, transactionType: 'sale', quantity: -quantity, balanceAfter: med.StockItem.currentStock - quantity, performedBy: actorId, reference: medicationId }
-        });
-      }
-      return updatedMed;
+      return tx.medication.findUnique({
+        where: { id: medicationId },
+        include: {
+          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+        },
+      });
     });
   }
 
