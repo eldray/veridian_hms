@@ -63,6 +63,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       if (departmentId && wardId) throw new ValidationError('Select either a department or a ward, not both');
       const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off' || (transactionType === 'adjustment' && adjustmentDirection === 'decrease');
+      const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
 
       // Sales/dispensing from a batch-tracked department must reduce that department's
       // FEFO batches and the hospital aggregate in the same transaction.
@@ -91,6 +92,13 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
             data: { quantity: { decrement: move } }
           });
           if (changed.count !== 1) throw new ValidationError('Stock changed during the sale. Please retry.');
+          batchAllocations.push({
+            batchId: batch.id,
+            batchNumber: batch.batchNumber,
+            quantity: move,
+            expiryDate: batch.expiryDate,
+            costPrice: String(batch.costPrice),
+          });
           remaining -= move;
         }
       } else if (batchCount > 0) {
@@ -117,7 +125,8 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         data: {
           stockItemId, transactionType, quantity: effectiveQuantity,
           balanceAfter: updatedItem!.currentStock, reference, notes, performedBy: performedBy || 'system',
-          requisitionId, invoiceId, departmentId, wardId, adjustmentDirection
+          requisitionId, invoiceId, departmentId, wardId, adjustmentDirection,
+          batchAllocations: batchAllocations.length ? batchAllocations as any : undefined
         }
       });
     });
