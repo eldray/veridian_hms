@@ -11,9 +11,10 @@ describe('unassigned stock movement filters', () => {
   it('queries nullable department IDs instead of a non-existent sentinel', async () => {
     const count = vi.fn().mockResolvedValue(0);
     const findMany = vi.fn().mockResolvedValue([]);
+    const balanceFindMany = vi.fn().mockResolvedValue([]);
     const prisma: any = {
       stockTransaction: { count, findMany },
-      stockItemDepartmentBalance: { findMany: vi.fn().mockResolvedValue([]) },
+      stockItemDepartmentBalance: { findMany: balanceFindMany },
     };
     const repository = new StockItemRepository(prisma);
 
@@ -25,6 +26,10 @@ describe('unassigned stock movement filters', () => {
     expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { departmentId: null, wardId: null },
     }));
+    expect(balanceFindMany).toHaveBeenCalledWith({
+      where: { departmentId: null, wardId: null },
+      select: { stockItemId: true, quantity: true },
+    });
   });
 
   it('keeps post-period unassigned movements in the historical reconciliation query', async () => {
