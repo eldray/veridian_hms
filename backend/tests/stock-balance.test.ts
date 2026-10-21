@@ -710,3 +710,46 @@ describe('stock batch service expiry calendar', () => {
     );
   });
 });
+
+
+describe('legacy negative stock issue reversal', () => {
+  it('restores the positive issued quantity to both the location and hospital aggregate', async () => {
+    const transaction = {
+      id: 'legacy-sale',
+      stockItemId: 'item-1',
+      transactionType: 'sale',
+      quantity: -3,
+      departmentId: 'pharmacy',
+      wardId: null,
+      invoiceId: null,
+      requisitionId: null,
+      notes: 'Manual sale',
+      reference: 'LEGACY-001',
+    };
+    const balanceUpsert = vi.fn().mockResolvedValue({ quantity: 8 });
+    const aggregateUpdate = vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 18 });
+    const tx: any = {
+      stockTransaction: {
+        findUnique: vi.fn().mockResolvedValue(transaction),
+        delete: vi.fn().mockResolvedValue(transaction),
+      },
+      stockBatch: { count: vi.fn().mockResolvedValue(0) },
+      stockItemDepartmentBalance: { upsert: balanceUpsert },
+      stockItem: { update: aggregateUpdate },
+    };
+    const repository = new StockTransactionRepository({
+      $transaction: async (callback: any) => callback(tx),
+    } as any);
+
+    await repository.deleteSafely('legacy-sale');
+
+    expect(balanceUpsert).toHaveBeenCalledWith(expect.objectContaining({
+      update: { quantity: { increment: 3 } },
+    }));
+    expect(aggregateUpdate).toHaveBeenCalledWith({
+      where: { id: 'item-1' },
+      data: { currentStock: { increment: 3 } },
+    });
+    expect(tx.stockTransaction.delete).toHaveBeenCalledWith({ where: { id: 'legacy-sale' } });
+  });
+});
