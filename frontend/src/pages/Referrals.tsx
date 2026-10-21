@@ -411,6 +411,18 @@ export default function Referrals() {
     setShowModal(true);
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!searchParams.get('patientId') || !selectedPatientId || structuredPartI.clientName) return;
+    const patient: any = patients.find((item: any) =>
+      (item.id || item._id) === selectedPatientId
+    );
+    if (!patient) return;
+    setStructuredPartI(prev => ({
+      ...prev,
+      clientName: getPatientName(patient),
+    }));
+  }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
+
   useEffect(() => { loadData(); }, []);
   useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
 
