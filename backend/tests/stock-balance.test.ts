@@ -49,7 +49,7 @@ describe('purchase receipt location snapshots', () => {
 
 describe('purchase receipt batch integrity', () => {
   const makeRepository = (existingBatch: any) => {
-    const batchUpdate = vi.fn().mockResolvedValue(existingBatch);
+    const batchUpdate = vi.fn().mockResolvedValue({ count: 1 });
     const tx: any = {
       invoice: {
         create: vi.fn().mockResolvedValue({ id: 'invoice-1', createdAt: new Date('2026-10-20T00:00:00Z') }),
