@@ -96,24 +96,42 @@ export class StockTransactionService extends BaseService {
 
   async getStockValuation(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const stockItems = await this.repo.getValuationData(category, filters);
-    
-    // ✅ FIXED: Safely parse Decimals before math
-    const totalValue = stockItems.reduce((sum, item) => sum + (toNumber(item.costPrice) * item.currentStock), 0);
-    
-    const byCategory = stockItems.reduce((acc, item) => {
+
+    // Value batch-tracked stock at each lot's recorded cost. Use catalogue cost
+    // only for the portion of the scoped balance not represented by batches.
+    const valuedItems = stockItems.map((item: any) => {
+      const batches = Array.isArray(item.StockBatch) ? item.StockBatch : [];
+      const batchQuantity = batches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
+      const batchValue = batches.reduce((sum: number, batch: any) => sum + toNumber(batch.costPrice) * Math.max(0, Number(batch.quantity) || 0), 0);
+      const currentStock = Math.max(0, Number(item.currentStock) || 0);
+      const unbatchedQuantity = Math.max(0, currentStock - batchQuantity);
+      const stockDiscrepancy = Math.max(0, batchQuantity - currentStock);
+      return {
+        ...item,
+        batchQuantity,
+        batchValue,
+        unbatchedQuantity,
+        stockDiscrepancy,
+        totalValue: batchValue + toNumber(item.costPrice) * unbatchedQuantity,
+      };
+    });
+    const totalValue = valuedItems.reduce((sum: number, item: any) => sum + item.totalValue, 0);
+    const byCategory = valuedItems.reduce((acc: Record<string, any>, item: any) => {
       const cat = item.category || 'Uncategorized';
       if (!acc[cat]) acc[cat] = { count: 0, value: 0, items: [] };
       acc[cat].count++;
-      acc[cat].value += (toNumber(item.costPrice) * item.currentStock); // ✅ FIXED
+      acc[cat].value += item.totalValue;
       acc[cat].items.push(item.name);
       return acc;
     }, {} as Record<string, any>);
 
     return {
-      totalItems: stockItems.length, totalValue,
-      averageValuePerItem: stockItems.length > 0 ? totalValue / stockItems.length : 0,
+      totalItems: valuedItems.length,
+      totalValue,
+      averageValuePerItem: valuedItems.length > 0 ? totalValue / valuedItems.length : 0,
+      batchQuantityDiscrepancies: valuedItems.filter((item: any) => item.stockDiscrepancy > 0).length,
       byCategory,
-      items: stockItems.map(item => ({ ...item, totalValue: toNumber(item.costPrice) * item.currentStock }))
+      items: valuedItems,
     };
   }
 
