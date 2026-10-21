@@ -700,13 +700,19 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const qty = data.quantity ?? med.quantity ?? 1;
 
         if (med.stockItemId) {
-          if (!med.StockItem || med.StockItem.currentStock < qty) {
-            throw new Error(`Insufficient stock. Available: ${med.StockItem?.currentStock || 0}`);
+          if (!Number.isInteger(qty) || qty <= 0) {
+            throw new ValidationError('Dispensing quantity must be a positive whole number');
           }
-          await tx.stockItem.update({
-            where: { id: med.stockItemId },
+          if (!med.StockItem || !med.StockItem.isActive || !med.StockItem.isMedication) {
+            throw new ValidationError('The linked medication stock item is not active');
+          }
+          const stockUpdate = await tx.stockItem.updateMany({
+            where: { id: med.stockItemId, isActive: true, isMedication: true, currentStock: { gte: qty } },
             data: { currentStock: { decrement: qty } },
           });
+          if (stockUpdate.count !== 1) {
+            throw new ValidationError('Insufficient or unavailable stock');
+          }
           const after = await tx.stockItem.findUnique({
             where: { id: med.stockItemId },
             select: { currentStock: true },
