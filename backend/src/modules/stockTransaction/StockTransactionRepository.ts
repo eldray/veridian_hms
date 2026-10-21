@@ -261,18 +261,27 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   }
 
   async getMovementData(startDate?: Date, endDate?: Date, category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
-    const whereTx: any = {};
-    if (!filters.includeAllStockLocations) whereTx.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    const locationWhere: any = {};
+    if (!filters.includeAllStockLocations) locationWhere.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+
+    const whereTx: any = { ...locationWhere };
     if (startDate || endDate) {
       whereTx.transactionDate = {};
       if (startDate) whereTx.transactionDate.gte = startDate;
       if (endDate) whereTx.transactionDate.lte = endDate;
     }
 
+    const whereAfterEnd: any = { ...locationWhere };
+    if (endDate) whereAfterEnd.transactionDate = { gt: endDate };
+
     const whereItem: any = {};
     if (category) whereItem.category = category;
+    if (category) {
+      whereTx.StockItem = { category };
+      whereAfterEnd.StockItem = { category };
+    }
 
-    const [stockItems, transactions] = await Promise.all([
+    const [stockItems, transactions, transactionsAfterEnd] = await Promise.all([
       this.prisma.stockItem.findMany({
         where: whereItem,
         select: {
@@ -283,12 +292,15 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
           },
         },
       }),
-      this.getModel().findMany({ where: whereTx, include: { StockItem: { select: { id: true, name: true, category: true } } } }),
+      this.getModel().findMany({ where: whereTx, include: { StockItem: { select: { id: true, name: true, category: true } } }, orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }] }),
+      endDate
+        ? this.getModel().findMany({ where: whereAfterEnd, select: { stockItemId: true, transactionType: true, quantity: true, adjustmentDirection: true } })
+        : Promise.resolve([]),
     ]);
     const scopedItems = stockItems.map((item: any) => ({
       ...item,
       currentStock: filters.includeAllStockLocations ? item.currentStock : item.stockBalances.reduce((sum: number, b: any) => sum + b.quantity, 0),
     }));
-    return { stockItems: scopedItems, transactions };
+    return { stockItems: scopedItems, transactions, transactionsAfterEnd };
   }
 }
