@@ -713,6 +713,41 @@ describe('hospital-wide stock item movement reconciliation', () => {
   });
 });
 
+describe('hospital-wide movement filter reconciliation', () => {
+  it('keeps opening and closing stock correct when the ledger is filtered by type', async () => {
+    const service = new StockItemService({} as any);
+    const item = { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 10 };
+    (service as any).repo = {
+      getLedgerTransactions: async () => ({
+        total: 1,
+        rows: [
+          { id: 's1', stockItemId: 'gloves', transactionType: 'sale', quantity: 2, balanceAfter: 10, transactionDate: new Date('2026-10-05T00:00:00Z'), StockItem: item },
+        ],
+        reconciliationRows: [
+          { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, adjustmentDirection: null, StockItem: item },
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, adjustmentDirection: null, StockItem: item },
+        ],
+        transactionsAfterEnd: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00Z'),
+      new Date('2026-10-10T23:59:59.999Z'),
+      undefined,
+      { includeAllStockLocations: true, transactionType: 'sale' },
+    );
+
+    expect(report.items[0]).toMatchObject({
+      openingStock: 2,
+      closingStock: 10,
+      quantityIn: 0,
+      quantityOut: 2,
+    });
+    expect(report.summary.totalTransactions).toBe(1);
+  });
+});
+
 describe('historical movement data retrieval', () => {
   it('fetches post-period movements without the activity-type filter for reconciliation', async () => {
     const queries: any[] = [];
