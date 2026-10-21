@@ -178,7 +178,6 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
       if (batchCount > 0 && isOutgoing) {
         if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
-        const now = new Date();
         const batches = await tx.stockBatch.findMany({
           where: {
             stockItemId: id, departmentId: normalizedDepartmentId, wardId: null,
