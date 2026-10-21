@@ -422,3 +422,32 @@ describe('stock transaction location balance snapshots', () => {
     expect(savedTransaction.balanceAfter).toBe(7);
   });
 });
+
+describe('department report balance isolation', () => {
+  it('excludes ward balances from department low-stock and movement totals', async () => {
+    const stockItemQueries: any[] = [];
+    const prisma: any = {
+      stockItem: {
+        findMany: async (args: any) => {
+          stockItemQueries.push(args);
+          return [];
+        },
+      },
+      stockTransaction: {
+        findMany: async () => [],
+      },
+    };
+    const repository = new StockTransactionRepository(prisma);
+
+    await repository.getLowStockItems(undefined, { departmentId: 'pharmacy' });
+    await repository.getMovementData(undefined, undefined, undefined, { departmentId: 'pharmacy' });
+
+    expect(stockItemQueries).toHaveLength(2);
+    for (const query of stockItemQueries) {
+      expect(query.select.stockBalances.where).toEqual({
+        departmentId: 'pharmacy',
+        wardId: null,
+      });
+    }
+  });
+});
