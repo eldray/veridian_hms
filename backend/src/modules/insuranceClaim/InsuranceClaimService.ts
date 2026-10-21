@@ -363,6 +363,23 @@ ${claimsXml}
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
 
+  async getClaimsSummary(filters: { insuranceType?: 'nhis' | 'private' | 'corporate' } = {}) {
+    const where: any = {};
+    if (filters.insuranceType) where.InsuranceProvider = { type: filters.insuranceType };
+    const [totalClaims, draftClaims, finalizedClaims, aggregate] = await Promise.all([
+      this.prisma.insuranceClaim.count({ where }),
+      this.prisma.insuranceClaim.count({ where: { ...where, status: 'draft' } }),
+      this.prisma.insuranceClaim.count({ where: { ...where, status: 'finalized' } }),
+      this.prisma.insuranceClaim.aggregate({ where, _sum: { totalClaimAmount: true } }),
+    ]);
+    return {
+      totalClaims,
+      draftClaims,
+      finalizedClaims,
+      totalAmount: toNumber(aggregate._sum.totalClaimAmount),
+    };
+  }
+
   async getFinalizedClaimsTotal(dateFrom?: Date, dateTo?: Date, type?: string) {
     const where: any = { status: 'submitted' };
     if (type === 'nhis') where.InsuranceProvider = { type: 'nhis' };
