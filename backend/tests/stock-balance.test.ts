@@ -1061,3 +1061,45 @@ describe('legacy negative stock issue reversal', () => {
     expect(tx.stockTransaction.delete).toHaveBeenCalledWith({ where: { id: 'legacy-sale' } });
   });
 });
+
+
+describe('department-scoped low-stock batch details', () => {
+  it('filters batch details to the selected department while retaining scoped balance calculation', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'item-1',
+        name: 'Gloves',
+        currentStock: 30,
+        reorderLevel: 5,
+        StockBatch: [{ batchNumber: 'PHARMACY-LOT' }],
+        stockBalances: [{ quantity: 3 }],
+      },
+    ]);
+    const repository = new StockItemRepository({ stockItem: { findMany } } as any);
+
+    const result = await repository.getLowStockItems(undefined, { departmentId: 'pharmacy' });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        StockBatch: expect.objectContaining({
+          where: { isActive: true, departmentId: 'pharmacy', wardId: null },
+        }),
+      }),
+    }));
+    expect(result).toHaveLength(1);
+    expect(result[0].currentStock).toBe(3);
+  });
+
+  it('does not restrict batches by department for hospital-wide low-stock alerts', async () => {
+    const findMany = vi.fn().mockResolvedValue([]);
+    const repository = new StockItemRepository({ stockItem: { findMany } } as any);
+
+    await repository.getLowStockItems(undefined, { includeAllStockLocations: true });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      include: expect.objectContaining({
+        StockBatch: expect.objectContaining({ where: { isActive: true } }),
+      }),
+    }));
+  });
+});
