@@ -5,6 +5,13 @@ import { recordEncounterConsumableUse, updateEncounterConsumableUse } from '../.
 import { useToast } from '../../../store/toastStore';
 import { useAuthStore } from '../../../store/authStore';
 
+// Match backend batch rules: a lot remains usable through its expiry calendar day (UTC).
+const startOfUtcDayTimestamp = (): number => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today.getTime();
+};
+
 interface ConsumableModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -104,10 +111,10 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     // stock. The backend rejects expired/inactive batches, so the picker should
     // not present those units as available.
     if (Array.isArray(item.StockBatch) && item.StockBatch.length > 0) {
-      const now = Date.now();
+      const todayStart = startOfUtcDayTimestamp();
       const usableBatchQuantity = item.StockBatch.reduce((sum: number, batch: any) => {
         const expiry = batch.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
-        if (batch.isActive !== true || !Number.isFinite(expiry) || expiry <= now) return sum;
+        if (batch.isActive !== true || !Number.isFinite(expiry) || expiry < todayStart) return sum;
         return sum + Math.max(0, Number(batch.quantity) || 0);
       }, 0);
       return Math.min(departmentBalance, usableBatchQuantity);
@@ -133,11 +140,11 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
       return Array.isArray(selected?.StockBatch) && selected.StockBatch.length === 0;
     }
     const batches = Array.isArray(selected?.StockBatch) ? selected.StockBatch : [];
-    const now = Date.now();
+    const todayStart = startOfUtcDayTimestamp();
     return allocations.every((allocation: any) => {
       const batch = batches.find((candidate: any) => candidate.id === allocation.batchId);
       const expiry = batch?.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
-      return !!batch && batch.isActive === true && Number.isFinite(expiry) && expiry > now;
+      return !!batch && batch.isActive === true && Number.isFinite(expiry) && expiry >= todayStart;
     });
   })();
 
