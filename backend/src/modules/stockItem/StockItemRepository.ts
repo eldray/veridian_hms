@@ -465,9 +465,27 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           ? { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }
           : {}),
       },
-      include: { stockItem: { select: { name: true, category: true, unitOfMeasure: true, currentStock: true } } },
+      include: {
+        stockItem: {
+          select: {
+            name: true, category: true, unitOfMeasure: true, currentStock: true,
+            stockBalances: filters.includeAllStockLocations ? false as any : {
+              where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+              select: { quantity: true },
+            },
+          },
+        },
+      },
       orderBy: { expiryDate: 'asc' }
-    });
+    }).then((batches: any[]) => batches.map((batch: any) => ({
+      ...batch,
+      stockItem: batch.stockItem ? {
+        ...batch.stockItem,
+        currentStock: filters.includeAllStockLocations
+          ? batch.stockItem.currentStock
+          : (batch.stockItem.stockBalances || []).reduce((sum: number, balance: any) => sum + balance.quantity, 0),
+      } : batch.stockItem,
+    })));
   }
 
   async getCategories() {
