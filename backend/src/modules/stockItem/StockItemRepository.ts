@@ -165,6 +165,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const isOutgoing = transactionType === 'sale' || transactionType === 'requisition' || transactionType === 'write_off' || (transactionType === 'adjustment' && adjustmentDirection === 'decrease');
       const normalizedDepartmentId = departmentId || undefined;
       const batchCount = await tx.stockBatch.count({ where: { stockItemId: id } });
+      const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
 
       if (batchCount > 0 && isOutgoing) {
         if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
@@ -191,6 +192,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
             data: { quantity: { decrement: move } },
           });
           if (changed.count !== 1) throw new Error('Stock changed during the transaction. Please retry.');
+          batchAllocations.push({
+            batchId: batch.id,
+            batchNumber: batch.batchNumber,
+            quantity: move,
+            expiryDate: batch.expiryDate,
+            costPrice: String(batch.costPrice),
+          });
           remaining -= move;
         }
       } else if (batchCount > 0) {
@@ -216,6 +224,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           stockItemId: id, transactionType, quantity: effectiveQuantity,
           balanceAfter: updatedItem.currentStock, reference, notes,
           performedBy: performedBy || 'system', departmentId: normalizedDepartmentId, adjustmentDirection,
+          batchAllocations: batchAllocations.length ? batchAllocations as any : undefined,
         },
       });
       return updatedItem;
