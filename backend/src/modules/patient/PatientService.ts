@@ -144,7 +144,7 @@ export class PatientService extends BaseService {
     if (errors.length > 0) throw new ValidationError('Invalid clinical history', errors);
   }
 
-  async createPatient(data: CreatePatientDTO): Promise<Patient> {
+  async createPatient(data: CreatePatientDTO) {
     this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     this.validateCreateData(data);
     this.validateClinicalHistory(data);
