@@ -92,7 +92,11 @@ export class StockItemController extends BaseController {
   });
 
   getExpiringBatches = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getExpiringBatches(req.query.days ? parseInt(req.query.days as string) : 90);
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getExpiringBatches(
+      req.query.days ? parseInt(req.query.days as string) : 90,
+      { departmentId: req.user?.departmentId, includeAllStockLocations },
+    );
     return this.ok(res, result, 'Expiring batches retrieved');
   });
 
@@ -117,7 +121,12 @@ export class StockItemController extends BaseController {
   });
 
   getExpiryReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getExpiryReport(req.query.days ? parseInt(req.query.days as string) : 30, req.query.category as string);
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getExpiryReport(
+      req.query.days ? parseInt(req.query.days as string) : 30,
+      req.query.category as string,
+      { departmentId: req.user?.departmentId, includeAllStockLocations },
+    );
     return this.ok(res, result, 'Expiry report retrieved');
   });
 
