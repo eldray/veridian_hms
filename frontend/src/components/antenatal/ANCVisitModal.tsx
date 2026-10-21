@@ -11,6 +11,7 @@ interface ANCVisitModalProps {
   onClose: () => void;
   onSuccess: () => void;
   attendanceId: string;
+  patientId: string;
   bookingId: string;
   visitNumber?: number;
   existingVisit?: any;
@@ -18,7 +19,7 @@ interface ANCVisitModalProps {
 }
 
 export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
-  isOpen, onClose, onSuccess, attendanceId, bookingId,
+  isOpen, onClose, onSuccess, attendanceId, patientId, bookingId,
   visitNumber = 1, existingVisit, booking,
 }) => {
   const navigate = useNavigate();
@@ -102,7 +103,7 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
   }, [isOpen, existingVisit, booking?.gravida, booking?.para]);
 
   const handleReferFromVisit = () => {
-    const params = new URLSearchParams({ patientId: (booking as any)?.patientId || '', attendanceId, source: 'Antenatal Visit' });
+    const params = new URLSearchParams({ patientId, attendanceId, source: 'Antenatal Visit' });
     const reason = [formData.referralReason, ...(formData.dangerSignsList || [])].filter(Boolean).join('; ');
     if (reason) params.set('reason', reason);
     if (formData.notes) params.set('notes', formData.notes);
