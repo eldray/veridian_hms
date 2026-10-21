@@ -641,6 +641,41 @@ describe('calendar-day batch expiry semantics', () => {
 });
 
 
+describe('dispensed medication status transition guard', () => {
+  it('rejects resetting a dispensed prescription before touching stock', async () => {
+    const medicationUpdate = vi.fn();
+    const stockBatchUpdateMany = vi.fn();
+    const stockItemUpdateMany = vi.fn();
+    const stockTransactionCreate = vi.fn();
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'med-dispensed', attendanceId: 'enc-1', status: 'dispensed', quantity: 2,
+          stockItemId: 'item-1',
+          StockItem: { id: 'item-1', isActive: true, isMedication: true, currentStock: 8, costPrice: 2 },
+        }),
+        update: medicationUpdate,
+        updateMany: vi.fn(),
+      },
+      stockBatch: { count: vi.fn().mockResolvedValue(0), updateMany: stockBatchUpdateMany },
+      stockItem: { updateMany: stockItemUpdateMany },
+      stockTransaction: { create: stockTransactionCreate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+    (repository as any).requireActorId = async () => 'user-1';
+
+    await expect(repository.updateMedication(
+      'enc-1', 'med-dispensed', { status: 'prescribed' }, 'user-1',
+    )).rejects.toThrow(/cannot be reset to a pre-dispensing status/i);
+
+    expect(medicationUpdate).not.toHaveBeenCalled();
+    expect(stockBatchUpdateMany).not.toHaveBeenCalled();
+    expect(stockItemUpdateMany).not.toHaveBeenCalled();
+    expect(stockTransactionCreate).not.toHaveBeenCalled();
+  });
+});
+
 describe('clinical dispensing calendar-day expiry', () => {
   it('allows dispensing from a batch whose expiry date is today', async () => {
     const expiryToday = new Date();
