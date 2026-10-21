@@ -560,9 +560,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return { rows, total };
   }
 
-  async getTransactionsForUsageReport(startDate: Date) {
+  async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const where: any = { transactionType: { in: ['sale', 'requisition'] }, transactionDate: { gte: startDate } };
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
     return this.prisma.stockTransaction.findMany({
-      where: { transactionType: { in: ['sale', 'requisition'] }, transactionDate: { gte: startDate } },
+      where,
       include: { StockItem: { select: { name: true, category: true, unitOfMeasure: true, isMedication: true } } }
     });
   }
