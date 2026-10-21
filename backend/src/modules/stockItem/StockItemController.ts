@@ -123,7 +123,13 @@ export class StockItemController extends BaseController {
 
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const range = parseReportRange(req.query.startDate as string | undefined, req.query.endDate as string | undefined);
-    const result = await this.service.getMovementSummary(range?.gte, range?.lte, req.query.category as string | undefined, { stockItemId: req.query.stockItemId as string | undefined, transactionType: req.query.transactionType as string | undefined });
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getMovementSummary(range?.gte, range?.lte, req.query.category as string | undefined, {
+      stockItemId: req.query.stockItemId as string | undefined,
+      transactionType: req.query.transactionType as string | undefined,
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations,
+    });
     return this.ok(res, result, 'Movement summary retrieved');
   });
 
