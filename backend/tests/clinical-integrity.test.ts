@@ -42,29 +42,33 @@ describe('clinical vitals validation', () => {
 
 describe('clinical encounter ownership', () => {
   it('does not cancel a lab order that belongs to another encounter', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const repository = new EncounterRepository({ labTest: { updateMany } } as any);
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({ labTest: { findFirst, updateMany } } as any);
 
     await expect(repository.removeLabTest('encounter-a', 'lab-from-encounter-b'))
       .rejects.toThrow(/not found/i);
 
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 'lab-from-encounter-b', attendanceId: 'encounter-a', status: { not: 'cancelled' } },
-      data: { status: 'cancelled' },
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: 'lab-from-encounter-b', attendanceId: 'encounter-a' },
+      select: { id: true, status: true },
     });
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('does not cancel a scan that belongs to another encounter', async () => {
-    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
-    const repository = new EncounterRepository({ scan: { updateMany } } as any);
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({ scan: { findFirst, updateMany } } as any);
 
     await expect(repository.removeScan('encounter-a', 'scan-from-encounter-b'))
       .rejects.toThrow(/not found/i);
 
-    expect(updateMany).toHaveBeenCalledWith({
-      where: { id: 'scan-from-encounter-b', attendanceId: 'encounter-a', status: { not: 'cancelled' } },
-      data: { status: 'cancelled' },
+    expect(findFirst).toHaveBeenCalledWith({
+      where: { id: 'scan-from-encounter-b', attendanceId: 'encounter-a' },
+      select: { id: true, status: true },
     });
+    expect(updateMany).not.toHaveBeenCalled();
   });
 
   it('does not delete a rendered service through the wrong encounter URL', async () => {
@@ -553,5 +557,38 @@ describe('primary diagnosis update atomicity', () => {
 
     expect(updateMany).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('completed investigation cancellation protection', () => {
+  it('does not cancel a completed laboratory order', async () => {
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({
+      labTest: { findFirst: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), updateMany },
+    } as any);
+    await expect(repository.removeLabTest('attendance-1', 'lab-1'))
+      .rejects.toThrow(/completed or cancelled/i);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel a completed scan', async () => {
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({
+      scan: { findFirst: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }), updateMany },
+    } as any);
+    await expect(repository.removeScan('attendance-1', 'scan-1'))
+      .rejects.toThrow(/completed or cancelled/i);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel a completed procedure', async () => {
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({
+      procedure: { findFirst: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), updateMany },
+    } as any);
+    await expect(repository.removeProcedure('attendance-1', 'procedure-1'))
+      .rejects.toThrow(/completed or cancelled/i);
+    expect(updateMany).not.toHaveBeenCalled();
   });
 });
