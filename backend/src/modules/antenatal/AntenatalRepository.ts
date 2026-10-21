@@ -165,6 +165,15 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (typeof clean.visitDate === 'string') clean.visitDate = new Date(clean.visitDate);
     if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate as string);
+    for (const key of ['visitDate', 'nextVisitDate']) {
+      const value = clean[key];
+      if (value instanceof Date && !Number.isFinite(value.getTime())) {
+        throw new ValidationError(`A valid ${key} is required`);
+      }
+    }
+    if (Object.keys(clean).length === 0) {
+      throw new ValidationError('No editable antenatal visit fields supplied');
+    }
     return this.prisma.aNCVisit.update({
       where: { id }, data: clean,
       include: { recordedBy: { select: { fullName: true, role: true } } }
@@ -371,6 +380,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (typeof clean.examinationDate === 'string') clean.examinationDate = new Date(clean.examinationDate);
     if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate);
+    for (const key of ['examinationDate', 'nextVisitDate']) {
+      const value = clean[key];
+      if (value instanceof Date && !Number.isFinite(value.getTime())) {
+        throw new ValidationError(`A valid ${key} is required`);
+      }
+    }
     if (Object.keys(clean).length === 0) {
       throw new ValidationError('No valid postnatal fields supplied for update');
     }
