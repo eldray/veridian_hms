@@ -179,7 +179,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
 
     return {
       total,
-      byStatus: byStatus.map(s => ({ status: s.status, count: s._count, totalAmount: s._sum.totalAmount || 0 })),
+      byStatus: byStatus.map((s: any) => ({ status: s.status, count: s._count, totalAmount: s._sum.totalAmount || 0 })),
       totalAmount: totalAmount._sum.totalAmount || 0,
       averageAmount: totalAmount._avg.totalAmount || 0,
       convertedCount,
