@@ -9,6 +9,7 @@ import {
 import { formatPrescription } from './helpers/PrescriptionFormatter';
 
 type Tx = Prisma.TransactionClient;
+type ClaimItemDraft = Omit<Prisma.InsuranceClaimItemCreateWithoutClaimInput, 'itemNumber' | 'unitPrice' | 'lineTotal'>;
 
 /**
  * Builds InsuranceClaimItem rows for a NHIS claim.
@@ -93,7 +94,7 @@ export async function buildNHISClaimItems(
   let total = new Prisma.Decimal(0);
 
   const push = (
-    item: Omit<Prisma.InsuranceClaimItemCreateWithoutClaimInput, 'itemNumber'>,
+    item: ClaimItemDraft,
     amount: Prisma.Decimal | number,
   ) => {
     seq += 1;
