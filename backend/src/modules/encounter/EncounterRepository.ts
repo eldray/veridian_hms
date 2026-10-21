@@ -797,6 +797,9 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (existing.status === 'cancelled' && status !== 'cancelled') {
       throw new ValidationError('A cancelled laboratory order cannot be reopened; create a new order');
     }
+    if (existing.status === 'completed' && status !== 'completed') {
+      throw new ValidationError('A completed laboratory order cannot be moved back to an earlier status; use the correction workflow');
+    }
 
     // Only result fields are client-editable. Never accept IDs, audit attribution,
     // timestamps or other Prisma fields from the request body.
@@ -935,6 +938,9 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (existing.status === 'cancelled' && status !== 'cancelled') {
       throw new ValidationError('A cancelled scan order cannot be reopened; create a new order');
     }
+    if (existing.status === 'completed' && status !== 'completed') {
+      throw new ValidationError('A completed scan order cannot be moved back to an earlier status; use the correction workflow');
+    }
 
     const updateData: any = { status };
     for (const key of ['result', 'findings', 'impression', 'imageUrls']) {
@@ -1009,6 +1015,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (!existing) throw new NotFoundError('Procedure', procedureId);
     if (existing.status === 'cancelled' && status !== 'cancelled') {
       throw new ValidationError('A cancelled procedure cannot be reopened; create a new procedure order');
+    }
+    if (existing.status === 'completed' && status !== 'completed') {
+      throw new ValidationError('A completed procedure cannot be moved back to an earlier status; use the correction workflow');
     }
 
     const updateData: any = { status };
