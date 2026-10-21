@@ -246,3 +246,32 @@ describe('maternal record integrity', () => {
     expect(payload.iptp1Date).toBeUndefined();
   });
 });
+
+
+describe('maternal update validation', () => {
+  it('rejects unsupported maternal outcomes before updating a delivery record', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', { maternalOutcome: 'unknown-value' }))
+      .rejects.toThrow(/unsupported maternal outcome/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('accepts a common blood-pressure format and rejects impossible postnatal readings', async () => {
+    const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '120 / 80' }))
+      .resolves.toEqual({ id: 'postnatal-1' });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'postnatal-1' },
+      data: { bloodPressure: '120 / 80' },
+    }));
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', { bloodPressure: '80/120' }))
+      .rejects.toThrow(/plausible systolic\/diastolic/i);
+    expect(update).toHaveBeenCalledTimes(1);
+  });
+});
