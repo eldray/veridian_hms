@@ -212,7 +212,14 @@ export class StockTransferService extends BaseService {
           if (allocated !== qty) throw new Error(`Saved batch allocations for transfer item ${item.id} do not match dispatched quantity`);
         }
 
+        // Reject legacy transfers without allocations for batch-tracked items before changing balances.
+        if (!allocations.length) {
+          const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
+          if (batchCount > 0) throw new Error(`Transfer item ${item.id} has no saved batch allocations. Reconcile this legacy transfer before receipt.`);
+        }
+
         const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qty);
+        if (allocations.length) {
           for (const allocation of allocations) {
             const existing = await tx.stockBatch.findFirst({
               where: { stockItemId: item.stockItemId, batchNumber: allocation.batchNumber, departmentId: transfer.destinationId, wardId: null },
@@ -249,10 +256,6 @@ export class StockTransferService extends BaseService {
               });
             }
           }
-        } else {
-          // Backward compatibility for transfers created before batch allocations were saved.
-          const batchCount = await tx.stockBatch.count({ where: { stockItemId: item.stockItemId } });
-          if (batchCount > 0) throw new Error(`Transfer item ${item.id} has no saved batch allocations. Reconcile this legacy transfer before receipt.`);
         }
 
         await tx.stockTransaction.create({
