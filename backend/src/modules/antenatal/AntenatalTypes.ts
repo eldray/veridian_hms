@@ -47,6 +47,7 @@ export interface CreateAntenatalBookingInput {
 export interface UpdateAntenatalBookingInput {
   gravida?: number;
   para?: number;
+  lmp?: Date;
   edd?: Date;
   gestationalAgeWeeks?: number;
   riskLevel?: 'low' | 'medium' | 'high';
