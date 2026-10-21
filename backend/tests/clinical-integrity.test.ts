@@ -384,3 +384,50 @@ describe('ANC danger-sign and referral completeness', () => {
       .rejects.toThrow(/cannot be before the ANC visit date/i);
   });
 });
+
+
+describe('medication administration integrity', () => {
+  it('rejects a dose belonging to a different medication', async () => {
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
+          quantity: 1, stockItemId: null, StockItem: null,
+        }),
+        update: vi.fn().mockResolvedValue({ id: 'medication-1', status: 'administered' }),
+      },
+      medicationDose: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'dose-2', medicationId: 'medication-2', status: 'due',
+        }),
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      status: 'administered', doseId: 'dose-2',
+    }, 'nurse-1')).rejects.toThrow(/does not belong to this medication/i);
+  });
+
+  it('rejects a non-positive or fractional medication quantity before writing', async () => {
+    const tx: any = {
+      medication: { findUnique: vi.fn().mockResolvedValue({
+        id: 'medication-1', attendanceId: 'attendance-1', status: 'prescribed',
+        quantity: 1, stockItemId: null, StockItem: null,
+      }) },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      quantity: 1.5,
+    }, 'nurse-1')).rejects.toThrow(/positive whole number/i);
+  });
+});
