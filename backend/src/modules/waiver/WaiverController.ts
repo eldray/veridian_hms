@@ -26,7 +26,7 @@ export class WaiverController extends BaseController {
       startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
       endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined
     });
-    return this.paginated(res, result.waivers, { page, limit, total: result.total }, 'Waivers retrieved');
+    return this.paginated(res, result.data, { page, limit, total: result.pagination.total }, 'Waivers retrieved');
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
