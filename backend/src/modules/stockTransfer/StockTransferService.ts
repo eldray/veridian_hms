@@ -202,7 +202,7 @@ export class StockTransferService extends BaseService {
               if (existing.expiryDate.getTime() !== expectedExpiry.getTime()) {
                 throw new Error(`Destination already has batch ${allocation.batchNumber} with a different expiry date. Reconcile the batch before receiving this transfer.`);
               }
-              if (String(existing.costPrice) !== String(allocation.costPrice)) {
+              if (Number(existing.costPrice) !== Number(allocation.costPrice)) {
                 throw new Error(`Destination already has batch ${allocation.batchNumber} with a different cost price. Reconcile the batch before receiving this transfer.`);
               }
               if (!existing.isActive) {
