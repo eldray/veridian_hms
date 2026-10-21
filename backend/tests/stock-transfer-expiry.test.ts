@@ -146,4 +146,46 @@ describe('stock transfer receipt expiry safety', () => {
     expect(tx.stockBatch.create).not.toHaveBeenCalled();
     expect(tx.stockTransaction.create).not.toHaveBeenCalled();
   });
+
+  it('rejects null expiry and cost metadata before changing destination stock', async () => {
+    for (const invalidAllocation of [
+      { batchId: 'batch-null-expiry', quantity: 4, batchNumber: 'LOT-NULL-EXPIRY', expiryDate: null, costPrice: '12.50' },
+      { batchId: 'batch-null-cost', quantity: 4, batchNumber: 'LOT-NULL-COST', expiryDate: new Date(Date.now() + 86400000).toISOString(), costPrice: null },
+    ]) {
+      const transfer = {
+        id: `transfer-${invalidAllocation.batchId}`,
+        status: 'dispatched',
+        receivedAt: null,
+        destinationId: 'pharmacy',
+        origin: { name: 'Main Store' },
+        destination: { id: 'pharmacy' },
+        items: [{
+          id: `item-${invalidAllocation.batchId}`,
+          stockItemId: 'item-1',
+          quantitySent: 4,
+          quantityReceived: 0,
+          batchAllocations: [invalidAllocation],
+        }],
+      };
+      const balanceUpsert = vi.fn();
+      const tx: any = {
+        stockTransfer: {
+          findUnique: vi.fn().mockResolvedValue(transfer),
+          updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        },
+        stockItemDepartmentBalance: { upsert: balanceUpsert },
+        stockBatch: { count: vi.fn(), findFirst: vi.fn(), create: vi.fn(), update: vi.fn() },
+        stockTransaction: { create: vi.fn() },
+        stockTransferItem: { update: vi.fn() },
+      };
+      const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+      const service = new StockTransferService(prisma);
+
+      await expect(service.receiveTransfer(transfer.id, 'user-1'))
+        .rejects.toThrow(/invalid batch metadata or quantity/i);
+      expect(balanceUpsert).not.toHaveBeenCalled();
+      expect(tx.stockBatch.create).not.toHaveBeenCalled();
+      expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+    }
+  });
 });
