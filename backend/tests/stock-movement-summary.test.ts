@@ -787,6 +787,45 @@ describe('department movement filter reconciliation', () => {
   });
 });
 
+
+describe('filtered legacy adjustment quantities', () => {
+  it('uses the preceding full-ledger balance rather than the preceding visible adjustment', async () => {
+    const service = new StockItemService({} as any);
+    const item = { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 6 };
+    (service as any).repo = {
+      getLedgerTransactions: async () => ({
+        total: 2,
+        rows: [
+          { id: 'a1', stockItemId: 'gloves', transactionType: 'adjustment', quantity: 1, balanceAfter: 9, transactionDate: new Date('2026-10-02T00:00:00Z'), adjustmentDirection: null, StockItem: item },
+          { id: 'a2', stockItemId: 'gloves', transactionType: 'adjustment', quantity: 1, balanceAfter: 6, transactionDate: new Date('2026-10-04T00:00:00Z'), adjustmentDirection: null, StockItem: item },
+        ],
+        reconciliationRows: [
+          { id: 'p1', stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, balanceAfter: 10, adjustmentDirection: null, StockItem: item },
+          { id: 'a1', stockItemId: 'gloves', transactionType: 'adjustment', quantity: 1, balanceAfter: 9, adjustmentDirection: null, StockItem: item },
+          { id: 's1', stockItemId: 'gloves', transactionType: 'sale', quantity: 4, balanceAfter: 5, adjustmentDirection: null, StockItem: item },
+          { id: 'a2', stockItemId: 'gloves', transactionType: 'adjustment', quantity: 1, balanceAfter: 6, adjustmentDirection: null, StockItem: item },
+        ],
+        transactionsAfterEnd: [],
+        locationBalances: [{ stockItemId: 'gloves', quantity: 6 }],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00Z'),
+      new Date('2026-10-10T23:59:59.999Z'),
+      undefined,
+      { departmentId: 'pharmacy', transactionType: 'adjustment' },
+    );
+
+    expect(report.items[0]).toMatchObject({
+      openingStock: 0,
+      closingStock: 6,
+      quantityIn: 1,
+      quantityOut: 1,
+    });
+  });
+});
+
 describe('historical movement data retrieval', () => {
   it('fetches post-period movements without the activity-type filter for reconciliation', async () => {
     const queries: any[] = [];
