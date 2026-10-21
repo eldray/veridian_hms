@@ -450,11 +450,21 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     return scopedItems.filter((item: any) => item.currentStock <= item.reorderLevel);
   }
 
-  async getExpiringBatches(daysThreshold: number = 90) {
+  async getExpiringBatches(
+    daysThreshold: number = 90,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
     const thresholdDate = new Date();
     thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
     return this.prisma.stockBatch.findMany({
-      where: { expiryDate: { lte: thresholdDate, gte: new Date() }, isActive: true, quantity: { gt: 0 } },
+      where: {
+        expiryDate: { lte: thresholdDate, gte: new Date() },
+        isActive: true,
+        quantity: { gt: 0 },
+        ...(!filters.includeAllStockLocations
+          ? { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }
+          : {}),
+      },
       include: { stockItem: { select: { name: true, category: true, unitOfMeasure: true, currentStock: true } } },
       orderBy: { expiryDate: 'asc' }
     });
@@ -499,30 +509,50 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async getItemsForExpiryReport(category?: string) {
+  async getItemsForExpiryReport(
+    category?: string,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
     // Batch-tracked items may have no legacy item-level expiryDate, so do not
-    // exclude them from the report on that field alone.
+    // exclude them from the report on that field alone. Department reports only
+    // inspect batches and balances physically assigned to that department.
+    const batchLocationWhere = filters.includeAllStockLocations
+      ? {}
+      : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null };
     const where: any = {
       isActive: true,
       OR: [
         { expiryDate: { not: null } },
-        { StockBatch: { some: { isActive: true, quantity: { gt: 0 } } } },
+        { StockBatch: { some: { isActive: true, quantity: { gt: 0 }, ...batchLocationWhere } } },
       ],
     };
     if (category) where.category = category;
-    return this.getModel().findMany({
+    const items = await this.getModel().findMany({
       where,
       select: {
         id: true, name: true, category: true, currentStock: true, expiryDate: true,
         unitOfMeasure: true, costPrice: true,
         StockBatch: {
-          where: { isActive: true, quantity: { gt: 0 } },
+          where: { isActive: true, quantity: { gt: 0 }, ...batchLocationWhere },
           select: { batchNumber: true, expiryDate: true, quantity: true, costPrice: true },
           orderBy: { expiryDate: 'asc' },
+        },
+        stockBalances: filters.includeAllStockLocations ? false as any : {
+          where: batchLocationWhere,
+          select: { quantity: true },
         },
       },
       orderBy: { expiryDate: 'asc' },
     });
+    const scoped = items.map((item: any) => ({
+      ...item,
+      currentStock: filters.includeAllStockLocations
+        ? item.currentStock
+        : item.stockBalances.reduce((sum: number, balance: any) => sum + balance.quantity, 0),
+    }));
+    return scoped.filter((item: any) =>
+      item.currentStock > 0 || item.StockBatch.some((batch: any) => Number(batch.quantity) > 0)
+    );
   }
 
   async getTransactionsForMovementReport(startDate?: Date, endDate?: Date) {
