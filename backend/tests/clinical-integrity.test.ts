@@ -680,3 +680,32 @@ describe('encounter status workflow guards', () => {
     expect(findUnique).not.toHaveBeenCalled();
   });
 });
+
+
+describe('medication administration requires a due dose', () => {
+  it('does not mark a medication administered when no scheduled dose exists', async () => {
+    const medicationUpdate = vi.fn();
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
+          quantity: 1, stockItemId: null, StockItem: null,
+        }),
+        update: medicationUpdate,
+      },
+      medicationDose: {
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      status: 'administered',
+    }, 'nurse-1')).rejects.toThrow(/no scheduled medication dose/i);
+    expect(medicationUpdate).not.toHaveBeenCalled();
+  });
+});
