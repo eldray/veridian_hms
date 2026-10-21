@@ -998,14 +998,22 @@ export const seedCoreData = async (force: boolean = false) => {
       for (const { dept, quantity } of plan) {
         if (quantity <= 0) continue;
         try {
-          await prisma.stockBatch.upsert({
-            where: { stockItemId_batchNumber_departmentId_wardId: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id, wardId: null } },
-            create: {
-              stockItemId: stockItem.id, batchNumber: 'OPENING', expiryDate: openingExpiry, quantity,
-              costPrice: stockItem.costPrice, departmentId: dept.id, isActive: true,
-            },
-            update: { quantity, isActive: true },
+          const existingOpeningBatch = await prisma.stockBatch.findFirst({
+            where: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id, wardId: null },
           });
+          if (existingOpeningBatch) {
+            await prisma.stockBatch.update({
+              where: { id: existingOpeningBatch.id },
+              data: { quantity, isActive: true, expiryDate: openingExpiry, costPrice: stockItem.costPrice },
+            });
+          } else {
+            await prisma.stockBatch.create({
+              data: {
+                stockItemId: stockItem.id, batchNumber: 'OPENING', expiryDate: openingExpiry, quantity,
+                costPrice: stockItem.costPrice, departmentId: dept.id, wardId: null, isActive: true,
+              },
+            });
+          }
 
           const existingTxn = await prisma.stockTransaction.findFirst({
             where: { stockItemId: stockItem.id, reference: 'OPENING-BALANCE', departmentId: dept.id },
