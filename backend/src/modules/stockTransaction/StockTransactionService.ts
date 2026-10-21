@@ -132,14 +132,25 @@ export class StockTransactionService extends BaseService {
       const afterEndNetChange = (transactionsAfterEnd as any[])
         .filter((t: any) => t.stockItemId === item.id)
         .reduce((sum: number, t: any) => sum + signedMovement(t), 0);
-      const purchases = itemTxs.filter((t: any) => t.transactionType === 'purchase').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const transfersIn = itemTxs.filter((t: any) => t.transactionType === 'transfer_in').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const sales = itemTxs.filter((t: any) => t.transactionType === 'sale').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const requisitions = itemTxs.filter((t: any) => t.transactionType === 'requisition').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const writeOffs = itemTxs.filter((t: any) => t.transactionType === 'write_off').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const transfersOut = itemTxs.filter((t: any) => t.transactionType === 'transfer_out').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const adjustmentIn = itemTxs.filter((t: any) => t.transactionType === 'adjustment' && t.adjustmentDirection !== 'decrease').reduce((sum: number, t: any) => sum + t.quantity, 0);
-      const adjustmentOut = itemTxs.filter((t: any) => t.transactionType === 'adjustment' && t.adjustmentDirection === 'decrease').reduce((sum: number, t: any) => sum + t.quantity, 0);
+      // Legacy rows may store outgoing quantities as negative values. Reports
+      // normalize movement magnitudes here so totals remain correct for both
+      // legacy and new positive-quantity ledger entries.
+      const sumMagnitude = (type: string) => itemTxs
+        .filter((t: any) => t.transactionType === type)
+        .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
+      const purchases = sumMagnitude('purchase');
+      const transfersIn = sumMagnitude('transfer_in');
+      const sales = sumMagnitude('sale');
+      const requisitions = sumMagnitude('requisition');
+      const writeOffs = sumMagnitude('write_off');
+      const transfersOut = sumMagnitude('transfer_out');
+      const adjustmentRows = itemTxs.filter((t: any) => t.transactionType === 'adjustment');
+      const adjustmentIn = adjustmentRows
+        .filter((t: any) => t.adjustmentDirection === 'increase' || (!t.adjustmentDirection && Number(t.quantity) >= 0))
+        .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
+      const adjustmentOut = adjustmentRows
+        .filter((t: any) => t.adjustmentDirection === 'decrease' || (!t.adjustmentDirection && Number(t.quantity) < 0))
+        .reduce((sum: number, t: any) => sum + Math.abs(Number(t.quantity) || 0), 0);
 
       // Internal transfers affect the source/destination location but not the hospital total.
       const totalOut = sales + requisitions + writeOffs + transfersOut + adjustmentOut;
