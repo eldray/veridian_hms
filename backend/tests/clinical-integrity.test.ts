@@ -335,7 +335,7 @@ describe('investigation and procedure status integrity', () => {
     } as any);
 
     await expect(repository.updateScanStatus('scan-1', 'in_progress', {}, 'staff-1'))
-      .rejects.toThrow(/cannot be reopened or changed/i);
+      .rejects.toThrow(/completed scan report is locked/i);
     expect(scanUpdate).not.toHaveBeenCalled();
   });
 });
@@ -590,5 +590,30 @@ describe('completed investigation cancellation protection', () => {
     await expect(repository.removeProcedure('attendance-1', 'procedure-1'))
       .rejects.toThrow(/completed or cancelled/i);
     expect(updateMany).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('completed clinical record edit protection', () => {
+  it('locks completed laboratory results from ordinary edits', async () => {
+    const update = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      labTest: { findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'completed' }), update },
+    } as any);
+    await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: 'changed' }, 'staff-1'))
+      .rejects.toThrow(/completed laboratory result is locked/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('locks completed procedure records from ordinary edits', async () => {
+    const update = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'completed' }), update },
+    } as any);
+    await expect(repository.updateProcedureStatus('procedure-1', 'completed', { notes: 'changed' }, 'staff-1'))
+      .rejects.toThrow(/completed procedure record is locked/i);
+    expect(update).not.toHaveBeenCalled();
   });
 });
