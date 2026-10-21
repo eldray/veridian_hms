@@ -41,11 +41,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   const [formData, setFormData] = useState({
     deliveryDate: new Date().toISOString().split('T')[0],
     deliveryType: 'spontaneous_vertex',
-    deliveryOutcome: 'live_birth',
+    deliveryOutcome: '',
     placeOfDelivery: 'private_hospital',
     attendant: '',
     gestationWeeks: '',
-    maternalOutcome: 'alive',
+    maternalOutcome: '',
     referralTo: '',
     complications: [] as string[],
     notes: '',
@@ -59,7 +59,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     birthWeight: 0,
     gender: 'male',
     resuscitation: false,
-    outcome: 'alive',
+    outcome: '',
     anomalies: [],
     breastfeedingWithin30Min: false,
     eyeProphylaxisGiven: false,
@@ -71,11 +71,11 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       setFormData({
         deliveryDate: existingDelivery.deliveryDate?.split('T')[0] || new Date().toISOString().split('T')[0],
         deliveryType: existingDelivery.deliveryType || 'spontaneous_vertex',
-        deliveryOutcome: existingDelivery.deliveryOutcome || 'live_birth',
+        deliveryOutcome: existingDelivery.deliveryOutcome || '',
         placeOfDelivery: existingDelivery.placeOfDelivery || 'private_hospital',
         attendant: existingDelivery.attendant || '',
         gestationWeeks: existingDelivery.gestationWeeks?.toString() || '',
-        maternalOutcome: existingDelivery.maternalOutcome || 'alive',
+        maternalOutcome: existingDelivery.maternalOutcome || '',
         referralTo: existingDelivery.referralTo || '',
         complications: existingDelivery.complications || [],
         notes: existingDelivery.notes || '',
@@ -259,6 +259,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                   <label className={labelCls}>Delivery Outcome *</label>
                   <select value={formData.deliveryOutcome}
                     onChange={e => handleChange('deliveryOutcome', e.target.value)} required className={fieldCls}>
+                    <option value="" disabled>Select confirmed outcome</option>
                     <option value="live_birth">Live Birth</option>
                     <option value="stillbirth_fresh">Stillbirth (Fresh)</option>
                     <option value="stillbirth_macerated">Stillbirth (Macerated)</option>
@@ -305,9 +306,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className={labelCls}>Maternal Outcome</label>
+                    <label className={labelCls}>Maternal Outcome *</label>
                     <select value={formData.maternalOutcome}
-                      onChange={e => handleChange('maternalOutcome', e.target.value)} className={fieldCls}>
+                      onChange={e => handleChange('maternalOutcome', e.target.value)} required className={fieldCls}>
+                      <option value="" disabled>Select confirmed maternal outcome</option>
                       <option value="alive">Alive</option>
                       <option value="dead_direct_cause">Dead (Direct Cause)</option>
                       <option value="dead_indirect_cause">Dead (Indirect Cause)</option>
