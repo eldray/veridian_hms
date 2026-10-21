@@ -38,6 +38,14 @@ describe('clinical vitals validation', () => {
       muac: 27,
     })).not.toThrow();
   });
+
+  it('rejects implausible fetal heart rates outside the ANC clinical range', () => {
+    const repository = new EncounterRepository({} as any);
+    expect(() => (repository as any).validateClinicalVitalValues({ fetalHeartRate: 20 }))
+      .toThrow(/fetal heart rate must be between 60 and 200/i);
+    expect(() => (repository as any).validateClinicalVitalValues({ fetalHeartRate: 140 }))
+      .not.toThrow();
+  });
 });
 
 describe('clinical encounter ownership', () => {
