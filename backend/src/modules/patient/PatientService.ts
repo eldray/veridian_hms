@@ -139,7 +139,17 @@ export class PatientService extends BaseService {
         : data.insuranceProviderId,
     };
 
-    const patient = await this.prisma.patient.create({ data: patientData });
+    const patient = await this.prisma.patient.create({
+      data: patientData,
+      // Return the clinical information submitted with registration so the UI and
+      // downstream workflows can immediately confirm what was saved.
+      include: {
+        allergies: true,
+        medicalHistories: true,
+        surgicalHistories: true,
+        familyHistories: true,
+      },
+    });
     this.logInfo('Patient created successfully', { patientId: patient.id, folderNumber: patient.folderNumber });
     return patient;
   }
