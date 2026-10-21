@@ -411,6 +411,22 @@ export default function Referrals() {
     setShowModal(true);
   }, [searchParams]);
 
+  // A referral may arrive with a visit ID before the attendance store finishes loading.
+  // Once visits are available, verify that the supplied visit belongs to this patient.
+  useEffect(() => {
+    const requestedAttendanceId = searchParams.get('attendanceId');
+    const requestedPatientId = searchParams.get('patientId');
+    if (!requestedAttendanceId || !requestedPatientId || !attendances.length) return;
+    const matchingVisit = attendances.find((item: any) =>
+      item.id === requestedAttendanceId &&
+      (item.patientId || item.patient?.id) === requestedPatientId
+    );
+    if (!matchingVisit && selectedAttendanceId === requestedAttendanceId) {
+      setSelectedAttendanceId('');
+      toastError('Visit not found', 'The linked visit could not be matched to this patient. Select the correct visit before submitting the referral.');
+    }
+  }, [attendances, searchParams, selectedAttendanceId, toastError]);
+
   useEffect(() => {
     if (!searchParams.get('patientId') || !selectedPatientId || structuredPartI.clientName) return;
     const patient: any = patients.find((item: any) =>
