@@ -645,7 +645,7 @@ describe('expiry report location isolation', () => {
     await repository.getItemsForExpiryReport();
 
     expect(query.select.stockBalances.where).toEqual({
-      departmentId: '__NO_DEPARTMENT__',
+      departmentId: null,
       wardId: null,
     });
   });
