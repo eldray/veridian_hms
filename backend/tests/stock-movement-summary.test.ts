@@ -316,3 +316,35 @@ describe('stock ledger location scope', () => {
     expect(findArgs.where.departmentId).toBe('__NO_DEPARTMENT__');
   });
 });
+
+
+describe('stock usage report location scope', () => {
+  it('limits usage-report transactions to the caller department by default', async () => {
+    let query: any;
+    const prisma = {
+      stockTransaction: {
+        findMany: async (args: any) => { query = args; return []; },
+      },
+    };
+    const repo = new StockItemRepository(prisma as any);
+
+    await repo.getTransactionsForUsageReport(new Date('2026-10-01T00:00:00Z'), { departmentId: 'pharmacy' });
+
+    expect(query.where.departmentId).toBe('pharmacy');
+    expect(query.where.transactionType.in).toEqual(['sale', 'requisition']);
+  });
+
+  it('restricts callers without a department to unassigned usage rows', async () => {
+    let query: any;
+    const prisma = {
+      stockTransaction: {
+        findMany: async (args: any) => { query = args; return []; },
+      },
+    };
+    const repo = new StockItemRepository(prisma as any);
+
+    await repo.getTransactionsForUsageReport(new Date('2026-10-01T00:00:00Z'));
+
+    expect(query.where.departmentId).toBe('__NO_DEPARTMENT__');
+  });
+});
