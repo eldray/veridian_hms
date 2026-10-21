@@ -123,9 +123,29 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     !!selected &&
     existingUse?.stockItemId === selected.id &&
     existingUse?.departmentId === user?.departmentId;
-  const maxQuantity = selected
-    ? selectedAvailable + (canRestoreExistingUse ? Number(existingUse.quantity) || 0 : 0)
-    : 0;
+
+  // A previously consumed batch can only contribute to the edit limit if that
+  // exact batch is still active and unexpired. Otherwise the backend cannot
+  // legally re-issue its quantity after restoring it.
+  const existingUseHasUsableBatches = (() => {
+    const allocations = existingUse?.batchAllocations;
+    if (!Array.isArray(allocations) || allocations.length === 0) {
+      return !Array.isArray(selected?.StockBatch) || selected.StockBatch.length === 0;
+    }
+    const batches = Array.isArray(selected?.StockBatch) ? selected.StockBatch : [];
+    const now = Date.now();
+    return allocations.every((allocation: any) => {
+      const batch = batches.find((candidate: any) => candidate.id === allocation.batchId);
+      const expiry = batch?.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
+      return !!batch && batch.isActive === true && Number.isFinite(expiry) && expiry > now;
+    });
+  })();
+
+  const restorableQuantity =
+    canRestoreExistingUse && existingUseHasUsableBatches
+      ? Number(existingUse.quantity) || 0
+      : 0;
+  const maxQuantity = selected ? selectedAvailable + restorableQuantity : 0;
 
   const showDropdown = !selectedId;
   const isOutOfStock = !!selected && maxQuantity <= 0;
