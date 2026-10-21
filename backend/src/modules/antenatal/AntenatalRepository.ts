@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { ValidationError } from '../../utils/errors';
 import {
   CreateAntenatalBookingInput, UpdateAntenatalBookingInput,
   CreateANCVisitInput, UpdateANCVisitInput,
@@ -292,7 +293,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
 
     if (Object.keys(updatePayload).length === 0) {
-      throw new Error('No valid delivery fields supplied for update');
+      throw new ValidationError('No valid delivery fields supplied for update');
     }
     return this.prisma.deliveryRecord.update({
       where: { id }, data: updatePayload, include: { Newborn: true }
@@ -371,7 +372,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (typeof clean.examinationDate === 'string') clean.examinationDate = new Date(clean.examinationDate);
     if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate);
     if (Object.keys(clean).length === 0) {
-      throw new Error('No valid postnatal fields supplied for update');
+      throw new ValidationError('No valid postnatal fields supplied for update');
     }
     return this.prisma.postnatalRecord.update({ where: { id }, data: clean });
   }
