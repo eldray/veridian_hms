@@ -52,6 +52,7 @@ describe('purchase receipt batch integrity', () => {
     const tx: any = {
       invoice: {
         create: vi.fn().mockResolvedValue({ id: 'invoice-1', createdAt: new Date('2026-10-20T00:00:00Z') }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'invoice-1' }),
       },
       stockItem: {
         findUnique: vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves', currentStock: 100 }),
