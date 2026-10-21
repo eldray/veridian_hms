@@ -239,6 +239,7 @@ describe('maternal record integrity', () => {
       lmp: new Date('2026-01-01T00:00:00.000Z'),
       ttDosesGiven: 2,
       iptpDosesGiven: 1,
+      itnGiven: true,
       createdById: 'midwife-1',
     });
 
@@ -248,6 +249,7 @@ describe('maternal record integrity', () => {
     expect(payload.tt1Date).toBeUndefined();
     expect(payload.tt2Date).toBeUndefined();
     expect(payload.iptp1Date).toBeUndefined();
+    expect(payload.itnGivenDate).toBeUndefined();
   });
 });
 
