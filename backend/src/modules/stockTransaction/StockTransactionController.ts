@@ -58,7 +58,7 @@ export class StockTransactionController extends BaseController {
   getMovementSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
     const result = await this.service.getMovementSummary({
-      startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
+      startDate: parseStartDate(req.query.startDate),
       endDate: parseEndDate(req.query.endDate),
       category: req.query.category as string,
       departmentId: req.user?.departmentId,
