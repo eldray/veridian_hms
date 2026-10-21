@@ -69,13 +69,15 @@ export class AntenatalController extends BaseController {
   ];
 
   closeAntenatalBooking = [
-    body('deliveryDate').optional().isISO8601(),
-    body('deliveryOutcome').optional().isString(),
+    body('deliveryDate').isISO8601().withMessage('Confirmed pregnancy outcome date is required'),
+    body('deliveryOutcome').isString().trim().notEmpty().withMessage('Confirmed pregnancy outcome is required'),
     body('deliveryRecordId').optional().isString(),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       const { deliveryDate, deliveryOutcome, deliveryRecordId } = req.body;
       const booking = await this.service.closeBooking(req.params.id, {
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined, deliveryOutcome, deliveryRecordId
+        deliveryDate: new Date(deliveryDate), deliveryOutcome, deliveryRecordId
       });
       return this.ok(res, booking, 'Antenatal booking closed successfully');
     })
