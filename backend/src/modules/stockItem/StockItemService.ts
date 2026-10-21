@@ -648,8 +648,15 @@ export class StockItemService extends BaseService {
         }
       }
       const afterEndNetByItem = new Map<string, number>();
+      // Carry forward the last in-period location snapshot so legacy adjustments
+      // after the report end can be reconciled by the change in balanceAfter.
+      // The repository returns these movements in chronological order.
+      const afterEndPreviousBalance = new Map(previousBalanceByItem);
       for (const transaction of transactionsAfterEnd as any[]) {
+        const itemId = transaction.stockItemId;
         const q = Math.abs(Number(transaction.quantity) || 0);
+        const previous = afterEndPreviousBalance.get(itemId);
+        const hasBalance = Number.isFinite(Number(transaction.balanceAfter));
         let signed: number;
         switch (transaction.transactionType) {
           case 'purchase': case 'transfer_in': signed = q; break;
@@ -657,11 +664,17 @@ export class StockItemService extends BaseService {
           case 'adjustment':
             signed = transaction.adjustmentDirection === 'decrease' ? -q
               : transaction.adjustmentDirection === 'increase' ? q
-              : Number(transaction.quantity) < 0 ? -q : q;
+              : previous !== undefined && hasBalance
+                ? Number(transaction.balanceAfter) - previous
+                : Number(transaction.quantity) < 0 ? -q : q;
             break;
-          default: signed = Number(transaction.quantity) < 0 ? -q : q;
+          default:
+            signed = Number(transaction.quantity) < 0 ? -q
+              : previous !== undefined && hasBalance
+                ? Number(transaction.balanceAfter) - previous : q;
         }
-        afterEndNetByItem.set(transaction.stockItemId, (afterEndNetByItem.get(transaction.stockItemId) || 0) + signed);
+        afterEndNetByItem.set(itemId, (afterEndNetByItem.get(itemId) || 0) + signed);
+        if (hasBalance) afterEndPreviousBalance.set(itemId, Number(transaction.balanceAfter));
       }
       const currentLocationStockByItem = new Map<string, number>(
         (locationBalances as any[]).map((balance) => [balance.stockItemId, Number(balance.quantity) || 0]),
