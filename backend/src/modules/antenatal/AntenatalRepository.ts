@@ -689,8 +689,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Baby temperature must be between 30 and 45 °C');
     }
     if (clean.bloodPressure !== undefined && clean.bloodPressure !== null && String(clean.bloodPressure).trim() !== '') {
-      const match = String(clean.bloodPressure).trim().match(/^(\\d{2,3})\\s*[/\\-]\\s*(\\d{2,3})$/);
-      if (!match || Number(match[1]) < 50 || Number(match[1]) > 260 || Number(match[2]) < 20 || Number(match[2]) > 160 || Number(match[1]) <= Number(match[2])) {
+      const pressureParts = String(clean.bloodPressure).trim().replace(/\s+/g, '').replace('-', '/').split('/');
+      const systolic = Number(pressureParts[0]);
+      const diastolic = Number(pressureParts[1]);
+      if (pressureParts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) ||
+          systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
         throw new ValidationError('Maternal blood pressure must be a plausible systolic/diastolic value, for example 120/80');
       }
     }
