@@ -539,8 +539,10 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (attendance.patientId !== d.patientId) {
         throw new ValidationError('Postnatal patient must match the selected attendance');
       }
-      if (attendance.attendanceType !== 'postnatal') {
-        throw new ValidationError('Postnatal record must be linked to a postnatal attendance');
+      // The maternal page supports postnatal examination immediately after delivery
+      // as well as at a dedicated postnatal attendance.
+      if (!['postnatal', 'delivery'].includes(attendance.attendanceType)) {
+        throw new ValidationError('Postnatal record must be linked to a delivery or postnatal attendance');
       }
 
       if (d.antenatalBookingId) {
