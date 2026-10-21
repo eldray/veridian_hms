@@ -666,7 +666,16 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       if (opts.category) afterWhere.StockItem = { category: opts.category };
       transactionsAfterEnd = await this.prisma.stockTransaction.findMany({
         where: afterWhere,
-        select: { stockItemId: true, transactionType: true, quantity: true, adjustmentDirection: true },
+        orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+        select: {
+          stockItemId: true,
+          transactionType: true,
+          quantity: true,
+          adjustmentDirection: true,
+          balanceAfter: true,
+          transactionDate: true,
+          createdAt: true,
+        },
       });
     }
     // Current location balances provide the anchor needed to calculate historical
