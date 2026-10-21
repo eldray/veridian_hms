@@ -780,14 +780,14 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   });
 }
 
-  async updateLabTestStatus(encounterId: string, labOrderId: string, status: string, data: any, userId: string) {
+  async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid laboratory order status');
 
     const existing = await this.prisma.labTest.findFirst({
-      where: { id: labOrderId, attendanceId: encounterId },
-      select: { id: true, status: true },
+      where: { id: labOrderId },
+      select: { id: true, attendanceId: true, status: true },
     });
     if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
     if (existing.status === 'cancelled' && status !== 'cancelled') {
@@ -918,14 +918,14 @@ async addScan(encounterId: string, data: any, userId: string) {
   });
 }
 
-  async updateScanStatus(encounterId: string, scanId: string, status: string, data: any, userId: string) {
+  async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid scan status');
 
     const existing = await this.prisma.scan.findFirst({
-      where: { id: scanId, attendanceId: encounterId },
-      select: { id: true, status: true },
+      where: { id: scanId },
+      select: { id: true, attendanceId: true, status: true },
     });
     if (!existing) throw new NotFoundError('Scan order', scanId);
     if (existing.status === 'cancelled' && status !== 'cancelled') {
@@ -993,14 +993,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   });
 }
 
-  async updateProcedureStatus(encounterId: string, procedureId: string, status: string, data: any, userId: string) {
+  async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     const allowedStatuses = ['scheduled', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid procedure status');
 
     const existing = await this.prisma.procedure.findFirst({
-      where: { id: procedureId, attendanceId: encounterId },
-      select: { id: true, status: true },
+      where: { id: procedureId },
+      select: { id: true, attendanceId: true, status: true },
     });
     if (!existing) throw new NotFoundError('Procedure', procedureId);
     if (existing.status === 'cancelled' && status !== 'cancelled') {
