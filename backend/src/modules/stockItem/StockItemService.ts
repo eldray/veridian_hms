@@ -339,6 +339,7 @@ export class StockItemService extends BaseService {
       throw new ValidationError('A valid received date is required');
     }
     if (expiryDate <= received) throw new ValidationError('Batch expiry date must be after its received date');
+    if (expiryDate <= new Date()) throw new ValidationError('Expired batches cannot be added as available stock');
     if (received.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
     return this.repo.addBatchSafely(stockItemId, batchNumber.trim(), expiryDate, quantity, costPrice, received, departmentId);
   }
