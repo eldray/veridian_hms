@@ -530,8 +530,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   /** Every stock transaction in the period, oldest first, so balances can be chained. Newest `limit` rows when there are more. */
-  async getLedgerTransactions(opts: { startDate?: Date; endDate?: Date; category?: string; stockItemId?: string; transactionType?: string; limit: number }) {
+  async getLedgerTransactions(opts: { startDate?: Date; endDate?: Date; category?: string; stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean; limit: number }) {
     const where: any = {};
+    // Movement ledgers are location-scoped by default. Only explicitly authorized
+    // callers may request the hospital-wide ledger.
+    if (!opts.includeAllStockLocations) where.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
     if (opts.startDate || opts.endDate) {
       where.transactionDate = {};
       if (opts.startDate) where.transactionDate.gte = opts.startDate;
