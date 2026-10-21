@@ -479,7 +479,8 @@ describe('stock item transaction balance snapshots', () => {
 
     expect(savedTransaction.departmentId).toBe('pharmacy');
     expect(savedTransaction.balanceAfter).toBe(11);
-    expect(result.currentStock).toBe(11);
+    expect(result.currentStock).toBe(91);
+    expect(result.locationStock).toBe(11);
   });
 });
 
