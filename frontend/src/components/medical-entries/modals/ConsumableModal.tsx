@@ -98,7 +98,22 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     const balance = item.stockBalances.find(
       (entry: any) => entry.departmentId === user.departmentId && !entry.wardId,
     );
-    return Math.max(0, Number(balance?.quantity) || 0);
+    const departmentBalance = Math.max(0, Number(balance?.quantity) || 0);
+
+    // When the API returns batches for this department, only count usable FEFO
+    // stock. The backend rejects expired/inactive batches, so the picker should
+    // not present those units as available.
+    if (Array.isArray(item.StockBatch) && item.StockBatch.length > 0) {
+      const now = Date.now();
+      const usableBatchQuantity = item.StockBatch.reduce((sum: number, batch: any) => {
+        const expiry = batch.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
+        if (batch.isActive !== true || !Number.isFinite(expiry) || expiry <= now) return sum;
+        return sum + Math.max(0, Number(batch.quantity) || 0);
+      }, 0);
+      return Math.min(departmentBalance, usableBatchQuantity);
+    }
+
+    return departmentBalance;
   };
 
   const selectedAvailable = selected ? getDepartmentAvailable(selected) : 0;
