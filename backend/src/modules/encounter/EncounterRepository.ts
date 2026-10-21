@@ -905,9 +905,17 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
-    if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress') updateData.performedById = actorId;
+    if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
+    const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Laboratory order', labOrderId);
+    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed laboratory order cannot be reopened or changed');
+    if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
+    const updateData: any = {};
+    for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (status !== current.status) updateData.status = status;
+    if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
+    else if (status === 'in_progress') updateData.performedById = actorId;
+    if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
     return this.prisma.labTest.update({ where: { id: labOrderId }, data: updateData });
   }
 
@@ -1027,9 +1035,21 @@ async addScan(encounterId: string, data: any, userId: string) {
 
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
-    if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress') updateData.performedById = actorId;
+    if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
+    const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Scan order', scanId);
+    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed scan order cannot be reopened or changed');
+    if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
+    const updateData: any = {};
+    for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (data.imageUrls !== undefined) {
+      if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
+      updateData.imageUrls = data.imageUrls;
+    }
+    if (status !== current.status) updateData.status = status;
+    if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
+    else if (status === 'in_progress') updateData.performedById = actorId;
+    if (!Object.keys(updateData).length) throw new ValidationError('No scan order changes were provided');
     return this.prisma.scan.update({ where: { id: scanId }, data: updateData });
   }
 
@@ -1086,9 +1106,22 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
-    if (status === 'completed') updateData.performedAt = new Date();
-    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
+    if (!['scheduled', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, completed or cancelled');
+    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Procedure', procedureId);
+    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed procedure cannot be reopened or changed');
+    const updateData: any = {};
+    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
+      const scheduledDate = new Date(data.scheduledDate);
+      if (Number.isNaN(scheduledDate.getTime())) throw new ValidationError('Procedure scheduled date must be valid');
+      updateData.scheduledDate = scheduledDate;
+    }
+    if (data.duration !== undefined && data.duration !== null && (!Number.isInteger(Number(data.duration)) || Number(data.duration) < 1 || Number(data.duration) > 1440)) throw new ValidationError('Procedure duration must be between 1 and 1440 minutes');
+    if (data.bloodLoss !== undefined && data.bloodLoss !== null && (!Number.isInteger(Number(data.bloodLoss)) || Number(data.bloodLoss) < 0 || Number(data.bloodLoss) > 20000)) throw new ValidationError('Blood loss must be between 0 and 20000 mL');
+    if (status !== current.status) updateData.status = status;
+    if (status === 'completed') { updateData.performedAt = new Date(); updateData.performedById = actorId; }
+    if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
     return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
   }
 
