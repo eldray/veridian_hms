@@ -335,3 +335,21 @@ describe('investigation and procedure status integrity', () => {
     expect(scanUpdate).not.toHaveBeenCalled();
   });
 });
+
+
+describe('postnatal record creation validation', () => {
+  it('rejects impossible maternal observations before starting a database transaction', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.createPostnatalRecord({
+      examinationDate: new Date(),
+      bloodPressure: '80/120',
+      attendanceId: 'attendance-1',
+      patientId: 'patient-1',
+      createdById: 'staff-1',
+    } as any)).rejects.toThrow(/plausible systolic\/diastolic/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
