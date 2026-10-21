@@ -481,3 +481,43 @@ describe('stock item transaction balance snapshots', () => {
     expect(savedTransaction.balanceAfter).toBe(11);
   });
 });
+
+describe('batch receipt balance snapshots', () => {
+  it('records the receiving department balance rather than hospital aggregate stock', async () => {
+    let savedTransaction: any;
+    const tx: any = {
+      stockBatch: {
+        count: async () => 1,
+        findFirst: async () => null,
+        create: async ({ data }: any) => ({ id: 'batch-1', ...data }),
+      },
+      stockItemDepartmentBalance: {
+        upsert: async () => ({ quantity: 6 }),
+      },
+      stockItem: {
+        update: async () => ({ id: 'gloves', currentStock: 106 }),
+      },
+      stockTransaction: {
+        create: async ({ data }: any) => {
+          savedTransaction = data;
+          return data;
+        },
+      },
+    };
+    const repository = new StockItemRepository({} as any);
+
+    await repository.addBatchWithinTransaction(
+      tx,
+      'gloves',
+      'LOT-001',
+      new Date('2027-12-31T00:00:00Z'),
+      4,
+      2.5,
+      new Date('2026-10-21T00:00:00Z'),
+      'pharmacy',
+    );
+
+    expect(savedTransaction.departmentId).toBe('pharmacy');
+    expect(savedTransaction.balanceAfter).toBe(6);
+  });
+});
