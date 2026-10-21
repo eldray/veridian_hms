@@ -105,7 +105,7 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
   const handleReferFromVisit = () => {
     const params = new URLSearchParams({ patientId, attendanceId, source: 'Antenatal Visit' });
     const reason = [formData.referralReason, ...(formData.dangerSignsList || [])].filter(Boolean).join('; ');
-    if (reason) params.set('reason', reason);
+    params.set('reason', reason || 'Antenatal assessment requires referral');
     if (formData.notes) params.set('notes', formData.notes);
     if (formData.referredTo) params.set('facility', formData.referredTo);
     params.set('urgency', (formData.dangerSignsList || []).length ? 'urgent' : 'routine');
