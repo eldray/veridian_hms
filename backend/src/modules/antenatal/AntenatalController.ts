@@ -143,7 +143,10 @@ export class AntenatalController extends BaseController {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       
-      const visit = await this.service.updateVisit(req.params.id, req.body);
+      const updateData = { ...req.body };
+      if (updateData.visitDate) updateData.visitDate = new Date(updateData.visitDate);
+      if (updateData.nextVisitDate) updateData.nextVisitDate = new Date(updateData.nextVisitDate);
+      const visit = await this.service.updateVisit(req.params.id, updateData);
       return this.ok(res, visit, 'ANC visit updated');
     })
   ];
@@ -214,6 +217,7 @@ export class AntenatalController extends BaseController {
         requestData.Newborn = requestData.newborns;
         delete requestData.newborns;
       }
+      if (requestData.deliveryDate) requestData.deliveryDate = new Date(requestData.deliveryDate);
       const record = await this.service.updateDeliveryRecord(req.params.id, requestData);
       return this.ok(res, record, 'Delivery record updated');
     })
