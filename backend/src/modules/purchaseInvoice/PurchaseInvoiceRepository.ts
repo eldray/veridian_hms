@@ -126,8 +126,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
               where: {
                 id: existingBatch.id,
                 isActive: true,
-                expiryDate: { gt: new Date() },
-                expiryDate: batchExpiry,
+                expiryDate: { gt: new Date(), equals: batchExpiry },
                 costPrice: item.unitCost,
               },
               data: { quantity: { increment: item.quantity } },
