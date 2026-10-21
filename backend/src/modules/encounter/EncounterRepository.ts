@@ -481,7 +481,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       weight: { min: 0.1, max: 500, label: 'Weight must be recorded in kilograms between 0.1 and 500' },
       height: { min: 10, max: 300, label: 'Height/length must be recorded in centimetres between 10 and 300' },
       muac: { min: 1, max: 80, label: 'MUAC must be recorded in centimetres between 1 and 80' },
-      fetalHeartRate: { min: 1, max: 300, label: 'Fetal heart rate must be between 1 and 300 beats/minute' },
+      fetalHeartRate: { min: 60, max: 200, label: 'Fetal heart rate must be between 60 and 200 beats/minute' },
       fundalHeight: { min: 0, max: 60, label: 'Fundal height must be between 0 and 60 cm' },
     };
     for (const [field, range] of Object.entries(ranges)) {
