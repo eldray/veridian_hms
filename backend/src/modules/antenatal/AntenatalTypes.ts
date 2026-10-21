@@ -23,6 +23,7 @@ export interface CreateAntenatalBookingInput {
   hivKnownPositive?: boolean;
   malePartnerInvolved?: boolean;
   itnGiven?: boolean;
+  itnGivenDate?: Date;
   ironGiven?: boolean;
   folateGiven?: boolean;
   ttDosesGiven?: number;
