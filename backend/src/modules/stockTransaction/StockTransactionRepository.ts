@@ -200,10 +200,31 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   }
 
   async updateNotes(id: string, notes?: string, reference?: string) {
+    const model = this.getModel();
+    const existing = await model.findUnique({
+      where: { id },
+      select: { notes: true, reference: true },
+    });
+    if (!existing) throw new ValidationError('Stock transaction not found');
+
+    // The generic delete guard uses these legacy markers to identify clinical
+    // dispensing and consumable-use movements. Do not allow those markers to be
+    // edited away, or a user could bypass the guard and desynchronise the
+    // clinical encounter from the stock ledger.
+    const existingNotes = String(existing.notes || '');
+    const existingReference = String(existing.reference || '');
+    const isClinicalMovement =
+      /^Dispensed\\b/i.test(existingNotes) ||
+      /^Consumable use:/i.test(existingNotes) ||
+      /^Encounter\\s/i.test(existingReference);
+    if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
+      throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
+    }
+
     const updateData: any = {};
     if (notes !== undefined) updateData.notes = notes;
     if (reference !== undefined) updateData.reference = reference;
-    return this.getModel().update({ where: { id }, data: updateData, include: { StockItem: { select: { name: true, drugCode: true } } } });
+    return model.update({ where: { id }, data: updateData, include: { StockItem: { select: { name: true, drugCode: true } } } });
   }
 
   // ✅ FIXED: Prisma doesn't support comparing two fields directly. We fetch and filter in memory.
