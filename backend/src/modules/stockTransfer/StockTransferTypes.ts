@@ -16,4 +16,6 @@ export interface TransferItemDTO {
     status?: string;
     page?: number;
     limit?: number;
+    departmentId?: string;
+    includeAllStockLocations?: boolean;
   }
