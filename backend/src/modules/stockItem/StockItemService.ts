@@ -395,7 +395,7 @@ export class StockItemService extends BaseService {
         unbatchedQuantity,
         unbatchedValue,
         currentStock,
-        stockDiscrepancy: Math.max(0, batchQuantity - currentStock),
+        stockDiscrepancy: batches.length ? Math.abs(batchQuantity - currentStock) : 0,
         totalValue: batchValue + unbatchedValue,
       };
     });
