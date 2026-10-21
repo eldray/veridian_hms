@@ -669,3 +669,14 @@ describe('ANC partial-update clinical completeness', () => {
       .rejects.toThrow(/referral destination/i);
   });
 });
+
+
+describe('encounter status workflow guards', () => {
+  it('rejects direct status changes that bypass the dedicated workflow', async () => {
+    const findUnique = vi.fn();
+    const repository = new EncounterRepository({ attendance: { findUnique } } as any);
+    await expect(repository.updateStatus('attendance-1', 'discharged', 'doctor-1'))
+      .rejects.toThrow(/dedicated admission, completion, discharge/i);
+    expect(findUnique).not.toHaveBeenCalled();
+  });
+});
