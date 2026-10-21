@@ -358,8 +358,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError(`A confirmed outcome is required for newborn ${i + 1}`);
       }
       const birthWeight = Number(b.birthWeight);
-      if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 15) {
-        throw new ValidationError(`Newborn ${i + 1} birth weight must be recorded in kilograms between 0 and 15`);
+      if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 15000) {
+        throw new ValidationError(`Newborn ${i + 1} birth weight must be recorded in grams between 1 and 15000`);
       }
       for (const [field, value] of [['Apgar score at 1 minute', b.apgarScore1min], ['Apgar score at 5 minutes', b.apgarScore5min]] as const) {
         if (value !== undefined && value !== null && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
