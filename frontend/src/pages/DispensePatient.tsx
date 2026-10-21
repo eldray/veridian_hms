@@ -360,7 +360,8 @@ export default function DispensePatient() {
   const refreshConsumableUses = async () => {
     if (!selectedAttendanceId) return;
     const response = await getEncounterConsumableUses(selectedAttendanceId);
-    setConsumableUses(Array.isArray(response?.data) ? response.data : []);
+    const data = response?.data;
+    setConsumableUses(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
   };
   const afterConsumableChange = async () => {
     setIsConsumableModalOpen(false);
