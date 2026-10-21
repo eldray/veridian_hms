@@ -229,8 +229,22 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
-    if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim()) {
-      throw new ValidationError('Patient, delivery attendance, and recording staff are required');
+    if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim() || !data?.attendant?.trim()) {
+      throw new ValidationError('Patient, delivery attendance, attendant, and recording staff are required');
+    }
+    if (!['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple'].includes(String(data.deliveryType))) {
+      throw new ValidationError('Invalid delivery type');
+    }
+    if (!['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death'].includes(String(data.deliveryOutcome))) {
+      throw new ValidationError('Invalid delivery outcome');
+    }
+    if (data.maternalOutcome !== undefined &&
+      !['alive', 'dead_direct_cause', 'dead_indirect_cause', 'dead_unknown'].includes(String(data.maternalOutcome))) {
+      throw new ValidationError('Invalid maternal outcome');
+    }
+    if (data.gestationWeeks !== undefined && data.gestationWeeks !== null &&
+      (!Number.isInteger(Number(data.gestationWeeks)) || Number(data.gestationWeeks) < 0 || Number(data.gestationWeeks) > 42)) {
+      throw new ValidationError('Gestational age must be a whole number between 0 and 42 weeks');
     }
     const deliveryDate = data.deliveryDate instanceof Date
       ? new Date(data.deliveryDate.getTime())
@@ -242,6 +256,30 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!actor) throw new ValidationError('The selected recording staff account does not exist');
 
     const babies = this.mapNewborns((data as any).Newborn);
+    for (const [index, baby] of babies.entries()) {
+      if (!Number.isFinite(baby.birthWeight) || baby.birthWeight <= 0 || baby.birthWeight > 10) {
+        throw new ValidationError(`Newborn ${index + 1} must have a valid birth weight`);
+      }
+      if (!['male', 'female', 'other'].includes(String(baby.gender))) {
+        throw new ValidationError(`Newborn ${index + 1} has an invalid gender`);
+      }
+      if (!['alive', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'].includes(String(baby.outcome))) {
+        throw new ValidationError(`Newborn ${index + 1} has an invalid outcome`);
+      }
+      for (const scoreKey of ['apgarScore1min', 'apgarScore5min']) {
+        const score = baby[scoreKey];
+        if (score !== null && score !== undefined &&
+          (!Number.isInteger(Number(score)) || Number(score) < 0 || Number(score) > 10)) {
+          throw new ValidationError(`Newborn ${index + 1} has an invalid ${scoreKey}`);
+        }
+      }
+      if (baby.weightAt6to10DaysDate && !Number.isFinite(new Date(baby.weightAt6to10DaysDate).getTime())) {
+        throw new ValidationError(`Newborn ${index + 1} has an invalid follow-up weight date`);
+      }
+    }
+    if (new Set(babies.map((baby: any) => baby.order)).size !== babies.length) {
+      throw new ValidationError('Each newborn must have a unique birth order');
+    }
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: data.attendanceId },
