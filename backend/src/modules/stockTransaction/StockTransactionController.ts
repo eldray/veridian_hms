@@ -66,7 +66,7 @@ export class StockTransactionController extends BaseController {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role));
     const result = await this.service.getMovementSummary({
       startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined,
-      endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined,
+      endDate: parseEndDate(req.query.endDate),
       category: req.query.category as string,
       departmentId: req.user?.departmentId,
       includeAllStockLocations: isAdmin,
@@ -82,7 +82,7 @@ export class StockTransactionController extends BaseController {
 
   getRequisitionTransactions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role).toLowerCase());
-    const result = await this.service.getRequisitionTransactions({ requisitionId: req.query.requisitionId as string, status: req.query.status as string, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: req.query.endDate ? new Date(req.query.endDate as string) : undefined, departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
+    const result = await this.service.getRequisitionTransactions({ requisitionId: req.query.requisitionId as string, status: req.query.status as string, startDate: req.query.startDate ? new Date(req.query.startDate as string) : undefined, endDate: parseEndDate(req.query.endDate), departmentId: req.user?.departmentId, includeAllStockLocations: isAdmin });
     return this.ok(res, result, 'Requisition transactions retrieved');
   });
 
