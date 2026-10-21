@@ -113,6 +113,9 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     if (Array.isArray(item.StockBatch) && item.StockBatch.length > 0) {
       const todayStart = startOfUtcDayTimestamp();
       const usableBatchQuantity = item.StockBatch.reduce((sum: number, batch: any) => {
+        // Only lots held by this issuing department (not ward stock or another department)
+        // may contribute to the quantity shown in this picker.
+        if (batch.departmentId !== user.departmentId || batch.wardId) return sum;
         const expiry = batch.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
         if (batch.isActive !== true || !Number.isFinite(expiry) || expiry < todayStart) return sum;
         return sum + Math.max(0, Number(batch.quantity) || 0);
@@ -144,7 +147,12 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
     return allocations.every((allocation: any) => {
       const batch = batches.find((candidate: any) => candidate.id === allocation.batchId);
       const expiry = batch?.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
-      return !!batch && batch.isActive === true && Number.isFinite(expiry) && expiry >= todayStart;
+      return !!batch &&
+        batch.departmentId === existingUse?.departmentId &&
+        !batch.wardId &&
+        batch.isActive === true &&
+        Number.isFinite(expiry) &&
+        expiry >= todayStart;
     });
   })();
 
