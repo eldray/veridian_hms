@@ -939,7 +939,8 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
     const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Laboratory order', labOrderId);
-    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed laboratory order cannot be reopened or changed');
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
     const updateData: any = {};
     for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
@@ -1075,7 +1076,8 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
     const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Scan order', scanId);
-    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed scan order cannot be reopened or changed');
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled scan order cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed scan report is locked; use the documented report-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
     const updateData: any = {};
     for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
@@ -1153,7 +1155,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
-    if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed procedure cannot be reopened or changed');
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed procedure record is locked; use the documented clinical correction workflow');
     if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
     const updateData: any = {};
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
