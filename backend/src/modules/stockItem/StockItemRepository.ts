@@ -367,6 +367,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     if (!stockItemId || !batchNumber?.trim()) throw new ValidationError('Stock item and batch number are required');
     if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new ValidationError('Batch quantity must be a positive whole number');
     if (!(expiryDate instanceof Date) || Number.isNaN(expiryDate.getTime())) throw new ValidationError('A valid batch expiry date is required');
+    if (expiryDate <= new Date()) throw new ValidationError('Expired batches cannot be added as available stock');
     if (!Number.isFinite(Number(costPrice)) || Number(costPrice) < 0) throw new ValidationError('Batch cost price must be a valid non-negative amount');
 
     const normalizedDepartmentId = departmentId || null;
