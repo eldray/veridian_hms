@@ -1103,3 +1103,60 @@ describe('department-scoped low-stock batch details', () => {
     }));
   });
 });
+
+describe('unassigned stock transaction report filters', () => {
+  it('uses nullable department IDs for transaction lists and details', async () => {
+    const findManyWithPagination = vi.fn().mockResolvedValue({ data: [], total: 0 });
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const repository = new StockTransactionRepository({} as any);
+    (repository as any).findManyWithPagination = findManyWithPagination;
+    (repository as any).getModel = () => ({ findFirst });
+
+    await repository.findAllWithFilters({});
+    expect(findManyWithPagination).toHaveBeenCalledWith(expect.objectContaining({
+      where: { departmentId: null },
+    }));
+
+    await repository.findByIdWithRelations('movement-1');
+    expect(findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'movement-1', departmentId: null },
+    }));
+  });
+
+  it('uses nullable department IDs for valuation and movement report scopes', async () => {
+    const stockItemFindMany = vi.fn().mockResolvedValue([]);
+    const stockTransactionFindMany = vi.fn().mockResolvedValue([]);
+    const prisma: any = {
+      stockItem: { findMany: stockItemFindMany },
+      stockTransaction: { findMany: stockTransactionFindMany },
+    };
+    const repository = new StockTransactionRepository(prisma);
+
+    await repository.getValuationData();
+    expect(stockItemFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        stockBalances: expect.objectContaining({
+          where: { departmentId: null, wardId: null },
+        }),
+        StockBatch: expect.objectContaining({
+          where: expect.objectContaining({ departmentId: null, wardId: null }),
+        }),
+      }),
+    }));
+
+    stockItemFindMany.mockClear();
+    stockTransactionFindMany.mockClear();
+    await repository.getMovementData();
+    expect(stockTransactionFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { departmentId: null, wardId: null },
+    }));
+    expect(stockItemFindMany).toHaveBeenCalledWith(expect.objectContaining({
+      select: expect.objectContaining({
+        stockBalances: expect.objectContaining({
+          where: { departmentId: null, wardId: null },
+        }),
+      }),
+    }));
+  });
+});
+
