@@ -663,37 +663,52 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       throw new NotFoundError('Medication service', data.serviceCatalogId);
     }
 
-    const medication = await this.prisma.medication.create({
-      data: {
-        attendanceId: encounterId,
-        stockItemId: data.stockItemId,
-        serviceCatalogId: data.serviceCatalogId,
-        name: stockItem.name,
-        dosage: data.dosage,
-        frequency: data.frequency,
-        duration: data.duration,
-        route: data.route,
-        instructions: data.instructions,
-        quantity,
-        status: 'prescribed',
-        prescribedById: actorId,
-        prescribedAt: new Date(),
-      },
-      include: {
-        StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-      },
+    // Parse the MAR schedule before writing anything: an unsupported frequency or
+    // duration must not leave a prescription behind without its administration plan.
+    const prescribedAt = new Date();
+    const schedule = this.marService.parseSchedule(data.frequency, data.duration, prescribedAt);
+
+    // Keep the prescription and its medication-administration schedule atomic. If
+    // dose creation fails, the prescription itself must roll back as well.
+    const medication = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.medication.create({
+        data: {
+          attendanceId: encounterId,
+          stockItemId: data.stockItemId,
+          serviceCatalogId: data.serviceCatalogId,
+          name: stockItem.name,
+          dosage: data.dosage,
+          frequency: data.frequency,
+          duration: data.duration,
+          route: data.route,
+          instructions: data.instructions,
+          quantity,
+          status: 'prescribed',
+          prescribedById: actorId,
+          prescribedAt,
+        },
+        include: {
+          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+        },
+      });
+
+      const rows = Array.from({ length: schedule.requiredDoses }, (_, index) => ({
+        medicationId: created.id,
+        doseNumber: index + 1,
+        scheduledAt: new Date(schedule.firstDoseAt.getTime() + index * schedule.intervalHours * 3_600_000),
+        status: 'scheduled' as const,
+        dose: created.dosage,
+        route: created.route,
+      }));
+      if (rows.length > 0) await tx.medicationDose.createMany({ data: rows });
+      return created;
     });
 
-    // ✅ NEW: materialize the MAR schedule
-    await this.marService.scheduleDosesForMedication({
+    this.logInfo('Prescription and MAR schedule saved atomically', {
       medicationId: medication.id,
-      dose: medication.dosage,
-      route: medication.route,
-      frequency: medication.frequency,
-      duration: medication.duration,
-      prescribedAt: medication.prescribedAt,
+      scheduledDoses: schedule.requiredDoses,
+      intervalHours: schedule.intervalHours,
     });
-
     return medication;
   }
 
