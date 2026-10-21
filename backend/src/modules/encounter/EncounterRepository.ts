@@ -868,34 +868,48 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         updateData.administeredById = actorId;
       }
 
+      // Resolve and validate a due dose before any clinical record is changed.
+      // A medication must not appear administered when no dose could be recorded.
+      let administrationDose: any = null;
+      if (data.status === 'administered') {
+        administrationDose = data.doseId
+          ? await tx.medicationDose.findUnique({ where: { id: data.doseId } })
+          : await tx.medicationDose.findFirst({
+              where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+              orderBy: { doseNumber: 'asc' },
+            });
+        if (data.doseId && !administrationDose) throw new NotFoundError('Medication dose', data.doseId);
+        if (administrationDose && administrationDose.medicationId !== medicationId) {
+          throw new ValidationError('The selected dose does not belong to this medication');
+        }
+        if (administrationDose && !['scheduled', 'due', 'late'].includes(administrationDose.status)) {
+          throw new ConflictError('This medication dose is no longer awaiting administration');
+        }
+        if (!administrationDose) {
+          throw new ConflictError('No scheduled medication dose is awaiting administration; create or select the correct dose before recording administration');
+        }
+      }
+
       const updated = await tx.medication.update({
         where: { id: medicationId },
         data: updateData,
         include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
       });
 
-      if (data.status === 'administered') {
-        let dose = data.doseId ? await tx.medicationDose.findUnique({ where: { id: data.doseId } }) : null;
-        if (data.doseId && !dose) throw new NotFoundError('Medication dose', data.doseId);
-        if (dose && dose.medicationId !== medicationId) throw new ValidationError('The selected dose does not belong to this medication');
-        if (dose && !['scheduled', 'due', 'late'].includes(dose.status)) throw new ConflictError('This medication dose is no longer awaiting administration');
-        if (!dose) {
-          dose = await tx.medicationDose.findFirst({
-            where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
-            orderBy: { doseNumber: 'asc' },
-          });
-        }
-        if (dose) {
-          await tx.medicationDose.update({
-            where: { id: dose.id },
-            data: {
-              status: 'administered',
-              administeredAt: updateData.administeredAt,
-              administeredById: updateData.administeredById,
-              site: data.site ?? undefined,
-              notes: data.notes ?? undefined,
-            },
-          });
+      if (administrationDose) {
+        // Conditional claim prevents two staff sessions from recording the same dose.
+        const claimedDose = await tx.medicationDose.updateMany({
+          where: { id: administrationDose.id, medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+          data: {
+            status: 'administered',
+            administeredAt: updateData.administeredAt,
+            administeredById: updateData.administeredById,
+            site: data.site ?? undefined,
+            notes: data.notes ?? undefined,
+          },
+        });
+        if (claimedDose.count !== 1) {
+          throw new ConflictError('This medication dose was recorded by another user or is no longer awaiting administration');
         }
       }
 
