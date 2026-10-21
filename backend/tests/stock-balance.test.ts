@@ -808,9 +808,13 @@ describe('in-transit stock transfer reporting', () => {
         items: expect.any(Object),
       }),
     }));
+    expect(result.data[0]).toEqual(expect.objectContaining({
+      hasStockInTransit: true,
+    }));
     expect(result.data[0].items[0]).toEqual(expect.objectContaining({
       quantitySent: 8,
       quantityReceived: 0,
+      quantityInTransit: 8,
     }));
   });
 });
