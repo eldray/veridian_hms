@@ -93,7 +93,7 @@ export class GHSReportController extends BaseController {
     if (startDate && typeof startDate === 'string') {
       start = new Date(startDate);
       if (isNaN(start.getTime())) {
-        return this.error(res, 'Invalid startDate format. Use ISO-8601 (YYYY-MM-DD)', 400);
+        return this.badRequest(res, 'Invalid startDate format. Use ISO-8601 (YYYY-MM-DD)');
       }
     } else {
       start = new Date();
@@ -103,7 +103,7 @@ export class GHSReportController extends BaseController {
     if (endDate && typeof endDate === 'string') {
       end = new Date(endDate);
       if (isNaN(end.getTime())) {
-        return this.error(res, 'Invalid endDate format. Use ISO-8601 (YYYY-MM-DD)', 400);
+        return this.badRequest(res, 'Invalid endDate format. Use ISO-8601 (YYYY-MM-DD)');
       }
     } else {
       end = new Date();
