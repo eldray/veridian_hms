@@ -231,7 +231,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined,
         },
       });
-      return updatedItem;
+      // This workflow is location-scoped. Return the balance for the selected
+      // department so the caller does not display the hospital aggregate as local stock.
+      return normalizedDepartmentId
+        ? { ...updatedItem, currentStock: locationBalanceAfter }
+        : updatedItem;
     });
   }
 
