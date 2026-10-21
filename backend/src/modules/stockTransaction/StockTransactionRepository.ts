@@ -141,7 +141,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('Internal transfer entries cannot be deleted individually. Use the dedicated transfer/reconciliation workflow.');
       }
       if (transaction.transactionType === 'adjustment') {
-        throw new ValidationError('Stock adjustments cannot be reversed safely because the stored transaction does not preserve the adjustment direction. Record a correcting adjustment with an audit note instead.');
+        throw new ValidationError('Stock adjustments are audit-sensitive and cannot be deleted directly. Record a correcting adjustment with an audit note instead.');
       }
 
       // Do not let a generic transaction delete silently desynchronise the
