@@ -134,7 +134,13 @@ export class StockItemController extends BaseController {
   });
 
   getUsageReport = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.service.getUsageReport(req.query.period as string, req.query.limit ? parseInt(req.query.limit as string) : 20, req.query.category as string);
+    const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getUsageReport(
+      req.query.period as string,
+      req.query.limit ? parseInt(req.query.limit as string) : 20,
+      req.query.category as string,
+      { departmentId: req.user?.departmentId, includeAllStockLocations },
+    );
     return this.ok(res, result, 'Usage report retrieved');
   });
 
