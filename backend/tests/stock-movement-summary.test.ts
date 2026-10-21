@@ -641,3 +641,36 @@ describe('expiry report location isolation', () => {
     });
   });
 });
+
+describe('expiring batch location balances', () => {
+  it('returns the department balance rather than the hospital-wide item total', async () => {
+    let query: any;
+    const repository = new StockItemRepository({
+      stockBatch: {
+        findMany: async (args: any) => {
+          query = args;
+          return [{
+            id: 'batch-1',
+            quantity: 2,
+            stockItem: {
+              name: 'Gloves',
+              category: 'consumable',
+              unitOfMeasure: 'box',
+              currentStock: 100,
+              stockBalances: [{ quantity: 7 }],
+            },
+          }];
+        },
+      },
+    } as any);
+
+    const batches = await repository.getExpiringBatches(30, { departmentId: 'pharmacy' });
+
+    expect(query.include.stockItem.select.stockBalances.where).toEqual({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+    expect(batches[0].stockItem.currentStock).toBe(7);
+    expect(batches[0].stockItem.stockBalances).toEqual([{ quantity: 7 }]);
+  });
+});
