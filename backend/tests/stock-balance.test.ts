@@ -653,6 +653,7 @@ describe('clinical dispensing calendar-day expiry', () => {
           StockItem: { id: 'item-1', isActive: true, isMedication: true, currentStock: 10, costPrice: 2 },
         }),
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        update: vi.fn().mockResolvedValue({ id: 'med-1', status: 'dispensed' }),
       },
       user: { findUnique: vi.fn().mockResolvedValue({ departmentId: 'pharmacy', role: 'nurse' }) },
       stockBatch: {
