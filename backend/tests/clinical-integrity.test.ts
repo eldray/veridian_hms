@@ -526,3 +526,32 @@ describe('historical postnatal follow-up dates', () => {
     }));
   });
 });
+
+
+describe('primary diagnosis update atomicity', () => {
+  it('does not demote the existing primary diagnosis when a duplicate is submitted', async () => {
+    const updateMany = vi.fn();
+    const existingDiagnosis = { id: 'link-1', attendanceId: 'attendance-1', diagnosisId: 'diagnosis-1', diagnosisType: 'primary' };
+    const tx: any = {
+      diagnosis: { findUnique: vi.fn().mockResolvedValue({ id: 'diagnosis-1', icdCode: 'A09' }) },
+      attendanceDiagnosis: {
+        findFirst: vi.fn().mockResolvedValue(existingDiagnosis),
+        updateMany,
+        create: vi.fn(),
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.addDiagnosis('attendance-1', {
+      diagnosisId: 'diagnosis-1', diagnosisType: 'primary',
+    } as any, 'doctor-1')).rejects.toThrow(/diagnosis already added/i);
+
+    expect(updateMany).not.toHaveBeenCalled();
+    expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
+  });
+});
