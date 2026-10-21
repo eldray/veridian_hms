@@ -383,7 +383,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
       }
     }
-    if (clean.dangerSignsPresent === true || clean.referralMade === true) {
+    if (clean.dangerSignsPresent !== undefined || clean.dangerSignsList !== undefined || clean.referralMade !== undefined || clean.referredTo !== undefined) {
       const existing = await this.prisma.aNCVisit.findUnique({
         where: { id },
         select: { dangerSignsPresent: true, dangerSignsList: true, referralMade: true, referredTo: true },
