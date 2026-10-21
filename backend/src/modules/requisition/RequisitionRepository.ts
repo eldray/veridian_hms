@@ -216,7 +216,8 @@ export class RequisitionRepository {
     id: string,
     status: string,
     userId: string | undefined,
-    notes?: string
+    notes?: string,
+    expectedCurrentStatus?: string
   ) {
     if (status === 'fulfilled') {
       throw new Error('Requisitions can only be marked fulfilled by the atomic stock-fulfilment workflow');
@@ -234,39 +235,35 @@ export class RequisitionRepository {
       updateData.fulfilledAt = new Date();
     }
 
-    if (notes) {
+    if (notes !== undefined) {
       updateData.notes = notes;
     }
 
-    const result = await this.prisma.requisition.update({
-      where: { id },
+    // Use the observed state as a compare-and-set guard. A concurrent submit/cancel
+    // must not overwrite another request's successful transition.
+    const claim = await this.prisma.requisition.updateMany({
+      where: { id, ...(expectedCurrentStatus ? { status: expectedCurrentStatus as any } : {}) },
       data: updateData,
+    });
+    if (claim.count !== 1) {
+      throw new Error('This requisition has already changed status. Refresh and try again.');
+    }
+
+    const result = await this.prisma.requisition.findUnique({
+      where: { id },
       include: {
-        departments: {
-          select: { name: true }
-        },
-        ward: {
-          select: { wardName: true }
-        },
-        requestedBy: {
-          select: { fullName: true }
-        },
-        approvedBy: {
-          select: { fullName: true }
-        },
+        departments: { select: { name: true } },
+        ward: { select: { name: true } },
+        requestedBy: { select: { fullName: true } },
+        approvedBy: { select: { fullName: true } },
         RequisitionItem: {
           include: {
-            StockItem: {
-              select: {
-                name: true,
-                drugCode: true,
-                unitOfMeasure: true
-              }
-            }
+            StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } }
           }
         }
       }
     });
+    if (!result) throw new Error('Requisition not found after status update');
     return this.legacyKeys(result) as typeof result;
   }
 
