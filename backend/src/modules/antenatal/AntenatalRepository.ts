@@ -692,6 +692,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     const examinationDate = new Date(d.examinationDate);
     if (Number.isNaN(examinationDate.getTime())) throw new ValidationError('Postnatal examination date must be valid');
     if (examinationDate.getTime() > Date.now()) throw new ValidationError('Postnatal examination date cannot be in the future');
+    if (d.referralMade && (!d.referredTo || !String(d.referredTo).trim())) throw new ValidationError('Specify the referral destination when a postnatal referral is made');
     if (d.dayNumber !== undefined && (!Number.isInteger(Number(d.dayNumber)) || Number(d.dayNumber) < 1 || Number(d.dayNumber) > 365)) {
       throw new ValidationError('Postnatal day number must be between 1 and 365');
     }
@@ -847,6 +848,17 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (clean.breastfeedingStatus !== undefined && !['exclusive', 'mixed', 'not_breastfeeding'].includes(clean.breastfeedingStatus)) {
       throw new ValidationError('Unsupported breastfeeding status');
+    }
+    if (clean.referralMade === true || clean.referredTo !== undefined) {
+      const existing = await this.prisma.postnatalRecord.findUnique({
+        where: { id }, select: { referralMade: true, referredTo: true },
+      });
+      if (!existing) throw new NotFoundError('Postnatal record', id);
+      const referralMade = clean.referralMade ?? existing.referralMade;
+      const referredTo = clean.referredTo ?? existing.referredTo;
+      if (referralMade && (!referredTo || !String(referredTo).trim())) {
+        throw new ValidationError('Specify the referral destination when a postnatal referral is made');
+      }
     }
     if (Object.keys(clean).length === 0) throw new ValidationError('No valid postnatal fields were provided');
     return this.prisma.postnatalRecord.update({
