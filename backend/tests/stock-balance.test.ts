@@ -6,6 +6,45 @@ import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/Purcha
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 
+describe('unassigned stock movement filters', () => {
+  it('queries nullable department IDs instead of a non-existent sentinel', async () => {
+    const count = vi.fn().mockResolvedValue(0);
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma: any = {
+      stockTransaction: { count, findMany },
+      stockItemDepartmentBalance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const repository = new StockItemRepository(prisma);
+
+    await repository.getLedgerTransactions({ limit: 100 });
+
+    expect(count).toHaveBeenCalledWith({
+      where: { departmentId: null, wardId: null },
+    });
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { departmentId: null, wardId: null },
+    }));
+  });
+
+  it('keeps post-period unassigned movements in the historical reconciliation query', async () => {
+    const count = vi.fn().mockResolvedValue(0);
+    const findMany = vi.fn().mockResolvedValue([]);
+    const prisma: any = {
+      stockTransaction: { count, findMany },
+      stockItemDepartmentBalance: { findMany: vi.fn().mockResolvedValue([]) },
+    };
+    const repository = new StockItemRepository(prisma);
+    const endDate = new Date('2026-10-20T23:59:59.999Z');
+
+    await repository.getLedgerTransactions({ limit: 100, endDate });
+
+    expect(findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { departmentId: null, wardId: null, transactionDate: { gt: endDate } },
+      select: expect.objectContaining({ stockItemId: true, transactionType: true }),
+    }));
+  });
+});
+
 describe('purchase receipt location snapshots', () => {
   it('records the receiving location balance rather than the hospital aggregate', async () => {
     const stockTransactionCreate = vi.fn().mockResolvedValue({ id: 'movement-1' });
