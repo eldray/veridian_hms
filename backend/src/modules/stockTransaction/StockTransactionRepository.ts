@@ -300,7 +300,13 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
 
   async getMovementData(startDate?: Date, endDate?: Date, category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const locationWhere: any = {};
-    if (!filters.includeAllStockLocations) locationWhere.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    if (!filters.includeAllStockLocations) {
+      // Department movement balances are location-specific snapshots. Exclude
+      // ward ledger rows even when the ward is administratively linked to the
+      // same department, otherwise running balances mix separate locations.
+      locationWhere.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+      locationWhere.wardId = null;
+    }
 
     const whereTx: any = { ...locationWhere };
     if (startDate || endDate) {
