@@ -176,9 +176,25 @@ export class StockTransactionService extends BaseService {
     });
 
     const totals = movementSummary.reduce((acc, item) => {
-      acc.totalPurchases += item.purchases; acc.totalTransfersIn += item.transfersIn; acc.totalSales += item.sales; acc.totalRequisitions += item.requisitions; acc.totalWriteOffs += item.writeOffs; acc.totalTransfersOut += item.transfersOut; acc.totalAdjustments += item.adjustments;
+      acc.totalPurchases += item.purchases;
+      acc.totalTransfersIn += item.transfersIn;
+      acc.totalSales += item.sales;
+      acc.totalRequisitions += item.requisitions;
+      acc.totalWriteOffs += item.writeOffs;
+      acc.totalTransfersOut += item.transfersOut;
+      acc.totalAdjustments += item.adjustments;
+      acc.totalAdjustmentIn += item.adjustmentIn;
+      acc.totalAdjustmentOut += item.adjustmentOut;
+      acc.totalNetChange += item.netChange;
+      acc.totalOpeningStock += item.openingStock;
+      acc.totalClosingStock += item.closingStock;
       return acc;
-    }, { totalPurchases: 0, totalTransfersIn: 0, totalSales: 0, totalRequisitions: 0, totalWriteOffs: 0, totalTransfersOut: 0, totalAdjustments: 0 });
+    }, {
+      totalPurchases: 0, totalTransfersIn: 0, totalSales: 0, totalRequisitions: 0,
+      totalWriteOffs: 0, totalTransfersOut: 0, totalAdjustments: 0,
+      totalAdjustmentIn: 0, totalAdjustmentOut: 0, totalNetChange: 0,
+      totalOpeningStock: 0, totalClosingStock: 0,
+    });
 
     return { period: { startDate: filters.startDate || null, endDate: filters.endDate || null }, totals, items: movementSummary.filter(item => item.purchases > 0 || item.transfersIn > 0 || item.sales > 0 || item.requisitions > 0 || item.writeOffs > 0 || item.transfersOut > 0 || item.adjustments !== 0) };
   }
