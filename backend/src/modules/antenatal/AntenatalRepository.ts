@@ -136,8 +136,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateBooking(id: string, data: UpdateAntenatalBookingInput): Promise<any> {
-    const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors', 'isActive', 'isCompleted', 'deliveryDate',
-      'deliveryOutcome', 'deliveryRecordId', 'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved',
+    // Pregnancy completion is controlled by the delivery/closure workflow, not by a generic profile update.
+    const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors',
+      'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved',
       'partnerHivStatus', 'hivKnownPositive', 'hepatitisBStatus', 'bookingHeight', 'bookingWeight', 'bookingBP', 'itnGiven',
       'ironFolateGiven', 'previousCSection'];
     const clean: any = {};
