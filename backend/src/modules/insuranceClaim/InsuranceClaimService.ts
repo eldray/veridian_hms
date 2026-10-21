@@ -156,7 +156,7 @@ export class InsuranceClaimService extends BaseService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: { where: { id: { in: claimIds } }, select: { id: true, totalClaimAmount: true } } } });
       if (!existing) throw new Error('Batch not found');
-      if (existing.status !== 'draft') throw new Error('Can only remove from draft batches');
+      if (existing.status !== 'generated') throw new Error('Claims can only be removed from generated, unfinalized batches');
 
       // ✅ FIXED: Decimal math
       const remAmount = existing.claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
