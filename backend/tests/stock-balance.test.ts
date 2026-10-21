@@ -62,6 +62,10 @@ describe('purchase receipt batch integrity', () => {
         update: batchUpdate,
       },
       invoiceItem: { create: vi.fn().mockResolvedValue({ id: 'invoice-item-1' }) },
+      stockItemDepartmentBalance: {
+        upsert: vi.fn().mockResolvedValue({ quantity: 7 }),
+      },
+      stockTransaction: { create: vi.fn().mockResolvedValue({ id: 'movement-1' }) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate };
@@ -94,6 +98,23 @@ describe('purchase receipt batch integrity', () => {
     await expect(repository.create(receipt, 'user-1'))
       .rejects.toThrow(/different cost price/i);
     expect(batchUpdate).not.toHaveBeenCalled();
+  });
+
+  it('increases quantity only when the existing batch metadata matches and is active', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 10,
+      isActive: true,
+    };
+    const { repository, batchUpdate } = makeRepository(existingBatch);
+
+    await repository.create(receipt, 'user-1');
+
+    expect(batchUpdate).toHaveBeenCalledWith({
+      where: { id: 'batch-1' },
+      data: { quantity: { increment: 7 } },
+    });
   });
 
   it('rejects an inactive matching batch instead of reactivating it', async () => {
