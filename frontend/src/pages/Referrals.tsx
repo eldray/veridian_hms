@@ -392,6 +392,7 @@ export default function Referrals() {
       ...prev,
       referralReason: searchParams.get('reason') || '',
       referralNotes: searchParams.get('notes') || '',
+      referredToFacility: searchParams.get('facility') || '',
       urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
         ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
         : 'routine'),
