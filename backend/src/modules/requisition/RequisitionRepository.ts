@@ -592,14 +592,21 @@ export class RequisitionRepository {
                 batchNumber: batch.batchNumber,
                 departmentId: toDepartmentId,
                 wardId: null,
-                // Keep distinct lots separate even when suppliers reuse a batch number.
-                // A transfer must preserve the source lot's expiry and acquisition cost.
-                expiryDate: batch.expiryDate,
-                costPrice: batch.costPrice,
               }
             });
             if (existing) {
-              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move }, isActive: true } });
+              // The schema allows only one row per item/batch/location. Never merge
+              // a different expiry/cost lot into that row during a requisition transfer.
+              if (existing.expiryDate.getTime() !== batch.expiryDate.getTime()) {
+                throw new Error(`Destination already has batch ${batch.batchNumber} with a different expiry date. Reconcile the batch before fulfilling this requisition.`);
+              }
+              if (Number(existing.costPrice) !== Number(batch.costPrice)) {
+                throw new Error(`Destination already has batch ${batch.batchNumber} with a different cost price. Reconcile the batch before fulfilling this requisition.`);
+              }
+              if (!existing.isActive) {
+                throw new Error(`Destination batch ${batch.batchNumber} is inactive. Reconcile the batch before fulfilling this requisition.`);
+              }
+              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move } } });
             } else {
               await tx.stockBatch.create({
                 data: {
