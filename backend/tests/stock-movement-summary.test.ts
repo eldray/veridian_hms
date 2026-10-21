@@ -313,12 +313,15 @@ describe('stock ledger location scope', () => {
         count: async (args: any) => { findArgs = args; return 0; },
         findMany: async () => [],
       },
+      stockItemDepartmentBalance: {
+        findMany: async () => [],
+      },
     };
     const repo = new StockItemRepository(prisma as any);
 
     await repo.getLedgerTransactions({ limit: 100 });
 
-    expect(findArgs.where.departmentId).toBe('__NO_DEPARTMENT__');
+    expect(findArgs.where.departmentId).toBeNull();
     expect(findArgs.where.wardId).toBeNull();
   });
 });
@@ -355,7 +358,7 @@ describe('stock usage report location scope', () => {
 
     await repo.getTransactionsForUsageReport(new Date('2026-10-01T00:00:00Z'));
 
-    expect(query.where.departmentId).toBe('__NO_DEPARTMENT__');
+    expect(query.where.departmentId).toBeNull();
   });
 });
 
@@ -584,11 +587,11 @@ describe('stock item report location filters', () => {
     await repository.getItemsForValueReport();
 
     expect(query.select.stockBalances.where).toEqual({
-      departmentId: '__NO_DEPARTMENT__',
+      departmentId: null,
       wardId: null,
     });
     expect(query.select.StockBatch.where).toMatchObject({
-      departmentId: '__NO_DEPARTMENT__',
+      departmentId: null,
       wardId: null,
     });
   });
@@ -619,7 +622,6 @@ describe('expiry report location isolation', () => {
     expect(itemArgs.select.StockBatch.where).toMatchObject({
       departmentId: 'pharmacy',
       wardId: null,
-      isActive: true,
       quantity: { gt: 0 },
     });
     expect(itemArgs.select.stockBalances.where).toEqual({
@@ -632,7 +634,7 @@ describe('expiry report location isolation', () => {
     });
   });
 
-  it('uses a no-access sentinel instead of unassigned stock when no department is supplied', async () => {
+  it('scopes expiry reports to unassigned stock when no department is supplied', async () => {
     let query: any;
     const repository = new StockItemRepository({
       stockItem: {
