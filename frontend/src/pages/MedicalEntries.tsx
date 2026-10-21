@@ -679,12 +679,9 @@ export default function MedicalEntries() {
 
   useEffect(() => {
     if (!attendanceId) return;
-    // Load the specific attendance directly (don't gate on the paginated global list,
-    // which may not contain it) and derive the patient from the loaded record.
+    // Select the route attendance directly; the selected-attendance loader below
+    // fetches its record once and also derives the patient selection.
     setSelectedAttendanceId(attendanceId);
-    getAttendance(attendanceId)
-      .then(att => { if (att?.patientId) setSelectedPatientId(att.patientId); })
-      .catch(() => { });
   }, [attendanceId]);
 
   // Load encounter clinical notes once per selected attendance. This used to be duplicated,
@@ -695,6 +692,8 @@ export default function MedicalEntries() {
     getAttendance(selectedAttendanceId)
       .then(att => {
         if (!active || !att) return;
+        const patientId = typeof att.patientId === 'object' ? getEntityId(att.patientId as any) : att.patientId;
+        if (patientId) setSelectedPatientId(patientId);
         const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
           ? att.clinicalNotes as Record<string, any>
           : {};
