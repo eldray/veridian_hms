@@ -145,7 +145,27 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
-    return this.prisma.aNCVisit.update({ where: { id }, data, include: { recordedBy: { select: { fullName: true, role: true } } } });
+    // Only allow clinical fields to change. The linked booking, attendance and
+    // recorder are immutable after creation so an edit cannot reassign a record
+    // or rewrite its audit attribution.
+    const allowed = [
+      'visitNumber', 'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays',
+      'weight', 'bloodPressure', 'fundalHeight', 'fetalHeartRate', 'fetalMovements',
+      'presentation', 'iptpGiven', 'iptpDoseNumber', 'iptpDrug', 'ttGiven',
+      'ttDoseNumber', 'ironGiven', 'folateGiven', 'calciumGiven', 'malariaTestDone',
+      'malariaTestResult', 'malariaTreatmentGiven', 'dangerSignsPresent',
+      'dangerSignsList', 'referralMade', 'referredTo', 'nextVisitDate',
+      'returnInstructions'
+    ];
+    const clean: Record<string, unknown> = {};
+    for (const key of allowed) {
+      const value = (data as any)[key];
+      if (value !== undefined) clean[key] = value;
+    }
+    return this.prisma.aNCVisit.update({
+      where: { id }, data: clean,
+      include: { recordedBy: { select: { fullName: true, role: true } } }
+    });
   }
 
   async deleteVisit(id: string): Promise<void> {
@@ -222,28 +242,55 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateDeliveryRecord(id: string, data: any): Promise<any> {
-    const { attendanceId, patientId, Newborn, ...updateData } = data;
-    const updatePayload: any = { ...updateData };
-    
-    // ✅ PRESERVED: Your exact logic for handling multiple births
-    if (Newborn && Newborn.create && Newborn.create.length > 0) {
+    // Never spread the request body into Prisma: identifiers, creator/audit
+    // fields, and unrecognised properties must not be writable from the client.
+    const allowed = [
+      'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery',
+      'attendant', 'birthWeight', 'gestationWeeks', 'apgarScore1min',
+      'apgarScore5min', 'resusCitationDone', 'maternalOutcome', 'complications',
+      'notes', 'malePartnerPresentANC', 'malePartnerPresentDelivery',
+      'malePartnerPresentPNC', 'maternalDeathsAudited', 'auditNotes', 'referralTo'
+    ];
+    const updatePayload: any = {};
+    for (const key of allowed) {
+      if (data[key] !== undefined) updatePayload[key] = data[key];
+    }
+    const Newborn = data.Newborn ?? data.newborns;
+
+    // Preserve the existing multiple-birth replacement behavior, while mapping
+    // each newborn explicitly so client-supplied IDs/foreign keys are ignored.
+    const newbornList: any[] = Array.isArray(Newborn)
+      ? Newborn
+      : Array.isArray(Newborn?.create) ? Newborn.create : [];
+    if (newbornList.length > 0) {
       updatePayload.Newborn = {
         deleteMany: {},
-        create: Newborn.create.map((baby: any) => ({
-          order: baby.order, birthWeight: baby.birthWeight, gender: baby.gender,
-          apgarScore1min: baby.apgarScore1min, apgarScore5min: baby.apgarScore5min,
-          resuscitation: baby.resuscitation, outcome: baby.outcome, anomalies: baby.anomalies || [],
-          referredTo: baby.referredTo, breastfeedingWithin30Min: baby.breastfeedingWithin30Min,
-          eyeProphylaxisGiven: baby.eyeProphylaxisGiven, cordCareMethod: baby.cordCareMethod,
-          babyWeightAt6to10Days: baby.babyWeightAt6to10Days, weightAt6to10DaysDate: baby.weightAt6to10DaysDate
+        create: newbornList.map((baby: any, index: number) => ({
+          order: baby.order ?? index + 1,
+          birthWeight: Number(baby.birthWeight) || 0,
+          gender: baby.gender || 'other',
+          apgarScore1min: baby.apgarScore1min ?? null,
+          apgarScore5min: baby.apgarScore5min ?? null,
+          resuscitation: !!baby.resuscitation,
+          outcome: baby.outcome || 'alive',
+          anomalies: Array.isArray(baby.anomalies) ? baby.anomalies : [],
+          referredTo: baby.referredTo || null,
+          breastfeedingWithin30Min: !!baby.breastfeedingWithin30Min,
+          eyeProphylaxisGiven: !!baby.eyeProphylaxisGiven,
+          cordCareMethod: baby.cordCareMethod || 'dry_cord',
+          babyWeightAt6to10Days: baby.babyWeightAt6to10Days ?? null,
+          weightAt6to10DaysDate: baby.weightAt6to10DaysDate
+            ? new Date(baby.weightAt6to10DaysDate) : null
         }))
       };
-    } else if (Array.isArray(Newborn)) {
-      // ✅ PRODUCTION SAFEGUARD: Fallback if frontend sends an array directly
-      updatePayload.Newborn = { deleteMany: {}, create: Newborn };
     }
-    
-    return this.prisma.deliveryRecord.update({ where: { id }, data: updatePayload, include: { Newborn: true } });
+
+    if (Object.keys(updatePayload).length === 0) {
+      throw new Error('No valid delivery fields supplied for update');
+    }
+    return this.prisma.deliveryRecord.update({
+      where: { id }, data: updatePayload, include: { Newborn: true }
+    });
   }
 
   async deleteDeliveryRecord(id: string): Promise<void> {
@@ -296,7 +343,31 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updatePostnatalRecord(id: string, data: any): Promise<any> {
-    return this.prisma.postnatalRecord.update({ where: { id }, data });
+    // Whitelist editable clinical fields. In particular, patient/attendance
+    // links and createdById cannot be reassigned by a PUT request.
+    const allowed = [
+      'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
+      'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia',
+      'perinealCondition', 'caesareanWound', 'breastfeedingStatus',
+      'breastfeedingDifficulties', 'latching', 'babyCondition', 'babyWeight',
+      'babyTemperature', 'babyFeeding', 'jaundice', 'jaundiceSeverity',
+      'cordCondition', 'bcgGiven', 'opv0Given', 'hepB0Given',
+      'familyPlanningDiscussed', 'familyPlanningMethodAccepted',
+      'maternalDangerSigns', 'babyDangerSigns', 'referralMade', 'referredTo',
+      'referralReason', 'nextVisitDate', 'nextVisitType', 'malePartnerPresentPNC',
+      'notes'
+    ];
+    const clean: Record<string, unknown> = {};
+    for (const key of allowed) {
+      const value = data[key];
+      if (value !== undefined) clean[key] = value;
+    }
+    if (typeof clean.examinationDate === 'string') clean.examinationDate = new Date(clean.examinationDate);
+    if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate);
+    if (Object.keys(clean).length === 0) {
+      throw new Error('No valid postnatal fields supplied for update');
+    }
+    return this.prisma.postnatalRecord.update({ where: { id }, data: clean });
   }
 
   async deletePostnatalRecord(id: string): Promise<void> {
