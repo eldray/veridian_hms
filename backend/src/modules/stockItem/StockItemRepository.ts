@@ -649,6 +649,36 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       });
     }
 
+    // Legacy adjustments sometimes lack adjustmentDirection. Their sign can only
+    // be recovered from consecutive location balance snapshots, so fetch the last
+    // pre-period snapshot for each item represented in the complete period ledger.
+    // A single latest-row lookup per item avoids loading the item's entire history.
+    let transactionsBeforeStart: any[] = [];
+    if (opts.startDate && !opts.includeAllStockLocations) {
+      const periodRows = reconciliationRows.length ? reconciliationRows : rows;
+      const itemIds = [...new Set(periodRows.map((row: any) => row.stockItemId).filter(Boolean))];
+      transactionsBeforeStart = (await Promise.all(itemIds.map((stockItemId) =>
+        this.prisma.stockTransaction.findFirst({
+          where: {
+            stockItemId,
+            transactionDate: { lt: opts.startDate },
+            departmentId: opts.departmentId ?? null,
+            wardId: null,
+          },
+          orderBy: [{ transactionDate: 'desc' }, { createdAt: 'desc' }],
+          select: {
+            stockItemId: true,
+            transactionType: true,
+            quantity: true,
+            adjustmentDirection: true,
+            balanceAfter: true,
+            transactionDate: true,
+            createdAt: true,
+          },
+        }),
+      ))).filter(Boolean);
+    }
+
     // Hospital-wide historical closing balances must be based on the aggregate item
     // balance, not a department-specific balanceAfter snapshot. Fetch all movements
     // after the report end (without the activity-type filter) so the service can
@@ -687,7 +717,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           select: { stockItemId: true, quantity: true },
         })
       : [];
-    return { rows, total, transactionsAfterEnd, reconciliationRows, locationBalances };
+    return { rows, total, transactionsBeforeStart, transactionsAfterEnd, reconciliationRows, locationBalances };
   }
 
   async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
