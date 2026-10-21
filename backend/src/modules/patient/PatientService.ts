@@ -84,9 +84,70 @@ export class PatientService extends BaseService {
     return null;
   }
 
+  /**
+   * Validate the structured clinical history at the API boundary. The UI filters
+   * blank rows, but API clients must not be able to persist empty allergy names
+   * or arbitrary severity values.
+   */
+  private validateClinicalHistory(data: Partial<CreatePatientDTO>): void {
+    const errors: any[] = [];
+    const allowedSeverities = new Set(['mild', 'moderate', 'severe']);
+
+    if (data.allergies !== undefined) {
+      if (!Array.isArray(data.allergies)) {
+        errors.push({ field: 'allergies', message: 'Allergies must be provided as a list' });
+      } else {
+        data.allergies.forEach((allergy, index) => {
+          if (!allergy || typeof allergy.allergen !== 'string' || !allergy.allergen.trim()) {
+            errors.push({ field: `allergies[${index}].allergen`, message: 'Allergen name is required' });
+          }
+          if (allergy?.severity && !allowedSeverities.has(String(allergy.severity).toLowerCase())) {
+            errors.push({ field: `allergies[${index}].severity`, message: 'Severity must be mild, moderate, or severe' });
+          }
+        });
+      }
+    }
+
+    if (data.medicalHistories !== undefined && !Array.isArray(data.medicalHistories)) {
+      errors.push({ field: 'medicalHistories', message: 'Medical histories must be provided as a list' });
+    } else {
+      (data.medicalHistories || []).forEach((history, index) => {
+        if (!history || typeof history.condition !== 'string' || !history.condition.trim()) {
+          errors.push({ field: `medicalHistories[${index}].condition`, message: 'Medical condition is required' });
+        }
+      });
+    }
+
+    if (data.surgicalHistories !== undefined && !Array.isArray(data.surgicalHistories)) {
+      errors.push({ field: 'surgicalHistories', message: 'Surgical histories must be provided as a list' });
+    } else {
+      (data.surgicalHistories || []).forEach((history, index) => {
+        if (!history || typeof history.procedure !== 'string' || !history.procedure.trim()) {
+          errors.push({ field: `surgicalHistories[${index}].procedure`, message: 'Surgical procedure is required' });
+        }
+      });
+    }
+
+    if (data.familyHistories !== undefined && !Array.isArray(data.familyHistories)) {
+      errors.push({ field: 'familyHistories', message: 'Family histories must be provided as a list' });
+    } else {
+      (data.familyHistories || []).forEach((history, index) => {
+        if (!history || typeof history.relation !== 'string' || !history.relation.trim()) {
+          errors.push({ field: `familyHistories[${index}].relation`, message: 'Family relationship is required' });
+        }
+        if (!history || typeof history.condition !== 'string' || !history.condition.trim()) {
+          errors.push({ field: `familyHistories[${index}].condition`, message: 'Family medical condition is required' });
+        }
+      });
+    }
+
+    if (errors.length > 0) throw new ValidationError('Invalid clinical history', errors);
+  }
+
   async createPatient(data: CreatePatientDTO): Promise<Patient> {
     this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     this.validateCreateData(data);
+    this.validateClinicalHistory(data);
     await this.checkDuplicates(data);
     const corporateAccount = await this.validateCorporateData(data);
 
@@ -179,6 +240,7 @@ export class PatientService extends BaseService {
 
   async updatePatient(id: string, data: UpdatePatientDTO): Promise<Patient> {
     this.logInfo('Updating patient', { id });
+    this.validateClinicalHistory(data);
     await this.getPatientById(id);
     await this.checkDuplicates(data as CreatePatientDTO, id);
     const corporateAccount = await this.validateCorporateData(data as CreatePatientDTO);
