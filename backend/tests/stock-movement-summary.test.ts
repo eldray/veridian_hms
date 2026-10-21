@@ -332,6 +332,10 @@ describe('stock usage report location scope', () => {
 
     expect(query.where.departmentId).toBe('pharmacy');
     expect(query.where.transactionType.in).toEqual(['sale', 'requisition']);
+    expect(query.where.NOT).toEqual([
+      { notes: { startsWith: 'Consumable use: [EDITED]' } },
+      { notes: { startsWith: 'Consumable use: [DELETED]' } },
+    ]);
   });
 
   it('restricts callers without a department to unassigned usage rows', async () => {
@@ -346,5 +350,37 @@ describe('stock usage report location scope', () => {
     await repo.getTransactionsForUsageReport(new Date('2026-10-01T00:00:00Z'));
 
     expect(query.where.departmentId).toBe('__NO_DEPARTMENT__');
+  });
+});
+
+
+describe('consumable correction reporting', () => {
+  it('excludes superseded consumable rows from activity totals but reconciles their ledger reversals', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getMovementData: async () => ({
+        stockItems: [{ id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'pair', currentStock: 8 }],
+        transactions: [
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 3, notes: 'Consumable use: [EDITED] old entry' },
+          { stockItemId: 'gloves', transactionType: 'adjustment', quantity: 3, notes: 'Consumable use edit reversal: tx-old' },
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, notes: 'Consumable use: current entry' },
+        ],
+        transactionsAfterEnd: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary({
+      includeAllStockLocations: true,
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-21T23:59:59.999Z'),
+    });
+
+    expect(report.items[0]).toMatchObject({
+      sales: 2,
+      adjustments: 0,
+      netChange: -2,
+      openingStock: 10,
+      closingStock: 8,
+    });
   });
 });
