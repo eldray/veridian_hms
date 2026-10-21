@@ -1160,3 +1160,44 @@ describe('unassigned stock transaction report filters', () => {
   });
 });
 
+describe('batch-to-balance valuation reconciliation', () => {
+  it('flags batch quantities both above and below the recorded stock balance', async () => {
+    const findMany = vi.fn().mockResolvedValue([
+      {
+        id: 'over-recorded-batches',
+        name: 'Item A',
+        currentStock: 12,
+        costPrice: 2,
+        reorderLevel: 1,
+        StockBatch: [{ quantity: 15, costPrice: 2 }],
+        stockBalances: [{ quantity: 12 }],
+      },
+      {
+        id: 'missing-batch-quantity',
+        name: 'Item B',
+        currentStock: 15,
+        costPrice: 2,
+        reorderLevel: 1,
+        StockBatch: [{ quantity: 12, costPrice: 2 }],
+        stockBalances: [{ quantity: 15 }],
+      },
+      {
+        id: 'legacy-unbatched',
+        name: 'Item C',
+        currentStock: 15,
+        costPrice: 2,
+        reorderLevel: 1,
+        StockBatch: [],
+        stockBalances: [{ quantity: 15 }],
+      },
+    ]);
+    const service = new StockItemService({ stockItem: { findMany } } as any);
+
+    const report = await service.getValueSummary(undefined, { includeAllStockLocations: true });
+
+    expect(report.batchQuantityDiscrepancies).toBe(2);
+    expect(report.items.map((item: any) => item.stockDiscrepancy)).toEqual([3, 3, 0]);
+    expect(report.items[2].unbatchedQuantity).toBe(15);
+  });
+});
+
