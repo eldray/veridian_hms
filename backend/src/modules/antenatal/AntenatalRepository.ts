@@ -229,22 +229,75 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
+    if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim()) {
+      throw new ValidationError('Patient, delivery attendance, and recording staff are required');
+    }
+    const deliveryDate = new Date(data.deliveryDate);
+    if (!Number.isFinite(deliveryDate.getTime())) {
+      throw new ValidationError('A valid delivery date is required');
+    }
+    const actor = await this.prisma.user.findUnique({ where: { id: data.createdById }, select: { id: true } });
+    if (!actor) throw new ValidationError('The selected recording staff account does not exist');
+
     const babies = this.mapNewborns((data as any).Newborn);
-    return this.prisma.deliveryRecord.create({
-      data: {
-        patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
-        deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
-        placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant,
-        gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
-        resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
-        complications: data.complications || [], notes: data.notes, malePartnerPresentANC: data.malePartnerPresentANC || false,
-        malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
-        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, referralTo: data.referralTo,
-        birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
-        createdById: data.createdById,
-        ...(babies.length ? { Newborn: { create: babies } } : {})
-      },
-      include: { patient: true, attendance: true, Newborn: true }
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, patientId: true, attendanceType: true },
+      });
+      if (!attendance) throw new ValidationError('The selected delivery attendance does not exist');
+      if (attendance.patientId !== data.patientId) {
+        throw new ValidationError('The delivery attendance belongs to a different patient');
+      }
+      if (attendance.attendanceType !== 'delivery') {
+        throw new ValidationError('Delivery record must be linked to a delivery attendance');
+      }
+
+      if (data.antenatalBookingId) {
+        const booking = await tx.antenatalBooking.findUnique({
+          where: { id: data.antenatalBookingId },
+          select: { id: true, patientId: true, isActive: true, isCompleted: true },
+        });
+        if (!booking || booking.patientId !== data.patientId) {
+          throw new ValidationError('The antenatal booking does not belong to this patient');
+        }
+        if (!booking.isActive || booking.isCompleted) {
+          throw new ValidationError('This antenatal booking is already closed');
+        }
+      }
+
+      const record = await tx.deliveryRecord.create({
+        data: {
+          patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
+          deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
+          placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant,
+          gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
+          resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
+          complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
+          malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
+          maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, referralTo: data.referralTo,
+          birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
+          createdById: data.createdById,
+          ...(babies.length ? { Newborn: { create: babies } } : {})
+        },
+        include: { patient: true, attendance: true, Newborn: true }
+      });
+
+      // Delivery creation and closure of the related ANC booking must succeed or fail together.
+      if (data.antenatalBookingId) {
+        const closed = await tx.antenatalBooking.updateMany({
+          where: { id: data.antenatalBookingId, patientId: data.patientId, isActive: true, isCompleted: false },
+          data: {
+            isActive: false, isCompleted: true, deliveryDate,
+            deliveryOutcome: String(data.deliveryOutcome), deliveryRecordId: record.id,
+            updatedAt: new Date(),
+          },
+        });
+        if (closed.count !== 1) {
+          throw new ValidationError('The antenatal booking could not be closed; delivery was not saved');
+        }
+      }
+      return record;
     });
   }
 
