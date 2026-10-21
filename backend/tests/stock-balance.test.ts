@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
-
-
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
 
 describe('purchase receipt location snapshots', () => {
