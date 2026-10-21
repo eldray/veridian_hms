@@ -710,3 +710,37 @@ describe('hospital-wide stock item movement reconciliation', () => {
     expect(report.summary.netChange).toBe(8);
   });
 });
+
+describe('historical movement data retrieval', () => {
+  it('fetches post-period movements without the activity-type filter for reconciliation', async () => {
+    const queries: any[] = [];
+    const repository = new StockItemRepository({
+      stockTransaction: {
+        count: async () => 1,
+        findMany: async (args: any) => {
+          queries.push(args);
+          return [];
+        },
+      },
+    } as any);
+
+    const result = await repository.getLedgerTransactions({
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-10T23:59:59.999Z'),
+      transactionType: 'sale',
+      departmentId: 'pharmacy',
+      includeAllStockLocations: false,
+      limit: 5000,
+    });
+
+    expect(queries).toHaveLength(2);
+    expect(queries[0].where.transactionType).toBe('sale');
+    expect(queries[1].where.transactionDate).toEqual({
+      gt: new Date('2026-10-10T23:59:59.999Z'),
+    });
+    expect(queries[1].where.transactionType).toBeUndefined();
+    expect(queries[1].where.departmentId).toBe('pharmacy');
+    expect(result.transactionsAfterEnd).toEqual([]);
+    expect(queries[0].include.StockItem.select.currentStock).toBe(true);
+  });
+});
