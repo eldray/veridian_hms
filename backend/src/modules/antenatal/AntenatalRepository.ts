@@ -264,7 +264,42 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
-    return this.prisma.aNCVisit.update({ where: { id }, data, include: { recordedBy: { select: { fullName: true, role: true } } } });
+    const allowed = [
+      'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'weight', 'bloodPressure',
+      'fundalHeight', 'fetalHeartRate', 'fetalMovements', 'presentation', 'oedema', 'oedemaGrade',
+      'urinalysisProtein', 'urinalysisGlucose', 'urinalysisBlood', 'iptpGiven', 'iptpDoseNumber',
+      'iptpDrug', 'ttGiven', 'ttDoseNumber', 'ironGiven', 'folateGiven', 'calciumGiven',
+      'malariaTestDone', 'malariaTestResult', 'malariaTreatmentGiven', 'dangerSignsPresent',
+      'dangerSignsList', 'referralMade', 'referredTo', 'nextVisitDate', 'returnInstructions',
+    ];
+    const clean: Record<string, any> = {};
+    for (const key of allowed) if ((data as any)[key] !== undefined) clean[key] = (data as any)[key];
+    if (clean.visitDate && Number.isNaN(new Date(clean.visitDate).getTime())) {
+      throw new ValidationError('ANC visit date must be valid');
+    }
+    if (clean.nextVisitDate && Number.isNaN(new Date(clean.nextVisitDate).getTime())) {
+      throw new ValidationError('Next ANC visit date must be valid');
+    }
+    if (clean.visitDate) clean.visitDate = new Date(clean.visitDate);
+    if (clean.nextVisitDate) clean.nextVisitDate = new Date(clean.nextVisitDate);
+    if (clean.gestationalAgeWeeks !== undefined && (!Number.isInteger(Number(clean.gestationalAgeWeeks)) || Number(clean.gestationalAgeWeeks) < 0 || Number(clean.gestationalAgeWeeks) > 42)) {
+      throw new ValidationError('Gestational age must be between 0 and 42 weeks');
+    }
+    if (clean.weight !== undefined && (!Number.isFinite(Number(clean.weight)) || Number(clean.weight) <= 0 || Number(clean.weight) > 350)) {
+      throw new ValidationError('Weight must be a valid value in kilograms');
+    }
+    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 60)) {
+      throw new ValidationError('Fundal height must be between 0 and 60 cm');
+    }
+    if (clean.fetalHeartRate !== undefined && (!Number.isInteger(Number(clean.fetalHeartRate)) || Number(clean.fetalHeartRate) < 60 || Number(clean.fetalHeartRate) > 200)) {
+      throw new ValidationError('Fetal heart rate must be between 60 and 200 bpm');
+    }
+    if (Object.keys(clean).length === 0) throw new ValidationError('No valid ANC visit fields were provided');
+    return this.prisma.aNCVisit.update({
+      where: { id },
+      data: clean,
+      include: { recordedBy: { select: { fullName: true, role: true } } },
+    });
   }
 
   async deleteVisit(id: string): Promise<void> {
@@ -486,7 +521,43 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updatePostnatalRecord(id: string, data: any): Promise<any> {
-    return this.prisma.postnatalRecord.update({ where: { id }, data });
+    const allowed = [
+      'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
+      'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia', 'perinealCondition',
+      'caesareanWound', 'breastfeedingStatus', 'breastfeedingDifficulties', 'latching',
+      'babyCondition', 'babyWeight', 'babyTemperature', 'babyFeeding', 'jaundice',
+      'jaundiceSeverity', 'cordCondition', 'bcgGiven', 'opv0Given', 'hepB0Given',
+      'familyPlanningDiscussed', 'familyPlanningMethodAccepted', 'maternalDangerSigns',
+      'babyDangerSigns', 'referralMade', 'referredTo', 'referralReason', 'nextVisitDate',
+      'nextVisitType', 'malePartnerPresentPNC', 'notes',
+    ];
+    const clean: Record<string, any> = {};
+    for (const key of allowed) if (data[key] !== undefined) clean[key] = data[key];
+    if (clean.examinationDate !== undefined) {
+      const date = new Date(clean.examinationDate);
+      if (Number.isNaN(date.getTime())) throw new ValidationError('Postnatal examination date must be valid');
+      clean.examinationDate = date;
+    }
+    if (clean.nextVisitDate !== undefined && clean.nextVisitDate !== null) {
+      const date = new Date(clean.nextVisitDate);
+      if (Number.isNaN(date.getTime())) throw new ValidationError('Next postnatal visit date must be valid');
+      clean.nextVisitDate = date;
+    }
+    if (clean.dayNumber !== undefined && (!Number.isInteger(Number(clean.dayNumber)) || Number(clean.dayNumber) < 1 || Number(clean.dayNumber) > 365)) {
+      throw new ValidationError('Postnatal day number must be between 1 and 365');
+    }
+    if (clean.temperature !== undefined && (!Number.isFinite(Number(clean.temperature)) || Number(clean.temperature) < 30 || Number(clean.temperature) > 45)) {
+      throw new ValidationError('Maternal temperature must be between 30 and 45 °C');
+    }
+    if (clean.babyTemperature !== undefined && (!Number.isFinite(Number(clean.babyTemperature)) || Number(clean.babyTemperature) < 30 || Number(clean.babyTemperature) > 45)) {
+      throw new ValidationError('Baby temperature must be between 30 and 45 °C');
+    }
+    if (Object.keys(clean).length === 0) throw new ValidationError('No valid postnatal fields were provided');
+    return this.prisma.postnatalRecord.update({
+      where: { id },
+      data: clean,
+      include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true },
+    });
   }
 
   async deletePostnatalRecord(id: string): Promise<void> {
