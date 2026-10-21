@@ -90,11 +90,12 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
 
   // Available stock + any already-held quantity when editing
   const maxQuantity = selected
-    ? selected.currentStock + (existingUse?.stockItemId === selected.id ? existingUse.quantity : 0)
+    ? (Number(selected.currentStock) || 0) +
+      (existingUse?.stockItemId === selected.id ? Number(existingUse.quantity) || 0 : 0)
     : 0;
 
   const showDropdown = !selectedId;
-  const isOutOfStock = !!selected && selected.currentStock === 0;
+  const isOutOfStock = !!selected && (Number(selected.currentStock) || 0) <= 0;
   const isOverMax = !!selected && quantity > maxQuantity;
 
   const handleSelect = (item: any) => {
@@ -219,7 +220,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
                           type="button"
                           key={item.id}
                           onClick={() => handleSelect(item)}
-                          disabled={out}
+                          disabled={out || !canAdd}
                           className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                             out ? 'cursor-not-allowed opacity-50' : 'hover:bg-[var(--bg-main)]'
                           }`}
