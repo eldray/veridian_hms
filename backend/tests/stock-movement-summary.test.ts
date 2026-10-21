@@ -2,6 +2,36 @@ import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
 
+describe('stock valuation report', () => {
+  it('values remaining batches at their recorded cost and unbatched stock at catalogue cost', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getValuationData: async () => [
+        {
+          id: 'item-1', name: 'Gloves', category: 'consumable', currentStock: 10,
+          costPrice: '5.00', unitOfMeasure: 'box', reorderLevel: 2,
+          StockBatch: [
+            { quantity: 4, costPrice: '2.50' },
+            { quantity: 2, costPrice: '3.00' },
+          ],
+        },
+      ],
+    };
+
+    const report = await service.getStockValuation(undefined, { includeAllStockLocations: true });
+
+    expect(report.totalValue).toBe(38);
+    expect(report.items[0]).toMatchObject({
+      batchQuantity: 6,
+      batchValue: 16,
+      unbatchedQuantity: 4,
+      totalValue: 36,
+      stockDiscrepancy: 0,
+    });
+    expect(report.byCategory.consumable.value).toBe(36);
+  });
+});
+
 describe('department stock movement summary', () => {
   it('reports internal transfers separately and includes them in location balances', async () => {
     const service = new StockTransactionService({} as any);
