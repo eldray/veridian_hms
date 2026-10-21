@@ -31,7 +31,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Receipt generated successfully',
         data: {
@@ -41,7 +41,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating receipt:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating receipt'
       });
@@ -68,7 +68,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Referral letter generated successfully',
         data: {
@@ -78,7 +78,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating referral letter:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating referral letter'
       });
@@ -105,7 +105,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Discharge summary generated successfully',
         data: {
@@ -115,7 +115,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating discharge summary:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating discharge summary'
       });
@@ -142,7 +142,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Lab result generated successfully',
         data: {
@@ -152,7 +152,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating lab result:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating lab result'
       });
@@ -179,7 +179,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Prescription generated successfully',
         data: {
@@ -189,7 +189,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating prescription:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating prescription'
       });
@@ -216,7 +216,7 @@ export class DocumentController {
         });
       }
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Bill statement generated successfully',
         data: {
@@ -226,7 +226,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error generating bill statement:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error generating bill statement'
       });
@@ -239,13 +239,13 @@ export class DocumentController {
       
       const documents = await this.documentService.getDocumentsByEntity(entityType, entityId);
       
-      res.json({
+      return res.json({
         success: true,
         data: documents
       });
     } catch (error: any) {
       console.error('Error fetching documents:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error fetching documents'
       });
@@ -266,12 +266,15 @@ export class DocumentController {
       }
       
       // Send file for download
+      if (!result.filePath) {
+        return res.status(404).json({ success: false, message: 'Document file path is unavailable' });
+      }
       const filePath = path.join(process.cwd(), result.filePath);
-      res.download(filePath, result.fileName || 'document.pdf', (err) => {
+      return res.download(filePath, result.fileName || 'document.pdf', (err) => {
         if (err) {
           console.error('Download error:', err);
           if (!res.headersSent) {
-            res.status(500).json({
+            return res.status(500).json({
               success: false,
               message: 'Error downloading document'
             });
@@ -280,7 +283,7 @@ export class DocumentController {
       });
     } catch (error: any) {
       console.error('Error downloading document:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error downloading document'
       });
@@ -291,13 +294,13 @@ export class DocumentController {
     try {
       const templates = await this.documentService.getAllTemplates();
       
-      res.json({
+      return res.json({
         success: true,
         data: templates
       });
     } catch (error: any) {
       console.error('Error fetching templates:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         message: error.message || 'Error fetching templates'
       });
@@ -327,14 +330,14 @@ export class DocumentController {
         req.user.id
       );
 
-      res.status(201).json({
+      return res.status(201).json({
         success: true,
         message: 'Document template created successfully',
         data: template
       });
     } catch (error: any) {
       console.error('Error creating template:', error);
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: error.message || 'Error creating template'
       });
@@ -353,14 +356,14 @@ export class DocumentController {
         isDefault
       });
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Document template updated successfully',
         data: template
       });
     } catch (error: any) {
       console.error('Error updating template:', error);
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: error.message || 'Error updating template'
       });
@@ -373,13 +376,13 @@ export class DocumentController {
 
       await this.documentService.deleteTemplate(id);
 
-      res.json({
+      return res.json({
         success: true,
         message: 'Document template deleted successfully'
       });
     } catch (error: any) {
       console.error('Error deleting template:', error);
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: error.message || 'Error deleting template'
       });
