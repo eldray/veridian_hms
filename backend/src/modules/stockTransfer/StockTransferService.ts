@@ -187,6 +187,9 @@ export class StockTransferService extends BaseService {
 
         // Origin stock and batches were already deducted/reserved at dispatch.
         // Validate the persisted allocation payload before changing destination balances.
+        if (item.batchAllocations != null && !Array.isArray(item.batchAllocations)) {
+          throw new Error(`Saved batch allocations for transfer item ${item.id} are malformed`);
+        }
         const allocations = Array.isArray(item.batchAllocations) ? item.batchAllocations as Array<{ batchId: string; quantity: number; batchNumber: string; expiryDate: string | Date; costPrice: any }> : [];
 
         if (allocations.length) {
