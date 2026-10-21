@@ -352,8 +352,29 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     for (const key of allowed) {
       if (data[key] !== undefined) updatePayload[key] = data[key];
     }
-    if (typeof updatePayload.deliveryDate === 'string') {
-      updatePayload.deliveryDate = new Date(updatePayload.deliveryDate);
+    if (updatePayload.deliveryDate !== undefined) {
+      updatePayload.deliveryDate = updatePayload.deliveryDate instanceof Date
+        ? new Date(updatePayload.deliveryDate.getTime())
+        : new Date(updatePayload.deliveryDate);
+      if (!Number.isFinite(updatePayload.deliveryDate.getTime())) {
+        throw new ValidationError('A valid delivery date is required');
+      }
+    }
+    const numericRanges: Record<string, [number, number]> = {
+      birthWeight: [0, 10], gestationWeeks: [0, 42],
+      apgarScore1min: [0, 10], apgarScore5min: [0, 10],
+    };
+    for (const [key, range] of Object.entries(numericRanges)) {
+      const value = updatePayload[key];
+      if (value === undefined || value === null) continue;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric < range[0] || numeric > range[1]) {
+        throw new ValidationError(`${key} must be between ${range[0]} and ${range[1]}`);
+      }
+      if (key !== 'birthWeight' && !Number.isInteger(numeric)) {
+        throw new ValidationError(`${key} must be a whole number`);
+      }
+      updatePayload[key] = numeric;
     }
     const Newborn = data.Newborn ?? data.newborns;
 
@@ -364,11 +385,25 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       ? Newborn
       : Array.isArray(Newborn?.create) ? Newborn.create : [];
     if (hasNewbornUpdate) {
-      updatePayload.Newborn = {
-        deleteMany: {},
-        create: newbornList.map((baby: any, index: number) => ({
+      const mappedBabies = newbornList.map((baby: any, index: number) => {
+        const birthWeight = Number(baby.birthWeight);
+        if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 10) {
+          throw new ValidationError(`Newborn ${index + 1} must have a valid birth weight`);
+        }
+        for (const scoreKey of ['apgarScore1min', 'apgarScore5min']) {
+          const score = baby[scoreKey];
+          if (score !== undefined && score !== null &&
+            (!Number.isInteger(Number(score)) || Number(score) < 0 || Number(score) > 10)) {
+            throw new ValidationError(`Newborn ${index + 1} has an invalid ${scoreKey}`);
+          }
+        }
+        const weightDate = baby.weightAt6to10DaysDate ? new Date(baby.weightAt6to10DaysDate) : null;
+        if (weightDate && !Number.isFinite(weightDate.getTime())) {
+          throw new ValidationError(`Newborn ${index + 1} has an invalid follow-up weight date`);
+        }
+        return {
           order: baby.order ?? index + 1,
-          birthWeight: Number(baby.birthWeight) || 0,
+          birthWeight,
           gender: baby.gender || 'other',
           apgarScore1min: baby.apgarScore1min ?? null,
           apgarScore5min: baby.apgarScore5min ?? null,
@@ -380,9 +415,15 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           eyeProphylaxisGiven: !!baby.eyeProphylaxisGiven,
           cordCareMethod: baby.cordCareMethod || 'dry_cord',
           babyWeightAt6to10Days: baby.babyWeightAt6to10Days ?? null,
-          weightAt6to10DaysDate: baby.weightAt6to10DaysDate
-            ? new Date(baby.weightAt6to10DaysDate) : null
-        }))
+          weightAt6to10DaysDate: weightDate
+        };
+      });
+      if (new Set(mappedBabies.map((baby: any) => baby.order)).size !== mappedBabies.length) {
+        throw new ValidationError('Each newborn must have a unique birth order');
+      }
+      updatePayload.Newborn = {
+        deleteMany: {},
+        create: mappedBabies
       };
     }
 
