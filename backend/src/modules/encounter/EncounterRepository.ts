@@ -1106,10 +1106,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    if (!['scheduled', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, completed or cancelled');
+    if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled' || (current.status === 'completed' && status !== 'completed')) throw new ConflictError('A cancelled or completed procedure cannot be reopened or changed');
+    if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
     const updateData: any = {};
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
@@ -1120,7 +1121,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (data.duration !== undefined && data.duration !== null && (!Number.isInteger(Number(data.duration)) || Number(data.duration) < 1 || Number(data.duration) > 1440)) throw new ValidationError('Procedure duration must be between 1 and 1440 minutes');
     if (data.bloodLoss !== undefined && data.bloodLoss !== null && (!Number.isInteger(Number(data.bloodLoss)) || Number(data.bloodLoss) < 0 || Number(data.bloodLoss) > 20000)) throw new ValidationError('Blood loss must be between 0 and 20000 mL');
     if (status !== current.status) updateData.status = status;
-    if (status === 'completed') { updateData.performedAt = new Date(); updateData.performedById = actorId; }
+    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
+    if (status === 'completed') updateData.performedAt = new Date();
     if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
     return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
   }
@@ -1824,33 +1826,33 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async getProceduresWorklist(): Promise<any> {
     const allProcedures = await this.prisma.procedure.findMany({
-      where: { OR: [{ status: 'scheduled', createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
+      where: { OR: [{ status: { in: ['scheduled', 'in_progress'] }, createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const procedure of allProcedures) {
       const attendanceId = procedure.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, patientId: procedure.Attendance.patientId, patient: { name: `${procedure.Attendance.Patient.surname} ${procedure.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(procedure.Attendance.Patient.dateOfBirth), gender: procedure.Attendance.Patient.gender, folderNumber: procedure.Attendance.Patient.folderNumber }, location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, completedCount: 0, earliestScheduledDate: null });
+        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, patientId: procedure.Attendance.patientId, patient: { name: `${procedure.Attendance.Patient.surname} ${procedure.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(procedure.Attendance.Patient.dateOfBirth), gender: procedure.Attendance.Patient.gender, folderNumber: procedure.Attendance.Patient.folderNumber }, location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.procedures.push(procedure);
-      if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'completed') group.completedCount++;
+      if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'in_progress') group.inProgressCount++; else if (procedure.status === 'completed') group.completedCount++;
       if (procedure.scheduledDate && (!group.earliestScheduledDate || new Date(procedure.scheduledDate) < new Date(group.earliestScheduledDate))) group.earliestScheduledDate = procedure.scheduledDate;
     }
     const processedItems: any[] = [];
     for (const group of groupedByAttendance.values()) {
-      const hasPendingProcedures = group.scheduledCount > 0;
-      const hasBeenPerformed = group.completedCount > 0 && group.scheduledCount === 0;
+      const hasPendingProcedures = group.scheduledCount > 0 || group.inProgressCount > 0;
+      const hasBeenPerformed = group.completedCount > 0 && group.scheduledCount === 0 && group.inProgressCount === 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (hasPendingProcedures && group.earliestScheduledDate) {
-        waitTime = Math.floor((new Date(group.earliestScheduledDate).getTime() - Date.now()) / 60000); waitTime = Math.max(0, waitTime);
-        const isOverdue = new Date(group.earliestScheduledDate) < new Date();
-        if (isOverdue) { const overdueHours = Math.abs(waitTime) / 60; if (overdueHours > 24) priority = 'stat'; else if (overdueHours > 12) priority = 'urgent'; } 
-        else { const waitHours = waitTime / 60; if (waitHours < 1) priority = 'stat'; else if (waitHours < 6) priority = 'urgent'; }
+        const minutesUntilScheduled = Math.floor((new Date(group.earliestScheduledDate).getTime() - Date.now()) / 60000);
+        waitTime = Math.max(0, minutesUntilScheduled);
+        if (minutesUntilScheduled < 0) { const overdueHours = Math.abs(minutesUntilScheduled) / 60; if (overdueHours > 24) priority = 'stat'; else if (overdueHours > 12) priority = 'urgent'; }
+        else { const waitHours = minutesUntilScheduled / 60; if (waitHours < 1) priority = 'stat'; else if (waitHours < 6) priority = 'urgent'; }
       }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: 0, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), waitTime, priority, status: hasBeenPerformed ? 'completed' : 'scheduled', encounterCategory: 'ipd' });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), waitTime, priority, status: hasBeenPerformed ? 'completed' : (group.inProgressCount > 0 ? 'in_progress' : 'scheduled'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: 0, completed: processedItems.filter((i: any) => i.status === 'completed').length, data: processedItems };
+    return { total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length, completed: processedItems.filter((i: any) => i.status === 'completed').length, data: processedItems };
   }
 
   async getMaternalWorklist(): Promise<any> {
