@@ -583,8 +583,20 @@ describe('purchase receipt batch expiry race protection', () => {
       return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate, tx };
     })();
 
-    await expect(repository.create(receipt, 'user-1'))
-      .rejects.toThrow(/changed or expired during receipt/i);
+    await expect(repository.create({
+      invoiceNumber: 'INV-BATCH-RACE',
+      supplierName: 'Test supplier',
+      invoiceDate: '2026-10-20',
+      totalAmount: 70,
+      invoiceItems: [{
+        stockItemId: 'item-1',
+        quantity: 7,
+        unitCost: 10,
+        batchNumber: 'B-1',
+        expiryDate: '2027-10-20',
+      }],
+      receivedAtDepartmentId: 'pharmacy',
+    } as any, 'user-1')).rejects.toThrow(/changed or expired during receipt/i);
 
     expect(batchUpdate).toHaveBeenCalled();
     expect(tx.stockItemDepartmentBalance.upsert).not.toHaveBeenCalled();
