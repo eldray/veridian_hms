@@ -1463,7 +1463,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const activeAttendances = await this.getModel().findMany({ where: { status: 'admitted', bedId: { not: null } }, include: { Patient: true, Bed: { include: { Ward: true } } } });
     
     return {
-      data: activeAttendances.map(a => ({ bed: a.Bed?.bedNumber, ward: a.Bed?.Ward?.wardName, patient: `${a.Patient.surname} ${a.Patient.otherNames}` })),
+      data: activeAttendances.map((a: any) => ({ bed: a.Bed?.bedNumber, ward: a.Bed?.Ward?.wardName, patient: `${a.Patient.surname} ${a.Patient.otherNames}` })),
       summary: { totalBeds: beds.length, occupied: activeAttendances.length, available: beds.length - activeAttendances.length }
     };
   }
@@ -1490,7 +1490,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       orderBy: { dateTime: 'asc' }
     });
 
-    const processedItems = activeAttendances.map(attendance => {
+    const processedItems = activeAttendances.map((attendance: any) => {
       const lastVitals = attendance.Vitals?.[0];
       const hasVitalsToday = lastVitals ? new Date(lastVitals.recordedAt).toDateString() === today.toDateString() : false;
       const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
@@ -1505,7 +1505,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         waitTime, priority, status: hasVitalsToday ? 'vitals_done' : 'pending_vitals', encounterCategory: attendance.encounterCategory
       };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => !i.hasVitalsToday).length, recent: processedItems.filter(i => i.hasVitalsToday).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasVitalsToday).length, recent: processedItems.filter((i: any) => i.hasVitalsToday).length, data: processedItems };
   }
 
   async getMedicalWorklist(): Promise<any> {
@@ -1516,7 +1516,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       orderBy: { dateTime: 'asc' }
     });
 
-    const processedItems = activeAttendances.map(attendance => {
+    const processedItems = activeAttendances.map((attendance: any) => {
       const hasVitalsToday = (attendance.Vitals?.length || 0) > 0;
       const hasMedicalNotesToday = attendance.medicalNotes !== null && attendance.medicalNotes !== '';
       const hasDiagnosis = (attendance.AttendanceDiagnosis?.length || 0) > 0;
@@ -1534,7 +1534,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         status: isPending ? 'pending_doctor' : (hasMedicalNotesToday ? 'reviewed' : 'pending_vitals_first'), encounterCategory: attendance.encounterCategory
       };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => i.status === 'pending_doctor').length, reviewed: processedItems.filter(i => i.hasMedicalNotesToday).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.status === 'pending_doctor').length, reviewed: processedItems.filter((i: any) => i.hasMedicalNotesToday).length, data: processedItems };
   }
 
   async getLabWorklist(): Promise<any> {
@@ -1576,7 +1576,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingTests) { waitTime = Math.floor((Date.now() - new Date(group.oldestRequestedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, testCount: group.tests.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingTests, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, tests: group.tests, waitTime, priority, status: hasPendingTests ? 'pending' : (allCompleted ? 'completed' : 'partial') });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingTests).length, completed: processedItems.filter(i => i.hasResults).length, inProgress: processedItems.filter(i => i.inProgressCount > 0).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingTests).length, completed: processedItems.filter((i: any) => i.hasResults).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, data: processedItems };
   }
 
   async getPharmacyWorklist(): Promise<any> {
@@ -1622,7 +1622,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingPrescriptions) { waitTime = Math.floor((Date.now() - new Date(group.oldestPrescribedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingPrescriptions).length, dispensed: processedItems.filter(i => i.hasBeenDispensed).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, data: processedItems };
   }
 
   async getRadiologyWorklist(): Promise<any> {
@@ -1651,7 +1651,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingScans) { waitTime = Math.floor((Date.now() - new Date(group.oldestRequestedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (priority !== 'stat' && waitHours > 48) priority = 'stat'; else if (priority !== 'stat' && waitHours > 24 && priority !== 'urgent') priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, scanCount: group.scans.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingScans, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, scanTypes: group.scans.map((s: any) => s.ScanTemplate?.name || s.scanType || 'Unknown').join(', '), waitTime, priority, status: hasPendingScans ? 'pending' : (allCompleted ? 'completed' : 'partial'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingScans).length, completed: processedItems.filter(i => i.hasResults).length, inProgress: processedItems.filter(i => i.inProgressCount > 0).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingScans).length, completed: processedItems.filter((i: any) => i.hasResults).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, data: processedItems };
   }
 
   async getProceduresWorklist(): Promise<any> {
@@ -1682,7 +1682,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: 0, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), waitTime, priority, status: hasBeenPerformed ? 'completed' : 'scheduled', encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, scheduled: processedItems.filter(i => i.status === 'scheduled').length, inProgress: 0, completed: processedItems.filter(i => i.status === 'completed').length, data: processedItems };
+    return { total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: 0, completed: processedItems.filter((i: any) => i.status === 'completed').length, data: processedItems };
   }
 
   async getMaternalWorklist(): Promise<any> {
@@ -1692,7 +1692,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
-    const processedItems = maternalAttendances.map(attendance => {
+    const processedItems = maternalAttendances.map((attendance: any) => {
       const antenatal = attendance.antenatalBookings[0] || attendance.currentAntenatalBookings[0];
       const delivery = attendance.deliveryRecords[0];
       const postnatal = attendance.postnatalRecords[0];
@@ -1705,7 +1705,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!hasBeenAttended) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
       return { id: attendance.id, patientId: attendance.patientId, attendanceId: attendance.id, patient: { name: `${attendance.Patient.surname} ${attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(attendance.Patient.dateOfBirth), gender: attendance.Patient.gender, folderNumber: attendance.Patient.folderNumber }, location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined, visitType: attendance.attendanceType as any, status: attendance.status, hasBeenAttended: completedToday, completedAt: completedToday ? attendance.updatedAt : undefined, waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory, gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd, deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType, postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes, latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => !i.hasBeenAttended).length, recent: processedItems.filter(i => i.hasBeenAttended).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasBeenAttended).length, recent: processedItems.filter((i: any) => i.hasBeenAttended).length, data: processedItems };
   }
 
   // ============================================
