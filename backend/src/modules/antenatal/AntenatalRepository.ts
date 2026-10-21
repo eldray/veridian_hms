@@ -209,12 +209,22 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async closeBooking(id: string, deliveryData: { deliveryDate?: Date; deliveryOutcome?: string; deliveryRecordId?: string }): Promise<any> {
+    if (!deliveryData.deliveryDate || Number.isNaN(new Date(deliveryData.deliveryDate).getTime())) {
+      throw new ValidationError('A confirmed pregnancy outcome date is required to close an antenatal booking');
+    }
+    const deliveryDate = new Date(deliveryData.deliveryDate);
+    if (deliveryDate.getTime() > Date.now()) throw new ValidationError('Pregnancy outcome date cannot be in the future');
+    if (!deliveryData.deliveryOutcome || !String(deliveryData.deliveryOutcome).trim()) {
+      throw new ValidationError('A confirmed pregnancy outcome is required; the system will not assume delivery');
+    }
+    const booking = await this.getModel().findUnique({ where: { id }, select: { id: true } });
+    if (!booking) throw new NotFoundError('Antenatal booking', id);
     return this.getModel().update({
       where: { id },
       data: {
         isActive: false, isCompleted: true,
-        deliveryDate: deliveryData.deliveryDate || new Date(),
-        deliveryOutcome: deliveryData.deliveryOutcome || 'delivered',
+        deliveryDate,
+        deliveryOutcome: String(deliveryData.deliveryOutcome).trim(),
         deliveryRecordId: deliveryData.deliveryRecordId, updatedAt: new Date()
       },
       include: { patient: true }
