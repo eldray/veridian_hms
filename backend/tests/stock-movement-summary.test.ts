@@ -521,3 +521,30 @@ describe('batch receipt balance snapshots', () => {
     expect(savedTransaction.balanceAfter).toBe(6);
   });
 });
+
+describe('stock item view balance isolation', () => {
+  it('excludes ward balances from department stock lists and item details', async () => {
+    let listArgs: any;
+    let detailArgs: any;
+    const model: any = {
+      findMany: async (args: any) => { listArgs = args; return []; },
+      count: async () => 0,
+      findUnique: async (args: any) => { detailArgs = args; return null; },
+    };
+    const repository = new StockItemRepository({ stockItem: model } as any);
+
+    await repository.findAllWithFilters({ departmentId: 'pharmacy', page: 1, limit: 25 });
+    await repository.findByIdWithRelations('gloves', { departmentId: 'pharmacy' });
+
+    expect(listArgs.include.stockBalances.where).toEqual({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+    expect(detailArgs.include.stockBalances.where).toEqual({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+    // Transaction history remains department-scoped, independently of balance filtering.
+    expect(detailArgs.include.StockTransaction.where).toEqual({ departmentId: 'pharmacy' });
+  });
+});
