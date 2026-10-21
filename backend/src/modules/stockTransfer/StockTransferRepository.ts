@@ -27,7 +27,7 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
     }
     if (status) where.status = status;
 
-    return this.findManyWithPagination({
+    const result = await this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
         origin: { select: { id: true, name: true } },
@@ -37,6 +37,26 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
         items: { include: { stockItem: { select: { id: true, name: true, drugCode: true } } } }
       }
     });
+
+    // A dispatched transfer has left the origin but has not yet entered the
+    // destination balance. Expose this explicitly so reports/UI can distinguish
+    // in-transit stock from stock available in either department. Do not add it
+    // to StockItem.currentStock: that aggregate already retains these units.
+    return {
+      ...result,
+      data: (result.data || []).map((transfer: any) => ({
+        ...transfer,
+        hasStockInTransit: transfer.status === 'dispatched' && transfer.items.some(
+          (item: any) => Number(item.quantitySent) > Number(item.quantityReceived),
+        ),
+        items: transfer.items.map((item: any) => ({
+          ...item,
+          quantityInTransit: transfer.status === 'dispatched'
+            ? Math.max(0, Number(item.quantitySent || 0) - Number(item.quantityReceived || 0))
+            : 0,
+        })),
+      })),
+    };
   }
 
   async findByIdWithDetails(id: string) {
