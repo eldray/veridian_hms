@@ -167,7 +167,7 @@ export class RequisitionService extends BaseService {
     }
 
     await this.assertCanAct(existingRequisition, userId, data.status as any);
-    const requisition = await this.repository.updateStatus(id, data.status, userId, data.notes);
+    const requisition = await this.repository.updateStatus(id, data.status, userId, data.notes, currentStatus);
     this.logInfo('Requisition status updated', { id, status: requisition.status });
     return requisition;
   }
