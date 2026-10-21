@@ -191,10 +191,12 @@ export class StockTransferService extends BaseService {
 
         if (allocations.length) {
           for (const allocation of allocations) {
+            if (!allocation || typeof allocation !== 'object') {
+              throw new Error(`Saved batch allocation for transfer item ${item.id} is invalid`);
+            }
             const expiryDate = new Date(allocation.expiryDate);
             const costPrice = Number(allocation.costPrice);
             if (
-              !allocation ||
               typeof allocation.batchNumber !== 'string' ||
               !allocation.batchNumber.trim() ||
               !Number.isSafeInteger(allocation.quantity) ||
