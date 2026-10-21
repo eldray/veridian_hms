@@ -490,14 +490,15 @@ export class StockItemService extends BaseService {
     // last pre-period location snapshot so legacy adjustments at the start of the
     // report period can be signed from their actual balance change.
     const reconciledSignedById = new Map<string, number>();
-    if (!extra.includeAllStockLocations && reconciliationRows.length) {
+    const signResolutionRows = reconciliationRows.length ? reconciliationRows : rows;
+    if (!extra.includeAllStockLocations && signResolutionRows.length) {
       const previousLocationBalance = new Map<string, number>();
       for (const transaction of transactionsBeforeStart as any[]) {
         if (Number.isFinite(Number(transaction.balanceAfter))) {
           previousLocationBalance.set(transaction.stockItemId, Number(transaction.balanceAfter));
         }
       }
-      for (const transaction of reconciliationRows as any[]) {
+      for (const transaction of signResolutionRows as any[]) {
         const q = Math.abs(Number(transaction.quantity) || 0);
         const previous = previousLocationBalance.get(transaction.stockItemId);
         if (transaction.transactionType === 'adjustment' &&
