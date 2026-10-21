@@ -111,12 +111,19 @@ CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
 ```
 
-### 5. Database Migration
+### 5. Database Setup
+
+**Important:** the checked-in Prisma migrations are incremental and are not a complete baseline for a brand-new database.
+
+For a new development database, sync the schema and generate the Prisma client:
+
 ```bash
 cd backend
-npx prisma migrate dev
+npx prisma db push
 npx prisma generate
 ```
+
+For an existing hospital database, take a verified backup and review its current schema before applying changes. If it already contains stock records, follow [the departmental stock ledger rollout guide](backend/docs/DEPARTMENTAL_STOCK_LEDGER.md) and run its backfill only after the schema is updated. Do not run `prisma migrate deploy` against a database created with `db push` until the migration baseline has been reconciled.
 
 ### 6. Seed Database (Optional)
 ```bash
