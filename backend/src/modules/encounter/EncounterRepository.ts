@@ -1126,11 +1126,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     return this.prisma.$transaction(async (tx) => {
       const previous = await tx.stockTransaction.findFirst({
-        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: transactionId,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
       });
       if (!previous) throw new NotFoundError('Consumable use', transactionId);
       const claimed = await tx.stockTransaction.updateMany({
-        where: { id: previous.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: previous.id,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
         data: { notes: `Consumable use edit in progress: ${previous.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
@@ -1180,11 +1196,27 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     return this.prisma.$transaction(async (tx) => {
       const use = await tx.stockTransaction.findFirst({
-        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: transactionId,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
       });
       if (!use) throw new NotFoundError('Consumable use', transactionId);
       const claimed = await tx.stockTransaction.updateMany({
-        where: { id: use.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: use.id,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
         data: { notes: `Consumable use deletion in progress: ${use.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
