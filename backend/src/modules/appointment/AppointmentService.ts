@@ -110,7 +110,7 @@ export class AppointmentService extends BaseService {
           medicalNotes: appointment.description,
           status: 'pending',
           createdById: userId,
-          appointmentId: appointment.id,
+          appointment: { connect: { id: appointment.id } },
           encounterCategory: 'opd',
           visitCategory: 'general'
         }
