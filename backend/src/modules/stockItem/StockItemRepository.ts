@@ -2,6 +2,14 @@ import { PrismaClient, StockTransactionType, RequisitionStatus } from '@prisma/c
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ValidationError } from '../../utils/errors';
 
+// Stock expiry is a calendar date, not an instant at midnight. A lot remains
+// eligible through the recorded expiry day.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
+
 /**
  * Department-level balance ledger.
  * locationKey is the department id, or __UNASSIGNED__ for legacy stock not yet assigned.
@@ -175,7 +183,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           where: {
             stockItemId: id, departmentId: normalizedDepartmentId, wardId: null,
             quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: now } }),
+            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
           },
           orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
         });
@@ -188,7 +196,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           const changed = await tx.stockBatch.updateMany({
             where: {
               id: batch.id, departmentId: normalizedDepartmentId, wardId: null, quantity: { gte: move },
-              ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gt: now } }),
+              ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
             },
             data: { quantity: { decrement: move } },
           });
@@ -257,7 +265,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         ? await tx.stockBatch.findMany({
             where: {
               stockItemId, departmentId: null, wardId: null, isActive: true,
-              quantity: { gt: 0 }, expiryDate: { gt: new Date() },
+              quantity: { gt: 0 }, expiryDate: { gte: startOfCurrentDay() },
             },
             orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
           })
@@ -367,7 +375,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     if (!stockItemId || !batchNumber?.trim()) throw new ValidationError('Stock item and batch number are required');
     if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new ValidationError('Batch quantity must be a positive whole number');
     if (!(expiryDate instanceof Date) || Number.isNaN(expiryDate.getTime())) throw new ValidationError('A valid batch expiry date is required');
-    if (expiryDate <= new Date()) throw new ValidationError('Expired batches cannot be added as available stock');
+    if (expiryDate < startOfCurrentDay()) throw new ValidationError('Expired batches cannot be added as available stock');
     if (!Number.isFinite(Number(costPrice)) || Number(costPrice) < 0) throw new ValidationError('Batch cost price must be a valid non-negative amount');
 
     const normalizedDepartmentId = departmentId || null;
@@ -400,7 +408,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         // Recheck expiry at the atomic write boundary. A batch can cross its
         // expiry time after the initial validation/read and must not gain
         // newly received available quantity once expired.
-        where: { id: existingBatch.id, isActive: true, expiryDate: { gt: new Date() } },
+        where: { id: existingBatch.id, isActive: true, expiryDate: { gte: startOfCurrentDay() } },
         data: { quantity: { increment: quantity } },
       });
       if (incremented.count !== 1) throw new ValidationError('Batch changed or expired during receipt. Please retry.');
@@ -466,7 +474,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     thresholdDate.setDate(thresholdDate.getDate() + daysThreshold);
     return this.prisma.stockBatch.findMany({
       where: {
-        expiryDate: { lte: thresholdDate, gte: new Date() },
+        expiryDate: { lte: thresholdDate, gte: startOfCurrentDay() },
         isActive: true,
         quantity: { gt: 0 },
         ...(!filters.includeAllStockLocations
