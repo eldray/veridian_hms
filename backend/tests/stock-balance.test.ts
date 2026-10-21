@@ -688,7 +688,13 @@ describe('clinical dispensing calendar-day expiry', () => {
         expiryDate: { gte: expect.any(Date) },
       }),
     }));
-    expect(stockTransactionCreate).toHaveBeenCalled();
+    expect(stockTransactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        balanceAfter: 4,
+        departmentId: 'pharmacy',
+        transactionType: 'sale',
+      }),
+    });
   });
 });
 
