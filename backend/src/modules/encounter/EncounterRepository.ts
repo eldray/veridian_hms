@@ -405,7 +405,44 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
+  /**
+   * Reject impossible or clearly malformed measurements without applying adult-only
+   * clinical thresholds to children or newborns. Units are metric and temperature is °C.
+   */
+  private validateClinicalVitalValues(data: Record<string, any>) {
+    const ranges: Record<string, { min: number; max: number; label: string }> = {
+      temperature: { min: 25, max: 45, label: 'Temperature must be recorded in °C between 25 and 45' },
+      pulse: { min: 1, max: 300, label: 'Pulse must be between 1 and 300 beats/minute' },
+      respiration: { min: 1, max: 100, label: 'Respiratory rate must be between 1 and 100 breaths/minute' },
+      spo2: { min: 1, max: 100, label: 'SpO₂ must be between 1 and 100 percent' },
+      weight: { min: 0.1, max: 500, label: 'Weight must be recorded in kilograms between 0.1 and 500' },
+      height: { min: 10, max: 300, label: 'Height/length must be recorded in centimetres between 10 and 300' },
+      muac: { min: 1, max: 80, label: 'MUAC must be recorded in centimetres between 1 and 80' },
+      fetalHeartRate: { min: 1, max: 300, label: 'Fetal heart rate must be between 1 and 300 beats/minute' },
+      fundalHeight: { min: 0, max: 60, label: 'Fundal height must be between 0 and 60 cm' },
+    };
+    for (const [field, range] of Object.entries(ranges)) {
+      const value = data[field];
+      if (value === undefined || value === null || value === '') continue;
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < range.min || number > range.max) {
+        throw new ValidationError(range.label);
+      }
+    }
+    if (data.bloodPressure !== undefined && data.bloodPressure !== null && String(data.bloodPressure).trim() !== '') {
+      const value = String(data.bloodPressure).trim();
+      const match = value.match(/^(\\d{2,3})\\s*\\/\\s*(\\d{2,3})(?:\\s*mmhg)?$/i);
+      if (!match) throw new ValidationError('Blood pressure must use systolic/diastolic format, for example 120/80');
+      const systolic = Number(match[1]);
+      const diastolic = Number(match[2]);
+      if (systolic < 30 || systolic > 300 || diastolic < 20 || diastolic > 200 || diastolic >= systolic) {
+        throw new ValidationError('Blood pressure values are outside plausible limits; verify systolic/diastolic readings');
+      }
+    }
+  }
+
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
+    this.validateClinicalVitalValues(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const {
       fetalHeartRate,
@@ -467,6 +504,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async updateVitals(vitalsId: string, data: any) {
+    this.validateClinicalVitalValues(data as Record<string, any>);
     const {
       fetalHeartRate,
       fundalHeight,
