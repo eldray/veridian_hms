@@ -172,6 +172,7 @@ describe('maternal record integrity', () => {
       deliveryDate,
       deliveryType: 'spontaneous_vertex',
       deliveryOutcome: 'stillbirth_fresh',
+      maternalOutcome: 'alive',
       createdById: 'midwife-1',
     })).resolves.toEqual(record);
 
