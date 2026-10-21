@@ -690,3 +690,22 @@ describe('clinical dispensing calendar-day expiry', () => {
     expect(stockTransactionCreate).toHaveBeenCalled();
   });
 });
+
+
+describe('stock batch service expiry calendar', () => {
+  it('allows adding a batch whose expiry date is today', async () => {
+    const expiryToday = new Date();
+    expiryToday.setUTCHours(0, 0, 0, 0);
+    const receivedYesterday = new Date(expiryToday);
+    receivedYesterday.setUTCDate(receivedYesterday.getUTCDate() - 1);
+    const addBatchSafely = vi.fn().mockResolvedValue({ id: 'batch-today' });
+    const service = new StockItemService({} as any);
+    (service as any).repo = { addBatchSafely };
+
+    await service.addStockBatch('item-1', 'LOT-TODAY', expiryToday, 2, 5, receivedYesterday, 'pharmacy');
+
+    expect(addBatchSafely).toHaveBeenCalledWith(
+      'item-1', 'LOT-TODAY', expiryToday, 2, 5, receivedYesterday, 'pharmacy',
+    );
+  });
+});
