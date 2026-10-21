@@ -451,3 +451,33 @@ describe('department report balance isolation', () => {
     }
   });
 });
+
+describe('stock item transaction balance snapshots', () => {
+  it('records the location balance instead of the hospital aggregate', async () => {
+    let savedTransaction: any;
+    const tx: any = {
+      stockBatch: { count: async () => 0 },
+      stockItemDepartmentBalance: {
+        updateMany: async () => ({ count: 1 }),
+        findUnique: async () => ({ quantity: 11 }),
+      },
+      stockItem: {
+        updateMany: async () => ({ count: 1 }),
+        findUnique: async () => ({ id: 'gloves', currentStock: 91 }),
+      },
+      stockTransaction: {
+        create: async ({ data }: any) => {
+          savedTransaction = data;
+          return data;
+        },
+      },
+    };
+    const prisma: any = { $transaction: async (callback: any) => callback(tx) };
+    const repository = new StockItemRepository(prisma);
+
+    await repository.updateStockLevelSafely('gloves', 3, 'sale' as any, undefined, 'dispense', 'user-1', 'pharmacy');
+
+    expect(savedTransaction.departmentId).toBe('pharmacy');
+    expect(savedTransaction.balanceAfter).toBe(11);
+  });
+});
