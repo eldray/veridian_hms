@@ -346,11 +346,75 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   // ===================== POSTNATAL RECORDS =====================
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
     const d: any = data;
+    if (!d.patientId?.trim() || !d.attendanceId?.trim() || !d.createdById?.trim()) {
+      throw new ValidationError('Patient, postnatal attendance, and recording staff are required');
+    }
+    const examinationDate = d.examinationDate ? new Date(d.examinationDate) : new Date();
+    if (!Number.isFinite(examinationDate.getTime())) {
+      throw new ValidationError('A valid postnatal examination date is required');
+    }
+    const nextVisitDate = d.nextVisitDate ? new Date(d.nextVisitDate) : undefined;
+    if (nextVisitDate && !Number.isFinite(nextVisitDate.getTime())) {
+      throw new ValidationError('A valid next-visit date is required');
+    }
+    const dayNumber = d.dayNumber === undefined || d.dayNumber === null || d.dayNumber === '' ? 1 : Number(d.dayNumber);
+    if (!Number.isInteger(dayNumber) || dayNumber < 1 || dayNumber > 365) {
+      throw new ValidationError('Postnatal day number must be a whole number between 1 and 365');
+    }
+    const numericRanges: Record<string, [number, number]> = {
+      temperature: [25, 45], pulse: [0, 300], fundalHeight: [0, 100],
+      babyWeight: [0, 20], babyTemperature: [25, 45],
+    };
+    for (const [key, range] of Object.entries(numericRanges)) {
+      const value = d[key];
+      if (value === undefined || value === null || value === '') continue;
+      const numeric = Number(value);
+      if (!Number.isFinite(numeric) || numeric < range[0] || numeric > range[1]) {
+        throw new ValidationError(`${key} must be between ${range[0]} and ${range[1]}`);
+      }
+      if (key === 'pulse' || key === 'fundalHeight') {
+        if (!Number.isInteger(numeric)) throw new ValidationError(`${key} must be a whole number`);
+      }
+      d[key] = numeric;
+    }
+
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: d.attendanceId },
+      select: { id: true, patientId: true, attendanceType: true },
+    });
+    if (!attendance) throw new ValidationError('The selected postnatal attendance does not exist');
+    if (attendance.patientId !== d.patientId) {
+      throw new ValidationError('The postnatal attendance belongs to a different patient');
+    }
+    if (attendance.attendanceType !== 'postnatal') {
+      throw new ValidationError('Postnatal record must be linked to a postnatal attendance');
+    }
+    if (d.antenatalBookingId) {
+      const booking = await this.prisma.antenatalBooking.findUnique({
+        where: { id: d.antenatalBookingId },
+        select: { id: true, patientId: true },
+      });
+      if (!booking || booking.patientId !== d.patientId) {
+        throw new ValidationError('The antenatal booking does not belong to this patient');
+      }
+    }
+    if (d.deliveryRecordId) {
+      const delivery = await this.prisma.deliveryRecord.findUnique({
+        where: { id: d.deliveryRecordId },
+        select: { id: true, patientId: true },
+      });
+      if (!delivery || delivery.patientId !== d.patientId) {
+        throw new ValidationError('The delivery record does not belong to this patient');
+      }
+    }
+    const actor = await this.prisma.user.findUnique({ where: { id: d.createdById }, select: { id: true } });
+    if (!actor) throw new ValidationError('The selected recording staff account does not exist');
+
     const arr = (v: any) => (Array.isArray(v) ? v : []);
     return this.prisma.postnatalRecord.create({
       data: {
         patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
-        deliveryRecordId: d.deliveryRecordId, examinationDate: d.examinationDate, dayNumber: d.dayNumber || 1,
+        deliveryRecordId: d.deliveryRecordId, examinationDate, dayNumber,
         maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
         bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
         lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
@@ -361,7 +425,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         familyPlanningDiscussed: !!d.familyPlanningDiscussed, familyPlanningMethodAccepted: d.familyPlanningMethodAccepted,
         maternalDangerSigns: arr(d.maternalDangerSigns), babyDangerSigns: arr(d.babyDangerSigns),
         referralMade: !!d.referralMade, referredTo: d.referredTo, referralReason: d.referralReason,
-        nextVisitDate: d.nextVisitDate ? new Date(d.nextVisitDate) : undefined, nextVisitType: d.nextVisitType,
+        nextVisitDate, nextVisitType: d.nextVisitType,
         malePartnerPresentPNC: !!d.malePartnerPresentPNC,
         notes: d.notes, createdById: d.createdById
       },
