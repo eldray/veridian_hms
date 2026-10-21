@@ -88,9 +88,7 @@ export class PatientController extends BaseController {
 
   createPatient = this.asyncHandler(async (req: Request, res: Response) => {
     const data: CreatePatientDTO = req.body;
-    const { age, ageInMonths, ...cleanData } = data; // Remove non-DB fields
-    
-    const patient = await this.service.createPatient(cleanData);
+    const patient = await this.service.createPatient(data);
     return this.created(res, patient, 'Patient created successfully');
   });
 
@@ -106,9 +104,9 @@ export class PatientController extends BaseController {
     try {
       const cccId = await nhisApiService.generateCCC(nhisNumber, { patientId });
       
-      const { PatientService } = await import('./PatientService');
-      const patientService = new PatientService();
-      await patientService.updatePatient(patientId, { cccId });
+      if (patientId) {
+        await this.service.updatePatient(patientId, { cccId });
+      }
       
       return res.json({ success: true, cccId, message: 'CCC generated successfully' });
     } catch (error: any) {
