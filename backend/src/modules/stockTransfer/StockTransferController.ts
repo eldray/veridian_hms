@@ -40,11 +40,23 @@ export class StockTransferController extends BaseController {
   });
 
   approve = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'super_admin'].includes(role);
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.originId)) {
+      return res.status(403).json({ success: false, message: 'Only the originating department or an administrator can approve this transfer' });
+    }
     const result = await this.service.approveTransfer(req.params.id, req.user!.id);
     return this.ok(res, result, 'Transfer approved');
   });
 
   dispatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'super_admin'].includes(role);
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.originId)) {
+      return res.status(403).json({ success: false, message: 'Only the originating department or an administrator can dispatch this transfer' });
+    }
     const result = await this.service.dispatchTransfer(req.params.id, req.user!.id);
     return this.ok(res, result, 'Transfer dispatched from origin');
   });
