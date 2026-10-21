@@ -376,12 +376,14 @@ describe('ANC danger-sign and referral completeness', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects a past ANC follow-up date without a database write', async () => {
-    const repository = new AntenatalRepository({} as any);
-    const visitDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
-    const nextVisitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+  it('rejects an ANC follow-up date earlier than a historical visit', async () => {
+    const repository = new AntenatalRepository({
+      aNCVisit: { findUnique: vi.fn().mockResolvedValue({ visitDate: new Date('2026-10-10T12:00:00.000Z'), nextVisitDate: null }) },
+    } as any);
+    const visitDate = new Date('2026-10-10T12:00:00.000Z');
+    const nextVisitDate = new Date('2026-10-09T12:00:00.000Z');
     await expect(repository.updateVisit('visit-1', { visitDate, nextVisitDate } as any))
-      .rejects.toThrow(/next ANC visit date cannot be in the past/i);
+      .rejects.toThrow(/cannot be before the ANC visit date/i);
   });
 });
 
@@ -499,5 +501,28 @@ describe('postnatal referral completeness', () => {
       createdById: 'midwife-1', referralMade: true, referredTo: '  ',
     } as any)).rejects.toThrow(/referral destination/i);
     expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('historical postnatal follow-up dates', () => {
+  it('allows a past follow-up date when it is after the historical examination date', async () => {
+    const examDate = new Date('2026-10-10T09:00:00.000Z');
+    const nextDate = new Date('2026-10-15T09:00:00.000Z');
+    const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
+    const repository = new AntenatalRepository({
+      postnatalRecord: {
+        findUnique: vi.fn().mockResolvedValue({ examinationDate: examDate, nextVisitDate: null }),
+        update,
+      },
+    } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', {
+      nextVisitDate: nextDate,
+    })).resolves.toEqual({ id: 'postnatal-1' });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'postnatal-1' },
+      data: { nextVisitDate: nextDate },
+    }));
   });
 });
