@@ -472,6 +472,29 @@ export class StockItemService extends BaseService {
     const LIMIT = 5000;
     const { rows, total, transactionsAfterEnd = [], reconciliationRows = [], locationBalances = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
+    // When the report is filtered to adjustments, the preceding visible row may
+    // not be the preceding stock movement. Resolve legacy adjustments against the
+    // full chronological location ledger when it is available.
+    const reconciledSignedById = new Map<string, number>();
+    if (!extra.includeAllStockLocations && reconciliationRows.length) {
+      const previousLocationBalance = new Map<string, number>();
+      for (const transaction of reconciliationRows as any[]) {
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        const previous = previousLocationBalance.get(transaction.stockItemId);
+        if (transaction.transactionType === 'adjustment' &&
+            transaction.adjustmentDirection !== 'increase' &&
+            transaction.adjustmentDirection !== 'decrease') {
+          const delta = previous !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+            ? Number(transaction.balanceAfter) - previous
+            : Number(transaction.quantity) < 0 ? -q : q;
+          reconciledSignedById.set(transaction.id, delta);
+        }
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousLocationBalance.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
+    }
+
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
     const byType: Record<string, { count: number; quantity: number; value: number }> = {};
@@ -485,7 +508,7 @@ export class StockItemService extends BaseService {
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': signed = q; break;
         case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
-        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : t.quantity < 0 ? -q : (!extra.includeAllStockLocations && prev !== undefined ? t.balanceAfter - prev : q); break;
+        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : (reconciledSignedById.get(t.id) ?? (t.quantity < 0 ? -q : (!extra.includeAllStockLocations && prev !== undefined ? t.balanceAfter - prev : q))); break;
         default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q;
       }
       lastBalance.set(t.stockItemId, t.balanceAfter);
