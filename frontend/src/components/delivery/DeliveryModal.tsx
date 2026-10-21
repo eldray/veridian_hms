@@ -12,7 +12,7 @@ interface NewbornData {
   apgarScore1min?: number;
   apgarScore5min?: number;
   resuscitation: boolean;
-  outcome: 'alive' | 'dead_within_24hrs' | 'dead_1_7days' | 'dead_8_28days' | 'referred_out';
+  outcome: '' | 'alive' | 'dead_within_24hrs' | 'dead_1_7days' | 'dead_8_28days' | 'referred_out';
   anomalies: string[];
   referredTo?: string;
   breastfeedingWithin30Min: boolean;
@@ -120,7 +120,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   const addNewborn = () => {
     setNewborns([...newborns, {
       order: newborns.length + 1,
-      birthWeight: 0, gender: 'male', resuscitation: false, outcome: 'alive',
+      birthWeight: 0, gender: 'male', resuscitation: false, outcome: '',
       anomalies: [], breastfeedingWithin30Min: false, eyeProphylaxisGiven: false,
       cordCareMethod: 'dry_cord',
     }]);
@@ -396,7 +396,8 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                       </div>
                       <div>
                         <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1">Outcome</label>
-                        <select value={baby.outcome} onChange={e => updateNewborn(idx, 'outcome', e.target.value)} className={fieldCls}>
+                        <select value={baby.outcome} onChange={e => updateNewborn(idx, 'outcome', e.target.value)} required className={fieldCls}>
+                          <option value="" disabled>Select outcome</option>
                           <option value="alive">Alive</option>
                           <option value="dead_within_24hrs">Dead within 24hrs</option>
                           <option value="dead_1_7days">Dead 1-7 days</option>
