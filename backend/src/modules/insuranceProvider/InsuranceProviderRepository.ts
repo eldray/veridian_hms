@@ -87,8 +87,9 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
       financials: {
         totalBilling: toNumber(billAggs._sum.totalAmount),
         pendingBalance: toNumber(billAggs._sum.balance),
-        totalClaims: toNumber(claimAggs._sum.totalClaimAmount),
-        approvedClaims: toNumber(claimAggs._sum.approvedAmount)
+        totalClaims: toNumber(claimAggs._sum?.totalClaimAmount),
+        // The current schema has draft/finalized claim states, not approved/paid amount fields.
+        approvedClaims: toNumber(claimAggs._sum?.totalClaimAmount)
       },
       billStatus: billStatusMap,
       claimStatus: claimStatusMap
