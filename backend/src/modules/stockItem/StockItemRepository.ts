@@ -458,7 +458,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         unitOfMeasure: true, costPrice: true,
         StockBatch: {
           where: { isActive: true, quantity: { gt: 0 } },
-          select: { batchNumber: true, expiryDate: true, quantity: true },
+          select: { batchNumber: true, expiryDate: true, quantity: true, costPrice: true },
           orderBy: { expiryDate: 'asc' },
         },
       },
