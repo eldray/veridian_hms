@@ -235,6 +235,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
 
+      if (key === 'status') {
+        const allowedStatuses = ['pending', 'admitted', 'discharged', 'completed', 'referred', 'absconded', 'cancelled'];
+        if (!allowedStatuses.includes(String(value))) {
+          throw new ValidationError('Invalid attendance status');
+        }
+        normalized.status = value;
+        return;
+      }
+
       if (allowedKeys.has(key)) {
         normalized[key] = value;
       }
@@ -263,9 +272,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     const normalizedData = this.normalizeUpdateData(data);
-    normalizedData.updatedById = actorId;
     const admissionType = normalizedData.admissionType;
     delete normalizedData.admissionType;
+    if (Object.keys(normalizedData).length === 0 && admissionType === undefined) {
+      throw new ValidationError('No editable attendance fields supplied');
+    }
+    normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
       if (admissionType !== undefined) {
@@ -291,6 +303,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async updateStatus(id: string, status: string) {
+    const allowedStatuses = ['pending', 'admitted', 'discharged', 'completed', 'referred', 'absconded', 'cancelled'];
+    if (!allowedStatuses.includes(String(status))) {
+      throw new ValidationError('Invalid attendance status');
+    }
     return this.getModel().update({ where: { id }, data: { status: status as any } });
   }
 
