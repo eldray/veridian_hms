@@ -369,6 +369,16 @@ export default function StockReports() {
     switch (selectedReport) {
       case 'stock-status':
       case 'financial': {
+        const discrepancies = (reportData.items || []).filter((i: any) => Number(i.stockDiscrepancy || 0) > 0);
+        if (selectedReport === 'financial' && discrepancies.length) {
+          return {
+            headers: ['Item Name', 'Category', 'Recorded Stock', 'Batch Quantity', 'Difference (Batch - Stock)', 'Batch Value', 'Total Item Value'],
+            rows: discrepancies.map((i: any) => [
+              i.name, i.category || 'Uncategorized', Number(i.currentStock || 0), Number(i.batchQuantity || 0),
+              Number(i.batchQuantity || 0) - Number(i.currentStock || 0), Number(i.batchValue || 0).toFixed(2), Number(i.totalValue || 0).toFixed(2),
+            ]),
+          };
+        }
         if (reportData.lowStockItems?.length) {
           return {
             headers: ['Item Name', 'Category', 'Current Stock', 'Reorder Level', 'Cost Price'],
