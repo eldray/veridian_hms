@@ -7,6 +7,14 @@ import { StockItemRepository, increaseDepartmentStockBalance } from './StockItem
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
+// Batch expiry is a calendar date, so compare UTC day boundaries rather than
+// midnight expiry timestamps against the current instant.
+const startOfUtcDay = (value: Date = new Date()): Date => {
+  const day = new Date(value);
+  day.setUTCHours(0, 0, 0, 0);
+  return day;
+};
+
 const slugPart = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
 type PriceInput = { cashPrice?: any; nhisPrice?: any; insurancePrice?: any; corporatePrice?: any };
@@ -338,8 +346,12 @@ export class StockItemService extends BaseService {
     if (!(received instanceof Date) || !Number.isFinite(received.getTime())) {
       throw new ValidationError('A valid received date is required');
     }
-    if (expiryDate <= received) throw new ValidationError('Batch expiry date must be after its received date');
-    if (expiryDate <= new Date()) throw new ValidationError('Expired batches cannot be added as available stock');
+    if (startOfUtcDay(expiryDate) < startOfUtcDay(received)) {
+      throw new ValidationError('Batch expiry date cannot be before its received date');
+    }
+    if (startOfUtcDay(expiryDate) < startOfUtcDay()) {
+      throw new ValidationError('Expired batches cannot be added as available stock');
+    }
     if (received.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
     return this.repo.addBatchSafely(stockItemId, batchNumber.trim(), expiryDate, quantity, costPrice, received, departmentId);
   }
