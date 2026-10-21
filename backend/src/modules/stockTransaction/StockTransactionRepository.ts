@@ -215,7 +215,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       select: {
         id: true, name: true, category: true, currentStock: true, reorderLevel: true, unitOfMeasure: true, drugCode: true,
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
           select: { quantity: true },
         },
       },
@@ -296,7 +296,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         select: {
           id: true, name: true, category: true, currentStock: true, unitOfMeasure: true,
           stockBalances: filters.includeAllStockLocations ? false as any : {
-            where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+            where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
             select: { quantity: true },
           },
         },
