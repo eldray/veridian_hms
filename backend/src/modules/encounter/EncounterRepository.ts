@@ -462,7 +462,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     } = data;
     // Allow only measured vitals and notes to be edited. Never pass the full
     // client object into Prisma, where IDs, links, recorder and timestamps live.
-    const vitalsData: Record<string, unknown> = {};
+    const vitalsData: any = {};
     for (const key of ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'bmi', 'muac', 'notes']) {
       if (data[key] !== undefined) vitalsData[key] = data[key];
     }
