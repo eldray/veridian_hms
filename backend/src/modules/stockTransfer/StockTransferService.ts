@@ -186,13 +186,31 @@ export class StockTransferService extends BaseService {
         if (!Number.isSafeInteger(qty) || qty <= 0) throw new Error(`Transfer item ${item.id} has no valid dispatched quantity`);
 
         // Origin stock and batches were already deducted/reserved at dispatch.
-        // Receipt only adds the reserved quantity to the destination, preserving hospital total.
-        const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qty);
+        // Validate the persisted allocation payload before changing destination balances.
         const allocations = Array.isArray(item.batchAllocations) ? item.batchAllocations as Array<{ batchId: string; quantity: number; batchNumber: string; expiryDate: string | Date; costPrice: any }> : [];
 
         if (allocations.length) {
-          const allocated = allocations.reduce((sum, a) => sum + Number(a.quantity), 0);
+          for (const allocation of allocations) {
+            const expiryDate = new Date(allocation.expiryDate);
+            const costPrice = Number(allocation.costPrice);
+            if (
+              !allocation ||
+              typeof allocation.batchNumber !== 'string' ||
+              !allocation.batchNumber.trim() ||
+              !Number.isSafeInteger(allocation.quantity) ||
+              allocation.quantity <= 0 ||
+              !Number.isFinite(expiryDate.getTime()) ||
+              !Number.isFinite(costPrice) ||
+              costPrice < 0
+            ) {
+              throw new Error(`Saved batch allocation for transfer item ${item.id} contains invalid batch metadata or quantity`);
+            }
+          }
+          const allocated = allocations.reduce((sum, a) => sum + a.quantity, 0);
           if (allocated !== qty) throw new Error(`Saved batch allocations for transfer item ${item.id} do not match dispatched quantity`);
+        }
+
+        const destinationBalanceAfter = await increaseDepartmentStockBalance(tx, item.stockItemId, transfer.destinationId, qty);
           for (const allocation of allocations) {
             const existing = await tx.stockBatch.findFirst({
               where: { stockItemId: item.stockItemId, batchNumber: allocation.batchNumber, departmentId: transfer.destinationId, wardId: null },
