@@ -15,7 +15,37 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== ANTENATAL BOOKING =====================
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
+    if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim()) {
+      throw new ValidationError('Patient, antenatal attendance, and recording staff are required');
+    }
     const lmp = new Date(data.lmp);
+    if (!data.lmp || !Number.isFinite(lmp.getTime())) {
+      throw new ValidationError('A valid last menstrual period (LMP) date is required');
+    }
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (lmp.getTime() > today.getTime()) {
+      throw new ValidationError('LMP cannot be in the future');
+    }
+    const gravida = Number(data.gravida);
+    const para = Number(data.para);
+    if (!Number.isInteger(gravida) || gravida < 1 || !Number.isInteger(para) || para < 0 || para > gravida) {
+      throw new ValidationError('Gravida must be at least 1 and para must be a whole number between 0 and gravida');
+    }
+    const actor = await this.prisma.user.findUnique({ where: { id: data.createdById }, select: { id: true } });
+    if (!actor) throw new ValidationError('The selected recording staff account does not exist');
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: data.attendanceId },
+      select: { id: true, patientId: true, attendanceType: true },
+    });
+    if (!attendance) throw new ValidationError('The selected antenatal attendance does not exist');
+    if (attendance.patientId !== data.patientId) {
+      throw new ValidationError('The antenatal attendance belongs to a different patient');
+    }
+    if (attendance.attendanceType !== 'antenatal') {
+      throw new ValidationError('Antenatal booking must be linked to an antenatal attendance');
+    }
+
     const edd = this.calculateEDD(lmp);
     const tt = Math.min(Math.max(Number(data.ttDosesGiven) || 0, 0), 5);
     const iptp = Math.min(Math.max(Number(data.iptpDosesGiven) || 0, 0), 5);
@@ -30,7 +60,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.getModel().create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
-        bookingDate: new Date(), lmp, edd, gravida: data.gravida, para: data.para,
+        bookingDate: new Date(), lmp, edd, gravida, para,
         gestationalAgeWeeks: numOrU(data.gestationalAgeWeeks), gestationalAgeAtBooking: numOrU(data.gestationalAgeWeeks),
         riskLevel: data.riskLevel || 'low',
         riskFactors: data.riskFactors || [], bloodGroup: data.bloodGroup, hivStatus: data.hivStatus || undefined,
