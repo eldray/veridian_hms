@@ -86,8 +86,9 @@ export class EncounterService extends BaseService {
 
       // 1. Maternal Logic (Passed tx to ensure atomicity)
       if (data.attendanceType === 'antenatal') await this.handleAntenatalEncounter(tx, encounter.id, data.patientId, userId);
-      else if (data.attendanceType === 'delivery') await this.handleDeliveryEncounter(tx, encounter.id, data.patientId, userId);
-      else if (data.attendanceType === 'postnatal') await this.handlePostnatalEncounter(tx, encounter.id, data.patientId, userId);
+      // Delivery and postnatal forms must record clinician-confirmed findings. Do not
+      // pre-create records with assumed live birth, maternal wellbeing or breastfeeding status.
+      // Their dedicated save endpoints create the clinical record after staff complete the form.
 
       // 2. Bed/Ward Logic (Removed currentPatientId per schema fix)
       if (data.bedId) {
@@ -147,51 +148,6 @@ export class EncounterService extends BaseService {
       });
       await tx.antenatalBooking.update({ where: { id: existingBooking.id }, data: { currentAttendanceId: encounterId } });
     }
-  }
-
-  private async handleDeliveryEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
-    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isActive: true, isCompleted: false } });
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { fullName: true, role: true } });
-    const attendantName = user ? `${user.fullName} (${user.role || 'Staff'})` : 'Unknown Attendant';
-
-    const deliveryRecord = await tx.deliveryRecord.create({
-      data: {
-        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryDate: new Date(),
-        deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth', placeOfDelivery: 'private_hospital',
-        attendant: attendantName, maternalOutcome: 'alive', complications: [], createdById: userId,
-        malePartnerPresentANC: false, malePartnerPresentDelivery: false, malePartnerPresentPNC: false,
-        maternalDeathsAudited: false, auditNotes: null
-      }
-    });
-
-    if (antenatalBooking) {
-      await tx.antenatalBooking.update({
-        where: { id: antenatalBooking.id },
-        data: { isActive: false, isCompleted: true, deliveryDate: new Date(), deliveryOutcome: 'delivered', deliveryRecordId: deliveryRecord.id }
-      });
-    }
-  }
-
-  private async handlePostnatalEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
-    const deliveryRecord = await tx.deliveryRecord.findFirst({ where: { patientId }, orderBy: { deliveryDate: 'desc' } });
-    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isCompleted: true }, orderBy: { bookingDate: 'desc' } });
-    
-    let dayNumber = 1;
-    if (deliveryRecord?.deliveryDate) {
-      dayNumber = Math.max(1, Math.floor((Date.now() - new Date(deliveryRecord.deliveryDate).getTime()) / (1000 * 60 * 60 * 24)));
-    }
-
-    await tx.postnatalRecord.create({
-      data: {
-        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryRecordId: deliveryRecord?.id,
-        examinationDate: new Date(), dayNumber, maternalCondition: 'good', maternalComplications: [],
-        lochia: 'normal', perinealCondition: 'intact', breastfeedingStatus: 'exclusive', breastfeedingDifficulties: [],
-        latching: 'good', babyCondition: 'good', babyWeight: deliveryRecord?.birthWeight ? deliveryRecord.birthWeight / 1000 : null,
-        babyFeeding: 'good', jaundice: false, cordCondition: 'dry', bcgGiven: false, opv0Given: false, hepB0Given: false,
-        familyPlanningDiscussed: false, maternalDangerSigns: [], babyDangerSigns: [], referralMade: false,
-        notes: 'Initial postnatal examination created automatically.', createdById: userId
-      }
-    });
   }
 
   // ============================================
