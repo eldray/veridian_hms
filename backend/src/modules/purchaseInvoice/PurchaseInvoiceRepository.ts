@@ -99,9 +99,15 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
             if (existingBatch.expiryDate.getTime() !== batchExpiry.getTime()) {
               throw new Error(`Batch ${item.batchNumber} for ${stockItem.name} already exists at this location with a different expiry date.`);
             }
+            if (Number(existingBatch.costPrice) !== Number(item.unitCost)) {
+              throw new Error(`Batch ${item.batchNumber} for ${stockItem.name} already exists at this location with a different cost price.`);
+            }
+            if (!existingBatch.isActive) {
+              throw new Error(`Batch ${item.batchNumber} for ${stockItem.name} is inactive at this location. Reconcile the batch before receiving more stock.`);
+            }
             await tx.stockBatch.update({
               where: { id: existingBatch.id },
-              data: { quantity: { increment: item.quantity }, costPrice: item.unitCost, isActive: true },
+              data: { quantity: { increment: item.quantity } },
             });
           } else {
             await tx.stockBatch.create({
