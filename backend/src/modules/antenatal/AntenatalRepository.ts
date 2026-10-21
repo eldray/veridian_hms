@@ -379,11 +379,22 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.nextVisitDate && clean.visitDate && clean.nextVisitDate.getTime() < clean.visitDate.getTime()) {
       throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
     }
-    if (clean.dangerSignsPresent === true && (!Array.isArray(clean.dangerSignsList) || clean.dangerSignsList.length === 0)) {
-      throw new ValidationError('Record at least one danger sign when danger signs are marked present');
-    }
-    if (clean.referralMade === true && (!clean.referredTo || !String(clean.referredTo).trim())) {
-      throw new ValidationError('Specify the referral destination when a referral is made');
+    if (clean.dangerSignsPresent === true || clean.referralMade === true) {
+      const existing = await this.prisma.aNCVisit.findUnique({
+        where: { id },
+        select: { dangerSignsPresent: true, dangerSignsList: true, referralMade: true, referredTo: true },
+      });
+      if (!existing) throw new NotFoundError('ANC visit', id);
+      const dangerSignsPresent = clean.dangerSignsPresent ?? existing.dangerSignsPresent;
+      const dangerSignsList = clean.dangerSignsList ?? existing.dangerSignsList;
+      const referralMade = clean.referralMade ?? existing.referralMade;
+      const referredTo = clean.referredTo ?? existing.referredTo;
+      if (dangerSignsPresent && (!Array.isArray(dangerSignsList) || dangerSignsList.length === 0)) {
+        throw new ValidationError('Record at least one danger sign when danger signs are marked present');
+      }
+      if (referralMade && (!referredTo || !String(referredTo).trim())) {
+        throw new ValidationError('Specify the referral destination when a referral is made');
+      }
     }
     if (clean.gestationalAgeDays !== undefined && (!Number.isInteger(Number(clean.gestationalAgeDays)) || Number(clean.gestationalAgeDays) < 0 || Number(clean.gestationalAgeDays) > 6)) {
       throw new ValidationError('Gestational age days must be between 0 and 6');
