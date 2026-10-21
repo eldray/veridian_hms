@@ -999,7 +999,7 @@ export const seedCoreData = async (force: boolean = false) => {
         if (quantity <= 0) continue;
         try {
           await prisma.stockBatch.upsert({
-            where: { stockItemId_batchNumber_departmentId: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id } },
+            where: { stockItemId_batchNumber_departmentId_wardId: { stockItemId: stockItem.id, batchNumber: 'OPENING', departmentId: dept.id, wardId: null } },
             create: {
               stockItemId: stockItem.id, batchNumber: 'OPENING', expiryDate: openingExpiry, quantity,
               costPrice: stockItem.costPrice, departmentId: dept.id, isActive: true,
