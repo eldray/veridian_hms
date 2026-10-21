@@ -278,6 +278,7 @@ describe('stock ledger location scope', () => {
         count: async (args: any) => { countArgs = args; return 0; },
         findMany: async (args: any) => { findArgs = args; return []; },
       },
+      stockItemDepartmentBalance: { findMany: async () => [] },
     };
     const repo = new StockItemRepository(prisma as any);
 
@@ -766,7 +767,9 @@ describe('department movement filter reconciliation', () => {
         transactionsAfterEnd: [
           { stockItemId: 'gloves', transactionType: 'sale', quantity: 3, adjustmentDirection: null },
         ],
-        locationBalances: [{ stockItemId: 'gloves', quantity: 13 }],
+        // Current location balance is 7 after the post-period sale of 3;
+        // reversing that later movement reconstructs the period-end balance of 10.
+        locationBalances: [{ stockItemId: 'gloves', quantity: 7 }],
       }),
     };
 
