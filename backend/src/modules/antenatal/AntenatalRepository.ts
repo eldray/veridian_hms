@@ -549,6 +549,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (data.gestationWeeks !== undefined && (!Number.isInteger(Number(data.gestationWeeks)) || Number(data.gestationWeeks) < 0 || Number(data.gestationWeeks) > 42)) {
         throw new ValidationError('Gestational age at delivery must be between 0 and 42 weeks');
       }
+      if (data.birthWeight !== undefined && data.birthWeight !== null && (!Number.isFinite(Number(data.birthWeight)) || Number(data.birthWeight) < 1 || Number(data.birthWeight) > 15000)) {
+        throw new ValidationError('Birth weight must be recorded in grams between 1 and 15000');
+      }
+      if (data.referralTo !== undefined && data.referralTo !== null && !String(data.referralTo).trim()) {
+        throw new ValidationError('Referral destination must be meaningful when provided');
+      }
       for (const [field, value] of [['Apgar score at 1 minute', data.apgarScore1min], ['Apgar score at 5 minutes', data.apgarScore5min]] as const) {
         if (value !== undefined && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
           throw new ValidationError(`${field} must be an integer between 0 and 10`);
@@ -638,7 +644,20 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.deliveryDate !== undefined) {
       const date = new Date(clean.deliveryDate);
       if (Number.isNaN(date.getTime())) throw new ValidationError('Delivery date must be valid');
+      if (date.getTime() > Date.now()) throw new ValidationError('Delivery date cannot be in the future');
       clean.deliveryDate = date;
+    }
+    if (clean.placeOfDelivery !== undefined && !['private_hospital', 'government_hospital', 'health_centre', 'clinic', 'chag_facility', 'private_midwife', 'tba_trained', 'tba_untrained', 'home', 'en_route', 'mines_facility', 'quasi_govt_institution'].includes(clean.placeOfDelivery)) {
+      throw new ValidationError('Unsupported place of delivery');
+    }
+    if (clean.attendant !== undefined && !String(clean.attendant).trim()) {
+      throw new ValidationError('Delivery attendant must be meaningful when provided');
+    }
+    if (clean.complications !== undefined && (!Array.isArray(clean.complications) || clean.complications.some((item: unknown) => typeof item !== 'string' || !item.trim()))) {
+      throw new ValidationError('Delivery complications must be a list of non-empty descriptions');
+    }
+    if (clean.referralTo !== undefined && clean.referralTo !== null && !String(clean.referralTo).trim()) {
+      throw new ValidationError('Referral destination must be meaningful when provided');
     }
     if (clean.deliveryType !== undefined && !['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple'].includes(clean.deliveryType)) {
       throw new ValidationError('Unsupported delivery type');
@@ -662,6 +681,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     if (data.Newborn !== undefined && !Array.isArray(data.Newborn) && !Array.isArray(data.Newborn?.create)) {
       throw new ValidationError('Newborn records must be provided as a list');
+    }
+    if (Object.keys(clean).length === 0 && data.Newborn === undefined) {
+      throw new ValidationError('No supported delivery record fields were provided');
     }
 
     return this.prisma.$transaction(async (tx) => {
