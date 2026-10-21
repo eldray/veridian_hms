@@ -24,7 +24,7 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
 
   const statusUpdateValidation = [
     body('status').notEmpty().withMessage('Status is required'),
-    body('status').isIn(['pending', 'accepted', 'rejected', 'completed']).withMessage('Valid status required')
+    body('status').isIn(['pending', 'accepted', 'completed', 'cancelled']).withMessage('Valid status required')
   ];
 
   // ==========================================
