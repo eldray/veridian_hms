@@ -770,4 +770,31 @@ describe('medication administration schedule parsing', () => {
     expect(() => (service as any).parseFrequency('every 0 hours')).toThrow(/interval must be between 1 and 24/i);
     expect(() => (service as any).parseDurationDays('400 days')).toThrow(/between 1 and 365 days/i);
   });
+
+  it('uses the recorded prescription time for the first scheduled dose', () => {
+    const service = new NursingService({} as any);
+    const prescribedAt = new Date('2026-10-21T10:37:00.000Z');
+    expect((service as any).parseSchedule('STAT', '1 day', prescribedAt).firstDoseAt)
+      .toEqual(prescribedAt);
+  });
+});
+
+
+describe('prescription and MAR atomicity', () => {
+  it('rejects unsupported frequency before creating a prescription', async () => {
+    const transaction = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
+      stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'stock-1', name: 'Paracetamol' }) },
+      serviceCatalog: { findUnique: vi.fn().mockResolvedValue({ id: 'service-1', serviceType: 'medication' }) },
+      $transaction: transaction,
+    } as any);
+
+    await expect(repository.addPrescription('attendance-1', {
+      stockItemId: 'stock-1', serviceCatalogId: 'service-1', dosage: '500 mg',
+      frequency: 'three-ish times', duration: '5 days',
+    } as any, 'doctor-1')).rejects.toThrow(/unsupported medication frequency/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
 });
