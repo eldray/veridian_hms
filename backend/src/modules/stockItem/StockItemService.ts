@@ -574,6 +574,46 @@ export class StockItemService extends BaseService {
         delete item.aggregateCurrentStock;
         delete item.aggregateNetChange;
       }
+    } else if (reconciliationRows.length) {
+      // Department ledgers use location-specific balanceAfter snapshots. Reconcile
+      // against all movement types so an activity filter or 5,000-row display cap
+      // cannot turn the first visible transaction into a false opening balance.
+      const fullNetByItem = new Map<string, number>();
+      const closingByItem = new Map<string, number>();
+      const previousBalanceByItem = new Map<string, number>();
+      for (const transaction of reconciliationRows as any[]) {
+        const itemId = transaction.stockItemId;
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        const previousBalance = previousBalanceByItem.get(itemId);
+        let signed: number;
+        switch (transaction.transactionType) {
+          case 'purchase': case 'transfer_in': signed = q; break;
+          case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : previousBalance !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+                ? Number(transaction.balanceAfter) - previousBalance
+                : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default:
+            signed = Number(transaction.quantity) < 0 ? -q
+              : previousBalance !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+                ? Number(transaction.balanceAfter) - previousBalance : q;
+        }
+        fullNetByItem.set(itemId, (fullNetByItem.get(itemId) || 0) + signed);
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousBalanceByItem.set(itemId, Number(transaction.balanceAfter));
+          closingByItem.set(itemId, Number(transaction.balanceAfter));
+        }
+      }
+      for (const item of items.values()) {
+        const closing = closingByItem.get(item.stockItemId);
+        if (closing !== undefined) {
+          item.closingStock = closing;
+          item.openingStock = closing - (fullNetByItem.get(item.stockItemId) || 0);
+        }
+      }
     }
 
     const itemList = [...items.values()].sort((a, b) => (b.quantityIn + b.quantityOut) - (a.quantityIn + a.quantityOut));
