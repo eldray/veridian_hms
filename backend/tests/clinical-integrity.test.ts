@@ -717,3 +717,34 @@ describe('medication administration requires a due dose', () => {
     expect(medicationUpdate).not.toHaveBeenCalled();
   });
 });
+
+
+describe('maternal booking history retention', () => {
+  it('deactivates an antenatal booking instead of deleting its clinical history', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'booking-1' });
+    const update = vi.fn().mockResolvedValue({ id: 'booking-1', isActive: false });
+    const repository = new AntenatalRepository({
+      antenatalBooking: { findUnique, update },
+    } as any);
+
+    await repository.deleteBooking('booking-1');
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'booking-1' },
+      data: { isActive: false },
+    });
+  });
+
+  it('reports a missing booking rather than silently succeeding', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({
+      antenatalBooking: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        update,
+      },
+    } as any);
+
+    await expect(repository.deleteBooking('missing-booking')).rejects.toThrow(/not found/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
