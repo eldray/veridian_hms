@@ -78,6 +78,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         doseDates[field] = doseDate;
       }
     }
+    if (data.itnGivenDate) {
+      const itnGivenDate = new Date(data.itnGivenDate);
+      if (Number.isNaN(itnGivenDate.getTime())) throw new ValidationError('ITN administration date must be valid');
+      if (itnGivenDate.getTime() > Date.now()) throw new ValidationError('ITN administration date cannot be in the future');
+      doseDates.itnGivenDate = itnGivenDate;
+    }
     const bookingWeight = numOrU(data.bookingWeight);
     const bookingHeight = numOrU(data.bookingHeight);
     if (bookingWeight !== undefined && (bookingWeight <= 0 || bookingWeight > 350)) {
@@ -107,7 +113,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         bookingHeight, bookingWeight,
         bookingBP: data.bookingBP || undefined,
         previousCSection: !!data.previousCSection, previousComplications: prev || undefined,
-        itnGiven: !!data.itnGiven, itnGivenDate: data.itnGiven ? new Date() : undefined,
+        itnGiven: !!data.itnGiven, itnGivenDate: data.itnGiven ? doseDates.itnGivenDate : undefined,
         ironFolateGiven: !!(data.ironGiven || data.folateGiven),
         iptpDoses: { count: iptp }, ttDoses: { count: tt }, ...doseDates,
         isActive: true, isCompleted: false, createdById: data.createdById
@@ -149,7 +155,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   async updateBooking(id: string, data: UpdateAntenatalBookingInput): Promise<any> {
     // Pregnancy completion is controlled by the delivery/closure workflow, not by a generic profile update.
     const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors',
-      'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved',
+      'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved', 'itnGiven', 'itnGivenDate',
       'partnerHivStatus', 'hivKnownPositive', 'hepatitisBStatus', 'bookingHeight', 'bookingWeight', 'bookingBP', 'itnGiven',
       'ironFolateGiven', 'previousCSection'];
     const clean: any = {};
@@ -192,6 +198,12 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
       clean.hbBooking = clean.hbLevel;
       clean.anaemiaDiagnosed = Number(clean.hbLevel) < 11;
+    }
+    if (clean.itnGivenDate != null) {
+      const itnGivenDate = new Date(clean.itnGivenDate);
+      if (Number.isNaN(itnGivenDate.getTime())) throw new ValidationError('ITN administration date must be valid');
+      if (itnGivenDate.getTime() > Date.now()) throw new ValidationError('ITN administration date cannot be in the future');
+      clean.itnGivenDate = itnGivenDate;
     }
     return this.getModel().update({ where: { id }, data: clean, include: { patient: true } });
   }
