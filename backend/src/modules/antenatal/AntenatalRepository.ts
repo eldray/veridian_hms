@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import {
   CreateAntenatalBookingInput, UpdateAntenatalBookingInput,
   CreateANCVisitInput, UpdateANCVisitInput,
@@ -168,21 +169,67 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
     const babies = this.mapNewborns((data as any).Newborn);
-    return this.prisma.deliveryRecord.create({
-      data: {
-        patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
-        deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
-        placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
-        gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
-        resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
-        complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
-        malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
-        maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
-        birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
-        createdById: data.createdById,
-        ...(babies.length ? { Newborn: { create: babies } } : {})
-      },
-      include: { patient: true, attendance: true, Newborn: true }
+
+    // The birth record and pregnancy closure must succeed or fail together.
+    // Otherwise a failed booking update can leave a duplicate active pregnancy
+    // after a delivery has already been recorded.
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, patientId: true },
+      });
+      if (!attendance) throw new NotFoundError('Delivery attendance', data.attendanceId);
+      if (attendance.patientId !== data.patientId) {
+        throw new ValidationError('Delivery patient must match the patient on the selected attendance');
+      }
+
+      let booking: any = null;
+      if (data.antenatalBookingId) {
+        booking = await tx.antenatalBooking.findUnique({ where: { id: data.antenatalBookingId } });
+        if (!booking) throw new NotFoundError('Antenatal booking', data.antenatalBookingId);
+        if (booking.patientId !== data.patientId) {
+          throw new ValidationError('Antenatal booking must belong to the delivery patient');
+        }
+        if (booking.isCompleted) throw new ConflictError('This antenatal booking has already been completed');
+      } else {
+        booking = await tx.antenatalBooking.findFirst({
+          where: { patientId: data.patientId, isActive: true, isCompleted: false },
+          orderBy: { bookingDate: 'desc' },
+        });
+      }
+
+      const record = await tx.deliveryRecord.create({
+        data: {
+          patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: booking?.id,
+          deliveryDate: data.deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
+          placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
+          gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
+          resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
+          complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
+          malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
+          maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
+          birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
+          createdById: data.createdById,
+          ...(babies.length ? { Newborn: { create: babies } } : {})
+        },
+        include: { patient: true, attendance: true, Newborn: true }
+      });
+
+      if (booking) {
+        await tx.antenatalBooking.update({
+          where: { id: booking.id },
+          data: {
+            isActive: false,
+            isCompleted: true,
+            deliveryDate: data.deliveryDate,
+            deliveryOutcome: data.deliveryOutcome,
+            deliveryRecordId: record.id,
+            updatedAt: new Date(),
+          },
+        });
+      }
+
+      return record;
     });
   }
 
