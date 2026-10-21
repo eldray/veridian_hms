@@ -113,10 +113,25 @@ export class StockTransactionService extends BaseService {
   }
 
   async getMovementSummary(filters: any) {
-    const { stockItems, transactions } = await this.repo.getMovementData(filters.startDate, filters.endDate, filters.category, { departmentId: filters.departmentId, includeAllStockLocations: filters.includeAllStockLocations });
+    const { stockItems, transactions, transactionsAfterEnd = [] } = await this.repo.getMovementData(filters.startDate, filters.endDate, filters.category, { departmentId: filters.departmentId, includeAllStockLocations: filters.includeAllStockLocations });
 
+    const signedMovement = (t: any): number => {
+      const quantity = Math.abs(Number(t.quantity) || 0);
+      switch (t.transactionType) {
+        case 'purchase': case 'transfer_in': return quantity;
+        case 'sale': case 'requisition': case 'write_off': case 'transfer_out': return -quantity;
+        case 'adjustment':
+          return t.adjustmentDirection === 'decrease' ? -quantity
+            : t.adjustmentDirection === 'increase' ? quantity
+            : Number(t.quantity) < 0 ? -quantity : quantity;
+        default: return Number(t.quantity) < 0 ? -quantity : quantity;
+      }
+    };
     const movementSummary = stockItems.map(item => {
       const itemTxs = transactions.filter((t: any) => t.stockItemId === item.id);
+      const afterEndNetChange = (transactionsAfterEnd as any[])
+        .filter((t: any) => t.stockItemId === item.id)
+        .reduce((sum: number, t: any) => sum + signedMovement(t), 0);
       const purchases = itemTxs.filter((t: any) => t.transactionType === 'purchase').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const transfersIn = itemTxs.filter((t: any) => t.transactionType === 'transfer_in').reduce((sum: number, t: any) => sum + t.quantity, 0);
       const sales = itemTxs.filter((t: any) => t.transactionType === 'sale').reduce((sum: number, t: any) => sum + t.quantity, 0);
@@ -130,8 +145,11 @@ export class StockTransactionService extends BaseService {
       const totalOut = sales + requisitions + writeOffs + transfersOut + adjustmentOut;
       const totalIn = purchases + transfersIn + adjustmentIn;
       const netChange = totalIn - totalOut;
+      // currentStock is today's balance. Reverse post-period movements to report
+      // the actual closing balance at endDate, then derive the period opening balance.
+      const closingStock = item.currentStock - afterEndNetChange;
 
-      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: item.currentStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: adjustmentIn + adjustmentOut, adjustmentIn, adjustmentOut, closingStock: item.currentStock, netChange };
+      return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: closingStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: adjustmentIn + adjustmentOut, adjustmentIn, adjustmentOut, closingStock, netChange };
     });
 
     const totals = movementSummary.reduce((acc, item) => {
