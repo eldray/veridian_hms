@@ -12,7 +12,13 @@ import {
 } from './UserTypes';
 import { AuditLogger } from '../audit/AuditLogger';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters');
+  }
+  return secret;
+};
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const SALT_ROUNDS = 12;
 
@@ -279,7 +285,7 @@ export class UserService extends BaseService {
 
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username, role: user.role, seniority: user.seniority, permissions },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] },
     );
     const refreshToken = jwt.sign(
