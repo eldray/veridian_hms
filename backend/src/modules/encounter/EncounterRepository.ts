@@ -704,11 +704,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       return created;
     });
 
-    this.logInfo('Prescription and MAR schedule saved atomically', {
-      medicationId: medication.id,
-      scheduledDoses: schedule.requiredDoses,
-      intervalHours: schedule.intervalHours,
-    });
     return medication;
   }
 
