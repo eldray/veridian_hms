@@ -274,7 +274,7 @@ export class DocumentController {
         if (err) {
           console.error('Download error:', err);
           if (!res.headersSent) {
-            return res.status(500).json({
+            res.status(500).json({
               success: false,
               message: 'Error downloading document'
             });
