@@ -470,7 +470,7 @@ export class StockItemService extends BaseService {
    */
   async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total, transactionsAfterEnd = [], reconciliationRows = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
+    const { rows, total, transactionsAfterEnd = [], reconciliationRows = [], locationBalances = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
@@ -607,8 +607,30 @@ export class StockItemService extends BaseService {
           closingByItem.set(itemId, Number(transaction.balanceAfter));
         }
       }
+      const afterEndNetByItem = new Map<string, number>();
+      for (const transaction of transactionsAfterEnd as any[]) {
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        let signed: number;
+        switch (transaction.transactionType) {
+          case 'purchase': case 'transfer_in': signed = q; break;
+          case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default: signed = Number(transaction.quantity) < 0 ? -q : q;
+        }
+        afterEndNetByItem.set(transaction.stockItemId, (afterEndNetByItem.get(transaction.stockItemId) || 0) + signed);
+      }
+      const currentLocationStockByItem = new Map<string, number>(
+        (locationBalances as any[]).map((balance) => [balance.stockItemId, Number(balance.quantity) || 0]),
+      );
       for (const item of items.values()) {
-        const closing = closingByItem.get(item.stockItemId);
+        const currentLocationStock = currentLocationStockByItem.get(item.stockItemId);
+        const closing = currentLocationStock !== undefined
+          ? currentLocationStock - (afterEndNetByItem.get(item.stockItemId) || 0)
+          : closingByItem.get(item.stockItemId);
         if (closing !== undefined) {
           item.closingStock = closing;
           item.openingStock = closing - (fullNetByItem.get(item.stockItemId) || 0);
