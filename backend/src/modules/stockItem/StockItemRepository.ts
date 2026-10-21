@@ -477,15 +477,17 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         },
       },
       orderBy: { expiryDate: 'asc' }
-    }).then((batches: any[]) => batches.map((batch: any) => ({
-      ...batch,
-      stockItem: batch.stockItem ? {
-        ...batch.stockItem,
-        currentStock: filters.includeAllStockLocations
-          ? batch.stockItem.currentStock
-          : (batch.stockItem.stockBalances || []).reduce((sum: number, balance: any) => sum + balance.quantity, 0),
-      } : batch.stockItem,
-    })));
+    }).then((batches: any[]) => batches.map((batch: any) => {
+      if (!batch.stockItem || filters.includeAllStockLocations) return batch;
+      const { stockBalances = [], ...stockItem } = batch.stockItem;
+      return {
+        ...batch,
+        stockItem: {
+          ...stockItem,
+          currentStock: stockBalances.reduce((sum: number, balance: any) => sum + balance.quantity, 0),
+        },
+      };
+    }));
   }
 
   async getCategories() {
