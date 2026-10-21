@@ -221,3 +221,50 @@ describe('stock transfer approval concurrency', () => {
     expect(findUnique).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('transfer receipt calendar-day expiry', () => {
+  it('keeps a batch active when it is received on its recorded expiry day', async () => {
+    const expiryToday = new Date();
+    expiryToday.setUTCHours(0, 0, 0, 0);
+    const transfer = {
+      id: 'transfer-expiry-today',
+      status: 'dispatched',
+      receivedAt: null,
+      destinationId: 'pharmacy',
+      origin: { name: 'Main Store' },
+      destination: { id: 'pharmacy' },
+      items: [{
+        id: 'transfer-item-expiry-today',
+        stockItemId: 'item-1',
+        quantitySent: 2,
+        quantityReceived: 0,
+        batchAllocations: [{
+          batchId: 'batch-origin',
+          quantity: 2,
+          batchNumber: 'LOT-EXPIRES-TODAY',
+          expiryDate: expiryToday.toISOString(),
+          costPrice: '5.00',
+        }],
+      }],
+    };
+    const batchCreate = vi.fn().mockResolvedValue({ id: 'destination-batch' });
+    const tx: any = {
+      stockTransfer: {
+        findUnique: vi.fn().mockResolvedValueOnce(transfer).mockResolvedValueOnce({ ...transfer, status: 'received' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockItemDepartmentBalance: { upsert: vi.fn().mockResolvedValue({ quantity: 2 }) },
+      stockBatch: { findFirst: vi.fn().mockResolvedValue(null), create: batchCreate },
+      stockTransaction: { create: vi.fn().mockResolvedValue({ id: 'movement-1' }) },
+      stockTransferItem: { update: vi.fn().mockResolvedValue({}) },
+    };
+    const service = new StockTransferService({ $transaction: async (callback: any) => callback(tx) } as any);
+
+    await service.receiveTransfer(transfer.id, 'user-1');
+
+    expect(batchCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ batchNumber: 'LOT-EXPIRES-TODAY', isActive: true }),
+    });
+  });
+});
