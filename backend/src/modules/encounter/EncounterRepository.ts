@@ -829,10 +829,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         throw new ValidationError('Only an undispensed prescription can be cancelled here; dispensed medication requires the documented return/correction workflow');
       }
 
-      const cancelled = await tx.medication.update({
-        where: { id: medication.id },
+      const cancellation = await tx.medication.updateMany({
+        where: { id: medication.id, attendanceId: encounterId, status: 'prescribed' },
         data: { status: 'cancelled' },
       });
+      if (cancellation.count !== 1) {
+        throw new ConflictError('This prescription has changed; refresh before cancelling');
+      }
+      const cancelled = await tx.medication.findUnique({ where: { id: medication.id } });
 
       await tx.medicationDose.updateMany({
         where: {
