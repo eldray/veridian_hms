@@ -48,7 +48,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Risk level must be low, medium or high');
     }
     if (data.bookingBP && String(data.bookingBP).trim()) {
-      const pressureParts = String(data.bookingBP).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const pressureParts = String(data.bookingBP).trim().replace(/ /g, '').replace('-', '/').split('/');
       const systolic = Number(pressureParts[0]);
       const diastolic = Number(pressureParts[1]);
       if (pressureParts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
@@ -179,7 +179,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Risk level must be low, medium or high');
     }
     if (clean.bookingBP !== undefined && clean.bookingBP !== null && String(clean.bookingBP).trim() !== '') {
-      const pressureParts = String(clean.bookingBP).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const pressureParts = String(clean.bookingBP).trim().replace(/ /g, '').replace('-', '/').split('/');
       const systolic = Number(pressureParts[0]);
       const diastolic = Number(pressureParts[1]);
       if (pressureParts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
@@ -224,7 +224,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Next ANC visit date cannot be in the past');
     }
     if (data.bloodPressure != null && String(data.bloodPressure).trim() !== '') {
-      const parts = String(data.bloodPressure).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const parts = String(data.bloodPressure).trim().replace(/ /g, '').replace('-', '/').split('/');
       const systolic = Number(parts[0]);
       const diastolic = Number(parts[1]);
       if (parts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
@@ -371,7 +371,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Gestational age days must be between 0 and 6');
     }
     if (clean.bloodPressure != null && String(clean.bloodPressure).trim() !== '') {
-      const parts = String(clean.bloodPressure).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const parts = String(clean.bloodPressure).trim().replace(/ /g, '').replace('-', '/').split('/');
       const systolic = Number(parts[0]);
       const diastolic = Number(parts[1]);
       if (parts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
