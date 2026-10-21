@@ -20,7 +20,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async findAllWithFilters(filters: any) {
     const { stockItemId, transactionType, startDate, endDate, page = 1, limit = 1000, departmentId, includeAllStockLocations } = filters;
     const where: any = {};
-    if (!includeAllStockLocations) where.departmentId = departmentId || '__NO_DEPARTMENT__';
+    if (!includeAllStockLocations) where.departmentId = departmentId || null;
     if (stockItemId) where.stockItemId = stockItemId;
     if (transactionType) where.transactionType = transactionType;
     if (startDate || endDate) {
@@ -44,7 +44,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     return this.getModel().findFirst({
       where: {
         id,
-        ...(!filters.includeAllStockLocations ? { departmentId: filters.departmentId || '__NO_DEPARTMENT__' } : {}),
+        ...(!filters.includeAllStockLocations ? { departmentId: filters.departmentId || null } : {}),
       },
       include: {
         StockItem: { select: { id: true, name: true, category: true, drugCode: true, unitOfMeasure: true, currentStock: true } },
@@ -249,7 +249,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       select: {
         id: true, name: true, category: true, currentStock: true, reorderLevel: true, unitOfMeasure: true, drugCode: true,
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: { departmentId: filters.departmentId || null, wardId: null },
           select: { quantity: true },
         },
       },
@@ -265,7 +265,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async getRequisitionTransactions(filters: any) {
     const where: any = { transactionType: 'requisition' };
     // Non-administrators may only view requisition stock movements in their own department.
-    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+    if (!filters.includeAllStockLocations) where.departmentId = filters.departmentId || null;
     if (filters.requisitionId) where.requisitionId = filters.requisitionId;
     if (filters.startDate || filters.endDate) {
       where.transactionDate = {};
@@ -285,12 +285,12 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         StockBatch: {
           where: {
             quantity: { gt: 0 },
-            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }),
+            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || null, wardId: null }),
           },
           select: { quantity: true, costPrice: true },
         },
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+          where: { departmentId: filters.departmentId || null, wardId: null },
           select: { quantity: true },
         },
       },
@@ -309,7 +309,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       // Department movement balances are location-specific snapshots. Exclude
       // ward ledger rows even when the ward is administratively linked to the
       // same department, otherwise running balances mix separate locations.
-      locationWhere.departmentId = filters.departmentId || '__NO_DEPARTMENT__';
+      locationWhere.departmentId = filters.departmentId || null;
       locationWhere.wardId = null;
     }
 
@@ -336,7 +336,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         select: {
           id: true, name: true, category: true, currentStock: true, unitOfMeasure: true,
           stockBalances: filters.includeAllStockLocations ? false as any : {
-            where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
+            where: { departmentId: filters.departmentId || null, wardId: null },
             select: { quantity: true },
           },
         },
