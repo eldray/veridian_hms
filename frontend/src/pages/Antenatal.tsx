@@ -1934,6 +1934,7 @@ onSuccess={async () => {
   await loadData();
 }}
           attendanceId={selectedAttendanceId}
+          patientId={selectedPatientId}
           bookingId={selectedBookingId}
           visitNumber={currentVisits.length + 1}
           existingVisit={editingVisit}
