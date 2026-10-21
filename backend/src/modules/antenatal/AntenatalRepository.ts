@@ -16,16 +16,52 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   // ===================== ANTENATAL BOOKING =====================
   async createBooking(data: CreateAntenatalBookingInput): Promise<any> {
     const lmp = new Date(data.lmp);
+    if (Number.isNaN(lmp.getTime())) throw new ValidationError('A valid last menstrual period (LMP) date is required');
+    if (lmp.getTime() > Date.now()) throw new ValidationError('LMP cannot be in the future');
+    if (!Number.isInteger(Number(data.gravida)) || Number(data.gravida) < 1) {
+      throw new ValidationError('Gravida must be a whole number of at least 1 for a current pregnancy');
+    }
+    if (!Number.isInteger(Number(data.para)) || Number(data.para) < 0 || Number(data.para) > Number(data.gravida)) {
+      throw new ValidationError('Para must be a whole number between 0 and gravida');
+    }
+
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: data.attendanceId },
+      select: { id: true, patientId: true, attendanceType: true },
+    });
+    if (!attendance) throw new NotFoundError('Antenatal attendance', data.attendanceId);
+    if (attendance.patientId !== data.patientId) {
+      throw new ValidationError('Antenatal booking patient must match the selected attendance');
+    }
+    if (attendance.attendanceType !== 'antenatal') {
+      throw new ValidationError('Antenatal booking must be linked to an antenatal attendance');
+    }
+    const activeBooking = await this.getModel().findFirst({
+      where: { patientId: data.patientId, isActive: true, isCompleted: false },
+      select: { id: true, attendanceId: true },
+    });
+    if (activeBooking) {
+      throw new ConflictError('An active pregnancy booking already exists for this patient. Update that booking or close it before creating another.');
+    }
+
     const edd = this.calculateEDD(lmp);
-    const tt = Math.min(Math.max(Number(data.ttDosesGiven) || 0, 0), 5);
-    const iptp = Math.min(Math.max(Number(data.iptpDosesGiven) || 0, 0), 5);
+    const tt = Number(data.ttDosesGiven) || 0;
+    const iptp = Number(data.iptpDosesGiven) || 0;
+    if (!Number.isInteger(tt) || tt < 0 || tt > 5) throw new ValidationError('TT doses must be between 0 and 5');
+    if (!Number.isInteger(iptp) || iptp < 0 || iptp > 5) throw new ValidationError('IPTp doses must be between 0 and 5');
     const prev = Array.isArray(data.previousComplications) ? data.previousComplications.join(', ') : data.previousComplications;
     const hb = data.hbLevel ?? (data.bookingHb != null && data.bookingHb !== ('' as any) ? Number(data.bookingHb) : undefined);
     const hbNum = hb != null && !Number.isNaN(Number(hb)) ? Number(hb) : undefined;
+    if (hbNum != null && (hbNum <= 0 || hbNum > 25)) throw new ValidationError('Haemoglobin must be a valid value in g/dL');
     const numOrU = (v: any) => (v === '' || v == null || Number.isNaN(Number(v)) ? undefined : Number(v));
     const doseDates: any = {};
-    for (let i = 1; i <= tt; i++) doseDates[`tt${i}Date`] = new Date();
-    for (let i = 1; i <= iptp; i++) doseDates[`iptp${i}Date`] = new Date();
+    // Never invent administration dates for historical doses. Save a date only when staff recorded it.
+    for (let i = 1; i <= 5; i++) {
+      const ttDate = (data as any)[`tt${i}Date`];
+      const iptpDate = (data as any)[`iptp${i}Date`];
+      if (ttDate) doseDates[`tt${i}Date`] = new Date(ttDate);
+      if (iptpDate) doseDates[`iptp${i}Date`] = new Date(iptpDate);
+    }
 
     return this.getModel().create({
       data: {
@@ -61,18 +97,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async getActiveBookingByPatientId(patientId: string): Promise<any | null> {
-    let booking = await this.getModel().findFirst({
+    // This endpoint promises an active pregnancy. Returning the latest closed booking
+    // here made completed pregnancies appear active in the maternal workflow.
+    return this.getModel().findFirst({
       where: { patientId, isActive: true, isCompleted: false },
+      orderBy: { bookingDate: 'desc' },
       include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } }
     });
-
-    if (!booking) {
-      booking = await this.getModel().findFirst({
-        where: { patientId }, orderBy: { bookingDate: 'desc' },
-        include: { patient: true, visits: { orderBy: { visitNumber: 'asc' } } }
-      });
-    }
-    return booking;
   }
 
   async getAllBookings(filters: AntenatalBookingFilters): Promise<{ bookings: any[]; total: number }> {
@@ -88,13 +119,39 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateBooking(id: string, data: UpdateAntenatalBookingInput): Promise<any> {
-    const allowed = ['gravida', 'para', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors', 'isActive', 'isCompleted', 'deliveryDate',
+    const allowed = ['gravida', 'para', 'lmp', 'edd', 'gestationalAgeWeeks', 'riskLevel', 'riskFactors', 'isActive', 'isCompleted', 'deliveryDate',
       'deliveryOutcome', 'deliveryRecordId', 'bloodGroup', 'hivStatus', 'hbLevel', 'vdrl', 'currentAttendanceId', 'malePartnerInvolved',
       'partnerHivStatus', 'hivKnownPositive', 'hepatitisBStatus', 'bookingHeight', 'bookingWeight', 'bookingBP', 'itnGiven',
       'ironFolateGiven', 'previousCSection'];
     const clean: any = {};
     for (const k of allowed) if ((data as any)[k] !== undefined) clean[k] = (data as any)[k];
-    if (clean.hbLevel != null) { clean.hbBooking = clean.hbLevel; clean.anaemiaDiagnosed = Number(clean.hbLevel) < 11; }
+    if (clean.lmp !== undefined) {
+      const lmp = new Date(clean.lmp);
+      if (Number.isNaN(lmp.getTime())) throw new ValidationError('A valid last menstrual period (LMP) date is required');
+      if (lmp.getTime() > Date.now()) throw new ValidationError('LMP cannot be in the future');
+      clean.lmp = lmp;
+      clean.edd = this.calculateEDD(lmp);
+    }
+    if (clean.gravida !== undefined && (!Number.isInteger(Number(clean.gravida)) || Number(clean.gravida) < 1)) {
+      throw new ValidationError('Gravida must be a whole number of at least 1 for a current pregnancy');
+    }
+    if (clean.para !== undefined && (!Number.isInteger(Number(clean.para)) || Number(clean.para) < 0)) {
+      throw new ValidationError('Para must be a non-negative whole number');
+    }
+    if (clean.gravida !== undefined || clean.para !== undefined) {
+      const existing = await this.getModel().findUnique({ where: { id }, select: { gravida: true, para: true } });
+      if (!existing) throw new NotFoundError('Antenatal booking', id);
+      const gravida = clean.gravida ?? existing.gravida;
+      const para = clean.para ?? existing.para;
+      if (para > gravida) throw new ValidationError('Para cannot exceed gravida');
+    }
+    if (clean.hbLevel != null) {
+      if (!Number.isFinite(Number(clean.hbLevel)) || Number(clean.hbLevel) <= 0 || Number(clean.hbLevel) > 25) {
+        throw new ValidationError('Haemoglobin must be a valid value in g/dL');
+      }
+      clean.hbBooking = clean.hbLevel;
+      clean.anaemiaDiagnosed = Number(clean.hbLevel) < 11;
+    }
     return this.getModel().update({ where: { id }, data: clean, include: { patient: true } });
   }
 
