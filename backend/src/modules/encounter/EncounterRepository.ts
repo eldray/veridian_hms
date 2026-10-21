@@ -406,6 +406,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       Boolean(presentingPart?.trim()) ||
       fetalMovement !== undefined ||
       oedema !== undefined;
+    if (Object.keys(vitalsData).length === 0 && !hasAntenatalData) {
+      throw new ValidationError('No editable vital-sign fields supplied');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
@@ -1041,7 +1044,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
-    return this.prisma.serviceRendered.delete({ where: { id: serviceRenderedId } });
+    const existing = await this.prisma.serviceRendered.findFirst({
+      where: { id: serviceRenderedId, attendanceId: encounterId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundError('Rendered service', serviceRenderedId);
+    return this.prisma.serviceRendered.delete({ where: { id: existing.id } });
   }
 
   async getConsumableUses(encounterId: string) {
