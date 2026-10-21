@@ -397,10 +397,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         throw new ValidationError(`Batch ${batchNumber} is inactive at this location; reconcile it before receiving more stock`);
       }
       const incremented = await tx.stockBatch.updateMany({
-        where: { id: existingBatch.id, isActive: true },
+        // Recheck expiry at the atomic write boundary. A batch can cross its
+        // expiry time after the initial validation/read and must not gain
+        // newly received available quantity once expired.
+        where: { id: existingBatch.id, isActive: true, expiryDate: { gt: new Date() } },
         data: { quantity: { increment: quantity } },
       });
-      if (incremented.count !== 1) throw new ValidationError('Batch changed during receipt. Please retry.');
+      if (incremented.count !== 1) throw new ValidationError('Batch changed or expired during receipt. Please retry.');
       batch = await tx.stockBatch.findUnique({ where: { id: existingBatch.id } });
     } else {
       batch = await tx.stockBatch.create({
