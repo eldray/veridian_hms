@@ -601,8 +601,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findUnique({
-        where: { id: medicationId },
+      const med = await tx.medication.findFirst({
+        where: { id: medicationId, attendanceId: encounterId },
         include: { StockItem: true },
       });
       if (!med) throw new Error('Medication not found');
@@ -780,16 +780,39 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   });
 }
 
-  async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
+  async updateLabTestStatus(encounterId: string, labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
+    const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
+    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid laboratory order status');
+
+    const existing = await this.prisma.labTest.findFirst({
+      where: { id: labOrderId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
+    if (existing.status === 'cancelled' && status !== 'cancelled') {
+      throw new ValidationError('A cancelled laboratory order cannot be reopened; create a new order');
+    }
+
+    // Only result fields are client-editable. Never accept IDs, audit attribution,
+    // timestamps or other Prisma fields from the request body.
+    const updateData: any = { status };
+    for (const key of ['result', 'normalRange', 'units', 'notes']) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
     if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress') updateData.performedById = actorId;
-    return this.prisma.labTest.update({ where: { id: labOrderId }, data: updateData });
+    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
+    return this.prisma.labTest.update({ where: { id: existing.id }, data: updateData });
   }
 
   async removeLabTest(encounterId: string, labOrderId: string) {
-    return this.prisma.labTest.update({ where: { id: labOrderId }, data: { status: 'cancelled' } });
+    const existing = await this.prisma.labTest.findFirst({
+      where: { id: labOrderId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
+    if (existing.status === 'completed') throw new ValidationError('Completed laboratory orders cannot be cancelled here; use the result correction workflow');
+    return this.prisma.labTest.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
@@ -895,16 +918,37 @@ async addScan(encounterId: string, data: any, userId: string) {
   });
 }
 
-  async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
+  async updateScanStatus(encounterId: string, scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
+    const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
+    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid scan status');
+
+    const existing = await this.prisma.scan.findFirst({
+      where: { id: scanId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Scan order', scanId);
+    if (existing.status === 'cancelled' && status !== 'cancelled') {
+      throw new ValidationError('A cancelled scan order cannot be reopened; create a new order');
+    }
+
+    const updateData: any = { status };
+    for (const key of ['result', 'findings', 'impression', 'imageUrls']) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
     if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress') updateData.performedById = actorId;
-    return this.prisma.scan.update({ where: { id: scanId }, data: updateData });
+    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
+    return this.prisma.scan.update({ where: { id: existing.id }, data: updateData });
   }
 
   async removeScan(encounterId: string, scanId: string) {
-    return this.prisma.scan.update({ where: { id: scanId }, data: { status: 'cancelled' } });
+    const existing = await this.prisma.scan.findFirst({
+      where: { id: scanId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Scan order', scanId);
+    if (existing.status === 'completed') throw new ValidationError('Completed scan orders cannot be cancelled here; use the result correction workflow');
+    return this.prisma.scan.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
@@ -949,16 +993,39 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   });
 }
 
-  async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
+  async updateProcedureStatus(encounterId: string, procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    const updateData: any = { status, ...data };
-    if (status === 'completed') updateData.performedAt = new Date();
-    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
-    return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
+    const allowedStatuses = ['scheduled', 'completed', 'cancelled'];
+    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid procedure status');
+
+    const existing = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Procedure', procedureId);
+    if (existing.status === 'cancelled' && status !== 'cancelled') {
+      throw new ValidationError('A cancelled procedure cannot be reopened; create a new procedure order');
+    }
+
+    const updateData: any = { status };
+    for (const key of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'bloodLoss', 'duration']) {
+      if (data[key] !== undefined) updateData[key] = data[key];
+    }
+    if (status === 'completed') {
+      updateData.performedAt = new Date();
+      updateData.performedById = actorId;
+    }
+    return this.prisma.procedure.update({ where: { id: existing.id }, data: updateData });
   }
 
   async removeProcedure(encounterId: string, procedureId: string) {
-    return this.prisma.procedure.update({ where: { id: procedureId }, data: { status: 'cancelled' } });
+    const existing = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, attendanceId: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!existing) throw new NotFoundError('Procedure', procedureId);
+    if (existing.status === 'completed') throw new ValidationError('Completed procedures cannot be cancelled here; use the correction workflow');
+    return this.prisma.procedure.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
   }
 
   async addService(encounterId: string, data: any, userId: string) {
