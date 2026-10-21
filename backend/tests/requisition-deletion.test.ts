@@ -60,11 +60,11 @@ describe('requisition fulfilment input integrity', () => {
     const prisma = {
       $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
     };
-    return { repository: new RequisitionRepository(prisma as any), tx };
+    return { repository: new RequisitionRepository(prisma as any), tx, prisma };
   };
 
   it('rejects a malformed negative approved quantity instead of silently skipping that line', async () => {
-    const { repository, tx } = buildRepository({
+    const { repository, tx, prisma } = buildRepository({
       id: 'req-2',
       status: 'approved',
       requestingDepartmentId: 'ward-stock',
@@ -80,13 +80,13 @@ describe('requisition fulfilment input integrity', () => {
       }],
     });
 
-    await expect(repository.fulfillRequisitionWithStockUpdate('req-2', 'user-1', {} as any))
+    await expect(repository.fulfillRequisitionWithStockUpdate('req-2', 'user-1', prisma as any))
       .rejects.toThrow(/whole number between zero/i);
     expect(tx.requisition.updateMany).not.toHaveBeenCalled();
   });
 
   it('rejects requisitions that specify both a receiving department and a ward', async () => {
-    const { repository, tx } = buildRepository({
+    const { repository, tx, prisma } = buildRepository({
       id: 'req-3',
       status: 'approved',
       requestingDepartmentId: 'nursing',
@@ -102,7 +102,7 @@ describe('requisition fulfilment input integrity', () => {
       }],
     });
 
-    await expect(repository.fulfillRequisitionWithStockUpdate('req-3', 'user-1', {} as any))
+    await expect(repository.fulfillRequisitionWithStockUpdate('req-3', 'user-1', prisma as any))
       .rejects.toThrow(/exactly one receiving department or ward/i);
     expect(tx.requisition.updateMany).not.toHaveBeenCalled();
   });
