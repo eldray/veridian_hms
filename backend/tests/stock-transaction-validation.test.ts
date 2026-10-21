@@ -6,6 +6,26 @@ import { ValidationError } from '../src/utils/errors';
 describe('stock transaction validation', () => {
   const service = new StockTransactionService({} as any);
 
+  it('rejects invalid quantities at the repository boundary before opening a transaction', async () => {
+    const transaction = vi.fn();
+    const repository = new StockTransactionRepository({ $transaction: transaction } as any);
+
+    await expect(repository.createSafely({
+      stockItemId: 'item-1',
+      transactionType: 'sale',
+      quantity: Number.NaN,
+      departmentId: 'pharmacy',
+    })).rejects.toBeInstanceOf(ValidationError);
+    await expect(repository.createSafely({
+      stockItemId: 'item-1',
+      transactionType: 'sale',
+      quantity: 0,
+      departmentId: 'pharmacy',
+    })).rejects.toBeInstanceOf(ValidationError);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('requires a department assignment for non-admin stock movements', async () => {
     await expect(service.create({
       stockItemId: 'item-1',
