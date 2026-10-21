@@ -162,6 +162,7 @@ export class AntenatalController extends BaseController {
     body('deliveryDate').isISO8601().withMessage('Valid delivery date required'),
     body('deliveryType').isIn(['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple']).withMessage('Valid delivery type required'),
     body('deliveryOutcome').isIn(['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death']).withMessage('Valid delivery outcome required'),
+    body('maternalOutcome').isIn(['alive', 'dead_direct_cause', 'dead_indirect_cause', 'dead_unknown']).withMessage('Confirmed maternal outcome is required'),
     body('gestationWeeks').optional().isInt({ min: 0, max: 42 }).withMessage('Valid gestational age required'),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
