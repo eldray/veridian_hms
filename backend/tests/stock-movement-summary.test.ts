@@ -703,7 +703,7 @@ describe('hospital-wide stock item movement reconciliation', () => {
 
     expect(report.items[0]).toMatchObject({
       openingStock: 95,
-      closingStock: 100,
+      closingStock: 103,
       quantityIn: 15,
       quantityOut: 7,
     });
