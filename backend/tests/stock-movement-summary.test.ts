@@ -586,3 +586,58 @@ describe('stock item report location filters', () => {
     });
   });
 });
+
+describe('expiry report location isolation', () => {
+  it('scopes expiring batches and expiry report stock to the selected department', async () => {
+    let batchArgs: any;
+    let itemArgs: any;
+    const repository = new StockItemRepository({
+      stockBatch: {
+        findMany: async (args: any) => { batchArgs = args; return []; },
+      },
+      stockItem: {
+        findMany: async (args: any) => { itemArgs = args; return []; },
+      },
+    } as any);
+
+    await repository.getExpiringBatches(30, { departmentId: 'pharmacy' });
+    await repository.getItemsForExpiryReport(undefined, { departmentId: 'pharmacy' });
+
+    expect(batchArgs.where).toMatchObject({
+      departmentId: 'pharmacy',
+      wardId: null,
+      isActive: true,
+      quantity: { gt: 0 },
+    });
+    expect(itemArgs.select.StockBatch.where).toMatchObject({
+      departmentId: 'pharmacy',
+      wardId: null,
+      isActive: true,
+      quantity: { gt: 0 },
+    });
+    expect(itemArgs.select.stockBalances.where).toEqual({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+    expect(itemArgs.where.OR[1].StockBatch.some).toMatchObject({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+  });
+
+  it('uses a no-access sentinel instead of unassigned stock when no department is supplied', async () => {
+    let query: any;
+    const repository = new StockItemRepository({
+      stockItem: {
+        findMany: async (args: any) => { query = args; return []; },
+      },
+    } as any);
+
+    await repository.getItemsForExpiryReport();
+
+    expect(query.select.stockBalances.where).toEqual({
+      departmentId: '__NO_DEPARTMENT__',
+      wardId: null,
+    });
+  });
+});
