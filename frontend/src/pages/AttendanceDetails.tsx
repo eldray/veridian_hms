@@ -363,7 +363,7 @@ export default function AttendanceDetails() {
       const date = new Date(dateString);
       if (isNaN(date.getTime())) return 'Invalid Date';
       
-      return date.toLocaleDateString('en-US', {
+      return date.toLocaleDateString('en-GH', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
@@ -377,7 +377,7 @@ export default function AttendanceDetails() {
 
   const formatShortDate = (dateString: string) => {
     try {
-      return new Date(dateString).toLocaleDateString('en-US', {
+      return new Date(dateString).toLocaleDateString('en-GH', {
         month: 'short',
         day: 'numeric',
         hour: '2-digit',
@@ -552,6 +552,70 @@ export default function AttendanceDetails() {
           )}
         </div>
       </div>
+
+      {/* Patient-centred visit snapshot: concise context without changing the Medical Entries form. */}
+      {patient && (
+        <section
+          aria-label="Patient and visit summary"
+          className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 shadow-sm"
+        >
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[var(--icon-cyan-bg)]">
+                <User className="h-6 w-6 text-[var(--icon-cyan-text)]" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="break-words text-lg font-bold text-[var(--text-primary)]">
+                  {getPatientFullName(patient)}
+                </h2>
+                <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
+                  Folder No. {patient.folderNumber || 'Not recorded'}
+                  {patient.age !== undefined && patient.age !== null && patient.age !== '' ? ` · ${patient.age} years` : ''}
+                  {patient.gender ? ` · ${patient.gender}` : ''}
+                </p>
+                <p className="mt-1 break-words text-xs text-[var(--text-secondary)]">
+                  {patient.contact || patient.phone || 'No contact number recorded'}
+                  {patient.address ? ` · ${patient.address}` : ''}
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2 lg:max-w-[52%] lg:justify-end">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                <Activity className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />
+                {currentAttendance.status ? currentAttendance.status.replace(/_/g, ' ') : 'Status not recorded'}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                {getPaymentModeIcon(currentAttendance.paymentMode)}
+                {getPaymentModeLabel(currentAttendance.paymentMode)}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-1.5 text-xs font-semibold text-[var(--text-primary)]">
+                <Calendar className="h-3.5 w-3.5 text-[var(--icon-cyan-text)]" />
+                {getAttendanceTypeLabel(currentAttendance.attendanceType)}
+              </span>
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-4 sm:grid-cols-4">
+            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diagnoses</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{currentAttendance.diagnoses?.length || 0}</p>
+            </div>
+            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Medicines</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{currentAttendance.medications?.length || 0}</p>
+            </div>
+            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Lab / scans</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">
+                {(currentAttendance.labTests?.length || 0) + (currentAttendance.scans?.length || 0)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-[var(--bg-main)] p-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Visit charges</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{formatCurrency(currentAttendance.totalBill || 0)}</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Medication safety: show recorded allergies across every attendance tab. */}
       {patient && (
