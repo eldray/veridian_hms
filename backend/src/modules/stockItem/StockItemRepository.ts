@@ -449,7 +449,13 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       where,
       orderBy: { currentStock: 'asc' },
       include: {
-        StockBatch: { where: { isActive: true }, orderBy: { expiryDate: 'asc' }, take: 3 },
+        StockBatch: {
+          where: filters.includeAllStockLocations
+            ? { isActive: true }
+            : { isActive: true, departmentId: filters.departmentId ?? null, wardId: null },
+          orderBy: { expiryDate: 'asc' },
+          take: 3,
+        },
         stockBalances: filters.includeAllStockLocations ? true : {
           where: { departmentId: filters.departmentId ?? null, wardId: null },
           select: { quantity: true },
