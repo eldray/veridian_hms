@@ -430,4 +430,51 @@ describe('medication administration integrity', () => {
       quantity: 1.5,
     }, 'nurse-1')).rejects.toThrow(/positive whole number/i);
   });
+
+  it('does not allow administration before dispensing', async () => {
+    const update = vi.fn();
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'medication-1', attendanceId: 'attendance-1', status: 'prescribed',
+          quantity: 1, stockItemId: null, StockItem: null,
+        }),
+        update,
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      status: 'administered',
+    }, 'nurse-1')).rejects.toThrow(/must be dispensed before administration/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('does not allow an administered medication to be reset to prescribed', async () => {
+    const update = vi.fn();
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'medication-1', attendanceId: 'attendance-1', status: 'administered',
+          quantity: 1, stockItemId: null, StockItem: null,
+        }),
+        update,
+      },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      status: 'prescribed',
+    }, 'nurse-1')).rejects.toThrow(/administered medication cannot be reset/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
 });
