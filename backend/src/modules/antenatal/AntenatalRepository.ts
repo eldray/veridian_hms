@@ -446,7 +446,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: data.attendanceId },
-        select: { id: true, patientId: true },
+        select: { id: true, patientId: true, attendanceType: true },
       });
       if (!attendance) throw new NotFoundError('Delivery attendance', data.attendanceId);
       if (attendance.patientId !== data.patientId) {
