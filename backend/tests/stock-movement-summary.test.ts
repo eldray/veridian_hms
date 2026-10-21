@@ -65,3 +65,46 @@ describe('stock usage report', () => {
     expect(report.topItems[0]).toMatchObject({ stockItemId: 'item-2', quantity: 4, requisitionQuantity: 4 });
   });
 });
+
+
+describe('stock expiry report', () => {
+  it('uses positive batch quantities and batch expiry dates when item-level expiry is absent', async () => {
+    const today = new Date();
+    const dateInDays = (days: number) => {
+      const value = new Date(today);
+      value.setDate(value.getDate() + days);
+      return value;
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getItemsForExpiryReport: async () => [
+        {
+          id: 'soon-item', name: 'Batch soon', currentStock: 100, costPrice: 99, expiryDate: null,
+          StockBatch: [{ batchNumber: 'SOON-1', expiryDate: dateInDays(10), quantity: 5, costPrice: '2.00' }],
+        },
+        {
+          id: 'expired-item', name: 'Expired batch', currentStock: 10, costPrice: 10, expiryDate: null,
+          StockBatch: [{ batchNumber: 'OLD-1', expiryDate: dateInDays(-5), quantity: 3, costPrice: '4.00' }],
+        },
+        {
+          id: 'healthy-item', name: 'Healthy batch', currentStock: 20, costPrice: 1, expiryDate: null,
+          StockBatch: [{ batchNumber: 'GOOD-1', expiryDate: dateInDays(120), quantity: 20, costPrice: '1.00' }],
+        },
+      ],
+      getExpiringBatches: async () => [{ batchNumber: 'SOON-1' }],
+    };
+
+    const report = await service.getExpiryReport(30);
+
+    expect(report.summary).toMatchObject({
+      totalWithExpiry: 3,
+      expiringSoon: 1,
+      expired: 1,
+      healthy: 1,
+      expiringValue: 10,
+      expiringBatches: 1,
+    });
+    expect(report.expiringSoon[0].id).toBe('soon-item');
+    expect(report.expired[0].id).toBe('expired-item');
+  });
+});
