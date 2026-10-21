@@ -462,9 +462,9 @@ export class StockItemService extends BaseService {
    * Direction comes from the transaction type, because older writers stored sales as negative numbers and
    * adjustments lost their sign; for an adjustment the change in balance decides whether it added or removed stock.
    */
-  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string } = {}) {
+  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, limit: LIMIT });
+    const { rows, total } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
