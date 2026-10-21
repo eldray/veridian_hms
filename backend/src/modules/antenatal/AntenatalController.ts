@@ -160,6 +160,7 @@ export class AntenatalController extends BaseController {
   createDeliveryRecord = [
     body('patientId').notEmpty().withMessage('Patient ID required'),
     body('attendanceId').notEmpty().withMessage('Attendance ID required'),
+    body('attendant').trim().notEmpty().withMessage('Delivery attendant is required'),
     body('deliveryDate').isISO8601().withMessage('Valid delivery date required'),
     body('deliveryType').isIn(['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple']).withMessage('Valid delivery type required'),
     body('deliveryOutcome').isIn(['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death']).withMessage('Valid delivery outcome required'),
