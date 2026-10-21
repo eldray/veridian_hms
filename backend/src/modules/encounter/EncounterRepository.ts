@@ -307,8 +307,41 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-  async updateStatus(id: string, status: string) {
-    return this.getModel().update({ where: { id }, data: { status: status as any } });
+  async updateStatus(id: string, status: string, userId: string) {
+    if (!['pending', 'cancelled'].includes(status)) {
+      throw new ValidationError('Use the dedicated admission, completion, discharge, referral or absconded workflow to change an encounter to that status');
+    }
+    const current = await this.prisma.attendance.findUnique({
+      where: { id },
+      include: {
+        _count: { select: {
+          AttendanceDiagnosis: true, LabTest: true, Medication: true, Procedure: true, Scan: true,
+          ServiceRendered: true, Vitals: true, nursingNotes: true, nursingTasks: true,
+          antenatalVisits: true, deliveryRecords: true, abortionRecords: true, postnatalRecords: true,
+          familyPlanningServices: true,
+        } },
+        Bill: { select: { id: true } },
+        Admission: { select: { id: true } },
+      },
+    });
+    if (!current) throw new NotFoundError('Encounter', id);
+    if (status === 'pending') {
+      if (current.status !== 'pending') throw new ConflictError('A non-pending encounter cannot be reset to pending through a generic status update');
+      return current;
+    }
+    if (current.status !== 'pending') throw new ConflictError('Only a pending encounter can be cancelled');
+    const count = current._count || {};
+    const hasClinicalActivity = Object.values(count).some((value: any) => Number(value) > 0);
+    if (hasClinicalActivity || current.Bill || current.Admission) {
+      throw new ConflictError('An encounter with clinical activity, billing or an admission cannot be cancelled through a generic status update');
+    }
+    const actorId = await this.requireActorId(userId);
+    const updated = await this.prisma.attendance.updateMany({
+      where: { id, status: 'pending' },
+      data: { status: 'cancelled', updatedById: actorId },
+    });
+    if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
+    return this.prisma.attendance.findUnique({ where: { id } });
   }
 
   // ============================================
