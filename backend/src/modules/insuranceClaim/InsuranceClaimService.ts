@@ -88,7 +88,7 @@ export class InsuranceClaimService extends BaseService {
       if (!targetType) throw new Error('Insurance type must be specified or determinable');
 
       for (const c of claims) {
-        if (c.status !== 'submitted') throw new Error(`Claim ${c.claimNumber} not submitted`);
+        if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
         if (c.InsuranceProvider?.type !== targetType) throw new Error(`Claim ${c.claimNumber} type mismatch`);
         if (c.batchId) throw new Error(`Claim ${c.claimNumber} already batched`);
       }
@@ -98,7 +98,7 @@ export class InsuranceClaimService extends BaseService {
       const batchNumber = `BATCH-${getCounterService().nextBatchNumber()}`;
 
       const batch = await tx.claimBatch.create({
-        data: { batchNumber, description, totalAmount, status: 'draft', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },
+        data: { batchNumber, description, totalAmount, status: 'generated', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },
         include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
       });
 
@@ -108,27 +108,7 @@ export class InsuranceClaimService extends BaseService {
   }
 
   async getClaimBatches(status?: string, startDate?: Date, endDate?: Date, page = 1, limit = 50) {
-    const where: any = {};
-    if (status) where.status = status;
-    if (startDate || endDate) {
-      where.batchDate = {};
-      if (startDate) where.batchDate.gte = startDate;
-      if (endDate) { const d = new Date(endDate); d.setHours(23, 59, 59, 999); where.batchDate.lte = d; }
-    }
-
-    const pageNum = Math.max(1, page);
-    const limitNum = Math.min(100, Math.max(1, limit));
-    const skip = (pageNum - 1) * limitNum;
-
-    const [batches, total] = await Promise.all([
-      this.prisma.claimBatch.findMany({
-        where, include: { claims: { select: { id: true, claimNumber: true, totalClaimAmount: true, status: true, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } } } }, createdBy: { select: { id: true, fullName: true, username: true } } },
-        orderBy: { batchDate: 'desc' }, skip, take: limitNum
-      }),
-      this.prisma.claimBatch.count({ where })
-    ]);
-
-    return { data: batches, pagination: { page: pageNum, limit: limitNum, total, pages: Math.ceil(total / limitNum) } };
+    return this.repo.findBatchesWithFilters({ status, startDate, endDate, page, limit });
   }
 
   async getClaimBatch(batchId: string) {
@@ -145,13 +125,13 @@ export class InsuranceClaimService extends BaseService {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: true } });
       if (!existing) throw new Error('Batch not found');
-      if (existing.status !== 'draft') throw new Error('Can only add claims to draft batches');
+      if (existing.status !== 'generated') throw new Error('Claims can only be added to generated, unfinalized batches');
 
       const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true } });
       if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
 
       for (const c of claims) {
-        if (c.status !== 'submitted') throw new Error(`Claim ${c.claimNumber} not submitted`);
+        if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
         if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
       }
 
@@ -217,7 +197,7 @@ export class InsuranceClaimService extends BaseService {
 <NHISBatchSubmission>
   <BatchInfo>
     <BatchNumber>${batch.batchNumber}</BatchNumber>
-    <BatchDate>${batch.batchDate.toISOString()}</BatchDate>
+    <BatchDate>${new Date(batch.periodYear, batch.periodMonth - 1, 1).toISOString()}</BatchDate>
     <FacilityCode>${facilityCode}</FacilityCode>
     <TotalClaims>${batch.claims.length}</TotalClaims>
     <TotalAmount>${toNumber(batch.totalAmount).toFixed(2)}</TotalAmount>
@@ -229,16 +209,16 @@ ${claimsXml}
   </Claims>
 </NHISBatchSubmission>`;
 
-    await this.prisma.claimBatch.update({ where: { id: batchId }, data: { status: 'generated', xmlGeneratedAt: new Date() } });
+    await this.prisma.claimBatch.update({ where: { id: batchId }, data: { status: 'generated' } });
     return { xml, batchNumber: batch.batchNumber };
   }
 
   async updateBatchStatus(batchId: string, status: string) {
-    const valid = ['draft', 'generated', 'submitted', 'exported'];
+    const valid = ['generated', 'finalized'];
     if (!valid.includes(status)) throw new Error('Invalid status');
     return this.prisma.claimBatch.update({
       where: { id: batchId },
-      data: { status: status as any, ...(status === 'submitted' ? { submissionDate: new Date() } : {}) },
+      data: { status: status as any, ...(status === 'finalized' ? { finalizedAt: new Date() } : {}) },
       include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
     });
   }
@@ -247,7 +227,7 @@ ${claimsXml}
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.claimBatch.findUnique({ where: { id: batchId }, include: { claims: true } });
       if (!existing) throw new Error('Batch not found');
-      if (existing.status !== 'draft') throw new Error('Can only delete draft batches');
+      if (existing.status !== 'generated') throw new Error('Only generated, unfinalized batches can be deleted');
       await tx.insuranceClaim.updateMany({ where: { batchId }, data: { batchId: null } });
       await tx.claimBatch.delete({ where: { id: batchId } });
       return existing;
@@ -339,7 +319,7 @@ ${claimsXml}
   }
 
   async updateClaimDraft(claimId: string, data: any, userId: string) {
-    const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'approvedAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
+    const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
     const toUpdate: any = { updatedById: userId, updatedAt: new Date() };
     fields.forEach(f => { if (data[f] !== undefined) toUpdate[f] = data[f]; });
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
@@ -349,16 +329,16 @@ ${claimsXml}
     const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
     if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
-    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'submitted', submissionDate: new Date(), updatedById: userId } });
+    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'finalized', finalizedAt: new Date(), finalizedById: userId, updatedById: userId } });
   }
 
   async updateClaimStatus(claimId: string, status: string, notes: string | undefined, userId: string) {
-    const valid = ['draft', 'submitted', 'approved', 'paid', 'rejected'];
+    const valid = ['draft', 'finalized'];
     if (!valid.includes(status)) throw new Error('Invalid status');
     const toUpdate: any = { status, updatedById: userId, updatedAt: new Date() };
-    if (status === 'submitted') toUpdate.submissionDate = new Date();
-    if (status === 'approved') toUpdate.approvalDate = new Date();
-    if (status === 'paid') toUpdate.paymentDate = new Date();
+    if (status === 'finalized') { toUpdate.finalizedAt = new Date(); toUpdate.finalizedById = userId; }
+    
+    
     if (notes) toUpdate.notes = notes;
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
@@ -381,13 +361,13 @@ ${claimsXml}
   }
 
   async getFinalizedClaimsTotal(dateFrom?: Date, dateTo?: Date, type?: string) {
-    const where: any = { status: 'submitted' };
+    const where: any = { status: 'finalized' };
     if (type === 'nhis') where.InsuranceProvider = { type: 'nhis' };
     if (type === 'private') where.InsuranceProvider = { type: 'private' };
     if (dateFrom || dateTo) {
-      where.submissionDate = {};
-      if (dateFrom) where.submissionDate.gte = dateFrom;
-      if (dateTo) where.submissionDate.lte = dateTo;
+      where.finalizedAt = {};
+      if (dateFrom) where.finalizedAt.gte = dateFrom;
+      if (dateTo) where.finalizedAt.lte = dateTo;
     }
 
     const claims = await this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: true, Patient: true } });
@@ -397,7 +377,7 @@ ${claimsXml}
 
     return {
       total: claims.length, totalAmount,
-      claims: claims.map(c => ({ id: c.id, claimNumber: c.claimNumber, patientName: `${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}`.trim(), amount: toNumber(c.totalClaimAmount), submissionDate: c.submissionDate, provider: c.InsuranceProvider?.name }))
+      claims: claims.map(c => ({ id: c.id, claimNumber: c.claimNumber, patientName: `${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}`.trim(), amount: toNumber(c.totalClaimAmount), finalizedAt: c.finalizedAt, provider: c.InsuranceProvider?.name }))
     };
   }
 
@@ -574,7 +554,7 @@ ${claimsXml}
       if (!corp.isActive) throw new ValidationError(`Corporate account "${corp.companyName}" is inactive.`);
 
       // ✅ FIXED: Decimal math for credit limit
-      const whereCond: any = { corporateAccountId: att.corporateAccountId, status: { in: ['submitted', 'approved'] } };
+      const whereCond: any = { corporateAccountId: att.corporateAccountId, status: 'finalized' };
       if (att.insuranceProviderId) whereCond.insuranceProviderId = att.insuranceProviderId;
       const outstanding = await tx.insuranceClaim.aggregate({ where: whereCond, _sum: { totalClaimAmount: true } });
       const currentBal = toNumber(outstanding._sum?.totalClaimAmount);
@@ -595,7 +575,7 @@ ${claimsXml}
       const claim = await tx.insuranceClaim.create({
         data: {
           claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: providerId, corporateAccountId: att.corporateAccountId,
-          totalClaimAmount: claimAmt, status: 'submitted', createdById: userId,
+          totalClaimAmount: claimAmt, status: 'finalized', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
