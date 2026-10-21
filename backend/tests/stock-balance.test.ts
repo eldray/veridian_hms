@@ -62,7 +62,7 @@ describe('purchase receipt batch integrity', () => {
       stockBatch: {
         count: vi.fn().mockResolvedValue(1),
         findFirst: vi.fn().mockResolvedValue(existingBatch),
-        update: batchUpdate,
+        updateMany: batchUpdate,
       },
       invoiceItem: { create: vi.fn().mockResolvedValue({ id: 'invoice-item-1' }) },
       stockItemDepartmentBalance: {
@@ -71,7 +71,7 @@ describe('purchase receipt batch integrity', () => {
       stockTransaction: { create: vi.fn().mockResolvedValue({ id: 'movement-1' }) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate };
+    return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate, tx };
   };
 
   const receipt = {
@@ -155,7 +155,12 @@ describe('purchase receipt batch integrity', () => {
     await repository.create(receipt, 'user-1');
 
     expect(batchUpdate).toHaveBeenCalledWith({
-      where: { id: 'batch-1' },
+      where: {
+        id: 'batch-1',
+        isActive: true,
+        expiryDate: { gt: expect.any(Date), equals: new Date('2027-10-20T00:00:00.000Z') },
+        costPrice: 10,
+      },
       data: { quantity: { increment: 7 } },
     });
   });
