@@ -913,3 +913,36 @@ describe('department movement report ward isolation', () => {
     expect(transactionQueries[1].where).toMatchObject({ departmentId: 'pharmacy', wardId: null });
   });
 });
+
+
+describe('stock report date boundaries', () => {
+  it('uses the local calendar day for both date-only boundaries', async () => {
+    const { parseReportBoundary } = await import('../src/utils/reportDates');
+    const start = parseReportBoundary('2026-10-21', 'start');
+    const end = parseReportBoundary('2026-10-21', 'end');
+
+    expect(start).toBeDefined();
+    expect(end).toBeDefined();
+    expect(start!.getFullYear()).toBe(2026);
+    expect(start!.getMonth()).toBe(9);
+    expect(start!.getDate()).toBe(21);
+    expect(start!.getHours()).toBe(0);
+    expect(end!.getFullYear()).toBe(2026);
+    expect(end!.getMonth()).toBe(9);
+    expect(end!.getDate()).toBe(21);
+    expect(end!.getHours()).toBe(23);
+    expect(end!.getMinutes()).toBe(59);
+    expect(end!.getSeconds()).toBe(59);
+    expect(end!.getMilliseconds()).toBe(999);
+  });
+
+  it('preserves explicit timestamps and rejects invalid boundaries', async () => {
+    const { parseReportBoundary } = await import('../src/utils/reportDates');
+    const timestamp = '2026-10-21T12:34:56.000Z';
+
+    expect(parseReportBoundary(timestamp, 'start')?.toISOString()).toBe(timestamp);
+    expect(parseReportBoundary(timestamp, 'end')?.toISOString()).toBe(timestamp);
+    expect(parseReportBoundary('not-a-date', 'start')).toBeUndefined();
+    expect(parseReportBoundary('', 'end')).toBeUndefined();
+  });
+});
