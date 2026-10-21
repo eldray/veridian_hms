@@ -246,8 +246,15 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       where,
       select: {
         id: true, name: true, category: true, currentStock: true, costPrice: true, unitOfMeasure: true, reorderLevel: true,
+        StockBatch: {
+          where: {
+            quantity: { gt: 0 },
+            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null }),
+          },
+          select: { quantity: true, costPrice: true },
+        },
         stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__' },
+          where: { departmentId: filters.departmentId || '__NO_DEPARTMENT__', wardId: null },
           select: { quantity: true },
         },
       },
