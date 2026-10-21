@@ -530,7 +530,7 @@ export class EncounterService extends BaseService {
   }
 
   async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
-  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data); }
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data, userId); }
   async updateEncounterStatus(id: string, status: string) { return this.repository.updateStatus(id, status); }
   async deleteEncounter(id: string) { return this.repository.delete(id); }
   
