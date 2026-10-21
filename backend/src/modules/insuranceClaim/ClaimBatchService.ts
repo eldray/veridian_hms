@@ -289,7 +289,7 @@ export class ClaimBatchService extends BaseService {
 
   const claims = await this.prisma.insuranceClaim.findMany({
     where: {
-      status: 'submitted',
+      status: 'finalized',
       batchId: null,
       Attendance: { dateTime: { gte: start, lt: end } },
     },
