@@ -727,10 +727,7 @@ describe('hospital-wide movement filter reconciliation', () => {
           { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, adjustmentDirection: null, StockItem: item },
           { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, adjustmentDirection: null, StockItem: item },
         ],
-        transactionsAfterEnd: [
-          { stockItemId: 'gloves', transactionType: 'sale', quantity: 3, adjustmentDirection: null },
-        ],
-        locationBalances: [{ stockItemId: 'gloves', quantity: 13 }],
+        transactionsAfterEnd: [],
       }),
     };
 
@@ -766,7 +763,10 @@ describe('department movement filter reconciliation', () => {
           { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, balanceAfter: 12, adjustmentDirection: null, StockItem: item },
           { stockItemId: 'gloves', transactionType: 'sale', quantity: 2, balanceAfter: 10, adjustmentDirection: null, StockItem: item },
         ],
-        transactionsAfterEnd: [],
+        transactionsAfterEnd: [
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 3, adjustmentDirection: null },
+        ],
+        locationBalances: [{ stockItemId: 'gloves', quantity: 13 }],
       }),
     };
 
