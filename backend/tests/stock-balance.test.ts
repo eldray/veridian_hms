@@ -158,7 +158,7 @@ describe('purchase receipt batch integrity', () => {
       where: {
         id: 'batch-1',
         isActive: true,
-        expiryDate: { gt: expect.any(Date), equals: new Date('2027-10-20T00:00:00.000Z') },
+        expiryDate: { gte: expect.any(Date), equals: new Date('2027-10-20T00:00:00.000Z') },
         costPrice: 10,
       },
       data: { quantity: { increment: 7 } },
