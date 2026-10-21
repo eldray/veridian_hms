@@ -83,7 +83,7 @@ export class AntenatalController extends BaseController {
 
   deleteAntenatalBooking = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     await this.service.deleteBooking(req.params.id);
-    return this.ok(res, null, 'Antenatal booking deleted successfully');
+    return this.ok(res, null, 'Antenatal booking deactivated; maternal history has been retained');
   });
 
   getAntenatalBookings = this.asyncHandler(async (req: AuthRequest, res: Response) => {
