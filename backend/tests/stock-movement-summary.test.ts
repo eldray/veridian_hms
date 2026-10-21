@@ -285,7 +285,9 @@ describe('stock ledger location scope', () => {
     await repo.getLedgerTransactions({ departmentId: 'pharmacy', limit: 100 });
 
     expect(countArgs.where.departmentId).toBe('pharmacy');
+    expect(countArgs.where.wardId).toBeNull();
     expect(findArgs.where.departmentId).toBe('pharmacy');
+    expect(findArgs.where.wardId).toBeNull();
   });
 
   it('only omits the department restriction when hospital-wide scope is explicitly enabled', async () => {
@@ -301,6 +303,7 @@ describe('stock ledger location scope', () => {
     await repo.getLedgerTransactions({ departmentId: 'pharmacy', includeAllStockLocations: true, limit: 100 });
 
     expect(findArgs.where.departmentId).toBeUndefined();
+    expect(findArgs.where.wardId).toBeUndefined();
   });
 
   it('does not silently include unassigned movements when a caller has no department', async () => {
@@ -316,6 +319,7 @@ describe('stock ledger location scope', () => {
     await repo.getLedgerTransactions({ limit: 100 });
 
     expect(findArgs.where.departmentId).toBe('__NO_DEPARTMENT__');
+    expect(findArgs.where.wardId).toBeNull();
   });
 });
 
