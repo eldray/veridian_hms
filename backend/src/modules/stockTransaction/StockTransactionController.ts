@@ -12,7 +12,7 @@ import prisma from '../../core/database/prisma.client';
 const parseEndDate = (value: unknown): Date | undefined => {
   if (typeof value !== 'string' || !value.trim()) return undefined;
   const raw = value.trim();
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const parsed = new Date(raw);
     return Number.isNaN(parsed.getTime()) ? undefined : parsed;
   }
