@@ -166,6 +166,13 @@ describe('stock transaction validation', () => {
       performedBy: 'user-1',
     });
 
+    expect(tx.stockBatch.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'batch-1',
+        isActive: true,
+        expiryDate: { gt: expect.any(Date) },
+      }),
+    }));
     expect(createTransaction).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({
         batchAllocations: [{
