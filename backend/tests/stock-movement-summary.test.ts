@@ -139,3 +139,37 @@ describe('historical stock movement balances', () => {
     });
   });
 });
+
+describe('legacy stock movement quantities', () => {
+  it('normalizes legacy negative sales and adjustments in movement totals', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getMovementData: async () => ({
+        stockItems: [{ id: 'item-legacy', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', currentStock: 10 }],
+        transactions: [
+          { stockItemId: 'item-legacy', transactionType: 'purchase', quantity: 5 },
+          { stockItemId: 'item-legacy', transactionType: 'sale', quantity: -2 },
+          { stockItemId: 'item-legacy', transactionType: 'adjustment', quantity: -3 },
+        ],
+        transactionsAfterEnd: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary({
+      departmentId: 'pharmacy',
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-20T23:59:59Z'),
+    });
+
+    expect(report.items[0]).toMatchObject({
+      purchases: 5,
+      sales: 2,
+      adjustments: 3,
+      adjustmentIn: 0,
+      adjustmentOut: 3,
+      openingStock: 10,
+      closingStock: 10,
+      netChange: 0,
+    });
+  });
+});
