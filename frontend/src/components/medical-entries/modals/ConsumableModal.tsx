@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Search, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { recordEncounterConsumableUse, updateEncounterConsumableUse } from '../../../api';
 import { useToast } from '../../../store/toastStore';
+import { useAuthStore } from '../../../store/authStore';
 
 interface ConsumableModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { success, error } = useToast();
+  const { user } = useAuthStore();
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const debouncedSearch = useDebounced(search, 150);
@@ -88,10 +90,29 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
 
   const selected = stockItems.find(item => item.id === selectedId) || null;
 
-  // Available stock + any already-held quantity when editing
+  // StockItem.currentStock is the hospital-wide total. Consumable use is issued
+  // from the logged-in user's department, so use that department's canonical balance.
+  const getDepartmentAvailable = (item: any) => {
+    if (!item || !user?.departmentId) return 0;
+    if (Array.isArray(item.stockBalances)) {
+      const balance = item.stockBalances.find(
+        (entry: any) => entry.departmentId === user.departmentId && !entry.wardId,
+      );
+      return Math.max(0, Number(balance?.quantity) || 0);
+    }
+    // Compatibility fallback for older API payloads without department balances.
+    return Math.max(0, Number(item.currentStock) || 0);
+  };
+
+  const selectedAvailable = selected ? getDepartmentAvailable(selected) : 0;
+  // When editing a use from this same department, allow its quantity to be restored
+  // before the replacement quantity is deducted.
+  const canRestoreExistingUse =
+    !!selected &&
+    existingUse?.stockItemId === selected.id &&
+    existingUse?.departmentId === user?.departmentId;
   const maxQuantity = selected
-    ? (Number(selected.currentStock) || 0) +
-      (existingUse?.stockItemId === selected.id ? Number(existingUse.quantity) || 0 : 0)
+    ? selectedAvailable + (canRestoreExistingUse ? Number(existingUse.quantity) || 0 : 0)
     : 0;
 
   const showDropdown = !selectedId;
@@ -212,7 +233,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
                 <div className="max-h-64 overflow-y-auto p-1.5" style={{ scrollbarWidth: 'thin' }}>
                   {visibleConsumables.length ? (
                     visibleConsumables.map(item => {
-                      const available = Number(item.currentStock) || 0;
+                      const available = getDepartmentAvailable(item);
                       const out = available <= 0;
                       const low = !out && available < (Number(item.reorderLevel) || 0);
                       return (
@@ -271,9 +292,9 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{selected.name}</p>
                   <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
-                    Available: {selected.currentStock} {selected.unitOfMeasure || 'unit(s)'}
-                    {existingUse?.stockItemId === selected.id && maxQuantity !== selected.currentStock
-                      ? ` · up to ${maxQuantity} including this use`
+                    Available in your department: {selectedAvailable} {selected.unitOfMeasure || 'unit(s)'}
+                    {existingUse?.stockItemId === selected.id && maxQuantity !== selectedAvailable
+                      ? ` · up to ${maxQuantity} after restoring this use`
                       : ''}
                   </p>
                 </div>
