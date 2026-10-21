@@ -149,7 +149,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     // recorder are immutable after creation so an edit cannot reassign a record
     // or rewrite its audit attribution.
     const allowed = [
-      'visitNumber', 'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays',
+      'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays',
       'weight', 'bloodPressure', 'fundalHeight', 'fetalHeartRate', 'fetalMovements',
       'presentation', 'iptpGiven', 'iptpDoseNumber', 'iptpDrug', 'ttGiven',
       'ttDoseNumber', 'ironGiven', 'folateGiven', 'calciumGiven', 'malariaTestDone',
@@ -162,6 +162,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       const value = (data as any)[key];
       if (value !== undefined) clean[key] = value;
     }
+    if (typeof clean.visitDate === 'string') clean.visitDate = new Date(clean.visitDate);
+    if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate as string);
     return this.prisma.aNCVisit.update({
       where: { id }, data: clean,
       include: { recordedBy: { select: { fullName: true, role: true } } }
@@ -248,12 +250,15 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery',
       'attendant', 'birthWeight', 'gestationWeeks', 'apgarScore1min',
       'apgarScore5min', 'resusCitationDone', 'maternalOutcome', 'complications',
-      'notes', 'malePartnerPresentANC', 'malePartnerPresentDelivery',
+      'malePartnerPresentANC', 'malePartnerPresentDelivery',
       'malePartnerPresentPNC', 'maternalDeathsAudited', 'auditNotes', 'referralTo'
     ];
     const updatePayload: any = {};
     for (const key of allowed) {
       if (data[key] !== undefined) updatePayload[key] = data[key];
+    }
+    if (typeof updatePayload.deliveryDate === 'string') {
+      updatePayload.deliveryDate = new Date(updatePayload.deliveryDate);
     }
     const Newborn = data.Newborn ?? data.newborns;
 
