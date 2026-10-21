@@ -173,7 +173,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       const reference = String(transaction.reference || '');
       if (
         /^Dispensed\b/i.test(notes) ||
-        /^Consumable use:/i.test(notes) ||
+        /^Consumable use(?:\s|:)/i.test(notes) ||
         /^Encounter\s/i.test(reference)
       ) {
         throw new ValidationError('This stock movement is linked to a clinical encounter. Use the encounter correction workflow rather than deleting its stock ledger entry.');
@@ -228,7 +228,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const existingReference = String(existing.reference || '');
     const isClinicalMovement =
       /^Dispensed\b/i.test(existingNotes) ||
-      /^Consumable use:/i.test(existingNotes) ||
+      /^Consumable use(?:\s|:)/i.test(existingNotes) ||
       /^Encounter\s/i.test(existingReference);
     if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
       throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
