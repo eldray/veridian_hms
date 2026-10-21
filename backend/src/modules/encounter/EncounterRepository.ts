@@ -664,6 +664,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       // Dispensing is a stock-changing, one-way transition. Never allow a generic
       // medication edit to reset a dispensed order to "prescribed", because that
       // would permit the same prescription to deduct stock a second time.
+      if (data.status !== undefined && !['prescribed', 'dispensed', 'administered', 'cancelled'].includes(String(data.status))) {
+        throw new ValidationError('Unsupported medication status');
+      }
+      if (med.status === 'cancelled' && data.status !== undefined && data.status !== 'cancelled') {
+        throw new ConflictError('A cancelled medication cannot be reopened');
+      }
+      if (data.quantity !== undefined && (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0)) {
+        throw new ValidationError('Medication quantity must be a positive whole number');
+      }
       if (med.status === 'dispensed' && data.status !== undefined &&
           !['dispensed', 'administered'].includes(String(data.status))) {
         throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
@@ -798,6 +807,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       if (data.status === 'administered') {
         let dose = data.doseId ? await tx.medicationDose.findUnique({ where: { id: data.doseId } }) : null;
+        if (data.doseId && !dose) throw new NotFoundError('Medication dose', data.doseId);
+        if (dose && dose.medicationId !== medicationId) throw new ValidationError('The selected dose does not belong to this medication');
+        if (dose && !['scheduled', 'due', 'late'].includes(dose.status)) throw new ConflictError('This medication dose is no longer awaiting administration');
         if (!dose) {
           dose = await tx.medicationDose.findFirst({
             where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
