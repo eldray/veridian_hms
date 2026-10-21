@@ -584,7 +584,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           data: {
             isActive: false,
             isCompleted: true,
-            deliveryDate: data.deliveryDate,
+            deliveryDate,
             deliveryOutcome: data.deliveryOutcome,
             deliveryRecordId: record.id,
             updatedAt: new Date(),
