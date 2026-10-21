@@ -232,7 +232,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!data?.patientId?.trim() || !data?.attendanceId?.trim() || !data?.createdById?.trim()) {
       throw new ValidationError('Patient, delivery attendance, and recording staff are required');
     }
-    const deliveryDate = new Date(data.deliveryDate);
+    const deliveryDate = data.deliveryDate instanceof Date
+      ? new Date(data.deliveryDate.getTime())
+      : new Date(data.deliveryDate as unknown as string);
     if (!Number.isFinite(deliveryDate.getTime())) {
       throw new ValidationError('A valid delivery date is required');
     }
