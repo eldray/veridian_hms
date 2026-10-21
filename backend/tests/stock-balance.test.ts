@@ -46,6 +46,71 @@ describe('purchase receipt location snapshots', () => {
   });
 });
 
+describe('purchase receipt batch integrity', () => {
+  const makeRepository = (existingBatch: any) => {
+    const batchUpdate = vi.fn().mockResolvedValue(existingBatch);
+    const tx: any = {
+      invoice: {
+        create: vi.fn().mockResolvedValue({ id: 'invoice-1', createdAt: new Date('2026-10-20T00:00:00Z') }),
+      },
+      stockItem: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'item-1', name: 'Gloves', currentStock: 100 }),
+      },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findFirst: vi.fn().mockResolvedValue(existingBatch),
+        update: batchUpdate,
+      },
+      invoiceItem: { create: vi.fn().mockResolvedValue({ id: 'invoice-item-1' }) },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    return { repository: new PurchaseInvoiceRepository(prisma), batchUpdate };
+  };
+
+  const receipt = {
+    invoiceNumber: 'INV-BATCH-TEST',
+    supplierName: 'Test supplier',
+    invoiceDate: '2026-10-20',
+    totalAmount: 70,
+    invoiceItems: [{
+      stockItemId: 'item-1',
+      quantity: 7,
+      unitCost: 10,
+      batchNumber: 'B-1',
+      expiryDate: '2027-10-20',
+    }],
+    receivedAtDepartmentId: 'pharmacy',
+  } as any;
+
+  it('rejects an existing batch with a different cost without changing its quantity or metadata', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 9,
+      isActive: true,
+    };
+    const { repository, batchUpdate } = makeRepository(existingBatch);
+
+    await expect(repository.create(receipt, 'user-1'))
+      .rejects.toThrow(/different cost price/i);
+    expect(batchUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects an inactive matching batch instead of reactivating it', async () => {
+    const existingBatch = {
+      id: 'batch-1',
+      expiryDate: new Date('2027-10-20T00:00:00Z'),
+      costPrice: 10,
+      isActive: false,
+    };
+    const { repository, batchUpdate } = makeRepository(existingBatch);
+
+    await expect(repository.create(receipt, 'user-1'))
+      .rejects.toThrow(/inactive/i);
+    expect(batchUpdate).not.toHaveBeenCalled();
+  });
+});
+
 describe('department stock balance ledger', () => {
   it('creates a department balance using the department id as the stable location key', async () => {
     const upsert = vi.fn().mockResolvedValue({ quantity: 12 });
