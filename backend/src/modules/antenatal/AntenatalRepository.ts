@@ -666,6 +666,26 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (d.dayNumber !== undefined && (!Number.isInteger(Number(d.dayNumber)) || Number(d.dayNumber) < 1 || Number(d.dayNumber) > 365)) {
       throw new ValidationError('Postnatal day number must be between 1 and 365');
     }
+    if (d.nextVisitDate) {
+      const nextDate = new Date(d.nextVisitDate);
+      if (Number.isNaN(nextDate.getTime())) throw new ValidationError('Next postnatal visit date must be valid');
+      if (nextDate.getTime() < new Date(new Date().toDateString()).getTime()) throw new ValidationError('Next postnatal visit date cannot be in the past');
+    }
+    if (d.bloodPressure != null && String(d.bloodPressure).trim() !== '') {
+      const parts = String(d.bloodPressure).trim().replace(/ /g, '').replace('-', '/').split('/');
+      const systolic = Number(parts[0]);
+      const diastolic = Number(parts[1]);
+      if (parts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) throw new ValidationError('Maternal blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+    }
+    if (d.pulse !== undefined && (!Number.isInteger(Number(d.pulse)) || Number(d.pulse) < 20 || Number(d.pulse) > 250)) throw new ValidationError('Maternal pulse must be between 20 and 250 bpm');
+    for (const [field, value] of [['temperature', d.temperature], ['babyTemperature', d.babyTemperature]] as const) {
+      if (value !== undefined && value !== null && (!Number.isFinite(Number(value)) || Number(value) < 30 || Number(value) > 45)) throw new ValidationError(`${field === 'temperature' ? 'Maternal' : 'Baby'} temperature must be between 30 and 45 °C`);
+    }
+    if (d.fundalHeight !== undefined && (!Number.isFinite(Number(d.fundalHeight)) || Number(d.fundalHeight) < 0 || Number(d.fundalHeight) > 60)) throw new ValidationError('Fundal height must be between 0 and 60 cm');
+    if (d.babyWeight !== undefined && (!Number.isFinite(Number(d.babyWeight)) || Number(d.babyWeight) < 0.1 || Number(d.babyWeight) > 15)) throw new ValidationError('Baby weight must be between 0.1 and 15 kg');
+    if (d.maternalCondition !== undefined && !['good', 'fair', 'poor', 'critical'].includes(d.maternalCondition)) throw new ValidationError('Unsupported maternal condition');
+    if (d.babyCondition !== undefined && !['good', 'fair', 'poor', 'critical'].includes(d.babyCondition)) throw new ValidationError('Unsupported newborn condition');
+    if (d.breastfeedingStatus !== undefined && !['exclusive', 'mixed', 'not_breastfeeding'].includes(d.breastfeedingStatus)) throw new ValidationError('Unsupported breastfeeding status');
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: d.attendanceId },
