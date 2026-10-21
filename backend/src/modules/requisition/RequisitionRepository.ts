@@ -644,9 +644,6 @@ export class RequisitionRepository {
             ]
           });
         } else if (toWardId) {
-          const updatedItem = await tx.stockItem.findUnique({
-            where: { id: ri.stockItemId }, select: { currentStock: true },
-          });
           await tx.stockTransaction.create({
             data: {
               stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
