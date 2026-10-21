@@ -219,6 +219,18 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (Number.isNaN(visitDate.getTime())) throw new ValidationError('ANC visit date must be valid');
     const nextVisitDate = data.nextVisitDate ? new Date(data.nextVisitDate) : undefined;
     if (nextVisitDate && Number.isNaN(nextVisitDate.getTime())) throw new ValidationError('Next ANC visit date must be valid');
+    if (visitDate.getTime() > Date.now()) throw new ValidationError('ANC visit date cannot be in the future');
+    if (nextVisitDate && nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) {
+      throw new ValidationError('Next ANC visit date cannot be in the past');
+    }
+    if (data.bloodPressure != null && String(data.bloodPressure).trim() !== '') {
+      const parts = String(data.bloodPressure).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const systolic = Number(parts[0]);
+      const diastolic = Number(parts[1]);
+      if (parts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
+        throw new ValidationError('ANC blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+      }
+    }
     if (data.gestationalAgeWeeks !== undefined && (!Number.isInteger(Number(data.gestationalAgeWeeks)) || Number(data.gestationalAgeWeeks) < 0 || Number(data.gestationalAgeWeeks) > 42)) {
       throw new ValidationError('Gestational age must be between 0 and 42 weeks');
     }
@@ -347,8 +359,31 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.nextVisitDate && Number.isNaN(new Date(clean.nextVisitDate).getTime())) {
       throw new ValidationError('Next ANC visit date must be valid');
     }
-    if (clean.visitDate) clean.visitDate = new Date(clean.visitDate);
-    if (clean.nextVisitDate) clean.nextVisitDate = new Date(clean.nextVisitDate);
+    if (clean.visitDate) {
+      clean.visitDate = new Date(clean.visitDate);
+      if (clean.visitDate.getTime() > Date.now()) throw new ValidationError('ANC visit date cannot be in the future');
+    }
+    if (clean.nextVisitDate) {
+      clean.nextVisitDate = new Date(clean.nextVisitDate);
+      if (clean.nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) throw new ValidationError('Next ANC visit date cannot be in the past');
+    }
+    if (clean.gestationalAgeDays !== undefined && (!Number.isInteger(Number(clean.gestationalAgeDays)) || Number(clean.gestationalAgeDays) < 0 || Number(clean.gestationalAgeDays) > 6)) {
+      throw new ValidationError('Gestational age days must be between 0 and 6');
+    }
+    if (clean.bloodPressure != null && String(clean.bloodPressure).trim() !== '') {
+      const parts = String(clean.bloodPressure).trim().replaceAll(' ', '').replace('-', '/').split('/');
+      const systolic = Number(parts[0]);
+      const diastolic = Number(parts[1]);
+      if (parts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
+        throw new ValidationError('ANC blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+      }
+    }
+    if (clean.iptpDoseNumber !== undefined && (!Number.isInteger(Number(clean.iptpDoseNumber)) || Number(clean.iptpDoseNumber) < 1 || Number(clean.iptpDoseNumber) > 5)) {
+      throw new ValidationError('IPTp dose number must be between 1 and 5');
+    }
+    if (clean.ttDoseNumber !== undefined && (!Number.isInteger(Number(clean.ttDoseNumber)) || Number(clean.ttDoseNumber) < 1 || Number(clean.ttDoseNumber) > 5)) {
+      throw new ValidationError('TT dose number must be between 1 and 5');
+    }
     if (clean.gestationalAgeWeeks !== undefined && (!Number.isInteger(Number(clean.gestationalAgeWeeks)) || Number(clean.gestationalAgeWeeks) < 0 || Number(clean.gestationalAgeWeeks) > 42)) {
       throw new ValidationError('Gestational age must be between 0 and 42 weeks');
     }
