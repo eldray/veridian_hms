@@ -478,3 +478,26 @@ describe('medication administration integrity', () => {
   });
 
 });
+
+
+describe('postnatal referral completeness', () => {
+  it('rejects future examination dates before database writes', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    await expect(repository.createPostnatalRecord({
+      examinationDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      attendanceId: 'attendance-1', patientId: 'patient-1', createdById: 'midwife-1',
+    } as any)).rejects.toThrow(/examination date cannot be in the future/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('requires a referral destination for a postnatal referral', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    await expect(repository.createPostnatalRecord({
+      examinationDate: new Date(), attendanceId: 'attendance-1', patientId: 'patient-1',
+      createdById: 'midwife-1', referralMade: true, referredTo: '  ',
+    } as any)).rejects.toThrow(/referral destination/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
