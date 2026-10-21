@@ -437,7 +437,17 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async getItemsForValueReport(category?: string) {
     const where: any = { isActive: true };
     if (category) where.category = category;
-    return this.getModel().findMany({ where, select: { id: true, name: true, category: true, currentStock: true, costPrice: true, reorderLevel: true, isMedication: true } });
+    return this.getModel().findMany({
+      where,
+      select: {
+        id: true, name: true, category: true, currentStock: true,
+        costPrice: true, reorderLevel: true, isMedication: true,
+        StockBatch: {
+          where: { quantity: { gt: 0 } },
+          select: { quantity: true, costPrice: true, isActive: true },
+        },
+      },
+    });
   }
 
   async getItemsForExpiryReport(category?: string) {
