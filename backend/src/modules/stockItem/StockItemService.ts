@@ -610,7 +610,7 @@ export class StockItemService extends BaseService {
         delete item.aggregateCurrentStock;
         delete item.aggregateNetChange;
       }
-    } else if (reconciliationRows.length || locationBalances.length) {
+    } else if (rows.length || reconciliationRows.length || locationBalances.length) {
       // Department ledgers use location-specific balanceAfter snapshots. Reconcile
       // against all movement types so an activity filter or 5,000-row display cap
       // cannot turn the first visible transaction into a false opening balance.
