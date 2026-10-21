@@ -637,3 +637,54 @@ describe('calendar-day batch expiry semantics', () => {
     expect(tx.stockItemDepartmentBalance.upsert).toHaveBeenCalled();
   });
 });
+
+
+describe('clinical dispensing calendar-day expiry', () => {
+  it('allows dispensing from a batch whose expiry date is today', async () => {
+    const expiryToday = new Date();
+    expiryToday.setHours(0, 0, 0, 0);
+    const stockBatchUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const stockTransactionCreate = vi.fn().mockResolvedValue({ id: 'dispense-movement' });
+    const tx: any = {
+      medication: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'med-1', attendanceId: 'enc-1', status: 'prescribed', quantity: 1,
+          stockItemId: 'item-1',
+          StockItem: { id: 'item-1', isActive: true, isMedication: true, currentStock: 10, costPrice: 2 },
+        }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      user: { findUnique: vi.fn().mockResolvedValue({ departmentId: 'pharmacy', role: 'nurse' }) },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'batch-today', batchNumber: 'LOT-TODAY', quantity: 5,
+          expiryDate: expiryToday, costPrice: 2, isActive: true,
+        }]),
+        updateMany: stockBatchUpdateMany,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 4 }),
+      },
+      stockItem: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ currentStock: 9 }),
+      },
+      stockTransaction: { create: stockTransactionCreate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+    (repository as any).requireActorId = async () => 'user-1';
+
+    await repository.updateMedication('enc-1', 'med-1', { status: 'dispensed', quantity: 1 }, 'user-1');
+
+    expect(stockBatchUpdateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'batch-today',
+        expiryDate: { gte: expect.any(Date) },
+      }),
+    }));
+    expect(stockTransactionCreate).toHaveBeenCalled();
+  });
+});
