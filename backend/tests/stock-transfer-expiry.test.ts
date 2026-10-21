@@ -189,3 +189,35 @@ describe('stock transfer receipt expiry safety', () => {
     }
   });
 });
+
+
+describe('stock transfer approval concurrency', () => {
+  it('claims a requested transfer atomically before recording approval', async () => {
+    const transfer = { id: 'transfer-approval', status: 'requested' };
+    const approved = { ...transfer, status: 'approved', approvedById: 'user-1' };
+    const findUnique = vi.fn().mockResolvedValueOnce(transfer).mockResolvedValueOnce(approved);
+    const updateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx: any = { stockTransfer: { findUnique, updateMany } };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const service = new StockTransferService(prisma);
+
+    await expect(service.approveTransfer('transfer-approval', 'user-1')).resolves.toEqual(approved);
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: { id: 'transfer-approval', status: 'requested' },
+      data: { status: 'approved', approvedById: 'user-1' },
+    });
+  });
+
+  it('rejects a concurrent approval when another request already changed the status', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'transfer-approval', status: 'requested' });
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const tx: any = { stockTransfer: { findUnique, updateMany } };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const service = new StockTransferService(prisma);
+
+    await expect(service.approveTransfer('transfer-approval', 'user-2'))
+      .rejects.toThrow(/already approved or its status changed/i);
+    expect(findUnique).toHaveBeenCalledTimes(1);
+  });
+});
