@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../src/modules/stockItem/StockItemRepository';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance, StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
 
@@ -291,3 +291,60 @@ describe('department stock balance ledger', () => {
       .rejects.toBeInstanceOf(ValidationError);
   });
 });
+
+
+describe('batch write-off reconciliation', () => {
+  it('allows inactive expired batches to be written off without reactivating them', async () => {
+    const expiredDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const updateBatch = vi.fn().mockResolvedValue({ count: 1 });
+    const createTransaction = vi.fn().mockResolvedValue({ id: 'write-off-1' });
+    const tx: any = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'expired-batch',
+          batchNumber: 'EXPIRED-LOT',
+          quantity: 3,
+          expiryDate: expiredDate,
+          costPrice: '4.25',
+          isActive: false,
+        }]),
+        updateMany: updateBatch,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 2 }),
+      },
+      stockItem: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ currentStock: 2 }),
+      },
+      stockTransaction: { create: createTransaction },
+    };
+    const prisma: any = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockItemRepository(prisma);
+
+    await repository.updateStockLevelSafely(
+      'item-1', 1, 'write_off', 'EXPIRY-WO', 'Expired batch disposal', 'user-1', 'pharmacy',
+    );
+
+    expect(updateBatch).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        id: 'expired-batch',
+        departmentId: 'pharmacy',
+        quantity: { gte: 1 },
+      }),
+      data: { quantity: { decrement: 1 } },
+    });
+    expect(updateBatch.mock.calls[0][0].where).not.toHaveProperty('isActive');
+    expect(createTransaction).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        transactionType: 'write_off',
+        batchAllocations: [expect.objectContaining({ batchId: 'expired-batch', quantity: 1 })],
+      }),
+    }));
+  });
+});
+
