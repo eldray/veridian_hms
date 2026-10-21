@@ -99,6 +99,10 @@ describe('purchase receipt batch integrity', () => {
 
     await expect(repository.create({
       ...receipt,
+      invoiceItems: [{ ...receipt.invoiceItems[0], quantity: 0 }],
+    }, 'user-1')).rejects.toThrow(/positive whole numbers/i);
+    await expect(repository.create({
+      ...receipt,
       invoiceItems: [{ ...receipt.invoiceItems[0], quantity: -2 }],
     }, 'user-1')).rejects.toThrow(/positive whole numbers/i);
     await expect(repository.create({
