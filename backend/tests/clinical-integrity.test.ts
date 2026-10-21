@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
+import { NursingService } from '../src/modules/nursing/NursingService';
 
 describe('clinical vitals validation', () => {
   it('rejects malformed blood pressure before opening a database transaction', async () => {
@@ -746,5 +747,26 @@ describe('maternal booking history retention', () => {
 
     await expect(repository.deleteBooking('missing-booking')).rejects.toThrow(/not found/i);
     expect(update).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('medication administration schedule parsing', () => {
+  it('supports common Ghanaian prescription abbreviations without changing the prescribed frequency', () => {
+    const service = new NursingService({} as any);
+    expect((service as any).parseFrequency('BD')).toEqual({ intervalHours: 12, dosesPerDay: 2 });
+    expect((service as any).parseFrequency('TDS')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
+    expect((service as any).parseFrequency('every 8 hours')).toEqual({ intervalHours: 8, dosesPerDay: 3 });
+  });
+
+  it('rejects an unknown frequency instead of silently scheduling it once daily', () => {
+    const service = new NursingService({} as any);
+    expect(() => (service as any).parseFrequency('three-ish times')).toThrow(/unsupported medication frequency/i);
+  });
+
+  it('rejects zero-hour intervals and unreasonable durations', () => {
+    const service = new NursingService({} as any);
+    expect(() => (service as any).parseFrequency('every 0 hours')).toThrow(/interval must be between 1 and 24/i);
+    expect(() => (service as any).parseDurationDays('400 days')).toThrow(/between 1 and 365 days/i);
   });
 });
