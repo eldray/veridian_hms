@@ -21,8 +21,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!Number.isInteger(Number(data.gravida)) || Number(data.gravida) < 1) {
       throw new ValidationError('Gravida must be a whole number of at least 1 for a current pregnancy');
     }
-    if (!Number.isInteger(Number(data.para)) || Number(data.para) < 0 || Number(data.para) > Number(data.gravida)) {
-      throw new ValidationError('Para must be a whole number between 0 and gravida');
+    if (!Number.isInteger(Number(data.para)) || Number(data.para) < 0 || Number(data.para) >= Number(data.gravida)) {
+      throw new ValidationError('Para must be a whole number from 0 to less than gravida for an ongoing pregnancy');
     }
 
     const attendance = await this.prisma.attendance.findUnique({
@@ -44,6 +44,17 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ConflictError('An active pregnancy booking already exists for this patient. Update that booking or close it before creating another.');
     }
 
+    if (data.riskLevel !== undefined && !['low', 'medium', 'high'].includes(data.riskLevel)) {
+      throw new ValidationError('Risk level must be low, medium or high');
+    }
+    if (data.bookingBP && String(data.bookingBP).trim()) {
+      const pressureParts = String(data.bookingBP).trim().replace(/\\s+/g, '').replace('-', '/').split('/');
+      const systolic = Number(pressureParts[0]);
+      const diastolic = Number(pressureParts[1]);
+      if (pressureParts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
+        throw new ValidationError('Booking blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+      }
+    }
     const edd = this.calculateEDD(lmp);
     const tt = Number(data.ttDosesGiven) || 0;
     const iptp = Number(data.iptpDosesGiven) || 0;
@@ -162,7 +173,18 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (!existing) throw new NotFoundError('Antenatal booking', id);
       const gravida = clean.gravida ?? existing.gravida;
       const para = clean.para ?? existing.para;
-      if (para > gravida) throw new ValidationError('Para cannot exceed gravida');
+      if (para >= gravida) throw new ValidationError('Para must be less than gravida for an ongoing pregnancy');
+    }
+    if (clean.riskLevel !== undefined && !['low', 'medium', 'high'].includes(clean.riskLevel)) {
+      throw new ValidationError('Risk level must be low, medium or high');
+    }
+    if (clean.bookingBP !== undefined && clean.bookingBP !== null && String(clean.bookingBP).trim() !== '') {
+      const pressureParts = String(clean.bookingBP).trim().replace(/\\s+/g, '').replace('-', '/').split('/');
+      const systolic = Number(pressureParts[0]);
+      const diastolic = Number(pressureParts[1]);
+      if (pressureParts.length !== 2 || !Number.isInteger(systolic) || !Number.isInteger(diastolic) || systolic < 50 || systolic > 260 || diastolic < 20 || diastolic > 160 || systolic <= diastolic) {
+        throw new ValidationError('Booking blood pressure must be a plausible systolic/diastolic value, for example 120/80');
+      }
     }
     if (clean.hbLevel != null) {
       if (!Number.isFinite(Number(clean.hbLevel)) || Number(clean.hbLevel) <= 0 || Number(clean.hbLevel) > 25) {
