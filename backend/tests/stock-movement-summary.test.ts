@@ -548,3 +548,41 @@ describe('stock item view balance isolation', () => {
     expect(detailArgs.include.StockTransaction.where).toEqual({ departmentId: 'pharmacy' });
   });
 });
+
+describe('stock item report location filters', () => {
+  it('excludes ward balances from low-stock alerts', async () => {
+    let query: any;
+    const repository = new StockItemRepository({
+      stockItem: {
+        findMany: async (args: any) => { query = args; return []; },
+      },
+    } as any);
+
+    await repository.getLowStockItems(undefined, { departmentId: 'pharmacy' });
+
+    expect(query.include.stockBalances.where).toEqual({
+      departmentId: 'pharmacy',
+      wardId: null,
+    });
+  });
+
+  it('does not expose unassigned stock in valuation when no department is supplied', async () => {
+    let query: any;
+    const repository = new StockItemRepository({
+      stockItem: {
+        findMany: async (args: any) => { query = args; return []; },
+      },
+    } as any);
+
+    await repository.getItemsForValueReport();
+
+    expect(query.select.stockBalances.where).toEqual({
+      departmentId: '__NO_DEPARTMENT__',
+      wardId: null,
+    });
+    expect(query.select.StockBatch.where).toMatchObject({
+      departmentId: '__NO_DEPARTMENT__',
+      wardId: null,
+    });
+  });
+});
