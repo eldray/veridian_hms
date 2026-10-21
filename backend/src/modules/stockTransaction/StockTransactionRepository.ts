@@ -214,9 +214,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const existingNotes = String(existing.notes || '');
     const existingReference = String(existing.reference || '');
     const isClinicalMovement =
-      /^Dispensed\\b/i.test(existingNotes) ||
+      /^Dispensed\b/i.test(existingNotes) ||
       /^Consumable use:/i.test(existingNotes) ||
-      /^Encounter\\s/i.test(existingReference);
+      /^Encounter\s/i.test(existingReference);
     if (isClinicalMovement && (notes !== undefined || reference !== undefined)) {
       throw new ValidationError('Clinical stock movement notes and references cannot be edited here. Correct the movement through the encounter workflow.');
     }
