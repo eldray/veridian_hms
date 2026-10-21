@@ -511,10 +511,17 @@ export default function StockReports() {
     }
     if (selectedReport === 'stock-movement' && reportData.summary) {
       const s = reportData.summary;
+      const byType = s.byType || {};
       add('Transactions', s.totalTransactions ?? 0, 'cyan', undefined, TrendingUp);
       add('Stock In', s.totalIn ?? 0, 'green', undefined, ArrowUpRight);
       add('Stock Out', s.totalOut ?? 0, 'red', undefined, ArrowDownRight);
-      add('Purchases', s.byType?.purchases ?? 0, 'purple', undefined, Package);
+      add('Purchases', byType.purchases ?? 0, 'purple', undefined, Package);
+      add('Sales', byType.sales ?? 0, 'red', undefined, ArrowDownRight);
+      add('Requisitions', byType.requisitions ?? 0, 'cyan', undefined, FileText);
+      add('Transfers In', byType.transfersIn ?? 0, 'green', undefined, ArrowUpRight);
+      add('Transfers Out', byType.transfersOut ?? 0, 'orange', undefined, ArrowDownRight);
+      add('Adjustments', byType.adjustments ?? 0, 'yellow', undefined, RefreshCw);
+      add('Write-offs', byType.writeOffs ?? 0, 'red', undefined, AlertTriangle);
     }
     if (selectedReport === 'expiry' && reportData.summary) {
       const s = reportData.summary;
