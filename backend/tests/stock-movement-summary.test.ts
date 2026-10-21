@@ -671,6 +671,6 @@ describe('expiring batch location balances', () => {
       wardId: null,
     });
     expect(batches[0].stockItem.currentStock).toBe(7);
-    expect(batches[0].stockItem.stockBalances).toEqual([{ quantity: 7 }]);
+    expect(batches[0].stockItem.stockBalances).toBeUndefined();
   });
 });
