@@ -422,28 +422,78 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateDeliveryRecord(id: string, data: any): Promise<any> {
-    const { attendanceId, patientId, Newborn, ...updateData } = data;
-    const updatePayload: any = { ...updateData };
-    
-    // ✅ PRESERVED: Your exact logic for handling multiple births
-    if (Newborn && Newborn.create && Newborn.create.length > 0) {
-      updatePayload.Newborn = {
-        deleteMany: {},
-        create: Newborn.create.map((baby: any) => ({
-          order: baby.order, birthWeight: baby.birthWeight, gender: baby.gender,
-          apgarScore1min: baby.apgarScore1min, apgarScore5min: baby.apgarScore5min,
-          resuscitation: baby.resuscitation, outcome: baby.outcome, anomalies: baby.anomalies || [],
-          referredTo: baby.referredTo, breastfeedingWithin30Min: baby.breastfeedingWithin30Min,
-          eyeProphylaxisGiven: baby.eyeProphylaxisGiven, cordCareMethod: baby.cordCareMethod,
-          babyWeightAt6to10Days: baby.babyWeightAt6to10Days, weightAt6to10DaysDate: baby.weightAt6to10DaysDate
-        }))
-      };
-    } else if (Array.isArray(Newborn)) {
-      // ✅ PRODUCTION SAFEGUARD: Fallback if frontend sends an array directly
-      updatePayload.Newborn = { deleteMany: {}, create: Newborn };
+    const allowed = [
+      'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery', 'attendant',
+      'birthWeight', 'gestationWeeks', 'apgarScore1min', 'apgarScore5min', 'resusCitationDone',
+      'maternalOutcome', 'referralTo', 'complications', 'antenatalBookingId',
+      'malePartnerPresentANC', 'malePartnerPresentDelivery', 'malePartnerPresentPNC',
+      'maternalDeathsAudited', 'auditNotes',
+    ];
+    const clean: Record<string, any> = {};
+    for (const key of allowed) if (data[key] !== undefined) clean[key] = data[key];
+    if (clean.deliveryDate !== undefined) {
+      const date = new Date(clean.deliveryDate);
+      if (Number.isNaN(date.getTime())) throw new ValidationError('Delivery date must be valid');
+      clean.deliveryDate = date;
     }
-    
-    return this.prisma.deliveryRecord.update({ where: { id }, data: updatePayload, include: { Newborn: true } });
+    if (clean.gestationWeeks !== undefined && (!Number.isInteger(Number(clean.gestationWeeks)) || Number(clean.gestationWeeks) < 0 || Number(clean.gestationWeeks) > 42)) {
+      throw new ValidationError('Gestational age at delivery must be between 0 and 42 weeks');
+    }
+    for (const field of ['apgarScore1min', 'apgarScore5min']) {
+      if (clean[field] !== undefined && (!Number.isInteger(Number(clean[field])) || Number(clean[field]) < 0 || Number(clean[field]) > 10)) {
+        throw new ValidationError(`${field} must be an integer between 0 and 10`);
+      }
+    }
+    if (data.Newborn !== undefined && !Array.isArray(data.Newborn) && !Array.isArray(data.Newborn?.create)) {
+      throw new ValidationError('Newborn records must be provided as a list');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.deliveryRecord.findUnique({
+        where: { id },
+        select: { id: true, patientId: true, deliveryDate: true, deliveryOutcome: true, antenatalBookingId: true },
+      });
+      if (!existing) throw new NotFoundError('Delivery record', id);
+
+      const bookingId = clean.antenatalBookingId ?? existing.antenatalBookingId;
+      let booking: any = null;
+      if (bookingId) {
+        booking = await tx.antenatalBooking.findUnique({ where: { id: bookingId } });
+        if (!booking) throw new NotFoundError('Antenatal booking', bookingId);
+        if (booking.patientId !== existing.patientId) throw new ValidationError('Antenatal booking must belong to the delivery patient');
+        if (booking.isCompleted && booking.deliveryRecordId && booking.deliveryRecordId !== id) {
+          throw new ConflictError('This antenatal booking is already linked to another delivery record');
+        }
+      }
+
+      const updatePayload: any = { ...clean };
+      if (data.Newborn !== undefined) {
+        const babies = this.mapNewborns(data.Newborn);
+        // Only replace the newborn list when at least one explicit newborn was submitted.
+        // An omitted/empty form payload must not erase previously documented babies.
+        if (babies.length > 0) updatePayload.Newborn = { deleteMany: {}, create: babies };
+      }
+
+      const record = await tx.deliveryRecord.update({
+        where: { id },
+        data: updatePayload,
+        include: { Newborn: true, patient: true, attendance: true },
+      });
+      if (booking) {
+        await tx.antenatalBooking.update({
+          where: { id: booking.id },
+          data: {
+            isActive: false,
+            isCompleted: true,
+            deliveryDate: record.deliveryDate,
+            deliveryOutcome: record.deliveryOutcome,
+            deliveryRecordId: record.id,
+            updatedAt: new Date(),
+          },
+        });
+      }
+      return record;
+    });
   }
 
   async deleteDeliveryRecord(id: string): Promise<void> {
