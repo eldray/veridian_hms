@@ -528,7 +528,7 @@ export class StockItemService extends BaseService {
     };
   }
 
-  async getUsageReport(period: string = 'month', limit: number = 20, category?: string) {
+  async getUsageReport(period: string = 'month', limit: number = 20, category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     let startDate = new Date();
     if (period === 'week') startDate.setDate(startDate.getDate() - 7);
     else if (period === 'quarter') startDate.setMonth(startDate.getMonth() - 3);
@@ -538,7 +538,7 @@ export class StockItemService extends BaseService {
     const safeLimit = Number.isSafeInteger(Number(limit)) && Number(limit) > 0
       ? Math.min(Number(limit), 200)
       : 20;
-    const allTransactions = await this.repo.getTransactionsForUsageReport(startDate);
+    const allTransactions = await this.repo.getTransactionsForUsageReport(startDate, filters);
     const filtered = category ? allTransactions.filter((t: any) => t.StockItem?.category === category) : allTransactions;
 
     // Key by stock item ID, not its display name: two catalogue items may share a name.
