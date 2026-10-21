@@ -205,15 +205,18 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         throw new Error('This item uses batch tracking. Use the batch receipt workflow for incoming stock.');
       }
 
+      let locationBalanceAfter: number;
       if (isOutgoing) {
-        await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        const balance = await decreaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        locationBalanceAfter = balance.quantity;
         const updated = await tx.stockItem.updateMany({
           where: { id, currentStock: { gte: effectiveQuantity } },
           data: { currentStock: { decrement: effectiveQuantity } },
         });
         if (updated.count !== 1) throw new Error('Insufficient hospital-wide stock');
       } else {
-        await increaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        const balance = await increaseDepartmentStockBalance(tx, id, normalizedDepartmentId, effectiveQuantity);
+        locationBalanceAfter = balance.quantity;
         await tx.stockItem.update({ where: { id }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
@@ -222,7 +225,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       await tx.stockTransaction.create({
         data: {
           stockItemId: id, transactionType, quantity: effectiveQuantity,
-          balanceAfter: updatedItem.currentStock, reference, notes,
+          balanceAfter: locationBalanceAfter, reference, notes,
           performedBy: performedBy || 'system', departmentId: normalizedDepartmentId, adjustmentDirection,
           batchAllocations: batchAllocations.length ? batchAllocations as any : undefined,
         },
