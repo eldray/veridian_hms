@@ -670,6 +670,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (med.status === 'cancelled' && data.status !== undefined && data.status !== 'cancelled') {
         throw new ConflictError('A cancelled medication cannot be reopened');
       }
+      if (med.status === 'administered' && data.status !== undefined && data.status !== 'administered') {
+        throw new ConflictError('An administered medication cannot be reset or cancelled through an ordinary status update; use the documented clinical correction workflow');
+      }
+      if (data.status === 'administered' && med.status !== 'dispensed' && med.status !== 'administered') {
+        throw new ConflictError('Medication must be dispensed before administration can be recorded');
+      }
       if (data.quantity !== undefined && (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0)) {
         throw new ValidationError('Medication quantity must be a positive whole number');
       }
