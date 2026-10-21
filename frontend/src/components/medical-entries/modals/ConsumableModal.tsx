@@ -94,14 +94,11 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   // from the logged-in user's department, so use that department's canonical balance.
   const getDepartmentAvailable = (item: any) => {
     if (!item || !user?.departmentId) return 0;
-    if (Array.isArray(item.stockBalances)) {
-      const balance = item.stockBalances.find(
-        (entry: any) => entry.departmentId === user.departmentId && !entry.wardId,
-      );
-      return Math.max(0, Number(balance?.quantity) || 0);
-    }
-    // Compatibility fallback for older API payloads without department balances.
-    return Math.max(0, Number(item.currentStock) || 0);
+    if (!Array.isArray(item.stockBalances)) return 0;
+    const balance = item.stockBalances.find(
+      (entry: any) => entry.departmentId === user.departmentId && !entry.wardId,
+    );
+    return Math.max(0, Number(balance?.quantity) || 0);
   };
 
   const selectedAvailable = selected ? getDepartmentAvailable(selected) : 0;
