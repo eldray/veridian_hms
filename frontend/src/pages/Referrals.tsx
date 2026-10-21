@@ -1,6 +1,6 @@
 // src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -273,6 +273,7 @@ const Pagination: React.FC<PaginationProps> = ({
 
 export default function Referrals() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
   const { user } = useAuthStore();
@@ -378,6 +379,36 @@ export default function Referrals() {
       setStats(res?.data || res);
     } catch { /* optional */ }
   };
+
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    const patientId = searchParams.get('patientId') || '';
+    if (!patientId || prefillApplied.current) return;
+    prefillApplied.current = true;
+    setSelectedPatientId(patientId);
+    setSelectedAttendanceId(searchParams.get('attendanceId') || '');
+    setReferralType('outgoing');
+    setFormData(prev => ({
+      ...prev,
+      referralReason: searchParams.get('reason') || '',
+      referralNotes: searchParams.get('notes') || '',
+      urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
+        ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
+        : 'routine'),
+    }));
+    const source = searchParams.get('source') || 'Clinical assessment';
+    setStructuredPartI(prev => ({
+      ...prev,
+      clientName: searchParams.get('patientName') || prev.clientName,
+      clinicName: source,
+      patientComplaints: searchParams.get('complaints') || prev.patientComplaints,
+      diagnosis: searchParams.get('diagnosis') || prev.diagnosis,
+      actionsTaken: searchParams.get('treatment') || prev.actionsTaken,
+      reasonForReferral: searchParams.get('reason') || prev.reasonForReferral,
+      dateOfReferral: new Date().toISOString().slice(0, 10),
+    }));
+    setShowModal(true);
+  }, [searchParams]);
 
   useEffect(() => { loadData(); }, []);
   useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
