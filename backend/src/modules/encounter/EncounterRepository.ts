@@ -118,7 +118,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         dateTime: new Date(), 
       },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true } }
+        Patient: { select: {
+          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true,
+          allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
+        } }
       }
     });
   }
@@ -127,7 +130,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.getModel().findUnique({
       where: { id },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
+        Patient: { select: {
+          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true,
+          allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
+          medicalHistories: { select: { id: true, condition: true, diagnosedAt: true, notes: true } },
+          surgicalHistories: { select: { id: true, procedure: true, surgeryDate: true, notes: true } },
+          familyHistories: { select: { id: true, relation: true, condition: true, notes: true } },
+        } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } } } },
