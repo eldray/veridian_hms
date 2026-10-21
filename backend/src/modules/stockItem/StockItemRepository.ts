@@ -278,7 +278,15 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           },
         });
         if (existing) {
-          await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move }, isActive: true } });
+          // The unique key is item + batch number + location. Refuse to merge
+          // stock when the existing destination lot has a different acquisition cost.
+          if (Number(existing.costPrice) !== Number(batch.costPrice)) {
+            throw new Error(`Destination already has batch ${batch.batchNumber} with a different cost price. Reconcile the batch before allocating stock.`);
+          }
+          if (!existing.isActive) {
+            throw new Error(`Destination batch ${batch.batchNumber} is inactive. Reconcile the batch before allocating stock.`);
+          }
+          await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move } } });
         } else {
           await tx.stockBatch.create({
             data: {
