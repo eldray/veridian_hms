@@ -389,3 +389,50 @@ describe('clinical stock movement audit protection', () => {
   });
 });
 
+
+
+describe('batch receipt expiry race protection', () => {
+  it('does not increment an existing batch if it is no longer eligible at the atomic write', async () => {
+    const expiryDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const balanceUpsert = vi.fn();
+    const stockItemUpdate = vi.fn();
+    const tx: any = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'batch-1',
+          expiryDate,
+          costPrice: 2,
+          isActive: true,
+        }),
+        updateMany,
+        findUnique: vi.fn(),
+        create: vi.fn(),
+      },
+      stockItem: {
+        findUnique: vi.fn(),
+        update: stockItemUpdate,
+      },
+      stockItemDepartmentBalance: { upsert: balanceUpsert },
+      stockTransaction: { create: vi.fn() },
+    };
+    const repository = new StockItemRepository({} as any);
+
+    await expect(repository.addBatchWithinTransaction(
+      tx, 'item-1', 'LOT-1', expiryDate, 3, 2, undefined, 'pharmacy',
+    )).rejects.toThrow(/changed or expired during receipt/i);
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'batch-1',
+        isActive: true,
+        expiryDate: { gt: expect.any(Date) },
+      },
+      data: { quantity: { increment: 3 } },
+    });
+    expect(balanceUpsert).not.toHaveBeenCalled();
+    expect(stockItemUpdate).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+  });
+});
