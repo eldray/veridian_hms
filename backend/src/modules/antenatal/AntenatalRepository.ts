@@ -223,6 +223,15 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (nextVisitDate && nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) {
       throw new ValidationError('Next ANC visit date cannot be in the past');
     }
+    if (nextVisitDate && nextVisitDate.getTime() < new Date(new Date(visitDate).toDateString()).getTime()) {
+      throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
+    }
+    if (data.dangerSignsPresent && (!Array.isArray(data.dangerSignsList) || data.dangerSignsList.length === 0)) {
+      throw new ValidationError('Record at least one danger sign when danger signs are marked present');
+    }
+    if (data.referralMade && (!data.referredTo || !String(data.referredTo).trim())) {
+      throw new ValidationError('Specify the referral destination when a referral is made');
+    }
     if (data.bloodPressure != null && String(data.bloodPressure).trim() !== '') {
       const parts = String(data.bloodPressure).trim().replace(/ /g, '').replace('-', '/').split('/');
       const systolic = Number(parts[0]);
@@ -366,6 +375,15 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.nextVisitDate) {
       clean.nextVisitDate = new Date(clean.nextVisitDate);
       if (clean.nextVisitDate.getTime() < new Date(new Date().toDateString()).getTime()) throw new ValidationError('Next ANC visit date cannot be in the past');
+    }
+    if (clean.nextVisitDate && clean.visitDate && clean.nextVisitDate.getTime() < clean.visitDate.getTime()) {
+      throw new ValidationError('Next ANC visit date cannot be before the ANC visit date');
+    }
+    if (clean.dangerSignsPresent === true && (!Array.isArray(clean.dangerSignsList) || clean.dangerSignsList.length === 0)) {
+      throw new ValidationError('Record at least one danger sign when danger signs are marked present');
+    }
+    if (clean.referralMade === true && (!clean.referredTo || !String(clean.referredTo).trim())) {
+      throw new ValidationError('Specify the referral destination when a referral is made');
     }
     if (clean.gestationalAgeDays !== undefined && (!Number.isInteger(Number(clean.gestationalAgeDays)) || Number(clean.gestationalAgeDays) < 0 || Number(clean.gestationalAgeDays) > 6)) {
       throw new ValidationError('Gestational age days must be between 0 and 6');
