@@ -561,7 +561,7 @@ export class ReportService {
     };
 
     const range = startDate && endDate ? parseReportRange(startDate, endDate) : undefined;
-    if (range) where.submissionDate = range;
+    if (range) where.Attendance = { dateTime: range };
 
     const claims = await this.prisma.insuranceClaim.findMany({
       where,
