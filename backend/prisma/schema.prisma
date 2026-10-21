@@ -2997,6 +2997,7 @@ enum LabTestStatus {
 
 enum ProcedureStatus {
   scheduled
+  in_progress
   completed
   cancelled
 }
