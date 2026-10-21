@@ -470,7 +470,7 @@ export class StockItemService extends BaseService {
    */
   async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
+    const { rows, total, transactionsAfterEnd = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
 
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
@@ -485,7 +485,7 @@ export class StockItemService extends BaseService {
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': signed = q; break;
         case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
-        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; break;
+        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : t.quantity < 0 ? -q : (!extra.includeAllStockLocations && prev !== undefined ? t.balanceAfter - prev : q); break;
         default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q;
       }
       lastBalance.set(t.stockItemId, t.balanceAfter);
@@ -494,7 +494,21 @@ export class StockItemService extends BaseService {
       const qtyOut = signed < 0 ? -signed : 0;
       totalIn += qtyIn; totalOut += qtyOut;
 
-      const item = items.get(t.stockItemId) ?? { stockItemId: t.stockItemId, itemName: t.StockItem?.name ?? 'Unknown', category: t.StockItem?.category ?? '', unit: t.StockItem?.unitOfMeasure ?? '', openingStock: t.balanceAfter - signed, quantityIn: 0, quantityOut: 0, closingStock: t.balanceAfter, transactions: 0 };
+      const item = items.get(t.stockItemId) ?? {
+        stockItemId: t.stockItemId,
+        itemName: t.StockItem?.name ?? 'Unknown',
+        category: t.StockItem?.category ?? '',
+        unit: t.StockItem?.unitOfMeasure ?? '',
+        openingStock: t.balanceAfter - signed,
+        quantityIn: 0,
+        quantityOut: 0,
+        closingStock: t.balanceAfter,
+        transactions: 0,
+        aggregateCurrentStock: Number(t.StockItem?.currentStock) || 0,
+        aggregateNetChange: 0,
+      };
+      const balanceMovement = extra.includeAllStockLocations && (t.transactionType === 'transfer_in' || t.transactionType === 'transfer_out') ? 0 : signed;
+      item.aggregateNetChange += balanceMovement;
       item.quantityIn += qtyIn; item.quantityOut += qtyOut; item.closingStock = t.balanceAfter; item.transactions++;
       items.set(t.stockItemId, item);
 
@@ -510,10 +524,37 @@ export class StockItemService extends BaseService {
       });
     }
 
+    if (extra.includeAllStockLocations) {
+      const afterEndNetByItem = new Map<string, number>();
+      for (const transaction of transactionsAfterEnd as any[]) {
+        if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') continue;
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        let signed = q;
+        switch (transaction.transactionType) {
+          case 'purchase': signed = q; break;
+          case 'sale': case 'requisition': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default: signed = Number(transaction.quantity) < 0 ? -q : q;
+        }
+        afterEndNetByItem.set(transaction.stockItemId, (afterEndNetByItem.get(transaction.stockItemId) || 0) + signed);
+      }
+      for (const item of items.values()) {
+        item.closingStock = item.aggregateCurrentStock - (afterEndNetByItem.get(item.stockItemId) || 0);
+        item.openingStock = item.closingStock - item.aggregateNetChange;
+        delete item.aggregateCurrentStock;
+        delete item.aggregateNetChange;
+      }
+    }
+
     const itemList = [...items.values()].sort((a, b) => (b.quantityIn + b.quantityOut) - (a.quantityIn + a.quantityOut));
     const g = (k: string) => byType[k] ?? { count: 0, quantity: 0, value: 0 };
+    const aggregateNetChange = itemList.reduce((sum, item) => sum + item.openingStock * 0 + (item.closingStock - item.openingStock), 0);
     const summary = {
-      totalTransactions: total, totalIn, totalOut, netChange: totalIn - totalOut, itemsMoved: itemList.length,
+      totalTransactions: total, totalIn, totalOut, netChange: extra.includeAllStockLocations ? aggregateNetChange : totalIn - totalOut, itemsMoved: itemList.length,
       byType: {
         purchases: g('purchase').count, purchaseQuantity: g('purchase').quantity, purchaseValue: g('purchase').value,
         sales: g('sale').count, saleQuantity: g('sale').quantity,
