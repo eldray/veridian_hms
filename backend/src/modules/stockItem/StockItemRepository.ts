@@ -601,7 +601,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     const where: any = {};
     // Movement ledgers are location-scoped by default. Only explicitly authorized
     // callers may request the hospital-wide ledger.
-    if (!opts.includeAllStockLocations) where.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+    if (!opts.includeAllStockLocations) {
+      where.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+      where.wardId = null;
+    }
     if (opts.startDate || opts.endDate) {
       where.transactionDate = {};
       if (opts.startDate) where.transactionDate.gte = opts.startDate;
@@ -652,7 +655,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       const afterWhere: any = {
         transactionDate: { gt: opts.endDate },
       };
-      if (!opts.includeAllStockLocations) afterWhere.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+      if (!opts.includeAllStockLocations) {
+        afterWhere.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+        afterWhere.wardId = null;
+      }
       if (opts.stockItemId) afterWhere.stockItemId = opts.stockItemId;
       if (opts.category) afterWhere.StockItem = { category: opts.category };
       transactionsAfterEnd = await this.prisma.stockTransaction.findMany({
