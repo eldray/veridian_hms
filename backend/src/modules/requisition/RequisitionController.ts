@@ -50,9 +50,17 @@ export class RequisitionController extends BaseController {
   lookupStock = async (req: Request, res: Response) => {
     try {
       const { supplierDepartmentId, requesterDepartmentId, q, limit, inStockOnly } = req.query;
+      const authReq = req as AuthRequest;
+      const isAdmin = ['admin', 'super_admin'].includes(String(authReq.user?.role || '').toLowerCase());
+      // A caller must not be able to probe another department's stock by changing
+      // requesterDepartmentId in the query string. Administrators may inspect a
+      // selected requester department; other users are always scoped to their own.
+      const scopedRequesterDepartmentId = isAdmin
+        ? requesterDepartmentId as string | undefined
+        : authReq.user?.departmentId;
       const items = await this.service.lookupStock({
         supplierDepartmentId: supplierDepartmentId as string,
-        requesterDepartmentId: requesterDepartmentId as string | undefined,
+        requesterDepartmentId: scopedRequesterDepartmentId,
         q: q as string | undefined,
         limit: limit ? parseInt(limit as string) : 25,
         inStockOnly: inStockOnly === 'true'
