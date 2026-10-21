@@ -876,3 +876,36 @@ describe('historical movement data retrieval', () => {
     expect(result.locationBalances).toEqual([{ stockItemId: 'item-1', quantity: 0 }]);
   });
 });
+
+
+describe('department movement report ward isolation', () => {
+  it('excludes ward ledger rows from both period activity and post-period reconciliation', async () => {
+    const transactionQueries: any[] = [];
+    const prisma: any = {
+      stockItem: {
+        findMany: async () => [{
+          id: 'gloves', name: 'Gloves', category: 'consumable', currentStock: 20,
+          unitOfMeasure: 'box', stockBalances: [{ quantity: 8 }],
+        }],
+      },
+      stockTransaction: {
+        findMany: async (args: any) => {
+          transactionQueries.push(args);
+          return [];
+        },
+      },
+    };
+    const repository = new StockTransactionRepository(prisma);
+
+    await repository.getMovementData(
+      new Date('2026-10-01T00:00:00.000Z'),
+      new Date('2026-10-15T23:59:59.999Z'),
+      undefined,
+      { departmentId: 'pharmacy' },
+    );
+
+    expect(transactionQueries).toHaveLength(2);
+    expect(transactionQueries[0].where).toMatchObject({ departmentId: 'pharmacy', wardId: null });
+    expect(transactionQueries[1].where).toMatchObject({ departmentId: 'pharmacy', wardId: null });
+  });
+});
