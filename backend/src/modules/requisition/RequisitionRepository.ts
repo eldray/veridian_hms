@@ -650,7 +650,8 @@ export class RequisitionRepository {
           await tx.stockTransaction.create({
             data: {
               stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
-              balanceAfter: updatedItem!.currentStock, departmentId: supplierId, requisitionId: id,
+              // This requisition leaves the supplying department; balanceAfter must remain a location snapshot.
+              balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
               reference: `REQ-${reference}`,
               notes: `Issued to ward ${requisition.ward?.wardName || toWardId} on requisition ${reference}`,
               performedBy: userId || undefined,
