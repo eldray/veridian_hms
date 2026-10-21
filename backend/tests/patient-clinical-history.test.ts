@@ -47,7 +47,12 @@ describe('patient clinical history registration', () => {
       familyHistories: [],
     };
     const create = vi.fn().mockResolvedValue(registered);
-    const service = new PatientService({ patient: { create } } as any);
+    const service = new PatientService({
+      patient: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create,
+      },
+    } as any);
 
     const result = await service.createPatient({
       ...validPatient,
