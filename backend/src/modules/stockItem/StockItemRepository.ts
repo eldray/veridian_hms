@@ -712,9 +712,11 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     // Current location balances provide the anchor needed to calculate historical
     // closing stock for department reports when later movements occurred after the
     // requested end date. Hospital-wide reports continue to use StockItem.currentStock.
-    const locationBalances = !opts.includeAllStockLocations && opts.departmentId
+    const locationBalances = !opts.includeAllStockLocations
       ? await this.prisma.stockItemDepartmentBalance.findMany({
-          where: { departmentId: opts.departmentId, wardId: null },
+          // An omitted department is the unassigned-stock scope (departmentId: null),
+          // not a reason to skip the current-balance anchor for historical reports.
+          where: { departmentId: opts.departmentId ?? null, wardId: null },
           select: { stockItemId: true, quantity: true },
         })
       : [];
