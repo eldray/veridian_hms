@@ -46,7 +46,10 @@ export class ScanTemplateRepository {
     if (scanType) {
       where.OR = [
         { name: { contains: scanType, mode: 'insensitive' } },
-        { description: { contains: scanType, mode: 'insensitive' } }
+        { description: { contains: scanType, mode: 'insensitive' } },
+        // Scan type is stored in the JSON metadata, not a dedicated column.
+        // PostgreSQL Prisma JSON string filters support this path expression.
+        { metadata: { path: ['scanType'], string_contains: scanType } }
       ];
     }
 
