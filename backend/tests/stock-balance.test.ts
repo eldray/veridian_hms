@@ -174,6 +174,50 @@ describe('purchase receipt batch integrity', () => {
   });
 });
 
+describe('safe purchase invoice deletion', () => {
+  it('rejects deletion when batch metadata no longer matches and treats adjustments as outgoing activity', async () => {
+    const createdAt = new Date('2026-10-01T00:00:00Z');
+    const expiryDate = new Date('2027-10-20T00:00:00Z');
+    const invoice = {
+      id: 'invoice-1',
+      createdAt,
+      receivedAtDepartmentId: 'pharmacy',
+      receivedAtWardId: null,
+      InvoiceItem: [{
+        stockItemId: 'item-1',
+        quantity: 7,
+        batchNumber: 'B-1',
+        expiryDate,
+        unitCost: 10,
+      }],
+    };
+    const stockTransactionCount = vi.fn().mockResolvedValue(0);
+    const stockBatchFindFirst = vi.fn().mockResolvedValue({
+      id: 'batch-1',
+      quantity: 12,
+      expiryDate: new Date('2028-01-01T00:00:00Z'),
+      costPrice: 10,
+      isActive: true,
+    });
+    const tx: any = {
+      invoice: { findUnique: vi.fn().mockResolvedValue(invoice) },
+      stockTransaction: { count: stockTransactionCount },
+      stockBatch: { findFirst: stockBatchFindFirst },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new PurchaseInvoiceRepository(prisma);
+
+    await expect(repository.deleteSafely('invoice-1'))
+      .rejects.toThrow(/expiry metadata no longer matches/i);
+
+    expect(stockTransactionCount).toHaveBeenCalledWith({
+      where: expect.objectContaining({
+        transactionType: { in: ['sale', 'requisition', 'transfer_out', 'write_off', 'adjustment'] },
+      }),
+    });
+  });
+});
+
 describe('department stock balance ledger', () => {
   it('creates a department balance using the department id as the stable location key', async () => {
     const upsert = vi.fn().mockResolvedValue({ quantity: 12 });
