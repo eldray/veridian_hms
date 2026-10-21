@@ -615,21 +615,21 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     });
 
     // Reconcile balances from the complete movement set, even when the displayed
-    // ledger is filtered by transaction type or capped for response size.
+    // ledger is filtered by transaction type or capped for response size. Keep the
+    // location restriction for department-scoped reports; only hospital-wide reports
+    // intentionally omit it.
     let reconciliationRows: any[] = [];
-    if (opts.includeAllStockLocations) {
-      const reconciliationWhere = { ...where };
-      delete reconciliationWhere.transactionType;
-      const reconciliationTotal = await this.prisma.stockTransaction.count({ where: reconciliationWhere });
-      if (opts.transactionType || reconciliationTotal > rows.length) {
-        reconciliationRows = await this.prisma.stockTransaction.findMany({
-          where: reconciliationWhere,
-          orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
-          include: {
-            StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, costPrice: true, currentStock: true } },
-          },
-        });
-      }
+    const reconciliationWhere = { ...where };
+    delete reconciliationWhere.transactionType;
+    const reconciliationTotal = await this.prisma.stockTransaction.count({ where: reconciliationWhere });
+    if (opts.transactionType || reconciliationTotal > rows.length) {
+      reconciliationRows = await this.prisma.stockTransaction.findMany({
+        where: reconciliationWhere,
+        orderBy: [{ transactionDate: 'asc' }, { createdAt: 'asc' }],
+        include: {
+          StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, costPrice: true, currentStock: true } },
+        },
+      });
     }
 
     // Hospital-wide historical closing balances must be based on the aggregate item
