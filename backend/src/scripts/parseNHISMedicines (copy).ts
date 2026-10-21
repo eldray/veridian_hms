@@ -135,7 +135,7 @@ class NHISMedicineParser {
     return medicines;
   }
 
-  private parseMedicineLine(line: string): IStockItem | null {
+  public parseMedicineLine(line: string): IStockItem | null {
     // Clean the line
     const cleanLine = line.trim().replace(/\s+/g, ' ');
     
