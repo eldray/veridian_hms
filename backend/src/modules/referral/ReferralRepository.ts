@@ -55,7 +55,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
       this.getModel().count({ where })
     ]);
 
-    const data = referrals.map(ref => ({
+    const data = referrals.map((ref: any) => ({
       ...ref,
       patient: ref.patient ? { ...ref.patient, fullName: `${ref.patient.surname} ${ref.patient.otherNames}`.trim() } : null
     }));
