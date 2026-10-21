@@ -602,14 +602,32 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       skip: Math.max(0, total - opts.limit),
       take: opts.limit,
       include: {
-        StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, drugCode: true, costPrice: true } },
+        StockItem: { select: { id: true, name: true, category: true, unitOfMeasure: true, drugCode: true, costPrice: true, currentStock: true } },
         User: { select: { fullName: true } },
         Department: { select: { name: true } },
         Requisition: { select: { requisitionNumber: true } },
         Invoice: { select: { invoiceNumber: true, supplierName: true } },
       },
     });
-    return { rows, total };
+
+    // Hospital-wide historical closing balances must be based on the aggregate item
+    // balance, not a department-specific balanceAfter snapshot. Fetch all movements
+    // after the report end (without the activity-type filter) so the service can
+    // reverse later movements while treating internal transfers as stock-neutral.
+    let transactionsAfterEnd: any[] = [];
+    if (opts.endDate) {
+      const afterWhere: any = {
+        transactionDate: { gt: opts.endDate },
+      };
+      if (!opts.includeAllStockLocations) afterWhere.departmentId = opts.departmentId || '__NO_DEPARTMENT__';
+      if (opts.stockItemId) afterWhere.stockItemId = opts.stockItemId;
+      if (opts.category) afterWhere.StockItem = { category: opts.category };
+      transactionsAfterEnd = await this.prisma.stockTransaction.findMany({
+        where: afterWhere,
+        select: { stockItemId: true, transactionType: true, quantity: true, adjustmentDirection: true },
+      });
+    }
+    return { rows, total, transactionsAfterEnd };
   }
 
   async getTransactionsForUsageReport(startDate: Date, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
