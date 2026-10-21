@@ -2,6 +2,30 @@ import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
 
+describe('location-scoped stock value summary', () => {
+  it('uses department balances instead of hospital-wide stock for non-admin summaries', async () => {
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getItemsForValueReport: async (_category: string | undefined, filters: any) => {
+        expect(filters.departmentId).toBe('pharmacy');
+        expect(filters.includeAllStockLocations).toBe(false);
+        return [{
+          id: 'item-1', name: 'Gloves', category: 'consumable', currentStock: 100,
+          costPrice: '5.00', reorderLevel: 10, isMedication: false,
+          stockBalances: [{ quantity: 8 }],
+          StockBatch: [{ quantity: 3, costPrice: '2.00' }],
+        }];
+      },
+    };
+
+    const report = await service.getValueSummary('consumable', { departmentId: 'pharmacy', includeAllStockLocations: false });
+
+    expect(report.totalValue).toBe(31);
+    expect(report.lowStockItems).toBe(1);
+    expect(report.items[0]).toMatchObject({ currentStock: 8, batchQuantity: 3, unbatchedQuantity: 5, totalValue: 31 });
+  });
+});
+
 describe('stock valuation report', () => {
   it('values remaining batches at their recorded cost and unbatched stock at catalogue cost', async () => {
     const service = new StockTransactionService({} as any);
