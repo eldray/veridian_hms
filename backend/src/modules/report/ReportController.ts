@@ -45,10 +45,10 @@ export class ReportController {
         startDate, endDate, paymentMode, corporateAccountId,
       });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Financial report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating financial report' });
+      return res.status(500).json({ success: false, message: 'Error generating financial report' });
     }
   };
 
@@ -59,10 +59,10 @@ export class ReportController {
 
       const report = await this.service.getClinicalReport({ startDate, endDate });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Clinical report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating clinical report' });
+      return res.status(500).json({ success: false, message: 'Error generating clinical report' });
     }
   };
 
@@ -76,10 +76,10 @@ export class ReportController {
         startDate, endDate, paymentMode, corporateAccountId,
       });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Revenue report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating revenue report' });
+      return res.status(500).json({ success: false, message: 'Error generating revenue report' });
     }
   };
 
@@ -93,10 +93,10 @@ export class ReportController {
         startDate, endDate, status, insuranceProviderId, corporateAccountId,
       });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Claims report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating claims report' });
+      return res.status(500).json({ success: false, message: 'Error generating claims report' });
     }
   };
 
@@ -110,10 +110,10 @@ export class ReportController {
         startDate, endDate, attendanceType, paymentMode, corporateAccountId,
       });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Attendance report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating attendance report' });
+      return res.status(500).json({ success: false, message: 'Error generating attendance report' });
     }
   };
 
@@ -125,10 +125,10 @@ export class ReportController {
       // FIXED: was calling prisma directly with no filters — now delegates to service
       const report = await this.service.getDemographicReport({ startDate, endDate });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('Demographic report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating demographic report' });
+      return res.status(500).json({ success: false, message: 'Error generating demographic report' });
     }
   };
 
@@ -152,7 +152,7 @@ export class ReportController {
           return acc;
         }, {} as Record<string, number>);
 
-      res.json({
+      return res.json({
         success: true,
         data: {
           ...report,
@@ -166,7 +166,7 @@ export class ReportController {
       });
     } catch (error) {
       console.error('NHIS expiry report error:', error);
-      res.status(500).json({ success: false, message: 'Error generating NHIS expiry report' });
+      return res.status(500).json({ success: false, message: 'Error generating NHIS expiry report' });
     }
   };
 
@@ -179,10 +179,10 @@ export class ReportController {
       // FIXED: delegates to service; service uses correct Prisma relation filter syntax
       const report = await this.service.getNhisClaimsWithExpiry({ startDate, endDate, expiryStatus });
 
-      res.json({ success: true, data: report });
+      return res.json({ success: true, data: report });
     } catch (error) {
       console.error('NHIS claims summary error:', error);
-      res.status(500).json({ success: false, message: 'Error generating NHIS claims summary' });
+      return res.status(500).json({ success: false, message: 'Error generating NHIS claims summary' });
     }
   };
 
@@ -236,10 +236,10 @@ export class ReportController {
           : null,
       }));
 
-      res.json({ success: true, data: { expiringPatients: result, count: result.length, threshold } });
+      return res.json({ success: true, data: { expiringPatients: result, count: result.length, threshold } });
     } catch (error) {
       console.error('NHIS expiring soon error:', error);
-      res.status(500).json({ success: false, message: 'Error fetching expiring NHIS memberships' });
+      return res.status(500).json({ success: false, message: 'Error fetching expiring NHIS memberships' });
     }
   };
 
@@ -301,7 +301,7 @@ export class ReportController {
       return res.send(buffer);
     } catch (error) {
       console.error('Export error:', error);
-      res.status(500).json({ success: false, message: 'Error exporting report' });
+      return res.status(500).json({ success: false, message: 'Error exporting report' });
     }
   };
 }
