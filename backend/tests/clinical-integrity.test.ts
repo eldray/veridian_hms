@@ -376,12 +376,12 @@ describe('ANC danger-sign and referral completeness', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
-  it('rejects an ANC follow-up date earlier than the visit date', async () => {
+  it('rejects a past ANC follow-up date without a database write', async () => {
     const repository = new AntenatalRepository({} as any);
-    const visitDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-    const nextVisitDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const visitDate = new Date(Date.now() - 48 * 60 * 60 * 1000);
+    const nextVisitDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
     await expect(repository.updateVisit('visit-1', { visitDate, nextVisitDate } as any))
-      .rejects.toThrow(/cannot be before the ANC visit date/i);
+      .rejects.toThrow(/next ANC visit date cannot be in the past/i);
   });
 });
 
