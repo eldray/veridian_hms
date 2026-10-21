@@ -854,7 +854,14 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   }
 
   async removeLabTest(encounterId: string, labOrderId: string) {
-    return this.prisma.labTest.update({ where: { id: labOrderId }, data: { status: 'cancelled' } });
+    // Always scope a mutation to both IDs from the URL. A valid order ID alone
+    // must never let one encounter cancel another patient's investigation.
+    const result = await this.prisma.labTest.updateMany({
+      where: { id: labOrderId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count === 0) throw new NotFoundError('Lab order in encounter', labOrderId);
+    return { id: labOrderId, status: 'cancelled' };
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
@@ -969,7 +976,12 @@ async addScan(encounterId: string, data: any, userId: string) {
   }
 
   async removeScan(encounterId: string, scanId: string) {
-    return this.prisma.scan.update({ where: { id: scanId }, data: { status: 'cancelled' } });
+    const result = await this.prisma.scan.updateMany({
+      where: { id: scanId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count === 0) throw new NotFoundError('Scan in encounter', scanId);
+    return { id: scanId, status: 'cancelled' };
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
@@ -1023,7 +1035,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeProcedure(encounterId: string, procedureId: string) {
-    return this.prisma.procedure.update({ where: { id: procedureId }, data: { status: 'cancelled' } });
+    const result = await this.prisma.procedure.updateMany({
+      where: { id: procedureId, attendanceId: encounterId, status: { not: 'cancelled' } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count === 0) throw new NotFoundError('Procedure in encounter', procedureId);
+    return { id: procedureId, status: 'cancelled' };
   }
 
   async addService(encounterId: string, data: any, userId: string) {
@@ -1038,7 +1055,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
-    return this.prisma.serviceRendered.delete({ where: { id: serviceRenderedId } });
+    const result = await this.prisma.serviceRendered.deleteMany({
+      where: { id: serviceRenderedId, attendanceId: encounterId },
+    });
+    if (result.count === 0) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
+    return { id: serviceRenderedId, removed: true };
   }
 
   async getConsumableUses(encounterId: string) {
