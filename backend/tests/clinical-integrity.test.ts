@@ -872,3 +872,42 @@ describe('delivery record correction validation', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 });
+
+
+describe('prescription cancellation integrity', () => {
+  it('does not cancel an already dispensed medication without a return or correction workflow', async () => {
+    const medicationUpdate = vi.fn();
+    const doseUpdateMany = vi.fn();
+    const tx: any = {
+      medication: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'med-1', status: 'dispensed' }),
+        update: medicationUpdate,
+      },
+      medicationDose: { updateMany: doseUpdateMany },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.removeMedication('attendance-1', 'med-1'))
+      .rejects.toThrow(/dispensed or administered medication cannot be removed/i);
+
+    expect(medicationUpdate).not.toHaveBeenCalled();
+    expect(doseUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not cancel an administered medication through ordinary removal', async () => {
+    const medicationUpdate = vi.fn();
+    const tx: any = {
+      medication: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'med-1', status: 'administered' }),
+        update: medicationUpdate,
+      },
+      medicationDose: { updateMany: vi.fn() },
+    };
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+
+    await expect(repository.removeMedication('attendance-1', 'med-1'))
+      .rejects.toThrow(/dispensed or administered medication cannot be removed/i);
+    expect(medicationUpdate).not.toHaveBeenCalled();
+  });
+});
