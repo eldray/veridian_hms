@@ -228,6 +228,7 @@ model Patient {
   updatedAt           DateTime @updatedAt
 
   nhisNumber     String?
+  cccId          String?
   nhisExpiryDate DateTime?
   nhisActive     Boolean   @default(false)
   phoneNumber    String?
