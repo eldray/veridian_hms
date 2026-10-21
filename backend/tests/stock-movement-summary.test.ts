@@ -674,3 +674,39 @@ describe('expiring batch location balances', () => {
     expect(batches[0].stockItem.stockBalances).toBeUndefined();
   });
 });
+
+describe('hospital-wide stock item movement reconciliation', () => {
+  it('uses aggregate stock and treats internal transfers as stock-neutral', async () => {
+    const service = new StockItemService({} as any);
+    (service as any).repo = {
+      getLedgerTransactions: async () => ({
+        total: 4,
+        rows: [
+          { id: 'p1', stockItemId: 'gloves', transactionType: 'purchase', quantity: 10, balanceAfter: 20, transactionDate: new Date('2026-10-02T00:00:00Z'), StockItem: { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 100 } },
+          { id: 't1', stockItemId: 'gloves', transactionType: 'transfer_out', quantity: 5, balanceAfter: 15, transactionDate: new Date('2026-10-03T00:00:00Z'), StockItem: { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 100 } },
+          { id: 't2', stockItemId: 'gloves', transactionType: 'transfer_in', quantity: 5, balanceAfter: 25, transactionDate: new Date('2026-10-04T00:00:00Z'), StockItem: { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 100 } },
+          { id: 's1', stockItemId: 'gloves', transactionType: 'sale', quantity: 2, balanceAfter: 23, transactionDate: new Date('2026-10-05T00:00:00Z'), StockItem: { id: 'gloves', name: 'Gloves', category: 'consumable', unitOfMeasure: 'box', costPrice: 2, currentStock: 100 } },
+        ],
+        transactionsAfterEnd: [
+          { stockItemId: 'gloves', transactionType: 'transfer_out', quantity: 4 },
+          { stockItemId: 'gloves', transactionType: 'sale', quantity: 3 },
+        ],
+      }),
+    };
+
+    const report = await service.getMovementSummary(
+      new Date('2026-10-01T00:00:00Z'),
+      new Date('2026-10-10T23:59:59.999Z'),
+      undefined,
+      { includeAllStockLocations: true },
+    );
+
+    expect(report.items[0]).toMatchObject({
+      openingStock: 95,
+      closingStock: 100,
+      quantityIn: 15,
+      quantityOut: 7,
+    });
+    expect(report.summary.netChange).toBe(8);
+  });
+});
