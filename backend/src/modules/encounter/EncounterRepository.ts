@@ -511,9 +511,54 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const hasAntenatalData =
       fetalHeartRate !== undefined ||
       fundalHeight !== undefined ||
-      Boolean(presentingPart?.trim()) ||
+      presentingPart !== undefined ||
       fetalMovement !== undefined ||
       oedema !== undefined;
+
+    if (Object.keys(vitalsData).length === 0 && !hasAntenatalData) {
+      throw new ValidationError('No editable vital-sign fields supplied');
+    }
+
+    const numericRanges: Record<string, [number, number]> = {
+      temperature: [25, 45],
+      pulse: [0, 300],
+      respiration: [0, 100],
+      spo2: [0, 100],
+      weight: [0, 500],
+      height: [0, 300],
+      bmi: [0, 150],
+      muac: [0, 100],
+    };
+    for (const [key, value] of Object.entries(vitalsData)) {
+      if (value === null || value === undefined || key === 'notes' || key === 'bloodPressure') continue;
+      if (typeof value !== 'number' || !Number.isFinite(value)) {
+        throw new ValidationError(`${key} must be a valid number`);
+      }
+      const range = numericRanges[key];
+      if (range && (value < range[0] || value > range[1])) {
+        throw new ValidationError(`${key} must be between ${range[0]} and ${range[1]}`);
+      }
+      if (key === 'pulse' || key === 'respiration') {
+        if (!Number.isInteger(value)) throw new ValidationError(`${key} must be a whole number`);
+      }
+    }
+    if (fetalHeartRate !== undefined && fetalHeartRate !== null &&
+      (typeof fetalHeartRate !== 'number' || !Number.isFinite(fetalHeartRate) || fetalHeartRate < 0 || fetalHeartRate > 300)) {
+      throw new ValidationError('Fetal heart rate must be between 0 and 300');
+    }
+    if (fundalHeight !== undefined && fundalHeight !== null &&
+      (typeof fundalHeight !== 'number' || !Number.isFinite(fundalHeight) || fundalHeight < 0 || fundalHeight > 100)) {
+      throw new ValidationError('Fundal height must be between 0 and 100');
+    }
+    if (fetalMovement !== undefined && typeof fetalMovement !== 'boolean') {
+      throw new ValidationError('Fetal movement must be recorded as true or false');
+    }
+    if (oedema !== undefined && typeof oedema !== 'boolean') {
+      throw new ValidationError('Oedema must be recorded as true or false');
+    }
+    if (presentingPart !== undefined && presentingPart !== null && typeof presentingPart !== 'string') {
+      throw new ValidationError('Presenting part must be text');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const existingVitals = await tx.vitals.findUnique({
