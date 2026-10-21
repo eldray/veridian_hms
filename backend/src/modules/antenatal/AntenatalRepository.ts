@@ -419,25 +419,50 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   async createPostnatalRecord(data: CreatePostnatalRecordInput): Promise<any> {
     const d: any = data;
     const arr = (v: any) => (Array.isArray(v) ? v : []);
-    return this.prisma.postnatalRecord.create({
-      data: {
-        patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
-        deliveryRecordId: d.deliveryRecordId, examinationDate: d.examinationDate, dayNumber: d.dayNumber || 1,
-        maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
-        bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
-        lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
-        breastfeedingStatus: d.breastfeedingStatus, breastfeedingDifficulties: arr(d.breastfeedingDifficulties), latching: d.latching,
-        babyCondition: d.babyCondition, babyWeight: d.babyWeight, babyTemperature: d.babyTemperature, babyFeeding: d.babyFeeding,
-        jaundice: !!d.jaundice, jaundiceSeverity: d.jaundiceSeverity, cordCondition: d.cordCondition,
-        bcgGiven: !!d.bcgGiven, opv0Given: !!d.opv0Given, hepB0Given: !!d.hepB0Given,
-        familyPlanningDiscussed: !!d.familyPlanningDiscussed, familyPlanningMethodAccepted: d.familyPlanningMethodAccepted,
-        maternalDangerSigns: arr(d.maternalDangerSigns), babyDangerSigns: arr(d.babyDangerSigns),
-        referralMade: !!d.referralMade, referredTo: d.referredTo, referralReason: d.referralReason,
-        nextVisitDate: d.nextVisitDate ? new Date(d.nextVisitDate) : undefined, nextVisitType: d.nextVisitType,
-        malePartnerPresentPNC: !!d.malePartnerPresentPNC,
-        notes: d.notes, createdById: d.createdById
-      },
-      include: { patient: true, deliveryRecord: true }
+    return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: d.attendanceId },
+        select: { id: true, patientId: true, attendanceType: true },
+      });
+      if (!attendance) throw new NotFoundError('Postnatal attendance', d.attendanceId);
+      if (attendance.patientId !== d.patientId) {
+        throw new ValidationError('Postnatal patient must match the selected attendance');
+      }
+      if (attendance.attendanceType !== 'postnatal') {
+        throw new ValidationError('Postnatal record must be linked to a postnatal attendance');
+      }
+
+      if (d.antenatalBookingId) {
+        const booking = await tx.antenatalBooking.findUnique({ where: { id: d.antenatalBookingId }, select: { id: true, patientId: true } });
+        if (!booking) throw new NotFoundError('Antenatal booking', d.antenatalBookingId);
+        if (booking.patientId !== d.patientId) throw new ValidationError('Antenatal booking must belong to the postnatal patient');
+      }
+      if (d.deliveryRecordId) {
+        const delivery = await tx.deliveryRecord.findUnique({ where: { id: d.deliveryRecordId }, select: { id: true, patientId: true } });
+        if (!delivery) throw new NotFoundError('Delivery record', d.deliveryRecordId);
+        if (delivery.patientId !== d.patientId) throw new ValidationError('Delivery record must belong to the postnatal patient');
+      }
+
+      return tx.postnatalRecord.create({
+        data: {
+          patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
+          deliveryRecordId: d.deliveryRecordId, examinationDate: d.examinationDate, dayNumber: d.dayNumber || 1,
+          maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
+          bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
+          lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
+          breastfeedingStatus: d.breastfeedingStatus, breastfeedingDifficulties: arr(d.breastfeedingDifficulties), latching: d.latching,
+          babyCondition: d.babyCondition, babyWeight: d.babyWeight, babyTemperature: d.babyTemperature, babyFeeding: d.babyFeeding,
+          jaundice: !!d.jaundice, jaundiceSeverity: d.jaundiceSeverity, cordCondition: d.cordCondition,
+          bcgGiven: !!d.bcgGiven, opv0Given: !!d.opv0Given, hepB0Given: !!d.hepB0Given,
+          familyPlanningDiscussed: !!d.familyPlanningDiscussed, familyPlanningMethodAccepted: d.familyPlanningMethodAccepted,
+          maternalDangerSigns: arr(d.maternalDangerSigns), babyDangerSigns: arr(d.babyDangerSigns),
+          referralMade: !!d.referralMade, referredTo: d.referredTo, referralReason: d.referralReason,
+          nextVisitDate: d.nextVisitDate ? new Date(d.nextVisitDate) : undefined, nextVisitType: d.nextVisitType,
+          malePartnerPresentPNC: !!d.malePartnerPresentPNC,
+          notes: d.notes, createdById: d.createdById
+        },
+        include: { patient: true, deliveryRecord: true }
+      });
     });
   }
 
