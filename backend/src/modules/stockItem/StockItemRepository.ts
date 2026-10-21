@@ -6,7 +6,7 @@ import { ValidationError } from '../../utils/errors';
 // eligible through the recorded expiry day.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 };
 
