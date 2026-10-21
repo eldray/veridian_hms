@@ -184,11 +184,11 @@ export class EncounterController extends BaseController {
   });
 
   updateLabTestStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { encounterId, labTestId } = req.params;
+    const { labTestId } = req.params;
     const { status, result, normalRange, units, notes } = req.body;
     const user = req.user!;
 
-    const labOrder = await this.service.updateLabTestStatus(encounterId, labTestId, status, { result, normalRange, units, notes }, user.id);
+    const labOrder = await this.service.updateLabTestStatus(labTestId, status, { result, normalRange, units, notes }, user.id);
     return this.ok(res, labOrder, 'Lab order status updated');
   });
 
@@ -222,10 +222,10 @@ export class EncounterController extends BaseController {
   });
 
   updateScanStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { encounterId, scanId } = req.params;
+    const { scanId } = req.params;
     const { status, result, findings, impression, imageUrls } = req.body;
     const user = req.user!;
-    const scan = await this.service.updateScanStatus(encounterId, scanId, status, { result, findings, impression, imageUrls }, user.id);
+    const scan = await this.service.updateScanStatus(scanId, status, { result, findings, impression, imageUrls }, user.id);
     return this.ok(res, scan, 'Scan status updated');
   });
 
@@ -249,10 +249,10 @@ export class EncounterController extends BaseController {
   });
 
   updateProcedureStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { encounterId, procedureId } = req.params;
+    const { procedureId } = req.params;
     const { status, ...updates } = req.body;
     const user = req.user!;
-    const procedure = await this.service.updateProcedureStatus(encounterId, procedureId, status, updates, user.id);
+    const procedure = await this.service.updateProcedureStatus(procedureId, status, updates, user.id);
     return this.ok(res, procedure, 'Procedure status updated');
   });
 
