@@ -427,9 +427,9 @@ export class StockItemService extends BaseService {
     filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
   ) {
     const safeDays = Number.isSafeInteger(Number(days)) && Number(days) >= 0 ? Math.min(Number(days), 3650) : 30;
-    const today = new Date();
-    const futureDate = new Date();
-    futureDate.setDate(today.getDate() + safeDays);
+    const today = startOfUtcDay();
+    const futureDate = new Date(today);
+    futureDate.setUTCDate(today.getUTCDate() + safeDays);
     const stockItems: any[] = await this.repo.getItemsForExpiryReport(category, filters);
 
     // Report lot-level expiry for batch-tracked stock, while retaining legacy
