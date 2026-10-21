@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance, StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
+import { StockItemService } from '../src/modules/stockItem/StockItemService';
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
