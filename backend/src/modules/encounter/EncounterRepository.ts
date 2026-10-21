@@ -350,7 +350,24 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
-    return this.prisma.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.attendanceDiagnosis.findFirst({
+        where: { attendanceId: encounterId, diagnosisId },
+        select: { id: true, diagnosisType: true },
+      });
+      if (!existing) throw new NotFoundError('Diagnosis in encounter', diagnosisId);
+
+      if (existing.diagnosisType === 'primary') {
+        const otherDiagnoses = await tx.attendanceDiagnosis.count({
+          where: { attendanceId: encounterId, diagnosisId: { not: diagnosisId } },
+        });
+        if (otherDiagnoses > 0) {
+          throw new ConflictError('Assign another diagnosis as primary before removing the current primary diagnosis');
+        }
+      }
+
+      return tx.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+    });
   }
 
   private async getOrCreateANCVisit(tx: any, attendance: { id: string; patientId: string; dateTime: Date }, userId: string) {
