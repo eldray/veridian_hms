@@ -441,9 +441,29 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   }
 
   async getItemsForExpiryReport(category?: string) {
-    const where: any = { expiryDate: { not: null }, isActive: true };
+    // Batch-tracked items may have no legacy item-level expiryDate, so do not
+    // exclude them from the report on that field alone.
+    const where: any = {
+      isActive: true,
+      OR: [
+        { expiryDate: { not: null } },
+        { StockBatch: { some: { isActive: true, quantity: { gt: 0 } } } },
+      ],
+    };
     if (category) where.category = category;
-    return this.getModel().findMany({ where, select: { id: true, name: true, category: true, currentStock: true, expiryDate: true, unitOfMeasure: true, costPrice: true, StockBatch: { where: { isActive: true }, select: { batchNumber: true, expiryDate: true, quantity: true } } }, orderBy: { expiryDate: 'asc' } });
+    return this.getModel().findMany({
+      where,
+      select: {
+        id: true, name: true, category: true, currentStock: true, expiryDate: true,
+        unitOfMeasure: true, costPrice: true,
+        StockBatch: {
+          where: { isActive: true, quantity: { gt: 0 } },
+          select: { batchNumber: true, expiryDate: true, quantity: true },
+          orderBy: { expiryDate: 'asc' },
+        },
+      },
+      orderBy: { expiryDate: 'asc' },
+    });
   }
 
   async getTransactionsForMovementReport(startDate?: Date, endDate?: Date) {
