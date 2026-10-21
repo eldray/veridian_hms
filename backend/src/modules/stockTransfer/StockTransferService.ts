@@ -9,7 +9,7 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 // Batch expiry is a calendar date; lots remain usable through that date.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 };
 
