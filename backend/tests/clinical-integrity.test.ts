@@ -837,3 +837,38 @@ describe('ANC booking closure requires a confirmed outcome', () => {
     }));
   });
 });
+
+
+describe('delivery record correction validation', () => {
+  it('rejects future delivery dates before opening a transaction', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', {
+      deliveryDate: new Date(Date.now() + 24 * 60 * 60 * 1000),
+    })).rejects.toThrow(/cannot be in the future/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported places of delivery before writing', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', {
+      placeOfDelivery: 'somewhere-unknown',
+    })).rejects.toThrow(/unsupported place of delivery/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects empty delivery updates instead of accepting a no-op', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', {}))
+      .rejects.toThrow(/no supported delivery record fields/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
