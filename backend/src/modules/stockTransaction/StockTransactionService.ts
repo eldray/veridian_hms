@@ -117,6 +117,9 @@ export class StockTransactionService extends BaseService {
 
     const signedMovement = (t: any): number => {
       const quantity = Math.abs(Number(t.quantity) || 0);
+      if (filters.includeAllStockLocations && (t.transactionType === 'transfer_in' || t.transactionType === 'transfer_out')) {
+        return 0;
+      }
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': return quantity;
         case 'sale': case 'requisition': case 'write_off': case 'transfer_out': return -quantity;
