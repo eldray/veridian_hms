@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
 import { StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
+import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 
 describe('location-scoped stock value summary', () => {
   it('uses department balances instead of hospital-wide stock for non-admin summaries', async () => {
@@ -382,5 +383,42 @@ describe('consumable correction reporting', () => {
       openingStock: 10,
       closingStock: 8,
     });
+  });
+});
+
+
+describe('stock transaction location balance snapshots', () => {
+  it('records the department balance after a department stock issue, not the hospital aggregate', async () => {
+    let savedTransaction: any;
+    const tx: any = {
+      stockBatch: { count: async () => 0 },
+      stockItemDepartmentBalance: {
+        updateMany: async () => ({ count: 1 }),
+        findUnique: async () => ({ quantity: 7 }),
+      },
+      stockItem: {
+        updateMany: async () => ({ count: 1 }),
+        findUnique: async () => ({ id: 'gloves', currentStock: 87 }),
+      },
+      stockTransaction: {
+        create: async ({ data }: any) => {
+          savedTransaction = data;
+          return data;
+        },
+      },
+    };
+    const prisma: any = { $transaction: async (callback: any) => callback(tx) };
+    const repository = new StockTransactionRepository(prisma);
+
+    await repository.createSafely({
+      stockItemId: 'gloves',
+      transactionType: 'sale',
+      quantity: 3,
+      departmentId: 'pharmacy',
+      performedBy: 'user-1',
+    });
+
+    expect(savedTransaction.departmentId).toBe('pharmacy');
+    expect(savedTransaction.balanceAfter).toBe(7);
   });
 });
