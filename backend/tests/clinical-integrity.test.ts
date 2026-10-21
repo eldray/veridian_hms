@@ -275,3 +275,45 @@ describe('maternal update validation', () => {
     expect(update).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('investigation and procedure status integrity', () => {
+  it('rejects in_progress for procedures because it is not a supported database status', async () => {
+    const procedureUpdate = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      procedure: { update: procedureUpdate },
+    } as any);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
+      .rejects.toThrow(/unsupported procedure status/i);
+    expect(procedureUpdate).not.toHaveBeenCalled();
+  });
+
+  it('rejects unsupported laboratory statuses before writing', async () => {
+    const labUpdate = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      labTest: { update: labUpdate },
+    } as any);
+
+    await expect(repository.updateLabTestStatus('lab-1', 'verified', {}, 'staff-1'))
+      .rejects.toThrow(/unsupported laboratory order status/i);
+    expect(labUpdate).not.toHaveBeenCalled();
+  });
+
+  it('prevents a completed scan from being reopened', async () => {
+    const scanUpdate = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      scan: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'completed' }),
+        update: scanUpdate,
+      },
+    } as any);
+
+    await expect(repository.updateScanStatus('scan-1', 'in_progress', {}, 'staff-1'))
+      .rejects.toThrow(/cannot be reopened or changed/i);
+    expect(scanUpdate).not.toHaveBeenCalled();
+  });
+});
