@@ -467,20 +467,51 @@ export class StockItemService extends BaseService {
     else if (period === 'year') startDate.setFullYear(startDate.getFullYear() - 1);
     else startDate.setMonth(startDate.getMonth() - 1);
 
+    const safeLimit = Number.isSafeInteger(Number(limit)) && Number(limit) > 0
+      ? Math.min(Number(limit), 200)
+      : 20;
     const allTransactions = await this.repo.getTransactionsForUsageReport(startDate);
-    const filtered = category ? allTransactions.filter(t => t.StockItem?.category === category) : allTransactions;
+    const filtered = category ? allTransactions.filter((t: any) => t.StockItem?.category === category) : allTransactions;
 
-    const itemUsage = filtered.reduce((acc, t) => {
+    // Key by stock item ID, not its display name: two catalogue items may share a name.
+    // Use absolute quantities because older transaction writers sometimes stored issues as negative values.
+    const itemUsage = filtered.reduce((acc: Record<string, any>, t: any) => {
+      const stockItemId = t.stockItemId || t.StockItem?.id || (t.StockItem?.name || 'unknown');
       const name = t.StockItem?.name || 'Unknown';
-      if (!acc[name]) acc[name] = { name, category: t.StockItem?.category || 'other', unit: t.StockItem?.unitOfMeasure || 'unit', isMedication: t.StockItem?.isMedication || false, quantity: 0, transactions: 0, salesQuantity: 0, requisitionQuantity: 0 };
-      acc[name].quantity += t.quantity; acc[name].transactions++;
-      if (t.transactionType === 'sale') acc[name].salesQuantity += t.quantity;
-      if (t.transactionType === 'requisition') acc[name].requisitionQuantity += t.quantity;
+      const quantity = Math.abs(Number(t.quantity) || 0);
+      if (!acc[stockItemId]) {
+        acc[stockItemId] = {
+          stockItemId,
+          name,
+          category: t.StockItem?.category || 'other',
+          unit: t.StockItem?.unitOfMeasure || 'unit',
+          isMedication: t.StockItem?.isMedication || false,
+          quantity: 0,
+          transactions: 0,
+          salesQuantity: 0,
+          requisitionQuantity: 0,
+        };
+      }
+      acc[stockItemId].quantity += quantity;
+      acc[stockItemId].transactions++;
+      if (t.transactionType === 'sale') acc[stockItemId].salesQuantity += quantity;
+      if (t.transactionType === 'requisition') acc[stockItemId].requisitionQuantity += quantity;
       return acc;
     }, {} as Record<string, any>);
 
-    const results = Object.values(itemUsage).sort((a: any, b: any) => b.quantity - a.quantity).slice(0, limit);
-    return { period, startDate, summary: { totalItemsDispensed: results.length, totalQuantity: results.reduce((sum, i: any) => sum + i.quantity, 0), topItem: results[0] || null, medicationsOnly: results.filter((i: any) => i.isMedication).length }, topItems: results };
+    const allItems = Object.values(itemUsage).sort((a: any, b: any) => b.quantity - a.quantity);
+    const topItems = allItems.slice(0, safeLimit);
+    return {
+      period,
+      startDate,
+      summary: {
+        totalItemsDispensed: allItems.length,
+        totalQuantity: allItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
+        topItem: topItems[0] || null,
+        medicationsOnly: allItems.filter((item: any) => item.isMedication).length,
+      },
+      topItems,
+    };
   }
 
   async getSupplierReport(supplierId?: string) {
