@@ -64,7 +64,8 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
     const client = tx || this.prisma;
     return client.stockBatch.findMany({
       where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } },
-      orderBy: { expiryDate: 'asc' } // First Expiry, First Out!
+      // Deterministic FEFO: earliest expiry first, then oldest received batch.
+      orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
     });
   }
 }
