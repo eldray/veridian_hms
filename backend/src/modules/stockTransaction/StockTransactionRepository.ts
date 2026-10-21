@@ -131,7 +131,6 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: effectiveQuantity } } });
       }
 
-      const updatedItem = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
       return tx.stockTransaction.create({
         data: {
           stockItemId, transactionType, quantity: effectiveQuantity,
