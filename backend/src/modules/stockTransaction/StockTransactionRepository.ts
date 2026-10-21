@@ -8,7 +8,7 @@ import { ValidationError } from '../../utils/errors';
 // batch as usable through its recorded expiry calendar day, not expired at 00:00.
 const startOfCurrentDay = (): Date => {
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  today.setUTCHours(0, 0, 0, 0);
   return today;
 };
 
