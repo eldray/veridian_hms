@@ -3,6 +3,13 @@ import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreatePurchaseInvoiceDTO, UpdatePurchaseInvoiceDTO, toNumber } from './PurchaseInvoiceTypes';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
+// Expiry dates are entered as calendar dates. Keep stock eligible through the
+// recorded day rather than rejecting it at midnight at the start of that day.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+};
 
 export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -97,7 +104,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
         // 2. Create Stock Batch (Assigned to the receiving department!)
         if (item.batchNumber) {
           const batchExpiry = item.expiryDate ? new Date(item.expiryDate) : null;
-          if (!batchExpiry || !Number.isFinite(batchExpiry.getTime()) || batchExpiry <= new Date()) {
+          if (!batchExpiry || !Number.isFinite(batchExpiry.getTime()) || batchExpiry < startOfCurrentDay()) {
             throw new Error(`A future expiry date is required for batch-tracked item ${stockItem.name}`);
           }
           const batchLocation = {
@@ -126,7 +133,7 @@ export class PurchaseInvoiceRepository extends BaseRepository<any, any, any> {
               where: {
                 id: existingBatch.id,
                 isActive: true,
-                expiryDate: { gt: new Date(), equals: batchExpiry },
+                expiryDate: { gte: startOfCurrentDay(), equals: batchExpiry },
                 costPrice: item.unitCost,
               },
               data: { quantity: { increment: item.quantity } },
