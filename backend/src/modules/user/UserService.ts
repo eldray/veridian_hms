@@ -290,7 +290,7 @@ export class UserService extends BaseService {
     );
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' },
     );
 
