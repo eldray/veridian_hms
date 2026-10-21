@@ -190,7 +190,6 @@ export class StockTransactionService extends BaseService {
       // increase or decrease the hospital-wide stock total. A dispatched transfer
       // remains in transit until receipt, so hospital-wide opening/closing
       // reconciliation must exclude both transfer directions from net change.
-      const hospitalWide = Boolean(filters.includeAllStockLocations);
       // Reconcile against every ledger movement, including correction entries
       // for edited/deleted consumable uses. Activity columns intentionally omit
       // superseded uses and their reversal rows, but the balance must not.
