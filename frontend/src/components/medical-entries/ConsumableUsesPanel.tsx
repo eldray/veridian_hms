@@ -7,7 +7,7 @@ interface ConsumableUsesPanelProps {
   onDelete?: (use: any) => void;
 }
 
-const cleanNotes = (value?: string) => String(value || '').replace(/^Consumable use:\\s*/, '').trim();
+const cleanNotes = (value?: string) => String(value || '').replace(/^Consumable use:\s*/, '').trim();
 
 const formatDate = (value?: string) => {
   if (!value) return 'Date not recorded';
