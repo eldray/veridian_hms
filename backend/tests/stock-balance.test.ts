@@ -4,6 +4,7 @@ import { StockItemService } from '../src/modules/stockItem/StockItemService';
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
+import { StockTransferRepository } from '../src/modules/stockTransfer/StockTransferRepository';
 import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 
 describe('unassigned stock movement filters', () => {
@@ -772,6 +773,47 @@ describe('clinical dispensing calendar-day expiry', () => {
   });
 });
 
+
+describe('in-transit stock transfer reporting', () => {
+  it('keeps dispatched transfers visible with sent and received quantities for reconciliation', async () => {
+    const repository = new StockTransferRepository({} as any);
+    const inTransitTransfer = {
+      id: 'transfer-1',
+      status: 'dispatched',
+      originId: 'pharmacy',
+      destinationId: 'ward',
+      items: [{
+        stockItemId: 'item-1',
+        quantityRequested: 8,
+        quantitySent: 8,
+        quantityReceived: 0,
+      }],
+    };
+    const paginate = vi.fn().mockResolvedValue({
+      data: [inTransitTransfer],
+      total: 1,
+    });
+    (repository as any).findManyWithPagination = paginate;
+
+    const result = await repository.findAll({
+      status: 'dispatched',
+      includeAllStockLocations: true,
+      page: 1,
+      limit: 100,
+    } as any);
+
+    expect(paginate).toHaveBeenCalledWith(expect.objectContaining({
+      where: { status: 'dispatched' },
+      include: expect.objectContaining({
+        items: expect.any(Object),
+      }),
+    }));
+    expect(result.data[0].items[0]).toEqual(expect.objectContaining({
+      quantitySent: 8,
+      quantityReceived: 0,
+    }));
+  });
+});
 
 describe('hospital-wide transfer stock reconciliation', () => {
   it('treats paired internal transfers as stock-neutral for opening and closing totals', async () => {
