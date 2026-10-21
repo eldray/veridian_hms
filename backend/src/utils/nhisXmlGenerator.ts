@@ -1,4 +1,4 @@
-import { builder } from 'xmlbuilder2';
+import { create } from 'xmlbuilder2';
 
 interface ClaimData {
   facilityCode: string;
@@ -12,7 +12,7 @@ interface ClaimData {
 }
 
 export function generateNHISClaimXML(data: ClaimData): string {
-  const doc = builder.create()
+  const doc = create()
     .dec({ version: '1.0', encoding: 'UTF-8' })
     .ele('claims:Claim', { 
       'xmlns:claims': 'http://www.nhis.gov.gh/claims/v4.2',
