@@ -1306,6 +1306,7 @@ export default function MedicalEntries() {
               <button type="button" disabled={!selectedPatientId || !selectedAttendanceId}
                 onClick={() => {
                   const params = new URLSearchParams({ patientId: selectedPatientId, attendanceId: selectedAttendanceId, source: 'Medical Entries' });
+                  if (selectedPatient) params.set('patientName', getPatientName(selectedPatient));
                   const complaints = String(currentAttendance?.complaints || '');
                   const diagnosis = diagnosesList.map((d: any) => d.diagnosis?.name || d.diagnosisName || d.name).filter(Boolean).join(', ');
                   const notes = [hpc, odq, physicalExam].filter(Boolean).join('\n');
