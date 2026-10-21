@@ -80,6 +80,35 @@ describe('clinical encounter ownership', () => {
   });
 });
 
+describe('newborn record validation', () => {
+  it('accepts a recorded birth weight in grams and an explicit outcome', () => {
+    const repository = new AntenatalRepository({} as any);
+    expect((repository as any).mapNewborns([{
+      birthWeight: 3200,
+      gender: 'female',
+      outcome: 'alive',
+      apgarScore1min: 8,
+      apgarScore5min: 9,
+    }])).toEqual([expect.objectContaining({ birthWeight: 3200, outcome: 'alive' })]);
+  });
+
+  it('does not silently mark a newborn as alive when outcome is missing', () => {
+    const repository = new AntenatalRepository({} as any);
+    expect(() => (repository as any).mapNewborns([{ birthWeight: 3200, gender: 'male' }]))
+      .toThrow(/confirmed outcome is required/i);
+  });
+
+  it('rejects an out-of-range Apgar score', () => {
+    const repository = new AntenatalRepository({} as any);
+    expect(() => (repository as any).mapNewborns([{
+      birthWeight: 3200,
+      gender: 'male',
+      outcome: 'alive',
+      apgarScore1min: 11,
+    }])).toThrow(/apgar score.*between 0 and 10/i);
+  });
+});
+
 describe('maternal record integrity', () => {
   it('returns no active booking instead of falling back to a completed pregnancy', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
