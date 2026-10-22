@@ -278,28 +278,62 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
   async getValuationData(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const where: any = { isActive: true };
     if (category) where.category = category;
-    const items = await this.prisma.stockItem.findMany({
-      where,
-      select: {
-        id: true, name: true, category: true, currentStock: true, costPrice: true, unitOfMeasure: true, reorderLevel: true,
-        StockBatch: {
-          where: {
-            quantity: { gt: 0 },
-            ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || null, wardId: null }),
+    const [items, dispatchedTransferItems] = await Promise.all([
+      this.prisma.stockItem.findMany({
+        where,
+        select: {
+          id: true, name: true, category: true, currentStock: true, costPrice: true, unitOfMeasure: true, reorderLevel: true,
+          StockBatch: {
+            where: {
+              quantity: { gt: 0 },
+              ...(filters.includeAllStockLocations ? {} : { departmentId: filters.departmentId || null, wardId: null }),
+            },
+            select: { quantity: true, costPrice: true },
           },
-          select: { quantity: true, costPrice: true },
+          stockBalances: filters.includeAllStockLocations ? false as any : {
+            where: { departmentId: filters.departmentId || null, wardId: null },
+            select: { quantity: true },
+          },
         },
-        stockBalances: filters.includeAllStockLocations ? false as any : {
-          where: { departmentId: filters.departmentId || null, wardId: null },
-          select: { quantity: true },
-        },
-      },
-    });
+      }),
+      // Hospital-wide currentStock retains units reserved in a dispatched transfer.
+      // Their origin batches have already been decremented, so include the saved
+      // allocation cost in valuation until the destination receives those batches.
+      filters.includeAllStockLocations
+        ? this.prisma.stockTransferItem.findMany({
+            where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 }, quantityReceived: 0 },
+            select: { stockItemId: true, quantitySent: true, batchAllocations: true },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const inTransitAllocations = new Map<string, Array<{ quantity: number; costPrice: number }>>();
+    for (const transferItem of dispatchedTransferItems as any[]) {
+      const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
+      const validAllocations = allocations.filter((allocation: any) =>
+        Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
+        Number.isFinite(Number(allocation?.costPrice)) && Number(allocation.costPrice) >= 0
+      );
+      // Avoid inventing valuation when legacy/malformed allocation data cannot
+      // reconcile exactly to the quantity still in transit.
+      if (!validAllocations.length ||
+          validAllocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== transferItem.quantitySent) {
+        continue;
+      }
+      const existing = inTransitAllocations.get(transferItem.stockItemId) || [];
+      existing.push(...validAllocations.map((allocation: any) => ({
+        quantity: allocation.quantity,
+        costPrice: Number(allocation.costPrice),
+      })));
+      inTransitAllocations.set(transferItem.stockItemId, existing);
+    }
+
     return items.map((item: any) => ({
       ...item,
       currentStock: filters.includeAllStockLocations
         ? item.currentStock
         : item.stockBalances.reduce((sum: number, balance: any) => sum + balance.quantity, 0),
+      inTransitBatchAllocations: inTransitAllocations.get(item.id) || [],
     }));
   }
 
