@@ -4,10 +4,26 @@ import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepositor
 import { NursingService } from '../src/modules/nursing/NursingService';
 
 describe('OPD clinical record finalization', () => {
+  it('refuses finalization by non-clinical staff before reading the encounter', async () => {
+    const findEncounter = vi.fn();
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'admin-1', role: 'admin', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback({
+        user: { findUnique: vi.fn().mockResolvedValue({ id: 'admin-1', role: 'admin', isActive: true }) },
+        attendance: { findUnique: findEncounter, update: vi.fn() },
+      })),
+    };
+    const repository = new EncounterRepository(prisma as any);
+
+    await expect(repository.finalizeClinicalRecord('attendance-1', 'admin-1'))
+      .rejects.toThrow(/only an active doctor, nurse, or midwife/i);
+    expect(findEncounter).not.toHaveBeenCalled();
+  });
+
   it('refuses to finalize when mandatory clinical documentation is missing', async () => {
     const update = vi.fn();
     const tx = {
-      user: { findUnique: vi.fn().mockResolvedValue(null) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', role: 'doctor', isActive: true }) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'attendance-1',
