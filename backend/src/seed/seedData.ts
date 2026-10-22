@@ -13,7 +13,6 @@ interface SeedingStatus {
   diagnosisLinks: boolean;
   procedureLinks: boolean;
   testData: boolean;
-  maternityData: boolean;
   lastRun: string;
 }
 
@@ -43,7 +42,6 @@ const getDefaultStatus = (): SeedingStatus => ({
   diagnosisLinks: false,
   procedureLinks: false,
   testData: false,
-  maternityData: false,
   lastRun: new Date().toISOString()
 });
 
@@ -124,7 +122,6 @@ export const seedDatabase = async (force: boolean = false) => {
     diagnosisLinks: null as any,
     procedureLinks: null as any,
     testData: null as any,
-    maternityData: null as any,
     errors: [] as string[]
   };
 
@@ -188,7 +185,8 @@ export const seedDatabase = async (force: boolean = false) => {
     results.testData = testResult;
     if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
 
-    // ========== STEP 5: MATERNITY DATA ==========
+    // Maternity demonstration records (ANC, delivery and postnatal) are generated
+    // by testSeed.ts as part of the test-data step; there is no separate maternity seeder.
     // ========== SUMMARY ==========
     console.log('\n==================================================');
     if (results.errors.length > 0) {
@@ -207,7 +205,6 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log(`   Diagnosis Links   : ${results.diagnosisLinks?.success ? '✅ created' : (results.diagnosisLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Procedure Links   : ${results.procedureLinks?.success ? '✅ created' : (results.procedureLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Test Data         : ${results.testData?.success ? '✅ seeded' : (results.testData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
-    console.log(`   Maternity Data    : ${results.maternityData?.success ? '✅ seeded' : (results.maternityData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
 
     // Save final status
     saveSeedingStatus(status);
@@ -221,8 +218,7 @@ export const seedDatabase = async (force: boolean = false) => {
         coreData: status.coreData,
         diagnosisLinks: status.diagnosisLinks,
         procedureLinks: status.procedureLinks,
-        testData: status.testData,
-        maternityData: status.maternityData
+        testData: status.testData
       }
     };
 
