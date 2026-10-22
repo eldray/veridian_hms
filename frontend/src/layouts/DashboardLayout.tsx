@@ -13,7 +13,7 @@ import {
   FlaskConical, Pill, ChevronDown, Settings, Bell, Heart, Shield,
   ClipboardList, Building, CreditCard, Warehouse, Calendar, Activity,
   ChevronLeft, ChevronRight, Sun, Moon, Baby, Scissors, Syringe,
-  Clipboard, TrendingUp, Eye, Trash2, Microscope, HeartPulse, Scan,
+  Clipboard, TrendingUp, Eye, Trash2, Microscope, HeartPulse, Scan, ArrowLeftRight,
   Briefcase, ScrollText,
 } from 'lucide-react';
 
@@ -44,6 +44,7 @@ const navigationItems = [
   { name: 'Stock',               path: '/dashboard/stock',               icon: Warehouse,       roles: ['admin','super_admin','pharmacist'] },
   { name: 'Invoices',            path: '/dashboard/invoices',            icon: FileText,        roles: ['admin','super_admin','pharmacist','accounts'] },
   { name: 'Requisitions',        path: '/dashboard/requisitions',        icon: ClipboardList,   roles: ['admin','super_admin','pharmacist','nurse','midwife'] },
+  { name: 'Stock Transfers',     path: '/dashboard/stock/transfers',     icon: ArrowLeftRight,  roles: ['admin','super_admin','pharmacist','doctor','nurse','midwife','lab_tech','sonographer','records'] },
   { name: 'Stock Reports',       path: '/dashboard/stock/reports',       icon: BarChart3,       roles: ['admin','super_admin','pharmacist','accounts'] },
   { name: 'Admissions',          path: '/dashboard/admissions',          icon: BedDouble,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
   { name: 'Wards',               path: '/dashboard/wards',               icon: BedDouble,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
@@ -78,7 +79,7 @@ const NAV_GROUPS = [
   },
   {
     label: 'Pharmacy',
-    keys: ['Pharmacy', 'Dispense Queue', 'Inventory', 'Stock', 'Requisitions', 'Stock Reports'],
+    keys: ['Pharmacy', 'Dispense Queue', 'Inventory', 'Stock', 'Requisitions', 'Stock Transfers', 'Stock Reports'],
   },
   {
     label: 'Ward',
