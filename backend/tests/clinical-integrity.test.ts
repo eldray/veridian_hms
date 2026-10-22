@@ -116,6 +116,29 @@ describe('admission, bed and nursing record consistency', () => {
     expect(repository.administerDose).not.toHaveBeenCalled();
   });
 
+  it('also releases the bed when discharge is saved through the admission update endpoint', async () => {
+    const tx: any = {
+      admission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'admission-1', attendanceId: 'attendance-1', dischargeDate: null, dailyNotes: [],
+          attendance: { id: 'attendance-1', bedId: 'bed-1' },
+        }),
+        update: vi.fn().mockResolvedValue({ id: 'admission-1' }),
+      },
+      attendance: { update: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) },
+      bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }), update: vi.fn() },
+      ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await repository.updateAdmission('admission-1', { dischargeDate: '2026-10-22T10:00:00.000Z', dischargeStatus: 'home' }, 'admin-1');
+
+    expect(tx.attendance.update).toHaveBeenCalledWith({ where: { id: 'attendance-1' }, data: { status: 'discharged', bedId: null } });
+    expect(tx.bed.update).toHaveBeenCalledWith({ where: { id: 'bed-1' }, data: { isOccupied: false } });
+    expect(tx.ward.updateMany).toHaveBeenCalledWith({ where: { id: 'ward-1', occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
+  });
+
   it('rejects a nursing note when its attendance belongs to a different patient', async () => {
     const prisma: any = {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-other' }) },
