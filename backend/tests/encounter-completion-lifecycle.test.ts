@@ -29,7 +29,7 @@ describe('encounter completion lifecycle', () => {
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.attendance.updateMany).toHaveBeenCalledWith({
       where: { id: 'encounter-1', status: 'pending' },
-      data: { status: 'completed', updatedById: 'staff-1' },
+      data: { status: 'completed', bedId: null, updatedById: 'staff-1' },
     });
   });
 
