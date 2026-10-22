@@ -139,7 +139,7 @@ export class AntenatalController extends BaseController {
     body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
     body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
     body('iptpGiven').optional().isBoolean(),
-    body('iptpDoseNumber').optional().isInt({ min: 1, max: 5 }),
+    body('iptpDoseNumber').optional().isInt({ min: 1, max: 10 }),
     body('ttGiven').optional().isBoolean(),
     body('ttDoseNumber').optional().isInt({ min: 1, max: 5 }),
     body('dangerSignsPresent').optional().isBoolean(),
