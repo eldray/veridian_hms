@@ -589,6 +589,12 @@ export default function MedicalEntries() {
   const [hpc, setHpc] = useState('');
   const [odq, setOdq] = useState('');
   const [physicalExam, setPhysicalExam] = useState('');
+  const [reviewOfSystems, setReviewOfSystems] = useState<Record<string, string>>({});
+  const [physicalExamStructured, setPhysicalExamStructured] = useState<Record<string, string>>({});
+  const [assessment, setAssessment] = useState('');
+  const [allergyReviewStatus, setAllergyReviewStatus] = useState<'not_reviewed' | 'no_known_allergies' | 'known_allergies'>('not_reviewed');
+  const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
+  const [clinicalOutcome, setClinicalOutcome] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
@@ -704,7 +710,13 @@ export default function MedicalEntries() {
         setPresentedComplaints(att.complaints || '');
         setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-        setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
+        setPhysicalExam(att.physicalExaminationNotes || clinicalNotes.physicalExamination || (att as any).physicalExaminationNotes || '');
+        setReviewOfSystems((att as any).reviewOfSystems || {});
+        setPhysicalExamStructured((att as any).physicalExamination && typeof (att as any).physicalExamination === 'object' ? (att as any).physicalExamination : {});
+        setAssessment((att as any).assessment || '');
+        setAllergyReviewStatus((att as any).allergyReviewStatus || 'not_reviewed');
+        setAllergyReviewNotes((att as any).allergyReviewNotes || '');
+        setClinicalOutcome((att as any).clinicalOutcome || '');
         const followUp = (att as any).followUpDate ? new Date((att as any).followUpDate) : null;
         setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
@@ -734,7 +746,9 @@ export default function MedicalEntries() {
   const handleClearSelection = () => {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
-    setPhysicalExam(''); setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
+    setPhysicalExam(''); setReviewOfSystems({}); setPhysicalExamStructured({}); setAssessment('');
+    setAllergyReviewStatus('not_reviewed'); setAllergyReviewNotes(''); setClinicalOutcome('');
+    setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
     setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
   };
@@ -754,6 +768,15 @@ export default function MedicalEntries() {
 
       await updateAttendance(selectedAttendanceId, {
         complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        reviewOfSystems,
+        physicalExamination: physicalExamStructured,
+        physicalExaminationNotes: physicalExam,
+        assessment,
+        treatmentPlan,
+        allergyReviewStatus,
+        allergyReviewNotes,
+        clinicalOutcome: clinicalOutcome || null,
         clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         updatedById: user?.id,
