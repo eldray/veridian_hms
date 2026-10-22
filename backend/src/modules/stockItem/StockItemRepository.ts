@@ -560,6 +560,9 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       : Promise.resolve([]);
     const [items, transferItems] = await Promise.all([itemsPromise, transfersPromise]);
     const inTransit = new Map<string, Array<{ quantity: number; costPrice: number }>>();
+    const batchTrackedItemIds = new Set((items as any[]).filter((item: any) =>
+      Number(item._count?.StockBatch) > 0 || (Array.isArray(item.StockBatch) && item.StockBatch.length > 0)
+    ).map((item: any) => item.id));
     const inTransitReconciliationIssues = new Map<string, string[]>();
     const addReconciliationIssue = (stockItemId: string, issue: string) => {
       const existing = inTransitReconciliationIssues.get(stockItemId) || [];
@@ -581,6 +584,9 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         addReconciliationIssue(transferItem.stockItemId, 'Dispatched transfer has a non-zero received quantity. Partial/legacy receipt allocations cannot be valued safely; reconcile this transfer.');
         continue;
       }
+      // Transfers of legacy/non-batch stock have no lot allocation by design;
+      // their in-transit quantity remains covered by aggregate catalogue-cost valuation.
+      if (!batchTrackedItemIds.has(transferItem.stockItemId)) continue;
       const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
       const valid = allocations.length > 0 && allocations.every((allocation: any) =>
         Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
