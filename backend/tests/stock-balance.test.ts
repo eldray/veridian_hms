@@ -354,14 +354,15 @@ describe('batch write-off reconciliation', () => {
     const tx: any = {
       stockBatch: {
         count: vi.fn().mockResolvedValue(1),
-        findMany: vi.fn().mockResolvedValue([{
+        findFirst: vi.fn().mockResolvedValue({
           id: 'expired-batch',
           batchNumber: 'EXPIRED-LOT',
           quantity: 3,
           expiryDate: expiredDate,
           costPrice: '4.25',
           isActive: false,
-        }]),
+        }),
+        findMany: vi.fn(),
         updateMany: updateBatch,
       },
       stockItemDepartmentBalance: {
@@ -380,7 +381,7 @@ describe('batch write-off reconciliation', () => {
     const repository = new StockItemRepository(prisma);
 
     await repository.updateStockLevelSafely(
-      'item-1', 1, 'write_off', 'EXPIRY-WO', 'Expired batch disposal', 'user-1', 'pharmacy',
+      'item-1', 1, 'write_off', 'EXPIRY-WO', 'Expired batch disposal', 'user-1', 'pharmacy', 'EXPIRED-LOT',
     );
 
     expect(updateBatch).toHaveBeenCalledWith({
