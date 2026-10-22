@@ -48,6 +48,19 @@ const SECTION_KEYS: Record<string, string[]> = {
   reAttendancesReferrals: ['re_attendances','referrals'],
 };
 
+/**
+ * Respect the explicit per-diagnosis HMIS classification when present.
+ * For older records without it, preserve the existing history-based fallback.
+ */
+export const isNewHMISDiagnosisCase = (
+  classification: unknown,
+  diagnosisPreviouslyRecorded: boolean,
+): boolean => {
+  if (classification === 'NEW_DIAGNOSIS') return true;
+  if (classification === 'OLD_DIAGNOSIS') return false;
+  return !diagnosisPreviouslyRecorded;
+};
+
 function getMorbidityAgeGroup(dob: Date, ref: Date): GHSAgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '<28d'; if (months < 12) return '1-11m'; if (years < 5) return '1-4'; if (years < 10) return '5-9'; if (years < 15) return '10-14'; if (years < 18) return '15-17'; if (years < 20) return '18-19'; if (years < 35) return '20-34'; if (years < 50) return '35-49'; if (years < 60) return '50-59'; if (years < 70) return '60-69'; return '70+'; }
 function getOPDAgeGroup(dob: Date, ref: Date): OPD_AgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '0-28d'; if (months < 12) return '1-11m'; if (years < 5) return '1-4y'; if (years < 10) return '5-9y'; if (years < 15) return '10-14y'; if (years < 18) return '15-17y'; if (years < 20) return '18-19y'; if (years < 35) return '20-34y'; if (years < 50) return '35-49y'; if (years < 60) return '50-59y'; if (years < 70) return '60-69y'; return '70+y'; }
 function getIPDAgeGroup(dob: Date, ref: Date): IPD_AgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '0-28d'; if (months < 12) return '1-11m'; if (years < 10) return '5-9y'; return '10-14y'; }
@@ -221,10 +234,13 @@ export class GHSReportService extends BaseService {
       const hasFinalDiagnosis = att.AttendanceDiagnosis.some((row: any) => row.diagnosisType === 'primary');
       const reportableDiagnoses = att.AttendanceDiagnosis.filter((row: any) => row.diagnosisType !== 'provisional' || !hasFinalDiagnosis);
       for (const diag of reportableDiagnoses) {
-        // GHS monthly OPD morbidity returns are new cases, not every repeat visit.
-        if (seenDiagnoses.has(diag.diagnosisId)) continue;
+        // Explicit classification wins: a new episode can be a new case even if
+        // this patient has had the same diagnosis in the past. Legacy rows fall
+        // back to history-based classification.
+        const isNewCase = isNewHMISDiagnosisCase(diag.classification, seenDiagnoses.has(diag.diagnosisId));
         seenDiagnoses.add(diag.diagnosisId);
         diagnosisHistoryByPatient.set(att.patientId, seenDiagnoses);
+        if (!isNewCase) continue;
         const d = diag.Diagnosis; if (!d?.morbidityGroup) continue;
         const sectionKey = MORBIDITY_SECTION_MAP.get(d.morbidityGroup as string);
         if (sectionKey && sectionKey !== 'reAttendancesReferrals') {
@@ -416,10 +432,11 @@ export class GHSReportService extends BaseService {
       const provisionalDiagnosis = diagnoses.find((d: any) => d.diagnosisType === 'provisional')?.Diagnosis?.name ?? '';
       const additionalDiagnoses = diagnoses.filter((d: any) => d.diagnosisType === 'additional');
       const historicalDiagnosisIds = diagnosisHistoryByPatient.get(patient.id) ?? new Set<string>();
-      const newDiagnoses = diagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
-      const oldDiagnoses = diagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
-      const newAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
-      const oldAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
+      const isNewDiagnosis = (d: any) => isNewHMISDiagnosisCase(d.classification, historicalDiagnosisIds.has(d.diagnosisId));
+      const newDiagnoses = diagnoses.filter(isNewDiagnosis);
+      const oldDiagnoses = diagnoses.filter((d: any) => !isNewDiagnosis(d));
+      const newAdditionalDiagnoses = additionalDiagnoses.filter(isNewDiagnosis);
+      const oldAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => !isNewDiagnosis(d));
       const names = (rows: any[]) => rows.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', ');
       const labTestsRequested = att.LabTest.map((l: any) => l.LabTestTemplate?.name ?? 'Unknown').join(', ');
       const labResults = att.LabTest.filter((l: any) => l.status === 'completed' && l.result).map((l: any) => `${l.LabTestTemplate?.name}: ${(l.result as any)?.result ?? 'Done'}`).join('; ');
