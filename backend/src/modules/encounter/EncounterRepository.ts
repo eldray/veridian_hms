@@ -97,7 +97,30 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // CORE ENCOUNTER OPERATIONS
   // ============================================
   
+  private validateClinicalDocumentation(data: Record<string, any>) {
+    const outcomes = ['improved', 'stable', 'unchanged', 'deteriorated', 'deceased', 'unknown'];
+    const allergyStatuses = ['not_reviewed', 'no_known_allergies', 'allergies_present'];
+    if (data.clinicalOutcome != null && !outcomes.includes(String(data.clinicalOutcome))) {
+      throw new ValidationError('Invalid clinical condition outcome');
+    }
+    if (data.allergyReviewStatus != null && !allergyStatuses.includes(String(data.allergyReviewStatus))) {
+      throw new ValidationError('Invalid allergy review status');
+    }
+    for (const field of ['reviewOfSystems', 'physicalExamStructured']) {
+      const value = data[field];
+      if (value != null && (typeof value !== 'object' || Array.isArray(value))) {
+        throw new ValidationError(`${field} must be a structured object keyed by clinical system`);
+      }
+    }
+    for (const field of ['complaints', 'historyPresentingComplaint', 'physicalExamination', 'assessment', 'treatmentPlan', 'allergyReviewNotes']) {
+      const value = data[field];
+      if (value != null && typeof value !== 'string') throw new ValidationError(`${field} must be text`);
+      if (typeof value === 'string' && value.length > 20000) throw new ValidationError(`${field} exceeds the maximum supported length`);
+    }
+  }
+
   async create(data: CreateEncounterDTO, userId: string) {
+    this.validateClinicalDocumentation(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const counterService = getCounterService(); 
     return this.getModel().create({
@@ -121,7 +144,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         clinicalOutcome: data.clinicalOutcome as any,
         allergyReviewStatus: data.allergyReviewStatus as any,
         allergyReviewNotes: data.allergyReviewNotes,
-        providerId: data.providerId || actorId,
+        providerId: data.providerId,
         
         status: 'pending',
         createdById: actorId,
@@ -316,6 +339,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) {
+    this.validateClinicalDocumentation(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const normalizedData = this.normalizeUpdateData(data);
     const admissionType = normalizedData.admissionType;
