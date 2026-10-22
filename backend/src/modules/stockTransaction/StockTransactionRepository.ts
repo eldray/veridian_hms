@@ -310,16 +310,17 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
     const inTransitAllocations = new Map<string, Array<{ quantity: number; costPrice: number }>>();
     for (const transferItem of dispatchedTransferItems as any[]) {
       const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
-      const validAllocations = allocations.filter((allocation: any) =>
+      const allocationsAreValid = allocations.length > 0 && allocations.every((allocation: any) =>
         Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
         Number.isFinite(Number(allocation?.costPrice)) && Number(allocation.costPrice) >= 0
       );
       // Avoid inventing valuation when legacy/malformed allocation data cannot
       // reconcile exactly to the quantity still in transit.
-      if (!validAllocations.length ||
-          validAllocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== transferItem.quantitySent) {
+      if (!allocationsAreValid ||
+          allocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== transferItem.quantitySent) {
         continue;
       }
+      const validAllocations = allocations;
       const existing = inTransitAllocations.get(transferItem.stockItemId) || [];
       existing.push(...validAllocations.map((allocation: any) => ({
         quantity: allocation.quantity,
