@@ -473,10 +473,25 @@ model Attendance {
   nhisCCCGeneratedAt DateTime?
   nhisCCCValidUntil  DateTime?
 
-  // ✅ RESTORED: All three clinical note fields serve different purposes
-  complaints    String? // ✅ Patient's chief complaint (reason for visit)
-  medicalNotes  String? // ✅ Doctor's clinical notes/observations
-  clinicalNotes Json? // ✅ Structured clinical data
+  // Clinical documentation: retain legacy JSON for backward compatibility.
+  complaints    String? @db.Text
+  medicalNotes  String? @db.Text
+  clinicalNotes Json?
+
+  // Structured OPD clinical record. Drafts may be incomplete; finalisation is API-validated.
+  historyPresentingComplaint String? @db.Text
+  reviewOfSystems            Json?
+  physicalExamination        Json?
+  physicalExaminationNotes   String? @db.Text
+  assessment                 String? @db.Text
+  treatmentPlan              String? @db.Text
+  allergyReviewStatus        AllergyReviewStatus @default(not_reviewed)
+  allergyReviewNotes         String? @db.Text
+  clinicalNoteStatus         ClinicalNoteStatus  @default(draft)
+  clinicalOutcome            ClinicalOutcome?
+  clinicalProviderId         String?
+  clinicalFinalizedById      String?
+  clinicalFinalizedAt        DateTime?
 
   // ✅ RESTORED: Both categories
   encounterCategory EncounterCategory @default(opd)
@@ -522,6 +537,8 @@ model Attendance {
 
   User_Attendance_createdByIdToUser User  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
   User_Attendance_updatedByIdToUser User? @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
+  clinicalProvider                User? @relation("Attendance_clinicalProvider", fields: [clinicalProviderId], references: [id])
+  clinicalFinalizedBy             User? @relation("Attendance_clinicalFinalizedBy", fields: [clinicalFinalizedById], references: [id])
 
   appointment    Appointment?    @relation
   referral       ReferralRecord? @relation
@@ -2082,6 +2099,8 @@ model User {
   // ── Clinical / Operational relations ──────────────────────
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
+  Attendance_clinicalProvider                     Attendance[]              @relation("Attendance_clinicalProvider")
+  Attendance_clinicalFinalizedBy                  Attendance[]              @relation("Attendance_clinicalFinalizedBy")
   AttendanceDiagnosis                             AttendanceDiagnosis[]
   Bill_Bill_createdByIdToUser                     Bill[]                    @relation("Bill_createdByIdToUser")
   Bill_Bill_updatedByIdToUser                     Bill[]                    @relation("Bill_updatedByIdToUser")
@@ -2906,6 +2925,30 @@ enum PaymentMode {
   nhis
   private_insurance
   corporate
+}
+
+enum ClinicalNoteStatus {
+  draft
+  finalized
+  amended
+}
+
+enum ClinicalOutcome {
+  treated_and_discharged
+  admitted
+  referred
+  transferred
+  left_against_medical_advice
+  left_without_being_seen
+  absconded
+  died
+  other
+}
+
+enum AllergyReviewStatus {
+  not_reviewed
+  no_known_allergies
+  known_allergies
 }
 
 enum AttendanceStatus {
