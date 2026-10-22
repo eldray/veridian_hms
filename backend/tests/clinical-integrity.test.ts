@@ -208,7 +208,10 @@ describe('maternal record integrity', () => {
       },
       deliveryRecord: { create: deliveryCreate },
     };
-    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
     const repository = new AntenatalRepository(prisma);
 
     await expect(repository.createDeliveryRecord({
