@@ -210,7 +210,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
+      // followUpDate is nullable by design: an explicit null means clear the scheduled date.
+      // Other nullable fields retain the existing "ignore null" behavior to avoid accidental erasure.
+      if (value === undefined || (value === null && key !== 'followUpDate')) return;
       if (key === 'updatedAt') return;
 
       if (key === 'complaint') {
@@ -222,6 +224,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
       if (key === 'dateTime' || key === 'followUpDate') {
+        if (key === 'followUpDate' && value === null) {
+          normalized.followUpDate = null;
+          return;
+        }
         const date = value instanceof Date ? value : new Date(value);
         if (Number.isNaN(date.getTime())) {
           throw new ValidationError(`Invalid ${key}`);
