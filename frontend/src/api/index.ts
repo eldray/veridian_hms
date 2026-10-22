@@ -2147,13 +2147,14 @@ export const getReferralById = async (id: string) => {
 
 export const createOutgoingReferral = async (data: {
   patientId: string;
+  attendanceId?: string;
   referralReason: string;
   referredToFacility: string;
   referredToDoctor?: string;
   referredToDepartment?: string;
   urgency?: string;
   referralNotes?: string;
-  encounterId?: string;
+  structuredForm?: { partI?: Record<string, unknown>; partII?: Record<string, unknown> };
 }) => {
   const response = await api.post('/referrals/outgoing', data);
   return response.data;
@@ -2166,6 +2167,7 @@ export const createIncomingReferral = async (data: {
   referredFromDoctor?: string;
   urgency?: string;
   referralNotes?: string;
+  structuredForm?: { partI?: Record<string, unknown>; partII?: Record<string, unknown> };
 }) => {
   const response = await api.post('/referrals/incoming', data);
   return response.data;
