@@ -635,10 +635,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         include: { patient: true, attendance: true, Newborn: true }
       });
 
-      // Delivery creation and closure of the related ANC booking must succeed or fail together.
-      if (data.antenatalBookingId) {
+      // Close whichever booking was linked to the delivery, including the latest active
+      // booking selected automatically when the request does not supply an ANC booking ID.
+      if (booking?.id) {
         const closed = await tx.antenatalBooking.updateMany({
-          where: { id: data.antenatalBookingId, patientId: data.patientId, isActive: true, isCompleted: false },
+          where: { id: booking.id, patientId: data.patientId, isActive: true, isCompleted: false },
           data: {
             isActive: false, isCompleted: true, deliveryDate,
             deliveryOutcome: String(data.deliveryOutcome), deliveryRecordId: record.id,
