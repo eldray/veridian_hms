@@ -88,7 +88,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.post('/', requireRole(['admin', 'super_admin', 'records', 'doctor', 'nurse', 'midwife']), controller.create);
   router.get('/', controller.getAll);
   router.get('/:id', controller.getById);
-  router.post('/:id/finalize-clinical', requireRole(['admin', 'super_admin', 'doctor', 'midwife']), controller.finalizeClinicalRecord);
+  router.post('/:id/finalize-clinical', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.finalizeClinicalRecord);
   router.put('/:id', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.update);
   router.put('/:id/status', requireRole(['admin', 'super_admin', 'doctor']), controller.updateStatus);
   router.delete('/:id', requireRole(['admin', 'super_admin']), controller.delete);
