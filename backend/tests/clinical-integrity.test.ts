@@ -89,6 +89,20 @@ describe('admission, bed and nursing record consistency', () => {
     expect(tx.ward.updateMany).toHaveBeenCalledWith({ where: { id: 'ward-1', occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
   });
 
+  it('prevents another nurse from deleting a care task they did not create', async () => {
+    const prisma: any = {};
+    const service = new NursingService(prisma);
+    const repository = {
+      findTaskById: vi.fn().mockResolvedValue({ id: 'task-1', createdById: 'nurse-a' }),
+      deleteTask: vi.fn(),
+    };
+    (service as any).repository = repository;
+
+    await expect(service.deleteTask('task-1', { userId: 'nurse-b', role: 'nurse' }))
+      .rejects.toThrow(/task creator or an admin/i);
+    expect(repository.deleteTask).not.toHaveBeenCalled();
+  });
+
   it('blocks medication administration after the encounter is closed', async () => {
     const prisma: any = { attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) } };
     const service = new NursingService(prisma);
