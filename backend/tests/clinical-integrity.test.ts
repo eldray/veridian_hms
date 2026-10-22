@@ -1003,3 +1003,28 @@ describe('delivery-to-ANC booking link integrity', () => {
     expect(deliveryUpdate).not.toHaveBeenCalled();
   });
 });
+
+
+describe('postnatal attendance type consistency', () => {
+  it('allows a postnatal assessment to be recorded during a delivery attendance', async () => {
+    const attendance = { id: 'delivery-attendance', patientId: 'patient-1', attendanceType: 'delivery' };
+    const create = vi.fn().mockResolvedValue({ id: 'postnatal-1', attendanceId: attendance.id });
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
+      postnatalRecord: { create },
+    };
+    const prisma = {
+      attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new AntenatalRepository(prisma as any);
+
+    await expect(repository.createPostnatalRecord({
+      patientId: 'patient-1', attendanceId: attendance.id, createdById: 'midwife-1',
+      examinationDate: new Date('2026-10-20T10:00:00.000Z'),
+    } as any)).resolves.toEqual({ id: 'postnatal-1', attendanceId: attendance.id });
+
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+});
