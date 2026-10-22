@@ -205,7 +205,8 @@ export class AntenatalController extends BaseController {
     body('deliveryType').optional().isIn(['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple']),
     body('deliveryOutcome').optional().isIn(['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death']),
     body('gestationWeeks').optional().isInt({ min: 0, max: 42 }),
-    body('birthWeight').optional().isFloat({ min: 0, max: 10 }),
+    // DeliveryRecord stores birth weight in grams; keep the HTTP validator aligned with the repository.
+    body('birthWeight').optional().isFloat({ min: 1, max: 15000 }),
     body('apgarScore1min').optional().isInt({ min: 0, max: 10 }),
     body('apgarScore5min').optional().isInt({ min: 0, max: 10 }),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
