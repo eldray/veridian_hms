@@ -509,6 +509,44 @@ const hasCoreData = async (): Promise<boolean> => {
 };
 
 // ─────────────────────────────────────────────────────────────
+// Safe reference-data reconciliation for an already populated database.
+// This deliberately does not create demo users, patients, visits, or overwrite
+// existing diagnosis catalogue entries edited by the facility.
+// ─────────────────────────────────────────────────────────────
+export const seedDiagnosisReferenceData = async () => {
+  const diagnosesData = readJSON('diagnoses.json');
+  if (!Array.isArray(diagnosesData)) {
+    throw new Error('Diagnosis reference data is missing or invalid (expected diagnoses.json array)');
+  }
+
+  let createdOrVerified = 0;
+  const failures: Array<{ icdCode: string; error: string }> = [];
+  for (const diagnosis of diagnosesData) {
+    if (!diagnosis?.icdCode || !diagnosis?.name) continue;
+    try {
+      const data = addSchemaDefaults(diagnosis, 'diagnosis');
+      // Insert missing ICD-10 entries without replacing local edits to existing rows.
+      await prisma.diagnosis.upsert({
+        where: { icdCode: diagnosis.icdCode },
+        create: data,
+        update: {},
+      });
+      createdOrVerified++;
+    } catch (error: any) {
+      failures.push({ icdCode: String(diagnosis.icdCode), error: error?.message || 'Unknown error' });
+    }
+  }
+
+  if (failures.length) {
+    console.error(`Diagnosis reference reconciliation: ${failures.length} entries failed`, failures.slice(0, 10));
+    throw new Error(`Diagnosis reference reconciliation failed for ${failures.length} of ${diagnosesData.length} entries; inspect seed logs for ICD-10 details`);
+  }
+
+  console.log(`Diagnosis reference catalogue reconciled: ${createdOrVerified} ICD-10 entries verified/inserted`);
+  return { success: true, count: createdOrVerified };
+};
+
+// ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
 export const seedCoreData = async (force: boolean = false) => {
