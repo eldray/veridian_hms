@@ -846,8 +846,10 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (attendance.patientId !== d.patientId) {
       throw new ValidationError('The postnatal attendance belongs to a different patient');
     }
-    if (attendance.attendanceType !== 'postnatal') {
-      throw new ValidationError('Postnatal record must be linked to a postnatal attendance');
+    // Postnatal assessments may be recorded during the delivery encounter or at a
+    // dedicated postnatal attendance. Keep this pre-check aligned with the transaction below.
+    if (!['postnatal', 'delivery'].includes(attendance.attendanceType)) {
+      throw new ValidationError('Postnatal record must be linked to a delivery or postnatal attendance');
     }
     if (d.antenatalBookingId) {
       const booking = await this.prisma.antenatalBooking.findUnique({
