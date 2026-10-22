@@ -540,9 +540,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
         where: { id: encounterId },
-        select: { id: true },
+        select: { id: true, encounterCategory: true },
       });
       if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (encounter.encounterCategory === 'opd' && !data.classification) {
+        throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
+      }
 
       const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
       if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
