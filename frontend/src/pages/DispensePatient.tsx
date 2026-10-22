@@ -343,7 +343,14 @@ export default function DispensePatient() {
       setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
         ['prescribed', 'dispensed'].includes(m.status)));
     } catch (err: any) {
-      toastError('Bulk dispense failed', err.message);
+      if (okCount > 0) {
+        toastError(
+          'Dispensing saved; refresh needed',
+          `${okCount} item(s) were dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.`
+        );
+      } else {
+        toastError('Bulk dispense failed', err?.response?.data?.message || err.message);
+      }
     } finally {
       setDispensingId(null);
       setBulkDispensing(false);
