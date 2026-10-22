@@ -232,9 +232,14 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
-      where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
+      where: {
+        patientId: { in: patientIds },
+        dateTime: { gte: calendarYearStart, lt: startDate },
+        status: { not: 'cancelled' },
+      },
       _count: { id: true },
     });
 
@@ -265,9 +270,14 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
-      where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
+      where: {
+        patientId: { in: patientIds },
+        dateTime: { gte: calendarYearStart, lt: startDate },
+        status: { not: 'cancelled' },
+      },
       _count: { id: true },
     });
 
