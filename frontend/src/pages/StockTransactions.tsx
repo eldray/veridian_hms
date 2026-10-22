@@ -267,11 +267,20 @@ export default function StockTransactions() {
 
   // Calculate summary stats from filtered transactions
   const summaryStats = {
+    // Adjustments are physical stock movements too; include them according to
+    // their recorded direction so the headline totals reconcile with the ledger.
     totalIncoming: filteredTransactions
-      .filter(t => t.transactionType === 'purchase' || t.transactionType === 'transfer_in')
+      .filter(t =>
+        t.transactionType === 'purchase' ||
+        t.transactionType === 'transfer_in' ||
+        (t.transactionType === 'adjustment' && t.adjustmentDirection === 'increase')
+      )
       .reduce((sum, t) => sum + Math.abs(Number(t.quantity) || 0), 0),
     totalOutgoing: filteredTransactions
-      .filter(t => ['sale', 'requisition', 'write_off', 'transfer_out'].includes(t.transactionType))
+      .filter(t =>
+        ['sale', 'requisition', 'write_off', 'transfer_out'].includes(t.transactionType) ||
+        (t.transactionType === 'adjustment' && t.adjustmentDirection === 'decrease')
+      )
       .reduce((sum, t) => sum + Math.abs(Number(t.quantity) || 0), 0),
     totalTransactions: filteredTransactions.length,
     purchases: filteredTransactions.filter(t => t.transactionType === 'purchase').length,
