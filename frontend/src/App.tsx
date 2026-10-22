@@ -64,6 +64,7 @@ import Scans from './pages/Scans';
 import InvoiceManagement from './pages/InvoiceManagement';
 import RequisitionManagement from './pages/RequisitionManagement';
 import StockTransactions from './pages/StockTransactions';
+import StockTransfers from './pages/StockTransfers';
 import StockReports from './pages/StockReports';
 import PatientBillingItems from './pages/PatientBillingItems';
 import NursingPatientWorkspace from './pages/NursingPatientWorkspace';
@@ -122,7 +123,7 @@ const rolePermissions: Record<string, string[]> = {
     'scans', 'laboratory', 'referrals',
     'service_catalog',           // ✅ NEW — view services offered
     'pharmacy',     
-    'requisitions',               // ✅ NEW — if midwives dispense from ward stock
+    'requisitions', 'stock_transfers', // Stock transfer requests and receipts
     'dispense_medication',       // ✅ NEW — if midwives dispense from ward stock
     'reports', 'profile', 'notifications',
   ],
@@ -180,6 +181,7 @@ const routeMap: Record<string, string> = {
   '/dashboard/dispense':                             'dispense_medication',
   '/dashboard/stock':                                'stock_management',
   '/dashboard/stock/reports':                        'stock_reports',
+  '/dashboard/stock/transfers':                      'stock_transfers',
   '/dashboard/theatre':                              'theatre',
   '/dashboard/antenatal':                            'antenatal',
   '/dashboard/scans':                                'scans',
@@ -423,6 +425,7 @@ function App() {
 
           {/* Stock Reports */}
           <Route path="stock/reports" element={<ProtectedRoute><StockReports /></ProtectedRoute>} />
+          <Route path="stock/transfers" element={<ProtectedRoute><StockTransfers /></ProtectedRoute>} />
 
           {/* Stock Management */}
           <Route path="invoices"            element={<ProtectedRoute><InvoiceManagement /></ProtectedRoute>} />
