@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { StockTransactionService } from '../src/modules/stockTransaction/StockTransactionService';
 import { StockTransactionRepository } from '../src/modules/stockTransaction/StockTransactionRepository';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
+import { StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
 import { ValidationError } from '../src/utils/errors';
 
 describe('stock transaction validation', () => {
@@ -297,5 +298,77 @@ describe('batch-specific write-off safety', () => {
     expect(tx.stockBatch.findFirst).not.toHaveBeenCalled();
     expect(tx.stockBatch.updateMany).not.toHaveBeenCalled();
     expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('legacy stock-level write-off batch safety', () => {
+  const makeRepository = (batch: any) => {
+    const batchUpdate = vi.fn().mockResolvedValue({ count: 1 });
+    const transactionCreate = vi.fn().mockResolvedValue({ id: 'write-off-1' });
+    const tx: any = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findFirst: vi.fn().mockResolvedValue(batch),
+        findMany: vi.fn().mockResolvedValue([{ ...batch, quantity: 20 }]),
+        updateMany: batchUpdate,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 3 }),
+      },
+      stockItem: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 8 }),
+      },
+      stockTransaction: { create: transactionCreate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    return { repository: new StockItemRepository(prisma), tx, batchUpdate, transactionCreate };
+  };
+
+  it('requires an explicit batch number instead of silently writing off the FEFO batch', async () => {
+    const { repository, tx, batchUpdate } = makeRepository({
+      id: 'batch-1', batchNumber: 'GOOD-LOT', quantity: 20,
+      expiryDate: new Date('2027-06-01T00:00:00Z'), costPrice: '2.50',
+    });
+
+    await expect(repository.updateStockLevelSafely('item-1', 2, 'write_off', undefined, 'Damaged', 'user-1', 'pharmacy'))
+      .rejects.toThrow(/batch number being written off/i);
+
+    expect(tx.stockBatch.findMany).not.toHaveBeenCalled();
+    expect(batchUpdate).not.toHaveBeenCalled();
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('decrements only the explicitly selected expired or inactive batch', async () => {
+    const expiredBatch = {
+      id: 'batch-expired', batchNumber: 'EXP-LOT', quantity: 4,
+      expiryDate: new Date('2025-04-01T00:00:00Z'), costPrice: '2.25', isActive: false,
+    };
+    const { repository, tx, batchUpdate, transactionCreate } = makeRepository(expiredBatch);
+
+    await repository.updateStockLevelSafely('item-1', 2, 'write_off', undefined, 'Expired stock', 'user-1', 'pharmacy', 'EXP-LOT');
+
+    expect(tx.stockBatch.findFirst).toHaveBeenCalledWith({
+      where: {
+        stockItemId: 'item-1', batchNumber: 'EXP-LOT',
+        departmentId: 'pharmacy', wardId: null, quantity: { gt: 0 },
+      },
+    });
+    expect(tx.stockBatch.findMany).not.toHaveBeenCalled();
+    expect(batchUpdate).toHaveBeenCalledWith({
+      where: { id: 'batch-expired', departmentId: 'pharmacy', wardId: null, quantity: { gte: 2 } },
+      data: { quantity: { decrement: 2 } },
+    });
+    expect(transactionCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        transactionType: 'write_off',
+        batchAllocations: [{
+          batchId: 'batch-expired', batchNumber: 'EXP-LOT', quantity: 2,
+          expiryDate: expiredBatch.expiryDate, costPrice: '2.25',
+        }],
+      }),
+    });
   });
 });
