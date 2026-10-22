@@ -1,5 +1,6 @@
 import { PrismaClient, ReferralStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { ConflictError, NotFoundError } from '../../utils/errors';
 import { CreateOutgoingReferralDTO, CreateIncomingReferralDTO, ReferralFilters } from './ReferralTypes';
 import { getCounterService } from '../../services/CounterService';
 
@@ -122,6 +123,27 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
   }
 
   async updateStatus(id: string, status: ReferralStatus, notes?: any) {
+    const model = this.getModel();
+    const current = await model.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Referral', id);
+
+    const allowedTransitions: Record<string, ReferralStatus[]> = {
+      pending: ['accepted', 'cancelled'],
+      accepted: ['completed'],
+      completed: [],
+      cancelled: [],
+    };
+    if (!allowedTransitions[current.status]?.includes(status)) {
+      throw new ConflictError(
+        current.status === status
+          ? `Referral is already ${status}`
+          : `Referral cannot transition from ${current.status} to ${status}`,
+      );
+    }
+
     const updateData: any = { status };
     if (status === 'accepted' && notes?.acceptanceNotes) {
       updateData.outcomeNotes = notes.acceptanceNotes;
@@ -132,7 +154,19 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
     }
     if (notes?.outcomeNotes) updateData.outcomeNotes = notes.outcomeNotes;
 
-    return this.getModel().update({ where: { id }, data: updateData, include: { patient: { select: { id: true, surname: true, otherNames: true } } } });
+    // Guard the write against a concurrent status change after the initial read.
+    const updated = await model.updateMany({
+      where: { id, status: current.status },
+      data: updateData,
+    });
+    if (updated.count !== 1) {
+      throw new ConflictError('Referral status changed; refresh and try again');
+    }
+
+    return model.findUnique({
+      where: { id },
+      include: { patient: { select: { id: true, surname: true, otherNames: true } } },
+    });
   }
 
   async findByPatient(patientId: string) {
