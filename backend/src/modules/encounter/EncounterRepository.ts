@@ -247,7 +247,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      if (value === undefined || (value === null && key !== 'followUpDate')) return;
+      const nullableClinicalFields = new Set([
+        'followUpDate', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
+        'physicalExamStructured', 'assessment', 'treatmentPlan', 'clinicalOutcome',
+        'allergyReviewStatus', 'allergyReviewNotes', 'providerId',
+      ]);
+      if (value === undefined || (value === null && !nullableClinicalFields.has(key))) return;
       if (key === 'followUpDate' && value === null) {
         normalized.followUpDate = null;
         return;
@@ -378,6 +383,56 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
     if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
     return this.prisma.attendance.findUnique({ where: { id } });
+  }
+
+  async finalizeClinicalRecord(id: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.attendance.findUnique({
+        where: { id },
+        include: {
+          Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+        },
+      });
+      if (!record) throw new NotFoundError('Encounter', id);
+      if (record.finalizedAt) throw new ConflictError('This clinical record has already been finalized');
+      const required: Array<[string, unknown]> = [
+        ['presenting complaint', record.complaints],
+        ['history of presenting complaint', record.historyPresentingComplaint],
+        ['clinical assessment', record.assessment],
+        ['management plan', record.treatmentPlan],
+        ['clinical outcome', record.clinicalOutcome],
+        ['responsible provider', record.providerId],
+      ];
+      const missing = required.filter(([, value]) => typeof value === 'string' ? !value.trim() : value === null || value === undefined)
+        .map(([label]) => label);
+      if (!record.Vitals.length) missing.push('vital signs');
+      if (!record.reviewOfSystems || typeof record.reviewOfSystems !== 'object' ||
+          !Object.values(record.reviewOfSystems as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
+        missing.push('structured review of systems');
+      }
+      if (!record.physicalExamination?.trim()) missing.push('narrative physical examination');
+      if (!record.physicalExamStructured || typeof record.physicalExamStructured !== 'object' ||
+          !Object.values(record.physicalExamStructured as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
+        missing.push('structured physical examination');
+      }
+      if (!record.allergyReviewStatus || record.allergyReviewStatus === 'not_reviewed') missing.push('allergy review');
+      if (missing.length) throw new ValidationError(`Cannot finalize clinical record. Complete: ${missing.join(', ')}.`);
+
+      return tx.attendance.update({
+        where: { id },
+        data: {
+          finalizedAt: new Date(),
+          finalizedById: actorId,
+          providerId: record.providerId || actorId,
+          ...(record.allergyReviewStatus !== 'not_reviewed' && !record.allergyReviewedAt
+            ? { allergyReviewedAt: new Date(), allergyReviewedById: actorId }
+            : {}),
+          updatedById: actorId,
+        },
+        include: { Patient: true, Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 } },
+      });
+    });
   }
 
   // ============================================
