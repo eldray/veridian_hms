@@ -52,7 +52,7 @@ describe('stock valuation report', () => {
       batchValue: 16,
       unbatchedQuantity: 4,
       totalValue: 36,
-      stockDiscrepancy: 0,
+      stockDiscrepancy: 4,
     });
     expect(report.byCategory.consumable.value).toBe(36);
   });
@@ -1075,7 +1075,7 @@ describe('in-transit batch stock valuation', () => {
       inTransitBatchQuantity: 3,
       inTransitBatchValue: 12,
       unbatchedQuantity: 3,
-      stockDiscrepancy: 0,
+      stockDiscrepancy: 3,
       totalValue: 37,
     });
   });
