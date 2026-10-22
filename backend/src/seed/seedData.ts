@@ -97,15 +97,16 @@ const safeSeed = async (
 export const seedDatabase = async (force: boolean = false) => {
   console.log('🏥 Starting comprehensive database initialization...');
   console.log('==================================================');
-  console.log(`🔧 Force mode: ${force ? 'ENABLED (will reseed all)' : 'DISABLED (will skip existing)'}`);
+  console.log(`🔧 Force mode: ${force ? 'ENABLED (continue after seed-step errors; production-data safeguards remain active)' : 'DISABLED (fail fast on seed-step errors)'}`);
 
   // Keep demo/test-data seeding separate from reference-data maintenance.
   // A populated facility database must not receive demo patients, but it should
   // still be able to add missing ICD-10 diagnoses safely without overwriting local edits.
   const hasRealData = await checkDatabaseHasData();
 
-  if (hasRealData && !force) {
-    console.log('✅ Existing patient data detected; skipping demo/test data seeding.');
+  if (hasRealData) {
+    console.log('✅ Existing patient data detected; skipping demo/test data seeding regardless of force mode.');
+    console.log('🛡️ Force mode never overrides the populated-database safety guard.');
     console.log('🔄 Reconciling missing clinical diagnosis reference data only...');
     try {
       const diagnosisReferences = await seedDiagnosisReferenceData();
