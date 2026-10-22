@@ -2,7 +2,7 @@
 import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
-import { seedTestData, deleteTestData, initializeDatabase } from './testSeed.js';
+import { seedTestData } from './testSeed.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
