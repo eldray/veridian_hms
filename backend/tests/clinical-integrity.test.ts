@@ -123,6 +123,22 @@ describe('newborn record validation', () => {
 });
 
 describe('maternal record integrity', () => {
+  it('rejects parity equal to gravidity for an ongoing pregnancy before database access', async () => {
+    const userFindUnique = vi.fn();
+    const repository = new AntenatalRepository({ user: { findUnique: userFindUnique } } as any);
+
+    await expect(repository.createBooking({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      gravida: 2,
+      para: 2,
+      lmp: new Date('2026-01-01T00:00:00.000Z'),
+      createdById: 'midwife-1',
+    } as any)).rejects.toThrow(/para must be a whole number from 0 to less than gravida/i);
+
+    expect(userFindUnique).not.toHaveBeenCalled();
+  });
+
   it('returns no active booking instead of falling back to a completed pregnancy', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
     const repository = new AntenatalRepository({ antenatalBooking: { findFirst } } as any);
