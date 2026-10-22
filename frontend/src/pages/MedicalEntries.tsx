@@ -589,6 +589,12 @@ export default function MedicalEntries() {
   const [hpc, setHpc] = useState('');
   const [odq, setOdq] = useState('');
   const [physicalExam, setPhysicalExam] = useState('');
+  const [assessment, setAssessment] = useState('');
+  const [reviewOfSystems, setReviewOfSystems] = useState<Record<string, string>>({});
+  const [physicalExamStructured, setPhysicalExamStructured] = useState<Record<string, string>>({});
+  const [allergyReviewStatus, setAllergyReviewStatus] = useState<'not_reviewed' | 'no_known_allergies' | 'allergies_present'>('not_reviewed');
+  const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
+  const [clinicalOutcome, setClinicalOutcome] = useState<'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | ''>('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
@@ -704,7 +710,13 @@ export default function MedicalEntries() {
         setPresentedComplaints(att.complaints || '');
         setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-        setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
+        setPhysicalExam(att.physicalExamination || clinicalNotes.physicalExamination || '');
+        setAssessment(att.assessment || clinicalNotes.assessment || '');
+        setReviewOfSystems((att.reviewOfSystems || clinicalNotes.reviewOfSystems || {}) as Record<string, string>);
+        setPhysicalExamStructured((att.physicalExamStructured || clinicalNotes.physicalExamStructured || {}) as Record<string, string>);
+        setAllergyReviewStatus(att.allergyReviewStatus || 'not_reviewed');
+        setAllergyReviewNotes(att.allergyReviewNotes || '');
+        setClinicalOutcome(att.clinicalOutcome || '');
         const followUp = (att as any).followUpDate ? new Date((att as any).followUpDate) : null;
         setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
@@ -734,7 +746,9 @@ export default function MedicalEntries() {
   const handleClearSelection = () => {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
-    setPhysicalExam(''); setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
+    setPhysicalExam(''); setAssessment(''); setReviewOfSystems({}); setPhysicalExamStructured({});
+    setAllergyReviewStatus('not_reviewed'); setAllergyReviewNotes(''); setClinicalOutcome('');
+    setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
     setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
   };
@@ -750,10 +764,25 @@ export default function MedicalEntries() {
         onsetDurationQuality: odq || null,
         physicalExamination: physicalExam || null,
         treatmentPlan: treatmentPlan || null,
+        assessment: assessment || null,
+        reviewOfSystems,
+        physicalExamStructured,
       };
 
       await updateAttendance(selectedAttendanceId, {
         complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        reviewOfSystems,
+        physicalExamination: physicalExam,
+        physicalExamStructured,
+        assessment,
+        treatmentPlan,
+        allergyReviewStatus,
+        allergyReviewNotes,
+        clinicalOutcome: clinicalOutcome || null,
+        allergyReviewedAt: allergyReviewStatus !== 'not_reviewed' ? new Date().toISOString() : null,
+        allergyReviewedById: allergyReviewStatus !== 'not_reviewed' ? user?.id : null,
+        providerId: user?.id,
         clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         updatedById: user?.id,
@@ -1524,6 +1553,79 @@ export default function MedicalEntries() {
                     </label>
                     <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries} />
                   </div>
+                </div>
+              </div>
+
+              {/* Structured review of systems: blank means not assessed; clinicians document findings by system. */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Review of Systems (structured)</h3>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Document findings by system. Leave blank if not assessed; do not assume a normal result.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'].map(system => {
+                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
+                      <span className="block font-semibold mb-1">{system}</span>
+                      <input value={reviewOfSystems[key] || ''} onChange={e => setReviewOfSystems(prev => ({ ...prev, [key]: e.target.value }))}
+                        disabled={!canAddEntries} placeholder="Not assessed / symptoms and findings"
+                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                    </label>;
+                  })}
+                </div>
+              </div>
+
+              {/* Structured examination plus existing narrative examination are both retained. */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Physical Examination (structured)</h3>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Use the narrative examination above for a full account and these fields for system-based findings.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other'].map(system => {
+                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
+                      <span className="block font-semibold mb-1">{system}</span>
+                      <input value={physicalExamStructured[key] || ''} onChange={e => setPhysicalExamStructured(prev => ({ ...prev, [key]: e.target.value }))}
+                        disabled={!canAddEntries} placeholder="Not examined / findings"
+                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                    </label>;
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Assessment / Impression</label>
+                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries}
+                    placeholder="Working or final clinical assessment…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                </div>
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Allergy Review</label>
+                  <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries}
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
+                    <option value="not_reviewed">Not reviewed</option>
+                    <option value="no_known_allergies">No known allergies (confirmed)</option>
+                    <option value="allergies_present">Allergies present / recorded</option>
+                  </select>
+                  {Array.isArray((selectedPatient as any)?.allergies) && (selectedPatient as any).allergies.length > 0 && (
+                    <p className="text-[10px] text-amber-600">Existing patient allergies: {(selectedPatient as any).allergies.map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(' — ')).join('; ')}</p>
+                  )}
+                  <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries}
+                    placeholder="Allergy/reaction details or review notes…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Clinical Condition at End of Visit</label>
+                  <select value={clinicalOutcome} onChange={e => setClinicalOutcome(e.target.value as typeof clinicalOutcome)} disabled={!canAddEntries}
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
+                    <option value="">Not recorded</option>
+                    <option value="improved">Improved</option>
+                    <option value="stable">Stable</option>
+                    <option value="unchanged">Unchanged</option>
+                    <option value="deteriorated">Deteriorated</option>
+                    <option value="deceased">Deceased</option>
+                    <option value="unknown">Unknown / unable to assess</option>
+                  </select>
                 </div>
               </div>
 
