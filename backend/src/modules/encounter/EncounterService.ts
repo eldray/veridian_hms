@@ -19,7 +19,7 @@ const WORKLIST_CACHE_MS = 5_000;
 const releaseBedForAttendance = async (tx: any, attendance: { id: string; bedId?: string | null }) => {
   if (!attendance.bedId) return;
   const otherActiveAssignment = await tx.attendance.findFirst({
-    where: { id: { not: attendance.id }, bedId: attendance.bedId, status: 'admitted' },
+    where: { id: { not: attendance.id }, bedId: attendance.bedId, status: { in: ['pending', 'admitted'] } },
     select: { id: true },
   });
   if (otherActiveAssignment) return;
@@ -93,7 +93,7 @@ export class EncounterService extends BaseService {
         if (bed.wardId !== data.wardId) throw new ValidationError('The selected bed does not belong to the selected ward');
         if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
         const activeAssignment = await tx.attendance.findFirst({
-          where: { bedId: bed.id, status: 'admitted' }, select: { id: true },
+          where: { bedId: bed.id, status: { in: ['pending', 'admitted'] } }, select: { id: true },
         });
         if (bed.isOccupied || activeAssignment) throw new ConflictError('The selected bed is already occupied');
         const reservation = await tx.bed.updateMany({ where: { id: bed.id, isOccupied: false }, data: { isOccupied: true } });
@@ -214,7 +214,7 @@ export class EncounterService extends BaseService {
         if (!bed) throw new NotFoundError('Bed', encounter.bedId);
         if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
         const otherActiveAssignment = await tx.attendance.findFirst({
-          where: { id: { not: encounter.id }, bedId: bed.id, status: 'admitted' }, select: { id: true },
+          where: { id: { not: encounter.id }, bedId: bed.id, status: { in: ['pending', 'admitted'] } }, select: { id: true },
         });
         if (otherActiveAssignment) throw new ConflictError('The selected bed is already assigned to another admitted patient');
         if (!bed.isOccupied) {
