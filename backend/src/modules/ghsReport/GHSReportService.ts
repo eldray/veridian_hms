@@ -372,9 +372,17 @@ export class GHSReportService extends BaseService {
   async generateConsultingRoomRegister(startDate: string | Date, endDate: string | Date, periodType: 'daily' | 'weekly' | 'monthly' = 'daily', createdById: string) {
     const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
     const end = this.eod(typeof endDate === 'string' ? new Date(endDate) : endDate);
-    const { attendances, priorRows } = await this.repository.getConsultingRoomData(start, end);
+    const { attendances, priorRows, priorDiagnoses } = await this.repository.getConsultingRoomData(start, end);
     const facility = await this.repository.getFacility();
-    
+
+    const diagnosisHistoryByPatient = new Map<string, Set<string>>();
+    for (const row of priorDiagnoses as any[]) {
+      const patientId = row.Attendance?.patientId;
+      if (!patientId) continue;
+      if (!diagnosisHistoryByPatient.has(patientId)) diagnosisHistoryByPatient.set(patientId, new Set<string>());
+      diagnosisHistoryByPatient.get(patientId)!.add(row.diagnosisId);
+    }
+
     const hadPrior = new Set(priorRows.filter((r: any) => r._count.id > 0).map((r: any) => r.patientId));
     const seenPeriod = new Set<string>();
     let totalPatients = 0, newPatients = 0, oldPatients = 0, nhisPatients = 0, cashPatients = 0, pregnantWomen = 0, referrals = 0;
@@ -390,6 +398,12 @@ export class GHSReportService extends BaseService {
       const principalDiagnosis = diagnoses.find((d: any) => d.diagnosisType === 'primary')?.Diagnosis?.name ?? '';
       const provisionalDiagnosis = diagnoses.find((d: any) => d.diagnosisType === 'provisional')?.Diagnosis?.name ?? '';
       const additionalDiagnoses = diagnoses.filter((d: any) => d.diagnosisType === 'additional');
+      const historicalDiagnosisIds = diagnosisHistoryByPatient.get(patient.id) ?? new Set<string>();
+      const newDiagnoses = diagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
+      const oldDiagnoses = diagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
+      const newAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
+      const oldAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
+      const names = (rows: any[]) => rows.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', ');
       const labTestsRequested = att.LabTest.map((l: any) => l.LabTestTemplate?.name ?? 'Unknown').join(', ');
       const labResults = att.LabTest.filter((l: any) => l.status === 'completed' && l.result).map((l: any) => `${l.LabTestTemplate?.name}: ${(l.result as any)?.result ?? 'Done'}`).join('; ');
       const drugsPrescribed = att.Medication.filter((m: any) => m.status === 'prescribed').map((m: any) => m.StockItem?.name ?? m.name).join(', ');
@@ -401,7 +415,10 @@ export class GHSReportService extends BaseService {
       totalPatients++; if (isNew) newPatients++; else oldPatients++;
       if (isNHIS) nhisPatients++; if (att.paymentMode === 'cash') cashPatients++; if (isPregnant) pregnantWomen++;
       const clinician = att.User_Attendance_createdByIdToUser?.fullName ?? 'Unknown';
-      entries.push({ date: att.dateTime.toISOString().split('T')[0], attendanceNumber: att.attendanceNumber, patientNo: patient.folderNumber, nhisNo: patient.nhisNumber ?? null, patientName: `${patient.surname} ${patient.otherNames ?? ''}`.trim(), address: patient.address ?? '', age, ageGroup, telephone: patient.contact ?? (patient as any).phoneNumber ?? '', sex: patient.gender, patientType: isNew ? 'NEW' : 'OLD', pregnant: isPregnant, isNHIS, provisionalDiagnosis, labTestsRequested, labResults, principalDiagnosis, newDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), oldDiagnosis: '', additionalDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), newAdditionalDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), oldAdditionalDiagnosis: '', drugsPrescribed, drugsGiven, referredTo: att.referral?.referredToFacility ?? null, referredFrom: att.referringFacility ?? null, clinicalOutcome: att.clinicalOutcome ?? null, attendanceStatus: att.status, assessment: att.assessment ?? '', treatmentPlan: att.treatmentPlan ?? '', clinician, attendanceId: att.id });
+      // Keep history current as entries are ordered chronologically within the report period.
+      diagnoses.forEach((d: any) => historicalDiagnosisIds.add(d.diagnosisId));
+      diagnosisHistoryByPatient.set(patient.id, historicalDiagnosisIds);
+      entries.push({ date: att.dateTime.toISOString().split('T')[0], attendanceNumber: att.attendanceNumber, patientNo: patient.folderNumber, nhisNo: patient.nhisNumber ?? null, patientName: `${patient.surname} ${patient.otherNames ?? ''}`.trim(), address: patient.address ?? '', age, ageGroup, telephone: patient.contact ?? (patient as any).phoneNumber ?? '', sex: patient.gender, patientType: isNew ? 'NEW' : 'OLD', pregnant: isPregnant, isNHIS, provisionalDiagnosis, labTestsRequested, labResults, principalDiagnosis, newDiagnosis: names(newDiagnoses), oldDiagnosis: names(oldDiagnoses), additionalDiagnosis: names(additionalDiagnoses), newAdditionalDiagnosis: names(newAdditionalDiagnoses), oldAdditionalDiagnosis: names(oldAdditionalDiagnoses), drugsPrescribed, drugsGiven, referredTo: att.referral?.referredToFacility ?? null, referredFrom: att.referringFacility ?? null, clinicalOutcome: att.clinicalOutcome ?? null, attendanceStatus: att.status, assessment: att.assessment ?? '', treatmentPlan: att.treatmentPlan ?? '', clinician, attendanceId: att.id });
     }
     
     const periodDisplay = periodType === 'daily' ? start.toLocaleDateString('en-GB') : periodType === 'weekly' ? `Week ${this.getWeekNumber(start)}, ${start.toLocaleDateString('en-GB')} – ${end.toLocaleDateString('en-GB')}` : start.toLocaleString('default', { month: 'long', year: 'numeric' });
