@@ -3,6 +3,75 @@ import { EncounterRepository, resolvePatientClassification } from '../src/module
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
 
+describe('admission, bed and nursing record consistency', () => {
+  it('rejects assigning a bed that is already occupied before creating an admission', async () => {
+    const tx: any = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', status: 'pending', Admission: null }),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      bed: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }),
+        updateMany: vi.fn(),
+      },
+      ward: { update: vi.fn() },
+      admission: { create: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.createFormalAdmission({ attendanceId: 'attendance-1', bedId: 'bed-1' }, 'admin-1'))
+      .rejects.toThrow(/already occupied/i);
+    expect(tx.admission.create).not.toHaveBeenCalled();
+    expect(tx.attendance.update).toBeUndefined();
+  });
+
+  it('closes the admission and releases its bed when discharging an inpatient encounter', async () => {
+    const admission = { id: 'admission-1', dischargeDate: null, dailyNotes: [{ noteType: 'observation', notes: 'Stable' }] };
+    const tx: any = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', bedId: 'bed-1', Admission: admission }),
+        update: vi.fn().mockResolvedValue({}),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      admission: { update: vi.fn().mockResolvedValue({}) },
+      bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }), update: vi.fn().mockResolvedValue({}) },
+      ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    const result = await repository.dischargeFromEncounter('attendance-1', {
+      dischargeStatus: 'home', dischargeSummary: 'Stable for discharge',
+    }, 'nurse-1');
+
+    expect(result.message).toBe('Patient discharged successfully');
+    expect(tx.attendance.update).toHaveBeenCalledWith({ where: { id: 'attendance-1' }, data: { status: 'discharged' } });
+    expect(tx.admission.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'admission-1' },
+      data: expect.objectContaining({ dischargeStatus: 'home', dailyNotes: expect.arrayContaining([
+        expect.objectContaining({ noteType: 'discharge_summary', notes: 'Stable for discharge', recordedBy: 'nurse-1' }),
+      ]) }),
+    }));
+    expect(tx.bed.update).toHaveBeenCalledWith({ where: { id: 'bed-1' }, data: { isOccupied: false } });
+    expect(tx.ward.updateMany).toHaveBeenCalledWith({ where: { id: 'ward-1', occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
+  });
+
+  it('rejects a nursing note when its attendance belongs to a different patient', async () => {
+    const prisma: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-other' }) },
+      admission: { findUnique: vi.fn() },
+      nursingNote: { create: vi.fn() },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.createNote({
+      patientId: 'patient-1', attendanceId: 'attendance-1', content: 'Routine observation',
+    }, 'nurse-1')).rejects.toThrow(/different patient/i);
+    expect(prisma.nursingNote.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('facility-level patient classification', () => {
   it('classifies the first non-cancelled encounter as NEW', () => {
     expect(resolvePatientClassification(undefined, false)).toBe('NEW');
