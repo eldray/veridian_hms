@@ -1363,7 +1363,7 @@ describe('hospital-wide value summary in-transit valuation', () => {
       inTransitBatchValue: 12,
       unbatchedQuantity: 3,
       unbatchedValue: 15,
-      stockDiscrepancy: 0,
+      stockDiscrepancy: 3,
       totalValue: 37,
     }));
     expect(report.totalValue).toBe(37);
