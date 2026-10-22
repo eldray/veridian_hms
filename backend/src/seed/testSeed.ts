@@ -538,6 +538,16 @@ export const seedTestData = async (force: boolean = false) => {
           serviceCategory: a.serviceCategory as ServiceCategory,
           complaints: a.complaints,
           medicalNotes: a.medicalNotes,
+          // Synthetic-only structured OPD fields. Keep these as drafts and explicitly
+          // label unassessed systems; never seed fake signed clinical decisions.
+          historyPresentingComplaint: a.medicalNotes || a.complaints || 'Synthetic test HPI - replace during testing',
+          reviewOfSystems: { General: 'Not assessed (synthetic test data)' },
+          physicalExamination: { 'General appearance': 'Not assessed (synthetic test data)' },
+          physicalExaminationNotes: 'Not assessed (synthetic test data)',
+          assessment: 'Synthetic test assessment - clinician review required',
+          treatmentPlan: 'Synthetic test plan - clinician review required',
+          allergyReviewStatus: 'not_reviewed',
+          clinicalNoteStatus: 'draft',
           // ✅ NHIS visits must carry a 5-digit Claim Check Code so claims can be generated.
           nhisCCC: isNhisAttendance ? nhisCCCFor(a.attendanceNumber) : null,
           createdById: doctor.id,
