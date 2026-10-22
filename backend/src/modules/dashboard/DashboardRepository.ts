@@ -30,7 +30,7 @@ export class DashboardRepository extends BaseRepository<any, any, any> {
 
   async getPendingClaims() {
     return this.prisma.insuranceClaim.count({
-      where: { status: { in: ['draft', 'submitted', 'pending'] } }
+      where: { status: 'draft' }
     }).catch(() => 0);
   }
 

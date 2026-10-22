@@ -827,33 +827,69 @@ export const deleteDocument = (documentId: string) =>
 // ──────────────────────────────────────────────
 
 export const getGDRGTariffs = async (filters?: { mdc?: string; isActive?: boolean; search?: string }) => {
-  // The backend caps every page at 100, so ask for 100 and trust the server's own page count.
-  // (Asking for 500 made us compute too few pages, so only the first 100 codes ever loaded.)
+  // BaseController.paginated() returns { success, data: [...], meta: { page, limit, total, totalPages } }.
+  // Keep compatibility with older nested pagination response formats too.
   const limit = 100;
-  let allTariffs: any[] = [];
-  let totalPages = 1;
+  const allTariffs: any[] = [];
+
+  const unpack = (payload: any) => {
+    const items = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload?.data?.data)
+        ? payload.data.data
+        : Array.isArray(payload?.tariffs)
+          ? payload.tariffs
+          : Array.isArray(payload)
+            ? payload
+            : [];
+
+    const pagination = payload?.meta ?? payload?.pagination ??
+      payload?.data?.pagination ?? payload?.data?.meta ?? {};
+    const total = Number(pagination.total) || 0;
+    const pageLimit = Number(pagination.limit) || limit;
+    const totalPages = Number(pagination.totalPages ?? pagination.pages) ||
+      (total > 0 ? Math.ceil(total / pageLimit) : 1);
+
+    return { items, totalPages: Math.max(1, totalPages) };
+  };
 
   try {
-    const firstResponse = await api.get('/gdrg', { params: { ...filters, page: 1, limit } });
-    const result = firstResponse.data;
+    const firstResponse = await api.get('/gdrg', {
+      params: { ...filters, page: 1, limit },
+    });
+    const firstPage = unpack(firstResponse.data);
+    allTariffs.push(...firstPage.items);
 
-    console.log('🔍 Raw GDRG API response:', result);
-
-    let tariffsData = [];
-    if (result?.success && result?.data?.data) {
-      tariffsData = result.data.data;
-      const pg = result.data.pagination || {};
-      totalPages = pg.totalPages || Math.ceil((pg.total || 0) / (pg.limit || limit)) || 1;
-    } else if (result?.data && Array.isArray(result.data)) {
-      tariffsData = result.data;
-      totalPages = 1;
-    } else if (Array.isArray(result)) {
-      tariffsData = result;
-      totalPages = 1;
+    // Fetch a few pages concurrently without flooding the API.
+    for (let startPage = 2; startPage <= firstPage.totalPages; startPage += 5) {
+      const endPage = Math.min(startPage + 4, firstPage.totalPages);
+      const responses = await Promise.all(
+        Array.from({ length: endPage - startPage + 1 }, (_, index) =>
+          api.get('/gdrg', {
+            params: { ...filters, page: startPage + index, limit },
+          })
+        )
+      );
+      for (const response of responses) {
+        allTariffs.push(...unpack(response.data).items);
+      }
     }
 
-    allTariffs = [...tariffsData];
-    // ... rest unchanged ...
+    // Protect consumers from duplicate rows if a proxy or stale page returns overlap.
+    const seen = new Set<string>();
+    return allTariffs.filter((tariff) => {
+      const key = String(tariff?.id ?? tariff?.gdrgCode ?? '');
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  } catch (error) {
+    console.error('Failed to load GDRG tariffs:', error);
+    if (allTariffs.length > 0) return allTariffs;
+    throw error;
+  }
+};
 
 export const getGDRGByCode = async (code: string) => {
   const response = await api.get(`/gdrg/${code}`);
@@ -2034,6 +2070,9 @@ export const getStockCategories = () =>
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
   api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
+
+export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
+  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
 
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) =>
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);

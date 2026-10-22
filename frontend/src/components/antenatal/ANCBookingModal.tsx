@@ -102,8 +102,8 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
   const handleChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     
-    // Auto-calculate EDD from LMP (only for new booking)
-    if (!isEditing && field === 'lmp' && value) {
+    // Auto-calculate EDD for new bookings and auto-created shell bookings missing an LMP.
+    if ((!isEditing || !existingRecord?.lmp) && field === 'lmp' && value) {
       const lmp = new Date(value);
       if (!isNaN(lmp.getTime())) {
         const edd = new Date(lmp);
@@ -165,6 +165,8 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
         const updateData = {
           gravida: formData.gravida,
           para: formData.para,
+          // Auto-created ANC shells have no LMP; allow staff to complete it once.
+          ...(!existingRecord.lmp && formData.lmp ? { lmp: formData.lmp } : {}),
           riskLevel: formData.riskLevel,
           hivStatus: formData.hivStatus || undefined,
           hivKnownPositive: formData.hivKnownPositive,
@@ -284,8 +286,8 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
             {/* Tab 1: Pregnancy Details */}
             {activeTab === 'pregnancy' && (
               <div className="space-y-5">
-                {!isEditing ? (
-                  // First-time booking - can set LMP
+                {!isEditing || !existingRecord?.lmp ? (
+                  // First-time booking or completion of an auto-created shell - can set LMP
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium mb-1">LMP (Last Menstrual Period) *</label>
@@ -328,7 +330,7 @@ export const ANCBookingModal: React.FC<ANCBookingModalProps> = ({
                       <strong> EDD:</strong> {formData.edd ? new Date(formData.edd).toLocaleDateString() : 'N/A'} |
                       <strong> Gestation:</strong> {formData.gestationalAgeWeeks || '?'} weeks
                     </p>
-                    <p className="text-xs text-[var(--text-tertiary)] mt-2">LMP and EDD cannot be changed after creation</p>
+                    <p className="text-xs text-[var(--text-tertiary)] mt-2">LMP and EDD are locked after the first complete booking</p>
                   </div>
                 )}
 

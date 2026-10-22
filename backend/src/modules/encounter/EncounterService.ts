@@ -4,6 +4,7 @@ import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
+
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
   AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
@@ -61,7 +62,7 @@ export class EncounterService extends BaseService {
       const nhisProvider = await this.prisma.insuranceProvider.findFirst({ where: { type: 'nhis', isActive: true } });
       if (nhisProvider) insuranceProviderId = nhisProvider.id;
     }
-    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = null;
+    if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = undefined;
 
     // ✅ PRODUCTION FIX: Wrap entire complex creation flow in a transaction
     return await this.prisma.$transaction(async (tx) => {
@@ -85,8 +86,9 @@ export class EncounterService extends BaseService {
 
       // 1. Maternal Logic (Passed tx to ensure atomicity)
       if (data.attendanceType === 'antenatal') await this.handleAntenatalEncounter(tx, encounter.id, data.patientId, userId);
-      else if (data.attendanceType === 'delivery') await this.handleDeliveryEncounter(tx, encounter.id, data.patientId, userId);
-      else if (data.attendanceType === 'postnatal') await this.handlePostnatalEncounter(tx, encounter.id, data.patientId, userId);
+      // Delivery and postnatal forms must record clinician-confirmed findings. Do not
+      // pre-create records with assumed live birth, maternal wellbeing or breastfeeding status.
+      // Their dedicated save endpoints create the clinical record after staff complete the form.
 
       // 2. Bed/Ward Logic (Removed currentPatientId per schema fix)
       if (data.bedId) {
@@ -146,51 +148,6 @@ export class EncounterService extends BaseService {
       });
       await tx.antenatalBooking.update({ where: { id: existingBooking.id }, data: { currentAttendanceId: encounterId } });
     }
-  }
-
-  private async handleDeliveryEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
-    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isActive: true, isCompleted: false } });
-    const user = await tx.user.findUnique({ where: { id: userId }, select: { fullName: true, role: true } });
-    const attendantName = user ? `${user.fullName} (${user.role || 'Staff'})` : 'Unknown Attendant';
-
-    const deliveryRecord = await tx.deliveryRecord.create({
-      data: {
-        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryDate: new Date(),
-        deliveryType: 'spontaneous_vertex', deliveryOutcome: 'live_birth', placeOfDelivery: 'private_hospital',
-        attendant: attendantName, maternalOutcome: 'alive', complications: [], createdById: userId,
-        malePartnerPresentANC: false, malePartnerPresentDelivery: false, malePartnerPresentPNC: false,
-        maternalDeathsAudited: false, auditNotes: null
-      }
-    });
-
-    if (antenatalBooking) {
-      await tx.antenatalBooking.update({
-        where: { id: antenatalBooking.id },
-        data: { isActive: false, isCompleted: true, deliveryDate: new Date(), deliveryOutcome: 'delivered', deliveryRecordId: deliveryRecord.id }
-      });
-    }
-  }
-
-  private async handlePostnatalEncounter(tx: any, encounterId: string, patientId: string, userId: string) {
-    const deliveryRecord = await tx.deliveryRecord.findFirst({ where: { patientId }, orderBy: { deliveryDate: 'desc' } });
-    const antenatalBooking = await tx.antenatalBooking.findFirst({ where: { patientId, isCompleted: true }, orderBy: { bookingDate: 'desc' } });
-    
-    let dayNumber = 1;
-    if (deliveryRecord?.deliveryDate) {
-      dayNumber = Math.max(1, Math.floor((Date.now() - new Date(deliveryRecord.deliveryDate).getTime()) / (1000 * 60 * 60 * 24)));
-    }
-
-    await tx.postnatalRecord.create({
-      data: {
-        patientId, attendanceId: encounterId, antenatalBookingId: antenatalBooking?.id, deliveryRecordId: deliveryRecord?.id,
-        examinationDate: new Date(), dayNumber, maternalCondition: 'good', maternalComplications: [],
-        lochia: 'normal', perinealCondition: 'intact', breastfeedingStatus: 'exclusive', breastfeedingDifficulties: [],
-        latching: 'good', babyCondition: 'good', babyWeight: deliveryRecord?.birthWeight ? deliveryRecord.birthWeight / 1000 : null,
-        babyFeeding: 'good', jaundice: false, cordCondition: 'dry', bcgGiven: false, opv0Given: false, hepB0Given: false,
-        familyPlanningDiscussed: false, maternalDangerSigns: [], babyDangerSigns: [], referralMade: false,
-        notes: 'Initial postnatal examination created automatically.', createdById: userId
-      }
-    });
   }
 
   // ============================================
@@ -506,27 +463,17 @@ export class EncounterService extends BaseService {
   // PHARMACY (FIXED RACE CONDITION)
   // ============================================
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
-    return this.prisma.$transaction(async (tx) => {
-      const medication = await tx.medication.findUnique({ where: { id: medicationId }, include: { StockItem: true } });
-      if (!medication || medication.status !== 'prescribed') throw new ValidationError('Medication not found or not prescribed');
-      
-      const stockItem = medication.StockItem;
-      if (!stockItem || stockItem.currentStock < quantity) throw new ValidationError(`Insufficient stock. Available: ${stockItem?.currentStock || 0}`);
-
-      // ✅ PRODUCTION FIX: Atomic decrement prevents negative stock race conditions
-      await tx.stockItem.update({ where: { id: stockItem.id }, data: { currentStock: { decrement: quantity } } });
-
-      const updatedMedication = await tx.medication.update({
-        where: { id: medicationId },
-        data: { status: 'dispensed', quantity, dispensedAt: new Date(), dispensedById: userId, dispensedBatchNumber: batchNumber, dispensedExpiryDate: expiryDate, dispensedUnitCost: stockItem.costPrice }
-      });
-
-      await tx.stockTransaction.create({
-        data: { stockItemId: stockItem.id, transactionType: 'sale', quantity, balanceAfter: stockItem.currentStock - quantity, reference: `Encounter ${encounterId}`, performedBy: userId }
-      });
-
-      return updatedMedication;
-    });
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Dispensed quantity must be a positive whole number');
+    }
+    // Keep the public service entry point on the same atomic repository path used by
+    // medication status updates, avoiding two competing implementations of stock deduction.
+    return this.repository.updateMedication(encounterId, medicationId, {
+      status: 'dispensed',
+      quantity,
+      batchNumber,
+      expiryDate,
+    }, userId);
   }
 
   // ============================================
@@ -539,8 +486,13 @@ export class EncounterService extends BaseService {
   }
 
   async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
-  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data); }
-  async updateEncounterStatus(id: string, status: string) { return this.repository.updateStatus(id, status); }
+  async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data, userId); }
+  async updateEncounterStatus(id: string, status: string, userId: string) {
+    // Completion must pass the same active-admission and terminal-state checks as
+    // the dedicated endpoint. Other clinical transitions have their own workflows.
+    if (status === 'completed') return this.completeEncounter(id, userId);
+    return this.repository.updateStatus(id, status, userId);
+  }
   async deleteEncounter(id: string) { return this.repository.delete(id); }
   
   // Clinical Sub-resources
@@ -568,6 +520,7 @@ export class EncounterService extends BaseService {
   async removeMedication(id: string, medId: string) { return this.repository.removeMedication(id, medId); }
   
   async addLabTest(id: string, data: AddLabTestDTO, userId: string) { return this.repository.addLabTest(id, data, userId); }
+<<<<<<< HEAD
   async updateLabTestStatus(labId: string, status: string, results: any, userId: string) { return this.repository.updateLabTestStatus(labId, status, results, userId); }
   async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
   
@@ -577,6 +530,17 @@ export class EncounterService extends BaseService {
   
   async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) { return this.repository.updateProcedureStatus(procedureId, status, data, userId); }
+=======
+  async updateLabTestStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateLabTestStatus(id, status, results, userId); }
+  async removeLabTest(id: string, labId: string) { return this.repository.removeLabTest(id, labId); }
+  
+  async addScan(id: string, data: AddScanDTO, userId: string) { return this.repository.addScan(id, data, userId); }
+  async updateScanStatus(id: string, status: string, results: any, userId: string) { return this.repository.updateScanStatus(id, status, results, userId); }
+  async removeScan(id: string, scanId: string) { return this.repository.removeScan(id, scanId); }
+  
+  async addProcedure(id: string, data: AddProcedureDTO, userId: string) { return this.repository.addProcedure(id, data, userId); }
+  async updateProcedureStatus(id: string, status: string, data: any, userId: string) { return this.repository.updateProcedureStatus(id, status, data, userId); }
+>>>>>>> origin/audit/main-sync-2026-10-20
   async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
@@ -633,6 +597,42 @@ export class EncounterService extends BaseService {
   // ✅ FIXED: Prisma groupBy syntax error
   // Counts over the whole visit table are the slowest dashboard query at 1M visits (~0.7 s).
   // Cached for 30 s per date range and shared by everyone who asks at the same time.
+  // Consumable stock use: keep controller calls on the transactional repository workflow.
+  async getConsumableUses(encounterId: string) {
+    return this.repository.getConsumableUses(encounterId);
+  }
+
+  async recordConsumableUse(
+    encounterId: string,
+    data: { stockItemId: string; quantity: number; notes?: string },
+    userId: string,
+  ) {
+    if (!data?.stockItemId?.trim()) throw new ValidationError('Stock item is required');
+    if (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+    return this.repository.recordConsumableUse(encounterId, data.stockItemId, Number(data.quantity), data.notes, userId);
+  }
+
+  async updateConsumableUse(
+    encounterId: string,
+    transactionId: string,
+    data: { stockItemId: string; quantity: number; notes?: string },
+    userId: string,
+  ) {
+    if (!data?.stockItemId?.trim()) throw new ValidationError('Stock item is required');
+    if (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0) {
+      throw new ValidationError('Quantity must be a positive whole number');
+    }
+    return this.repository.updateConsumableUse(
+      encounterId, transactionId, data.stockItemId, Number(data.quantity), data.notes, userId,
+    );
+  }
+
+  async deleteConsumableUse(encounterId: string, transactionId: string, userId: string) {
+    return this.repository.deleteConsumableUse(encounterId, transactionId, userId);
+  }
+
   async getEncounterStats(dateFrom?: Date, dateTo?: Date) {
     const key = `encounter-stats:${dateFrom?.toISOString() ?? ''}:${dateTo?.toISOString() ?? ''}`;
     return cached(key, 30_000, () => this.computeEncounterStats(dateFrom, dateTo));

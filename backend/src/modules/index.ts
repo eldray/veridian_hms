@@ -111,7 +111,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('✅ Encounter routes mounted at /encounters');
   console.log('   └─ Worklists: /encounters/worklist/*');
   
-  app.use('/appointments', createAppointmentRoutes(prisma));
+  app.use('/appointments', createAppointmentRoutes());
   console.log('✅ Appointment routes mounted at /appointments');
   
   app.use('/antenatal', createAntenatalRoutes(prisma));
@@ -129,7 +129,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/wards', createWardRoutes(prisma));
   console.log('✅ Ward routes mounted at /wards');
   
-  app.use('/beds', createBedRoutes(prisma));
+  app.use('/beds', createBedRoutes());
   console.log('✅ Bed routes mounted at /beds');
 
   // ============================================
@@ -164,7 +164,7 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   // 7. BILLING & FINANCIAL
   // ============================================
-  app.use('/bills', createBillRoutes(prisma));
+  app.use('/bills', createBillRoutes());
   console.log('✅ Bill routes mounted at /bills (individual patient bills)');
   
   app.use('/billing', createBillingRoutes(prisma));

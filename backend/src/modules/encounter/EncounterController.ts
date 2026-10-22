@@ -66,7 +66,8 @@ export class EncounterController extends BaseController {
   updateStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;
-    const encounter = await this.service.updateEncounterStatus(id, status);
+    const user = req.user!;
+    const encounter = await this.service.updateEncounterStatus(id, status, user.id);
     return this.ok(res, encounter, `Encounter status updated to ${status}`);
   });
 
@@ -152,8 +153,10 @@ export class EncounterController extends BaseController {
     const { encounterId, medicationId } = req.params;
     const { quantity, batchNumber, expiryDate } = req.body;
     const user = req.user!;
+    const normalizedQuantity = Number(quantity);
+    const normalizedExpiryDate = expiryDate ? new Date(expiryDate) : undefined;
 
-    const medication = await this.service.dispenseMedication(encounterId, medicationId, quantity, user.id, batchNumber, expiryDate);
+    const medication = await this.service.dispenseMedication(encounterId, medicationId, normalizedQuantity, user.id, batchNumber, normalizedExpiryDate);
     return this.ok(res, medication, 'Medication dispensed successfully');
   });
 

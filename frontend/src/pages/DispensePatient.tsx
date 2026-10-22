@@ -228,9 +228,17 @@ export default function DispensePatient() {
       setConsumableUses([]);
       return;
     }
+    let active = true;
     getEncounterConsumableUses(selectedAttendanceId)
-      .then(response => setConsumableUses(Array.isArray(response?.data) ? response.data : []))
-      .catch((err: any) => toastError('Consumable history unavailable', err?.response?.data?.message || err.message));
+      .then(response => {
+        const data = response?.data;
+        const uses = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+        if (active) setConsumableUses(uses);
+      })
+      .catch((err: any) => {
+        if (active) toastError('Consumable history unavailable', err?.response?.data?.message || err.message);
+      });
+    return () => { active = false; };
   }, [selectedAttendanceId]);
 
   useLiveRefresh(['encounters'], async () => {
@@ -360,7 +368,8 @@ export default function DispensePatient() {
   const refreshConsumableUses = async () => {
     if (!selectedAttendanceId) return;
     const response = await getEncounterConsumableUses(selectedAttendanceId);
-    setConsumableUses(Array.isArray(response?.data) ? response.data : []);
+    const data = response?.data;
+    setConsumableUses(Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : []);
   };
   const afterConsumableChange = async () => {
     setIsConsumableModalOpen(false);
@@ -464,12 +473,6 @@ export default function DispensePatient() {
             <button onClick={() => setIsPrescribeModalOpen(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
               <Plus className="w-3.5 h-3.5" /> Add Prescription
-            </button>
-          )}
-          {canDispense && (
-            <button onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-              <Package className="w-3.5 h-3.5" /> Add Consumable
             </button>
           )}
           {prescribedMeds.length > 0 && (

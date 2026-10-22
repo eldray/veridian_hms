@@ -50,30 +50,34 @@ export class AntenatalController extends BaseController {
   ];
 
   updateAntenatalBooking = [
-    body('gravida').optional().isInt({ min: 0 }),
-    body('para').optional().isInt({ min: 0 }),
-    body('edd').optional().isISO8601(),
+    body('gravida').optional().isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
+    body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
+    body('lmp').optional().isISO8601().withMessage('LMP must be a valid date'),
+    body('edd').optional().isISO8601().withMessage('EDD must be a valid date'),
     body('riskLevel').optional().isIn(['low', 'medium', 'high']),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
-      
+
       const data: UpdateAntenatalBookingInput = req.body;
+      if (data.lmp) data.lmp = new Date(data.lmp);
       if (data.edd) data.edd = new Date(data.edd);
-      
+
       const booking = await this.service.updateBooking(req.params.id, data);
       return this.ok(res, booking, 'Antenatal booking updated');
     })
   ];
 
   closeAntenatalBooking = [
-    body('deliveryDate').optional().isISO8601(),
-    body('deliveryOutcome').optional().isString(),
+    body('deliveryDate').isISO8601().withMessage('Confirmed pregnancy outcome date is required'),
+    body('deliveryOutcome').isString().trim().notEmpty().withMessage('Confirmed pregnancy outcome is required'),
     body('deliveryRecordId').optional().isString(),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       const { deliveryDate, deliveryOutcome, deliveryRecordId } = req.body;
       const booking = await this.service.closeBooking(req.params.id, {
-        deliveryDate: deliveryDate ? new Date(deliveryDate) : undefined, deliveryOutcome, deliveryRecordId
+        deliveryDate: new Date(deliveryDate), deliveryOutcome, deliveryRecordId
       });
       return this.ok(res, booking, 'Antenatal booking closed successfully');
     })
@@ -81,7 +85,7 @@ export class AntenatalController extends BaseController {
 
   deleteAntenatalBooking = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     await this.service.deleteBooking(req.params.id);
-    return this.ok(res, null, 'Antenatal booking deleted successfully');
+    return this.ok(res, null, 'Antenatal booking deactivated; maternal history has been retained');
   });
 
   getAntenatalBookings = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -164,14 +168,19 @@ export class AntenatalController extends BaseController {
     body('deliveryDate').isISO8601().withMessage('Valid delivery date required'),
     body('deliveryType').isIn(['spontaneous_vertex', 'assisted_breech', 'vacuum', 'forceps', 'caesarean_section', 'multiple']).withMessage('Valid delivery type required'),
     body('deliveryOutcome').isIn(['live_birth', 'stillbirth_fresh', 'stillbirth_macerated', 'neonatal_death']).withMessage('Valid delivery outcome required'),
+    body('maternalOutcome').isIn(['alive', 'dead_direct_cause', 'dead_indirect_cause', 'dead_unknown']).withMessage('Confirmed maternal outcome is required'),
     body('gestationWeeks').optional().isInt({ min: 0, max: 42 }).withMessage('Valid gestational age required'),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
       
       const data: CreateDeliveryRecordInput = { ...req.body, deliveryDate: new Date(req.body.deliveryDate), createdById: req.user!.id };
+<<<<<<< HEAD
       // The repository creates the delivery and closes the linked ANC booking
       // in one transaction, so a failed closure cannot leave a partial delivery.
+=======
+      // Repository saves the delivery and closes its matching active pregnancy in one transaction.
+>>>>>>> origin/audit/main-sync-2026-10-20
       const record = await this.service.createDeliveryRecord(data);
       return this.created(res, record, 'Delivery record created successfully');
     })

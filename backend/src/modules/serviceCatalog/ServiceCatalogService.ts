@@ -258,20 +258,20 @@ export class ServiceCatalogService extends BaseService {
       this.repo.count({ pricing: { some: { isActive: true } } })
     ]);
 
-    return { totalServices, activeServices, inactiveServices: totalServices - activeServices, nhisReady, withPricing, missingPricing: totalServices - withPricing, byType: byType.reduce((acc, item) => { acc[item.serviceType] = item._count.serviceType; return acc; }, {}), byCategory: byCategory.reduce((acc, item) => { acc[item.serviceCategory] = item._count.serviceCategory; return acc; }, {}) };
+    return { totalServices, activeServices, inactiveServices: totalServices - activeServices, nhisReady, withPricing, missingPricing: totalServices - withPricing, byType: byType.reduce<Record<string, number>>((acc, item) => { acc[item.serviceType] = item._count.serviceType; return acc; }, {}), byCategory: byCategory.reduce<Record<string, number>>((acc, item) => { acc[item.serviceCategory] = item._count.serviceCategory; return acc; }, {}) };
   }
 
   async getNHISReadinessReport() {
     const services = await this.repo.getModel().findMany({ where: { isActive: true }, include: { pricing: { where: { isActive: true }, take: 1 } } });
-    const mapped = services.map(this.flattenPricing);
+    const mapped: any[] = services.map((service: any) => this.flattenPricing(service));
 
     return {
       totalServices: mapped.length,
-      nhisReady: mapped.filter(s => s.nhisServiceCode && s.isNHISCovered && (s.pricing?.nhisPrice ?? 0) > 0).length,
-      missingNHISCodes: mapped.filter(s => !s.nhisServiceCode).length,
-      missingNHISPrices: mapped.filter(s => s.nhisServiceCode && (!s.pricing || s.pricing.nhisPrice === 0)).length,
-      notCovered: mapped.filter(s => !s.isNHISCovered).length,
-      servicesMissingNHIS: mapped.filter(s => !s.nhisServiceCode || !(s.pricing?.nhisPrice)).map(s => ({ id: s.id, name: s.name, code: s.code, serviceType: s.serviceType, missingCode: !s.nhisServiceCode, missingPrice: !(s.pricing?.nhisPrice) }))
+      nhisReady: mapped.filter((s: any) => s.nhisServiceCode && s.isNHISCovered && (s.pricing?.nhisPrice ?? 0) > 0).length,
+      missingNHISCodes: mapped.filter((s: any) => !s.nhisServiceCode).length,
+      missingNHISPrices: mapped.filter((s: any) => s.nhisServiceCode && (!s.pricing || s.pricing.nhisPrice === 0)).length,
+      notCovered: mapped.filter((s: any) => !s.isNHISCovered).length,
+      servicesMissingNHIS: mapped.filter((s: any) => !s.nhisServiceCode || !(s.pricing?.nhisPrice)).map((s: any) => ({ id: s.id, name: s.name, code: s.code, serviceType: s.serviceType, missingCode: !s.nhisServiceCode, missingPrice: !(s.pricing?.nhisPrice) }))
     };
   }
 

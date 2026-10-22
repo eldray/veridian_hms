@@ -4,6 +4,7 @@
 // ======================
 
 export type UserRole =
+  | 'super_admin'
   | 'admin'
   | 'hr_officer'
   | 'doctor'
@@ -290,7 +291,7 @@ export type InsuranceType = 'nhis' | 'private' | 'corporate';
 export type ClaimSubmissionMethod = 'portal' | 'paper' | 'edi_batch' | 'api';
 
 // Stock & Requisitions
-export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale';
+export type StockTransactionType = 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out' | 'write_off';
 export type RequisitionStatus = 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
 export type RequisitionUrgency = 'routine' | 'urgent' | 'emergency';
 
@@ -1271,6 +1272,16 @@ export interface StockItem {
   expiryDate: string | null;
   isActive: boolean;
   isMedication: boolean;
+  stockBalances?: Array<{
+    id: string;
+    stockItemId: string;
+    departmentId?: string | null;
+    wardId?: string | null;
+    locationKey: string;
+    quantity: number;
+    department?: Department | null;
+    ward?: Ward | null;
+  }>;
   /** Catalog entry holding the item's current patient prices (Prisma Decimals arrive as strings) */
   ServiceCatalog?: Array<{
     id: string;
@@ -1289,6 +1300,8 @@ export interface StockItem {
 export interface StockBatch {
   id: string;
   stockItemId: string;
+  departmentId?: string | null;
+  wardId?: string | null;
   batchNumber: string;
   expiryDate: string;
   quantity: number;
@@ -1296,6 +1309,8 @@ export interface StockBatch {
   costPrice: number;
   isActive: boolean;
   createdAt: string;
+  department?: Department | null;
+  ward?: Ward | null;
 }
 
 export interface StockTransaction {

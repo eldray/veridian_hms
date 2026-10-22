@@ -1,6 +1,7 @@
 // src/pages/StockManagement.tsx - FULLY FIXED VERSION
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
+import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
@@ -34,11 +35,13 @@ export default function StockManagement() {
     updateStockItem,
     deleteStockItem,
     createStockTransaction,
+    allocateStockToDepartment,
     getLowStockItems,
     lowStockAlerts,
     isLoading
   } = useStockStore();
   const { user, hasRole } = useAuthStore();
+  const { departments, getDepartments } = useDepartmentStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -48,6 +51,8 @@ export default function StockManagement() {
   const [filterStatus, setFilterStatus] = useState('all'); // all, low-stock, in-stock
   const [showForm, setShowForm] = useState(false);
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showAllocationForm, setShowAllocationForm] = useState(false);
+  const [allocationData, setAllocationData] = useState({ quantity: 0, departmentId: '' });
   const [editingItem, setEditingItem] = useState<StockItem | null>(null);
   const [selectedItem, setSelectedItem] = useState<StockItem | null>(null);
 
@@ -59,6 +64,7 @@ export default function StockManagement() {
   // Admins and pharmacists can add/edit stock; only admins can delete (matches the backend route)
   const isAdmin = hasRole(['admin', 'pharmacist']);
   const canDelete = hasRole(['admin', 'super_admin']);
+  const canAllocateStock = hasRole(['admin', 'super_admin']);
 
   // Show the server's message (e.g. "Drug code already in use") instead of axios' generic one
   const apiError = (err: any, fallback: string): string =>
@@ -88,10 +94,12 @@ export default function StockManagement() {
 
   // Transaction data aligned with StockTransaction schema
   const [transactionData, setTransactionData] = useState({
-    transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale',
+    transactionType: 'purchase' as 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'write_off',
     quantity: 0,
+    adjustmentDirection: 'increase' as 'increase' | 'decrease',
     reference: '',
-    notes: ''
+    notes: '',
+    departmentId: (user as any)?.departmentId || ''
   });
 
   useEffect(() => {
@@ -102,7 +110,8 @@ export default function StockManagement() {
     try {
       await Promise.all([
         getStockItems(),
-        getLowStockItems()
+        getLowStockItems(),
+        getDepartments({ isActive: true })
       ]);
       setCurrentPage(1);
     } catch (err) {
@@ -203,7 +212,9 @@ export default function StockManagement() {
     try {
       await createStockTransaction({
         stockItemId: selectedItem.id,
-        ...transactionData
+        ...transactionData,
+        quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity,
+        departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined
       });
       success('Recorded', 'Transaction completed successfully');
       setShowTransactionForm(false);
@@ -212,6 +223,21 @@ export default function StockManagement() {
       await loadAllData();
     } catch (err: any) {
       toastError('Transaction failed', apiError(err, 'Could not record transaction'));
+    }
+  };
+
+  const handleAllocationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedItem) return;
+    try {
+      await allocateStockToDepartment(selectedItem.id, allocationData);
+      success('Allocated', 'Stock moved to the selected department; hospital total is unchanged');
+      setShowAllocationForm(false);
+      setSelectedItem(null);
+      setAllocationData({ quantity: 0, departmentId: '' });
+      await loadAllData();
+    } catch (err: any) {
+      toastError('Allocation failed', apiError(err, 'Could not allocate unassigned stock'));
     }
   };
 
@@ -279,8 +305,10 @@ export default function StockManagement() {
     setTransactionData({
       transactionType: 'purchase',
       quantity: 0,
+      adjustmentDirection: 'increase',
       reference: '',
-      notes: ''
+      notes: '',
+      departmentId: (user as any)?.departmentId || ''
     });
   };
 
@@ -296,16 +324,56 @@ export default function StockManagement() {
     resetTransactionForm();
   };
 
-  const isLowStock = (item: StockItem) => item.currentStock <= item.reorderLevel;
-  
+  const getRelevantStockQuantity = (item: StockItem) => {
+    const inventory = getInventoryBreakdown(item);
+    return hasRole(['admin', 'super_admin'])
+      ? inventory.hospitalTotal
+      : (inventory.currentDepartment ?? inventory.hospitalTotal);
+  };
+
+  const isLowStock = (item: StockItem) => getRelevantStockQuantity(item) <= item.reorderLevel;
+
   const getStockStatusBadge = (item: StockItem) => {
-    if (item.currentStock === 0) {
+    const quantity = getRelevantStockQuantity(item);
+    if (quantity === 0) {
       return { label: 'OUT OF STOCK', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' };
     }
     if (isLowStock(item)) {
       return { label: 'LOW STOCK', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' };
     }
     return { label: 'IN STOCK', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' };
+  };
+
+  // Balances are the source of truth; currentStock remains the synchronized aggregate cache.
+  const getInventoryBreakdown = (item: StockItem) => {
+    const balances = ((item as any).stockBalances || []) as Array<any>;
+    const locations = new Map<string, { id: string; name: string; quantity: number; departmentId?: string }>();
+    let ledgerTotal = 0;
+    for (const balance of balances) {
+      const quantity = Math.max(0, Number(balance.quantity) || 0);
+      ledgerTotal += quantity;
+      const id = String(balance.locationKey || balance.departmentId || (balance.wardId ? `WARD:${balance.wardId}` : '__UNASSIGNED__'));
+      const name = balance.department?.name || balance.ward?.wardName || 'Unassigned stock';
+      const current = locations.get(id) || { id, name, quantity: 0, departmentId: balance.departmentId || undefined };
+      current.quantity += quantity;
+      locations.set(id, current);
+    }
+    // Department users receive only their own balance rows; currentStock is the synchronized hospital aggregate.
+    // Admins can calculate the total directly from all returned locations.
+    const adminView = hasRole(['admin', 'super_admin']);
+    const hospitalTotal = adminView && balances.length > 0
+      ? ledgerTotal
+      : Math.max(0, Number(item.currentStock) || 0);
+    const departmentId = (user as any)?.departmentId;
+    const currentDepartment = departmentId
+      ? [...locations.values()].filter(location => location.departmentId === String(departmentId)).reduce((sum, location) => sum + location.quantity, 0)
+      : null;
+    return {
+      hospitalTotal,
+      currentDepartment,
+      departments: [...locations.values()].sort((a, b) => a.name.localeCompare(b.name)),
+      hasDepartmentBatches: locations.size > 0
+    };
   };
 
   return (
@@ -620,12 +688,31 @@ export default function StockManagement() {
                   </div>
 
                   <div className="space-y-2 text-sm mb-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[var(--text-secondary)]">Current Stock:</span>
-                      <span className={`font-bold ${isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-primary)]'}`}>
-                        {item.currentStock} {item.unitOfMeasure}
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-[var(--text-secondary)]">Department Stock:</span>
+                      <span className="font-bold text-[var(--text-primary)] text-right">
+                        {getInventoryBreakdown(item).currentDepartment === null
+                          ? (hasRole(['admin', 'super_admin']) ? 'See breakdown' : 'Not assigned')
+                          : `${getInventoryBreakdown(item).currentDepartment} ${item.unitOfMeasure}`}
                       </span>
                     </div>
+                    <div className="flex justify-between items-start gap-3">
+                      <span className="text-[var(--text-secondary)]">Hospital Total:</span>
+                      <span className="font-bold text-[var(--icon-cyan-text)] text-right">
+                        {getInventoryBreakdown(item).hospitalTotal} {item.unitOfMeasure}
+                      </span>
+                    </div>
+                    {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
+                      <div className="border-t border-[var(--border-color)] pt-2 mt-2">
+                        <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Stock location breakdown</p>
+                        {getInventoryBreakdown(item).departments.map(d => (
+                          <div key={d.id} className="flex justify-between gap-2 text-xs">
+                            <span className="text-[var(--text-secondary)]">{d.name}</span>
+                            <span className="text-[var(--text-primary)]">{d.quantity} {item.unitOfMeasure}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-[var(--text-secondary)]">Reorder Level:</span>
                       <span className="font-medium text-[var(--text-primary)]">{item.reorderLevel}</span>
@@ -655,6 +742,18 @@ export default function StockManagement() {
                       >
                         Stock In/Out
                       </button>
+                      {canAllocateStock && (
+                        <button
+                          onClick={() => {
+                            setSelectedItem(item);
+                            setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
+                            setShowAllocationForm(true);
+                          }}
+                          className="flex-1 py-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all text-xs font-medium"
+                        >
+                          Allocate
+                        </button>
+                      )}
                       <button
                         onClick={() => handleEdit(item)}
                         className="p-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
@@ -684,7 +783,7 @@ export default function StockManagement() {
           <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)]">
             <div className="col-span-4">Item</div>
             <div className="col-span-2 text-center">Category</div>
-            <div className="col-span-2 text-center">Current Stock</div>
+            <div className="col-span-2 text-center">Department / Hospital Total</div>
             <div className="col-span-1 text-center">Reorder</div>
             <div className="col-span-1 text-center">Cost</div>
             <div className="col-span-2 text-center">Actions</div>
@@ -722,10 +821,26 @@ export default function StockManagement() {
                     </span>
                   </div>
                   <div className="col-span-2 text-center">
-                    <span className={`font-medium text-sm ${isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--text-primary)]'}`}>
-                      {item.currentStock}
-                    </span>
-                    <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    <div className="text-xs text-[var(--text-secondary)]">This department</div>
+                    <div className="font-semibold text-sm text-[var(--text-primary)]">
+                      {getInventoryBreakdown(item).currentDepartment === null ? '—' : getInventoryBreakdown(item).currentDepartment}
+                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    </div>
+                    <div className="text-xs text-[var(--text-secondary)] mt-1">Hospital total</div>
+                    <div className="font-bold text-sm text-[var(--icon-cyan-text)]">
+                      {getInventoryBreakdown(item).hospitalTotal}
+                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                    </div>
+                    {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
+                      <details className="mt-1 text-left">
+                        <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By location</summary>
+                        {getInventoryBreakdown(item).departments.map(d => (
+                          <div key={d.id} className="flex justify-between gap-2 text-xs mt-1">
+                            <span>{d.name}</span><span>{d.quantity}</span>
+                          </div>
+                        ))}
+                      </details>
+                    )}
                   </div>
                   <div className="col-span-1 text-center">
                     <span className="text-sm text-[var(--text-primary)]">{item.reorderLevel}</span>
@@ -746,6 +861,19 @@ export default function StockManagement() {
                         >
                           <TrendingUp className="w-3.5 h-3.5" />
                         </button>
+                        {canAllocateStock && (
+                          <button
+                            onClick={() => {
+                              setSelectedItem(item);
+                              setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
+                              setShowAllocationForm(true);
+                            }}
+                            className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
+                            title="Allocate unassigned stock"
+                          >
+                            <Package className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                         <button
                           onClick={() => handleEdit(item)}
                           className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
@@ -1043,6 +1171,47 @@ export default function StockManagement() {
         </div>
       )}
 
+      {/* Legacy stock allocation: moves stock from unassigned to a department without changing hospital total. */}
+      {showAllocationForm && selectedItem && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setShowAllocationForm(false)}>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
+            <div className="border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">Allocate Unassigned Stock</h2>
+              <button onClick={() => setShowAllocationForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--bg-main)]">
+                <X className="w-4 h-4 text-[var(--text-secondary)]" />
+              </button>
+            </div>
+            <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
+              <div className="bg-[var(--bg-main)] rounded-lg p-3">
+                <p className="text-sm text-[var(--text-secondary)]">Selected item</p>
+                <p className="font-semibold text-[var(--text-primary)]">{selectedItem.name}</p>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">
+                  Unassigned balance: {getInventoryBreakdown(selectedItem).departments.find(d => d.id === '__UNASSIGNED__')?.quantity || 0} {selectedItem.unitOfMeasure}
+                </p>
+                <p className="text-xs text-[var(--text-tertiary)]">This is an internal allocation; the hospital total will not change.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label>
+                <select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                  <option value="">Choose department</option>
+                  {departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity to allocate *</label>
+                <input type="number" min="1" step="1" required value={allocationData.quantity || ''} onChange={e => setAllocationData({ ...allocationData, quantity: Number(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+              </div>
+              <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
+                <button type="button" onClick={() => setShowAllocationForm(false)} className="flex-1 px-5 py-2.5 border border-[var(--border-color)] rounded-lg text-sm">Cancel</button>
+                <button type="submit" className="flex-1 px-5 py-2.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-sm font-medium">Allocate Stock</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Transaction Modal */}
       {showTransactionForm && selectedItem && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={handleTransactionCancel}>
@@ -1078,9 +1247,35 @@ export default function StockManagement() {
                   <option value="sale">Sale (Remove Stock)</option>
                   <option value="adjustment">Adjustment (Manual)</option>
                   <option value="requisition">Requisition (Remove Stock)</option>
+                  <option value="write_off">Expiry / Damage Write-off (Remove Stock)</option>
                 </select>
               </div>
               
+              {transactionData.transactionType === 'adjustment' && (
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Adjustment Direction *</label>
+                  <select required value={transactionData.adjustmentDirection} onChange={e => setTransactionData({ ...transactionData, adjustmentDirection: e.target.value as 'increase' | 'decrease' })} className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                    <option value="increase">Increase stock</option>
+                    <option value="decrease">Decrease stock</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Issuing / Receiving Department</label>
+                <select
+                  value={transactionData.departmentId}
+                  onChange={e => setTransactionData({ ...transactionData, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                >
+                  <option value="">Choose department</option>
+                  {departments.filter((d: any) => d.isActive !== false).map((d: any) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-[var(--text-tertiary)] mt-1">For sales from batch-tracked stock, choose the department issuing the item. Hospital total reduces automatically.</p>
+              </div>
+
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label>
                 <input 
@@ -1105,9 +1300,12 @@ export default function StockManagement() {
               </div>
               
               <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Notes</label>
+                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                    {['write_off', 'adjustment'].includes(transactionData.transactionType) ? 'Reason *' : 'Notes'}
+                  </label>
                 <textarea 
-                  rows={2} 
+                  rows={2}
+                  required={['write_off', 'adjustment'].includes(transactionData.transactionType)}
                   value={transactionData.notes}
                   onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })}
                   className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 

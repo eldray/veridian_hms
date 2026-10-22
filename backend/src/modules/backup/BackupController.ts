@@ -31,10 +31,11 @@ export class BackupController extends BaseController {
     if (req.file.size === 0) return this.badRequest(res, 'Backup file is empty');
 
     // ✅ Send immediate response and continue in background
-    this.ok(res, null, 'Restore started in background. This may take several minutes.');
+    const response = this.ok(res, null, 'Restore started in background. This may take several minutes.');
 
     this.backupService.restoreBackup(req.file.path, req.user!.id)
       .catch(err => console.error('❌ Background restore failed:', err));
+    return response;
   });
 
   getBackupList = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -61,7 +62,7 @@ export class BackupController extends BaseController {
     res.setHeader('Content-Type', 'application/octet-stream');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     
-    res.download(filePath, filename, (err) => {
+    return res.download(filePath, filename, (err) => {
       if (err && !res.headersSent) {
         this.error(res, err);
       }

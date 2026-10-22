@@ -70,7 +70,7 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
     const [counts, billAggs, claimAggs, billStatuses, claimStatuses] = await Promise.all([
       this.getModel().findUnique({ where: { id }, select: { _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } } } }),
       this.prisma.bill.aggregate({ where: { insuranceProviderId: id }, _sum: { totalAmount: true, balance: true } }),
-      this.prisma.insuranceClaim.aggregate({ where: { insuranceProviderId: id, status: { in: ['approved', 'paid'] } }, _sum: { totalClaimAmount: true, approvedAmount: true } }),
+      this.prisma.insuranceClaim.aggregate({ where: { insuranceProviderId: id, status: 'finalized' }, _sum: { totalClaimAmount: true } }),
       this.prisma.bill.groupBy({ by: ['status'], where: { insuranceProviderId: id }, _count: true }),
       this.prisma.insuranceClaim.groupBy({ by: ['status'], where: { insuranceProviderId: id }, _count: true })
     ]);
@@ -87,8 +87,9 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
       financials: {
         totalBilling: toNumber(billAggs._sum.totalAmount),
         pendingBalance: toNumber(billAggs._sum.balance),
-        totalClaims: toNumber(claimAggs._sum.totalClaimAmount),
-        approvedClaims: toNumber(claimAggs._sum.approvedAmount)
+        totalClaims: toNumber(claimAggs._sum?.totalClaimAmount),
+        // The current schema has draft/finalized claim states, not approved/paid amount fields.
+        approvedClaims: toNumber(claimAggs._sum?.totalClaimAmount)
       },
       billStatus: billStatusMap,
       claimStatus: claimStatusMap

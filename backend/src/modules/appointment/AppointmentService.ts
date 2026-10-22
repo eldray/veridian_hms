@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient, UserRole, AttendanceType } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { AppointmentRepository } from './AppointmentRepository';
 import { CreateAppointmentDTO, UpdateAppointmentDTO, AppointmentFilters } from './AppointmentTypes';
@@ -60,7 +60,7 @@ export class AppointmentService extends BaseService {
     const WORK_END = 17;    // 17:00
     const SLOT_MINUTES = 30;
 
-    const booked = await this.repository.getBookedSlots(clinicianId, date);
+    const booked: Array<{ scheduledAt: Date | string; duration?: number | null }> = await this.repository.getBookedSlots(clinicianId, date);
     // Build a set of occupied [start, end) intervals (ms since midnight) honoring duration.
     const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
     const occupied = booked.map(b => {
@@ -110,7 +110,7 @@ export class AppointmentService extends BaseService {
           medicalNotes: appointment.description,
           status: 'pending',
           createdById: userId,
-          appointmentId: appointment.id,
+          appointment: { connect: { id: appointment.id } },
           encounterCategory: 'opd',
           visitCategory: 'general'
         }
@@ -141,8 +141,8 @@ export class AppointmentService extends BaseService {
     });
   }
 
-  private mapAppointmentType(type: string): string {
-    const mapping: Record<string, string> = {
+  private mapAppointmentType(type: string): AttendanceType {
+    const mapping: Record<string, AttendanceType> = {
       'consultation': 'general_consultation', 'antenatal': 'antenatal', 'postnatal': 'postnatal',
       'procedure': 'surgery', 'follow_up': 'chronic_followup', 'vaccination': 'general_consultation',
       'lab_test': 'general_consultation', 'scan': 'general_consultation', 'other': 'general_consultation'

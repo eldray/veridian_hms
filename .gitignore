@@ -1,4 +1,3 @@
-```
 # Dependencies
 node_modules/
 backend/node_modules/
@@ -9,15 +8,18 @@ backend/dist/
 backend/build/
 frontend/dist/
 frontend/build/
+release/
+build/backend/
+backend/dist-bundle/
 
 # TypeScript/JavaScript build artifacts
 *.js.map
 *.tsbuildinfo
 
-# Environment variables
+# Environment variables and secrets
 .env
-.env.local
 .env.*
+!.env.example
 
 # IDE files
 .vscode/
@@ -25,21 +27,24 @@ frontend/build/
 *.swp
 *.swo
 
-# Logs
+# Logs and local operational data
 *.log
+backend/logs/
+backend/seed-full.log
+
+# Patient/claims exports and local backups (do not commit real health data)
+all.xml
+backend/backups/
+*.backup
+*.bak
+*.dump
 
 # OS generated files
 .DS_Store
 Thumbs.db
 
-# Prisma
-prisma/migrations/
+# Generated Prisma client
 *.generated.ts
 
 # Temporary files
 *.tmp
-```
-# Desktop build
-release/
-build/backend/
-backend/dist-bundle/

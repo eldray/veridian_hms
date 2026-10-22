@@ -46,7 +46,10 @@ export class ScanTemplateRepository {
     if (scanType) {
       where.OR = [
         { name: { contains: scanType, mode: 'insensitive' } },
-        { description: { contains: scanType, mode: 'insensitive' } }
+        { description: { contains: scanType, mode: 'insensitive' } },
+        // Scan type is stored in the JSON metadata, not a dedicated column.
+        // PostgreSQL Prisma JSON string filters support this path expression.
+        { metadata: { path: ['scanType'], string_contains: scanType } }
       ];
     }
 
@@ -330,13 +333,9 @@ if (
 
   async findDistinctScanTypes(): Promise<string[]> {
     const templates = await this.prisma.serviceCatalog.findMany({
-      where: {
-        serviceType: 'scan',
-        metadata: {
-          path: ['scanType'],
-          not: null
-        }
-      },
+      // JSON path string filters vary across Prisma versions; read scan metadata
+      // and filter the scanType value safely in application code below.
+      where: { serviceType: 'scan' },
       select: { metadata: true }
     });
 

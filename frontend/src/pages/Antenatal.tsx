@@ -709,7 +709,10 @@ useEffect(() => {
       if (att.attendanceType === 'antenatal') {
         setActiveTab('anc');
         const record = await getActiveAntenatalRecordByPatient(patientId).catch(() => null);
-        if (!record?.isActive || record?.isCompleted) setModalType('anc_booking');
+        // Encounter creation seeds a blank booking/visit for the workflow. Open the
+        // booking form when that shell still lacks LMP so it can be completed instead
+        // of attempting to create a duplicate pregnancy record.
+        if (!record?.isActive || record?.isCompleted || !record?.lmp) setModalType('anc_booking');
       } else if (att.attendanceType === 'delivery') {
         setActiveTab('delivery'); setEditingDelivery(null); setShowDeliveryModal(true);
       } else if (att.attendanceType === 'postnatal') {
@@ -1977,6 +1980,7 @@ onSuccess={async () => {
             || ''
           }
           attendanceId={selectedAttendanceId}
+          existingRecord={currentRecord?.id ? currentRecord : undefined}
         />
       )}
 

@@ -9,6 +9,7 @@ import {
   getLowStockItems as apiGetLowStockItems,
   getStockCategories as apiGetStockCategories,
   updateStockLevel as apiUpdateStockLevel,
+  allocateStockToDepartment as apiAllocateStockToDepartment,
   getLowStockItems as apiGetLowStockItemsWithParams,
   getStockItemTransactionHistory as apiGetStockItemTransactionHistory,
   getStockTransactions as apiGetStockTransactions,
@@ -76,8 +77,9 @@ interface StockItem {
 interface StockTransaction {
   id: string;
   stockItemId: string;
-  transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale';
+  transactionType: 'purchase' | 'adjustment' | 'requisition' | 'sale' | 'transfer_in' | 'transfer_out' | 'write_off';
   quantity: number;
+  adjustmentDirection?: 'increase' | 'decrease' | null;
   balanceAfter: number;
   reference?: string;
   notes?: string;
@@ -130,6 +132,11 @@ interface PurchaseInvoice {
     id: string;
     name: string;
   };
+  receivedAtWardId?: string;
+  receivedAtWard?: {
+    id: string;
+    wardName: string;
+  };
 }
 
 interface Pagination {
@@ -171,6 +178,7 @@ interface StockState {
   
   // Stock level management
   updateStockLevel: (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) => Promise<any>;
+  allocateStockToDepartment: (id: string, data: { quantity: number; departmentId: string }) => Promise<any>;
   bulkUpdateStock: (updates: Array<{ id: string; quantity: number; transactionType: string; reference?: string; notes?: string }>) => Promise<any[]>;
   
   // ==================== STOCK TRANSACTIONS ====================
@@ -448,6 +456,20 @@ getStockItems: async (filters = {}) => {
         isLoading: false, 
         error: (error as any).response?.data?.message || 'Failed to fetch stock categories' 
       });
+      throw error;
+    }
+  },
+
+  allocateStockToDepartment: async (id: string, data: { quantity: number; departmentId: string }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const result = await apiAllocateStockToDepartment(id, data);
+      await get().getStockItems();
+      await get().getLowStockItems();
+      set({ isLoading: false });
+      return result;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to allocate stock' });
       throw error;
     }
   },

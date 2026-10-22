@@ -1,13 +1,12 @@
-import waiverRoutes from './WaiverRoutes';
+import { createWaiverRoutes as buildWaiverRoutes } from './WaiverRoutes';
 
-export { waiverRoutes };
+export const waiverRoutes = buildWaiverRoutes();
 
 export default {
   path: '/waivers',
   routes: waiverRoutes
 };
 
-// Helper function for module registration
 export function createWaiverRoutes() {
-  return waiverRoutes;
+  return buildWaiverRoutes();
 }

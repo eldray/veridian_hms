@@ -16,12 +16,21 @@ export class StockTransferController extends BaseController {
 
   getAll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
-    const result = await this.service.getAllTransfers({ ...req.query, page, limit });
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    const result = await this.service.getAllTransfers({
+      ...req.query, page, limit,
+      departmentId: req.user?.departmentId,
+      includeAllStockLocations: isAdmin,
+    });
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Transfers retrieved');
   });
 
   getById = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.service.getTransferById(req.params.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    if (!isAdmin && (!req.user?.departmentId || (req.user.departmentId !== result.originId && req.user.departmentId !== result.destinationId))) {
+      return res.status(403).json({ success: false, message: 'You can only view transfers involving your assigned department' });
+    }
     return this.ok(res, result, 'Transfer retrieved');
   });
 
@@ -31,18 +40,35 @@ export class StockTransferController extends BaseController {
   });
 
   approve = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'super_admin'].includes(role);
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.originId)) {
+      return res.status(403).json({ success: false, message: 'Only the originating department or an administrator can approve this transfer' });
+    }
     const result = await this.service.approveTransfer(req.params.id, req.user!.id);
     return this.ok(res, result, 'Transfer approved');
   });
 
   dispatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const role = String(req.user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'super_admin'].includes(role);
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.originId)) {
+      return res.status(403).json({ success: false, message: 'Only the originating department or an administrator can dispatch this transfer' });
+    }
     const result = await this.service.dispatchTransfer(req.params.id, req.user!.id);
     return this.ok(res, result, 'Transfer dispatched from origin');
   });
 
   receive = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const transfer = await this.service.getTransferById(req.params.id);
+    const isAdmin = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
+    if (!isAdmin && (!req.user?.departmentId || req.user.departmentId !== transfer.destinationId)) {
+      return res.status(403).json({ success: false, message: 'Only the receiving department can confirm this transfer' });
+    }
     const result = await this.service.receiveTransfer(req.params.id, req.user!.id);
-    return this.ok(res, result, 'Transfer received at destination. Batches updated.');
+    return this.ok(res, result, 'Transfer received at destination. Stock balances updated.');
   });
 }
 

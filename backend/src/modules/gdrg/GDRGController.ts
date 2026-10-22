@@ -69,7 +69,7 @@ export class GDRGController extends BaseController {
     body('gdrgCode').notEmpty().withMessage('GDRG code is required'),
     body('mdc').notEmpty().withMessage('MDC is required'),
     body('description').notEmpty().withMessage('Description is required'),
-    body('nhiaTariff').isNumeric({ min: 0 }).withMessage('NHIA tariff must be a positive number'),
+    body('nhiaTariff').isNumeric().custom((value) => Number(value) >= 0 ).withMessage('NHIA tariff must be a positive number'),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);

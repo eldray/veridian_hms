@@ -1,13 +1,12 @@
-import settingsRoutes from './SettingsRoutes';
+import { createSettingsRoutes as buildSettingsRoutes } from './SettingsRoutes';
 
-export { settingsRoutes };
+export const settingsRoutes = buildSettingsRoutes();
 
 export default {
   path: '/settings',
   routes: settingsRoutes
 };
 
-// Helper function for module registration
 export function createSettingsRoutes() {
-  return settingsRoutes;
+  return buildSettingsRoutes();
 }

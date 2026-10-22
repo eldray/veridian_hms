@@ -11,6 +11,7 @@ export interface CreatePatientDTO {
   corporateAccountId?: string | null;
   corporateEmployeeId?: string | null;
   nhisNumber?: string;
+  cccId?: string;
   nhisExpiryDate?: Date | string | null;
   nhisActive?: boolean;
   phoneNumber?: string;

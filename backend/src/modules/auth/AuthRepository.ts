@@ -96,4 +96,8 @@ export class AuthRepository {
   async deleteRefreshToken(refreshToken: string): Promise<void> {
     await this.prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
   }
+
+  async deleteRefreshTokenForUser(userId: string): Promise<void> {
+    await this.prisma.refreshToken.deleteMany({ where: { userId } });
+  }
 }

@@ -55,9 +55,9 @@ export class LabTestController extends BaseController {
     body('name').notEmpty(), 
     body('code').notEmpty(), 
     body('serviceCategory').isIn(Object.values(ServiceCategory)),
-    body('cashPrice').isNumeric({ min: 0 }), 
-    body('insurancePrice').isNumeric({ min: 0 }),
-    body('corporatePrice').optional().isNumeric({ min: 0 }), // ✅ Added corporatePrice
+    body('cashPrice').isNumeric().custom((value) => Number(value) >= 0), 
+    body('insurancePrice').isNumeric().custom((value) => Number(value) >= 0),
+    body('corporatePrice').optional().isNumeric().custom((value) => Number(value) >= 0), // ✅ Added corporatePrice
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
@@ -74,9 +74,9 @@ export class LabTestController extends BaseController {
   ];
 
   updateLabTest = [
-    body('cashPrice').optional().isNumeric({ min: 0 }), 
-    body('insurancePrice').optional().isNumeric({ min: 0 }),
-    body('corporatePrice').optional().isNumeric({ min: 0 }),
+    body('cashPrice').optional().isNumeric().custom((value) => Number(value) >= 0), 
+    body('insurancePrice').optional().isNumeric().custom((value) => Number(value) >= 0),
+    body('corporatePrice').optional().isNumeric().custom((value) => Number(value) >= 0),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);

@@ -67,5 +67,5 @@ export const validate =
       });
     }
     req.body = parsed.data;
-    next();
+    return next();
   };

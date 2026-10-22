@@ -228,6 +228,7 @@ model Patient {
   updatedAt           DateTime @updatedAt
 
   nhisNumber     String?
+  cccId          String?
   nhisExpiryDate DateTime?
   nhisActive     Boolean   @default(false)
   phoneNumber    String?
@@ -802,6 +803,10 @@ model Ward {
   ServiceCatalog   ServiceCatalog[]
   WardChargeRecord WardChargeRecord[]
   Requisition      Requisition[]
+  stockBatches     StockBatch[]
+  stockBalances    StockItemDepartmentBalance[]
+  stockTransactions StockTransaction[]
+  receivedInvoices Invoice[]
 }
 
 // ============================================================
@@ -1671,7 +1676,30 @@ model StockItem {
   ServiceCatalog   ServiceCatalog[]
   StockTransaction StockTransaction[]
   StockBatch       StockBatch[]
+  stockBalances    StockItemDepartmentBalance[]
   transferItems    StockTransferItem[]
+}
+
+// Canonical on-hand balance by department. A null departmentId represents legacy/unassigned stock.
+model StockItemDepartmentBalance {
+  id           String      @id @default(cuid())
+  stockItemId  String
+  departmentId String?
+  wardId       String?
+  // Stable unique key: department id, WARD:<ward id>, or "__UNASSIGNED__".
+  locationKey  String
+  quantity     Int         @default(0)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  stockItem  StockItem   @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  department Department? @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  ward       Ward?       @relation(fields: [wardId], references: [id], onDelete: Restrict)
+
+  @@unique([stockItemId, locationKey])
+  @@index([departmentId, stockItemId])
+  @@index([wardId, stockItemId])
+  @@map("stock_item_department_balances")
 }
 
 model StockBatch {
@@ -1685,13 +1713,15 @@ model StockBatch {
   isActive     Boolean  @default(true)
   createdAt    DateTime @default(now())
 
-  // ✅ NEW: Which department/store currently holds this specific batch?
+  // Current physical holder: a department/store or a ward.
   departmentId String?
+  wardId       String?
   department   Department? @relation(fields: [departmentId], references: [id])
+  ward         Ward?       @relation(fields: [wardId], references: [id])
 
   stockItem StockItem @relation(fields: [stockItemId], references: [id])
 
-  @@unique([stockItemId, batchNumber, departmentId]) // ← add departmentId
+  @@unique([stockItemId, batchNumber, departmentId, wardId]) // ← add departmentId
   @@index([stockItemId, expiryDate])
   @@index([departmentId]) // ← Add index for department lookups
   @@index([departmentId, stockItemId]) // ← Composite index for inventory queries
@@ -1709,9 +1739,12 @@ model Invoice {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  // ✅ NEW: Which store/department physically received this invoice's goods?
+  // Physical location where purchased goods were received. Exactly one location
+  // (department/store or ward) is selected by the purchase-invoice workflow.
   receivedAtDepartmentId String?
+  receivedAtWardId       String?
   receivedAtDepartment   Department? @relation(fields: [receivedAtDepartmentId], references: [id])
+  receivedAtWard         Ward?       @relation(fields: [receivedAtWardId], references: [id])
 
   User               User               @relation(fields: [createdById], references: [id])
   InvoiceItem        InvoiceItem[]
@@ -1722,7 +1755,8 @@ model Invoice {
   @@index([invoiceDate])
   @@index([invoiceNumber])
   @@index([supplierName])
-  @@index([receivedAtDepartmentId]) // ← Add index for department receiving reports
+  @@index([receivedAtDepartmentId])
+  @@index([receivedAtWardId])
 }
 
 model InvoiceItem {
@@ -1754,6 +1788,10 @@ model StockTransaction {
   requisitionId   String?
   invoiceId       String?
   departmentId    String?
+  wardId          String?
+  // Exact batch quantities consumed by a stock movement, used for audited reversals.
+  batchAllocations Json?
+  adjustmentDirection String?
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
 
@@ -1761,6 +1799,7 @@ model StockTransaction {
   Invoice     Invoice?     @relation(fields: [invoiceId], references: [id])
   Requisition Requisition? @relation(fields: [requisitionId], references: [id])
   Department  Department?  @relation(fields: [departmentId], references: [id])
+  Ward        Ward?        @relation(fields: [wardId], references: [id])
   User        User?        @relation("StockTransaction_performedBy", fields: [performedBy], references: [id])
 
   @@index([stockItemId, transactionDate])
@@ -1769,6 +1808,7 @@ model StockTransaction {
   @@index([requisitionId])
   @@index([invoiceId])
   @@index([departmentId])
+  @@index([wardId])
   @@index([departmentId, transactionDate])
 }
 
@@ -1776,6 +1816,7 @@ model Requisition {
   id                     String             @id @default(cuid())
   requisitionNumber      String             @unique
   requestingDepartmentId String?
+  supplyingDepartmentId  String?
   requestingWardId       String?
   requestedById          String
   urgency                RequisitionUrgency @default(routine)
@@ -1794,13 +1835,15 @@ model Requisition {
   approvedBy  User? @relation("Requisition_approvedBy", fields: [approvedById], references: [id])
   fulfilledBy User? @relation("Requisition_fulfilledBy", fields: [fulfilledById], references: [id])
 
-  departments      Department?        @relation(fields: [requestingDepartmentId], references: [id])
-  ward             Ward?              @relation(fields: [requestingWardId], references: [id])
+  departments         Department? @relation("Requisition_requestingDepartment", fields: [requestingDepartmentId], references: [id])
+  supplyingDepartment Department? @relation("Requisition_supplyingDepartment", fields: [supplyingDepartmentId], references: [id])
+  ward                Ward?       @relation(fields: [requestingWardId], references: [id])
   RequisitionItem  RequisitionItem[]
   StockTransaction StockTransaction[]
 
   @@index([requestingWardId])
   @@index([requestingDepartmentId])
+  @@index([supplyingDepartmentId])
   @@index([status])
 }
 
@@ -1869,6 +1912,8 @@ model StockTransferItem {
   quantityRequested Int
   quantitySent      Int    @default(0)
   quantityReceived  Int    @default(0)
+  // Exact FEFO batch quantities reserved when dispatched, then received at destination.
+  batchAllocations   Json?
 
   transfer  StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   stockItem StockItem     @relation(fields: [stockItemId], references: [id])
@@ -1895,14 +1940,16 @@ model Department {
 
   // Stock management
   stockBatches      StockBatch[]
+  stockBalances    StockItemDepartmentBalance[]
   outgoingTransfers StockTransfer[]    @relation("OriginDepartment")
   incomingTransfers StockTransfer[]    @relation("DestinationDepartment")
   receivedInvoices  Invoice[]
   stockTransactions StockTransaction[]
 
   // Existing
-  Requisitions Requisition[]
-  users        User[]        @relation("DepartmentUsers")
+  Requisitions        Requisition[] @relation("Requisition_requestingDepartment")
+  suppliedRequisitions Requisition[] @relation("Requisition_supplyingDepartment")
+  users               User[]        @relation("DepartmentUsers")
   appointments Appointment[]
   head         User?         @relation("DepartmentHead", fields: [headId], references: [id], onDelete: SetNull)
 
@@ -2950,6 +2997,7 @@ enum LabTestStatus {
 
 enum ProcedureStatus {
   scheduled
+  in_progress
   completed
   cancelled
 }
@@ -3046,6 +3094,9 @@ enum StockTransactionType {
   adjustment
   requisition
   sale
+  transfer_in
+  transfer_out
+  write_off
 }
 
 enum RequisitionStatus {

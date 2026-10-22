@@ -2,6 +2,7 @@
 // "Dumb" modal — collects data and calls `onSave`. Parent handles the API call.
 import { useState, useEffect } from 'react';
 import { useToast } from '../store/toastStore';
+import { useAuthStore } from '../store/authStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
 import type { User as AppUser, Seniority } from '../types';
 
@@ -32,6 +33,8 @@ interface UserEditModalProps {
 
 export default function UserEditModal({ user, onClose, onSave, isLoading }: UserEditModalProps) {
   const { error } = useToast();
+  const { user: currentUser } = useAuthStore();
+  const canManageSuperAdmin = currentUser?.role === 'super_admin';
   const [saving, setSaving] = useState(false);
 
   const [formData, setFormData] = useState<FormState>({
@@ -148,6 +151,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
               >
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
+                {(canManageSuperAdmin || user.role === 'super_admin') && <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>}
                 <option value="hr_officer">HR Officer</option>
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>

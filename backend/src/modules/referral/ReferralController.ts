@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { ReferralService } from './ReferralService';
-import { AuthRequest } from '../../types/auth'; // Ensure this path is correct
+import { AuthRequest } from '../../middleware/authMiddleware';
 
 export class ReferralController extends BaseController {
   private service: ReferralService;

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { UserRole } from '@prisma/client'; // ✅ Import UserRole
 import { backupController } from './BackupController';
-import { protect, requireRole } from '../../middleware/authMiddleware';
+import { protect, requireRole, requireSuperAdmin } from '../../middleware/authMiddleware';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -33,7 +33,8 @@ export function createBackupRoutes(): Router {
   router.use(requireRole(adminRoles));
 
   router.post('/', backupController.createBackup);
-  router.post('/restore', upload.single('backup'), backupController.restoreBackup);
+  // Database restore can overwrite live hospital data: reserve this action for super admins.
+  router.post('/restore', requireSuperAdmin, upload.single('backup'), backupController.restoreBackup);
   router.get('/', backupController.getBackupList);
   router.get('/stats', backupController.getBackupStats);
   router.get('/download/:filename', backupController.downloadBackup);

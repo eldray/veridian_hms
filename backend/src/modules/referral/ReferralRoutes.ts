@@ -24,26 +24,26 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
 
   const statusUpdateValidation = [
     body('status').notEmpty().withMessage('Status is required'),
-    body('status').isIn(['pending', 'accepted', 'rejected', 'completed']).withMessage('Valid status required')
+    body('status').isIn(['pending', 'accepted', 'completed', 'cancelled']).withMessage('Valid status required')
   ];
 
   // ==========================================
   // ✅ SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
   // ==========================================
-  router.get('/stats/summary', protect, requireRole(['admin', 'records']), (req, res) => controller.getReferralStats(req, res));
-  router.get('/patient/:patientId', protect, (req, res) => controller.getReferralsByPatient(req, res));
+  router.get('/stats/summary', protect, requireRole(['admin', 'records']), controller.getReferralStats);
+  router.get('/patient/:patientId', protect, controller.getReferralsByPatient);
 
   // ==========================================
   // DYNAMIC ID ROUTES (LAST)
   // ==========================================
-  router.get('/', protect, (req, res) => controller.getReferrals(req, res));
-  router.get('/:id', protect, (req, res) => controller.getReferralById(req, res));
+  router.get('/', protect, controller.getReferrals);
+  router.get('/:id', protect, controller.getReferralById);
 
-  router.post('/outgoing', protect, requireRole(['admin', 'doctor', 'records']), outgoingReferralValidation, (req, res) => controller.createOutgoingReferral(req, res));
-  router.post('/incoming', protect, requireRole(['admin', 'records']), incomingReferralValidation, (req, res) => controller.createIncomingReferral(req, res));
+  router.post('/outgoing', protect, requireRole(['admin', 'doctor', 'records']), outgoingReferralValidation, controller.createOutgoingReferral);
+  router.post('/incoming', protect, requireRole(['admin', 'records']), incomingReferralValidation, controller.createIncomingReferral);
 
-  router.put('/:id/status', protect, requireRole(['admin', 'doctor']), statusUpdateValidation, (req, res) => controller.updateReferralStatus(req, res));
-  router.delete('/:id', protect, requireRole(['admin']), (req, res) => controller.deleteReferral(req, res));
+  router.put('/:id/status', protect, requireRole(['admin', 'doctor']), statusUpdateValidation, controller.updateReferralStatus);
+  router.delete('/:id', protect, requireRole(['admin']), controller.deleteReferral);
 
   return router;
 }

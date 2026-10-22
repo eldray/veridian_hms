@@ -27,7 +27,7 @@
     "allowSyntheticDefaultImports": true
   },
   "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "src/seed/cleanTestData.ts"],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"

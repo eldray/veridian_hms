@@ -17,11 +17,11 @@ export const createStockTransferRoutes = () => {
   router.get('/:id', stockTransferController.getById);
 
   // Any clinical staff can REQUEST a transfer
-  router.post('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'records']), stockTransferController.request);
+  router.post('/', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'records']), stockTransferController.request);
 
   // Only Store Managers / Admin / Pharmacist can APPROVE and DISPATCH
-  router.patch('/:id/approve', requireRole(['admin', 'pharmacist']), stockTransferController.approve);
-  router.patch('/:id/dispatch', requireRole(['admin', 'pharmacist']), stockTransferController.dispatch);
+  router.patch('/:id/approve', requireRole(['admin', 'super_admin', 'pharmacist']), stockTransferController.approve);
+  router.patch('/:id/dispatch', requireRole(['admin', 'super_admin', 'pharmacist']), stockTransferController.dispatch);
 
   // The DESTINATION department (anyone) can RECEIVE the goods
   router.patch('/:id/receive', stockTransferController.receive);

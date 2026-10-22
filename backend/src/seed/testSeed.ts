@@ -771,7 +771,7 @@ export const seedTestData = async (force: boolean = false) => {
           totalClaimAmount: c.totalClaimAmount,
           status: c.status as ClaimStatus,
           diagnosisCodes: c.diagnosisCodes,
-          submissionDate: c.submissionDate,
+          finalizedAt: c.submissionDate ? new Date(c.submissionDate) : undefined,
           createdById: accounts?.id ?? admin.id,
         },
       });

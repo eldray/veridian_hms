@@ -8,6 +8,7 @@ import {
   StockLookupParams,
   StockLookupItem
 } from './RequisitionTypes';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 export class RequisitionRepository {
   private prisma: PrismaClient;
@@ -31,15 +32,43 @@ export class RequisitionRepository {
   };
 
   async findAll(params: RequisitionQueryParams) {
-    const { departmentId, wardId, supplyingDepartmentId, status, urgency, page = 1, limit = 1000 } = params;
+    const { departmentId, wardId, supplyingDepartmentId, status, urgency, authenticatedUserId, page = 1, limit = 1000 } = params;
 
     const where: Prisma.RequisitionWhereInput = {};
+    const filters: Prisma.RequisitionWhereInput[] = [];
 
-    if (departmentId) where.requestingDepartmentId = departmentId;
-    if (wardId) where.requestingWardId = wardId;
-    if (supplyingDepartmentId) where.supplyingDepartmentId = supplyingDepartmentId;
-    if (status) where.status = status as any;
-    if (urgency) where.urgency = urgency as any;
+    // Client filters narrow results; they never grant access. The authenticated user's
+    // current database role and department determine the mandatory visibility scope.
+    if (authenticatedUserId) {
+      const user = await this.prisma.user.findUnique({
+        where: { id: authenticatedUserId },
+        select: { role: true, departmentId: true }
+      });
+      if (!user) throw new Error('User not found');
+
+      if (user.role !== 'admin' && user.role !== 'super_admin') {
+        const visibleToUser: Prisma.RequisitionWhereInput[] = [
+          { requestedById: authenticatedUserId }
+        ];
+        if (user.departmentId) {
+          visibleToUser.push(
+            { requestingDepartmentId: user.departmentId },
+            { supplyingDepartmentId: user.departmentId }
+          );
+        }
+        filters.push({ OR: visibleToUser });
+      }
+    } else {
+      // Defensive default: never return the unrestricted list without an authenticated ID.
+      throw new Error('User not authenticated');
+    }
+
+    if (departmentId) filters.push({ requestingDepartmentId: departmentId });
+    if (wardId) filters.push({ requestingWardId: wardId });
+    if (supplyingDepartmentId) filters.push({ supplyingDepartmentId });
+    if (status) filters.push({ status: status as any });
+    if (urgency) filters.push({ urgency: urgency as any });
+    if (filters.length) where.AND = filters;
 
     const skip = (page - 1) * limit;
 
@@ -187,8 +216,15 @@ export class RequisitionRepository {
     id: string,
     status: string,
     userId: string | undefined,
-    notes?: string
+    notes?: string,
+    expectedCurrentStatus?: string
   ) {
+    if (status === 'fulfilled') {
+      throw new Error('Requisitions can only be marked fulfilled by the atomic stock-fulfilment workflow');
+    }
+    if (status === 'approved') {
+      throw new Error('Requisitions can only be approved through the item-approval workflow');
+    }
     const updateData: Prisma.RequisitionUncheckedUpdateInput = {
       status: status as any,
       updatedAt: new Date()
@@ -202,49 +238,58 @@ export class RequisitionRepository {
       updateData.fulfilledAt = new Date();
     }
 
-    if (notes) {
+    if (notes !== undefined) {
       updateData.notes = notes;
     }
 
-    const result = await this.prisma.requisition.update({
-      where: { id },
+    // Use the observed state as a compare-and-set guard. A concurrent submit/cancel
+    // must not overwrite another request's successful transition.
+    const claim = await this.prisma.requisition.updateMany({
+      where: { id, ...(expectedCurrentStatus ? { status: expectedCurrentStatus as any } : {}) },
       data: updateData,
+    });
+    if (claim.count !== 1) {
+      throw new Error('This requisition has already changed status. Refresh and try again.');
+    }
+
+    const result = await this.prisma.requisition.findUnique({
+      where: { id },
       include: {
-        departments: {
-          select: { name: true }
-        },
-        ward: {
-          select: { wardName: true }
-        },
-        requestedBy: {
-          select: { fullName: true }
-        },
-        approvedBy: {
-          select: { fullName: true }
-        },
+        departments: { select: { name: true } },
+        ward: { select: { wardName: true } },
+        requestedBy: { select: { fullName: true } },
+        approvedBy: { select: { fullName: true } },
         RequisitionItem: {
           include: {
-            StockItem: {
-              select: {
-                name: true,
-                drugCode: true,
-                unitOfMeasure: true
-              }
-            }
+            StockItem: { select: { name: true, drugCode: true, unitOfMeasure: true } }
           }
         }
       }
     });
+    if (!result) throw new Error('Requisition not found after status update');
     return this.legacyKeys(result) as typeof result;
   }
 
   async delete(id: string) {
-    await this.prisma.requisitionItem.deleteMany({
-      where: { requisitionId: id }
-    });
+    return this.prisma.$transaction(async (tx) => {
+      // Claim deletion only while the requisition is still a draft. This closes
+      // the race where the service checked "draft", another request submitted
+      // it, and this method then deleted a live requisition and its item history.
+      const claim = await tx.requisition.updateMany({
+        where: { id, status: 'draft' },
+        data: { updatedAt: new Date() },
+      });
+      if (claim.count !== 1) {
+        throw new Error('Only a draft requisition can be deleted. It may have changed status; refresh and try again.');
+      }
 
-    return this.prisma.requisition.delete({
-      where: { id }
+      await tx.requisitionItem.deleteMany({
+        where: { requisitionId: id }
+      });
+
+      return tx.requisition.delete({
+        where: { id }
+      });
     });
   }
 
@@ -264,6 +309,29 @@ export class RequisitionRepository {
 
       if (requisition.status !== 'submitted') {
         throw new Error('Only submitted requisitions can be approved');
+      }
+
+      const lines = await tx.requisitionItem.findMany({ where: { requisitionId: id }, select: { id: true, quantityRequested: true } });
+      const lineIds = new Set(lines.map(line => line.id));
+      const submittedIds = new Set(approvedItems.map(item => item.requisitionItemId));
+      if (submittedIds.size !== approvedItems.length || submittedIds.size !== lineIds.size || [...submittedIds].some(itemId => !lineIds.has(itemId))) {
+        throw new Error('Approval must include each line from this requisition exactly once');
+      }
+      for (const item of approvedItems) {
+        const line = lines.find(candidate => candidate.id === item.requisitionItemId)!;
+        if (!Number.isSafeInteger(item.quantityApproved) || item.quantityApproved < 0 || item.quantityApproved > line.quantityRequested) {
+          throw new Error('Approved quantities must be whole numbers between zero and the requested quantity');
+        }
+      }
+
+      // Claim approval atomically so two approvers cannot race and overwrite
+      // the line quantities after both observed the submitted state.
+      const approvalClaim = await tx.requisition.updateMany({
+        where: { id, status: 'submitted' },
+        data: { status: 'approved', approvedById: userId, approvedAt: new Date() },
+      });
+      if (approvalClaim.count !== 1) {
+        throw new Error('This requisition has already been approved or its status changed. Refresh and try again.');
       }
 
       for (const item of approvedItems) {
@@ -350,6 +418,7 @@ export class RequisitionRepository {
       by: ['stockItemId'],
       where: {
         departmentId,
+        wardId: null,
         stockItemId: { in: stockItemIds },
         isActive: true,
         quantity: { gt: 0 },
@@ -415,47 +484,72 @@ export class RequisitionRepository {
         include: {
           RequisitionItem: { include: { StockItem: true } },
           supplyingDepartment: { select: { id: true, name: true } },
-          departments: { select: { id: true, name: true } }
+          departments: { select: { id: true, name: true } },
+          ward: { select: { id: true, wardName: true } }
         }
       });
 
       if (!requisition) throw new Error('Requisition not found');
       if (requisition.status !== 'approved') throw new Error('Only approved requisitions can be fulfilled');
 
-      const lines = requisition.RequisitionItem
-        .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }))
-        .filter(l => l.qty > 0);
+      const toDepartmentId = requisition.requestingDepartmentId;
+      const toWardId = requisition.requestingWardId;
+      if (Boolean(toDepartmentId) === Boolean(toWardId)) {
+        throw new Error('A requisition must identify exactly one receiving department or ward');
+      }
+
+      // Validate every stored line before filtering zero-approved quantities. A
+      // malformed negative/non-integer quantity must never disappear silently
+      // while the remaining lines are fulfilled.
+      const requestedLines = requisition.RequisitionItem
+        .map(ri => ({ ri, qty: ri.quantityApproved ?? ri.quantityRequested }));
+      const invalidLine = requestedLines.find(({ ri, qty }) =>
+        !Number.isSafeInteger(ri.quantityRequested) ||
+        ri.quantityRequested <= 0 ||
+        !Number.isSafeInteger(qty) ||
+        qty < 0 ||
+        qty > ri.quantityRequested
+      );
+      if (invalidLine) {
+        throw new Error(`Approved quantity for ${invalidLine.ri.StockItem.name} must be a whole number between zero and the positive requested quantity`);
+      }
+      const lines = requestedLines.filter(l => l.qty > 0);
       if (lines.length === 0) throw new Error('No approved quantities to fulfil');
+
+      // Claim fulfillment only after validating the saved destination and every
+      // line. Competing requests cannot issue the same requisition twice.
+      const fulfillmentClaim = await tx.requisition.updateMany({
+        where: { id, status: 'approved' },
+        data: { status: 'fulfilled', fulfilledById: userId, fulfilledAt: new Date() },
+      });
+      if (fulfillmentClaim.count !== 1) {
+        throw new Error('This requisition has already been fulfilled or its status changed. Refresh and try again.');
+      }
 
       const supplierId = requisition.supplyingDepartmentId;
       const reference = requisition.requisitionNumber;
 
-      // ---------- Legacy path: no supplier recorded ----------
+      // A requisition must identify the issuing department. Treating a requisition
+      // without a source as consumption would silently reduce hospital stock and
+      // make the transfer impossible to audit.
       if (!supplierId) {
-        for (const { ri, qty } of lines) {
-          const updated = await tx.stockItem.updateMany({
-            where: { id: ri.stockItemId, currentStock: { gte: qty } },
-            data: { currentStock: { decrement: qty } }
-          });
-          if (updated.count === 0) {
-            throw new Error(`Insufficient stock for ${ri.StockItem.name}: need ${qty}, have ${ri.StockItem.currentStock}`);
-          }
-          const after = await tx.stockItem.findUnique({ where: { id: ri.stockItemId }, select: { currentStock: true } });
-          await tx.stockTransaction.create({
-            data: {
-              stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
-              balanceAfter: after?.currentStock ?? 0, requisitionId: id,
-              departmentId: requisition.requestingDepartmentId || undefined,
-              reference: `REQ-${reference}`, notes: `Fulfilled requisition ${reference}`, performedBy: userId || undefined
-            }
-          });
-          await tx.requisitionItem.update({ where: { id: ri.id }, data: { quantityFulfilled: qty, performedBy: userId || undefined } });
-        }
-        return this.markFulfilled(tx, id, userId);
+        throw new Error('Select a supplying department before fulfilling this requisition');
       }
 
       // ---------- Validate supplier stock for ALL lines first ----------
       const supplierQty = await this.getDepartmentQuantities(supplierId, lines.map(l => l.ri.stockItemId), tx);
+      // Non-batch supplies use the canonical location balance directly. If an item has
+      // any batches, only eligible batches at the supplying department are spendable.
+      for (const { ri } of lines) {
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: ri.stockItemId } });
+        if (batchCount === 0 && !supplierQty.has(ri.stockItemId)) {
+          const balance = await tx.stockItemDepartmentBalance.findUnique({
+            where: { stockItemId_locationKey: { stockItemId: ri.stockItemId, locationKey: supplierId } },
+            select: { quantity: true },
+          });
+          supplierQty.set(ri.stockItemId, balance?.quantity ?? 0);
+        }
+      }
       const short = lines.filter(l => (supplierQty.get(l.ri.stockItemId) ?? 0) < l.qty);
       if (short.length > 0) {
         const details = short
@@ -464,18 +558,35 @@ export class RequisitionRepository {
         throw new Error(`Insufficient stock at ${requisition.supplyingDepartment?.name || 'the supplying department'}: ${details}`);
       }
 
-      const toDepartmentId = requisition.requestingDepartmentId; // null => ward (consumed)
-
       for (const { ri, qty } of lines) {
         let remaining = qty;
+        // Move the ledger balances first within this transaction. Any later batch or
+        // validation failure rolls these changes back, preserving all-or-nothing fulfilment.
+        const supplierBalance = await decreaseDepartmentStockBalance(tx, ri.stockItemId, supplierId, qty);
+        // Department-to-department transfers remain inside the hospital aggregate.
+        // Ward requests are issued for use (wards are not stock-holding locations in
+        // this workflow), so they leave the supplier balance and hospital-wide stock.
+        const destinationBalance = toDepartmentId
+          ? await increaseDepartmentStockBalance(tx, ri.stockItemId, toDepartmentId, qty)
+          : null;
+        if (toWardId) {
+          const updatedAggregate = await tx.stockItem.updateMany({
+            where: { id: ri.stockItemId, currentStock: { gte: qty } },
+            data: { currentStock: { decrement: qty } },
+          });
+          if (updatedAggregate.count !== 1) {
+            throw new Error(`Insufficient hospital-wide stock for ${ri.StockItem.name} while issuing to a ward`);
+          }
+        }
 
-        const batches = await tx.stockBatch.findMany({
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: ri.stockItemId } });
+        const batches = batchCount > 0 ? await tx.stockBatch.findMany({
           where: {
-            stockItemId: ri.stockItemId, departmentId: supplierId, isActive: true,
+            stockItemId: ri.stockItemId, departmentId: supplierId, wardId: null, isActive: true,
             quantity: { gt: 0 }, expiryDate: { gt: new Date() }
           },
           orderBy: { expiryDate: 'asc' } // FEFO
-        });
+        }) : [];
 
         for (const batch of batches) {
           if (remaining <= 0) break;
@@ -483,22 +594,45 @@ export class RequisitionRepository {
 
           // guarded decrement at the supplier
           const dec = await tx.stockBatch.updateMany({
-            where: { id: batch.id, quantity: { gte: move } },
+            where: {
+              id: batch.id, departmentId: supplierId, wardId: null, isActive: true,
+              expiryDate: { gt: new Date() }, quantity: { gte: move }
+            },
             data: { quantity: { decrement: move } }
           });
           if (dec.count === 0) throw new Error(`Stock for ${ri.StockItem.name} changed while fulfilling. Please retry.`);
 
+          // Only department requests receive stock into another stock-holding
+          // location. Ward requests consume/issue the quantity, so the source batch
+          // is decremented without creating a duplicate ward batch.
           if (toDepartmentId) {
             const existing = await tx.stockBatch.findFirst({
-              where: { stockItemId: ri.stockItemId, batchNumber: batch.batchNumber, departmentId: toDepartmentId }
+              where: {
+                stockItemId: ri.stockItemId,
+                batchNumber: batch.batchNumber,
+                departmentId: toDepartmentId,
+                wardId: null,
+              }
             });
             if (existing) {
-              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move }, isActive: true } });
+              // The schema allows only one row per item/batch/location. Never merge
+              // a different expiry/cost lot into that row during a requisition transfer.
+              if (existing.expiryDate.getTime() !== batch.expiryDate.getTime()) {
+                throw new Error(`Destination already has batch ${batch.batchNumber} with a different expiry date. Reconcile the batch before fulfilling this requisition.`);
+              }
+              if (Number(existing.costPrice) !== Number(batch.costPrice)) {
+                throw new Error(`Destination already has batch ${batch.batchNumber} with a different cost price. Reconcile the batch before fulfilling this requisition.`);
+              }
+              if (!existing.isActive) {
+                throw new Error(`Destination batch ${batch.batchNumber} is inactive. Reconcile the batch before fulfilling this requisition.`);
+              }
+              await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move } } });
             } else {
               await tx.stockBatch.create({
                 data: {
                   stockItemId: ri.stockItemId, batchNumber: batch.batchNumber, expiryDate: batch.expiryDate,
-                  costPrice: batch.costPrice, quantity: move, departmentId: toDepartmentId, receivedDate: new Date()
+                  costPrice: batch.costPrice, quantity: move, departmentId: toDepartmentId,
+                  receivedDate: new Date()
                 }
               });
             }
@@ -506,39 +640,38 @@ export class RequisitionRepository {
           remaining -= move;
         }
 
-        if (remaining > 0) throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
-
-        const supplierAfter = (await this.getDepartmentQuantities(supplierId, [ri.stockItemId], tx)).get(ri.stockItemId) ?? 0;
+        if (batchCount > 0 && remaining > 0) {
+          throw new Error(`Could not allocate ${ri.StockItem.name} from ${requisition.supplyingDepartment?.name || 'supplier'}. Please retry.`);
+        }
 
         if (toDepartmentId) {
-          const requesterAfter = (await this.getDepartmentQuantities(toDepartmentId, [ri.stockItemId], tx)).get(ri.stockItemId) ?? 0;
+          const destinationName = requisition.departments?.name || 'department';
           await tx.stockTransaction.createMany({
             data: [
               {
-                stockItemId: ri.stockItemId, transactionType: 'transfer_out', quantity: qty, balanceAfter: supplierAfter,
-                departmentId: supplierId, requisitionId: id, reference: `REQ-${reference}`,
-                notes: `Issued to ${requisition.departments?.name || 'department'} on requisition ${reference}`, performedBy: userId || undefined
+                stockItemId: ri.stockItemId, transactionType: 'transfer_out', quantity: qty,
+                balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
+                reference: `REQ-${reference}`,
+                notes: `Transferred to ${destinationName} on requisition ${reference}`, performedBy: userId || undefined
               },
               {
-                stockItemId: ri.stockItemId, transactionType: 'transfer_in', quantity: qty, balanceAfter: requesterAfter,
-                departmentId: toDepartmentId, requisitionId: id, reference: `REQ-${reference}`,
-                notes: `Received from ${requisition.supplyingDepartment?.name || 'supplier'} on requisition ${reference}`, performedBy: userId || undefined
+                stockItemId: ri.stockItemId, transactionType: 'transfer_in', quantity: qty,
+                balanceAfter: destinationBalance!.quantity, departmentId: toDepartmentId,
+                requisitionId: id, reference: `REQ-${reference}`,
+                notes: `Received from ${requisition.supplyingDepartment?.name || 'supplier'} on requisition ${reference}`,
+                performedBy: userId || undefined
               }
             ]
           });
-        } else {
-          // Ward: consumed -> leaves hospital-wide stock too
-          const dec = await tx.stockItem.updateMany({
-            where: { id: ri.stockItemId, currentStock: { gte: qty } },
-            data: { currentStock: { decrement: qty } }
-          });
-          if (dec.count === 0) throw new Error(`Hospital-wide stock for ${ri.StockItem.name} is lower than ${qty}. Please reconcile stock.`);
-          const after = await tx.stockItem.findUnique({ where: { id: ri.stockItemId }, select: { currentStock: true } });
+        } else if (toWardId) {
           await tx.stockTransaction.create({
             data: {
-              stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty, balanceAfter: after?.currentStock ?? 0,
-              departmentId: supplierId, requisitionId: id, reference: `REQ-${reference}`,
-              notes: `Issued to ward on requisition ${reference}`, performedBy: userId || undefined
+              stockItemId: ri.stockItemId, transactionType: 'requisition', quantity: qty,
+              // This requisition leaves the supplying department; balanceAfter must remain a location snapshot.
+              balanceAfter: supplierBalance.quantity, departmentId: supplierId, requisitionId: id,
+              reference: `REQ-${reference}`,
+              notes: `Issued to ward ${requisition.ward?.wardName || toWardId} on requisition ${reference}`,
+              performedBy: userId || undefined,
             }
           });
         }

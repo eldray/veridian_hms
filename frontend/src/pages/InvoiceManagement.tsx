@@ -5,6 +5,7 @@ import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDepartmentStore } from '../store/departmentStore';
+import { useWardStore } from '../store/wardStore';
 import { 
   Plus, 
   Search, 
@@ -63,6 +64,8 @@ interface Invoice {
     id: string;
     name: string;
   };
+  receivedAtWardId?: string;
+  receivedAtWard?: { id: string; wardName: string };
 }
 
 // ==========================================
@@ -208,6 +211,7 @@ export default function InvoiceManagement() {
     isLoading
   } = useStockStore();
   const { departments, getDepartments } = useDepartmentStore();
+  const { wards, getWards } = useWardStore();
   const { user, hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
@@ -233,7 +237,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
     invoiceDate: new Date().toISOString().split('T')[0],
     totalAmount: 0,
     notes: '',
+    receivingLocationType: 'department' as 'department' | 'ward',
     receivedAtDepartmentId: '',
+    receivedAtWardId: '',
     invoiceItems: [{
       stockItemId: '',
       quantity: 1,
@@ -252,7 +258,8 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       await Promise.all([
         getPurchaseInvoices(),
         getStockItems(),
-        getDepartments()
+        getDepartments(),
+        getWards()
       ]);
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -309,7 +316,8 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       const submitData = {
         ...formData,
         totalAmount: calculateTotal(),
-        receivedAtDepartmentId: formData.receivedAtDepartmentId || undefined,
+        receivedAtDepartmentId: formData.receivingLocationType === 'department' ? (formData.receivedAtDepartmentId || undefined) : undefined,
+        receivedAtWardId: formData.receivingLocationType === 'ward' ? (formData.receivedAtWardId || undefined) : undefined,
         invoiceItems: validItems.map(item => ({
           stockItemId: item.stockItemId,
           quantity: item.quantity,
@@ -357,7 +365,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       invoiceDate: invoice.invoiceDate.split('T')[0],
       totalAmount: invoice.totalAmount,
       notes: invoice.notes || '',
+      receivingLocationType: invoice.receivedAtWardId ? 'ward' : 'department',
       receivedAtDepartmentId: invoice.receivedAtDepartmentId || '',
+      receivedAtWardId: invoice.receivedAtWardId || '',
       invoiceItems: invoice.InvoiceItem?.map(item => ({
         stockItemId: item.stockItemId,
         quantity: item.quantity,
@@ -382,7 +392,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
       invoiceDate: new Date().toISOString().split('T')[0],
       totalAmount: 0,
       notes: '',
+      receivingLocationType: 'department',
       receivedAtDepartmentId: '',
+      receivedAtWardId: '',
       invoiceItems: [{
         stockItemId: '',
         quantity: 1,
@@ -835,7 +847,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-[var(--text-secondary)]">
-                          {invoice.receivedAtDepartment?.name || '—'}
+                          {invoice.receivedAtWard?.wardName || invoice.receivedAtDepartment?.name || '—'}
                         </span>
                       </td>
                       <td className="px-4 py-3">
@@ -1018,20 +1030,42 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Received At Department/Store *
+                    Received At Department/Store or Ward *
                   </label>
-                  <select
-                    required
-                    disabled={!!editingInvoice}
-                    value={formData.receivedAtDepartmentId}
-                    onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]"
-                  >
-                    <option value="">Select department...</option>
-                    {departments.map(dept => (
-                      <option key={dept.id} value={dept.id}>{dept.name}</option>
-                    ))}
-                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={formData.receivingLocationType}
+                      disabled={!!editingInvoice}
+                      onChange={e => setFormData({ ...formData, receivingLocationType: e.target.value as 'department' | 'ward', receivedAtDepartmentId: '', receivedAtWardId: '' })}
+                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                    >
+                      <option value="department">Department / Store</option>
+                      <option value="ward">Ward</option>
+                    </select>
+                    {formData.receivingLocationType === 'department' ? (
+                      <select
+                        required
+                        disabled={!!editingInvoice}
+                        value={formData.receivedAtDepartmentId}
+                        onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
+                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                      >
+                        <option value="">Select department...</option>
+                        {departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                      </select>
+                    ) : (
+                      <select
+                        required
+                        disabled={!!editingInvoice}
+                        value={formData.receivedAtWardId}
+                        onChange={e => setFormData({ ...formData, receivedAtWardId: e.target.value })}
+                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                      >
+                        <option value="">Select ward...</option>
+                        {wards.filter(ward => ward.isActive).map(ward => <option key={ward.id} value={ward.id}>{ward.wardName}</option>)}
+                      </select>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">

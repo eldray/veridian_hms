@@ -66,3 +66,28 @@ export function toNum(value: unknown): number {
 export function money(value: unknown): number {
   return Math.round(toNum(value) * 100) / 100;
 }
+
+
+/**
+ * Parse a report boundary from an API query.
+ * Plain calendar dates use the server's local calendar (matching parseReportRange);
+ * explicit timestamps retain their exact instant. This avoids mixing UTC date-only
+ * parsing at the start boundary with local-time parsing at the end boundary.
+ */
+export function parseReportBoundary(
+  value: unknown,
+  boundary: 'start' | 'end',
+): Date | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const raw = value.trim();
+  let parsed: Date;
+  const isDateOnly = DATE_ONLY.test(raw);
+  if (isDateOnly) {
+    const [year, month, day] = raw.split('-').map(Number);
+    parsed = new Date(year, month - 1, day, 0, 0, 0, 0);
+    if (boundary === 'end') parsed.setHours(23, 59, 59, 999);
+  } else {
+    parsed = new Date(raw);
+  }
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+}
