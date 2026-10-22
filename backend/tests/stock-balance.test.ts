@@ -1282,3 +1282,42 @@ describe('consumable dispensing stock integrity', () => {
     });
   });
 });
+
+
+describe('in-transit batch valuation data', () => {
+  it('loads valid dispatched batch allocations only for hospital-wide valuation', async () => {
+    const stockItemFindMany = vi.fn().mockResolvedValue([{
+      id: 'item-1',
+      name: 'Gloves',
+      currentStock: 10,
+      costPrice: '5.00',
+      StockBatch: [{ quantity: 4, costPrice: '2.50' }],
+    }]);
+    const stockTransferItemFindMany = vi.fn().mockResolvedValue([
+      {
+        stockItemId: 'item-1',
+        quantitySent: 3,
+        quantityReceived: 0,
+        batchAllocations: [{ quantity: 3, costPrice: '4.00', batchNumber: 'LOT-TRANSIT' }],
+      },
+      {
+        stockItemId: 'item-1',
+        quantitySent: 2,
+        quantityReceived: 0,
+        batchAllocations: [{ quantity: 1, costPrice: '4.00', batchNumber: 'BAD-LOT' }],
+      },
+    ]);
+    const repository = new StockTransactionRepository({
+      stockItem: { findMany: stockItemFindMany },
+      stockTransferItem: { findMany: stockTransferItemFindMany },
+    } as any);
+
+    const result = await repository.getValuationData(undefined, { includeAllStockLocations: true });
+
+    expect(stockTransferItemFindMany).toHaveBeenCalledWith({
+      where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 }, quantityReceived: 0 },
+      select: { stockItemId: true, quantitySent: true, batchAllocations: true },
+    });
+    expect(result[0].inTransitBatchAllocations).toEqual([{ quantity: 3, costPrice: 4 }]);
+  });
+});
