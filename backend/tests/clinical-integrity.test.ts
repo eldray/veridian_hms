@@ -3,6 +3,42 @@ import { EncounterRepository } from '../src/modules/encounter/EncounterRepositor
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
 
+describe('OPD clinical record finalization', () => {
+  it('refuses to finalize when mandatory clinical documentation is missing', async () => {
+    const update = vi.fn();
+    const tx = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'attendance-1',
+          finalizedAt: null,
+          complaints: '',
+          historyPresentingComplaint: null,
+          assessment: null,
+          treatmentPlan: null,
+          clinicalOutcome: null,
+          providerId: null,
+          reviewOfSystems: {},
+          physicalExamination: null,
+          physicalExamStructured: {},
+          allergyReviewStatus: 'not_reviewed',
+          allergyReviewNotes: null,
+          Vitals: [],
+        }),
+        update,
+      },
+    };
+    const prisma = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma as any);
+
+    await expect(repository.finalizeClinicalRecord('attendance-1', 'doctor-1'))
+      .rejects.toThrow(/cannot finalize clinical record/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
 describe('clinical vitals validation', () => {
   it('rejects malformed blood pressure before opening a database transaction', async () => {
     const transaction = vi.fn();
