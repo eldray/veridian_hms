@@ -231,6 +231,19 @@ describe('maternal record integrity', () => {
     expect(findFirst).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects invalid gravida/para values for an ANC visit before database access', async () => {
+    const transaction = vi.fn();
+    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+
+    await expect(repository.createVisit({
+      bookingId: 'booking-1', attendanceId: 'attendance-1', visitNumber: 1,
+      visitDate: new Date('2026-10-21T10:00:00.000Z'), recordedById: 'midwife-1',
+      gravida: 2, para: 2,
+    })).rejects.toThrow(/para must be less than gravida/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
   it('updates the ANC visit seeded by encounter creation rather than inserting a duplicate', async () => {
     const savedVisit = { id: 'visit-1', bookingId: 'booking-1', attendanceId: 'attendance-1' };
     const tx: any = {
@@ -252,12 +265,14 @@ describe('maternal record integrity', () => {
       visitNumber: 99,
       visitDate: new Date('2026-10-21T10:00:00.000Z'),
       recordedById: 'midwife-1',
+      gravida: 3,
+      para: 1,
       bloodPressure: '120/80',
     })).resolves.toEqual(savedVisit);
 
     expect(tx.aNCVisit.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'visit-1' },
-      data: expect.objectContaining({ bloodPressure: '120/80' }),
+      data: expect.objectContaining({ gravida: 3, para: 1, bloodPressure: '120/80' }),
     }));
     expect(tx.aNCVisit.create).not.toHaveBeenCalled();
     expect(tx.aNCVisit.count).not.toHaveBeenCalled();
