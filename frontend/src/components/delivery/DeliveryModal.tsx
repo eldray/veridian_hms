@@ -115,7 +115,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     if (notes) params.set('notes', notes);
     if (formData.referralTo) params.set('facility', formData.referralTo);
     params.set('urgency', (formData.maternalOutcome !== 'alive' || newborns.some(b => b.outcome !== 'alive') || formData.complications.length) ? 'urgent' : 'routine');
-    navigate(`/dashboard/referrals?${params.toString()}`);
+    navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
     onClose();
   };
 

@@ -1,6 +1,6 @@
 // src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -273,7 +273,23 @@ const Pagination: React.FC<PaginationProps> = ({
 
 export default function Referrals() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const [urlSearchParams] = useSearchParams();
+  // Clinical context is passed through router state rather than URL query strings.
+  // This avoids exposing it in the address bar, copied URLs, and URL-based referrer/log data.
+  // Note: router state can still persist in the browser's session history; it is not a
+  // substitute for access controls or minimizing sensitive clinical details.
+  // URL parameters remain supported for older bookmarks/integrations, but new clinical
+  // navigation always uses state.
+  const searchParams = useMemo(() => {
+    const context = (location.state as { referralContext?: Record<string, string> } | null)?.referralContext;
+    if (!context) return urlSearchParams;
+    const params = new URLSearchParams();
+    Object.entries(context).forEach(([key, value]) => {
+      if (typeof value === 'string') params.set(key, value);
+    });
+    return params;
+  }, [location.state, urlSearchParams]);
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
   const { user } = useAuthStore();

@@ -109,7 +109,7 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
     if (formData.notes) params.set('notes', formData.notes);
     if (formData.referredTo) params.set('facility', formData.referredTo);
     params.set('urgency', (formData.dangerSignsList || []).length ? 'urgent' : 'routine');
-    navigate(`/dashboard/referrals?${params.toString()}`);
+    navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
     onClose();
   };
 
