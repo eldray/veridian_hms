@@ -1028,3 +1028,23 @@ describe('postnatal attendance type consistency', () => {
     expect(create).toHaveBeenCalledTimes(1);
   });
 });
+
+
+describe('postnatal referral partial-update integrity', () => {
+  it('rejects explicitly clearing the destination of an existing referral', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({
+      postnatalRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          referralMade: true, referredTo: 'Tamale Teaching Hospital',
+        }),
+        update,
+      },
+    } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', {
+      referredTo: null,
+    })).rejects.toThrow(/referral destination/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});

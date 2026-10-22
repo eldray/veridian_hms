@@ -428,7 +428,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       const dangerSignsPresent = clean.dangerSignsPresent ?? existing.dangerSignsPresent;
       const dangerSignsList = clean.dangerSignsList ?? existing.dangerSignsList;
       const referralMade = clean.referralMade ?? existing.referralMade;
-      const referredTo = clean.referredTo ?? existing.referredTo;
+      // Preserve an explicit null/blank update so a required referral destination
+      // cannot be silently treated as the previous destination during validation.
+      const referredTo = clean.referredTo === undefined ? existing.referredTo : clean.referredTo;
       if (dangerSignsPresent && (!Array.isArray(dangerSignsList) || dangerSignsList.length === 0)) {
         throw new ValidationError('Record at least one danger sign when danger signs are marked present');
       }
@@ -1046,7 +1048,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       });
       if (!existing) throw new NotFoundError('Postnatal record', id);
       const referralMade = clean.referralMade ?? existing.referralMade;
-      const referredTo = clean.referredTo ?? existing.referredTo;
+      const referredTo = clean.referredTo === undefined ? existing.referredTo : clean.referredTo;
       if (referralMade && (!referredTo || !String(referredTo).trim())) {
         throw new ValidationError('Specify the referral destination when a postnatal referral is made');
       }
