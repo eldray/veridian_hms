@@ -310,6 +310,7 @@ export default function StockManagement() {
       adjustmentDirection: 'increase',
       reference: '',
       notes: '',
+      batchNumber: '',
       departmentId: (user as any)?.departmentId || ''
     });
   };
@@ -1280,16 +1281,16 @@ export default function StockManagement() {
 
               {transactionData.transactionType === 'write_off' && (
                 <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Batch Number *</label>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Batch Number {selectedItem && (selectedItem as any).StockBatch?.length ? '*' : '(required for batch-tracked items)'}</label>
                   <input
                     type="text"
-                    required
+                    required={Boolean((selectedItem as any)?.StockBatch?.length)}
                     value={transactionData.batchNumber}
                     onChange={e => setTransactionData({ ...transactionData, batchNumber: e.target.value })}
                     placeholder="Enter the exact affected batch number"
                     className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
                   />
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">Write-offs reduce only this batch, including expired or inactive batches. Confirm the batch label before recording.</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">For batch-tracked stock, enter the exact affected batch number. Expired or inactive batches can be written off for reconciliation.</p>
                 </div>
               )}
 
