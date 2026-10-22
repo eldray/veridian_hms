@@ -20,7 +20,7 @@ import { ProcedureModal } from '../components/medical-entries/modals/ProcedureMo
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 
 import ComplaintInput from '../components/ComplaintInput';
@@ -589,6 +589,12 @@ export default function MedicalEntries() {
   const [hpc, setHpc] = useState('');
   const [odq, setOdq] = useState('');
   const [physicalExam, setPhysicalExam] = useState('');
+  const [assessment, setAssessment] = useState('');
+  const [reviewOfSystems, setReviewOfSystems] = useState<Record<string, string>>({});
+  const [physicalExamStructured, setPhysicalExamStructured] = useState<Record<string, string>>({});
+  const [allergyReviewStatus, setAllergyReviewStatus] = useState<'not_reviewed' | 'no_known_allergies' | 'allergies_present'>('not_reviewed');
+  const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
+  const [clinicalOutcome, setClinicalOutcome] = useState<'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | ''>('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
   // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
@@ -702,14 +708,20 @@ export default function MedicalEntries() {
           ? att.clinicalNotes as Record<string, any>
           : {};
         setPresentedComplaints(att.complaints || '');
-        setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
+        setHpc((att as any).historyPresentingComplaint ?? clinicalNotes.historyPresentingComplaint ?? '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-        setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
+        setPhysicalExam(att.physicalExamination ?? clinicalNotes.physicalExamination ?? '');
+        setAssessment(att.assessment ?? clinicalNotes.assessment ?? '');
+        setReviewOfSystems((att.reviewOfSystems || clinicalNotes.reviewOfSystems || {}) as Record<string, string>);
+        setPhysicalExamStructured((att.physicalExamStructured || clinicalNotes.physicalExamStructured || {}) as Record<string, string>);
+        setAllergyReviewStatus(att.allergyReviewStatus || 'not_reviewed');
+        setAllergyReviewNotes(att.allergyReviewNotes || '');
+        setClinicalOutcome(att.clinicalOutcome || '');
         const followUp = (att as any).followUpDate ? new Date((att as any).followUpDate) : null;
         setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
         setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
-        setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
+        setTreatmentPlan((att as any).treatmentPlan ?? clinicalNotes.treatmentPlan ?? '');
       })
       .catch((error: Error) => {
         if (active) toastError('Clinical notes unavailable', error.message || 'Could not load saved clinical notes');
@@ -721,6 +733,7 @@ export default function MedicalEntries() {
     || patients.find(p => getEntityId(p) === selectedPatientId)
     || null;
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
 
   const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
   const labTestsList = currentAttendance?.LabTest || [];
@@ -734,7 +747,9 @@ export default function MedicalEntries() {
   const handleClearSelection = () => {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
-    setPhysicalExam(''); setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
+    setPhysicalExam(''); setAssessment(''); setReviewOfSystems({}); setPhysicalExamStructured({});
+    setAllergyReviewStatus('not_reviewed'); setAllergyReviewNotes(''); setClinicalOutcome('');
+    setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
     setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
   };
@@ -750,10 +765,23 @@ export default function MedicalEntries() {
         onsetDurationQuality: odq || null,
         physicalExamination: physicalExam || null,
         treatmentPlan: treatmentPlan || null,
+        assessment: assessment || null,
+        reviewOfSystems,
+        physicalExamStructured,
       };
 
       await updateAttendance(selectedAttendanceId, {
         complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        reviewOfSystems,
+        physicalExamination: physicalExam,
+        physicalExamStructured,
+        assessment,
+        treatmentPlan,
+        allergyReviewStatus,
+        allergyReviewNotes,
+        clinicalOutcome: clinicalOutcome || null,
+        providerId: user?.id,
         clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         updatedById: user?.id,
@@ -761,6 +789,30 @@ export default function MedicalEntries() {
       success('Saved', 'Clinical information updated');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) { toastError('Save failed', err.message); }
+  };
+
+  const handleFinalizeClinical = async () => {
+    if (!selectedAttendanceId) return;
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        reviewOfSystems,
+        physicalExamination: physicalExam,
+        physicalExamStructured,
+        assessment,
+        treatmentPlan,
+        allergyReviewStatus,
+        allergyReviewNotes,
+        clinicalOutcome: clinicalOutcome || null,
+        providerId: user?.id,
+      });
+      await finalizeEncounterClinicalRecord(selectedAttendanceId);
+      success('Clinical record finalized', 'The clinical assessment has been signed and finalized.');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Cannot finalize clinical record', err.message || 'Complete all required clinical sections first.');
+    }
   };
 
   // Add this function alongside handleSaveClinical
@@ -1483,6 +1535,10 @@ export default function MedicalEntries() {
             <div className="flex-1 min-w-0 space-y-4">
 
               {/* Clinical presentation */}
+              <div className="text-[10px] text-[var(--text-secondary)]">
+                Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
+                {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Left sub-col */}
                 <div className="space-y-3">
@@ -1491,14 +1547,14 @@ export default function MedicalEntries() {
                       <FileText className="w-3 h-3" /> Presented Complaints
                     </label>
                     <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
-                      placeholder="Search or type complaints…" disabled={!canAddEntries} />
+                      placeholder="Search or type complaints…" disabled={!canAddEntries || isClinicalFinalized} />
                   </div>
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
                       <History className="w-3 h-3" /> History of Presenting Complaint
                     </label>
                     <textarea value={hpc} onChange={e => setHpc(e.target.value)} rows={3}
-                      disabled={!canAddEntries}
+                      disabled={!canAddEntries || isClinicalFinalized}
                       placeholder="History of presenting complaint…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                         focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
@@ -1512,7 +1568,7 @@ export default function MedicalEntries() {
                       <Stethoscope className="w-3 h-3" /> Physical Examination
                     </label>
                     <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
-                      disabled={!canAddEntries}
+                      disabled={!canAddEntries || isClinicalFinalized}
                       placeholder="Physical examination findings…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                         focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
@@ -1522,17 +1578,102 @@ export default function MedicalEntries() {
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
                       <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
                     </label>
-                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries} />
+                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
                   </div>
+                </div>
+              </div>
+
+              {/* Structured review of systems: blank means not assessed; clinicians document findings by system. */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Review of Systems (structured)</h3>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Document findings by system. Leave blank if not assessed; do not assume a normal result.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'].map(system => {
+                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
+                      <span className="block font-semibold mb-1">{system}</span>
+                      <input value={reviewOfSystems[key] || ''} onChange={e => setReviewOfSystems(prev => ({ ...prev, [key]: e.target.value }))}
+                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not assessed / symptoms and findings"
+                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                    </label>;
+                  })}
+                </div>
+              </div>
+
+              {/* Structured examination plus existing narrative examination are both retained. */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Physical Examination (structured)</h3>
+                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Use the narrative examination above for a full account and these fields for system-based findings.</p>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other'].map(system => {
+                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
+                      <span className="block font-semibold mb-1">{system}</span>
+                      <input value={physicalExamStructured[key] || ''} onChange={e => setPhysicalExamStructured(prev => ({ ...prev, [key]: e.target.value }))}
+                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not examined / findings"
+                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                    </label>;
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Assessment / Impression</label>
+                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Working or final clinical assessment…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mt-3 mb-2">Management Plan / Instructions</label>
+                  <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={4} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Treatment, investigations, counselling, self-care, safety-netting and follow-up plan…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                </div>
+                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Allergy Review</label>
+                  <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries || isClinicalFinalized}
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
+                    <option value="not_reviewed">Not reviewed</option>
+                    <option value="no_known_allergies">No known allergies (confirmed)</option>
+                    <option value="allergies_present">Allergies present / recorded</option>
+                  </select>
+                  {(() => {
+                    const existingAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
+                    return Array.isArray(existingAllergies) && existingAllergies.length > 0
+                      ? <p className="text-[10px] text-amber-600">Existing patient allergies: {existingAllergies.map((a: any) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(' — ')).join('; ')}</p>
+                      : null;
+                  })()}
+                  <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Allergy/reaction details or review notes…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Clinical Condition at End of Visit</label>
+                  <select value={clinicalOutcome} onChange={e => setClinicalOutcome(e.target.value as typeof clinicalOutcome)} disabled={!canAddEntries || isClinicalFinalized}
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
+                    <option value="">Not recorded</option>
+                    <option value="improved">Improved</option>
+                    <option value="stable">Stable</option>
+                    <option value="unchanged">Unchanged</option>
+                    <option value="deteriorated">Deteriorated</option>
+                    <option value="deceased">Deceased</option>
+                    <option value="unknown">Unknown / unable to assess</option>
+                  </select>
                 </div>
               </div>
 
               {/* Save clinical */}
               {canAddEntries && (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={handleFinalizeClinical}
+                    disabled={Boolean((currentAttendance as any)?.finalizedAt)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 disabled:opacity-50">
+                    <CheckCircle className="w-3.5 h-3.5" /> {(currentAttendance as any)?.finalizedAt ? 'Finalized' : 'Finalize & Sign'}
+                  </button>
                   <button
-                    onClick={handleSaveClinical}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold
+                    onClick={handleSaveClinical} disabled={isClinicalFinalized}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50
                       bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
                   >
                     <CheckCircle className="w-3.5 h-3.5" /> Save Clinical Info

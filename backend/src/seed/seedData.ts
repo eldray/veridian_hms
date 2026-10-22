@@ -171,6 +171,7 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Patients (Cash, NHIS, Private Insurance)');
     console.log('   - Attendances (completed, pending today, admitted, detained, discharged)');
     console.log('   - Clinical Data (Vitals, Labs, Scans, Medications)');
+    console.log('   - OPD provider assignment and explicit allergy-review state; clinical assessment remains a draft until entered and signed');
     console.log('   - Bills & Payments');
     console.log('   - Insurance Claims');
     console.log('   - Referrals');

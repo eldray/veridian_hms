@@ -12,7 +12,7 @@ export type IPD_AgeGroup = '0-28d' | '1-11m' | '5-9y' | '10-14y';
 
 export interface AgeSexBreakdown { [ageGroup: string]: { male: number; female: number }; }
 export interface TopDiagnosis { diagnosisId: string; diagnosisName: string; icdCode: string; morbidityGroup: string; totalCases: number; male: number; female: number; byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>; }
-export interface ConsultingRoomRegisterEntry { date: string; attendanceNumber: string; patientNo: string; nhisNo: string | null; patientName: string; address: string; age: number; ageGroup: string; telephone: string; sex: string; patientType: 'NEW' | 'OLD'; pregnant: boolean; isNHIS: boolean; provisionalDiagnosis: string; labTestsRequested: string; labResults: string; principalDiagnosis: string; newDiagnosis: string; oldDiagnosis: string; additionalDiagnosis: string; newAdditionalDiagnosis: string; oldAdditionalDiagnosis: string; drugsPrescribed: string; drugsGiven: string; referredTo: string | null; referredFrom: string | null; clinician: string; attendanceId: string; }
+export interface ConsultingRoomRegisterEntry { date: string; attendanceNumber: string; patientNo: string; nhisNo: string | null; patientName: string; address: string; age: number; ageGroup: string; telephone: string; sex: string; patientType: 'NEW' | 'OLD'; pregnant: boolean; isNHIS: boolean; provisionalDiagnosis: string; labTestsRequested: string; labResults: string; principalDiagnosis: string; newDiagnosis: string; oldDiagnosis: string; additionalDiagnosis: string; newAdditionalDiagnosis: string; oldAdditionalDiagnosis: string; drugsPrescribed: string; drugsGiven: string; referredTo: string | null; referredFrom: string | null; clinicalOutcome: string | null; attendanceStatus: string; assessment: string; treatmentPlan: string; clinician: string; attendanceId: string; }
 export interface ConsultingRoomRegisterReport { period: { startDate: Date; endDate: Date; date: string; week?: number; month?: string; }; facility: { name: string; district: string; ghfCode: string; }; summary: { totalPatients: number; newPatients: number; oldPatients: number; nhisPatients: number; cashPatients: number; pregnantWomen: number; referrals: number; }; entries: ConsultingRoomRegisterEntry[]; generatedAt: Date; }
 export interface GHSMorbidityReport { period: { startDate: Date; endDate: Date; year: number; month: number }; facility: { name: string; district: string; region: string; ghfCode: string }; communicableImmunizable: Record<string, AgeSexBreakdown>; communicableNonImmunizable: Record<string, AgeSexBreakdown>; nonCommunicable: Record<string, AgeSexBreakdown>; mentalHealth: Record<string, AgeSexBreakdown>; specializedConditions: Record<string, AgeSexBreakdown>; obstetricsGynaecology: Record<string, AgeSexBreakdown>; reproductiveTract: Record<string, AgeSexBreakdown>; injuries: Record<string, AgeSexBreakdown>; reAttendancesReferrals: Record<string, AgeSexBreakdown>; topDiagnoses: TopDiagnosis[]; totals: { totalAttendances: number; totalNewCases: number; totalReAttendances: number; totalReferrals: number; }; }
 export interface FormAReport { period: { startDate: Date; endDate: Date; year: number; month: number; monthName: string; }; facility: { name: string; district: string; region: string; ghfCode: string; }; form: { sections: FormASection[]; notCaptured: string[] }; generatedAt: Date; }
@@ -169,7 +169,7 @@ export class GHSReportService extends BaseService {
 
   async generateMorbidityReport(startDate: Date, endDate: Date): Promise<GHSMorbidityReport> {
     const end = this.eod(endDate);
-    const { attendances, priorRows } = await this.repository.getMorbidityData(startDate, end);
+    const { attendances, priorRows, priorDiagnoses } = await this.repository.getMorbidityData(startDate, end);
     const facility = await this.repository.getFacility();
     
     const emptyBreakdown = (): AgeSexBreakdown => Object.fromEntries(AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }]));
@@ -197,6 +197,14 @@ export class GHSReportService extends BaseService {
     const reAttMap = new Map<string, boolean>();
     for (const att of sorted) { reAttMap.set(att.id, hadPrior.has(att.patientId) || seenPeriod.has(att.patientId)); seenPeriod.add(att.patientId); }
     
+    const diagnosisHistoryByPatient = new Map<string, Set<string>>();
+    for (const row of (priorDiagnoses || []) as any[]) {
+      const patientId = row.Attendance?.patientId;
+      if (!patientId) continue;
+      if (!diagnosisHistoryByPatient.has(patientId)) diagnosisHistoryByPatient.set(patientId, new Set<string>());
+      diagnosisHistoryByPatient.get(patientId)!.add(row.diagnosisId);
+    }
+
     const diagCounts = new Map<string, any>();
     const inc = (section: Record<string, AgeSexBreakdown>, key: string, ag: GHSAgeGroup, gender: Gender) => { if (!section[key]?.[ag]) return; if (gender === 'male') section[key][ag].male++; else if (gender === 'female') section[key][ag].female++; };
     
@@ -209,7 +217,14 @@ export class GHSReportService extends BaseService {
       else { report.totals.totalNewCases++; }
       if (att.referral !== null) { report.totals.totalReferrals++; inc(report.reAttendancesReferrals, 'referrals', ag, gender); }
       
-      for (const diag of att.AttendanceDiagnosis) {
+      const seenDiagnoses = diagnosisHistoryByPatient.get(att.patientId) ?? new Set<string>();
+      const hasFinalDiagnosis = att.AttendanceDiagnosis.some((row: any) => row.diagnosisType === 'primary');
+      const reportableDiagnoses = att.AttendanceDiagnosis.filter((row: any) => row.diagnosisType !== 'provisional' || !hasFinalDiagnosis);
+      for (const diag of reportableDiagnoses) {
+        // GHS monthly OPD morbidity returns are new cases, not every repeat visit.
+        if (seenDiagnoses.has(diag.diagnosisId)) continue;
+        seenDiagnoses.add(diag.diagnosisId);
+        diagnosisHistoryByPatient.set(att.patientId, seenDiagnoses);
         const d = diag.Diagnosis; if (!d?.morbidityGroup) continue;
         const sectionKey = MORBIDITY_SECTION_MAP.get(d.morbidityGroup as string);
         if (sectionKey && sectionKey !== 'reAttendancesReferrals') {
@@ -317,7 +332,9 @@ export class GHSReportService extends BaseService {
       if (!att.Patient) continue;
       const ag = getOPDAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender = att.Patient.gender as 'male' | 'female';
-      const insured = att.paymentMode !== 'cash';
+      // Ghana OPD reporting asks for NHIS membership status, not the visit's payment mode.
+      const insured = Boolean(att.Patient.nhisActive &&
+        (!att.Patient.nhisExpiryDate || new Date(att.Patient.nhisExpiryDate) >= att.dateTime));
       const isNew = !hadPrior.has(att.Patient.id) && !seenPeriod.has(att.Patient.id);
       seenPeriod.add(att.Patient.id);
       
@@ -372,9 +389,17 @@ export class GHSReportService extends BaseService {
   async generateConsultingRoomRegister(startDate: string | Date, endDate: string | Date, periodType: 'daily' | 'weekly' | 'monthly' = 'daily', createdById: string) {
     const start = typeof startDate === 'string' ? new Date(startDate) : startDate;
     const end = this.eod(typeof endDate === 'string' ? new Date(endDate) : endDate);
-    const { attendances, priorRows } = await this.repository.getConsultingRoomData(start, end);
+    const { attendances, priorRows, priorDiagnoses } = await this.repository.getConsultingRoomData(start, end);
     const facility = await this.repository.getFacility();
-    
+
+    const diagnosisHistoryByPatient = new Map<string, Set<string>>();
+    for (const row of priorDiagnoses as any[]) {
+      const patientId = row.Attendance?.patientId;
+      if (!patientId) continue;
+      if (!diagnosisHistoryByPatient.has(patientId)) diagnosisHistoryByPatient.set(patientId, new Set<string>());
+      diagnosisHistoryByPatient.get(patientId)!.add(row.diagnosisId);
+    }
+
     const hadPrior = new Set(priorRows.filter((r: any) => r._count.id > 0).map((r: any) => r.patientId));
     const seenPeriod = new Set<string>();
     let totalPatients = 0, newPatients = 0, oldPatients = 0, nhisPatients = 0, cashPatients = 0, pregnantWomen = 0, referrals = 0;
@@ -390,18 +415,28 @@ export class GHSReportService extends BaseService {
       const principalDiagnosis = diagnoses.find((d: any) => d.diagnosisType === 'primary')?.Diagnosis?.name ?? '';
       const provisionalDiagnosis = diagnoses.find((d: any) => d.diagnosisType === 'provisional')?.Diagnosis?.name ?? '';
       const additionalDiagnoses = diagnoses.filter((d: any) => d.diagnosisType === 'additional');
+      const historicalDiagnosisIds = diagnosisHistoryByPatient.get(patient.id) ?? new Set<string>();
+      const newDiagnoses = diagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
+      const oldDiagnoses = diagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
+      const newAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => !historicalDiagnosisIds.has(d.diagnosisId));
+      const oldAdditionalDiagnoses = additionalDiagnoses.filter((d: any) => historicalDiagnosisIds.has(d.diagnosisId));
+      const names = (rows: any[]) => rows.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', ');
       const labTestsRequested = att.LabTest.map((l: any) => l.LabTestTemplate?.name ?? 'Unknown').join(', ');
       const labResults = att.LabTest.filter((l: any) => l.status === 'completed' && l.result).map((l: any) => `${l.LabTestTemplate?.name}: ${(l.result as any)?.result ?? 'Done'}`).join('; ');
       const drugsPrescribed = att.Medication.filter((m: any) => m.status === 'prescribed').map((m: any) => m.StockItem?.name ?? m.name).join(', ');
       const drugsGiven = att.Medication.filter((m: any) => m.status === 'dispensed').map((m: any) => m.StockItem?.name ?? m.name).join(', ');
-      const isNHIS = att.paymentMode === 'nhis';
+      const isNHIS = Boolean(patient.nhisActive &&
+        (!patient.nhisExpiryDate || new Date(patient.nhisExpiryDate) >= att.dateTime));
       const isPregnant = att.attendanceType === 'antenatal' || (att.medicalNotes?.toLowerCase().includes('preg') ?? false);
       const hasReferral = att.referral !== null;
       if (hasReferral) referrals++;
       totalPatients++; if (isNew) newPatients++; else oldPatients++;
       if (isNHIS) nhisPatients++; if (att.paymentMode === 'cash') cashPatients++; if (isPregnant) pregnantWomen++;
-      const clinician = att.User_Attendance_createdByIdToUser?.fullName ?? 'Unknown';
-      entries.push({ date: att.dateTime.toISOString().split('T')[0], attendanceNumber: att.attendanceNumber, patientNo: patient.folderNumber, nhisNo: patient.nhisNumber ?? null, patientName: `${patient.surname} ${patient.otherNames ?? ''}`.trim(), address: patient.address ?? '', age, ageGroup, telephone: patient.contact ?? (patient as any).phoneNumber ?? '', sex: patient.gender, patientType: isNew ? 'NEW' : 'OLD', pregnant: isPregnant, isNHIS, provisionalDiagnosis, labTestsRequested, labResults, principalDiagnosis, newDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), oldDiagnosis: '', additionalDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), newAdditionalDiagnosis: additionalDiagnoses.map((d: any) => d.Diagnosis?.name ?? '').filter(Boolean).join(', '), oldAdditionalDiagnosis: '', drugsPrescribed, drugsGiven, referredTo: att.referral?.referredToFacility ?? null, referredFrom: att.referringFacility ?? null, clinician, attendanceId: att.id });
+      const clinician = att.User_Attendance_providerIdToUser?.fullName ?? att.User_Attendance_createdByIdToUser?.fullName ?? 'Unknown';
+      // Keep history current as entries are ordered chronologically within the report period.
+      diagnoses.forEach((d: any) => historicalDiagnosisIds.add(d.diagnosisId));
+      diagnosisHistoryByPatient.set(patient.id, historicalDiagnosisIds);
+      entries.push({ date: att.dateTime.toISOString().split('T')[0], attendanceNumber: att.attendanceNumber, patientNo: patient.folderNumber, nhisNo: patient.nhisNumber ?? null, patientName: `${patient.surname} ${patient.otherNames ?? ''}`.trim(), address: patient.address ?? '', age, ageGroup, telephone: patient.contact ?? (patient as any).phoneNumber ?? '', sex: patient.gender, patientType: isNew ? 'NEW' : 'OLD', pregnant: isPregnant, isNHIS, provisionalDiagnosis, labTestsRequested, labResults, principalDiagnosis, newDiagnosis: names(newDiagnoses), oldDiagnosis: names(oldDiagnoses), additionalDiagnosis: names(additionalDiagnoses), newAdditionalDiagnosis: names(newAdditionalDiagnoses), oldAdditionalDiagnosis: names(oldAdditionalDiagnoses), drugsPrescribed, drugsGiven, referredTo: att.referral?.referredToFacility ?? null, referredFrom: att.referringFacility ?? null, clinicalOutcome: att.clinicalOutcome ?? null, attendanceStatus: att.status, assessment: att.assessment ?? '', treatmentPlan: att.treatmentPlan ?? '', clinician, attendanceId: att.id });
     }
     
     const periodDisplay = periodType === 'daily' ? start.toLocaleDateString('en-GB') : periodType === 'weekly' ? `Week ${this.getWeekNumber(start)}, ${start.toLocaleDateString('en-GB')} – ${end.toLocaleDateString('en-GB')}` : start.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -452,7 +487,7 @@ export class GHSReportService extends BaseService {
   }
 
   static exportConsultingRoomRegisterToCSV(report: ConsultingRoomRegisterReport): string {
-    return [ '"CONSULTING ROOM REGISTER"', `"Facility","${report.facility.name}"`, `"District","${report.facility.district}"`, `"GHF Code","${report.facility.ghfCode}"`, `"Period","${report.period.date}"`, '', '"SUMMARY"', `"Total Patients",${report.summary.totalPatients}`, `"New Patients",${report.summary.newPatients}`, `"Old Patients",${report.summary.oldPatients}`, `"NHIS Patients",${report.summary.nhisPatients}`, `"Cash Patients",${report.summary.cashPatients}`, `"Pregnant Women",${report.summary.pregnantWomen}`, `"Referrals",${report.summary.referrals}`, '', [ 'Date','PatientNo','NHISNo','Name','Address','Age','Telephone','Sex', 'ProvDiag','LabTests','LabResult','PnpalDiag','NewDiag','OldDiag', 'AddDiag','NewAddDiag','OldAddDiag','Pregnant','IsNHIS', 'DrugPresc','DrugGiven','AttendanceID' ].map(h => `"${h}"`).join(','), ...report.entries.map(e => [ e.date, e.patientNo, e.nhisNo ?? '', e.patientName, e.address, e.age, e.telephone, e.sex === 'male' ? 'M' : 'F', e.provisionalDiagnosis, e.labTestsRequested, e.labResults, e.principalDiagnosis, e.newDiagnosis, e.oldDiagnosis, e.additionalDiagnosis, e.newAdditionalDiagnosis, e.oldAdditionalDiagnosis, e.pregnant ? 'Y' : 'N', e.isNHIS ? 'Y' : 'N', e.drugsPrescribed, e.drugsGiven, e.attendanceId ].map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')) ].join('\n');
+    return [ '"CONSULTING ROOM REGISTER"', `"Facility","${report.facility.name}"`, `"District","${report.facility.district}"`, `"GHF Code","${report.facility.ghfCode}"`, `"Period","${report.period.date}"`, '', '"SUMMARY"', `"Total Patients",${report.summary.totalPatients}`, `"New Patients",${report.summary.newPatients}`, `"Old Patients",${report.summary.oldPatients}`, `"NHIS Patients",${report.summary.nhisPatients}`, `"Cash Patients",${report.summary.cashPatients}`, `"Pregnant Women",${report.summary.pregnantWomen}`, `"Referrals",${report.summary.referrals}`, '', [ 'Date','PatientNo','NHISNo','Name','Address','Age','Telephone','Sex', 'ProvDiag','LabTests','LabResult','PnpalDiag','NewDiag','OldDiag', 'AddDiag','NewAddDiag','OldAddDiag','Pregnant','IsNHIS', 'DrugPresc','DrugGiven','ClinicalOutcome','AttendanceStatus','Assessment','TreatmentPlan','AttendanceID' ].map(h => `"${h}"`).join(','), ...report.entries.map(e => [ e.date, e.patientNo, e.nhisNo ?? '', e.patientName, e.address, e.age, e.telephone, e.sex === 'male' ? 'M' : 'F', e.provisionalDiagnosis, e.labTestsRequested, e.labResults, e.principalDiagnosis, e.newDiagnosis, e.oldDiagnosis, e.additionalDiagnosis, e.newAdditionalDiagnosis, e.oldAdditionalDiagnosis, e.pregnant ? 'Y' : 'N', e.isNHIS ? 'Y' : 'N', e.drugsPrescribed, e.drugsGiven, e.clinicalOutcome ?? '', e.attendanceStatus, e.assessment, e.treatmentPlan, e.attendanceId ].map(cell => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(',')) ].join('\n');
   }
 
   // ─── Family Planning CYP Calculation (WHO Standards) ────────────────────────

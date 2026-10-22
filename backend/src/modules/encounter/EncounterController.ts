@@ -63,6 +63,13 @@ export class EncounterController extends BaseController {
     return this.ok(res, null, 'Encounter deleted successfully');
   });
 
+  finalizeClinicalRecord = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const user = req.user!;
+    const record = await this.service.finalizeClinicalRecord(id, user.id);
+    return this.ok(res, record, 'Clinical record finalized successfully');
+  });
+
   updateStatus = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const { status } = req.body;

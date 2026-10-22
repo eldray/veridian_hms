@@ -1291,6 +1291,16 @@ export const updateEncounter = (id: string, data: any) => {
   });
 };
 
+export const finalizeEncounterClinicalRecord = (id: string) => {
+  if (!id || id === 'undefined' || id === 'null') {
+    return Promise.reject(new Error('Valid Encounter ID is required'));
+  }
+  return api.post(`/encounters/${id}/finalize-clinical`).then(r => {
+    const attendance = r.data?.data || r.data;
+    return { ...attendance, _id: attendance.id || attendance._id };
+  });
+};
+
 export const deleteEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Encounter ID is required'));
@@ -3867,7 +3877,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
 
   // Encounters
-  getEncounters, getEncounter, createEncounter, updateEncounter, deleteEncounter, updateEncounterStatus,
+  getEncounters, getEncounter, createEncounter, updateEncounter, deleteEncounter, updateEncounterStatus, finalizeEncounterClinicalRecord,
 
   // Worklist
   getVitalsWorklist, getMedicalWorklist, getLabWorklist, getPharmacyWorklist, getWorklistSummary,

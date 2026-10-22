@@ -97,8 +97,18 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
       _count: { id: true },
     });
+    const priorDiagnoses = patientIds.length ? await this.prisma.attendanceDiagnosis.findMany({
+      where: {
+        Attendance: {
+          patientId: { in: patientIds },
+          dateTime: { lt: startDate },
+          status: { not: 'cancelled' },
+        },
+      },
+      select: { diagnosisId: true, Attendance: { select: { patientId: true } } },
+    }) : [];
 
-    return { attendances, priorRows };
+    return { attendances, priorRows, priorDiagnoses };
   }
 
   // ── Form A Report Data ────────────────────────────────────────────────────
@@ -228,13 +238,18 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   async getOPDData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
       where: { encounterCategory: 'opd', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
-      include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true } } },
+      include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true, nhisActive: true, nhisExpiryDate: true, nhisNumber: true } } },
     });
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
-      where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
+      where: {
+        patientId: { in: patientIds },
+        dateTime: { gte: calendarYearStart, lt: startDate },
+        status: { not: 'cancelled' },
+      },
       _count: { id: true },
     });
 
@@ -260,17 +275,33 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
         Medication: { include: { StockItem: true }, where: { status: { not: 'cancelled' } } },
         referral: { where: { referralType: "outgoing" }, select: { id: true, referredToFacility: true } },
         User_Attendance_createdByIdToUser: { select: { fullName: true } },
+        User_Attendance_providerIdToUser: { select: { fullName: true } },
       },
       orderBy: { dateTime: 'asc' },
     });
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
-      where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
+      where: {
+        patientId: { in: patientIds },
+        dateTime: { gte: calendarYearStart, lt: startDate },
+        status: { not: 'cancelled' },
+      },
       _count: { id: true },
     });
+    const priorDiagnoses = patientIds.length ? await this.prisma.attendanceDiagnosis.findMany({
+      where: {
+        Attendance: {
+          patientId: { in: patientIds },
+          dateTime: { lt: startDate },
+          status: { not: 'cancelled' },
+        },
+      },
+      select: { diagnosisId: true, Attendance: { select: { patientId: true } } },
+    }) : [];
 
-    return { attendances, priorRows };
+    return { attendances, priorRows, priorDiagnoses };
   }
 }

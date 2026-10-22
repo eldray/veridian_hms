@@ -364,6 +364,16 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         'complaints',
         'medicalNotes',
         'clinicalNotes',
+        'historyPresentingComplaint',
+        'reviewOfSystems',
+        'physicalExamination',
+        'physicalExamStructured',
+        'assessment',
+        'treatmentPlan',
+        'clinicalOutcome',
+        'allergyReviewStatus',
+        'allergyReviewNotes',
+        'providerId',
         'followUpDate',
         'dateTime',
         'attendanceType',
@@ -379,10 +389,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       ]);
 
       const legacyClinicalKeys = new Set([
-        'historyPresentingComplaint',
         'onsetDurationQuality',
-        'physicalExamination',
-        'treatmentPlan',
         'treatmentNotes',
         'physicianNotes',
       ]);

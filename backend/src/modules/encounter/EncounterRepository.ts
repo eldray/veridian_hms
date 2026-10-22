@@ -97,7 +97,30 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // CORE ENCOUNTER OPERATIONS
   // ============================================
   
+  private validateClinicalDocumentation(data: Record<string, any>) {
+    const outcomes = ['improved', 'stable', 'unchanged', 'deteriorated', 'deceased', 'unknown'];
+    const allergyStatuses = ['not_reviewed', 'no_known_allergies', 'allergies_present'];
+    if (data.clinicalOutcome != null && !outcomes.includes(String(data.clinicalOutcome))) {
+      throw new ValidationError('Invalid clinical condition outcome');
+    }
+    if (data.allergyReviewStatus != null && !allergyStatuses.includes(String(data.allergyReviewStatus))) {
+      throw new ValidationError('Invalid allergy review status');
+    }
+    for (const field of ['reviewOfSystems', 'physicalExamStructured']) {
+      const value = data[field];
+      if (value != null && (typeof value !== 'object' || Array.isArray(value))) {
+        throw new ValidationError(`${field} must be a structured object keyed by clinical system`);
+      }
+    }
+    for (const field of ['complaints', 'historyPresentingComplaint', 'physicalExamination', 'assessment', 'treatmentPlan', 'allergyReviewNotes']) {
+      const value = data[field];
+      if (value != null && typeof value !== 'string') throw new ValidationError(`${field} must be text`);
+      if (typeof value === 'string' && value.length > 20000) throw new ValidationError(`${field} exceeds the maximum supported length`);
+    }
+  }
+
   async create(data: CreateEncounterDTO, userId: string) {
+    this.validateClinicalDocumentation(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const counterService = getCounterService(); 
     return this.getModel().create({
@@ -112,6 +135,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         // ✅ FIXED: Use complaint field directly (not complaints)
         complaints: data.complaints ?? data.complaint ?? '',
         medicalNotes: data.medicalNotes || '',
+        historyPresentingComplaint: data.historyPresentingComplaint,
+        reviewOfSystems: data.reviewOfSystems as any,
+        physicalExamination: data.physicalExamination,
+        physicalExamStructured: data.physicalExamStructured as any,
+        assessment: data.assessment,
+        treatmentPlan: data.treatmentPlan,
+        clinicalOutcome: data.clinicalOutcome as any,
+        allergyReviewStatus: data.allergyReviewStatus as any,
+        allergyReviewNotes: data.allergyReviewNotes,
+        providerId: data.providerId,
         
         status: 'pending',
         createdById: actorId,
@@ -210,6 +243,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       'complaints',
       'medicalNotes',
       'clinicalNotes',
+      'historyPresentingComplaint',
+      'reviewOfSystems',
+      'physicalExamination',
+      'physicalExamStructured',
+      'assessment',
+      'treatmentPlan',
+      'clinicalOutcome',
+      'allergyReviewStatus',
+      'allergyReviewNotes',
+      'providerId',
       'followUpDate',
       'dateTime',
       'attendanceType',
@@ -227,7 +270,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      if (value === undefined || (value === null && key !== 'followUpDate')) return;
+      const nullableClinicalFields = new Set([
+        'followUpDate', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
+        'physicalExamStructured', 'assessment', 'treatmentPlan', 'clinicalOutcome',
+        'allergyReviewStatus', 'allergyReviewNotes', 'providerId',
+      ]);
+      if (value === undefined || (value === null && !nullableClinicalFields.has(key))) return;
       if (key === 'followUpDate' && value === null) {
         normalized.followUpDate = null;
         return;
@@ -251,7 +299,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
 
-      if (key === 'historyPresentingComplaint' || key === 'onsetDurationQuality' || key === 'physicalExamination' || key === 'treatmentPlan' || key === 'treatmentNotes' || key === 'physicianNotes') {
+      if (key === 'onsetDurationQuality' || key === 'treatmentNotes' || key === 'physicianNotes') {
         legacyClinicalNotes[key] = value;
         return;
       }
@@ -291,6 +339,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) {
+    this.validateClinicalDocumentation(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const normalizedData = this.normalizeUpdateData(data);
     const admissionType = normalizedData.admissionType;
@@ -301,6 +350,19 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
+      const currentClinicalRecord = await tx.attendance.findUnique({
+        where: { id },
+        select: { id: true, finalizedAt: true },
+      });
+      if (!currentClinicalRecord) throw new NotFoundError('Encounter', id);
+      const clinicalKeys = [
+        'complaints', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
+        'physicalExamStructured', 'assessment', 'treatmentPlan', 'clinicalOutcome',
+        'allergyReviewStatus', 'allergyReviewNotes', 'providerId', 'clinicalNotes',
+      ];
+      if (currentClinicalRecord.finalizedAt && clinicalKeys.some((key) => Object.prototype.hasOwnProperty.call(normalizedData, key))) {
+        throw new ConflictError('This clinical record is finalized and cannot be overwritten. Use the facility-approved correction/addendum process.');
+      }
       if (admissionType !== undefined) {
         const admission = await tx.admission.findUnique({
           where: { attendanceId: id },
@@ -358,6 +420,77 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
     if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
     return this.prisma.attendance.findUnique({ where: { id } });
+  }
+
+  async finalizeClinicalRecord(id: string, userId: string) {
+    const actorId = await this.requireActorId(userId);
+    return this.prisma.$transaction(async (tx) => {
+      const record = await tx.attendance.findUnique({
+        where: { id },
+        include: {
+          Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+          Patient: { select: { allergies: { select: { id: true, allergen: true, reaction: true, severity: true } } } },
+        },
+      });
+      if (!record) throw new NotFoundError('Encounter', id);
+      if (record.finalizedAt) throw new ConflictError('This clinical record has already been finalized');
+      const responsibleProvider = record.providerId ? await tx.user.findUnique({
+        where: { id: record.providerId },
+        select: { id: true, role: true, isActive: true },
+      }) : null;
+      const required: Array<[string, unknown]> = [
+        ['presenting complaint', record.complaints],
+        ['history of presenting complaint', record.historyPresentingComplaint],
+        ['clinical assessment', record.assessment],
+        ['management plan', record.treatmentPlan],
+        ['clinical outcome', record.clinicalOutcome],
+        ['responsible provider', record.providerId],
+      ];
+      const missing = required.filter(([, value]) => typeof value === 'string' ? !value.trim() : value === null || value === undefined)
+        .map(([label]) => label);
+      if (!responsibleProvider || !responsibleProvider.isActive || !['doctor', 'nurse', 'midwife'].includes(responsibleProvider.role)) {
+        missing.push('active clinician as responsible provider');
+      }
+      const latestVitals = record.Vitals[0];
+      const hasVitalMeasurement = Boolean(latestVitals && [
+        latestVitals.bloodPressure, latestVitals.temperature, latestVitals.pulse,
+        latestVitals.respiration, latestVitals.spo2, latestVitals.weight,
+        latestVitals.height, latestVitals.muac,
+      ].some(value => value !== null && value !== undefined && value !== ''));
+      if (!hasVitalMeasurement) missing.push('vital signs with at least one recorded measurement');
+      if (!record.reviewOfSystems || typeof record.reviewOfSystems !== 'object' ||
+          !Object.values(record.reviewOfSystems as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
+        missing.push('structured review of systems');
+      }
+      if (!record.physicalExamination?.trim()) missing.push('narrative physical examination');
+      if (!record.physicalExamStructured || typeof record.physicalExamStructured !== 'object' ||
+          !Object.values(record.physicalExamStructured as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
+        missing.push('structured physical examination');
+      }
+      if (!record.allergyReviewStatus || record.allergyReviewStatus === 'not_reviewed') missing.push('allergy review');
+      const recordedAllergies = record.Patient?.allergies || [];
+      if (recordedAllergies.length > 0 && record.allergyReviewStatus === 'no_known_allergies') {
+        missing.push('reconcile recorded patient allergies before confirming no known allergies');
+      }
+      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim() && recordedAllergies.length === 0) {
+        missing.push('allergy details / reaction');
+      }
+      if (missing.length) throw new ValidationError(`Cannot finalize clinical record. Complete: ${missing.join(', ')}.`);
+
+      return tx.attendance.update({
+        where: { id },
+        data: {
+          finalizedAt: new Date(),
+          finalizedById: actorId,
+          providerId: record.providerId || actorId,
+          ...(record.allergyReviewStatus !== 'not_reviewed' && !record.allergyReviewedAt
+            ? { allergyReviewedAt: new Date(), allergyReviewedById: actorId }
+            : {}),
+          updatedById: actorId,
+        },
+        include: { Patient: true, Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 } },
+      });
+    });
   }
 
   // ============================================

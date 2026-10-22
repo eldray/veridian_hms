@@ -538,7 +538,12 @@ export const seedTestData = async (force: boolean = false) => {
           serviceCategory: a.serviceCategory as ServiceCategory,
           complaints: a.complaints,
           medicalNotes: a.medicalNotes,
-          // ✅ NHIS visits must carry a 5-digit Claim Check Code so claims can be generated.
+          // Test encounters identify their responsible clinician and explicitly mark
+          // allergy review as pending; an empty allergy list must never imply "none known".
+          providerId: doctor.id,
+          allergyReviewStatus: 'not_reviewed',
+          // Other clinical assessment fields remain empty until a test workflow records them.
+          // NHIS visits must carry a 5-digit Claim Check Code so claims can be generated.
           nhisCCC: isNhisAttendance ? nhisCCCFor(a.attendanceNumber) : null,
           createdById: doctor.id,
         },
