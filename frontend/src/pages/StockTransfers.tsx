@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight,
   ClipboardList, Download, Eye, Filter, Package, Plus, RefreshCw, Search,
@@ -45,6 +45,9 @@ const asArray = (payload: any): any[] => {
   if (Array.isArray(payload)) return payload;
   if (Array.isArray(payload?.data)) return payload.data;
   if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data?.items)) return payload.data.items;
+  if (Array.isArray(payload?.data?.departments)) return payload.data.departments;
+  if (Array.isArray(payload?.data?.stockItems)) return payload.data.stockItems;
   if (Array.isArray(payload?.items)) return payload.items;
   if (Array.isArray(payload?.departments)) return payload.departments;
   if (Array.isArray(payload?.stockItems)) return payload.stockItems;
@@ -142,7 +145,7 @@ export default function StockTransfers() {
     }
   };
 
-  const submitRequest = async (event: React.FormEvent) => {
+  const submitRequest = async (event: FormEvent) => {
     event.preventDefault();
     const items = requestItems.map(item => ({
       stockItemId: item.stockItemId,
