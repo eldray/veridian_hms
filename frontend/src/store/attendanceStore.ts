@@ -1,8 +1,10 @@
 // stores/attendanceStore.ts - COMPLETE FIXED VERSION (Single copy)
 import { create } from 'zustand';
 
-// Only the most recently requested visit may replace the global currentAttendance.
+// Only the most recently requested visit/list request may replace shared store data.
 let attendanceFetchSequence = 0;
+let attendanceListFetchSequence = 0;
+let attendanceListLoadingSequence: number | null = null;
 import {
   getEncounters as apiGetAttendances,
   getEncounter as apiGetAttendance,
@@ -199,8 +201,14 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   getAttendances: async (filters = {}, options = {}) => {
+    // The list is shared across screens; only the newest request may replace it.
+    // A background refresh must not overwrite a newer, user-requested filter result.
+    const requestSequence = ++attendanceListFetchSequence;
     // silent = background refresh: no loading flag, so screens don't flash a spinner
-    if (!options.silent) set({ isLoading: true, error: null });
+    if (!options.silent) {
+      attendanceListLoadingSequence = requestSequence;
+      set({ isLoading: true, error: null });
+    }
     try {
       // The backend returns at most 100 rows per request (10 by default). Many screens call
       // getAttendances() with no arguments and expect "the visits happening now", so:
@@ -249,12 +257,33 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         attendances = response.data;
       }
 
-      set(options.silent ? { attendances, pagination } : { attendances, pagination, isLoading: false });
+      if (requestSequence === attendanceListFetchSequence) {
+        set({
+          attendances,
+          pagination,
+          ...(attendanceListLoadingSequence !== null && attendanceListLoadingSequence <= requestSequence
+            ? { isLoading: false }
+            : {}),
+        });
+        if (attendanceListLoadingSequence !== null && attendanceListLoadingSequence <= requestSequence) {
+          attendanceListLoadingSequence = null;
+        }
+      }
       return attendances;
     } catch (error: any) {
-      if (!options.silent) {
-        console.error('Error fetching attendances:', error);
-        set({ error: error.message || 'Failed to fetch attendances', isLoading: false });
+      // Ignore stale failures too: they must not clear the current result or surface an
+      // error for a filter the user has already replaced with a newer request.
+      if (requestSequence === attendanceListFetchSequence) {
+        if (!options.silent) console.error('Error fetching attendances:', error);
+        set({
+          ...(options.silent ? {} : { error: error.message || 'Failed to fetch attendances' }),
+          ...(attendanceListLoadingSequence !== null && attendanceListLoadingSequence <= requestSequence
+            ? { isLoading: false }
+            : {}),
+        });
+        if (attendanceListLoadingSequence !== null && attendanceListLoadingSequence <= requestSequence) {
+          attendanceListLoadingSequence = null;
+        }
       }
       throw error;
     }
