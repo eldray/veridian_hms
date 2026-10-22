@@ -138,7 +138,17 @@ export class StockTransferService extends BaseService {
             if (remaining <= 0) break;
             const take = Math.min(batch.quantity, remaining);
             const claimed = await tx.stockBatch.updateMany({
-              where: { id: batch.id, departmentId: transfer.originId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: take } },
+              where: {
+                id: batch.id,
+                stockItemId: item.stockItemId,
+                batchNumber: batch.batchNumber,
+                departmentId: transfer.originId,
+                wardId: null,
+                isActive: true,
+                expiryDate: batch.expiryDate,
+                costPrice: batch.costPrice,
+                quantity: { gte: take },
+              },
               data: { quantity: { decrement: take } },
             });
             if (claimed.count !== 1) throw new Error('Origin batch stock changed during dispatch. Refresh and retry.');
