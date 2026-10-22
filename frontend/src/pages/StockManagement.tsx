@@ -99,6 +99,7 @@ export default function StockManagement() {
     adjustmentDirection: 'increase' as 'increase' | 'decrease',
     reference: '',
     notes: '',
+    batchNumber: '',
     departmentId: (user as any)?.departmentId || ''
   });
 
@@ -214,7 +215,8 @@ export default function StockManagement() {
         stockItemId: selectedItem.id,
         ...transactionData,
         quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity,
-        departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined
+        departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined,
+        ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {})
       });
       success('Recorded', 'Transaction completed successfully');
       setShowTransactionForm(false);
@@ -1275,6 +1277,21 @@ export default function StockManagement() {
                 </select>
                 <p className="text-xs text-[var(--text-tertiary)] mt-1">For sales from batch-tracked stock, choose the department issuing the item. Hospital total reduces automatically.</p>
               </div>
+
+              {transactionData.transactionType === 'write_off' && (
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Batch Number *</label>
+                  <input
+                    type="text"
+                    required
+                    value={transactionData.batchNumber}
+                    onChange={e => setTransactionData({ ...transactionData, batchNumber: e.target.value })}
+                    placeholder="Enter the exact affected batch number"
+                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                  />
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">Write-offs reduce only this batch, including expired or inactive batches. Confirm the batch label before recording.</p>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity *</label>
