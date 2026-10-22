@@ -336,19 +336,22 @@ describe('investigation and procedure status integrity', () => {
   });
 
   it('records a procedure entering the in-progress theatre stage', async () => {
-    const procedureUpdate = vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'in_progress' });
+    const procedureUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const procedureFindUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'procedure-1', status: 'scheduled' })
+      .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress' });
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'scheduled' }),
-        update: procedureUpdate,
+        findUnique: procedureFindUnique,
+        updateMany: procedureUpdateMany,
       },
     } as any);
 
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {}, 'staff-1'))
       .resolves.toEqual({ id: 'procedure-1', status: 'in_progress' });
-    expect(procedureUpdate).toHaveBeenCalledWith({
-      where: { id: 'procedure-1' },
+    expect(procedureUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'procedure-1', status: 'scheduled' },
       data: { status: 'in_progress', performedById: 'staff-1' },
     });
   });

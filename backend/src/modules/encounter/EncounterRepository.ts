@@ -1124,7 +1124,12 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
     else if (status === 'in_progress') updateData.performedById = actorId;
     if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
-    return this.prisma.labTest.update({ where: { id: labOrderId }, data: updateData });
+    const updated = await this.prisma.labTest.updateMany({
+      where: { id: labOrderId, status: current.status },
+      data: updateData,
+    });
+    if (updated.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+    return this.prisma.labTest.findUnique({ where: { id: labOrderId } });
   }
 
   async removeLabTest(encounterId: string, labOrderId: string) {
@@ -1265,7 +1270,12 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
     else if (status === 'in_progress') updateData.performedById = actorId;
     if (!Object.keys(updateData).length) throw new ValidationError('No scan order changes were provided');
-    return this.prisma.scan.update({ where: { id: scanId }, data: updateData });
+    const updated = await this.prisma.scan.updateMany({
+      where: { id: scanId, status: current.status },
+      data: updateData,
+    });
+    if (updated.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+    return this.prisma.scan.findUnique({ where: { id: scanId } });
   }
 
   async removeScan(encounterId: string, scanId: string) {
@@ -1347,7 +1357,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
     if (status === 'completed') updateData.performedAt = new Date();
     if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
-    return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
+    const updated = await this.prisma.procedure.updateMany({
+      where: { id: procedureId, status: current.status },
+      data: updateData,
+    });
+    if (updated.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+    return this.prisma.procedure.findUnique({ where: { id: procedureId } });
   }
 
   async removeProcedure(encounterId: string, procedureId: string) {
