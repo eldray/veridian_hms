@@ -29,8 +29,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     const gravida = Number(data.gravida);
     const para = Number(data.para);
-    if (!Number.isInteger(gravida) || gravida < 1 || !Number.isInteger(para) || para < 0 || para > gravida) {
-      throw new ValidationError('Gravida must be at least 1 and para must be a whole number between 0 and gravida');
+    if (!Number.isInteger(gravida) || gravida < 1 || !Number.isInteger(para) || para < 0 || para >= gravida) {
+      throw new ValidationError('For an ongoing pregnancy, gravida must be at least 1 and para must be a whole number from 0 to less than gravida');
     }
     const actor = await this.prisma.user.findUnique({ where: { id: data.createdById }, select: { id: true } });
     if (!actor) throw new ValidationError('The selected recording staff account does not exist');
