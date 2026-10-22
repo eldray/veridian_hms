@@ -978,3 +978,72 @@ describe('expiry report calendar-day boundaries', () => {
     expect(report.expired.map((item: any) => item.id)).not.toContain('item-expiring-today');
   });
 });
+
+
+describe('consumable correction movement reconciliation', () => {
+  it('excludes superseded consumable uses from activity totals but keeps reversals in balance reconciliation', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getMovementData: async () => ({
+        stockItems: [{
+          id: 'gloves',
+          name: 'Examination gloves',
+          category: 'consumable',
+          unitOfMeasure: 'pair',
+          currentStock: 20,
+        }],
+        transactions: [
+          { stockItemId: 'gloves', transactionType: 'purchase', quantity: 10 },
+          {
+            stockItemId: 'gloves',
+            transactionType: 'sale',
+            quantity: 2,
+            notes: 'Consumable use: [EDITED] old entry',
+          },
+          {
+            stockItemId: 'gloves',
+            transactionType: 'adjustment',
+            quantity: 2,
+            notes: 'Consumable use edit reversal: old-entry',
+          },
+          {
+            stockItemId: 'gloves',
+            transactionType: 'sale',
+            quantity: 3,
+            notes: 'Consumable use: replacement entry',
+          },
+          {
+            stockItemId: 'gloves',
+            transactionType: 'sale',
+            quantity: 1,
+            notes: 'Consumable use: [DELETED] removed entry',
+          },
+          {
+            stockItemId: 'gloves',
+            transactionType: 'adjustment',
+            quantity: 1,
+            notes: 'Consumable use deletion reversal: removed-entry',
+          },
+        ],
+        transactionsAfterEnd: [],
+      }),
+    };
+
+    const report = await service.getMovementSummary({
+      includeAllStockLocations: true,
+      startDate: new Date('2026-10-01T00:00:00Z'),
+      endDate: new Date('2026-10-20T23:59:59.999Z'),
+    });
+
+    expect(report.items[0]).toMatchObject({
+      purchases: 10,
+      sales: 3,
+      adjustments: 0,
+      adjustmentIn: 0,
+      adjustmentOut: 0,
+      openingStock: 13,
+      closingStock: 20,
+      netChange: 7,
+    });
+  });
+});
