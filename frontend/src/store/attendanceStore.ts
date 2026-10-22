@@ -654,38 +654,25 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateMedicationStatus: async (attendanceId, medicationId, data) => {
     set({ isLoading: true, error: null });
     try {
+      // This endpoint returns the updated medication, not the whole attendance.
+      // Never replace the attendance object in the store with a medication record.
       const response = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
-      const updatedAttendance = response.data || response;
-      if (!updatedAttendance || updatedAttendance.id !== attendanceId) {
-        throw new Error('Medication update returned a different attendance; refresh and try again');
+      const updatedMedication = response?.data?.data || response?.data || response;
+      if (!updatedMedication || updatedMedication.id !== medicationId) {
+        throw new Error('Medication update response was invalid; refresh and try again');
       }
-      
-      set((state) => {
-        const updatedAttendances = state.attendances.map((att) => {
-          if (att.id === attendanceId) return updatedAttendance;
-          return att;
-        });
-        
-        const updatedCurrentAttendance = state.currentAttendance?.id === attendanceId
-          ? updatedAttendance
-          : state.currentAttendance;
-        
-        return {
-          attendances: updatedAttendances,
-          currentAttendance: updatedCurrentAttendance,
-          isLoading: false,
-          error: null
-        };
-      });
-      
-      const updatedMedication = updatedAttendance.Medication?.find((m: any) => m.id === medicationId);
-      return updatedMedication;
-      
+
+      set({ isLoading: false, error: null });
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      const medicationFromAttendance = (refreshedAttendance as any)?.Medication?.find(
+        (medication: any) => medication.id === medicationId
+      );
+      return medicationFromAttendance || updatedMedication;
     } catch (error: any) {
       console.error('Error updating medication status:', error);
-      set({ 
-        error: error.response?.data?.message || error.message || 'Failed to update medication status', 
-        isLoading: false 
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to update medication status',
+        isLoading: false
       });
       throw error;
     }
