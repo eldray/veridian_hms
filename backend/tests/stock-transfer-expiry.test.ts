@@ -407,6 +407,25 @@ describe('stock transfer register reconciliation diagnostics', () => {
     expect(result.hasReconciliationIssues).toBe(false);
   });
 
+  it('flags a dispatched quantity that differs from the original request', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-request-mismatch',
+      status: 'dispatched',
+      items: [{
+        id: 'item-request-mismatch',
+        stockItemId: 'stock-request-mismatch',
+        quantityRequested: 10,
+        quantitySent: 8,
+        quantityReceived: 0,
+        stockItem: { id: 'stock-request-mismatch', name: 'Gloves', _count: { StockBatch: 0 } },
+      }],
+    });
+
+    expect(result.items[0].quantityInTransit).toBe(8);
+    expect(result.hasReconciliationIssues).toBe(true);
+    expect(result.reconciliationIssues.some((entry: any) => /does not match the originally requested quantity/i.test(entry.issue))).toBe(true);
+  });
+
   it('flags completed transfers whose received quantity differs from sent quantity', () => {
     const result = annotateTransferReconciliation({
       id: 'transfer-mismatch',
