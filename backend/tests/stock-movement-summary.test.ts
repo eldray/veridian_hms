@@ -1109,3 +1109,42 @@ describe('in-transit stock valuation reconciliation', () => {
     expect(report.batchQuantityDiscrepancies).toBe(1);
   });
 });
+
+
+describe('dispatched transfer valuation reconciliation issues', () => {
+  it('surfaces partial legacy receipts and malformed allocations in both valuation repositories', async () => {
+    const items = [{
+      id: 'item-1', name: 'Gloves', category: 'consumable', currentStock: 12,
+      costPrice: '5.00', unitOfMeasure: 'box', reorderLevel: 2,
+      _count: { StockBatch: 1 },
+      StockBatch: [{ quantity: 4, costPrice: '2.50', isActive: true }],
+      stockBalances: [],
+    }];
+    const transferItems = [
+      { stockItemId: 'item-1', quantitySent: 5, quantityReceived: 2, batchAllocations: [{ quantity: 5, costPrice: '3.00' }] },
+      { stockItemId: 'item-1', quantitySent: 3, quantityReceived: 0, batchAllocations: [{ quantity: 2, costPrice: '4.00' }] },
+      { stockItemId: 'item-1', quantitySent: 2, quantityReceived: 0, batchAllocations: [{ quantity: 2, costPrice: '4.00' }] },
+    ];
+    const prisma: any = {
+      stockItem: { findMany: async () => items },
+      stockTransferItem: { findMany: async (args: any) => {
+        expect(args.where).toMatchObject({ transfer: { status: 'dispatched' }, quantitySent: { gt: 0 } });
+        expect(args.where.quantityReceived).toBeUndefined();
+        expect(args.select.quantityReceived).toBe(true);
+        return transferItems;
+      } },
+    };
+
+    const itemRepository = new StockItemRepository(prisma);
+    const transactionRepository = new StockTransactionRepository(prisma);
+    const itemReport = await itemRepository.getItemsForValueReport(undefined, { includeAllStockLocations: true });
+    const transactionReport = await transactionRepository.getValuationData(undefined, { includeAllStockLocations: true });
+
+    for (const report of [itemReport, transactionReport]) {
+      expect(report[0].inTransitBatchAllocations).toEqual([{ quantity: 2, costPrice: 4 }]);
+      expect(report[0].inTransitReconciliationIssues).toHaveLength(2);
+      expect(report[0].inTransitReconciliationIssues.join(' ')).toContain('non-zero received quantity');
+      expect(report[0].inTransitReconciliationIssues.join(' ')).toContain('missing valid batch allocations');
+    }
+  });
+});
