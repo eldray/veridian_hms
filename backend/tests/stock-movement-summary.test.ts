@@ -1119,11 +1119,17 @@ describe('dispatched transfer valuation reconciliation issues', () => {
       _count: { StockBatch: 1 },
       StockBatch: [{ quantity: 4, costPrice: '2.50', isActive: true }],
       stockBalances: [],
+    }, {
+      id: 'item-2', name: 'Cotton wool', category: 'consumable', currentStock: 2,
+      costPrice: '2.00', unitOfMeasure: 'roll', reorderLevel: 1,
+      _count: { StockBatch: 0 }, StockBatch: [], stockBalances: [],
     }];
     const transferItems = [
       { stockItemId: 'item-1', quantitySent: 5, quantityReceived: 2, batchAllocations: [{ quantity: 5, costPrice: '3.00' }] },
       { stockItemId: 'item-1', quantitySent: 3, quantityReceived: 0, batchAllocations: [{ quantity: 2, costPrice: '4.00' }] },
       { stockItemId: 'item-1', quantitySent: 2, quantityReceived: 0, batchAllocations: [{ quantity: 2, costPrice: '4.00' }] },
+      // Non-batch-tracked items legitimately have no lot allocation to reconcile.
+      { stockItemId: 'item-2', quantitySent: 2, quantityReceived: 0, batchAllocations: null },
     ];
     const prisma: any = {
       stockItem: { findMany: async () => items },
@@ -1145,6 +1151,8 @@ describe('dispatched transfer valuation reconciliation issues', () => {
       expect(report[0].inTransitReconciliationIssues).toHaveLength(2);
       expect(report[0].inTransitReconciliationIssues.join(' ')).toContain('non-zero received quantity');
       expect(report[0].inTransitReconciliationIssues.join(' ')).toContain('missing valid batch allocations');
+      expect(report[1].inTransitBatchAllocations).toEqual([]);
+      expect(report[1].inTransitReconciliationIssues).toEqual([]);
     }
   });
 });
