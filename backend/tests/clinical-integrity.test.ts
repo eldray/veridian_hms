@@ -101,8 +101,8 @@ describe('postnatal create/update validation consistency', () => {
     await expect(repository.updatePostnatalRecord('postnatal-1', {
       temperature: 25,
       pulse: 0,
-      fundalHeight: 80,
-      babyWeight: 18,
+      fundalHeight: 60,
+      babyWeight: 15,
       babyTemperature: 26,
     })).resolves.toEqual({ id: 'postnatal-1' });
 
@@ -127,6 +127,17 @@ describe('postnatal create/update validation consistency', () => {
         deliveryRecord: true,
       },
     });
+  });
+
+  it('rejects out-of-range fundal-height and newborn-weight values on update', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', { fundalHeight: 80 }))
+      .rejects.toThrow(/fundal height must be between 0 and 60/i);
+    await expect(repository.updatePostnatalRecord('postnatal-1', { babyWeight: 18 }))
+      .rejects.toThrow(/baby weight must be between 0.1 and 15/i);
+    expect(update).not.toHaveBeenCalled();
   });
 
   it('rejects newborn temperature outside the same range used at creation', async () => {
