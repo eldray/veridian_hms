@@ -530,7 +530,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
   async getItemsForValueReport(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const where: any = { isActive: true };
     if (category) where.category = category;
-    return this.getModel().findMany({
+    const itemsPromise = this.getModel().findMany({
       where,
       select: {
         id: true, name: true, category: true, currentStock: true,
@@ -548,6 +548,31 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         },
       },
     });
+    // Hospital-wide aggregate stock includes units dispatched between departments.
+    // Those units are absent from origin batch quantities until receipt creates the
+    // destination batch, so value them at their saved lot cost while in transit.
+    const transfersPromise = filters.includeAllStockLocations && (this.prisma as any).stockTransferItem
+      ? (this.prisma as any).stockTransferItem.findMany({
+          where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 }, quantityReceived: 0 },
+          select: { stockItemId: true, quantitySent: true, batchAllocations: true },
+        })
+      : Promise.resolve([]);
+    const [items, transferItems] = await Promise.all([itemsPromise, transfersPromise]);
+    const inTransit = new Map<string, Array<{ quantity: number; costPrice: number }>>();
+    for (const transferItem of transferItems as any[]) {
+      const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
+      const valid = allocations.length > 0 && allocations.every((allocation: any) =>
+        Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
+        allocation?.costPrice !== null && allocation?.costPrice !== undefined &&
+        !(typeof allocation.costPrice === 'string' && allocation.costPrice.trim() === '') &&
+        Number.isFinite(Number(allocation.costPrice)) && Number(allocation.costPrice) >= 0
+      );
+      if (!valid || allocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== transferItem.quantitySent) continue;
+      const current = inTransit.get(transferItem.stockItemId) || [];
+      current.push(...allocations.map((allocation: any) => ({ quantity: allocation.quantity, costPrice: Number(allocation.costPrice) })));
+      inTransit.set(transferItem.stockItemId, current);
+    }
+    return items.map((item: any) => ({ ...item, inTransitBatchAllocations: inTransit.get(item.id) || [] }));
   }
 
   async getItemsForExpiryReport(
