@@ -326,6 +326,19 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
+      const currentClinicalRecord = await tx.attendance.findUnique({
+        where: { id },
+        select: { id: true, finalizedAt: true },
+      });
+      if (!currentClinicalRecord) throw new NotFoundError('Encounter', id);
+      const clinicalKeys = [
+        'complaints', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
+        'physicalExamStructured', 'assessment', 'treatmentPlan', 'clinicalOutcome',
+        'allergyReviewStatus', 'allergyReviewNotes', 'providerId', 'clinicalNotes',
+      ];
+      if (currentClinicalRecord.finalizedAt && clinicalKeys.some((key) => Object.prototype.hasOwnProperty.call(normalizedData, key))) {
+        throw new ConflictError('This clinical record is finalized. Record a dated addendum rather than overwriting the signed assessment.');
+      }
       if (admissionType !== undefined) {
         const admission = await tx.admission.findUnique({
           where: { attendanceId: id },
@@ -417,6 +430,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         missing.push('structured physical examination');
       }
       if (!record.allergyReviewStatus || record.allergyReviewStatus === 'not_reviewed') missing.push('allergy review');
+      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim() &&
+          !(record.Patient as any)?.allergies?.length) {
+        missing.push('allergy details / reaction');
+      }
       if (missing.length) throw new ValidationError(`Cannot finalize clinical record. Complete: ${missing.join(', ')}.`);
 
       return tx.attendance.update({
