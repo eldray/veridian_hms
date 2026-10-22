@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { StockTransferService } from '../src/modules/stockTransfer/StockTransferService';
+import { annotateTransferReconciliation } from '../src/modules/stockTransfer/StockTransferRepository';
 
 describe('stock transfer receipt expiry safety', () => {
   it('receives a batch that expired in transit as inactive stock for reconciliation', async () => {
@@ -359,5 +360,105 @@ describe('stock transfer dispatch batch reconciliation', () => {
     });
     expect(tx.stockItem.update).not.toHaveBeenCalled();
     expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('stock transfer register reconciliation diagnostics', () => {
+  it('shows the safe in-transit quantity and flags a legacy partial receipt still marked dispatched', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-legacy-partial',
+      status: 'dispatched',
+      items: [{
+        id: 'item-legacy-partial',
+        stockItemId: 'stock-1',
+        quantitySent: 10,
+        quantityReceived: 3,
+        batchAllocations: [],
+        stockItem: { id: 'stock-1', name: 'Gloves', _count: { StockBatch: 0 } },
+      }],
+    });
+
+    expect(result.items[0].quantityInTransit).toBe(7);
+    expect(result.hasStockInTransit).toBe(true);
+    expect(result.hasReconciliationIssues).toBe(true);
+    expect(result.reconciliationIssues).toEqual([expect.objectContaining({
+      itemId: 'item-legacy-partial',
+      stockItemId: 'stock-1',
+      issue: expect.stringMatching(/still marked dispatched/i),
+    })]);
+  });
+
+  it('does not report missing batch allocations for non-batch-tracked stock', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-non-batch',
+      status: 'dispatched',
+      items: [{
+        id: 'item-non-batch',
+        stockItemId: 'stock-2',
+        quantitySent: 5,
+        quantityReceived: 0,
+        stockItem: { id: 'stock-2', name: 'Cotton wool', _count: { StockBatch: 0 } },
+      }],
+    });
+
+    expect(result.items[0].quantityInTransit).toBe(5);
+    expect(result.items[0].reconciliationIssues).toEqual([]);
+    expect(result.hasReconciliationIssues).toBe(false);
+  });
+
+  it('flags completed transfers whose received quantity differs from sent quantity', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-mismatch',
+      status: 'received',
+      items: [{
+        id: 'item-mismatch',
+        stockItemId: 'stock-3',
+        quantitySent: 8,
+        quantityReceived: 6,
+        stockItem: { id: 'stock-3', name: 'Syringes', _count: { StockBatch: 0 } },
+      }],
+    });
+
+    expect(result.items[0].quantityInTransit).toBe(0);
+    expect(result.hasReconciliationIssues).toBe(true);
+    expect(result.reconciliationIssues[0].issue).toMatch(/sent and received quantities do not match/i);
+  });
+
+  it('does not disguise invalid quantities as a normal in-transit balance', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-invalid-qty',
+      status: 'dispatched',
+      items: [{
+        id: 'item-invalid-qty',
+        stockItemId: 'stock-4',
+        quantitySent: 4,
+        quantityReceived: 7,
+        stockItem: { id: 'stock-4', name: 'Bandages', _count: { StockBatch: 0 } },
+      }],
+    });
+
+    expect(result.items[0].quantityInTransit).toBe(0);
+    expect(result.hasStockInTransit).toBe(false);
+    expect(result.hasReconciliationIssues).toBe(true);
+    expect(result.reconciliationIssues.some((entry: any) => /exceeds quantity sent/i.test(entry.issue))).toBe(true);
+  });
+
+  it('flags missing batch allocations only for batch-tracked stock', () => {
+    const result = annotateTransferReconciliation({
+      id: 'transfer-missing-batches',
+      status: 'dispatched',
+      items: [{
+        id: 'item-missing-batches',
+        stockItemId: 'stock-5',
+        quantitySent: 4,
+        quantityReceived: 0,
+        batchAllocations: [],
+        stockItem: { id: 'stock-5', name: 'Amoxicillin', _count: { StockBatch: 2 } },
+      }],
+    });
+
+    expect(result.hasReconciliationIssues).toBe(true);
+    expect(result.reconciliationIssues[0].issue).toMatch(/allocation total does not match quantity sent/i);
   });
 });
