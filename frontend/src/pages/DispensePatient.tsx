@@ -271,10 +271,11 @@ export default function DispensePatient() {
 
   const handleConfirmDispense = async (quantity: number) => {
     const { medication, stockItem } = dispenseModal;
-    if (!attendance?.id || !medication) return;
+    const attendanceId = attendance?.id;
+    if (!attendanceId || !medication) return;
     setDispensingId(medication.id);
     try {
-      await updateMedicationStatus(attendance.id, medication.id, {
+      await updateMedicationStatus(attendanceId, medication.id, {
         status: 'dispensed',
         dispensedAt: new Date().toISOString(),
         dispensedById: user?.id,
@@ -282,16 +283,28 @@ export default function DispensePatient() {
         dispensedUnitCost: toNum(stockItem?.costPrice, toNum(medication.unitCost, 0)),
         batchNumber: stockItem?.batchNumber || null,
       });
-      success(medication.name, `${quantity} unit(s) dispensed`);
-      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
-      const refreshedAttendance = await getAttendance(attendance.id);
-      setAttendance(refreshedAttendance);
-      setPrescriptions((refreshedAttendance?.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
     } catch (err: any) {
       toastError('Dispense failed', err.response?.data?.message || err.message);
-    } finally {
       setDispensingId(null);
       setDispenseModal({ isOpen: false, medication: null, stockItem: null });
+      return;
+    }
+
+    // The dispensing transaction has succeeded. A later refresh failure must not tell
+    // staff the medicine was not dispensed or encourage them to retry and double-handle it.
+    success(medication.name, `${quantity} unit(s) dispensed`);
+    setDispenseModal({ isOpen: false, medication: null, stockItem: null });
+    try {
+      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendanceId)]);
+      const refreshedAttendance = await getAttendance(attendanceId);
+      if (refreshedAttendance?.id === attendanceId) {
+        setAttendance(refreshedAttendance);
+        setPrescriptions((refreshedAttendance?.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
+      }
+    } catch (err: any) {
+      toastError('Dispensing saved; refresh needed', 'The medicine was dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.');
+    } finally {
+      setDispensingId(null);
     }
   };
 
