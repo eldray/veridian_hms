@@ -429,6 +429,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id },
         include: {
           Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+          Patient: { select: { allergies: { select: { id: true, allergen: true, reaction: true, severity: true } } } },
         },
       });
       if (!record) throw new NotFoundError('Encounter', id);
@@ -454,7 +455,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         missing.push('structured physical examination');
       }
       if (!record.allergyReviewStatus || record.allergyReviewStatus === 'not_reviewed') missing.push('allergy review');
-      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim()) {
+      const recordedAllergies = record.Patient?.allergies || [];
+      if (recordedAllergies.length > 0 && record.allergyReviewStatus === 'no_known_allergies') {
+        missing.push('reconcile recorded patient allergies before confirming no known allergies');
+      }
+      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim() && recordedAllergies.length === 0) {
         missing.push('allergy details / reaction');
       }
       if (missing.length) throw new ValidationError(`Cannot finalize clinical record. Complete: ${missing.join(', ')}.`);
