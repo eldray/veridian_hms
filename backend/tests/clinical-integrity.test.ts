@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EncounterRepository, resolvePatientClassification } from '../src/modules/encounter/EncounterRepository';
+import { EncounterService } from '../src/modules/encounter/EncounterService';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
 
@@ -7,8 +8,8 @@ describe('admission, bed and nursing record consistency', () => {
   it('rejects assigning a bed that is already occupied before creating an admission', async () => {
     const tx: any = {
       attendance: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', status: 'pending', Admission: null }),
-        findFirst: vi.fn().mockResolvedValue(null),
+        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', status: 'pending', bedId: 'bed-1', wardId: 'ward-1', Admission: null, Bed: null }),
+        findFirst: vi.fn().mockResolvedValue({ id: 'attendance-other' }),
         update: vi.fn(),
       },
       bed: {
@@ -19,9 +20,9 @@ describe('admission, bed and nursing record consistency', () => {
       admission: { create: vi.fn() },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = new EncounterRepository(prisma);
+    const service = new EncounterService(prisma);
 
-    await expect(repository.createFormalAdmission({ attendanceId: 'attendance-1', bedId: 'bed-1' }, 'admin-1'))
+    await expect(service.createFormalAdmission({ attendanceId: 'attendance-1' }, 'admin-1'))
       .rejects.toThrow(/already occupied/i);
     expect(tx.admission.create).not.toHaveBeenCalled();
     expect(tx.attendance.update).not.toHaveBeenCalled();
@@ -31,8 +32,8 @@ describe('admission, bed and nursing record consistency', () => {
     const admission = { id: 'admission-1', dischargeDate: null, dailyNotes: [{ noteType: 'observation', notes: 'Stable' }] };
     const tx: any = {
       attendance: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', bedId: 'bed-1', Admission: admission }),
-        update: vi.fn().mockResolvedValue({}),
+        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', bedId: 'bed-1', wardId: 'ward-1', Admission: admission, Patient: { surname: 'Test', otherNames: 'Patient' } }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
         findFirst: vi.fn().mockResolvedValue(null),
       },
       admission: { update: vi.fn().mockResolvedValue({}) },
@@ -40,14 +41,14 @@ describe('admission, bed and nursing record consistency', () => {
       ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = new EncounterRepository(prisma);
+    const service = new EncounterService(prisma);
 
-    const result = await repository.dischargeFromEncounter('attendance-1', {
+    const result = await service.dischargeFromEncounter('attendance-1', {
       dischargeStatus: 'home', dischargeSummary: 'Stable for discharge',
     }, 'nurse-1');
 
     expect(result.message).toBe('Patient discharged successfully');
-    expect(tx.attendance.update).toHaveBeenCalledWith({ where: { id: 'attendance-1' }, data: { status: 'discharged' } });
+    expect(tx.attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'attendance-1', status: 'admitted' }, data: expect.objectContaining({ status: 'discharged', bedId: null }) }));
     expect(tx.admission.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'admission-1' },
       data: expect.objectContaining({ dischargeStatus: 'home', dailyNotes: expect.arrayContaining([
