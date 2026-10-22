@@ -415,8 +415,6 @@ export default function Referrals() {
     setShowModal(true);
   }, [searchParams]);
 
-  // A referral may arrive with a visit ID before the attendance store finishes loading.
-  // Once visits are available, verify that the supplied visit belongs to this patient.
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
