@@ -430,8 +430,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         missing.push('structured physical examination');
       }
       if (!record.allergyReviewStatus || record.allergyReviewStatus === 'not_reviewed') missing.push('allergy review');
-      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim() &&
-          !(record.Patient as any)?.allergies?.length) {
+      if (record.allergyReviewStatus === 'allergies_present' && !record.allergyReviewNotes?.trim()) {
         missing.push('allergy details / reaction');
       }
       if (missing.length) throw new ValidationError(`Cannot finalize clinical record. Complete: ${missing.join(', ')}.`);
