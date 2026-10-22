@@ -481,6 +481,14 @@ export default function Referrals() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId) { toastError('Error', 'Please select a patient'); return; }
+    if (!formData.referralReason.trim()) {
+      toastError('Error', 'Please enter the reason for referral');
+      return;
+    }
+    if (referralType === 'outgoing' && searchParams.get('attendanceId') && !selectedAttendanceId) {
+      toastError('Visit required', 'Select and verify the visit for this clinical referral before submitting.');
+      return;
+    }
     if (referralType === 'outgoing' && !formData.referredToFacility) {
       toastError('Error', 'Please enter the facility to refer to'); return;
     }
