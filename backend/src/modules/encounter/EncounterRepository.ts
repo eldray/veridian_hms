@@ -806,8 +806,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findFirst({
-        where: { id: medicationId, attendanceId: encounterId },
+      // Query by the unique medication ID, then verify encounter ownership before
+      // any stock or medication mutation. This also keeps repository test doubles
+      // aligned with Prisma's unique-record lookup contract.
+      const med = await tx.medication.findUnique({
+        where: { id: medicationId },
         include: { StockItem: true },
       });
       if (!med || med.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
