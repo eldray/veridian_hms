@@ -1426,6 +1426,10 @@ model ANCVisit {
   attendanceId String @unique
   visitNumber  Int
 
+  // Snapshot of the obstetric history recorded for this ANC encounter.
+  gravida Int?
+  para    Int?
+
   visitDate           DateTime
   gestationalAgeWeeks Int?
   gestationalAgeDays  Int?
