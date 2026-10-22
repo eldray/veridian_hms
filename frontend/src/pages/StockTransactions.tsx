@@ -175,6 +175,33 @@ export default function StockTransactions() {
           icon: ClipboardList,
           direction: 'out'
         };
+      case 'transfer_in':
+        return {
+          bg: 'bg-[var(--icon-green-bg)]',
+          text: 'text-[var(--icon-green-text)]',
+          border: 'border-[var(--icon-green-text)]',
+          label: 'Transfer In',
+          icon: TrendingUp,
+          direction: 'in'
+        };
+      case 'transfer_out':
+        return {
+          bg: 'bg-[var(--icon-purple-bg)]',
+          text: 'text-[var(--icon-purple-text)]',
+          border: 'border-[var(--icon-purple-text)]',
+          label: 'Transfer Out',
+          icon: TrendingDown,
+          direction: 'out'
+        };
+      case 'write_off':
+        return {
+          bg: 'bg-[var(--icon-red-bg)]',
+          text: 'text-[var(--icon-red-text)]',
+          border: 'border-[var(--icon-red-text)]',
+          label: 'Write-off',
+          icon: TrendingDown,
+          direction: 'out'
+        };
       case 'adjustment':
         return { 
           bg: 'bg-[var(--icon-yellow-bg)]', 
@@ -204,7 +231,7 @@ export default function StockTransactions() {
         new Date(t.transactionDate).toLocaleString(),
         t.StockItem?.name || getStockItemName(t.stockItemId),
         t.transactionType,
-        t.transactionType === 'adjustment' ? `${t.adjustmentDirection === 'decrease' ? '-' : '+'}${t.quantity}` : ['purchase', 'transfer_in'].includes(t.transactionType) ? `+${t.quantity}` : `-${t.quantity}`,
+        t.transactionType === 'adjustment' ? `${t.adjustmentDirection === 'decrease' ? '-' : '+'}${Math.abs(Number(t.quantity) || 0)}` : ['purchase', 'transfer_in'].includes(t.transactionType) ? `+${Math.abs(Number(t.quantity) || 0)}` : `-${Math.abs(Number(t.quantity) || 0)}`,
         t.reference || 'N/A',
         t.balanceAfter,
         t.User 
@@ -238,16 +265,19 @@ export default function StockTransactions() {
   // Calculate summary stats from filtered transactions
   const summaryStats = {
     totalIncoming: filteredTransactions
-      .filter(t => t.transactionType === 'purchase')
-      .reduce((sum, t) => sum + t.quantity, 0),
+      .filter(t => t.transactionType === 'purchase' || t.transactionType === 'transfer_in')
+      .reduce((sum, t) => sum + Math.abs(Number(t.quantity) || 0), 0),
     totalOutgoing: filteredTransactions
-      .filter(t => t.transactionType === 'sale' || t.transactionType === 'requisition')
-      .reduce((sum, t) => sum + t.quantity, 0),
+      .filter(t => ['sale', 'requisition', 'write_off', 'transfer_out'].includes(t.transactionType))
+      .reduce((sum, t) => sum + Math.abs(Number(t.quantity) || 0), 0),
     totalTransactions: filteredTransactions.length,
     purchases: filteredTransactions.filter(t => t.transactionType === 'purchase').length,
     sales: filteredTransactions.filter(t => t.transactionType === 'sale').length,
     requisitions: filteredTransactions.filter(t => t.transactionType === 'requisition').length,
-    adjustments: filteredTransactions.filter(t => t.transactionType === 'adjustment').length
+    adjustments: filteredTransactions.filter(t => t.transactionType === 'adjustment').length,
+    writeOffs: filteredTransactions.filter(t => t.transactionType === 'write_off').length,
+    transfersIn: filteredTransactions.filter(t => t.transactionType === 'transfer_in').length,
+    transfersOut: filteredTransactions.filter(t => t.transactionType === 'transfer_out').length
   };
 
   return (
@@ -417,6 +447,9 @@ export default function StockTransactions() {
                 <option value="purchase">Purchase (Stock In)</option>
                 <option value="sale">Sale (Stock Out)</option>
                 <option value="requisition">Requisition (Stock Out)</option>
+                <option value="transfer_in">Transfer In</option>
+                <option value="transfer_out">Transfer Out</option>
+                <option value="write_off">Write-off</option>
                 <option value="adjustment">Adjustment</option>
               </select>
             </div>
