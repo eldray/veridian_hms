@@ -257,13 +257,27 @@ export class StockTransferService extends BaseService {
               if (!existing.isActive && !expiredAtReceipt) {
                 throw new Error(`Destination batch ${allocation.batchNumber} is inactive. Reconcile the batch before receiving this transfer.`);
               }
-              await tx.stockBatch.update({
-                where: { id: existing.id },
+              // Recheck the destination identity and state in the same write as the
+              // quantity increment. A concurrent batch move/deactivation must not
+              // put received stock into a different location or revive a usable lot.
+              const incremented = await tx.stockBatch.updateMany({
+                where: {
+                  id: existing.id,
+                  stockItemId: item.stockItemId,
+                  batchNumber: allocation.batchNumber,
+                  departmentId: transfer.destinationId,
+                  wardId: null,
+                  expiryDate: expectedExpiry,
+                  isActive: existing.isActive,
+                },
                 data: {
                   quantity: { increment: allocation.quantity },
                   ...(expiredAtReceipt ? { isActive: false } : {}),
                 },
               });
+              if (incremented.count !== 1) {
+                throw new Error(`Destination batch ${allocation.batchNumber} changed during transfer receipt. Refresh and reconcile before retrying.`);
+              }
             } else {
               await tx.stockBatch.create({
                 data: {
