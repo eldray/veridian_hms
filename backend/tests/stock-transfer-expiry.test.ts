@@ -268,3 +268,96 @@ describe('transfer receipt calendar-day expiry', () => {
     });
   });
 });
+
+
+describe('stock transfer dispatch batch reconciliation', () => {
+  it('reserves exact eligible FEFO batch allocations without changing hospital aggregate stock', async () => {
+    const transfer = {
+      id: 'transfer-dispatch',
+      status: 'approved',
+      originId: 'pharmacy',
+      destinationId: 'main-store',
+      transferNumber: 'TR-2026-001',
+      items: [{
+        id: 'transfer-item-1',
+        stockItemId: 'item-1',
+        quantityRequested: 3,
+        quantitySent: 0,
+        quantityReceived: 0,
+      }],
+    };
+    const batches = [
+      {
+        id: 'batch-near-expiry', batchNumber: 'LOT-A', quantity: 2,
+        expiryDate: new Date('2027-01-01T00:00:00Z'), costPrice: '2.50',
+      },
+      {
+        id: 'batch-later', batchNumber: 'LOT-B', quantity: 5,
+        expiryDate: new Date('2027-06-01T00:00:00Z'), costPrice: '3.00',
+      },
+    ];
+    const batchUpdate = vi.fn().mockResolvedValue({ count: 1 });
+    const movementCreate = vi.fn().mockResolvedValue({ id: 'movement-out' });
+    const transferItemUpdate = vi.fn().mockResolvedValue({});
+    const transferFindUnique = vi.fn()
+      .mockResolvedValueOnce(transfer)
+      .mockResolvedValueOnce({ ...transfer, status: 'dispatched' });
+    const tx: any = {
+      stockTransfer: {
+        findUnique: transferFindUnique,
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockTransferItem: { update: transferItemUpdate },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(2),
+        findMany: vi.fn().mockResolvedValue(batches),
+        updateMany: batchUpdate,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 7 }),
+      },
+      stockTransaction: { create: movementCreate },
+      stockItem: { update: vi.fn(), updateMany: vi.fn() },
+    };
+    const service = new StockTransferService({ $transaction: async (callback: any) => callback(tx) } as any);
+
+    await service.dispatchTransfer('transfer-dispatch', 'user-1');
+
+    expect(batchUpdate).toHaveBeenNthCalledWith(1, {
+      where: {
+        id: 'batch-near-expiry', departmentId: 'pharmacy', wardId: null,
+        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 2 },
+      },
+      data: { quantity: { decrement: 2 } },
+    });
+    expect(batchUpdate).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'batch-later', departmentId: 'pharmacy', wardId: null,
+        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 1 },
+      },
+      data: { quantity: { decrement: 1 } },
+    });
+    expect(transferItemUpdate).toHaveBeenCalledWith({
+      where: { id: 'transfer-item-1' },
+      data: {
+        quantitySent: 3,
+        batchAllocations: [
+          expect.objectContaining({ batchId: 'batch-near-expiry', batchNumber: 'LOT-A', quantity: 2, costPrice: '2.50' }),
+          expect.objectContaining({ batchId: 'batch-later', batchNumber: 'LOT-B', quantity: 1, costPrice: '3.00' }),
+        ],
+      },
+    });
+    expect(movementCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        transactionType: 'transfer_out', quantity: 3,
+        batchAllocations: [
+          expect.objectContaining({ batchId: 'batch-near-expiry', quantity: 2 }),
+          expect.objectContaining({ batchId: 'batch-later', quantity: 1 }),
+        ],
+      }),
+    });
+    expect(tx.stockItem.update).not.toHaveBeenCalled();
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+});
