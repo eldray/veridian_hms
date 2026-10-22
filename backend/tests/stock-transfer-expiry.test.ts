@@ -372,6 +372,7 @@ describe('stock transfer register reconciliation diagnostics', () => {
       items: [{
         id: 'item-legacy-partial',
         stockItemId: 'stock-1',
+        quantityRequested: 10,
         quantitySent: 10,
         quantityReceived: 3,
         batchAllocations: [],
@@ -396,6 +397,7 @@ describe('stock transfer register reconciliation diagnostics', () => {
       items: [{
         id: 'item-non-batch',
         stockItemId: 'stock-2',
+        quantityRequested: 5,
         quantitySent: 5,
         quantityReceived: 0,
         stockItem: { id: 'stock-2', name: 'Cotton wool', _count: { StockBatch: 0 } },
@@ -433,6 +435,7 @@ describe('stock transfer register reconciliation diagnostics', () => {
       items: [{
         id: 'item-mismatch',
         stockItemId: 'stock-3',
+        quantityRequested: 8,
         quantitySent: 8,
         quantityReceived: 6,
         stockItem: { id: 'stock-3', name: 'Syringes', _count: { StockBatch: 0 } },
@@ -451,6 +454,7 @@ describe('stock transfer register reconciliation diagnostics', () => {
       items: [{
         id: 'item-invalid-qty',
         stockItemId: 'stock-4',
+        quantityRequested: 4,
         quantitySent: 4,
         quantityReceived: 7,
         stockItem: { id: 'stock-4', name: 'Bandages', _count: { StockBatch: 0 } },
@@ -470,6 +474,7 @@ describe('stock transfer register reconciliation diagnostics', () => {
       items: [{
         id: 'item-missing-batches',
         stockItemId: 'stock-5',
+        quantityRequested: 4,
         quantitySent: 4,
         quantityReceived: 0,
         batchAllocations: [],
