@@ -1,5 +1,8 @@
 // stores/attendanceStore.ts - COMPLETE FIXED VERSION (Single copy)
 import { create } from 'zustand';
+
+// Only the most recently requested visit may replace the global currentAttendance.
+let attendanceFetchSequence = 0;
 import {
   getEncounters as apiGetAttendances,
   getEncounter as apiGetAttendance,
@@ -261,16 +264,21 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     if (!id || id === 'undefined' || id === 'null') {
       throw new Error('Valid attendance ID is required');
     }
-    
+
+    const requestSequence = ++attendanceFetchSequence;
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetAttendance(id);
       const attendance = response.data || response;
-      set({ currentAttendance: attendance, isLoading: false });
+      set((state) => requestSequence === attendanceFetchSequence
+        ? { currentAttendance: attendance, isLoading: false, error: null }
+        : state);
       return attendance;
     } catch (error: any) {
       console.error('Error fetching attendance:', error);
-      set({ error: error.message || 'Failed to fetch attendance', isLoading: false });
+      set((state) => requestSequence === attendanceFetchSequence
+        ? { error: error.message || 'Failed to fetch attendance', isLoading: false }
+        : state);
       throw error;
     }
   },
