@@ -200,7 +200,7 @@ export class EncounterService extends BaseService {
         }
       }
 
-      const admissionDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
+      const admissionDate = data.admissionDate ? new Date(data.admissionDate as any) : new Date();
       if (Number.isNaN(admissionDate.getTime())) throw new ValidationError('A valid admission date is required');
       const admission = await tx.admission.create({
         data: {
