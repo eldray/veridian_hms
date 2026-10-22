@@ -1292,7 +1292,8 @@ export default function Referrals() {
                       onPatientSelect={setSelectedPatientId}
                       onAttendanceSelect={setSelectedAttendanceId}
                       onClearSelection={() => { setSelectedPatientId(''); setSelectedAttendanceId(''); }}
-                      autoSelectMostRecent={true}
+                      // Avoid silently substituting a different visit if a prefilled visit fails validation.
+                      autoSelectMostRecent={!searchParams.get('attendanceId')}
                     />
                   </div>
                 </div>
