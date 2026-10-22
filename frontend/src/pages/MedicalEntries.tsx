@@ -733,6 +733,7 @@ export default function MedicalEntries() {
     || patients.find(p => getEntityId(p) === selectedPatientId)
     || null;
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
 
   const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
   const labTestsList = currentAttendance?.LabTest || [];
@@ -1542,14 +1543,14 @@ export default function MedicalEntries() {
                       <FileText className="w-3 h-3" /> Presented Complaints
                     </label>
                     <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
-                      placeholder="Search or type complaints…" disabled={!canAddEntries} />
+                      placeholder="Search or type complaints…" disabled={!canAddEntries || isClinicalFinalized} />
                   </div>
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
                       <History className="w-3 h-3" /> History of Presenting Complaint
                     </label>
                     <textarea value={hpc} onChange={e => setHpc(e.target.value)} rows={3}
-                      disabled={!canAddEntries}
+                      disabled={!canAddEntries || isClinicalFinalized}
                       placeholder="History of presenting complaint…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                         focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
@@ -1563,7 +1564,7 @@ export default function MedicalEntries() {
                       <Stethoscope className="w-3 h-3" /> Physical Examination
                     </label>
                     <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
-                      disabled={!canAddEntries}
+                      disabled={!canAddEntries || isClinicalFinalized}
                       placeholder="Physical examination findings…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                         focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
@@ -1573,7 +1574,7 @@ export default function MedicalEntries() {
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
                       <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
                     </label>
-                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries} />
+                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
                   </div>
                 </div>
               </div>
@@ -1590,7 +1591,7 @@ export default function MedicalEntries() {
                     return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
                       <span className="block font-semibold mb-1">{system}</span>
                       <input value={reviewOfSystems[key] || ''} onChange={e => setReviewOfSystems(prev => ({ ...prev, [key]: e.target.value }))}
-                        disabled={!canAddEntries} placeholder="Not assessed / symptoms and findings"
+                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not assessed / symptoms and findings"
                         className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
                     </label>;
                   })}
@@ -1609,7 +1610,7 @@ export default function MedicalEntries() {
                     return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
                       <span className="block font-semibold mb-1">{system}</span>
                       <input value={physicalExamStructured[key] || ''} onChange={e => setPhysicalExamStructured(prev => ({ ...prev, [key]: e.target.value }))}
-                        disabled={!canAddEntries} placeholder="Not examined / findings"
+                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not examined / findings"
                         className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
                     </label>;
                   })}
@@ -1619,13 +1620,17 @@ export default function MedicalEntries() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Assessment / Impression</label>
-                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries}
+                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
                     placeholder="Working or final clinical assessment…"
+                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mt-3 mb-2">Management Plan / Instructions</label>
+                  <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={4} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Treatment, investigations, counselling, self-care, safety-netting and follow-up plan…"
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
                 </div>
                 <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Allergy Review</label>
-                  <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries}
+                  <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries || isClinicalFinalized}
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
                     <option value="not_reviewed">Not reviewed</option>
                     <option value="no_known_allergies">No known allergies (confirmed)</option>
@@ -1634,11 +1639,11 @@ export default function MedicalEntries() {
                   {Array.isArray((selectedPatient as any)?.allergies) && (selectedPatient as any).allergies.length > 0 && (
                     <p className="text-[10px] text-amber-600">Existing patient allergies: {(selectedPatient as any).allergies.map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(' — ')).join('; ')}</p>
                   )}
-                  <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries}
+                  <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries || isClinicalFinalized}
                     placeholder="Allergy/reaction details or review notes…"
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Clinical Condition at End of Visit</label>
-                  <select value={clinicalOutcome} onChange={e => setClinicalOutcome(e.target.value as typeof clinicalOutcome)} disabled={!canAddEntries}
+                  <select value={clinicalOutcome} onChange={e => setClinicalOutcome(e.target.value as typeof clinicalOutcome)} disabled={!canAddEntries || isClinicalFinalized}
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
                     <option value="">Not recorded</option>
                     <option value="improved">Improved</option>
@@ -1660,8 +1665,8 @@ export default function MedicalEntries() {
                     <CheckCircle className="w-3.5 h-3.5" /> {(currentAttendance as any)?.finalizedAt ? 'Finalized' : 'Finalize & Sign'}
                   </button>
                   <button
-                    onClick={handleSaveClinical}
-                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold
+                    onClick={handleSaveClinical} disabled={isClinicalFinalized}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold disabled:opacity-50
                       bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
                   >
                     <CheckCircle className="w-3.5 h-3.5" /> Save Clinical Info
