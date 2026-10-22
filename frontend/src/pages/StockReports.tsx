@@ -583,8 +583,31 @@ export default function StockReports() {
       case 'stock-status': {
         const low = reportData.lowStockItems || [];
         const byCat = reportData.byCategory || {};
+        const transferIssueItems = (reportData.items || []).filter((item: any) =>
+          Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0
+        );
         return (
           <>
+            {transferIssueItems.length > 0 && (
+              <section>
+                <SectionHeader icon={AlertTriangle} title="Transfer reconciliation required" accent="orange" count={transferIssueItems.length} />
+                <ReportTable
+                  caption="Dispatched transfers that need investigation before their in-transit stock can be valued reliably"
+                  empty="No transfer reconciliation issues found"
+                  searchable
+                  columns={[
+                    { key: 'name', label: 'Item', sortable: true },
+                    { key: 'category', label: 'Category', sortable: true },
+                    { key: 'issues', label: 'Issue', sortable: true },
+                  ]}
+                  rows={transferIssueItems.map((item: any) => ({
+                    name: <span className="font-medium">{item.name}</span>,
+                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                    issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
+                  }))}
+                />
+              </section>
+            )}
             <section className="mb-4">
               <SectionHeader icon={AlertTriangle} title="Low Stock Items" accent="red" count={low.length} />
               <ReportTable
