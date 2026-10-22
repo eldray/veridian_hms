@@ -213,14 +213,14 @@ describe('maternal record integrity', () => {
     const deliveryDate = new Date('2026-10-19T08:30:00.000Z');
     const record = { id: 'delivery-1', patientId: 'patient-1', attendanceId: 'attendance-1', deliveryDate, deliveryOutcome: 'stillbirth_fresh' };
     const booking = { id: 'booking-1', patientId: 'patient-1', isActive: true, isCompleted: false };
-    const bookingUpdate = vi.fn().mockResolvedValue({});
+    const bookingUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const deliveryCreate = vi.fn().mockResolvedValue(record);
     const tx: any = {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
       antenatalBooking: {
         findUnique: vi.fn().mockResolvedValue(booking),
         findFirst: vi.fn(),
-        update: bookingUpdate,
+        updateMany: bookingUpdateMany,
       },
       deliveryRecord: { create: deliveryCreate },
     };
@@ -243,8 +243,13 @@ describe('maternal record integrity', () => {
     })).resolves.toEqual(record);
 
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(bookingUpdate).toHaveBeenCalledWith({
-      where: { id: 'booking-1' },
+    expect(bookingUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'booking-1',
+        patientId: 'patient-1',
+        isActive: true,
+        isCompleted: false,
+      },
       data: expect.objectContaining({
         isActive: false,
         isCompleted: true,
