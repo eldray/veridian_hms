@@ -166,7 +166,7 @@ export class NursingController extends BaseController {
   });
 
   deleteTask = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    await this.service.deleteTask(req.params.id);
+    await this.service.deleteTask(req.params.id, this.actor(req));
     return this.ok(res, null, 'Task deleted');
   });
 }
