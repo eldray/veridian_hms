@@ -5,6 +5,35 @@ import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepositor
 import { NursingService } from '../src/modules/nursing/NursingService';
 
 describe('admission, bed and nursing record consistency', () => {
+  it('does not create an encounter against an occupied bed', async () => {
+    const tx: any = {
+      bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }), updateMany: vi.fn() },
+      attendance: { findFirst: vi.fn().mockResolvedValue({ id: 'attendance-existing' }), create: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const service = new EncounterService(prisma);
+
+    await expect(service.createEncounter({
+      patientId: 'patient-new', attendanceType: 'general_consultation', paymentMode: 'cash',
+      encounterCategory: 'ipd', bedId: 'bed-1', wardId: 'ward-1', admissionType: 'emergency',
+    }, 'records-1')).rejects.toThrow(/already occupied/i);
+    expect(tx.attendance.create).not.toHaveBeenCalled();
+    expect(tx.bed.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('returns an existing admission idempotently instead of creating a duplicate', async () => {
+    const existingAdmission = { id: 'admission-1', attendanceId: 'attendance-1', admissionNumber: 'ADM-1001' };
+    const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted', Admission: existingAdmission }) },
+      admission: { findUnique: vi.fn().mockResolvedValue(existingAdmission), create: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const service = new EncounterService(prisma);
+
+    await expect(service.createFormalAdmission({ attendanceId: 'attendance-1' }, 'admin-1')).resolves.toEqual(existingAdmission);
+    expect(tx.admission.create).not.toHaveBeenCalled();
+  });
+
   it('rejects assigning a bed that is already occupied before creating an admission', async () => {
     const tx: any = {
       attendance: {
