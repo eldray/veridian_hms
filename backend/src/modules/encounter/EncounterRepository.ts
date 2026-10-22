@@ -210,6 +210,19 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       'complaints',
       'medicalNotes',
       'clinicalNotes',
+      'historyPresentingComplaint',
+      'reviewOfSystems',
+      'physicalExamination',
+      'physicalExaminationNotes',
+      'assessment',
+      'treatmentPlan',
+      'allergyReviewStatus',
+      'allergyReviewNotes',
+      'clinicalNoteStatus',
+      'clinicalOutcome',
+      'clinicalProviderId',
+      'clinicalFinalizedById',
+      'clinicalFinalizedAt',
       'followUpDate',
       'dateTime',
       'attendanceType',
@@ -251,7 +264,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
 
-      if (key === 'historyPresentingComplaint' || key === 'onsetDurationQuality' || key === 'physicalExamination' || key === 'treatmentPlan' || key === 'treatmentNotes' || key === 'physicianNotes') {
+      if (key === 'physicalExamination' && typeof value === 'string') {
+        normalized.physicalExaminationNotes = value;
+        legacyClinicalNotes[key] = value;
+        return;
+      }
+
+      if (key === 'onsetDurationQuality' || key === 'treatmentNotes' || key === 'physicianNotes') {
         legacyClinicalNotes[key] = value;
         return;
       }
@@ -301,6 +320,32 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
+      const requestedNoteStatus = normalizedData.clinicalNoteStatus;
+      if (requestedNoteStatus === 'finalized') {
+        const current = await tx.attendance.findUnique({
+          where: { id },
+          include: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
+        });
+        if (!current) throw new NotFoundError('Encounter', id);
+        const effective = { ...current, ...normalizedData } as any;
+        const required: Array<[string, unknown]> = [
+          ['chief complaint', effective.complaints],
+          ['history of presenting complaint', effective.historyPresentingComplaint || effective.clinicalNotes?.historyPresentingComplaint],
+          ['review of systems', effective.reviewOfSystems],
+          ['physical examination', effective.physicalExaminationNotes || effective.physicalExamination || effective.clinicalNotes?.physicalExamination],
+          ['assessment', effective.assessment],
+          ['plan', effective.treatmentPlan || effective.clinicalNotes?.treatmentPlan],
+          ['clinical outcome', effective.clinicalOutcome],
+          ['clinical provider', effective.clinicalProviderId || actorId],
+        ];
+        const missing = required.filter(([, value]) => value == null || value === '' || (typeof value === 'object' && !Array.isArray(value) && Object.keys(value as object).length === 0)).map(([label]) => label);
+        if (missing.length) throw new ValidationError(`Cannot finalise clinical record. Complete: ${missing.join(', ')}`);
+        if (effective.allergyReviewStatus === 'not_reviewed') throw new ValidationError('Review and record allergy status before finalising the clinical record');
+        if (!current.Vitals?.length) throw new ValidationError('Record at least one set of vitals before finalising the clinical record');
+        normalizedData.clinicalProviderId = effective.clinicalProviderId || actorId;
+        normalizedData.clinicalFinalizedById = actorId;
+        normalizedData.clinicalFinalizedAt = new Date();
+      }
       if (admissionType !== undefined) {
         const admission = await tx.admission.findUnique({
           where: { attendanceId: id },
