@@ -1,5 +1,5 @@
 // src/seed/seedData.ts
-import { seedCoreData } from './coreSeed.js';
+import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
 import { seedTestData, deleteTestData, initializeDatabase } from './testSeed.js';
@@ -103,17 +103,26 @@ export const seedDatabase = async (force: boolean = false) => {
   console.log('==================================================');
   console.log(`🔧 Force mode: ${force ? 'ENABLED (will reseed all)' : 'DISABLED (will skip existing)'}`);
 
-  // ✅ FIX: Check if database already has real data
+  // Keep demo/test-data seeding separate from reference-data maintenance.
+  // A populated facility database must not receive demo patients, but it should
+  // still be able to add missing ICD-10 diagnoses safely without overwriting local edits.
   const hasRealData = await checkDatabaseHasData();
 
   if (hasRealData && !force) {
-    console.log('✅ Database already has real patient data. Skipping seeding.');
-    console.log('💡 Use --force to force reseed (WARNING: will delete existing test data only)');
-    return {
-      success: true,
-      message: 'Database already has data, seeding skipped',
-      skipped: true
-    };
+    console.log('✅ Existing patient data detected; skipping demo/test data seeding.');
+    console.log('🔄 Reconciling missing clinical diagnosis reference data only...');
+    try {
+      const diagnosisReferences = await seedDiagnosisReferenceData();
+      await seedDiagnosisGDRGLinks();
+      return {
+        success: true,
+        message: 'Demo/test data skipped; diagnosis reference data reconciled safely',
+        skipped: true,
+        diagnosisReferences,
+      };
+    } finally {
+      await prisma.$disconnect();
+    }
   }
 
   // Load seeding status
