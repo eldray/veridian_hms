@@ -443,9 +443,9 @@ export default function Referrals() {
   }, [searchParams, getAttendance, toastError]);
 
   useEffect(() => {
-    if (!searchParams.get('patientId') || !selectedPatientId || structuredPartI.clientName) return;
+    if (!searchParams.get('patientId') || !selectedPatientId) return;
     const patient: any = patients.find((item: any) =>
-      (item.id || item._id) === selectedPatientId
+      String(item.id || item._id || '') === String(selectedPatientId)
     );
     if (!patient) return;
     const birthDateValue = patient.dateOfBirth || patient.dob || patient.birthDate;
@@ -463,7 +463,7 @@ export default function Referrals() {
     }
     setStructuredPartI(prev => ({
       ...prev,
-      clientName: getPatientName(patient),
+      clientName: prev.clientName || getPatientName(patient),
       age: prev.age || String(calculatedAge || ''),
       sex: prev.sex || String(patient.gender || patient.sex || ''),
     }));
