@@ -414,7 +414,7 @@ export class GHSReportService extends BaseService {
       if (hasReferral) referrals++;
       totalPatients++; if (isNew) newPatients++; else oldPatients++;
       if (isNHIS) nhisPatients++; if (att.paymentMode === 'cash') cashPatients++; if (isPregnant) pregnantWomen++;
-      const clinician = att.User_Attendance_createdByIdToUser?.fullName ?? 'Unknown';
+      const clinician = att.User_Attendance_providerIdToUser?.fullName ?? att.User_Attendance_createdByIdToUser?.fullName ?? 'Unknown';
       // Keep history current as entries are ordered chronologically within the report period.
       diagnoses.forEach((d: any) => historicalDiagnosisIds.add(d.diagnosisId));
       diagnosisHistoryByPatient.set(patient.id, historicalDiagnosisIds);
