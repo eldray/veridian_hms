@@ -450,7 +450,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addDiagnosis: async (attendanceId, data) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add diagnosis to non-pending attendance');
     }
@@ -458,11 +460,11 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updated = await apiAddDiagnosis(attendanceId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
+      set((state) => ({
+        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
+        currentAttendance: state.currentAttendance?.id === updated.id ? updated : state.currentAttendance,
         isLoading: false,
-      });
+      }));
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding diagnosis:', error);
@@ -472,14 +474,21 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   removeDiagnosis: async (attendanceId, diagnosisId) => {
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
+    if (!att) throw new Error('Cannot remove diagnosis: attendance not found');
+    if (!get().canAddActivities(att)) {
+      throw new Error('Cannot remove diagnosis from non-pending attendance');
+    }
     set({ isLoading: true, error: null });
     try {
       const updated = await apiRemoveDiagnosis(attendanceId, diagnosisId);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
+      set((state) => ({
+        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
+        currentAttendance: state.currentAttendance?.id === updated.id ? updated : state.currentAttendance,
         isLoading: false,
-      });
+      }));
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing diagnosis:', error);
@@ -611,7 +620,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addMedication: async (attendanceId, { stockItemId, serviceCatalogId, dosage, frequency, duration, route, instructions }) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add medication to non-pending attendance');
     }
@@ -627,11 +638,11 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         route,
         instructions,
       });
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
+      set((state) => ({
+        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
+        currentAttendance: state.currentAttendance?.id === updated.id ? updated : state.currentAttendance,
         isLoading: false,
-      });
+      }));
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding medication:', error);
@@ -645,6 +656,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     try {
       const response = await apiUpdateMedicationStatus(attendanceId, medicationId, data);
       const updatedAttendance = response.data || response;
+      if (!updatedAttendance || updatedAttendance.id !== attendanceId) {
+        throw new Error('Medication update returned a different attendance; refresh and try again');
+      }
       
       set((state) => {
         const updatedAttendances = state.attendances.map((att) => {
@@ -678,14 +692,21 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   removeMedication: async (attendanceId, medicationId) => {
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
+    if (!att) throw new Error('Cannot cancel prescription: attendance not found');
+    if (!get().canAddActivities(att)) {
+      throw new Error('Cannot cancel prescription from non-pending attendance');
+    }
     set({ isLoading: true, error: null });
     try {
       const updated = await apiRemoveMedication(attendanceId, medicationId);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
+      set((state) => ({
+        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
+        currentAttendance: state.currentAttendance?.id === updated.id ? updated : state.currentAttendance,
         isLoading: false,
-      });
+      }));
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing medication:', error);
