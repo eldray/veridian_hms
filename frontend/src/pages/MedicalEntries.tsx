@@ -689,41 +689,39 @@ export default function MedicalEntries() {
   }, [attendanceId]);
 
   useEffect(() => {
-    if (!selectedAttendanceId) return;
-    getAttendance(selectedAttendanceId).then(att => {
-      if (!att) return;
-      const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
-        ? att.clinicalNotes as Record<string, any>
-        : {};
-      setPresentedComplaints(att.complaints || '');
-      setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
-      setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-      setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
-      setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
-      setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
-      setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
-      setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
-    });
-  }, [selectedAttendanceId]);
+    if (!selectedAttendanceId) {
+      setTreatmentNoteDraft('');
+      return;
+    }
 
-  useEffect(() => {
-    if (!selectedAttendanceId) return;
-    getAttendance(selectedAttendanceId).then(att => {
-      if (!att) return;
-      const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
-        ? att.clinicalNotes as Record<string, any>
-        : {};
-      setPresentedComplaints(att.complaints || '');
-      setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
-      setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-      setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
-      setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
-      // Load persisted treatment notes
-      setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
-      setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
-      setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
-    });
-  }, [selectedAttendanceId]);
+    let active = true;
+    // A fresh visit starts with an empty unsaved note draft. Persisted notes are loaded below.
+    setTreatmentNoteDraft('');
+    getAttendance(selectedAttendanceId)
+      .then(att => {
+        if (!active || !att) return;
+        const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
+          ? att.clinicalNotes as Record<string, any>
+          : {};
+        setPresentedComplaints(att.complaints || '');
+        setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
+        setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
+        setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
+        const followUp = (att as any).followUpDate;
+        const parsedFollowUp = followUp ? new Date(followUp) : null;
+        setFollowUpDate(parsedFollowUp && !Number.isNaN(parsedFollowUp.getTime()) ? parsedFollowUp.toISOString().slice(0, 16) : '');
+        setTreatmentNotes(Array.isArray(clinicalNotes.treatmentNotes) ? clinicalNotes.treatmentNotes : Array.isArray((att as any).treatmentNotes) ? (att as any).treatmentNotes : []);
+        setPhysicianNotes(Array.isArray(clinicalNotes.physicianNotes) ? clinicalNotes.physicianNotes : Array.isArray((att as any).physicianNotes) ? (att as any).physicianNotes : []);
+        setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
+      })
+      .catch((err: Error) => {
+        if (active) toastError('Clinical record unavailable', err.message || 'Could not load this attendance clinical record');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedAttendanceId, getAttendance, toastError]);
 
   const selectedPatient = (currentPatient?.id === selectedPatientId ? currentPatient : undefined)
     || patients.find(p => getEntityId(p) === selectedPatientId)
