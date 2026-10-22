@@ -2,6 +2,80 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { TransferQueryParams } from './StockTransferTypes';
 
+
+/**
+ * Adds an auditable in-transit quantity and reconciliation warnings to transfer
+ * records. This is diagnostic only: legacy inconsistencies are surfaced for
+ * review, never silently repaired or used to infer lot stock.
+ */
+export const annotateTransferReconciliation = (transfer: any) => {
+  const items = Array.isArray(transfer?.items) ? transfer.items : [];
+  const annotatedItems = items.map((item: any) => {
+    const issues: string[] = [];
+    const sent = item?.quantitySent;
+    const received = item?.quantityReceived;
+    const sentValid = Number.isSafeInteger(sent) && sent >= 0;
+    const receivedValid = Number.isSafeInteger(received) && received >= 0;
+
+    if (!sentValid) issues.push('Quantity sent is not a valid non-negative whole number.');
+    if (!receivedValid) issues.push('Quantity received is not a valid non-negative whole number.');
+    if (sentValid && receivedValid && received > sent) issues.push('Quantity received exceeds quantity sent.');
+
+    if (transfer.status === 'dispatched') {
+      if (!sentValid || sent <= 0) issues.push('Dispatched transfer has no valid positive sent quantity.');
+      if (receivedValid && received > 0) issues.push('Transfer is still marked dispatched despite a recorded receipt; manual reconciliation is required.');
+    } else if (transfer.status === 'received') {
+      if (!sentValid || sent <= 0) issues.push('Received transfer has no valid positive sent quantity.');
+      if (sentValid && receivedValid && received !== sent) issues.push('Transfer is marked received but sent and received quantities do not match.');
+    }
+
+    const batchTracked = Number(item?.stockItem?._count?.StockBatch ?? 0) > 0;
+    if (batchTracked && ['dispatched', 'received'].includes(String(transfer.status))) {
+      const allocations = item?.batchAllocations;
+      if (!Array.isArray(allocations)) {
+        issues.push('Batch-tracked transfer has missing or malformed batch allocations.');
+      } else {
+        let allocationTotal = 0;
+        let validAllocations = true;
+        for (const allocation of allocations) {
+          if (!allocation || typeof allocation !== 'object' ||
+              !Number.isSafeInteger(allocation.quantity) || allocation.quantity <= 0 ||
+              typeof allocation.batchNumber !== 'string' || !allocation.batchNumber.trim()) {
+            validAllocations = false;
+            break;
+          }
+          allocationTotal += allocation.quantity;
+          if (!Number.isSafeInteger(allocationTotal)) {
+            validAllocations = false;
+            break;
+          }
+        }
+        if (!validAllocations) issues.push('Batch allocations contain invalid quantities or batch numbers.');
+        else if (sentValid && allocationTotal !== sent) issues.push('Batch allocation total does not match quantity sent.');
+      }
+    }
+
+    const quantitiesSafe = sentValid && receivedValid && received <= sent;
+    const quantityInTransit = transfer.status === 'dispatched' && quantitiesSafe ? sent - received : 0;
+    return { ...item, quantityInTransit, reconciliationIssues: issues, hasReconciliationIssues: issues.length > 0 };
+  });
+  const reconciliationIssues = annotatedItems.flatMap((item: any) =>
+    item.reconciliationIssues.map((issue: string) => ({
+      itemId: item.id,
+      stockItemId: item.stockItemId,
+      stockItemName: item.stockItem?.name || 'Unknown stock item',
+      issue,
+    })),
+  );
+  return {
+    ...transfer,
+    items: annotatedItems,
+    hasStockInTransit: transfer.status === 'dispatched' && annotatedItems.some((item: any) => item.quantityInTransit > 0),
+    hasReconciliationIssues: reconciliationIssues.length > 0,
+    reconciliationIssues,
+  };
+};
+
 const startOfCurrentDay = (): Date => {
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -34,42 +108,30 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
         destination: { select: { id: true, name: true } },
         requestedBy: { select: { id: true, fullName: true } },
         approvedBy: { select: { id: true, fullName: true } },
-        items: { include: { stockItem: { select: { id: true, name: true, drugCode: true } } } }
+        items: { include: { stockItem: { select: { id: true, name: true, drugCode: true, _count: { select: { StockBatch: true } } } } } }
       }
     });
 
-    // A dispatched transfer has left the origin but has not yet entered the
-    // destination balance. Expose this explicitly so reports/UI can distinguish
-    // in-transit stock from stock available in either department. Do not add it
-    // to StockItem.currentStock: that aggregate already retains these units.
+    // Keep register and detail diagnostics consistent. In-transit stock remains
+    // excluded from department balances and is not added to aggregate stock twice.
     return {
       ...result,
-      data: (result.data || []).map((transfer: any) => ({
-        ...transfer,
-        hasStockInTransit: transfer.status === 'dispatched' && transfer.items.some(
-          (item: any) => Number(item.quantitySent) > Number(item.quantityReceived),
-        ),
-        items: transfer.items.map((item: any) => ({
-          ...item,
-          quantityInTransit: transfer.status === 'dispatched'
-            ? Math.max(0, Number(item.quantitySent || 0) - Number(item.quantityReceived || 0))
-            : 0,
-        })),
-      })),
+      data: (result.data || []).map((transfer: any) => annotateTransferReconciliation(transfer)),
     };
   }
 
   async findByIdWithDetails(id: string) {
-    return this.getModel().findUnique({
+    const transfer = await this.getModel().findUnique({
       where: { id },
       include: {
         origin: { select: { id: true, name: true } },
         destination: { select: { id: true, name: true } },
         requestedBy: { select: { id: true, fullName: true } },
         approvedBy: { select: { id: true, fullName: true } },
-        items: { include: { stockItem: { select: { id: true, name: true, drugCode: true, unitOfMeasure: true } } } }
+        items: { include: { stockItem: { select: { id: true, name: true, drugCode: true, unitOfMeasure: true, _count: { select: { StockBatch: true } } } } } }
       }
     });
+    return transfer ? annotateTransferReconciliation(transfer) : null;
   }
 
   async createTransfer(data: any, userId: string, transferNumber: string) {
