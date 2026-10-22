@@ -418,26 +418,6 @@ export default function Referrals() {
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
-    if (!requestedAttendanceId || !requestedPatientId || !attendances.length) return;
-    const requestedVisit = attendances.find((item: any) =>
-      String(item.id || item._id || '') === requestedAttendanceId
-    );
-    if (!requestedVisit) return; // The scoped/global attendance list may not contain older visits.
-    const linkedPatient = requestedVisit.patientId || requestedVisit.patient?.id || requestedVisit.patient?._id;
-    const linkedPatientId = typeof linkedPatient === 'object'
-      ? linkedPatient.id || linkedPatient._id
-      : linkedPatient;
-    if (String(linkedPatientId || '') !== requestedPatientId &&
-        selectedAttendanceId === requestedAttendanceId) {
-      setSelectedAttendanceId('');
-      setPrefilledAttendance(null);
-      toastError('Visit mismatch', 'The linked visit belongs to a different patient. Select the correct visit before submitting the referral.');
-    }
-  }, [attendances, searchParams, selectedAttendanceId, toastError]);
-
-  useEffect(() => {
-    const requestedAttendanceId = searchParams.get('attendanceId');
-    const requestedPatientId = searchParams.get('patientId');
     if (!requestedAttendanceId || !requestedPatientId) return;
     let cancelled = false;
     getAttendance(requestedAttendanceId).then((visit: any) => {
