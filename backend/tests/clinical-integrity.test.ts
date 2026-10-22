@@ -115,6 +115,17 @@ describe('postnatal create/update validation consistency', () => {
         babyWeight: 18,
         babyTemperature: 26,
       },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true,
+          },
+        },
+        deliveryRecord: true,
+      },
     });
   });
 
