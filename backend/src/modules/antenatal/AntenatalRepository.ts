@@ -286,13 +286,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Weight must be a valid value in kilograms');
     }
     if (data.fundalHeight !== undefined && (!Number.isFinite(Number(data.fundalHeight)) || Number(data.fundalHeight) < 0 || Number(data.fundalHeight) > 60)) {
-      throw new ValidationError('Fundal height must be between 0 and 100 cm');
+      throw new ValidationError('Fundal height must be between 0 and 60 cm');
     }
     if (data.fetalHeartRate !== undefined && (!Number.isInteger(Number(data.fetalHeartRate)) || Number(data.fetalHeartRate) < 60 || Number(data.fetalHeartRate) > 200)) {
       throw new ValidationError('Fetal heart rate must be between 60 and 200 bpm');
     }
-    if (data.iptpDoseNumber !== undefined && (!Number.isInteger(Number(data.iptpDoseNumber)) || Number(data.iptpDoseNumber) < 1 || Number(data.iptpDoseNumber) > 5)) {
-      throw new ValidationError('IPTp dose number must be between 1 and 5');
+    if (data.iptpDoseNumber !== undefined && (!Number.isInteger(Number(data.iptpDoseNumber)) || Number(data.iptpDoseNumber) < 1 || Number(data.iptpDoseNumber) > 10)) {
+      throw new ValidationError('IPTp dose number must be between 1 and 10');
     }
     if (data.ttDoseNumber !== undefined && (!Number.isInteger(Number(data.ttDoseNumber)) || Number(data.ttDoseNumber) < 1 || Number(data.ttDoseNumber) > 5)) {
       throw new ValidationError('TT dose number must be between 1 and 5');
@@ -391,6 +391,21 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
     this.validateVisitGravidaPara(data.gravida, data.para);
+    if (data.gravida !== undefined || data.para !== undefined) {
+      const existing = await this.prisma.aNCVisit.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          gravida: true,
+          para: true,
+          booking: { select: { gravida: true, para: true } },
+        },
+      });
+      if (!existing) throw new NotFoundError('ANC visit', id);
+      const effectiveGravida = data.gravida ?? existing.gravida ?? existing.booking?.gravida;
+      const effectivePara = data.para ?? existing.para ?? existing.booking?.para;
+      this.validateVisitGravidaPara(effectiveGravida ?? undefined, effectivePara ?? undefined);
+    }
     const allowed = [
       'gravida', 'para', 'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'weight', 'bloodPressure',
       'fundalHeight', 'fetalHeartRate', 'fetalMovements', 'presentation', 'oedema', 'oedemaGrade',
@@ -453,8 +468,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('ANC blood pressure must be a plausible systolic/diastolic value, for example 120/80');
       }
     }
-    if (clean.iptpDoseNumber !== undefined && (!Number.isInteger(Number(clean.iptpDoseNumber)) || Number(clean.iptpDoseNumber) < 1 || Number(clean.iptpDoseNumber) > 5)) {
-      throw new ValidationError('IPTp dose number must be between 1 and 5');
+    if (clean.iptpDoseNumber !== undefined && (!Number.isInteger(Number(clean.iptpDoseNumber)) || Number(clean.iptpDoseNumber) < 1 || Number(clean.iptpDoseNumber) > 10)) {
+      throw new ValidationError('IPTp dose number must be between 1 and 10');
     }
     if (clean.ttDoseNumber !== undefined && (!Number.isInteger(Number(clean.ttDoseNumber)) || Number(clean.ttDoseNumber) < 1 || Number(clean.ttDoseNumber) > 5)) {
       throw new ValidationError('TT dose number must be between 1 and 5');
