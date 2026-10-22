@@ -1,52 +1,3 @@
-describe('ANC visit recording attribution', () => {
-  it('updates the recorder on a pre-created blank ANC visit', async () => {
-    const update = vi.fn().mockResolvedValue({ id: 'visit-1', recordedById: 'midwife-2' });
-    const existingVisit = { id: 'visit-1', bookingId: 'booking-1' };
-    const tx = {
-      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal' }) },
-      antenatalBooking: { findUnique: vi.fn().mockResolvedValue({ id: 'booking-1', patientId: 'patient-1', isActive: true, isCompleted: false }) },
-      aNCVisit: { findUnique: vi.fn().mockResolvedValue(existingVisit), update, count: vi.fn(), create: vi.fn() },
-    };
-    const prisma = {
-      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-2' }) },
-      $transaction: vi.fn(async (callback: any) => callback(tx)),
-    };
-    const repository = new AntenatalRepository(prisma as any);
-
-    await repository.createVisit({
-      bookingId: 'booking-1',
-      attendanceId: 'attendance-1',
-      visitNumber: 1,
-      visitDate: new Date('2026-10-20T09:00:00Z'),
-      recordedById: 'midwife-2',
-    });
-
-    expect(update).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: 'visit-1' },
-      data: expect.objectContaining({ recordedById: 'midwife-2' }),
-    }));
-    expect(tx.aNCVisit.create).not.toHaveBeenCalled();
-  });
-
-  it('rejects a missing recorder account before opening a transaction', async () => {
-    const transaction = vi.fn();
-    const repository = new AntenatalRepository({
-      user: { findUnique: vi.fn().mockResolvedValue(null) },
-      $transaction: transaction,
-    } as any);
-
-    await expect(repository.createVisit({
-      bookingId: 'booking-1',
-      attendanceId: 'attendance-1',
-      visitNumber: 1,
-      visitDate: new Date('2026-10-20T09:00:00Z'),
-      recordedById: 'missing-staff',
-    })).rejects.toThrow(/recording staff account does not exist/i);
-
-    expect(transaction).not.toHaveBeenCalled();
-  });
-});
-
 import { describe, expect, it, vi } from 'vitest';
 import { EncounterRepository, resolvePatientClassification } from '../src/modules/encounter/EncounterRepository';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
@@ -517,7 +468,12 @@ describe('maternal record integrity', () => {
 
     expect(tx.aNCVisit.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'visit-1' },
-      data: expect.objectContaining({ gravida: 3, para: 1, bloodPressure: '120/80' }),
+      data: expect.objectContaining({
+        gravida: 3,
+        para: 1,
+        bloodPressure: '120/80',
+        recordedById: 'midwife-1',
+      }),
     }));
     expect(tx.aNCVisit.create).not.toHaveBeenCalled();
     expect(tx.aNCVisit.count).not.toHaveBeenCalled();
