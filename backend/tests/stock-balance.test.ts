@@ -1514,7 +1514,7 @@ describe('unassigned allocation destination batch concurrency', () => {
       costPrice: 10,
       isActive: true,
     };
-    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const batchUpdateMany = vi.fn().mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
     const transactionCreateMany = vi.fn();
     const tx: any = {
       stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 10 }) },
