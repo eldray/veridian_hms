@@ -327,15 +327,17 @@ describe('stock transfer dispatch batch reconciliation', () => {
 
     expect(batchUpdate).toHaveBeenNthCalledWith(1, {
       where: {
-        id: 'batch-near-expiry', departmentId: 'pharmacy', wardId: null,
-        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 2 },
+        id: 'batch-near-expiry', stockItemId: 'item-1', batchNumber: 'LOT-A',
+        departmentId: 'pharmacy', wardId: null, isActive: true,
+        expiryDate: new Date('2027-01-01T00:00:00Z'), costPrice: '2.50', quantity: { gte: 2 },
       },
       data: { quantity: { decrement: 2 } },
     });
     expect(batchUpdate).toHaveBeenNthCalledWith(2, {
       where: {
-        id: 'batch-later', departmentId: 'pharmacy', wardId: null,
-        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 1 },
+        id: 'batch-later', stockItemId: 'item-1', batchNumber: 'LOT-B',
+        departmentId: 'pharmacy', wardId: null, isActive: true,
+        expiryDate: new Date('2027-06-01T00:00:00Z'), costPrice: '3.00', quantity: { gte: 1 },
       },
       data: { quantity: { decrement: 1 } },
     });
@@ -484,5 +486,76 @@ describe('stock transfer register reconciliation diagnostics', () => {
 
     expect(result.hasReconciliationIssues).toBe(true);
     expect(result.reconciliationIssues[0].issue).toMatch(/allocation total does not match quantity sent/i);
+  });
+});
+
+describe('transfer receipt destination batch race protection', () => {
+  it('rejects the receipt if the existing destination batch changes location before increment', async () => {
+    const expiryDate = new Date(Date.now() + 30 * 86400000);
+    const transfer = {
+      id: 'transfer-destination-race',
+      status: 'dispatched',
+      receivedAt: null,
+      destinationId: 'pharmacy',
+      origin: { name: 'Main Store' },
+      destination: { id: 'pharmacy' },
+      items: [{
+        id: 'transfer-item-destination-race',
+        stockItemId: 'item-1',
+        quantitySent: 2,
+        quantityReceived: 0,
+        batchAllocations: [{
+          batchId: 'origin-batch',
+          quantity: 2,
+          batchNumber: 'LOT-RACE',
+          expiryDate: expiryDate.toISOString(),
+          costPrice: '5.00',
+        }],
+      }],
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const movementCreate = vi.fn();
+    const tx: any = {
+      stockTransfer: {
+        findUnique: vi.fn().mockResolvedValueOnce(transfer).mockResolvedValueOnce({ ...transfer, status: 'received' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      stockItemDepartmentBalance: { upsert: vi.fn().mockResolvedValue({ quantity: 2 }) },
+      stockBatch: {
+        findFirst: vi.fn().mockResolvedValue({
+          id: 'destination-batch',
+          stockItemId: 'item-1',
+          batchNumber: 'LOT-RACE',
+          departmentId: 'pharmacy',
+          wardId: null,
+          expiryDate,
+          costPrice: '5.00',
+          isActive: true,
+        }),
+        updateMany: batchUpdateMany,
+        create: vi.fn(),
+      },
+      stockTransaction: { create: movementCreate },
+      stockTransferItem: { update: vi.fn() },
+    };
+    const service = new StockTransferService({ $transaction: async (callback: any) => callback(tx) } as any);
+
+    await expect(service.receiveTransfer(transfer.id, 'user-1'))
+      .rejects.toThrow(/destination batch LOT-RACE changed during transfer receipt/i);
+
+    expect(batchUpdateMany).toHaveBeenCalledWith({
+      where: {
+        id: 'destination-batch',
+        stockItemId: 'item-1',
+        batchNumber: 'LOT-RACE',
+        departmentId: 'pharmacy',
+        wardId: null,
+        expiryDate,
+        isActive: true,
+      },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(movementCreate).not.toHaveBeenCalled();
+    expect(tx.stockTransferItem.update).not.toHaveBeenCalled();
   });
 });

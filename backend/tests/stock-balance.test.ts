@@ -479,8 +479,13 @@ describe('batch receipt expiry race protection', () => {
     expect(updateMany).toHaveBeenCalledWith({
       where: {
         id: 'batch-1',
+        stockItemId: 'item-1',
+        batchNumber: 'LOT-1',
+        departmentId: 'pharmacy',
+        wardId: null,
         isActive: true,
-        expiryDate: { gte: expect.any(Date) },
+        expiryDate,
+        costPrice: 2,
       },
       data: { quantity: { increment: 3 } },
     });
@@ -1396,5 +1401,163 @@ describe('zero-quantity batch reconciliation', () => {
     expect(report.batchQuantityDiscrepancies).toBe(1);
     expect(report.items[0].stockDiscrepancy).toBe(5);
     expect(report.items[0].unbatchedQuantity).toBe(5);
+  });
+});
+
+
+describe('unassigned batch allocation expiry race protection', () => {
+  it('does not move an unassigned batch if it expires after the initial eligibility read', async () => {
+    const batch = {
+      id: 'unassigned-batch', stockItemId: 'item-1', batchNumber: 'LOT-EXPIRING',
+      departmentId: null, wardId: null, quantity: 5,
+      expiryDate: new Date(Date.now() + 60_000), costPrice: '2.00',
+      receivedDate: new Date(), isActive: true,
+    };
+    const updateBatch = vi.fn().mockResolvedValue({ count: 0 });
+    const balanceUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const balanceFindUnique = vi.fn().mockResolvedValue({ quantity: 4 });
+    const tx: any = {
+      stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 5 }) },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([batch]),
+        updateMany: updateBatch,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: balanceUpdateMany,
+        findUnique: balanceFindUnique,
+        upsert: vi.fn().mockResolvedValue({ quantity: 6 }),
+      },
+      stockTransaction: { createMany: vi.fn() },
+    };
+    const prisma: any = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockItemRepository(prisma);
+
+    await expect(repository.allocateUnassignedStockSafely('item-1', 'pharmacy', 1, 'user-1'))
+      .rejects.toThrow(/changed during allocation/i);
+
+    expect(updateBatch).toHaveBeenCalledWith({
+      where: {
+        id: 'unassigned-batch', departmentId: null, wardId: null,
+        quantity: { gte: 1 }, isActive: true,
+        expiryDate: { gte: expect.any(Date) },
+      },
+      data: { quantity: { decrement: 1 } },
+    });
+    expect(tx.stockTransaction.createMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('consumable reversal batch location race protection', () => {
+  it('does not restore quantity into a batch that moved after the location check', async () => {
+    const use = {
+      id: 'use-1',
+      reference: 'encounter-1',
+      stockItemId: 'item-1',
+      quantity: 2,
+      departmentId: 'pharmacy',
+      batchAllocations: [{ batchId: 'batch-1', quantity: 2 }],
+      notes: 'Consumable use: gloves',
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const batchUpdate = vi.fn();
+    const transactionUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx: any = {
+      stockTransaction: {
+        findFirst: vi.fn().mockResolvedValue(use),
+        updateMany: transactionUpdateMany,
+        update: vi.fn(),
+        create: vi.fn(),
+      },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', departmentId: 'pharmacy', role: 'nurse' }) },
+      stockBatch: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'batch-1', stockItemId: 'item-1', departmentId: 'pharmacy', wardId: null,
+        }),
+        updateMany: batchUpdateMany,
+        update: batchUpdate,
+        count: vi.fn().mockResolvedValue(1),
+      },
+      stockItemDepartmentBalance: { upsert: vi.fn() },
+      stockItem: { update: vi.fn(), findUnique: vi.fn() },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'encounter-1' }) },
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.deleteConsumableUse('encounter-1', 'use-1', 'user-1'))
+      .rejects.toThrow(/batch location changed during consumable reversal/i);
+
+    expect(batchUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'batch-1', stockItemId: 'item-1', departmentId: 'pharmacy', wardId: null },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(batchUpdate).not.toHaveBeenCalled();
+    expect(tx.stockItemDepartmentBalance.upsert).not.toHaveBeenCalled();
+    expect(tx.stockItem.update).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('unassigned allocation destination batch concurrency', () => {
+  it('refuses to increment a destination batch whose identity changed after lookup', async () => {
+    const expiryDate = new Date('2027-10-20T00:00:00.000Z');
+    const existingBatch = {
+      id: 'destination-batch',
+      batchNumber: 'LOT-1',
+      expiryDate,
+      costPrice: 10,
+      isActive: true,
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValueOnce({ count: 1 }).mockResolvedValueOnce({ count: 0 });
+    const transactionCreateMany = vi.fn();
+    const tx: any = {
+      stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 10 }) },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'unassigned-batch',
+          batchNumber: 'LOT-1',
+          quantity: 3,
+          expiryDate,
+          costPrice: 10,
+          isActive: true,
+          receivedDate: new Date('2026-01-01T00:00:00.000Z'),
+        }]),
+        updateMany: batchUpdateMany,
+        findFirst: vi.fn().mockResolvedValue(existingBatch),
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 7 }),
+        upsert: vi.fn().mockResolvedValue({ quantity: 3 }),
+      },
+      stockTransaction: { createMany: transactionCreateMany },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new StockItemRepository(prisma);
+
+    await expect(repository.allocateUnassignedStockSafely('item-1', 'pharmacy', 3))
+      .rejects.toThrow(/destination batch LOT-1 changed during unassigned stock allocation/i);
+
+    expect(batchUpdateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'destination-batch',
+        stockItemId: 'item-1',
+        batchNumber: 'LOT-1',
+        departmentId: 'pharmacy',
+        wardId: null,
+        expiryDate,
+        costPrice: 10,
+        isActive: true,
+      },
+      data: { quantity: { increment: 3 } },
+    });
+    expect(transactionCreateMany).not.toHaveBeenCalled();
   });
 });

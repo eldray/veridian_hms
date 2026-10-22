@@ -298,7 +298,10 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         if (remaining <= 0) break;
         const move = Math.min(batch.quantity, remaining);
         const changed = await tx.stockBatch.updateMany({
-          where: { id: batch.id, departmentId: null, wardId: null, quantity: { gte: move }, isActive: true },
+          where: {
+            id: batch.id, departmentId: null, wardId: null, quantity: { gte: move },
+            isActive: true, expiryDate: { gte: startOfCurrentDay() },
+          },
           data: { quantity: { decrement: move } },
         });
         if (changed.count !== 1) throw new Error('Unassigned batch stock changed during allocation. Please retry.');
@@ -318,7 +321,22 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           if (!existing.isActive) {
             throw new Error(`Destination batch ${batch.batchNumber} is inactive. Reconcile the batch before allocating stock.`);
           }
-          await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move } } });
+          const incremented = await tx.stockBatch.updateMany({
+            where: {
+              id: existing.id,
+              stockItemId,
+              batchNumber: batch.batchNumber,
+              departmentId,
+              wardId: null,
+              expiryDate: batch.expiryDate,
+              costPrice: batch.costPrice,
+              isActive: true,
+            },
+            data: { quantity: { increment: move } },
+          });
+          if (incremented.count !== 1) {
+            throw new Error(`Destination batch ${batch.batchNumber} changed during unassigned stock allocation. Refresh and reconcile before retrying.`);
+          }
         } else {
           await tx.stockBatch.create({
             data: {
@@ -424,7 +442,16 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         // Recheck expiry at the atomic write boundary. A batch can cross its
         // expiry time after the initial validation/read and must not gain
         // newly received available quantity once expired.
-        where: { id: existingBatch.id, isActive: true, expiryDate: { gte: startOfCurrentDay() } },
+        where: {
+          id: existingBatch.id,
+          stockItemId,
+          batchNumber: batchNumber.trim(),
+          departmentId: normalizedDepartmentId,
+          wardId: null,
+          isActive: true,
+          expiryDate,
+          costPrice,
+        },
         data: { quantity: { increment: quantity } },
       });
       if (incremented.count !== 1) throw new ValidationError('Batch changed or expired during receipt. Please retry.');
