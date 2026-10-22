@@ -28,6 +28,12 @@ export class ReferralService extends BaseService {
     if (!data.referralReason?.trim()) throw new ValidationError('referralReason is required');
     if (!data.referredToFacility?.trim()) throw new ValidationError('referredToFacility is required');
 
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: data.patientId },
+      select: { id: true }
+    });
+    if (!patient) throw new NotFoundError('Patient', data.patientId);
+
     if (data.attendanceId) {
       const attendance = await this.prisma.attendance.findUnique({
         where: { id: data.attendanceId },
@@ -43,6 +49,16 @@ export class ReferralService extends BaseService {
   }
 
   async createIncomingReferral(data: CreateIncomingReferralDTO, userId: string) {
+    if (!data.patientId?.trim()) throw new ValidationError('patientId is required');
+    if (!data.referralReason?.trim()) throw new ValidationError('referralReason is required');
+    if (!data.referredFromFacility?.trim()) throw new ValidationError('referredFromFacility is required');
+
+    const patient = await this.prisma.patient.findUnique({
+      where: { id: data.patientId },
+      select: { id: true }
+    });
+    if (!patient) throw new NotFoundError('Patient', data.patientId);
+
     return this.repository.createIncoming(data, userId);
   }
 
