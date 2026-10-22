@@ -30,8 +30,20 @@ export interface UpdateEncounterDTO {
   complaint?: string;
   complaints?: string;
   medicalNotes?: string;
-  clinicalNotes?: any; // ✅ ADDED
-  treatmentPlan?: string;
+  clinicalNotes?: any; // Legacy structured payload retained for older clients
+  historyPresentingComplaint?: string | null;
+  reviewOfSystems?: Record<string, unknown> | null;
+  physicalExamination?: Record<string, unknown> | null;
+  physicalExaminationNotes?: string | null;
+  assessment?: string | null;
+  treatmentPlan?: string | null;
+  allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'known_allergies';
+  allergyReviewNotes?: string | null;
+  clinicalNoteStatus?: 'draft' | 'finalized' | 'amended';
+  clinicalOutcome?: 'treated_and_discharged' | 'admitted' | 'referred' | 'transferred' | 'left_against_medical_advice' | 'left_without_being_seen' | 'absconded' | 'died' | 'other' | null;
+  clinicalProviderId?: string | null;
+  clinicalFinalizedById?: string | null;
+  clinicalFinalizedAt?: Date | null;
   followUpDate?: Date | null;
   dateTime?: Date;
   attendanceType?: CreateEncounterDTO['attendanceType'];
