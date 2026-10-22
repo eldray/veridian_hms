@@ -6,8 +6,9 @@ describe('clinical order concurrent-update guards', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       labTest: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'requested' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'requested' }),
         updateMany,
       },
     };
@@ -25,8 +26,9 @@ describe('clinical order concurrent-update guards', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       scan: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'requested' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', attendanceId: 'attendance-1', status: 'requested' }),
         updateMany,
       },
     };
@@ -44,8 +46,9 @@ describe('clinical order concurrent-update guards', () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: {
-        findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'scheduled' }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' }),
         updateMany,
       },
     };
