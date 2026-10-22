@@ -1308,7 +1308,7 @@ export default function MedicalEntries() {
                   if (notes) params.set('notes', notes);
                   if (treatmentPlan) params.set('treatment', treatmentPlan);
                   params.set('reason', complaints || diagnosis || 'Clinical assessment requires referral');
-                  navigate(`/dashboard/referrals?${params.toString()}`);
+                  navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-300 px-2.5 py-1.5 text-xs font-semibold text-cyan-700 hover:bg-cyan-50 disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Open referral form with this patient and attendance preselected">
