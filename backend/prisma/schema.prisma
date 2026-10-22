@@ -921,6 +921,8 @@ model AttendanceDiagnosis {
   attendanceId       String
   diagnosisId        String
   diagnosisType      DiagnosisType       @default(provisional)
+  // HMIS/DHIMS case classification belongs to each diagnosis, not the whole visit.
+  classification     DiagnosisClassification?
   notes              String?
   date               DateTime            @default(now())
   createdById        String
@@ -935,6 +937,7 @@ model AttendanceDiagnosis {
   @@index([attendanceId])
   @@index([diagnosisId])
   @@index([diagnosisType])
+  @@index([classification, createdAt])
   @@index([createdAt])
   @@index([createdAt, diagnosisId])
 }

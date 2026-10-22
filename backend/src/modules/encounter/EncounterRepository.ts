@@ -530,6 +530,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     if (!['primary', 'additional', 'provisional'].includes(String(data.diagnosisType))) {
       throw new ValidationError('Invalid diagnosis type');
     }
+    if (data.classification != null && !['NEW_DIAGNOSIS', 'OLD_DIAGNOSIS'].includes(String(data.classification))) {
+      throw new ValidationError('Invalid HMIS diagnosis classification');
+    }
 
     // Keep duplicate detection, primary-diagnosis replacement, and insertion atomic.
     // Previously, a duplicate primary diagnosis could demote the existing primary and
@@ -537,9 +540,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
         where: { id: encounterId },
-        select: { id: true },
+        select: { id: true, encounterCategory: true },
       });
       if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (encounter.encounterCategory === 'opd' && !data.classification) {
+        throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
+      }
 
       const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
       if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
@@ -562,6 +568,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           attendanceId: encounterId,
           diagnosisId: data.diagnosisId,
           diagnosisType: data.diagnosisType,
+          classification: data.classification,
           notes: data.notes,
           createdById: actorId,
           icdCode: diagnosis.icdCode || '',
