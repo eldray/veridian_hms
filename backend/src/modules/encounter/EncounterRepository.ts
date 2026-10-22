@@ -320,6 +320,17 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     normalizedData.updatedById = actorId;
 
     return this.prisma.$transaction(async (tx) => {
+      const clinicalFields = [
+        'complaints', 'historyPresentingComplaint', 'reviewOfSystems', 'physicalExamination',
+        'physicalExaminationNotes', 'assessment', 'treatmentPlan', 'allergyReviewStatus',
+        'allergyReviewNotes', 'clinicalOutcome', 'clinicalNotes',
+      ];
+      if (clinicalFields.some((key) => Object.prototype.hasOwnProperty.call(normalizedData, key))) {
+        const existingStatus = await tx.attendance.findUnique({ where: { id }, select: { clinicalNoteStatus: true } });
+        if (existingStatus?.clinicalNoteStatus === 'finalized' && normalizedData.clinicalNoteStatus !== 'amended') {
+          throw new ValidationError('This clinical record is finalised. Use the authorised clinical amendment workflow to change signed documentation.');
+        }
+      }
       const requestedNoteStatus = normalizedData.clinicalNoteStatus;
       if (requestedNoteStatus === 'finalized') {
         const finalisingUser = await tx.user.findUnique({
@@ -335,17 +346,25 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
         if (!current) throw new NotFoundError('Encounter', id);
         const effective = { ...current, ...normalizedData } as any;
+        const hasContent = (value: unknown): boolean => {
+          if (typeof value === 'string') return value.trim().length > 0;
+          if (value == null) return false;
+          if (typeof value === 'object' && !Array.isArray(value)) return Object.values(value as Record<string, unknown>).some(hasContent);
+          if (Array.isArray(value)) return value.some(hasContent);
+          return true;
+        };
         const required: Array<[string, unknown]> = [
           ['chief complaint', effective.complaints],
           ['history of presenting complaint', effective.historyPresentingComplaint || effective.clinicalNotes?.historyPresentingComplaint],
-          ['review of systems', effective.reviewOfSystems],
-          ['physical examination', effective.physicalExaminationNotes || effective.physicalExamination || effective.clinicalNotes?.physicalExamination],
-          ['assessment', effective.assessment],
+          ['structured review of systems', effective.reviewOfSystems],
+          ['structured physical examination', effective.physicalExamination],
+          ['narrative physical examination', effective.physicalExaminationNotes || effective.clinicalNotes?.physicalExamination],
+          ['clinical assessment', effective.assessment],
           ['plan', effective.treatmentPlan || effective.clinicalNotes?.treatmentPlan],
           ['clinical outcome', effective.clinicalOutcome],
           ['clinical provider', effective.clinicalProviderId || actorId],
         ];
-        const missing = required.filter(([, value]) => value == null || value === '' || (typeof value === 'object' && !Array.isArray(value) && Object.keys(value as object).length === 0)).map(([label]) => label);
+        const missing = required.filter(([, value]) => !hasContent(value)).map(([label]) => label);
         if (missing.length) throw new ValidationError(`Cannot finalise clinical record. Complete: ${missing.join(', ')}`);
         if (effective.allergyReviewStatus === 'not_reviewed') throw new ValidationError('Review and record allergy status before finalising the clinical record');
         if (!current.Vitals?.length) throw new ValidationError('Record at least one set of vitals before finalising the clinical record');
