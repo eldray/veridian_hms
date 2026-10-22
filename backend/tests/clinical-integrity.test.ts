@@ -1229,3 +1229,25 @@ describe('delivery record deletion integrity', () => {
   });
 });
 
+
+
+describe('newborn update validation consistency', () => {
+  it('rejects unsupported newborn gender values before database access', () => {
+    const repository = new AntenatalRepository({} as any);
+
+    expect(() => (repository as any).mapNewborns([{
+      birthWeight: 3200,
+      gender: 'unknown-gender',
+      outcome: 'alive',
+    }])).toThrow(/invalid gender/i);
+  });
+
+  it('rejects duplicate newborn birth orders for both create and update mapping', () => {
+    const repository = new AntenatalRepository({} as any);
+
+    expect(() => (repository as any).mapNewborns([
+      { birthWeight: 3200, gender: 'female', outcome: 'alive', order: 1 },
+      { birthWeight: 2800, gender: 'male', outcome: 'alive', order: 1 },
+    ])).toThrow(/unique birth order/i);
+  });
+});
