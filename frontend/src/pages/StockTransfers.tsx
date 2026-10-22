@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight, CheckCircle2,
+  AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight,
   ClipboardList, Download, Eye, Filter, Package, Plus, RefreshCw, Search,
   Send, Truck, X,
 } from 'lucide-react';
@@ -72,6 +72,7 @@ export default function StockTransfers() {
   const { success, error: toastError } = useToast();
   const isAdmin = hasRole(['admin', 'super_admin']);
   const canManage = hasRole(['admin', 'super_admin', 'pharmacist']);
+  const canRequest = hasRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'records']);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [departments, setDepartments] = useState<Option[]>([]);
   const [stockItems, setStockItems] = useState<Option[]>([]);
@@ -214,9 +215,9 @@ export default function StockTransfers() {
           <button onClick={exportCsv} disabled={!filteredTransfers.length} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm text-[var(--text-primary)] disabled:opacity-50">
             <Download className="h-4 w-4" /> Export CSV
           </button>
-          <button onClick={() => setShowRequestForm(v => !v)} className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-sm font-semibold text-white">
+          {canRequest && <button onClick={() => setShowRequestForm(v => !v)} className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-sm font-semibold text-white">
             {showRequestForm ? <X className="h-4 w-4" /> : <Plus className="h-4 w-4" />} {showRequestForm ? 'Close form' : 'Request transfer'}
-          </button>
+          </button>}
         </div>
       </header>
 
@@ -245,7 +246,7 @@ export default function StockTransfers() {
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm text-[var(--text-secondary)]">Origin department
-            <select required value={originId} onChange={e => setOriginId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
+            <select required disabled={!isAdmin} value={originId} onChange={e => setOriginId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
               <option value="">Select origin</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
@@ -325,8 +326,8 @@ export default function StockTransfers() {
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap gap-2">
                       <button onClick={() => setExpandedId(expandedId === transfer.id ? null : transfer.id)} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)]"><Eye className="h-3.5 w-3.5" /> {expandedId === transfer.id ? 'Hide' : 'Details'}</button>
-                      {canManage && transfer.status === 'requested' && <button onClick={() => void performAction(transfer, 'approve')} className="rounded-lg bg-sky-600 px-2.5 py-1.5 text-xs font-semibold text-white">Approve</button>}
-                      {canManage && transfer.status === 'approved' && <button onClick={() => void performAction(transfer, 'dispatch')} className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white"><Truck className="h-3.5 w-3.5" /> Dispatch</button>}
+                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'requested' && <button onClick={() => void performAction(transfer, 'approve')} className="rounded-lg bg-sky-600 px-2.5 py-1.5 text-xs font-semibold text-white">Approve</button>}
+                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'approved' && <button onClick={() => void performAction(transfer, 'dispatch')} className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1.5 text-xs font-semibold text-white"><Truck className="h-3.5 w-3.5" /> Dispatch</button>}
                       {(isAdmin || user?.departmentId === transfer.destinationId) && transfer.status === 'dispatched' && <button onClick={() => void performAction(transfer, 'receive')} className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-semibold text-white"><ArrowDownToLine className="h-3.5 w-3.5" /> Receive</button>}
                     </div>
                     {expandedId === transfer.id && <div className="mt-3 min-w-[270px] rounded-lg border border-[var(--border-color)] p-3">
