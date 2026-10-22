@@ -1343,6 +1343,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled laboratory order cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.labTest.updateMany({
       where: { id: labOrderId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
@@ -1489,6 +1490,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled scan order cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.scan.updateMany({
       where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
@@ -1577,6 +1579,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled procedure cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.procedure.updateMany({
       where: { id: procedureId, attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } },
       data: { status: 'cancelled' },
