@@ -217,3 +217,85 @@ describe('stock transaction valuation discrepancy consistency', () => {
     expect(report.items[1].totalValue).toBe(37);
   });
 });
+
+
+describe('batch-specific write-off safety', () => {
+  const buildPrisma = (batch: any) => {
+    const create = vi.fn().mockResolvedValue({ id: 'tx-writeoff' });
+    const updateBatch = vi.fn().mockResolvedValue({ count: 1 });
+    const tx = {
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(2),
+        findFirst: vi.fn().mockResolvedValue(batch),
+        updateMany: updateBatch,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 3 }),
+      },
+      stockItem: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 8 }),
+      },
+      stockTransaction: { create },
+    };
+    const prisma = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    return { prisma, tx, create, updateBatch };
+  };
+
+  it('writes off only the named expired or inactive batch and records its allocation', async () => {
+    const batch = {
+      id: 'batch-expired', batchNumber: 'EXP-2025-04', quantity: 4,
+      expiryDate: new Date('2025-04-01T00:00:00Z'), costPrice: '2.25', isActive: false,
+    };
+    const { prisma, tx, create, updateBatch } = buildPrisma(batch);
+    const repository = new StockTransactionRepository(prisma as any);
+
+    await repository.createSafely({
+      stockItemId: 'item-1', transactionType: 'write_off', quantity: 2,
+      departmentId: 'pharmacy', batchNumber: 'EXP-2025-04',
+      notes: 'Expired stock', performedBy: 'user-1',
+    });
+
+    expect(tx.stockBatch.findFirst).toHaveBeenCalledWith({
+      where: {
+        stockItemId: 'item-1', batchNumber: 'EXP-2025-04',
+        departmentId: 'pharmacy', wardId: null, quantity: { gt: 0 },
+      },
+    });
+    expect(updateBatch).toHaveBeenCalledWith({
+      where: {
+        id: 'batch-expired', departmentId: 'pharmacy', wardId: null, quantity: { gte: 2 },
+      },
+      data: { quantity: { decrement: 2 } },
+    });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        transactionType: 'write_off',
+        batchAllocations: [{
+          batchId: 'batch-expired', batchNumber: 'EXP-2025-04', quantity: 2,
+          expiryDate: batch.expiryDate, costPrice: '2.25',
+        }],
+      }),
+    }));
+  });
+
+  it('rejects batch-tracked write-offs without a batch number before changing stock', async () => {
+    const { prisma, tx } = buildPrisma({
+      id: 'batch-1', batchNumber: 'B-001', quantity: 4,
+      expiryDate: new Date('2027-04-01T00:00:00Z'), costPrice: '2.25',
+    });
+    const repository = new StockTransactionRepository(prisma as any);
+
+    await expect(repository.createSafely({
+      stockItemId: 'item-1', transactionType: 'write_off', quantity: 2,
+      departmentId: 'pharmacy', notes: 'Damaged stock',
+    })).rejects.toBeInstanceOf(ValidationError);
+
+    expect(tx.stockBatch.findFirst).not.toHaveBeenCalled();
+    expect(tx.stockBatch.updateMany).not.toHaveBeenCalled();
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+});
