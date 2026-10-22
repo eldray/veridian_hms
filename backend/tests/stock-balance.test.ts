@@ -1333,3 +1333,39 @@ describe('in-transit batch valuation data', () => {
     expect(result[0].inTransitBatchAllocations).toEqual([{ quantity: 3, costPrice: 4 }]);
   });
 });
+
+ 
+describe('hospital-wide value summary in-transit valuation', () => {
+  it('values dispatched batch stock at its saved lot cost instead of catalogue fallback', async () => {
+    const repository: any = {
+      getItemsForValueReport: vi.fn().mockResolvedValue([{
+        id: 'item-transit',
+        name: 'Gloves',
+        category: 'Consumable',
+        currentStock: 10,
+        costPrice: '5.00',
+        reorderLevel: 1,
+        isMedication: false,
+        StockBatch: [{ quantity: 4, costPrice: '2.50', isActive: true }],
+        stockBalances: [],
+        inTransitBatchAllocations: [{ quantity: 3, costPrice: 4 }],
+      }]),
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = repository;
+
+    const report = await service.getValueSummary(undefined, { includeAllStockLocations: true });
+
+    expect(report.items[0]).toEqual(expect.objectContaining({
+      currentStock: 10,
+      batchQuantity: 4,
+      inTransitBatchQuantity: 3,
+      inTransitBatchValue: 12,
+      unbatchedQuantity: 3,
+      unbatchedValue: 15,
+      stockDiscrepancy: 0,
+      totalValue: 37,
+    }));
+    expect(report.totalValue).toBe(37);
+  });
+});
