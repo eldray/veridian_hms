@@ -1398,3 +1398,49 @@ describe('zero-quantity batch reconciliation', () => {
     expect(report.items[0].unbatchedQuantity).toBe(5);
   });
 });
+
+
+describe('unassigned batch allocation expiry race protection', () => {
+  it('does not move an unassigned batch if it expires after the initial eligibility read', async () => {
+    const batch = {
+      id: 'unassigned-batch', stockItemId: 'item-1', batchNumber: 'LOT-EXPIRING',
+      departmentId: null, wardId: null, quantity: 5,
+      expiryDate: new Date(Date.now() + 60_000), costPrice: '2.00',
+      receivedDate: new Date(), isActive: true,
+    };
+    const updateBatch = vi.fn().mockResolvedValue({ count: 0 });
+    const balanceUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const balanceFindUnique = vi.fn().mockResolvedValue({ quantity: 4 });
+    const tx: any = {
+      stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 5 }) },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([batch]),
+        updateMany: updateBatch,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: balanceUpdateMany,
+        findUnique: balanceFindUnique,
+        upsert: vi.fn().mockResolvedValue({ quantity: 6 }),
+      },
+      stockTransaction: { createMany: vi.fn() },
+    };
+    const prisma: any = {
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new StockItemRepository(prisma);
+
+    await expect(repository.allocateUnassignedStockSafely('item-1', 'pharmacy', 1, 'user-1'))
+      .rejects.toThrow(/changed during allocation/i);
+
+    expect(updateBatch).toHaveBeenCalledWith({
+      where: {
+        id: 'unassigned-batch', departmentId: null, wardId: null,
+        quantity: { gte: 1 }, isActive: true,
+        expiryDate: { gte: expect.any(Date) },
+      },
+      data: { quantity: { decrement: 1 } },
+    });
+    expect(tx.stockTransaction.createMany).not.toHaveBeenCalled();
+  });
+});
