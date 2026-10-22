@@ -1048,3 +1048,54 @@ describe('postnatal referral partial-update integrity', () => {
     expect(update).not.toHaveBeenCalled();
   });
 });
+
+describe('delivery record deletion integrity', () => {
+  it('rejects deleting a delivery record linked to maternal or newborn clinical records', async () => {
+    const deleteRecord = vi.fn();
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 'delivery-1',
+      antenatalBookingId: 'booking-1',
+      antenatalBooking: { id: 'booking-1' },
+      postnatalRecords: [],
+      Newborn: [],
+    });
+    const repository = new AntenatalRepository({
+      deliveryRecord: { findUnique, delete: deleteRecord },
+    } as any);
+
+    await expect(repository.deleteDeliveryRecord('delivery-1'))
+      .rejects.toThrow(/approved clinical correction workflow/i);
+
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'delivery-1' },
+      select: {
+        id: true,
+        antenatalBookingId: true,
+        antenatalBooking: { select: { id: true } },
+        postnatalRecords: { select: { id: true }, take: 1 },
+        Newborn: { select: { id: true }, take: 1 },
+      },
+    });
+    expect(deleteRecord).not.toHaveBeenCalled();
+  });
+
+  it('deletes an unlinked delivery record', async () => {
+    const deleteRecord = vi.fn().mockResolvedValue({ id: 'delivery-2' });
+    const repository = new AntenatalRepository({
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'delivery-2',
+          antenatalBookingId: null,
+          antenatalBooking: null,
+          postnatalRecords: [],
+          Newborn: [],
+        }),
+        delete: deleteRecord,
+      },
+    } as any);
+
+    await expect(repository.deleteDeliveryRecord('delivery-2')).resolves.toBeUndefined();
+    expect(deleteRecord).toHaveBeenCalledWith({ where: { id: 'delivery-2' } });
+  });
+});
+
