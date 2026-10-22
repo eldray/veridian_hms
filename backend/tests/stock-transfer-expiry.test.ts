@@ -327,15 +327,17 @@ describe('stock transfer dispatch batch reconciliation', () => {
 
     expect(batchUpdate).toHaveBeenNthCalledWith(1, {
       where: {
-        id: 'batch-near-expiry', departmentId: 'pharmacy', wardId: null,
-        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 2 },
+        id: 'batch-near-expiry', stockItemId: 'item-1', batchNumber: 'LOT-A',
+        departmentId: 'pharmacy', wardId: null, isActive: true,
+        expiryDate: new Date('2027-01-01T00:00:00Z'), costPrice: '2.50', quantity: { gte: 2 },
       },
       data: { quantity: { decrement: 2 } },
     });
     expect(batchUpdate).toHaveBeenNthCalledWith(2, {
       where: {
-        id: 'batch-later', departmentId: 'pharmacy', wardId: null,
-        isActive: true, expiryDate: { gte: expect.any(Date) }, quantity: { gte: 1 },
+        id: 'batch-later', stockItemId: 'item-1', batchNumber: 'LOT-B',
+        departmentId: 'pharmacy', wardId: null, isActive: true,
+        expiryDate: new Date('2027-06-01T00:00:00Z'), costPrice: '3.00', quantity: { gte: 1 },
       },
       data: { quantity: { decrement: 1 } },
     });
