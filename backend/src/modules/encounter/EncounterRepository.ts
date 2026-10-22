@@ -227,7 +227,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      if (value === undefined || value === null) return;
+      if (value === undefined || (value === null && key !== 'followUpDate')) return;
+      if (key === 'followUpDate' && value === null) {
+        normalized.followUpDate = null;
+        return;
+      }
       if (key === 'updatedAt') return;
 
       if (key === 'complaint') {
