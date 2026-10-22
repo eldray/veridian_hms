@@ -163,6 +163,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     notes?: string,
     performedBy?: string,
     departmentId?: string,
+    batchNumber?: string,
   ) {
     if (transactionType === 'transfer_in' || transactionType === 'transfer_out') {
       throw new Error('Internal transfers must use the dedicated stock transfer or requisition fulfilment workflow');
@@ -178,16 +179,32 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
 
       if (batchCount > 0 && isOutgoing) {
         if (!normalizedDepartmentId) throw new Error('Select the department issuing this stock');
-        const batches = await tx.stockBatch.findMany({
-          where: {
-            stockItemId: id, departmentId: normalizedDepartmentId, wardId: null,
-            quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
-          },
-          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
-        });
-        const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
-        if (available < effectiveQuantity) throw new Error(`Insufficient stock in department. Available: ${available}, requested: ${effectiveQuantity}`);
+        let batches: any[];
+        if (transactionType === 'write_off') {
+          const selectedBatchNumber = String(batchNumber || '').trim();
+          if (!selectedBatchNumber) throw new Error('Select or enter the batch number being written off');
+          const selectedBatch = await tx.stockBatch.findFirst({
+            where: {
+              stockItemId: id, batchNumber: selectedBatchNumber,
+              departmentId: normalizedDepartmentId, wardId: null, quantity: { gt: 0 },
+            },
+          });
+          if (!selectedBatch) throw new Error(`Batch ${selectedBatchNumber} was not found at this department or has no remaining stock`);
+          if (selectedBatch.quantity < effectiveQuantity) {
+            throw new Error(`Batch ${selectedBatchNumber} has only ${selectedBatch.quantity} units available; requested ${effectiveQuantity}`);
+          }
+          batches = [selectedBatch];
+        } else {
+          batches = await tx.stockBatch.findMany({
+            where: {
+              stockItemId: id, departmentId: normalizedDepartmentId, wardId: null,
+              quantity: { gt: 0 }, isActive: true, expiryDate: { gte: startOfCurrentDay() },
+            },
+            orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+          });
+          const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+          if (available < effectiveQuantity) throw new Error(`Insufficient stock in department. Available: ${available}, requested: ${effectiveQuantity}`);
+        }
         let remaining = effectiveQuantity;
         for (const batch of batches) {
           if (remaining <= 0) break;
