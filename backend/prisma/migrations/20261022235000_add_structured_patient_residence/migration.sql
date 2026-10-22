@@ -4,3 +4,6 @@ ALTER TABLE "Patient"
   ADD COLUMN "residenceCommunity" TEXT,
   ADD COLUMN "residenceDistrict" TEXT,
   ADD COLUMN "residenceRegion" TEXT;
+
+CREATE INDEX "Patient_residenceDistrict_idx" ON "Patient"("residenceDistrict");
+CREATE INDEX "Patient_residenceRegion_idx" ON "Patient"("residenceRegion");
