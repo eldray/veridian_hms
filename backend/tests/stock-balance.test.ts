@@ -1539,7 +1539,8 @@ describe('unassigned allocation destination batch concurrency', () => {
       },
       stockTransaction: { createMany: transactionCreateMany },
     };
-    const repository = new StockItemRepository({} as any);
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new StockItemRepository(prisma);
 
     await expect(repository.allocateUnassignedStockSafely('item-1', 'pharmacy', 3))
       .rejects.toThrow(/destination batch LOT-1 changed during unassigned stock allocation/i);
