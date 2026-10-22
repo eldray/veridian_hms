@@ -474,9 +474,23 @@ model Attendance {
   nhisCCCValidUntil  DateTime?
 
   // ✅ RESTORED: All three clinical note fields serve different purposes
-  complaints    String? // ✅ Patient's chief complaint (reason for visit)
-  medicalNotes  String? // ✅ Doctor's clinical notes/observations
-  clinicalNotes Json? // ✅ Structured clinical data
+  complaints                String? // Patient's chief complaint / reason for visit
+  historyPresentingComplaint String? @db.Text
+  reviewOfSystems            Json? // Structured system-by-system ROS; preserve unknown/not-assessed distinctions
+  physicalExamination        String? @db.Text // Narrative findings retained for compatibility and clinical detail
+  physicalExamStructured     Json? // Structured system-based examination findings
+  assessment                 String? @db.Text // Clinician's assessment/impression
+  treatmentPlan              String? @db.Text // Intended management and patient instructions
+  clinicalOutcome            ClinicalConditionOutcome? // Clinical condition at end of encounter, not workflow status
+  allergyReviewStatus        AllergyReviewStatus? // Distinguishes no known allergies from not reviewed
+  allergyReviewNotes         String? @db.Text
+  allergyReviewedAt          DateTime?
+  allergyReviewedById        String?
+  providerId                 String? // Clinician responsible for this clinical assessment
+  finalizedAt                DateTime?
+  finalizedById              String?
+  medicalNotes               String? // Legacy/general clinical notes retained for compatibility
+  clinicalNotes              Json? // Legacy structured clinical data retained during migration
 
   // ✅ RESTORED: Both categories
   encounterCategory EncounterCategory @default(opd)
@@ -522,6 +536,9 @@ model Attendance {
 
   User_Attendance_createdByIdToUser User  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
   User_Attendance_updatedByIdToUser User? @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
+  User_Attendance_providerIdToUser          User? @relation("Attendance_providerIdToUser", fields: [providerId], references: [id])
+  User_Attendance_finalizedByIdToUser       User? @relation("Attendance_finalizedByIdToUser", fields: [finalizedById], references: [id])
+  User_Attendance_allergyReviewedByIdToUser User? @relation("Attendance_allergyReviewedByIdToUser", fields: [allergyReviewedById], references: [id])
 
   appointment    Appointment?    @relation
   referral       ReferralRecord? @relation
@@ -2082,6 +2099,9 @@ model User {
   // ── Clinical / Operational relations ──────────────────────
   Attendance_Attendance_createdByIdToUser         Attendance[]              @relation("Attendance_createdByIdToUser")
   Attendance_Attendance_updatedByIdToUser         Attendance[]              @relation("Attendance_updatedByIdToUser")
+  Attendance_Attendance_providerIdToUser          Attendance[] @relation("Attendance_providerIdToUser")
+  Attendance_Attendance_finalizedByIdToUser       Attendance[] @relation("Attendance_finalizedByIdToUser")
+  Attendance_Attendance_allergyReviewedByIdToUser Attendance[] @relation("Attendance_allergyReviewedByIdToUser")
   AttendanceDiagnosis                             AttendanceDiagnosis[]
   Bill_Bill_createdByIdToUser                     Bill[]                    @relation("Bill_createdByIdToUser")
   Bill_Bill_updatedByIdToUser                     Bill[]                    @relation("Bill_updatedByIdToUser")
@@ -2916,6 +2936,24 @@ enum AttendanceStatus {
   referred
   absconded
   cancelled
+}
+
+// Clinical condition at the end of the encounter. Separate from AttendanceStatus,
+// which tracks operational workflow and disposition.
+enum ClinicalConditionOutcome {
+  improved
+  stable
+  unchanged
+  deteriorated
+  deceased
+  unknown
+}
+
+// Explicitly distinguishes no known allergies from an allergy review not done.
+enum AllergyReviewStatus {
+  not_reviewed
+  no_known_allergies
+  allergies_present
 }
 
 enum EncounterCategory {
