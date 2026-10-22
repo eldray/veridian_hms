@@ -1640,9 +1640,12 @@ export default function MedicalEntries() {
                     <option value="no_known_allergies">No known allergies (confirmed)</option>
                     <option value="allergies_present">Allergies present / recorded</option>
                   </select>
-                  {Array.isArray((selectedPatient as any)?.allergies) && (selectedPatient as any).allergies.length > 0 && (
-                    <p className="text-[10px] text-amber-600">Existing patient allergies: {(selectedPatient as any).allergies.map((a: any) => [a.allergen, a.reaction].filter(Boolean).join(' — ')).join('; ')}</p>
-                  )}
+                  {(() => {
+                    const existingAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
+                    return Array.isArray(existingAllergies) && existingAllergies.length > 0
+                      ? <p className="text-[10px] text-amber-600">Existing patient allergies: {existingAllergies.map((a: any) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(' — ')).join('; ')}</p>
+                      : null;
+                  })()}
                   <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries || isClinicalFinalized}
                     placeholder="Allergy/reaction details or review notes…"
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
