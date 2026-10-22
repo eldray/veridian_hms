@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { EncounterService } from '../src/modules/encounter/EncounterService';
 
 function setup(encounter: any, transitionCount = 1) {
-  const updated = { id: encounter.id, status: 'completed', updatedById: 'staff-1' };
+  const updated = encounter ? { id: encounter.id, status: 'completed', updatedById: 'staff-1' } : null;
   const tx: any = {
     attendance: {
       findUnique: vi.fn().mockResolvedValue(encounter),
@@ -41,7 +41,7 @@ describe('encounter completion lifecycle', () => {
     });
 
     await expect(service.completeEncounter('encounter-1', 'staff-1'))
-      .rejects.toThrow(/active admission/i);
+      .rejects.toThrow(/admission is active/i);
     expect(tx.attendance.updateMany).not.toHaveBeenCalled();
   });
 
