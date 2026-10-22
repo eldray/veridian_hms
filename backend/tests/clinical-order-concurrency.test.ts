@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
 
-const activeActor = { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) };
-
 describe('clinical order concurrent-update guards', () => {
   it('does not overwrite a laboratory order changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
-      user: activeActor,
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       labTest: {
         findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', status: 'requested' }),
         updateMany,
