@@ -273,7 +273,21 @@ const Pagination: React.FC<PaginationProps> = ({
 
 export default function Referrals() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const location = useLocation();
+  const [urlSearchParams] = useSearchParams();
+  // Clinical context is passed through router state, not the URL, to keep patient details
+  // out of browser history, copied links, referrer headers, and routine access logs.
+  // URL parameters remain supported for older bookmarks/integrations, but new clinical
+  // navigation always uses state.
+  const searchParams = useMemo(() => {
+    const context = (location.state as { referralContext?: Record<string, string> } | null)?.referralContext;
+    if (!context) return urlSearchParams;
+    const params = new URLSearchParams();
+    Object.entries(context).forEach(([key, value]) => {
+      if (typeof value === 'string') params.set(key, value);
+    });
+    return params;
+  }, [location.state, urlSearchParams]);
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
   const { user } = useAuthStore();
