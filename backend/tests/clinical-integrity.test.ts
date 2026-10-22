@@ -830,10 +830,11 @@ describe('investigation and procedure status integrity', () => {
   it('records a procedure entering the in-progress theatre stage', async () => {
     const procedureUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const procedureFindUnique = vi.fn()
-      .mockResolvedValueOnce({ id: 'procedure-1', status: 'scheduled' })
+      .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
       .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress' });
     const repository = new EncounterRepository({
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
       procedure: {
         findUnique: procedureFindUnique,
         updateMany: procedureUpdateMany,
