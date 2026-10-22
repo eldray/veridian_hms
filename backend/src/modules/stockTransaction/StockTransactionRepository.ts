@@ -283,6 +283,7 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
         where,
         select: {
           id: true, name: true, category: true, currentStock: true, costPrice: true, unitOfMeasure: true, reorderLevel: true,
+          _count: { select: { StockBatch: true } },
           StockBatch: {
             where: {
               quantity: { gt: 0 },
