@@ -434,6 +434,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (!record) throw new NotFoundError('Encounter', id);
       if (record.finalizedAt) throw new ConflictError('This clinical record has already been finalized');
+      const responsibleProvider = record.providerId ? await tx.user.findUnique({
+        where: { id: record.providerId },
+        select: { id: true, role: true, isActive: true },
+      }) : null;
       const required: Array<[string, unknown]> = [
         ['presenting complaint', record.complaints],
         ['history of presenting complaint', record.historyPresentingComplaint],
@@ -444,6 +448,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       ];
       const missing = required.filter(([, value]) => typeof value === 'string' ? !value.trim() : value === null || value === undefined)
         .map(([label]) => label);
+      if (!responsibleProvider || !responsibleProvider.isActive || !['doctor', 'nurse', 'midwife'].includes(responsibleProvider.role)) {
+        missing.push('active clinician as responsible provider');
+      }
       const latestVitals = record.Vitals[0];
       const hasVitalMeasurement = Boolean(latestVitals && [
         latestVitals.bloodPressure, latestVitals.temperature, latestVitals.pulse,
