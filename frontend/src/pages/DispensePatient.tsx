@@ -320,6 +320,7 @@ export default function DispensePatient() {
     }
     setBulkDispensing(true);
     let okCount = 0;
+    const failedItems: Array<{ name: string; reason: string }> = [];
     try {
       for (const m of ready) {
         setDispensingId(m.id);
@@ -334,14 +335,31 @@ export default function DispensePatient() {
             batchNumber: stock?.batchNumber || null,
           });
           okCount++;
-        } catch {/* continue */}
+        } catch (err: any) {
+          failedItems.push({
+            name: m.name || 'Unnamed medication',
+            reason: err?.response?.data?.message || err?.message || 'Dispensing failed',
+          });
+        }
       }
-      success('Bulk dispense', `${okCount} of ${ready.length} item(s) dispensed`);
       await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
       const refreshed = await getAttendance(attendance.id);
-      setAttendance(refreshed);
-      setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
-        ['prescribed', 'dispensed'].includes(m.status)));
+      if (refreshed?.id === attendance.id) {
+        setAttendance(refreshed);
+        setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
+          ['prescribed', 'dispensed'].includes(m.status)));
+      }
+      if (failedItems.length > 0) {
+        const details = failedItems
+          .map(item => `${item.name}: ${item.reason}`)
+          .join('; ');
+        toastError(
+          okCount > 0 ? 'Bulk dispense partially completed' : 'Bulk dispense failed',
+          `${okCount} of ${ready.length} item(s) dispensed. ${details}`
+        );
+      } else {
+        success('Bulk dispense', `${okCount} of ${ready.length} item(s) dispensed`);
+      }
     } catch (err: any) {
       if (okCount > 0) {
         toastError(
@@ -349,7 +367,8 @@ export default function DispensePatient() {
           `${okCount} item(s) were dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.`
         );
       } else {
-        toastError('Bulk dispense failed', err?.response?.data?.message || err.message);
+        const details = failedItems.map(item => `${item.name}: ${item.reason}`).join('; ');
+        toastError('Bulk dispense failed', details || err?.response?.data?.message || err.message);
       }
     } finally {
       setDispensingId(null);
