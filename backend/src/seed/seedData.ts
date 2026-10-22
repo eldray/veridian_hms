@@ -13,7 +13,6 @@ interface SeedingStatus {
   diagnosisLinks: boolean;
   procedureLinks: boolean;
   testData: boolean;
-  maternityData: boolean;
   lastRun: string;
 }
 
@@ -43,7 +42,6 @@ const getDefaultStatus = (): SeedingStatus => ({
   diagnosisLinks: false,
   procedureLinks: false,
   testData: false,
-  maternityData: false,
   lastRun: new Date().toISOString()
 });
 
@@ -55,9 +53,9 @@ const saveSeedingStatus = (status: SeedingStatus) => {
 // Helper to check if database already has real data
 const checkDatabaseHasData = async (): Promise<boolean> => {
   const patientCount = await prisma.patient.count();
-  const diagnosisCount = await prisma.diagnosis.count();
-  // If we have more than 30 patients or 100 diagnoses, assume real data exists
-  return patientCount > 30 || diagnosisCount > 100;
+  // Any registered patient means this database may contain facility data.
+  // Diagnosis/reference counts are not evidence that it is safe to insert demo patients.
+  return patientCount > 0;
 };
 
 // Helper to handle errors and continue seeding with retry logic
@@ -71,11 +69,9 @@ const safeSeed = async (
   console.log(`\n📚 STEP: ${name}`);
   console.log('-----------------------------------');
 
-  // Skip if already seeded and not forcing
-  if (status[stepKey] && !force) {
-    console.log(`ℹ️ ${name} already seeded successfully. Use --force to reseed.`);
-    return { success: true, data: { skipped: true, message: 'Already seeded' } };
-  }
+  // Do not trust the committed .seed_status.json as proof that this particular
+  // database contains the data. Each seed function performs its own database checks
+  // or idempotent upserts; status is informational only.
 
   try {
     const result = await seedFn();
@@ -133,7 +129,6 @@ export const seedDatabase = async (force: boolean = false) => {
     diagnosisLinks: null as any,
     procedureLinks: null as any,
     testData: null as any,
-    maternityData: null as any,
     errors: [] as string[]
   };
 
@@ -188,12 +183,6 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Appointments');
     console.log('   - Notifications');
 
-    // ✅ FIX: Only delete test data if force is true
-    if (force) {
-      console.log('🗑️ Cleaning existing test data before reseed...');
-      await deleteTestData(true).catch(() => { });
-    }
-
     const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
     results.testData = testResult;
     if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
@@ -217,7 +206,6 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log(`   Diagnosis Links   : ${results.diagnosisLinks?.success ? '✅ created' : (results.diagnosisLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Procedure Links   : ${results.procedureLinks?.success ? '✅ created' : (results.procedureLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
     console.log(`   Test Data         : ${results.testData?.success ? '✅ seeded' : (results.testData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
-    console.log(`   Maternity Data    : ${results.maternityData?.success ? '✅ seeded' : (results.maternityData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
 
     // Save final status
     saveSeedingStatus(status);
@@ -232,7 +220,6 @@ export const seedDatabase = async (force: boolean = false) => {
         diagnosisLinks: status.diagnosisLinks,
         procedureLinks: status.procedureLinks,
         testData: status.testData,
-        maternityData: status.maternityData
       }
     };
 
