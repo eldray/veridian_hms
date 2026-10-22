@@ -109,16 +109,24 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
 
   const handleReferFromDelivery = () => {
     const params = new URLSearchParams({ patientId, attendanceId, source: 'Delivery Record' });
-    const reason = [formData.complications.join('; '), formData.maternalOutcome !== 'alive' ? formData.maternalOutcome : '', ...newborns.filter(b => b.outcome !== 'alive').map(b => `Newborn ${b.order}: ${b.outcome}`)].filter(Boolean).join('; ');
+    const adverseMaternalOutcome = Boolean(formData.maternalOutcome) && formData.maternalOutcome !== 'alive';
+    const adverseNewbornOutcomes = newborns.filter(
+      baby => Boolean(baby.outcome) && baby.outcome !== 'alive',
+    );
+    const reason = [
+      formData.complications.join('; '),
+      adverseMaternalOutcome ? formData.maternalOutcome : '',
+      ...adverseNewbornOutcomes.map(baby => `Newborn ${baby.order}: ${baby.outcome}`),
+    ].filter(Boolean).join('; ');
     params.set('reason', reason || 'Delivery-related clinical assessment requires referral');
-    const notes = [formData.notes, formData.auditNotes].filter(Boolean).join('\n');
+    const notes = [formData.notes, formData.auditNotes].filter(Boolean).join('\\n');
     if (notes) params.set('notes', notes);
     if (formData.referralTo) params.set('facility', formData.referralTo);
-    params.set('urgency', (formData.maternalOutcome !== 'alive' || newborns.some(b => b.outcome !== 'alive') || formData.complications.length) ? 'urgent' : 'routine');
+    const isUrgent = adverseMaternalOutcome || adverseNewbornOutcomes.length > 0 || formData.complications.length > 0;
+    params.set('urgency', isUrgent ? 'urgent' : 'routine');
     navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
     onClose();
   };
-
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const handleComplicationToggle = (complication: string) => {
