@@ -226,8 +226,21 @@ export default function AttendanceDetails() {
     ? currentAttendance.clinicalNotes as Record<string, any>
     : {};
 
-  // Get latest vitals
-  const latestVitals = vitalsList.length > 0 ? vitalsList[vitalsList.length - 1] : null;
+  // Choose the most recent observation by timestamp when available; preserve API order as fallback.
+  const latestVitals = useMemo(() => {
+    if (!vitalsList.length) return null;
+    const getTimestamp = (vital: any) => {
+      const value = vital?.recordedAt || vital?.createdAt || vital?.dateTime || vital?.updatedAt;
+      if (!value) return Number.NaN;
+      const timestamp = new Date(value).getTime();
+      return Number.isFinite(timestamp) ? timestamp : Number.NaN;
+    };
+    const datedVitals = vitalsList.filter((vital: any) => Number.isFinite(getTimestamp(vital)));
+    if (!datedVitals.length) return vitalsList[vitalsList.length - 1];
+    return datedVitals.reduce((latest: any, vital: any) =>
+      getTimestamp(vital) > getTimestamp(latest) ? vital : latest
+    );
+  }, [vitalsList]);
 
   // Derive a concise, read-only visit summary from the existing encounter payload.
   // Keep the summary tolerant of older records that may not contain every field.
@@ -678,7 +691,7 @@ export default function AttendanceDetails() {
                       <Activity className="w-5 h-5 text-[var(--icon-cyan-text)]" />
                       <h2 className="text-base font-bold text-[var(--text-primary)]">Visit Summary</h2>
                     </div>
-                    <p className="text-xs text-[var(--text-secondary)] mt-1">A quick overview of this attendance, its documented findings and outstanding items.</p>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">A quick overview of this attendance, its documented findings and quick links to the full records.</p>
                   </div>
                   <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
                     <Calendar className="w-3.5 h-3.5" /> {visitDateLabel}
