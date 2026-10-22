@@ -37,6 +37,7 @@ import {
   getUsageReport as apiGetUsageReport,
   getSupplierReport as apiGetSupplierReport,
   getRequisitionSummary as apiGetRequisitionSummary,
+  fetchAllPages as apiFetchAllPages,
 } from '../api';
 
 // Helper to extract items from response
@@ -523,18 +524,30 @@ getStockItems: async (filters = {}) => {
   getStockTransactions: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiGetStockTransactions(filters);
-      const transactions = extractItems(response, 'transactions');
-      set({ 
+      // This ledger uses client-side search and pagination, so it must first
+      // collect the server-paginated rows rather than silently showing only
+      // the first default page (10 transactions).
+      const transactions = await apiFetchAllPages<any>(
+        apiGetStockTransactions,
+        filters,
+        { pageSize: 100, maxPages: 500 }
+      );
+      set({
         transactions: transactions as StockTransaction[],
-        pagination: response?.pagination || null,
-        isLoading: false 
+        pagination: {
+          page: 1,
+          limit: transactions.length,
+          total: transactions.length,
+          pages: 1,
+          totalPages: 1,
+        },
+        isLoading: false,
       });
     } catch (error: unknown) {
       console.error('Failed to fetch stock transactions:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch stock transactions' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to fetch stock transactions',
       });
       throw error;
     }
