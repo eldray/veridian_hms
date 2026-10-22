@@ -20,7 +20,7 @@ import { ProcedureModal } from '../components/medical-entries/modals/ProcedureMo
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 
 import ComplaintInput from '../components/ComplaintInput';
@@ -780,8 +780,6 @@ export default function MedicalEntries() {
         allergyReviewStatus,
         allergyReviewNotes,
         clinicalOutcome: clinicalOutcome || null,
-        allergyReviewedAt: allergyReviewStatus !== 'not_reviewed' ? new Date().toISOString() : null,
-        allergyReviewedById: allergyReviewStatus !== 'not_reviewed' ? user?.id : null,
         providerId: user?.id,
         clinicalNotes,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
@@ -790,6 +788,30 @@ export default function MedicalEntries() {
       success('Saved', 'Clinical information updated');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) { toastError('Save failed', err.message); }
+  };
+
+  const handleFinalizeClinical = async () => {
+    if (!selectedAttendanceId) return;
+    try {
+      await updateAttendance(selectedAttendanceId, {
+        complaints: presentedComplaints,
+        historyPresentingComplaint: hpc,
+        reviewOfSystems,
+        physicalExamination: physicalExam,
+        physicalExamStructured,
+        assessment,
+        treatmentPlan,
+        allergyReviewStatus,
+        allergyReviewNotes,
+        clinicalOutcome: clinicalOutcome || null,
+        providerId: user?.id,
+      });
+      await finalizeEncounterClinicalRecord(selectedAttendanceId);
+      success('Clinical record finalized', 'The clinical assessment has been signed and finalized.');
+      await getAttendance(selectedAttendanceId);
+    } catch (err: any) {
+      toastError('Cannot finalize clinical record', err.message || 'Complete all required clinical sections first.');
+    }
   };
 
   // Add this function alongside handleSaveClinical
@@ -1631,7 +1653,12 @@ export default function MedicalEntries() {
 
               {/* Save clinical */}
               {canAddEntries && (
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={handleFinalizeClinical}
+                    disabled={Boolean((currentAttendance as any)?.finalizedAt)}
+                    className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 disabled:opacity-50">
+                    <CheckCircle className="w-3.5 h-3.5" /> {(currentAttendance as any)?.finalizedAt ? 'Finalized' : 'Finalize & Sign'}
+                  </button>
                   <button
                     onClick={handleSaveClinical}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold
