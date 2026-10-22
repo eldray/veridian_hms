@@ -386,17 +386,26 @@ export class StockItemService extends BaseService {
         const quantity = Math.max(0, Number(batch.quantity) || 0);
         return sum + toNumber(batch.costPrice) * quantity;
       }, 0);
-      const unbatchedQuantity = Math.max(0, currentStock - batchQuantity);
+      const inTransitAllocations = filters.includeAllStockLocations && Array.isArray(item.inTransitBatchAllocations)
+        ? item.inTransitBatchAllocations
+        : [];
+      const inTransitBatchQuantity = inTransitAllocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0);
+      const inTransitBatchValue = inTransitAllocations.reduce((sum: number, allocation: any) => sum + allocation.quantity * allocation.costPrice, 0);
+      const trackedBatchQuantity = batchQuantity + inTransitBatchQuantity;
+      const unbatchedQuantity = Math.max(0, currentStock - trackedBatchQuantity);
       const unbatchedValue = toNumber(item.costPrice) * unbatchedQuantity;
       return {
         ...item,
         batchQuantity,
         batchValue,
+        inTransitBatchQuantity,
+        inTransitBatchValue,
+        trackedBatchQuantity,
         unbatchedQuantity,
         unbatchedValue,
         currentStock,
-        stockDiscrepancy: batches.length ? Math.abs(batchQuantity - currentStock) : 0,
-        totalValue: batchValue + unbatchedValue,
+        stockDiscrepancy: (batches.length || inTransitBatchQuantity > 0) ? Math.abs(trackedBatchQuantity - currentStock) : 0,
+        totalValue: batchValue + inTransitBatchValue + unbatchedValue,
       };
     });
 
