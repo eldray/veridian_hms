@@ -1,7 +1,6 @@
 // src/pages/StockTransactions.tsx - COMPLETE FIXED VERSION
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
-import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { 
   Search, 
@@ -28,15 +27,11 @@ export default function StockTransactions() {
     transactions,
     stockItems,
     getStockTransactions,
-    getStockMovementReport,
     getStockItems,
     isLoading
   } = useStockStore();
-  const { user, hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
-
-  const isAdmin = hasRole(['admin', 'pharmacist', 'accounts']);
 
   // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,9 +46,7 @@ export default function StockTransactions() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(15);
 
-  // State for reports
   const [showFilters, setShowFilters] = useState(false);
-  const [movementReport, setMovementReport] = useState<any>(null);
   const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
@@ -64,8 +57,7 @@ export default function StockTransactions() {
     try {
       await Promise.all([
         getStockTransactions(),
-        getStockItems(),
-        loadMovementReport()
+        getStockItems()
       ]);
     } catch (err) {
       console.error('Failed to load data:', err);
@@ -81,24 +73,13 @@ export default function StockTransactions() {
     }
   };
 
-  const loadMovementReport = async (queryFilters = filters) => {
-    try {
-      const report = await getStockMovementReport(queryFilters);
-      setMovementReport(report);
-    } catch (err) {
-      console.error('Report failed:', err);
-      // Don't show error toast for report failure - it's not critical
-    }
-  };
-
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
   const applyFilters = () => {
     setCurrentPage(1);
-    loadTransactions();
-    loadMovementReport();
+    void loadTransactions();
     success('Filters applied', 'Transactions filtered successfully');
   };
 
@@ -114,7 +95,6 @@ export default function StockTransactions() {
     setFilters(clearedFilters);
     setCurrentPage(1);
     void loadTransactions(clearedFilters);
-    void loadMovementReport(clearedFilters);
     success('Filters cleared', 'Showing all transactions');
   };
 
@@ -526,7 +506,10 @@ export default function StockTransactions() {
             type="text"
             placeholder="Search by item name, reference, or notes..."
             value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
+            onChange={e => {
+              setSearchTerm(e.target.value);
+              setCurrentPage(1);
+            }}
             className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
           />
         </div>
