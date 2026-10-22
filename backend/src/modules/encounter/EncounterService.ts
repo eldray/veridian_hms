@@ -176,44 +176,73 @@ export class EncounterService extends BaseService {
   }
 
   async dischargeFromEncounter(encounterId: string, dischargeData: any, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true, Patient: true } });
-    if (!encounter) throw new NotFoundError('Encounter', encounterId);
-    if (encounter.status === 'discharged') throw new ValidationError('Patient already discharged');
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        include: { Admission: true, Patient: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
 
-    return await this.prisma.$transaction(async (tx) => {
-      await tx.attendance.update({ where: { id: encounterId }, data: { status: 'discharged', bedId: null } });
+      const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+      if (terminal.includes(encounter.status)) {
+        throw new ValidationError(`Cannot discharge: encounter is already "${encounter.status}"`);
+      }
 
-      if (encounter.Admission) {
+      const transition = await tx.attendance.updateMany({
+        where: { id: encounterId, status: encounter.status },
+        data: { status: 'discharged', bedId: null, updatedById: userId },
+      });
+      if (transition.count !== 1) {
+        throw new ValidationError('Encounter changed while discharge was being processed. Refresh and try again.');
+      }
+
+      if (encounter.Admission && !encounter.Admission.dischargeDate) {
+        const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
+          ? (encounter.Admission.dailyNotes as any[])
+          : [];
         await tx.admission.update({
           where: { id: encounter.Admission.id },
           data: {
             dischargeDate: dischargeData.dischargeDate || new Date(),
             dischargeStatus: (dischargeData.dischargeStatus as any) || 'home',
             dailyNotes: [
-              ...(encounter.Admission.dailyNotes as any[] || []),
-              { id: Date.now().toString(), notes: `Discharged. Summary: ${dischargeData.dischargeSummary || 'None'}`, noteType: 'discharge', createdBy: userId, createdAt: new Date().toISOString() }
-            ]
-          }
+              ...existingNotes,
+              {
+                id: Date.now().toString(),
+                notes: `Discharged. Summary: ${dischargeData.dischargeSummary || 'None'}`,
+                noteType: 'discharge',
+                createdBy: userId,
+                createdAt: new Date().toISOString(),
+              },
+            ],
+          },
         });
       }
 
       if (encounter.bedId) {
-        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } }); // Removed currentPatientId
-        if (encounter.wardId) await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
+        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } });
+        if (encounter.wardId) {
+          await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
+        }
       }
 
       await tx.notification.create({
-        data: { userId, title: 'Patient Discharged', message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} discharged.`, type: 'clinical', priority: 'medium', actionType: 'discharge', actionId: encounterId }
+        data: {
+          userId,
+          title: 'Patient Discharged',
+          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} discharged.`,
+          type: 'clinical',
+          priority: 'medium',
+          actionType: 'discharge',
+          actionId: encounterId,
+        },
       });
 
       return { message: 'Patient discharged successfully', dischargeDate: dischargeData.dischargeDate || new Date() };
     });
   }
 
-
-
-    // ============================================
-  // POST-VISIT TRANSITIONS
+// POST-VISIT TRANSITIONS
   // ============================================
 
   /**
@@ -352,18 +381,26 @@ export class EncounterService extends BaseService {
    * - Frees the bed
    */
   async abscondFromEncounter(encounterId: string, data: { notes?: string; abscondDate?: string | Date }, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true, Patient: true },
-    });
-    if (!encounter) throw new NotFoundError('Encounter', encounterId);
-
-    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
-    if (terminal.includes(encounter.status)) {
-      throw new ValidationError(`Cannot mark absconded: encounter is already "${encounter.status}"`);
-    }
-
     return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        include: { Admission: true, Patient: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+      const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+      if (terminal.includes(encounter.status)) {
+        throw new ValidationError(`Cannot mark absconded: encounter is already "${encounter.status}"`);
+      }
+
+      const transition = await tx.attendance.updateMany({
+        where: { id: encounterId, status: encounter.status },
+        data: { status: 'absconded', bedId: null, updatedById: userId },
+      });
+      if (transition.count !== 1) {
+        throw new ValidationError('Encounter changed while absconding was being processed. Refresh and try again.');
+      }
+
       if (encounter.Admission && !encounter.Admission.dischargeDate) {
         const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
           ? (encounter.Admission.dailyNotes as any[])
@@ -388,29 +425,18 @@ export class EncounterService extends BaseService {
       }
 
       if (encounter.bedId) {
-        await tx.bed.update({
-          where: { id: encounter.bedId },
-          data: { isOccupied: false },
-        });
+        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } });
         if (encounter.wardId) {
-          await tx.ward.update({
-            where: { id: encounter.wardId },
-            data: { occupiedBeds: { decrement: 1 } },
-          });
+          await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
         }
       }
 
-      const updated = await tx.attendance.update({
-        where: { id: encounterId },
-        data: { status: 'absconded', bedId: null, updatedById: userId },
-      });
-
       this.logInfo('Encounter absconded', { encounterId, userId, notes: data.notes });
-      return updated;
+      return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
     });
   }
 
-  /**
+/**
    * Mark an OPD visit as completed.
    * Refuses if an active admission exists — that must be discharged/referred/absconded first.
    */
