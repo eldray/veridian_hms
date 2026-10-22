@@ -1,10 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-<<<<<<< HEAD
-import { ValidationError } from '../../utils/errors';
-=======
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
->>>>>>> origin/audit/main-sync-2026-10-20
 import {
   CreateAntenatalBookingInput, UpdateAntenatalBookingInput,
   CreateANCVisitInput, UpdateANCVisitInput,
@@ -23,7 +19,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('Patient, antenatal attendance, and recording staff are required');
     }
     const lmp = new Date(data.lmp);
-<<<<<<< HEAD
     if (!data.lmp || !Number.isFinite(lmp.getTime())) {
       throw new ValidationError('A valid last menstrual period (LMP) date is required');
     }
@@ -39,37 +34,17 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     }
     const actor = await this.prisma.user.findUnique({ where: { id: data.createdById }, select: { id: true } });
     if (!actor) throw new ValidationError('The selected recording staff account does not exist');
-=======
-    if (Number.isNaN(lmp.getTime())) throw new ValidationError('A valid last menstrual period (LMP) date is required');
-    if (lmp.getTime() > Date.now()) throw new ValidationError('LMP cannot be in the future');
-    if (!Number.isInteger(Number(data.gravida)) || Number(data.gravida) < 1) {
-      throw new ValidationError('Gravida must be a whole number of at least 1 for a current pregnancy');
-    }
-    if (!Number.isInteger(Number(data.para)) || Number(data.para) < 0 || Number(data.para) >= Number(data.gravida)) {
-      throw new ValidationError('Para must be a whole number from 0 to less than gravida for an ongoing pregnancy');
-    }
-
->>>>>>> origin/audit/main-sync-2026-10-20
     const attendance = await this.prisma.attendance.findUnique({
       where: { id: data.attendanceId },
       select: { id: true, patientId: true, attendanceType: true },
     });
-<<<<<<< HEAD
-    if (!attendance) throw new ValidationError('The selected antenatal attendance does not exist');
-    if (attendance.patientId !== data.patientId) {
-      throw new ValidationError('The antenatal attendance belongs to a different patient');
-=======
     if (!attendance) throw new NotFoundError('Antenatal attendance', data.attendanceId);
     if (attendance.patientId !== data.patientId) {
       throw new ValidationError('Antenatal booking patient must match the selected attendance');
->>>>>>> origin/audit/main-sync-2026-10-20
     }
     if (attendance.attendanceType !== 'antenatal') {
       throw new ValidationError('Antenatal booking must be linked to an antenatal attendance');
     }
-<<<<<<< HEAD
-
-=======
     const activeBooking = await this.getModel().findFirst({
       where: { patientId: data.patientId, isActive: true, isCompleted: false },
       select: { id: true, attendanceId: true },
@@ -89,7 +64,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('Booking blood pressure must be a plausible systolic/diastolic value, for example 120/80');
       }
     }
->>>>>>> origin/audit/main-sync-2026-10-20
     const edd = this.calculateEDD(lmp);
     const tt = Number(data.ttDosesGiven) || 0;
     const iptp = Number(data.iptpDosesGiven) || 0;
@@ -135,13 +109,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     return this.getModel().create({
       data: {
         patientId: data.patientId, attendanceId: data.attendanceId, currentAttendanceId: data.attendanceId,
-<<<<<<< HEAD
         bookingDate: new Date(), lmp, edd, gravida, para,
         gestationalAgeWeeks: numOrU(data.gestationalAgeWeeks), gestationalAgeAtBooking: numOrU(data.gestationalAgeWeeks),
-=======
-        bookingDate: new Date(), lmp, edd, gravida: data.gravida, para: data.para,
-        gestationalAgeWeeks: gestation, gestationalAgeAtBooking: gestation,
->>>>>>> origin/audit/main-sync-2026-10-20
         riskLevel: data.riskLevel || 'low',
         riskFactors: data.riskFactors || [], bloodGroup: data.bloodGroup, hivStatus: data.hivStatus || undefined,
         hbLevel: hbNum, hbBooking: hbNum, anaemiaDiagnosed: hbNum != null && hbNum < 11,
@@ -418,39 +387,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
-<<<<<<< HEAD
-    // Only allow clinical fields to change. The linked booking, attendance and
-    // recorder are immutable after creation so an edit cannot reassign a record
-    // or rewrite its audit attribution.
-    const allowed = [
-      'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays',
-      'weight', 'bloodPressure', 'fundalHeight', 'fetalHeartRate', 'fetalMovements',
-      'presentation', 'iptpGiven', 'iptpDoseNumber', 'iptpDrug', 'ttGiven',
-      'ttDoseNumber', 'ironGiven', 'folateGiven', 'calciumGiven', 'malariaTestDone',
-      'malariaTestResult', 'malariaTreatmentGiven', 'dangerSignsPresent',
-      'dangerSignsList', 'referralMade', 'referredTo', 'nextVisitDate',
-      'returnInstructions'
-    ];
-    const clean: Record<string, unknown> = {};
-    for (const key of allowed) {
-      const value = (data as any)[key];
-      if (value !== undefined) clean[key] = value;
-    }
-    if (typeof clean.visitDate === 'string') clean.visitDate = new Date(clean.visitDate);
-    if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate as string);
-    for (const key of ['visitDate', 'nextVisitDate']) {
-      const value = clean[key];
-      if (value instanceof Date && !Number.isFinite(value.getTime())) {
-        throw new ValidationError(`A valid ${key} is required`);
-      }
-    }
-    if (Object.keys(clean).length === 0) {
-      throw new ValidationError('No editable antenatal visit fields supplied');
-    }
-    return this.prisma.aNCVisit.update({
-      where: { id }, data: clean,
-      include: { recordedBy: { select: { fullName: true, role: true } } }
-=======
     const allowed = [
       'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'weight', 'bloodPressure',
       'fundalHeight', 'fetalHeartRate', 'fetalMovements', 'presentation', 'oedema', 'oedemaGrade',
@@ -534,7 +470,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       where: { id },
       data: clean,
       include: { recordedBy: { select: { fullName: true, role: true } } },
->>>>>>> origin/audit/main-sync-2026-10-20
     });
   }
 
@@ -599,7 +534,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!actor) throw new ValidationError('The selected recording staff account does not exist');
 
     const babies = this.mapNewborns((data as any).Newborn);
-<<<<<<< HEAD
     for (const [index, baby] of babies.entries()) {
       if (!Number.isFinite(baby.birthWeight) || baby.birthWeight <= 0 || baby.birthWeight > 10) {
         throw new ValidationError(`Newborn ${index + 1} must have a valid birth weight`);
@@ -624,43 +558,18 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (new Set(babies.map((baby: any) => baby.order)).size !== babies.length) {
       throw new ValidationError('Each newborn must have a unique birth order');
     }
-=======
-
-    // The birth record and pregnancy closure must succeed or fail together.
-    // Otherwise a failed booking update can leave a duplicate active pregnancy
-    // after a delivery has already been recorded.
->>>>>>> origin/audit/main-sync-2026-10-20
     return this.prisma.$transaction(async (tx) => {
       const attendance = await tx.attendance.findUnique({
         where: { id: data.attendanceId },
         select: { id: true, patientId: true, attendanceType: true },
       });
-<<<<<<< HEAD
-      if (!attendance) throw new ValidationError('The selected delivery attendance does not exist');
-      if (attendance.patientId !== data.patientId) {
-        throw new ValidationError('The delivery attendance belongs to a different patient');
-=======
       if (!attendance) throw new NotFoundError('Delivery attendance', data.attendanceId);
       if (attendance.patientId !== data.patientId) {
         throw new ValidationError('Delivery patient must match the patient on the selected attendance');
->>>>>>> origin/audit/main-sync-2026-10-20
       }
       if (attendance.attendanceType !== 'delivery') {
         throw new ValidationError('Delivery record must be linked to a delivery attendance');
       }
-<<<<<<< HEAD
-
-      if (data.antenatalBookingId) {
-        const booking = await tx.antenatalBooking.findUnique({
-          where: { id: data.antenatalBookingId },
-          select: { id: true, patientId: true, isActive: true, isCompleted: true },
-        });
-        if (!booking || booking.patientId !== data.patientId) {
-          throw new ValidationError('The antenatal booking does not belong to this patient');
-        }
-        if (!booking.isActive || booking.isCompleted) {
-          throw new ValidationError('This antenatal booking is already closed');
-=======
       const deliveryDate = new Date(data.deliveryDate);
       if (Number.isNaN(deliveryDate.getTime())) throw new ValidationError('Delivery date must be valid');
       if (deliveryDate.getTime() > Date.now()) throw new ValidationError('Delivery date cannot be in the future');
@@ -704,22 +613,11 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       for (const [field, value] of [['Apgar score at 1 minute', data.apgarScore1min], ['Apgar score at 5 minutes', data.apgarScore5min]] as const) {
         if (value !== undefined && (!Number.isInteger(Number(value)) || Number(value) < 0 || Number(value) > 10)) {
           throw new ValidationError(`${field} must be an integer between 0 and 10`);
->>>>>>> origin/audit/main-sync-2026-10-20
         }
       }
 
       const record = await tx.deliveryRecord.create({
         data: {
-<<<<<<< HEAD
-          patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: data.antenatalBookingId,
-          deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
-          placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant,
-          gestationWeeks: data.gestationWeeks, apgarScore1min: data.apgarScore1min, apgarScore5min: data.apgarScore5min,
-          resusCitationDone: data.resusCitationDone || false, maternalOutcome: data.maternalOutcome || 'alive',
-          complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
-          malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
-          maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes, referralTo: data.referralTo,
-=======
           patientId: data.patientId, attendanceId: data.attendanceId, antenatalBookingId: booking?.id,
           deliveryDate, deliveryType: data.deliveryType, deliveryOutcome: data.deliveryOutcome,
           placeOfDelivery: data.placeOfDelivery || 'private_hospital', attendant: data.attendant || 'not_recorded',
@@ -728,7 +626,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           complications: data.complications || [], malePartnerPresentANC: data.malePartnerPresentANC || false,
           malePartnerPresentDelivery: data.malePartnerPresentDelivery || false, malePartnerPresentPNC: data.malePartnerPresentPNC || false,
           maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
->>>>>>> origin/audit/main-sync-2026-10-20
           birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
           createdById: data.createdById,
           ...(babies.length ? { Newborn: { create: babies } } : {})
@@ -736,7 +633,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         include: { patient: true, attendance: true, Newborn: true }
       });
 
-<<<<<<< HEAD
       // Delivery creation and closure of the related ANC booking must succeed or fail together.
       if (data.antenatalBookingId) {
         const closed = await tx.antenatalBooking.updateMany({
@@ -751,22 +647,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           throw new ValidationError('The antenatal booking could not be closed; delivery was not saved');
         }
       }
-=======
-      if (booking) {
-        await tx.antenatalBooking.update({
-          where: { id: booking.id },
-          data: {
-            isActive: false,
-            isCompleted: true,
-            deliveryDate,
-            deliveryOutcome: data.deliveryOutcome,
-            deliveryRecordId: record.id,
-            updatedAt: new Date(),
-          },
-        });
-      }
-
->>>>>>> origin/audit/main-sync-2026-10-20
       return record;
     });
   }
@@ -807,101 +687,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateDeliveryRecord(id: string, data: any): Promise<any> {
-<<<<<<< HEAD
-    // Never spread the request body into Prisma: identifiers, creator/audit
-    // fields, and unrecognised properties must not be writable from the client.
-    const allowed = [
-      'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery',
-      'attendant', 'birthWeight', 'gestationWeeks', 'apgarScore1min',
-      'apgarScore5min', 'resusCitationDone', 'maternalOutcome', 'complications',
-      'malePartnerPresentANC', 'malePartnerPresentDelivery',
-      'malePartnerPresentPNC', 'maternalDeathsAudited', 'auditNotes', 'referralTo'
-    ];
-    const updatePayload: any = {};
-    for (const key of allowed) {
-      if (data[key] !== undefined) updatePayload[key] = data[key];
-    }
-    if (updatePayload.deliveryDate !== undefined) {
-      updatePayload.deliveryDate = updatePayload.deliveryDate instanceof Date
-        ? new Date(updatePayload.deliveryDate.getTime())
-        : new Date(updatePayload.deliveryDate);
-      if (!Number.isFinite(updatePayload.deliveryDate.getTime())) {
-        throw new ValidationError('A valid delivery date is required');
-      }
-    }
-    const numericRanges: Record<string, [number, number]> = {
-      birthWeight: [0, 10], gestationWeeks: [0, 42],
-      apgarScore1min: [0, 10], apgarScore5min: [0, 10],
-    };
-    for (const [key, range] of Object.entries(numericRanges)) {
-      const value = updatePayload[key];
-      if (value === undefined || value === null) continue;
-      const numeric = Number(value);
-      if (!Number.isFinite(numeric) || numeric < range[0] || numeric > range[1]) {
-        throw new ValidationError(`${key} must be between ${range[0]} and ${range[1]}`);
-      }
-      if (key !== 'birthWeight' && !Number.isInteger(numeric)) {
-        throw new ValidationError(`${key} must be a whole number`);
-      }
-      updatePayload[key] = numeric;
-    }
-    const Newborn = data.Newborn ?? data.newborns;
-
-    // Preserve the existing multiple-birth replacement behavior, while mapping
-    // each newborn explicitly so client-supplied IDs/foreign keys are ignored.
-    const hasNewbornUpdate = Array.isArray(Newborn) || Array.isArray(Newborn?.create);
-    const newbornList: any[] = Array.isArray(Newborn)
-      ? Newborn
-      : Array.isArray(Newborn?.create) ? Newborn.create : [];
-    if (hasNewbornUpdate) {
-      const mappedBabies = newbornList.map((baby: any, index: number) => {
-        const birthWeight = Number(baby.birthWeight);
-        if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 10) {
-          throw new ValidationError(`Newborn ${index + 1} must have a valid birth weight`);
-        }
-        for (const scoreKey of ['apgarScore1min', 'apgarScore5min']) {
-          const score = baby[scoreKey];
-          if (score !== undefined && score !== null &&
-            (!Number.isInteger(Number(score)) || Number(score) < 0 || Number(score) > 10)) {
-            throw new ValidationError(`Newborn ${index + 1} has an invalid ${scoreKey}`);
-          }
-        }
-        const weightDate = baby.weightAt6to10DaysDate ? new Date(baby.weightAt6to10DaysDate) : null;
-        if (weightDate && !Number.isFinite(weightDate.getTime())) {
-          throw new ValidationError(`Newborn ${index + 1} has an invalid follow-up weight date`);
-        }
-        return {
-          order: baby.order ?? index + 1,
-          birthWeight,
-          gender: baby.gender || 'other',
-          apgarScore1min: baby.apgarScore1min ?? null,
-          apgarScore5min: baby.apgarScore5min ?? null,
-          resuscitation: !!baby.resuscitation,
-          outcome: baby.outcome || 'alive',
-          anomalies: Array.isArray(baby.anomalies) ? baby.anomalies : [],
-          referredTo: baby.referredTo || null,
-          breastfeedingWithin30Min: !!baby.breastfeedingWithin30Min,
-          eyeProphylaxisGiven: !!baby.eyeProphylaxisGiven,
-          cordCareMethod: baby.cordCareMethod || 'dry_cord',
-          babyWeightAt6to10Days: baby.babyWeightAt6to10Days ?? null,
-          weightAt6to10DaysDate: weightDate
-        };
-      });
-      if (new Set(mappedBabies.map((baby: any) => baby.order)).size !== mappedBabies.length) {
-        throw new ValidationError('Each newborn must have a unique birth order');
-      }
-      updatePayload.Newborn = {
-        deleteMany: {},
-        create: mappedBabies
-      };
-    }
-
-    if (Object.keys(updatePayload).length === 0) {
-      throw new ValidationError('No valid delivery fields supplied for update');
-    }
-    return this.prisma.deliveryRecord.update({
-      where: { id }, data: updatePayload, include: { Newborn: true }
-=======
     const allowed = [
       'deliveryDate', 'deliveryType', 'deliveryOutcome', 'placeOfDelivery', 'attendant',
       'birthWeight', 'gestationWeeks', 'apgarScore1min', 'apgarScore5min', 'resusCitationDone',
@@ -1001,7 +786,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         });
       }
       return record;
->>>>>>> origin/audit/main-sync-2026-10-20
     });
   }
 
@@ -1077,27 +861,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (!actor) throw new ValidationError('The selected recording staff account does not exist');
 
     const arr = (v: any) => (Array.isArray(v) ? v : []);
-<<<<<<< HEAD
-    return this.prisma.postnatalRecord.create({
-      data: {
-        patientId: d.patientId, attendanceId: d.attendanceId, antenatalBookingId: d.antenatalBookingId,
-        deliveryRecordId: d.deliveryRecordId, examinationDate, dayNumber,
-        maternalCondition: d.maternalCondition, maternalComplications: arr(d.maternalComplications),
-        bloodPressure: d.bloodPressure, temperature: d.temperature, pulse: d.pulse, fundalHeight: d.fundalHeight,
-        lochia: d.lochia, perinealCondition: d.perinealCondition, caesareanWound: d.caesareanWound,
-        breastfeedingStatus: d.breastfeedingStatus, breastfeedingDifficulties: arr(d.breastfeedingDifficulties), latching: d.latching,
-        babyCondition: d.babyCondition, babyWeight: d.babyWeight, babyTemperature: d.babyTemperature, babyFeeding: d.babyFeeding,
-        jaundice: !!d.jaundice, jaundiceSeverity: d.jaundiceSeverity, cordCondition: d.cordCondition,
-        bcgGiven: !!d.bcgGiven, opv0Given: !!d.opv0Given, hepB0Given: !!d.hepB0Given,
-        familyPlanningDiscussed: !!d.familyPlanningDiscussed, familyPlanningMethodAccepted: d.familyPlanningMethodAccepted,
-        maternalDangerSigns: arr(d.maternalDangerSigns), babyDangerSigns: arr(d.babyDangerSigns),
-        referralMade: !!d.referralMade, referredTo: d.referredTo, referralReason: d.referralReason,
-        nextVisitDate, nextVisitType: d.nextVisitType,
-        malePartnerPresentPNC: !!d.malePartnerPresentPNC,
-        notes: d.notes, createdById: d.createdById
-      },
-      include: { patient: true, deliveryRecord: true }
-=======
     const examinationDate = new Date(d.examinationDate);
     if (Number.isNaN(examinationDate.getTime())) throw new ValidationError('Postnatal examination date must be valid');
     if (examinationDate.getTime() > Date.now()) throw new ValidationError('Postnatal examination date cannot be in the future');
@@ -1173,7 +936,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         },
         include: { patient: true, deliveryRecord: true }
       });
->>>>>>> origin/audit/main-sync-2026-10-20
     });
   }
 
@@ -1197,39 +959,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updatePostnatalRecord(id: string, data: any): Promise<any> {
-<<<<<<< HEAD
-    // Whitelist editable clinical fields. In particular, patient/attendance
-    // links and createdById cannot be reassigned by a PUT request.
-    const allowed = [
-      'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
-      'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia',
-      'perinealCondition', 'caesareanWound', 'breastfeedingStatus',
-      'breastfeedingDifficulties', 'latching', 'babyCondition', 'babyWeight',
-      'babyTemperature', 'babyFeeding', 'jaundice', 'jaundiceSeverity',
-      'cordCondition', 'bcgGiven', 'opv0Given', 'hepB0Given',
-      'familyPlanningDiscussed', 'familyPlanningMethodAccepted',
-      'maternalDangerSigns', 'babyDangerSigns', 'referralMade', 'referredTo',
-      'referralReason', 'nextVisitDate', 'nextVisitType', 'malePartnerPresentPNC',
-      'notes'
-    ];
-    const clean: Record<string, unknown> = {};
-    for (const key of allowed) {
-      const value = data[key];
-      if (value !== undefined) clean[key] = value;
-    }
-    if (typeof clean.examinationDate === 'string') clean.examinationDate = new Date(clean.examinationDate);
-    if (typeof clean.nextVisitDate === 'string') clean.nextVisitDate = new Date(clean.nextVisitDate);
-    for (const key of ['examinationDate', 'nextVisitDate']) {
-      const value = clean[key];
-      if (value instanceof Date && !Number.isFinite(value.getTime())) {
-        throw new ValidationError(`A valid ${key} is required`);
-      }
-    }
-    if (Object.keys(clean).length === 0) {
-      throw new ValidationError('No valid postnatal fields supplied for update');
-    }
-    return this.prisma.postnatalRecord.update({ where: { id }, data: clean });
-=======
     const allowed = [
       'examinationDate', 'dayNumber', 'maternalCondition', 'maternalComplications',
       'bloodPressure', 'temperature', 'pulse', 'fundalHeight', 'lochia', 'perinealCondition',
@@ -1319,7 +1048,6 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       data: clean,
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, deliveryRecord: true },
     });
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async deletePostnatalRecord(id: string): Promise<void> {
