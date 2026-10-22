@@ -10,6 +10,9 @@ interface BasicInfoFormProps {
     dateOfBirth: string;
     contact: string;
     address: string;
+    residenceCommunity: string;
+    residenceDistrict: string;
+    residenceRegion: string;
   };
   additionalInfo: AdditionalInfo;
   imagePreview: string;
@@ -335,6 +338,43 @@ export const BasicInfoForm: React.FC<BasicInfoFormProps> = ({
                 Stored age: {currentPatient.ageDisplay}
               </p>
             )}
+          </div>
+        </div>
+
+        {/* Structured residence supports HMIS/DHIMS catchment reporting. */}
+        <div>
+          <p className={labelCls}>Residence for health reporting <span style={{ fontWeight: 400 }}>(optional if not yet known)</span></p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <div>
+              <label className={labelCls}>Community / town</label>
+              <input
+                type="text"
+                value={formData.residenceCommunity}
+                onChange={(e) => onFormDataChange({ ...formData, residenceCommunity: e.target.value })}
+                placeholder="Community or town"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>District / municipality</label>
+              <input
+                type="text"
+                value={formData.residenceDistrict}
+                onChange={(e) => onFormDataChange({ ...formData, residenceDistrict: e.target.value })}
+                placeholder="District / municipality"
+                className={inputCls}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Region</label>
+              <input
+                type="text"
+                value={formData.residenceRegion}
+                onChange={(e) => onFormDataChange({ ...formData, residenceRegion: e.target.value })}
+                placeholder="Region"
+                className={inputCls}
+              />
+            </div>
           </div>
         </div>
 

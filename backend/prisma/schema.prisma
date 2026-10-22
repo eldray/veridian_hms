@@ -214,6 +214,10 @@ model Patient {
   dateOfBirth      DateTime
   contact          String
   address          String
+  // Structured residence supports Ghana HMIS/DHIMS catchment and geographic reporting.
+  residenceCommunity String?
+  residenceDistrict  String?
+  residenceRegion    String?
   paymentMode      PaymentMode?
   insuranceDetails Json?
   additionalInfo   Json?
@@ -269,6 +273,8 @@ model Patient {
   @@index([surname])
   @@index([contact])
   @@index([createdAt])
+  @@index([residenceDistrict])
+  @@index([residenceRegion])
 }
 
 // NEW: Core EMR Models

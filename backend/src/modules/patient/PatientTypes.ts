@@ -6,6 +6,9 @@ export interface CreatePatientDTO {
   dateOfBirth: Date;
   contact: string;
   address: string;
+  residenceCommunity?: string | null;
+  residenceDistrict?: string | null;
+  residenceRegion?: string | null;
   paymentMode?: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
   insuranceProviderId?: string | null;
   corporateAccountId?: string | null;
@@ -67,6 +70,9 @@ export interface PatientResponse {
   age: number;
   contact: string;
   address: string;
+  residenceCommunity?: string | null;
+  residenceDistrict?: string | null;
+  residenceRegion?: string | null;
   paymentMode?: string;
   nhisNumber?: string;
   corporateAccount?: { id: string; companyName: string; };

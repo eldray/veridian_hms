@@ -123,6 +123,9 @@ export default function PatientRegistration() {
     dateOfBirth: '',
     contact: '',
     address: '',
+    residenceCommunity: '',
+    residenceDistrict: '',
+    residenceRegion: '',
   });
 
   const [paymentData, setPaymentData] = useState<{
@@ -233,6 +236,9 @@ export default function PatientRegistration() {
         dateOfBirth: dob || '',
         contact: currentPatient.contact || '',
         address: currentPatient.address || '',
+        residenceCommunity: currentPatient.residenceCommunity || '',
+        residenceDistrict: currentPatient.residenceDistrict || '',
+        residenceRegion: currentPatient.residenceRegion || '',
       });
 
       setPaymentData({
@@ -308,6 +314,9 @@ export default function PatientRegistration() {
         dateOfBirth: '',
         contact: '',
         address: '',
+        residenceCommunity: '',
+        residenceDistrict: '',
+        residenceRegion: '',
       });
       setPaymentData({ paymentMode: 'cash' });
       setAdditionalInfo({
@@ -425,6 +434,9 @@ export default function PatientRegistration() {
         ageInMonths: ageData.months,
         contact: formData.contact,
         address: formData.address,
+        residenceCommunity: formData.residenceCommunity.trim() || null,
+        residenceDistrict: formData.residenceDistrict.trim() || null,
+        residenceRegion: formData.residenceRegion.trim() || null,
         ...getPaymentModePayload(),
         additionalInfo: additionalInfo,
         ...getClinicalHistoryPayload(),

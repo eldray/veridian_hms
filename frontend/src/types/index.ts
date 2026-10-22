@@ -415,6 +415,9 @@ export interface Patient {
   dateOfBirth: string;
   contact: string;
   address: string;
+  residenceCommunity?: string | null;
+  residenceDistrict?: string | null;
+  residenceRegion?: string | null;
   paymentMode?: PaymentMode;
   insuranceProviderId?: string | null;
   corporateAccountId?: string | null;
