@@ -8,6 +8,7 @@ import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { releaseBedForAttendance } from './bedOccupancy';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -1994,7 +1995,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateAdmission(id: string, data: any, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.admission.findUnique({ where: { id } });
+      const existing = await tx.admission.findUnique({
+        where: { id },
+        include: { attendance: { select: { id: true, bedId: true } } },
+      });
       if (!existing) throw new NotFoundError('Admission', id);
 
       const update: any = {};
@@ -2007,7 +2011,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         }
         update.dischargeStatus = data.dischargeStatus;
       }
-      if (data.dischargeDate) update.dischargeDate = new Date(data.dischargeDate);
+      if (data.dischargeDate) {
+        const dischargeDate = new Date(data.dischargeDate);
+        if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+        update.dischargeDate = dischargeDate;
+      }
 
       // The Admission table has no dischargeSummary column: keep it as a note instead of dropping it.
       let notes: any[] = Array.isArray(existing.dailyNotes) ? [...(existing.dailyNotes as any[])] : [];
@@ -2019,9 +2027,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
       const updated = await tx.admission.update({ where: { id }, data: update });
 
-      // Discharging an admission also closes the visit
+      // Discharging an admission also closes the visit and releases its bed.
       if (update.dischargeDate && !existing.dischargeDate) {
-        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged' } });
+        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged', bedId: null } });
+        await releaseBedForAttendance(tx, { id: existing.attendanceId, bedId: existing.attendance?.bedId });
       }
       return updated;
     });
