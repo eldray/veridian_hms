@@ -1,5 +1,5 @@
 // modules/referral/ReferralTypes.ts
-import { ReferralType, ReferralStatus, Priority } from '@prisma/client';
+import { Prisma, ReferralType, ReferralStatus, Priority } from '@prisma/client';
 
 // ==========================================
 // DTOs
@@ -14,6 +14,7 @@ export interface CreateOutgoingReferralDTO {
   referredToDepartment?: string;
   urgency?: Priority;
   referralNotes?: string;
+  structuredForm?: Prisma.InputJsonValue;
   // ✅ ADDED - Corporate/NHIS fields
   nhisCCC?: string;  // NHIS claim code
   insuranceProviderId?: string;
@@ -27,6 +28,7 @@ export interface CreateIncomingReferralDTO {
   referredFromDoctor?: string;
   urgency?: Priority;
   referralNotes?: string;
+  structuredForm?: Prisma.InputJsonValue;
   referringFacilityContact?: string;
   // ✅ ADDED
   outcomeNotes?: string;  // For tracking referral outcome
