@@ -50,8 +50,7 @@ export interface UpdateEncounterDTO {
   complaint?: string;
   complaints?: string;
   medicalNotes?: string;
-  clinicalNotes?: any; // ✅ ADDED
-  treatmentPlan?: string;
+  clinicalNotes?: any; // Legacy JSON compatibility
   followUpDate?: Date | null;
   dateTime?: Date;
   attendanceType?: CreateEncounterDTO['attendanceType'];
@@ -66,9 +65,7 @@ export interface UpdateEncounterDTO {
   updatedById?: string;
 
   // Legacy SOAP fields kept for compatibility with older clients; normalized server-side
-  historyPresentingComplaint?: string;
   onsetDurationQuality?: string;
-  physicalExamination?: string;
   treatmentNotes?: any[];
   physicianNotes?: any[];
 }
