@@ -394,25 +394,45 @@ export default function Referrals() {
     setSelectedPatientId(patientId);
     setSelectedAttendanceId(searchParams.get('attendanceId') || '');
     setReferralType('outgoing');
-    setFormData(prev => ({
-      ...prev,
+    // A changed query represents a new referral context: do not carry the
+    // previous patient's demographics, destination, or letter text forward.
+    setFormData({
       referralReason: searchParams.get('reason') || '',
       referralNotes: searchParams.get('notes') || '',
       referredToFacility: searchParams.get('facility') || '',
+      referredToDoctor: '',
+      referredToDepartment: '',
+      referredFromFacility: '',
+      referredFromDoctor: '',
       urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
         ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
         : 'routine'),
-    }));
-    setStructuredPartI(prev => ({
-      ...prev,
-      clientName: searchParams.get('patientName') || prev.clientName,
+    });
+    setStructuredPartI({
+      clientName: searchParams.get('patientName') || '',
+      age: '',
+      sex: '',
+      parity: '',
       clinicName: source,
-      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || prev.patientComplaints,
-      diagnosis: searchParams.get('diagnosis') || prev.diagnosis,
-      actionsTaken: searchParams.get('treatment') || prev.actionsTaken,
-      reasonForReferral: searchParams.get('reason') || prev.reasonForReferral,
+      generalCondition: '',
+      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || '',
+      diagnosis: searchParams.get('diagnosis') || '',
+      actionsTaken: searchParams.get('treatment') || '',
+      reasonForReferral: searchParams.get('reason') || '',
       dateOfReferral: new Date().toISOString().slice(0, 10),
-    }));
+      referrerName: '',
+      referrerTitle: '',
+      referrerSignature: '',
+    });
+    setStructuredPartII({
+      institutionName: '',
+      dateReceived: '',
+      findings: '',
+      actionsTaken: '',
+      recommendations: '',
+      receiverName: '',
+      receiverTitle: '',
+    });
     // Referral context from a clinical page should be visible immediately in
     // the structured letter, not only saved in hidden state.
     setUseStructuredForm(true);
