@@ -376,9 +376,13 @@ export class NursingService extends BaseService {
     return this.repository.updateTask(id, data);
   }
 
-  async deleteTask(id: string) {
+  async deleteTask(id: string, actor: { userId: string; role: string }) {
     const existing = await this.repository.findTaskById(id);
-    if (!existing) throw new Error('Task not found');
+    if (!existing) throw new NotFoundError('Nursing task', id);
+    const isAdminLike = ['super_admin', 'admin'].includes(actor.role);
+    if (existing.createdById !== actor.userId && !isAdminLike) {
+      throw new ValidationError('Only the task creator or an admin can delete this task');
+    }
     await this.repository.deleteTask(id);
   }
 }
