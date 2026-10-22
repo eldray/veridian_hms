@@ -387,7 +387,8 @@ export default function Referrals() {
     const attendanceId = searchParams.get('attendanceId') || '';
     const source = searchParams.get('source') || 'Clinical assessment';
     if (!patientId) return;
-    const prefillKey = [patientId, attendanceId, source].join('|');
+    // Treat any changed referral context (reason, notes, urgency, facility, etc.) as a new prefill.
+    const prefillKey = searchParams.toString();
     if (prefillKeyApplied.current === prefillKey) return;
     prefillKeyApplied.current = prefillKey;
     setSelectedPatientId(patientId);
