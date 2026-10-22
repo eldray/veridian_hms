@@ -112,6 +112,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         // ✅ FIXED: Use complaint field directly (not complaints)
         complaints: data.complaints ?? data.complaint ?? '',
         medicalNotes: data.medicalNotes || '',
+        historyPresentingComplaint: data.historyPresentingComplaint,
+        reviewOfSystems: data.reviewOfSystems as any,
+        physicalExamination: data.physicalExamination,
+        physicalExamStructured: data.physicalExamStructured as any,
+        assessment: data.assessment,
+        treatmentPlan: data.treatmentPlan,
+        clinicalOutcome: data.clinicalOutcome as any,
+        allergyReviewStatus: data.allergyReviewStatus as any,
+        allergyReviewNotes: data.allergyReviewNotes,
+        providerId: data.providerId || actorId,
         
         status: 'pending',
         createdById: actorId,
@@ -210,6 +220,16 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       'complaints',
       'medicalNotes',
       'clinicalNotes',
+      'historyPresentingComplaint',
+      'reviewOfSystems',
+      'physicalExamination',
+      'physicalExamStructured',
+      'assessment',
+      'treatmentPlan',
+      'clinicalOutcome',
+      'allergyReviewStatus',
+      'allergyReviewNotes',
+      'providerId',
       'followUpDate',
       'dateTime',
       'attendanceType',
@@ -251,7 +271,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
 
-      if (key === 'historyPresentingComplaint' || key === 'onsetDurationQuality' || key === 'physicalExamination' || key === 'treatmentPlan' || key === 'treatmentNotes' || key === 'physicianNotes') {
+      if (key === 'onsetDurationQuality' || key === 'treatmentNotes' || key === 'physicianNotes') {
         legacyClinicalNotes[key] = value;
         return;
       }
