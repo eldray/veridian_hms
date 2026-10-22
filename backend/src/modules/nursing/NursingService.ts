@@ -220,8 +220,44 @@ export class NursingService extends BaseService {
     return note;
   }
 
+  /**
+   * Keep nursing documentation attached to one coherent patient encounter.
+   * These are separate foreign keys in the schema, so Prisma alone cannot ensure
+   * that patientId, attendanceId and admissionId all refer to the same patient/stay.
+   */
+  private async validateClinicalLinks(patientId: string, attendanceId?: string | null, admissionId?: string | null) {
+    if (!patientId?.trim()) throw new ValidationError('Patient is required for nursing documentation');
+
+    let linkedAttendanceId = attendanceId ?? null;
+    if (linkedAttendanceId) {
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: linkedAttendanceId },
+        select: { id: true, patientId: true },
+      });
+      if (!attendance) throw new ValidationError('The selected attendance/encounter was not found');
+      if (attendance.patientId !== patientId) {
+        throw new ValidationError('The selected attendance belongs to a different patient');
+      }
+    }
+
+    if (admissionId) {
+      const admission = await this.prisma.admission.findUnique({
+        where: { id: admissionId },
+        select: { id: true, attendanceId: true, attendance: { select: { patientId: true } } },
+      });
+      if (!admission) throw new ValidationError('The selected admission was not found');
+      if (admission.attendance.patientId !== patientId) {
+        throw new ValidationError('The selected admission belongs to a different patient');
+      }
+      if (linkedAttendanceId && admission.attendanceId !== linkedAttendanceId) {
+        throw new ValidationError('The selected admission does not belong to the selected attendance');
+      }
+    }
+  }
+
   async createNote(dto: CreateNursingNoteDTO, userId: string) {
-    if (!dto.content?.trim()) throw new Error('Note content is required');
+    if (!dto.content?.trim()) throw new ValidationError('Note content is required');
+    await this.validateClinicalLinks(dto.patientId, dto.attendanceId, dto.admissionId);
 
     const data = {
       patientId: dto.patientId,
@@ -282,8 +318,9 @@ export class NursingService extends BaseService {
   }
 
   async createTask(dto: CreateNursingTaskDTO, userId: string) {
-    if (!dto.title?.trim()) throw new Error('Task title is required');
-    if (!dto.attendanceId) throw new Error('Task must be linked to an attendance');
+    if (!dto.title?.trim()) throw new ValidationError('Task title is required');
+    if (!dto.attendanceId) throw new ValidationError('Task must be linked to an attendance');
+    await this.validateClinicalLinks(dto.patientId, dto.attendanceId, dto.admissionId);
 
     const data = {
       patientId: dto.patientId,
