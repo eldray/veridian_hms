@@ -479,8 +479,13 @@ describe('batch receipt expiry race protection', () => {
     expect(updateMany).toHaveBeenCalledWith({
       where: {
         id: 'batch-1',
+        stockItemId: 'item-1',
+        batchNumber: 'LOT-1',
+        departmentId: 'pharmacy',
+        wardId: null,
         isActive: true,
-        expiryDate: { gte: expect.any(Date) },
+        expiryDate,
+        costPrice: 2,
       },
       data: { quantity: { increment: 3 } },
     });
