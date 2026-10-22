@@ -590,6 +590,8 @@ export default function MedicalEntries() {
   const [odq, setOdq] = useState('');
   const [physicalExam, setPhysicalExam] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
+  // Keep the unsaved progress-note draft separate from the persistent treatment plan.
+  const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [physicianNoteText, setPhysicianNoteText] = useState('');
@@ -729,8 +731,8 @@ export default function MedicalEntries() {
   const handleClearSelection = () => {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
-    setPhysicalExam(''); setTreatmentPlan(''); setFollowUpDate('');
-    setTreatmentNotes([]); setPhysicianNotes([]); // ← add these
+    setPhysicalExam(''); setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
+    setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
   };
 
@@ -760,11 +762,11 @@ export default function MedicalEntries() {
 
   // Add this function alongside handleSaveClinical
   const handleSaveTreatmentNote = async () => {
-    if (!selectedAttendanceId || !treatmentPlan.trim()) return;
+    if (!selectedAttendanceId || !treatmentNoteDraft.trim()) return;
     const newNote = {
       author: user?.fullName || 'Physician',
       date: new Date().toISOString(),
-      text: treatmentPlan.trim(),
+      text: treatmentNoteDraft.trim(),
     };
     const updatedNotes = [...treatmentNotes, newNote];
     try {
@@ -780,7 +782,7 @@ export default function MedicalEntries() {
         updatedById: user?.id,
       });
       setTreatmentNotes(updatedNotes);
-      setTreatmentPlan(''); // clear input after saving
+      setTreatmentNoteDraft(''); // clear only the unsaved note draft; preserve the treatment plan
       success('Saved', 'Treatment note added');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) {
@@ -1953,8 +1955,8 @@ export default function MedicalEntries() {
                 {canAddEntries && (
                   <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
                     <textarea
-                      value={treatmentPlan}
-                      onChange={e => setTreatmentPlan(e.target.value)}
+                      value={treatmentNoteDraft}
+                      onChange={e => setTreatmentNoteDraft(e.target.value)}
                       rows={3}
                       placeholder="Add treatment note…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
