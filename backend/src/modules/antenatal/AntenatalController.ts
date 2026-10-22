@@ -134,7 +134,7 @@ export class AntenatalController extends BaseController {
   updateANCVisit = [
     body('gestationalAgeWeeks').optional().isInt({ min: 0, max: 42 }),
     body('weight').optional().isFloat({ min: 0 }),
-    body('gravida').optional().isInt({ min: 0 }).withMessage('Gravida must be 0 or more'),
+    body('gravida').optional().isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
     body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
     body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
     body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
