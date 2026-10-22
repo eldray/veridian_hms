@@ -200,13 +200,15 @@ export class EncounterService extends BaseService {
         }
       }
 
+      const admissionDate = data.admissionDate ? new Date(data.admissionDate) : new Date();
+      if (Number.isNaN(admissionDate.getTime())) throw new ValidationError('A valid admission date is required');
       const admission = await tx.admission.create({
         data: {
           attendanceId: data.attendanceId,
           admissionNumber: getCounterService().nextAdmissionNumber(),
           admissionType: (data.admissionType as any) || 'emergency',
           admissionSource: (data.admissionSource as any) || 'home',
-          admissionDate: data.admissionDate || new Date(),
+          admissionDate,
         },
         include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } }
       });
@@ -227,6 +229,13 @@ export class EncounterService extends BaseService {
       if (terminal.includes(encounter.status)) {
         throw new ValidationError(`Cannot discharge: encounter is already "${encounter.status}"`);
       }
+      const dischargeDate = dischargeData.dischargeDate ? new Date(dischargeData.dischargeDate) : new Date();
+      if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+      const dischargeStatus = dischargeData.dischargeStatus || 'home';
+      const allowedDischargeStatuses = ['home', 'transfer', 'expired', 'against_medical_advice'];
+      if (!allowedDischargeStatuses.includes(dischargeStatus)) {
+        throw new ValidationError(`dischargeStatus must be one of: ${allowedDischargeStatuses.join(', ')}`);
+      }
 
       const transition = await tx.attendance.updateMany({
         where: { id: encounterId, status: encounter.status },
@@ -243,8 +252,8 @@ export class EncounterService extends BaseService {
         await tx.admission.update({
           where: { id: encounter.Admission.id },
           data: {
-            dischargeDate: dischargeData.dischargeDate || new Date(),
-            dischargeStatus: (dischargeData.dischargeStatus as any) || 'home',
+            dischargeDate,
+            dischargeStatus: dischargeStatus as any,
             dailyNotes: [
               ...existingNotes,
               {
@@ -273,7 +282,7 @@ export class EncounterService extends BaseService {
         },
       });
 
-      return { message: 'Patient discharged successfully', dischargeDate: dischargeData.dischargeDate || new Date() };
+      return { message: 'Patient discharged successfully', dischargeDate };
     });
   }
 
