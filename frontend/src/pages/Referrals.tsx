@@ -387,15 +387,12 @@ export default function Referrals() {
     const attendanceId = searchParams.get('attendanceId') || '';
     const source = searchParams.get('source') || 'Clinical assessment';
     if (!patientId) return;
-    // Treat any changed referral context (reason, notes, urgency, facility, etc.) as a new prefill.
     const prefillKey = searchParams.toString();
     if (prefillKeyApplied.current === prefillKey) return;
     prefillKeyApplied.current = prefillKey;
     setSelectedPatientId(patientId);
-    setSelectedAttendanceId(searchParams.get('attendanceId') || '');
+    setSelectedAttendanceId(attendanceId);
     setReferralType('outgoing');
-    // A changed query represents a new referral context: do not carry the
-    // previous patient's demographics, destination, or letter text forward.
     setFormData({
       referralReason: searchParams.get('reason') || '',
       referralNotes: searchParams.get('notes') || '',
@@ -433,8 +430,6 @@ export default function Referrals() {
       receiverName: '',
       receiverTitle: '',
     });
-    // Referral context from a clinical page should be visible immediately in
-    // the structured letter, not only saved in hidden state.
     setUseStructuredForm(true);
     setShowModal(true);
   }, [searchParams]);
@@ -442,8 +437,7 @@ export default function Referrals() {
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
-    // Never show a visit cached from the previous referral context while a
-    // different linked attendance is being verified (or when no visit is supplied).
+    // Clear stale visit details while the new referral context is checked.
     setPrefilledAttendance(null);
     if (!requestedAttendanceId || !requestedPatientId) {
       if (!requestedAttendanceId) setSelectedAttendanceId('');
