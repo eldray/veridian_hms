@@ -2,7 +2,7 @@
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { NursingRepository } from './NursingRepository';
-import { ValidationError } from '../../utils/errors';
+import { ValidationError, NotFoundError } from '../../utils/errors';
 import {
   MarFilters,
   ScheduleDosesInput,
