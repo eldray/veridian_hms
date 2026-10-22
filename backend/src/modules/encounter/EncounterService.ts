@@ -79,7 +79,28 @@ export class EncounterService extends BaseService {
     if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = undefined;
 
     // ✅ PRODUCTION FIX: Wrap entire complex creation flow in a transaction
+    if (data.bedId && !data.wardId) throw new ValidationError('A ward is required when assigning a bed');
+
     return await this.prisma.$transaction(async (tx) => {
+      // Validate and reserve the bed inside the same transaction as encounter creation.
+      // A stale bed list or two concurrent registrations must not allocate one bed twice.
+      if (data.bedId) {
+        const bed = await tx.bed.findUnique({
+          where: { id: data.bedId },
+          select: { id: true, wardId: true, isOccupied: true, Ward: { select: { id: true, isActive: true } } },
+        });
+        if (!bed) throw new NotFoundError('Bed', data.bedId);
+        if (bed.wardId !== data.wardId) throw new ValidationError('The selected bed does not belong to the selected ward');
+        if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
+        const activeAssignment = await tx.attendance.findFirst({
+          where: { bedId: bed.id, status: 'admitted' }, select: { id: true },
+        });
+        if (bed.isOccupied || activeAssignment) throw new ConflictError('The selected bed is already occupied');
+        const reservation = await tx.bed.updateMany({ where: { id: bed.id, isOccupied: false }, data: { isOccupied: true } });
+        if (reservation.count !== 1) throw new ConflictError('The selected bed was just allocated to another patient; refresh available beds');
+        await tx.ward.update({ where: { id: bed.wardId }, data: { occupiedBeds: { increment: 1 } } });
+      }
+
       const counterService = getCounterService();
       const encounter = await tx.attendance.create({
         data: {
@@ -91,6 +112,8 @@ export class EncounterService extends BaseService {
           insuranceProviderId,
           medicalNotes: data.complaint || '', // Mapped from schema fix
           encounterCategory,
+          bedId: data.bedId ?? null,
+          wardId: data.wardId ?? null,
           status: 'pending',
           createdById: userId,
           dateTime: new Date(),
@@ -103,12 +126,6 @@ export class EncounterService extends BaseService {
       // Delivery and postnatal forms must record clinician-confirmed findings. Do not
       // pre-create records with assumed live birth, maternal wellbeing or breastfeeding status.
       // Their dedicated save endpoints create the clinical record after staff complete the form.
-
-      // 2. Bed/Ward Logic (Removed currentPatientId per schema fix)
-      if (data.bedId) {
-        await tx.bed.update({ where: { id: data.bedId }, data: { isOccupied: true } });
-        await tx.ward.update({ where: { id: data.wardId! }, data: { occupiedBeds: { increment: 1 } } });
-      }
 
       // 3. Admission Logic
       if (shouldCreateAdmission && encounterCategory === 'ipd') {
@@ -178,7 +195,14 @@ export class EncounterService extends BaseService {
       if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
         throw new ConflictError('A closed encounter cannot be admitted; create or reopen the appropriate encounter first');
       }
-      if (encounter.Admission) throw new ConflictError('This encounter already has a formal admission record');
+      if (encounter.Admission) {
+        // Encounter creation may already create the admission for IPD. Treat a repeated
+        // request as idempotent rather than returning an error or allocating the bed twice.
+        return tx.admission.findUnique({
+          where: { id: encounter.Admission.id },
+          include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
+        });
+      }
 
       // Bed selection is attached to the encounter before admission. Reserve that bed
       // here atomically so the bed list, occupancy totals and admission cannot drift apart.
