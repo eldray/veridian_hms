@@ -1,10 +1,19 @@
 import { PrismaClient, StockTransactionType, RequisitionStatus, ServiceType, ServiceCategory } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
-import { StockItemRepository } from './StockItemRepository';
 import { getCounterService } from '../../services/CounterService';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
+import { StockItemRepository, increaseDepartmentStockBalance } from './StockItemRepository';
+
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
+
+// Batch expiry is a calendar date, so compare UTC day boundaries rather than
+// midnight expiry timestamps against the current instant.
+const startOfUtcDay = (value: Date = new Date()): Date => {
+  const day = new Date(value);
+  day.setUTCHours(0, 0, 0, 0);
+  return day;
+};
 
 const slugPart = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
@@ -125,6 +134,40 @@ export class StockItemService extends BaseService {
     if (!unitOfMeasure) throw new ValidationError('Unit of measure is required');
     if (!Number.isFinite(costPrice) || costPrice < 0) throw new ValidationError('Cost price must be a number that is 0 or more');
 
+    const initialStock = Number(data.currentStock ?? 0);
+    if (!Number.isSafeInteger(initialStock) || initialStock < 0) {
+      throw new ValidationError('Initial stock must be a non-negative whole number');
+    }
+    const hasOpeningQuantity =
+      data.quantityReceived !== undefined && data.quantityReceived !== null && data.quantityReceived !== '';
+    if (hasOpeningQuantity && !(data.batchNumber && data.expiryDate)) {
+      throw new ValidationError('Batch number and expiry date are required when an opening batch quantity is supplied');
+    }
+    const hasOpeningBatch = Boolean(data.batchNumber && data.expiryDate && hasOpeningQuantity);
+    let openingBatchExpiryDate: Date | undefined;
+    let openingBatchReceivedDate: Date | undefined;
+    if (hasOpeningBatch) {
+      const receivedQuantity = Number(data.quantityReceived);
+      if (!Number.isSafeInteger(receivedQuantity) || receivedQuantity <= 0) {
+        throw new ValidationError('Opening batch quantity must be a positive whole number');
+      }
+      if (initialStock > 0) {
+        throw new ValidationError('Provide either initial stock or an opening batch quantity, not both, to avoid counting the same stock twice');
+      }
+      if (!String(data.batchNumber).trim()) throw new ValidationError('Batch number is required');
+
+      openingBatchExpiryDate = new Date(data.expiryDate);
+      openingBatchReceivedDate = data.receivedDate ? new Date(data.receivedDate) : new Date();
+      if (!Number.isFinite(openingBatchExpiryDate.getTime())) throw new ValidationError('A valid batch expiry date is required');
+      if (!Number.isFinite(openingBatchReceivedDate.getTime())) throw new ValidationError('A valid received date is required');
+      if (openingBatchExpiryDate <= openingBatchReceivedDate) throw new ValidationError('Batch expiry date must be after its received date');
+      if (openingBatchReceivedDate.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
+      if (data.departmentId) {
+        const department = await this.prisma.department.findUnique({ where: { id: String(data.departmentId) }, select: { id: true } });
+        if (!department) throw new ValidationError('Selected stock department does not exist');
+      }
+    }
+
     // drugCode is required + unique in the schema: use the one supplied, otherwise generate it
     let drugCode = String(data.drugCode ?? '').trim().toUpperCase();
     if (drugCode) {
@@ -139,31 +182,57 @@ export class StockItemService extends BaseService {
     const item = await this.prisma.$transaction(async (tx) => {
       const created = await this.repo.create({
         name, category, description: data.description, strength, unitOfMeasure, drugCode,
-        reorderLevel: data.reorderLevel || 0, currentStock: data.currentStock || 0, costPrice, isNHISCovered: data.isNHISCovered ?? true,
+        reorderLevel: data.reorderLevel || 0, currentStock: hasOpeningBatch ? 0 : initialStock, costPrice, isNHISCovered: data.isNHISCovered ?? true,
         isPrivateInsExempted: data.isPrivateInsExempted ?? false, nhisRequiresAuth: data.nhisRequiresAuth ?? false, privateInsRequiresAuth: data.privateInsRequiresAuth ?? false,
         supplier: data.supplier, expiryDate: data.expiryDate ? new Date(data.expiryDate) : null, batchNumber: data.batchNumber, isActive: data.isActive ?? true,
         tariffCode: data.tariffCode, vatRate: data.vatRate ?? 0, isTaxable: data.isTaxable ?? true, isMedication: data.isMedication ?? true
       }, tx);
       await this.savePatientPrices(tx, created, data, userId);
+      if (initialStock > 0) {
+        const departmentId = data.departmentId ? String(data.departmentId) : undefined;
+        await increaseDepartmentStockBalance(tx, created.id, departmentId, initialStock);
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: created.id,
+            transactionType: 'purchase',
+            quantity: initialStock,
+            balanceAfter: initialStock,
+            reference: 'OPENING-STOCK',
+            notes: 'Opening stock balance',
+            performedBy: userId || undefined,
+            departmentId,
+          },
+        });
+      }
+      if (hasOpeningBatch) {
+        await this.repo.addBatchWithinTransaction(
+          tx,
+          created.id,
+          String(data.batchNumber).trim(),
+          openingBatchExpiryDate!,
+          Number(data.quantityReceived),
+          costPrice,
+          openingBatchReceivedDate,
+          data.departmentId ? String(data.departmentId) : undefined,
+        );
+      }
       return created;
     });
 
-    if (data.batchNumber && data.expiryDate && data.quantityReceived) {
-      await this.repo.addBatchSafely(item.id, data.batchNumber, new Date(data.expiryDate), data.quantityReceived, data.costPrice);
-    }
-    return item;
+    // Return the refreshed aggregate and batch list after the atomic opening receipt.
+    return hasOpeningBatch ? this.getById(item.id) : item;
   }
 
   async getAll(filters: any) { return this.repo.findAllWithFilters(filters); }
-  async getById(id: string) {
-    const item = await this.repo.findByIdWithRelations(id);
+  async getById(id: string, filters: any = {}) {
+    const item = await this.repo.findByIdWithRelations(id, filters);
     if (!item) throw new NotFoundError('Stock item not found');
     return item;
   }
 
   async update(id: string, updateData: any, userId?: string) {
     // Price fields and relations are not stock-item columns: strip them, then apply the prices to the catalog entry
-    const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, ...cleanData } = updateData;
+    const { id: _, createdAt, cashPrice, nhisPrice, insurancePrice, corporatePrice, ServiceCatalog, StockBatch, currentStock: _currentStock, stockBalances: _stockBalances, ...cleanData } = updateData;
     return this.prisma.$transaction(async (tx) => {
       const updated = await this.repo.update(id, { ...cleanData, expiryDate: cleanData.expiryDate ? new Date(cleanData.expiryDate) : undefined }, tx);
       await this.savePatientPrices(tx, updated, { cashPrice, nhisPrice, insurancePrice, corporatePrice }, userId);
@@ -200,23 +269,98 @@ export class StockItemService extends BaseService {
     return { message: 'Stock item deleted successfully' };
   }
 
-  async updateStockLevel(id: string, quantity: number, transactionType: StockTransactionType, reference?: string, notes?: string, performedBy?: string) {
+  async updateStockLevel(
+    id: string,
+    quantity: number,
+    transactionType: StockTransactionType,
+    reference?: string,
+    notes?: string,
+    performedBy?: string,
+    departmentId?: string,
+    role?: string,
+  ) {
+    if (!Number.isSafeInteger(quantity) || quantity === 0 || (quantity < 0 && transactionType !== 'adjustment')) {
+      throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
+    }
+    if (!['purchase', 'adjustment', 'requisition', 'sale', 'write_off'].includes(transactionType)) {
+      throw new ValidationError('Invalid stock transaction type');
+    }
+    const isAdmin = ['admin', 'super_admin'].includes(String(role || '').toLowerCase());
+    if (transactionType === 'adjustment' && !isAdmin) {
+      throw new ValidationError('Only an administrator may record a stock adjustment');
+    }
+    if (transactionType === 'adjustment' && !String(notes || '').trim()) {
+      throw new ValidationError('A reason is required for every stock adjustment');
+    }
+    if (transactionType === 'write_off' && !String(notes || '').trim()) {
+      throw new ValidationError('A reason is required for expired, damaged, or otherwise written-off stock');
+    }
+    if (!isAdmin && !departmentId) {
+      throw new ValidationError('Assign this user to a department before recording stock movements');
+    }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
-    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy);
+    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
   }
 
-  async getStockTransactions(id: string, page: number = 1, limit: number = 50) {
-    const transactions = await this.repo.getTransactions(id, page, limit);
-    return { transactions, pagination: { page, limit, total: transactions.length, pages: 1 } }; // Simplified pagination for brevity
+  async allocateUnassignedStock(stockItemId: string, departmentId: string, quantity: number, performedBy?: string) {
+    if (!stockItemId?.trim()) throw new ValidationError('Stock item ID is required');
+    if (!departmentId?.trim()) throw new ValidationError('Receiving department is required');
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) throw new ValidationError('Allocation quantity must be a positive whole number');
+    return this.repo.allocateUnassignedStockSafely(stockItemId, departmentId, quantity, performedBy);
   }
 
-  async addStockBatch(stockItemId: string, batchNumber: string, expiryDate: Date, quantity: number, costPrice: number, receivedDate?: Date) {
-    return this.repo.addBatchSafely(stockItemId, batchNumber, expiryDate, quantity, costPrice, receivedDate);
+  async getStockTransactions(
+    id: string,
+    page: number = 1,
+    limit: number = 50,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
+    const result = await this.repo.getTransactions(id, page, limit, filters);
+    return {
+      transactions: result.transactions,
+      pagination: { page: result.page, limit: result.limit, total: result.total, pages: result.pages },
+    };
   }
 
-  async getExpiringBatches(days: number) { return this.repo.getExpiringBatches(days); }
-  async getLowStockAlerts(category?: string) {
-    const items = await this.repo.getLowStockItems(category);
+  async addStockBatch(
+    stockItemId: string,
+    batchNumber: string,
+    expiryDate: Date,
+    quantity: number,
+    costPrice: number,
+    receivedDate?: Date,
+    departmentId?: string,
+  ) {
+    if (!stockItemId.trim()) throw new ValidationError('Stock item ID is required');
+    if (!batchNumber?.trim()) throw new ValidationError('Batch number is required');
+    if (!(expiryDate instanceof Date) || !Number.isFinite(expiryDate.getTime())) {
+      throw new ValidationError('A valid batch expiry date is required');
+    }
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Batch quantity must be a positive whole number');
+    }
+    if (!Number.isFinite(costPrice) || costPrice < 0) {
+      throw new ValidationError('Batch cost price must be a number that is 0 or more');
+    }
+    const received = receivedDate ?? new Date();
+    if (!(received instanceof Date) || !Number.isFinite(received.getTime())) {
+      throw new ValidationError('A valid received date is required');
+    }
+    if (startOfUtcDay(expiryDate) < startOfUtcDay(received)) {
+      throw new ValidationError('Batch expiry date cannot be before its received date');
+    }
+    if (startOfUtcDay(expiryDate) < startOfUtcDay()) {
+      throw new ValidationError('Expired batches cannot be added as available stock');
+    }
+    if (received.getTime() > Date.now()) throw new ValidationError('Received date cannot be in the future');
+    return this.repo.addBatchSafely(stockItemId, batchNumber.trim(), expiryDate, quantity, costPrice, received, departmentId);
+  }
+
+  async getExpiringBatches(days: number, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    return this.repo.getExpiringBatches(days, filters);
+  }
+  async getLowStockAlerts(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const items: any[] = await this.repo.getLowStockItems(category, filters);
     return { totalLowStock: items.length, criticalCount: items.filter(i => i.currentStock === 0).length, warningCount: items.filter(i => i.currentStock > 0 && i.currentStock <= i.reorderLevel).length, items };
   }
   async getCategories() { return this.repo.getCategories(); }
@@ -225,38 +369,110 @@ export class StockItemService extends BaseService {
   // REPORTS (Preserved exactly, Fixed Decimal Math)
   // ==========================================
 
-  async getValueSummary(category?: string) {
-    const stockItems = await this.repo.getItemsForValueReport(category);
+  async getValueSummary(category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
+    const stockItems: any[] = await this.repo.getItemsForValueReport(category, filters);
+
+    // Use the actual cost recorded on each remaining batch. For legacy/unbatched
+    // units, retain the catalogue item's costPrice as the fallback valuation.
+    // If batch quantities exceed aggregate stock, value the recorded batches and
+    // expose the discrepancy rather than silently hiding it.
+    const valuedItems = stockItems.map((item: any) => {
+      const batches = Array.isArray(item.StockBatch) ? item.StockBatch : [];
+      const batchQuantity = batches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
+      const currentStock = filters.includeAllStockLocations
+        ? Number(item.currentStock) || 0
+        : (Array.isArray(item.stockBalances) ? item.stockBalances.reduce((sum: number, balance: any) => sum + (Number(balance.quantity) || 0), 0) : 0);
+      const batchValue = batches.reduce((sum: number, batch: any) => {
+        const quantity = Math.max(0, Number(batch.quantity) || 0);
+        return sum + toNumber(batch.costPrice) * quantity;
+      }, 0);
+      const unbatchedQuantity = Math.max(0, currentStock - batchQuantity);
+      const unbatchedValue = toNumber(item.costPrice) * unbatchedQuantity;
+      return {
+        ...item,
+        batchQuantity,
+        batchValue,
+        unbatchedQuantity,
+        unbatchedValue,
+        currentStock,
+        stockDiscrepancy: batches.length ? Math.abs(batchQuantity - currentStock) : 0,
+        totalValue: batchValue + unbatchedValue,
+      };
+    });
+
+    const totalValue = valuedItems.reduce((sum: number, item: any) => sum + item.totalValue, 0);
     return {
-      totalItems: stockItems.length,
-      medications: stockItems.filter(i => i.isMedication).length,
-      nonMedications: stockItems.filter(i => !i.isMedication).length,
-      totalValue: stockItems.reduce((sum, i) => sum + (toNumber(i.costPrice) * i.currentStock), 0), // ✅ FIXED
-      lowStockItems: stockItems.filter(i => i.currentStock <= i.reorderLevel).length,
-      outOfStockItems: stockItems.filter(i => i.currentStock === 0).length,
-      byCategory: stockItems.reduce((acc, item) => {
+      totalItems: valuedItems.length,
+      medications: valuedItems.filter((item: any) => item.isMedication).length,
+      nonMedications: valuedItems.filter((item: any) => !item.isMedication).length,
+      totalValue,
+      lowStockItems: valuedItems.filter((item: any) => item.currentStock <= item.reorderLevel).length,
+      outOfStockItems: valuedItems.filter((item: any) => item.currentStock === 0).length,
+      batchQuantityDiscrepancies: valuedItems.filter((item: any) => item.stockDiscrepancy > 0).length,
+      byCategory: valuedItems.reduce((acc: Record<string, any>, item: any) => {
         const cat = item.category || 'Uncategorized';
         if (!acc[cat]) acc[cat] = { count: 0, value: 0, items: [] };
         acc[cat].count++;
-        acc[cat].value += (toNumber(item.costPrice) * item.currentStock); // ✅ FIXED
+        acc[cat].value += item.totalValue;
         acc[cat].items.push(item.name);
         return acc;
-      }, {} as Record<string, any>)
+      }, {} as Record<string, any>),
+      items: valuedItems,
     };
   }
 
-  async getExpiryReport(days: number = 30, category?: string) {
-    const today = new Date(); const futureDate = new Date(); futureDate.setDate(today.getDate() + days);
-    const stockItems = await this.repo.getItemsForExpiryReport(category);
+  async getExpiryReport(
+    days: number = 30,
+    category?: string,
+    filters: { departmentId?: string; includeAllStockLocations?: boolean } = {},
+  ) {
+    const safeDays = Number.isSafeInteger(Number(days)) && Number(days) >= 0 ? Math.min(Number(days), 3650) : 30;
+    const today = startOfUtcDay();
+    const futureDate = new Date(today);
+    futureDate.setUTCDate(today.getUTCDate() + safeDays);
+    const stockItems: any[] = await this.repo.getItemsForExpiryReport(category, filters);
 
-    const expiringSoon = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) >= today && new Date(item.expiryDate) <= futureDate);
-    const expired = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) < today);
-    const healthy = stockItems.filter(item => item.expiryDate && new Date(item.expiryDate) > futureDate);
-    const expiringBatches = await this.repo.getExpiringBatches(days);
+    // Report lot-level expiry for batch-tracked stock, while retaining legacy
+    // item-level expiry for stock records created before batch tracking.
+    const itemHasBatchData = (item: any) => Array.isArray(item.StockBatch) && item.StockBatch.length > 0;
+    const itemBatches = (item: any) => (item.StockBatch || []).filter((batch: any) => Number(batch.quantity) > 0);
+    const legacyExpiry = (item: any) => item.expiryDate ? new Date(item.expiryDate) : null;
+    const isSoon = (date: Date) => date >= today && date <= futureDate;
+    const isExpired = (date: Date) => date < today;
+    const isHealthy = (date: Date) => date > futureDate;
+
+    const expiringSoon = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isSoon(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isSoon(expiry) : false;
+    });
+    const expired = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isExpired(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isExpired(expiry) : false;
+    });
+    const healthy = stockItems.filter(item => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) return batches.some((batch: any) => isHealthy(new Date(batch.expiryDate)));
+      const expiry = legacyExpiry(item);
+      return expiry ? isHealthy(expiry) : false;
+    });
+    const expiringBatches: any[] = await this.repo.getExpiringBatches(safeDays, filters);
+    const expiringValue = expiringSoon.reduce((sum: number, item: any) => {
+      const batches = itemBatches(item);
+      if (itemHasBatchData(item)) {
+        return sum + batches
+          .filter((batch: any) => isSoon(new Date(batch.expiryDate)))
+          .reduce((batchSum: number, batch: any) => batchSum + toNumber(batch.costPrice) * Number(batch.quantity), 0);
+      }
+      return sum + toNumber(item.costPrice) * Number(item.currentStock);
+    }, 0);
 
     return {
-      summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue: expiringSoon.reduce((sum, i) => sum + (toNumber(i.costPrice) * i.currentStock), 0), expiringBatches: expiringBatches.length },
-      expiringSoon: expiringSoon.slice(0, 50), expired: expired.slice(0, 50), expiringBatches: expiringBatches.slice(0, 50), reportPeriod: days
+      summary: { totalWithExpiry: stockItems.length, expiringSoon: expiringSoon.length, expired: expired.length, healthy: healthy.length, expiringValue, expiringBatches: expiringBatches.length },
+      expiringSoon: expiringSoon.slice(0, 50), expired: expired.slice(0, 50), expiringBatches: expiringBatches.slice(0, 50), reportPeriod: safeDays
     };
   }
 
@@ -265,9 +481,39 @@ export class StockItemService extends BaseService {
    * Direction comes from the transaction type, because older writers stored sales as negative numbers and
    * adjustments lost their sign; for an adjustment the change in balance decides whether it added or removed stock.
    */
-  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string } = {}) {
+  async getMovementSummary(startDate?: Date, endDate?: Date, category?: string, extra: { stockItemId?: string; transactionType?: string; departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     const LIMIT = 5000;
-    const { rows, total } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, limit: LIMIT });
+    const { rows, total, transactionsBeforeStart = [], transactionsAfterEnd = [], reconciliationRows = [], locationBalances = [] } = await this.repo.getLedgerTransactions({ startDate, endDate, category, stockItemId: extra.stockItemId, transactionType: extra.transactionType, departmentId: extra.departmentId, includeAllStockLocations: extra.includeAllStockLocations, limit: LIMIT });
+
+    // When the report is filtered to adjustments, the preceding visible row may
+    // not be the preceding stock movement. Seed the chronological ledger with the
+    // last pre-period location snapshot so legacy adjustments at the start of the
+    // report period can be signed from their actual balance change.
+    const reconciledSignedById = new Map<string, number>();
+    const signResolutionRows = reconciliationRows.length ? reconciliationRows : rows;
+    if (!extra.includeAllStockLocations && signResolutionRows.length) {
+      const previousLocationBalance = new Map<string, number>();
+      for (const transaction of transactionsBeforeStart as any[]) {
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousLocationBalance.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
+      for (const transaction of signResolutionRows as any[]) {
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        const previous = previousLocationBalance.get(transaction.stockItemId);
+        if (transaction.transactionType === 'adjustment' &&
+            transaction.adjustmentDirection !== 'increase' &&
+            transaction.adjustmentDirection !== 'decrease') {
+          const delta = previous !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+            ? Number(transaction.balanceAfter) - previous
+            : Number(transaction.quantity) < 0 ? -q : q;
+          reconciledSignedById.set(transaction.id, delta);
+        }
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousLocationBalance.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
+    }
 
     const lastBalance = new Map<string, number>();
     const items = new Map<string, any>();
@@ -281,8 +527,9 @@ export class StockItemService extends BaseService {
       let signed: number;
       switch (t.transactionType) {
         case 'purchase': case 'transfer_in': signed = q; break;
-        case 'sale': case 'requisition': case 'transfer_out': signed = -q; break;
-        default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q; // adjustment
+        case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
+        case 'adjustment': signed = t.adjustmentDirection === 'decrease' ? -q : t.adjustmentDirection === 'increase' ? q : (reconciledSignedById.get(t.id) ?? (t.quantity < 0 ? -q : (!extra.includeAllStockLocations && prev !== undefined ? t.balanceAfter - prev : q))); break;
+        default: signed = t.quantity < 0 ? -q : prev !== undefined ? t.balanceAfter - prev : q;
       }
       lastBalance.set(t.stockItemId, t.balanceAfter);
 
@@ -290,7 +537,21 @@ export class StockItemService extends BaseService {
       const qtyOut = signed < 0 ? -signed : 0;
       totalIn += qtyIn; totalOut += qtyOut;
 
-      const item = items.get(t.stockItemId) ?? { stockItemId: t.stockItemId, itemName: t.StockItem?.name ?? 'Unknown', category: t.StockItem?.category ?? '', unit: t.StockItem?.unitOfMeasure ?? '', openingStock: t.balanceAfter - signed, quantityIn: 0, quantityOut: 0, closingStock: t.balanceAfter, transactions: 0 };
+      const item = items.get(t.stockItemId) ?? {
+        stockItemId: t.stockItemId,
+        itemName: t.StockItem?.name ?? 'Unknown',
+        category: t.StockItem?.category ?? '',
+        unit: t.StockItem?.unitOfMeasure ?? '',
+        openingStock: t.balanceAfter - signed,
+        quantityIn: 0,
+        quantityOut: 0,
+        closingStock: t.balanceAfter,
+        transactions: 0,
+        aggregateCurrentStock: Number(t.StockItem?.currentStock) || 0,
+        aggregateNetChange: 0,
+      };
+      const balanceMovement = extra.includeAllStockLocations && (t.transactionType === 'transfer_in' || t.transactionType === 'transfer_out') ? 0 : signed;
+      item.aggregateNetChange += balanceMovement;
       item.quantityIn += qtyIn; item.quantityOut += qtyOut; item.closingStock = t.balanceAfter; item.transactions++;
       items.set(t.stockItemId, item);
 
@@ -306,10 +567,147 @@ export class StockItemService extends BaseService {
       });
     }
 
+    if (extra.includeAllStockLocations) {
+      // The visible rows may be filtered by movement type or capped at LIMIT.
+      // Use the full movement set for opening/closing reconciliation so filters
+      // change activity totals, not the underlying stock balance.
+      if (reconciliationRows.length) {
+        const fullNetByItem = new Map<string, number>();
+        for (const transaction of reconciliationRows as any[]) {
+          if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') continue;
+          const q = Math.abs(Number(transaction.quantity) || 0);
+          let signed = q;
+          switch (transaction.transactionType) {
+            case 'purchase': signed = q; break;
+            case 'sale': case 'requisition': case 'write_off': signed = -q; break;
+            case 'adjustment':
+              signed = transaction.adjustmentDirection === 'decrease' ? -q
+                : transaction.adjustmentDirection === 'increase' ? q
+                : Number(transaction.quantity) < 0 ? -q : q;
+              break;
+            default: signed = Number(transaction.quantity) < 0 ? -q : q;
+          }
+          fullNetByItem.set(transaction.stockItemId, (fullNetByItem.get(transaction.stockItemId) || 0) + signed);
+        }
+        for (const item of items.values()) {
+          item.aggregateNetChange = fullNetByItem.get(item.stockItemId) || 0;
+        }
+      }
+
+      const afterEndNetByItem = new Map<string, number>();
+      for (const transaction of transactionsAfterEnd as any[]) {
+        if (transaction.transactionType === 'transfer_in' || transaction.transactionType === 'transfer_out') continue;
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        let signed = q;
+        switch (transaction.transactionType) {
+          case 'purchase': signed = q; break;
+          case 'sale': case 'requisition': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default: signed = Number(transaction.quantity) < 0 ? -q : q;
+        }
+        afterEndNetByItem.set(transaction.stockItemId, (afterEndNetByItem.get(transaction.stockItemId) || 0) + signed);
+      }
+      for (const item of items.values()) {
+        item.closingStock = item.aggregateCurrentStock - (afterEndNetByItem.get(item.stockItemId) || 0);
+        item.openingStock = item.closingStock - item.aggregateNetChange;
+        delete item.aggregateCurrentStock;
+        delete item.aggregateNetChange;
+      }
+    } else if (rows.length || reconciliationRows.length || locationBalances.length) {
+      // Department ledgers use location-specific balanceAfter snapshots. Reconcile
+      // against all movement types so an activity filter or 5,000-row display cap
+      // cannot turn the first visible transaction into a false opening balance.
+      // When the complete reconciliation set was not fetched, the visible rows are
+      // still the complete period ledger (the repository fetches the full set when
+      // a movement-type filter or display cap makes that necessary).
+      const fullLedgerRows = reconciliationRows.length ? reconciliationRows : rows;
+      const fullNetByItem = new Map<string, number>();
+      const closingByItem = new Map<string, number>();
+      const previousBalanceByItem = new Map<string, number>();
+      for (const transaction of transactionsBeforeStart as any[]) {
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousBalanceByItem.set(transaction.stockItemId, Number(transaction.balanceAfter));
+        }
+      }
+      for (const transaction of fullLedgerRows as any[]) {
+        const itemId = transaction.stockItemId;
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        const previousBalance = previousBalanceByItem.get(itemId);
+        let signed: number;
+        switch (transaction.transactionType) {
+          case 'purchase': case 'transfer_in': signed = q; break;
+          case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : previousBalance !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+                ? Number(transaction.balanceAfter) - previousBalance
+                : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default:
+            signed = Number(transaction.quantity) < 0 ? -q
+              : previousBalance !== undefined && Number.isFinite(Number(transaction.balanceAfter))
+                ? Number(transaction.balanceAfter) - previousBalance : q;
+        }
+        fullNetByItem.set(itemId, (fullNetByItem.get(itemId) || 0) + signed);
+        if (Number.isFinite(Number(transaction.balanceAfter))) {
+          previousBalanceByItem.set(itemId, Number(transaction.balanceAfter));
+          closingByItem.set(itemId, Number(transaction.balanceAfter));
+        }
+      }
+      const afterEndNetByItem = new Map<string, number>();
+      // Carry forward the last in-period location snapshot so legacy adjustments
+      // after the report end can be reconciled by the change in balanceAfter.
+      // The repository returns these movements in chronological order.
+      const afterEndPreviousBalance = new Map(previousBalanceByItem);
+      for (const transaction of transactionsAfterEnd as any[]) {
+        const itemId = transaction.stockItemId;
+        const q = Math.abs(Number(transaction.quantity) || 0);
+        const previous = afterEndPreviousBalance.get(itemId);
+        const hasBalance = Number.isFinite(Number(transaction.balanceAfter));
+        let signed: number;
+        switch (transaction.transactionType) {
+          case 'purchase': case 'transfer_in': signed = q; break;
+          case 'sale': case 'requisition': case 'transfer_out': case 'write_off': signed = -q; break;
+          case 'adjustment':
+            signed = transaction.adjustmentDirection === 'decrease' ? -q
+              : transaction.adjustmentDirection === 'increase' ? q
+              : previous !== undefined && hasBalance
+                ? Number(transaction.balanceAfter) - previous
+                : Number(transaction.quantity) < 0 ? -q : q;
+            break;
+          default:
+            signed = Number(transaction.quantity) < 0 ? -q
+              : previous !== undefined && hasBalance
+                ? Number(transaction.balanceAfter) - previous : q;
+        }
+        afterEndNetByItem.set(itemId, (afterEndNetByItem.get(itemId) || 0) + signed);
+        if (hasBalance) afterEndPreviousBalance.set(itemId, Number(transaction.balanceAfter));
+      }
+      const currentLocationStockByItem = new Map<string, number>(
+        (locationBalances as any[]).map((balance) => [balance.stockItemId, Number(balance.quantity) || 0]),
+      );
+      for (const item of items.values()) {
+        const currentLocationStock = currentLocationStockByItem.get(item.stockItemId);
+        const closing = currentLocationStock !== undefined
+          ? currentLocationStock - (afterEndNetByItem.get(item.stockItemId) || 0)
+          : closingByItem.get(item.stockItemId);
+        if (closing !== undefined) {
+          item.closingStock = closing;
+          item.openingStock = closing - (fullNetByItem.get(item.stockItemId) || 0);
+        }
+      }
+    }
+
     const itemList = [...items.values()].sort((a, b) => (b.quantityIn + b.quantityOut) - (a.quantityIn + a.quantityOut));
     const g = (k: string) => byType[k] ?? { count: 0, quantity: 0, value: 0 };
+    const aggregateNetChange = itemList.reduce((sum, item) => sum + item.closingStock - item.openingStock, 0);
     const summary = {
-      totalTransactions: total, totalIn, totalOut, netChange: totalIn - totalOut, itemsMoved: itemList.length,
+      totalTransactions: total, totalIn, totalOut, netChange: extra.includeAllStockLocations ? aggregateNetChange : totalIn - totalOut, itemsMoved: itemList.length,
       byType: {
         purchases: g('purchase').count, purchaseQuantity: g('purchase').quantity, purchaseValue: g('purchase').value,
         sales: g('sale').count, saleQuantity: g('sale').quantity,
@@ -317,6 +715,7 @@ export class StockItemService extends BaseService {
         transfersIn: g('transfer_in').count, transferInQuantity: g('transfer_in').quantity,
         transfersOut: g('transfer_out').count, transferOutQuantity: g('transfer_out').quantity,
         adjustments: g('adjustment').count, adjustmentQuantity: g('adjustment').quantity,
+        writeOffs: g('write_off').count, writeOffQuantity: g('write_off').quantity,
       },
     };
 
@@ -329,27 +728,58 @@ export class StockItemService extends BaseService {
     };
   }
 
-  async getUsageReport(period: string = 'month', limit: number = 20, category?: string) {
+  async getUsageReport(period: string = 'month', limit: number = 20, category?: string, filters: { departmentId?: string; includeAllStockLocations?: boolean } = {}) {
     let startDate = new Date();
     if (period === 'week') startDate.setDate(startDate.getDate() - 7);
     else if (period === 'quarter') startDate.setMonth(startDate.getMonth() - 3);
     else if (period === 'year') startDate.setFullYear(startDate.getFullYear() - 1);
     else startDate.setMonth(startDate.getMonth() - 1);
 
-    const allTransactions = await this.repo.getTransactionsForUsageReport(startDate);
-    const filtered = category ? allTransactions.filter(t => t.StockItem?.category === category) : allTransactions;
+    const safeLimit = Number.isSafeInteger(Number(limit)) && Number(limit) > 0
+      ? Math.min(Number(limit), 200)
+      : 20;
+    const allTransactions = await this.repo.getTransactionsForUsageReport(startDate, filters);
+    const filtered = category ? allTransactions.filter((t: any) => t.StockItem?.category === category) : allTransactions;
 
-    const itemUsage = filtered.reduce((acc, t) => {
+    // Key by stock item ID, not its display name: two catalogue items may share a name.
+    // Use absolute quantities because older transaction writers sometimes stored issues as negative values.
+    const itemUsage = filtered.reduce((acc: Record<string, any>, t: any) => {
+      const stockItemId = t.stockItemId || t.StockItem?.id || (t.StockItem?.name || 'unknown');
       const name = t.StockItem?.name || 'Unknown';
-      if (!acc[name]) acc[name] = { name, category: t.StockItem?.category || 'other', unit: t.StockItem?.unitOfMeasure || 'unit', isMedication: t.StockItem?.isMedication || false, quantity: 0, transactions: 0, salesQuantity: 0, requisitionQuantity: 0 };
-      acc[name].quantity += t.quantity; acc[name].transactions++;
-      if (t.transactionType === 'sale') acc[name].salesQuantity += t.quantity;
-      if (t.transactionType === 'requisition') acc[name].requisitionQuantity += t.quantity;
+      const quantity = Math.abs(Number(t.quantity) || 0);
+      if (!acc[stockItemId]) {
+        acc[stockItemId] = {
+          stockItemId,
+          name,
+          category: t.StockItem?.category || 'other',
+          unit: t.StockItem?.unitOfMeasure || 'unit',
+          isMedication: t.StockItem?.isMedication || false,
+          quantity: 0,
+          transactions: 0,
+          salesQuantity: 0,
+          requisitionQuantity: 0,
+        };
+      }
+      acc[stockItemId].quantity += quantity;
+      acc[stockItemId].transactions++;
+      if (t.transactionType === 'sale') acc[stockItemId].salesQuantity += quantity;
+      if (t.transactionType === 'requisition') acc[stockItemId].requisitionQuantity += quantity;
       return acc;
     }, {} as Record<string, any>);
 
-    const results = Object.values(itemUsage).sort((a: any, b: any) => b.quantity - a.quantity).slice(0, limit);
-    return { period, startDate, summary: { totalItemsDispensed: results.length, totalQuantity: results.reduce((sum, i: any) => sum + i.quantity, 0), topItem: results[0] || null, medicationsOnly: results.filter((i: any) => i.isMedication).length }, topItems: results };
+    const allItems = Object.values(itemUsage).sort((a: any, b: any) => b.quantity - a.quantity);
+    const topItems = allItems.slice(0, safeLimit);
+    return {
+      period,
+      startDate,
+      summary: {
+        totalItemsDispensed: allItems.length,
+        totalQuantity: allItems.reduce((sum: number, item: any) => sum + item.quantity, 0),
+        topItem: topItems[0] || null,
+        medicationsOnly: allItems.filter((item: any) => item.isMedication).length,
+      },
+      topItems,
+    };
   }
 
   async getSupplierReport(supplierId?: string) {

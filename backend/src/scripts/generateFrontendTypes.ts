@@ -170,7 +170,7 @@ async function generateTypes(): Promise<void> {
   }
 
   // Generate interfaces for each model
-  for (const [modelName, modelData] of Object.entries(models)) {
+  for (const [modelName, modelData] of Object.entries(models) as Array<[string, { fields: any[] }]>) {
     console.log(`Generating interface for ${modelName} with ${modelData.fields.length} fields`);
     
     const interfaceDeclaration = sourceFile.addInterface({

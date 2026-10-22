@@ -1,6 +1,6 @@
 import { PrismaClient, Seniority, LeaveStatus, ShiftType, UserRole, AuditAction } from '@prisma/client';
 import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+import jwt, { type SignOptions } from 'jsonwebtoken';
 import { BaseService } from '../../shared/base/BaseService';
 import { UserRepository } from './UserRepository';
 import {
@@ -12,7 +12,13 @@ import {
 } from './UserTypes';
 import { AuditLogger } from '../audit/AuditLogger';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const getJwtSecret = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 characters');
+  }
+  return secret;
+};
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 const SALT_ROUNDS = 12;
 
@@ -46,9 +52,14 @@ export class UserService extends BaseService {
 
   async createUser(
     dto: CreateUserDTO,
-    actor: { userId: string; ipAddress?: string; userAgent?: string },
+    actor: { userId: string; role: string; ipAddress?: string; userAgent?: string },
   ): Promise<UserResponse> {
     this.logInfo('Creating user', { username: dto.username, role: dto.role, actor: actor.userId });
+
+    // Super-admin accounts are privileged platform-level accounts and may only be created by a super admin.
+    if (String(dto.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new Error('Only super admins can create super-admin accounts');
+    }
 
     if (!VALID_ROLES.includes(dto.role as any)) {
       throw new Error(`Invalid role: ${dto.role}`);
@@ -140,9 +151,17 @@ export class UserService extends BaseService {
     const existingUser = await this.repository.findById(userId);
     if (!existingUser) throw new Error('User not found');
 
-    // Only super_admin can assign the super_admin role
-    if (updateData.role === 'super_admin' && actor.role !== 'super_admin') {
-      throw new Error('Only super_admins can assign the super_admin role');
+    const actorRole = String(actor.role).toLowerCase();
+    const targetRole = String(existingUser.role).toLowerCase();
+
+    // Admins have normal administrator powers, but cannot manage a super-admin account.
+    if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
+      throw new Error('Only super admins can modify a super-admin account');
+    }
+
+    // Only a super admin may grant the super-admin role.
+    if (String(updateData.role || '').toLowerCase() === 'super_admin' && actorRole !== 'super_admin') {
+      throw new Error('Only super admins can assign the super-admin role');
     }
 
     // Nobody can change their own role via this endpoint — role changes
@@ -226,7 +245,7 @@ export class UserService extends BaseService {
     const existing = await this.repository.findById(userId);
     if (!existing) throw new Error('User not found');
 
-    if (existing.role === 'super_admin' && actor.role !== 'super_admin') {
+    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
       throw new Error('Only super_admins can deactivate a super_admin');
     }
 
@@ -266,12 +285,12 @@ export class UserService extends BaseService {
 
     const accessToken = jwt.sign(
       { userId: user.id, username: user.username, role: user.role, seniority: user.seniority, permissions },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN },
+      getJwtSecret(),
+      { expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'] },
     );
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
-      JWT_SECRET,
+      getJwtSecret(),
       { expiresIn: '7d' },
     );
 

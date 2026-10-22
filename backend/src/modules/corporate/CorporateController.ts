@@ -42,7 +42,7 @@ export class CorporateController extends BaseController {
     
     const result = await this.corporateService.getAccounts({ ...filters, page: pageNum, limit: limitNum });
     return this.paginated(res, result.data, { 
-      page: pageNum, limit: limitNum, total: result.total 
+      page: pageNum, limit: limitNum, total: result.pagination.total 
     }, 'Corporate accounts retrieved successfully');
   });
 

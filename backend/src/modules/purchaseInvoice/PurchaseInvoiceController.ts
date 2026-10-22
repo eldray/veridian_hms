@@ -35,7 +35,7 @@ export class PurchaseInvoiceController extends BaseController {
     const data: CreatePurchaseInvoiceDTO = {
       ...req.body,
       totalAmount: parseFloat(req.body.totalAmount),
-      invoiceItems: req.body.invoiceItems.map((i: any) => ({ ...i, quantity: parseInt(i.quantity), unitCost: parseFloat(i.unitCost) }))
+      invoiceItems: req.body.invoiceItems.map((i: any) => ({ ...i, quantity: Number(i.quantity), unitCost: Number(i.unitCost) }))
     };
     const invoice = await this.service.createInvoice(data, req.user!.id);
     return this.created(res, invoice, 'Purchase invoice created successfully');

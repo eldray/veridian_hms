@@ -23,12 +23,17 @@ export class RequisitionController extends BaseController {
     try {
       const { departmentId, wardId, supplyingDepartmentId, status, urgency, page, limit } = req.query;
 
+      const authReq = req as AuthRequest;
+      const userId = authReq.user?.id;
+      if (!userId) return this.unauthorized(res, 'User not authenticated');
+
       const params = {
         departmentId: departmentId as string | undefined,
         wardId: wardId as string | undefined,
         supplyingDepartmentId: supplyingDepartmentId as string | undefined,
         status: status as string | undefined,
         urgency: urgency as string | undefined,
+        authenticatedUserId: userId,
         page: page ? parseInt(page as string) : 1,
         limit: limit ? parseInt(limit as string) : 50
       };
@@ -45,9 +50,17 @@ export class RequisitionController extends BaseController {
   lookupStock = async (req: Request, res: Response) => {
     try {
       const { supplierDepartmentId, requesterDepartmentId, q, limit, inStockOnly } = req.query;
+      const authReq = req as AuthRequest;
+      const isAdmin = ['admin', 'super_admin'].includes(String(authReq.user?.role || '').toLowerCase());
+      // A caller must not be able to probe another department's stock by changing
+      // requesterDepartmentId in the query string. Administrators may inspect a
+      // selected requester department; other users are always scoped to their own.
+      const scopedRequesterDepartmentId = isAdmin
+        ? requesterDepartmentId as string | undefined
+        : authReq.user?.departmentId;
       const items = await this.service.lookupStock({
         supplierDepartmentId: supplierDepartmentId as string,
-        requesterDepartmentId: requesterDepartmentId as string | undefined,
+        requesterDepartmentId: scopedRequesterDepartmentId,
         q: q as string | undefined,
         limit: limit ? parseInt(limit as string) : 25,
         inStockOnly: inStockOnly === 'true'
@@ -62,7 +75,7 @@ export class RequisitionController extends BaseController {
   getRequisitionById = async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const requisition = await this.service.getRequisitionById(id);
+      const requisition = await this.service.getRequisitionById(id, (req as AuthRequest).user?.id);
       return this.ok(res, requisition, 'Requisition fetched successfully');
     } catch (error: any) {
       return this.error(res, error);
@@ -116,7 +129,7 @@ export class RequisitionController extends BaseController {
   deleteRequisition = async (req: AuthRequest, res: Response) => {
     try {
       const { id } = req.params;
-      await this.service.deleteRequisition(id);
+      await this.service.deleteRequisition(id, req.user?.id);
       return this.ok(res, null, 'Requisition deleted successfully');
     } catch (error: any) {
       return this.error(res, error);

@@ -128,7 +128,7 @@ export const createAntenatalBooking = async (data: AntenatalBookingData) => {
 
 // Close a booking
 export const closeAntenatalBooking = async (bookingId: string, data: { deliveryDate?: string; deliveryOutcome?: string; deliveryRecordId?: string }) => {
-  const response = await api.put(`/antenatal/${bookingId}`, data);
+  const response = await api.post(`/antenatal/${bookingId}/close`, data);
   return response.data?.data || response.data;
 };
 

@@ -37,7 +37,7 @@ export class ClaimBatchController extends BaseController {
     return this.paginated(
       res,
       result.data,
-      { page: result.page, limit: result.limit, total: result.total },
+      { page: result.pagination.page, limit: result.pagination.limit, total: result.pagination.total },
       'Claim batches retrieved',
     );
   });

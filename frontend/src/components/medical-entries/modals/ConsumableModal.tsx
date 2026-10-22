@@ -3,6 +3,14 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Search, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { recordEncounterConsumableUse, updateEncounterConsumableUse } from '../../../api';
 import { useToast } from '../../../store/toastStore';
+import { useAuthStore } from '../../../store/authStore';
+
+// Match backend batch rules: a lot remains usable through its expiry calendar day (UTC).
+const startOfUtcDayTimestamp = (): number => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today.getTime();
+};
 
 interface ConsumableModalProps {
   isOpen: boolean;
@@ -39,6 +47,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { success, error } = useToast();
+  const { user } = useAuthStore();
 
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const debouncedSearch = useDebounced(search, 150);
@@ -69,26 +78,92 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   // Memoised filter — only recomputes when stockItems or the debounced query change
   const consumables = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
-    if (!q) return [];
-    return stockItems.filter(item => {
-      if (!item.isActive || item.isMedication) return false;
-      return (
-        item.name?.toLowerCase().includes(q) ||
-        item.drugCode?.toLowerCase().includes(q) ||
-        item.category?.toLowerCase().includes(q)
-      );
-    });
+    return stockItems
+      .filter(item => {
+        if (!item.isActive || item.isMedication) return false;
+        return !q || (
+          item.name?.toLowerCase().includes(q) ||
+          item.drugCode?.toLowerCase().includes(q) ||
+          item.category?.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   }, [stockItems, debouncedSearch]);
+
+  const visibleConsumables = useMemo(
+    () => consumables.slice(0, debouncedSearch.trim() ? 12 : 8),
+    [consumables, debouncedSearch],
+  );
 
   const selected = stockItems.find(item => item.id === selectedId) || null;
 
-  // Available stock + any already-held quantity when editing
-  const maxQuantity = selected
-    ? selected.currentStock + (existingUse?.stockItemId === selected.id ? existingUse.quantity : 0)
-    : 0;
+  // StockItem.currentStock is the hospital-wide total. Consumable use is issued
+  // from the logged-in user's department, so use that department's canonical balance.
+  const getDepartmentAvailable = (item: any) => {
+    if (!item || !user?.departmentId) return 0;
+    if (!Array.isArray(item.stockBalances)) return 0;
+    const balance = item.stockBalances.find(
+      (entry: any) => entry.departmentId === user.departmentId && !entry.wardId,
+    );
+    const departmentBalance = Math.max(0, Number(balance?.quantity) || 0);
 
-  const showDropdown = !!search && !selectedId;
-  const isOutOfStock = !!selected && selected.currentStock === 0;
+    // When the API returns batches for this department, only count usable FEFO
+    // stock. The backend rejects expired/inactive batches, so the picker should
+    // not present those units as available.
+    if (Array.isArray(item.StockBatch) && item.StockBatch.length > 0) {
+      const todayStart = startOfUtcDayTimestamp();
+      const usableBatchQuantity = item.StockBatch.reduce((sum: number, batch: any) => {
+        // Only lots held by this issuing department (not ward stock or another department)
+        // may contribute to the quantity shown in this picker.
+        if (batch.departmentId !== user.departmentId || batch.wardId) return sum;
+        const expiry = batch.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
+        if (batch.isActive !== true || !Number.isFinite(expiry) || expiry < todayStart) return sum;
+        return sum + Math.max(0, Number(batch.quantity) || 0);
+      }, 0);
+      return Math.min(departmentBalance, usableBatchQuantity);
+    }
+
+    return departmentBalance;
+  };
+
+  const selectedAvailable = selected ? getDepartmentAvailable(selected) : 0;
+  // When editing a use from this same department, allow its quantity to be restored
+  // before the replacement quantity is deducted.
+  const canRestoreExistingUse =
+    !!selected &&
+    existingUse?.stockItemId === selected.id &&
+    existingUse?.departmentId === user?.departmentId;
+
+  // A previously consumed batch can only contribute to the edit limit if that
+  // exact batch is still active and unexpired. Otherwise the backend cannot
+  // legally re-issue its quantity after restoring it.
+  const existingUseHasUsableBatches = (() => {
+    const allocations = existingUse?.batchAllocations;
+    if (!Array.isArray(allocations) || allocations.length === 0) {
+      return Array.isArray(selected?.StockBatch) && selected.StockBatch.length === 0;
+    }
+    const batches = Array.isArray(selected?.StockBatch) ? selected.StockBatch : [];
+    const todayStart = startOfUtcDayTimestamp();
+    return allocations.every((allocation: any) => {
+      const batch = batches.find((candidate: any) => candidate.id === allocation.batchId);
+      const expiry = batch?.expiryDate ? new Date(batch.expiryDate).getTime() : 0;
+      return !!batch &&
+        batch.departmentId === existingUse?.departmentId &&
+        !batch.wardId &&
+        batch.isActive === true &&
+        Number.isFinite(expiry) &&
+        expiry >= todayStart;
+    });
+  })();
+
+  const restorableQuantity =
+    canRestoreExistingUse && existingUseHasUsableBatches
+      ? Number(existingUse.quantity) || 0
+      : 0;
+  const maxQuantity = selected ? selectedAvailable + restorableQuantity : 0;
+
+  const showDropdown = !selectedId;
+  const isOutOfStock = !!selected && maxQuantity <= 0;
   const isOverMax = !!selected && quantity > maxQuantity;
 
   const handleSelect = (item: any) => {
@@ -193,44 +268,60 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
             </div>
 
             {showDropdown && (
-              <div
-                className="mt-1 max-h-48 overflow-y-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-sm"
-                style={{ scrollbarWidth: 'thin' }}
-              >
-                {consumables.length ? (
-                  consumables.map(item => {
-                    const out = item.currentStock === 0;
-                    return (
-                      <button
-                        type="button"
-                        key={item.id}
-                        onClick={() => handleSelect(item)}
-                        disabled={out}
-                        className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs transition-colors border-b border-[var(--border-color)] last:border-b-0 ${
-                          out ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[var(--bg-main)]'
-                        }`}
-                      >
-                        <div className="min-w-0">
-                          <p className="font-medium text-[var(--text-primary)] truncate">{item.name}</p>
-                          {(item.drugCode || item.category) && (
-                            <p className="text-[10px] text-[var(--text-tertiary)] truncate">
-                              {[item.drugCode, item.category].filter(Boolean).join(' · ')}
-                            </p>
-                          )}
-                        </div>
-                        <span className={`text-[11px] font-semibold shrink-0 ${
-                          out ? 'text-[var(--icon-red-text)]'
-                              : item.currentStock < (item.reorderLevel || 0) ? 'text-[var(--icon-yellow-text)]'
-                              : 'text-[var(--icon-green-text)]'
-                        }`}>
-                          {item.currentStock} {item.unitOfMeasure || 'avail.'}
-                        </span>
-                      </button>
-                    );
-                  })
-                ) : (
-                  <p className="px-3 py-3 text-xs text-[var(--text-tertiary)] text-center">
-                    No active consumables match "{debouncedSearch}".
+              <div className="mt-2 overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
+                <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                    {debouncedSearch.trim() ? 'Search results' : 'Available consumables'}
+                  </span>
+                  <span className="text-[10px] text-[var(--text-tertiary)]">
+                    {debouncedSearch.trim() ? consumables.length : `Showing ${visibleConsumables.length} of ${consumables.length}`}
+                  </span>
+                </div>
+                <div className="max-h-64 overflow-y-auto p-1.5" style={{ scrollbarWidth: 'thin' }}>
+                  {visibleConsumables.length ? (
+                    visibleConsumables.map(item => {
+                      const available = getDepartmentAvailable(item);
+                      const out = available <= 0;
+                      const low = !out && available < (Number(item.reorderLevel) || 0);
+                      return (
+                        <button
+                          type="button"
+                          key={item.id}
+                          onClick={() => handleSelect(item)}
+                          disabled={out || !canAdd}
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
+                            out ? 'cursor-not-allowed opacity-50' : 'hover:bg-[var(--bg-main)]'
+                          }`}
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                            <Package className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-[var(--text-primary)]">{item.name}</span>
+                            <span className="mt-0.5 block truncate text-[10px] text-[var(--text-tertiary)]">
+                              {[item.drugCode, item.category].filter(Boolean).join(' · ') || 'General consumable'}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-right">
+                            <span className={`block text-xs font-bold ${out ? 'text-[var(--icon-red-text)]' : low ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-green-text)]'}`}>
+                              {available}
+                            </span>
+                            <span className="block text-[9px] text-[var(--text-tertiary)]">{item.unitOfMeasure || 'units'} in stock</span>
+                          </span>
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <div className="px-4 py-7 text-center">
+                      <Package className="mx-auto mb-2 h-6 w-6 text-[var(--text-tertiary)] opacity-50" />
+                      <p className="text-xs font-semibold text-[var(--text-primary)]">No matching consumables</p>
+                      <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Try a different name, item code, or category.</p>
+                    </div>
+                  )}
+                </div>
+                {!debouncedSearch.trim() && consumables.length > visibleConsumables.length && (
+                  <p className="border-t border-[var(--border-color)] px-3 py-2 text-[10px] text-[var(--text-tertiary)]">
+                    Type in the search box to find other items.
                   </p>
                 )}
               </div>
@@ -248,9 +339,9 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
                 <div className="min-w-0">
                   <p className="text-xs font-semibold text-[var(--text-primary)] truncate">{selected.name}</p>
                   <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">
-                    Available: {selected.currentStock} {selected.unitOfMeasure || 'unit(s)'}
-                    {existingUse?.stockItemId === selected.id && maxQuantity !== selected.currentStock
-                      ? ` · up to ${maxQuantity} including this use`
+                    Available in your department: {selectedAvailable} {selected.unitOfMeasure || 'unit(s)'}
+                    {existingUse?.stockItemId === selected.id && maxQuantity !== selectedAvailable
+                      ? ` · up to ${maxQuantity} after restoring this use`
                       : ''}
                   </p>
                 </div>

@@ -9,6 +9,7 @@ import {
 import { formatPrescription } from './helpers/PrescriptionFormatter';
 
 type Tx = Prisma.TransactionClient;
+type ClaimItemDraft = Omit<Prisma.InsuranceClaimItemCreateWithoutClaimInput, 'itemNumber' | 'unitPrice' | 'lineTotal'>;
 
 /**
  * Builds InsuranceClaimItem rows for a NHIS claim.
@@ -93,7 +94,7 @@ export async function buildNHISClaimItems(
   let total = new Prisma.Decimal(0);
 
   const push = (
-    item: Omit<Prisma.InsuranceClaimItemCreateWithoutClaimInput, 'itemNumber'>,
+    item: ClaimItemDraft,
     amount: Prisma.Decimal | number,
   ) => {
     seq += 1;
@@ -123,8 +124,8 @@ export async function buildNHISClaimItems(
 
     push(
       {
-        diagnosisId: diag.diagnosisId,
-        gdrgTariffId,
+        diagnosis: { connect: { id: diag.diagnosisId } },
+        gdrgTariff: { connect: { id: gdrgTariffId } },
         itemCategory: 'diagnosis',
         itemType: 'D',
         code: diag.Diagnosis?.icdCode ?? '',
@@ -143,8 +144,8 @@ export async function buildNHISClaimItems(
   for (const lab of att.LabTest) {
     push(
       {
-        labTestId: lab.id,
-        serviceCatalogId: lab.serviceCatalogId ?? undefined,
+        labTest: { connect: { id: lab.id } },
+        serviceCatalog: lab.serviceCatalogId ? { connect: { id: lab.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
         code: lab.LabTestTemplate?.investigationCode ?? lab.ServiceCatalog?.code ?? '',
@@ -160,8 +161,8 @@ export async function buildNHISClaimItems(
   for (const scan of att.Scan) {
     push(
       {
-        scanId: scan.id,
-        serviceCatalogId: scan.serviceCatalogId ?? undefined,
+        scan: { connect: { id: scan.id } },
+        serviceCatalog: scan.serviceCatalogId ? { connect: { id: scan.serviceCatalogId } } : undefined,
         itemCategory: 'investigation',
         itemType: 'N',
         code: scan.ScanTemplate?.investigationCode ?? scan.ServiceCatalog?.code ?? '',
@@ -179,8 +180,8 @@ export async function buildNHISClaimItems(
   for (const proc of att.Procedure) {
     push(
       {
-        procedureId: proc.id,
-        serviceCatalogId: proc.serviceCatalogId ?? undefined,
+        procedure: { connect: { id: proc.id } },
+        serviceCatalog: proc.serviceCatalogId ? { connect: { id: proc.serviceCatalogId } } : undefined,
         itemCategory: 'procedure',
         itemType: 'N',
         code: proc.ProcedureTemplate?.procedureCode ?? proc.ServiceCatalog?.code ?? '',
@@ -199,8 +200,8 @@ export async function buildNHISClaimItems(
     const code = med.StockItem?.drugCode ?? med.ServiceCatalog?.code ?? '';
     push(
       {
-        medicationId: med.id,
-        serviceCatalogId: med.serviceCatalogId ?? undefined,
+        medication: { connect: { id: med.id } },
+        serviceCatalog: med.serviceCatalogId ? { connect: { id: med.serviceCatalogId } } : undefined,
         itemCategory: 'medicine',
         itemType: 'N',
         code,
@@ -223,7 +224,7 @@ export async function buildNHISClaimItems(
   for (const svc of att.ServiceRendered) {
     push(
       {
-        serviceCatalogId: svc.serviceItemId,
+        serviceCatalog: { connect: { id: svc.serviceItemId } },
         itemCategory: 'service',
         itemType: 'A',
         code: svc.ServiceCatalog?.nhisServiceCode ?? svc.ServiceCatalog?.code ?? '',
@@ -240,7 +241,7 @@ export async function buildNHISClaimItems(
   // 6. GDRG line (the principal tariff line — carries the NHIS tariff value)
   push(
     {
-      gdrgTariffId: principalTariff.id,
+      gdrgTariff: { connect: { id: principalTariff.id } },
       itemCategory: 'gdrg',
       itemType: 'G',
       code: principalGDRG,
@@ -297,8 +298,8 @@ export async function buildBillClaimItems(
     total = total.plus(line.lineTotal);
     items.push({
       itemNumber: seq,
-      billLineItemId: line.id,
-      serviceCatalogId: line.serviceCatalogId ?? undefined,
+      billLineItem: { connect: { id: line.id } },
+      serviceCatalog: line.serviceCatalogId ? { connect: { id: line.serviceCatalogId } } : undefined,
       itemCategory: mapBillServiceType(line.serviceType),
       itemType: null,
       code: line.serviceCatalog?.code ?? '',

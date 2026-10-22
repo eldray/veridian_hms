@@ -235,7 +235,7 @@ export class LabTestRepository extends BaseRepository<any, any, any> {
       'cardiology', 'gastroenterology', 'endocrinology', 'toxicology'
     ];
 
-    const existingCategories = categories.map(c => c.subType).filter(Boolean) as string[];
+    const existingCategories = categories.map((c: any) => c.subType).filter(Boolean) as string[];
     return existingCategories.length > 0 ? existingCategories : defaultCategories;
   }
 

@@ -103,12 +103,12 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     ]);
 
     const allServices = await this.getModel().findMany({ where, select: { cypFactor: true } });
-    const cyp = allServices.reduce((sum, s) => sum + (s.cypFactor || 0), 0);
+    const cyp = allServices.reduce((sum: number, s: any) => sum + (s.cypFactor || 0), 0);
 
     return {
       totalServices, newAcceptors, currentUsers: totalServices - newAcceptors, 
-      methodMix: methodMix.reduce((acc, m) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
-      categoryMix: categoryMix.reduce((acc, c) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
+      methodMix: methodMix.reduce((acc: Record<string, number>, m: any) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
+      categoryMix: categoryMix.reduce((acc: Record<string, number>, c: any) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
       cyp: Math.round(cyp * 100) / 100,
     };
   }
@@ -122,9 +122,9 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     }
 
     const methodMix = await this.getModel().groupBy({ by: ['method', 'methodCategory'], where, _count: true });
-    const total = methodMix.reduce((sum, m) => sum + m._count, 0);
+    const total = methodMix.reduce((sum: number, m: any) => sum + m._count, 0);
 
-    return methodMix.map(m => ({
+    return methodMix.map((m: any) => ({
       method: m.method, category: m.methodCategory, count: m._count,
       percentage: total > 0 ? Math.round((m._count / total) * 10000) / 100 : 0,
     }));
@@ -175,8 +175,8 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     return {
       period: { startDate, endDate },
       summary: { totalServices, newAcceptors, postpartumFP, postAbortionFP },
-      methodMix: methodMix.reduce((acc, m) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
-      categoryMix: categoryMix.reduce((acc, c) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
+      methodMix: methodMix.reduce((acc: Record<string, number>, m: any) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
+      categoryMix: categoryMix.reduce((acc: Record<string, number>, c: any) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
     };
   }
 

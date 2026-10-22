@@ -234,7 +234,7 @@ export interface RunPayrollDTO {
 // ==========================================
 
 export const VALID_ROLES = [
-  'admin', 'hr_officer', 'doctor', 'nurse', 'midwife',
+  'super_admin', 'admin', 'hr_officer', 'doctor', 'nurse', 'midwife',
   'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer',
 ] as const;
 

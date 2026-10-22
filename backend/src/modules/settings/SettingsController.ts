@@ -23,10 +23,10 @@ export const getHospitalDetails = async (req: Request, res: Response) => {
     if (!hospital) {
       return res.status(404).json({ success: false, message: 'Hospital not configured' });
     }
-    res.json({ success: true, data: hospital });
+    return res.json({ success: true, data: hospital });
   } catch (error) {
     console.error('Get hospital details error:', error);
-    res.status(500).json({ success: false, message: 'Server error fetching hospital details' });
+    return res.status(500).json({ success: false, message: 'Server error fetching hospital details' });
   }
 };
 
@@ -41,10 +41,10 @@ export const updateHospitalDetails = async (req: Request, res: Response) => {
     const hospital = await settingsService.updateHospitalDetails({
       name, address, phone, email, imageUrl,
     });
-    res.json({ success: true, data: hospital });
+    return res.json({ success: true, data: hospital });
   } catch (error) {
     console.error('Update hospital details error:', error);
-    res.status(500).json({ success: false, message: 'Server error updating hospital details' });
+    return res.status(500).json({ success: false, message: 'Server error updating hospital details' });
   }
 };
 
@@ -62,7 +62,7 @@ export const getNHISApiStatus = async (req: Request, res: Response) => {
     const now = new Date();
     const tokenValid = hasValidNHISToken();
 
-    res.json({
+    return res.json({
       success: true,
       data: {
         configured: !!(hospital.nhisApiBaseUrl && hospital.nhisApiClientId),
@@ -92,7 +92,7 @@ export const getNHISApiStatus = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get NHIS API status error:', error);
-    res.status(500).json({ success: false, message: 'Server error fetching NHIS API status' });
+    return res.status(500).json({ success: false, message: 'Server error fetching NHIS API status' });
   }
 };
 
@@ -139,7 +139,7 @@ export const updateNHISApiConfig = async (req: Request, res: Response) => {
       nhisContactEmail,
     });
 
-    res.json({
+    return res.json({
       success: true,
       message: 'NHIS API configuration updated successfully',
       data: updated,
@@ -149,17 +149,17 @@ export const updateNHISApiConfig = async (req: Request, res: Response) => {
     if (error.message === 'Hospital configuration not found') {
       return res.status(404).json({ success: false, message: error.message });
     }
-    res.status(500).json({ success: false, message: 'Server error updating NHIS API configuration' });
+    return res.status(500).json({ success: false, message: 'Server error updating NHIS API configuration' });
   }
 };
 
 export const testNHISConnection = async (req: Request, res: Response) => {
   try {
     const result = await nhisEligibilityService.testNHISApiConnection();
-    res.status(result.success ? 200 : 400).json({ success: result.success, message: result.message });
+    return res.status(result.success ? 200 : 400).json({ success: result.success, message: result.message });
   } catch (error: any) {
     console.error('Test NHIS connection error:', error);
-    res.status(500).json({ success: false, message: 'Server error testing NHIS connection' });
+    return res.status(500).json({ success: false, message: 'Server error testing NHIS connection' });
   }
 };
 
@@ -176,10 +176,10 @@ export const verifyNHISEligibility = async (req: Request, res: Response) => {
 
     const { policyNumber } = req.body;
     const result = await nhisEligibilityService.verifyNHISEligibility(policyNumber);
-    res.status(result.success ? 200 : 400).json(result);
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {
     console.error('Verify NHIS eligibility error:', error);
-    res.status(500).json({ success: false, message: 'Server error verifying NHIS eligibility' });
+    return res.status(500).json({ success: false, message: 'Server error verifying NHIS eligibility' });
   }
 };
 
@@ -200,10 +200,10 @@ export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => 
     }
 
     const result = await nhisEligibilityService.bulkVerifyNHISEligibility(policyNumbers);
-    res.json(result);
+    return res.json(result);
   } catch (error: any) {
     console.error('Bulk verify NHIS eligibility error:', error);
-    res.status(500).json({ success: false, message: 'Server error bulk verifying NHIS eligibility' });
+    return res.status(500).json({ success: false, message: 'Server error bulk verifying NHIS eligibility' });
   }
 };
 
@@ -220,9 +220,9 @@ export const generateCCC = async (req: Request, res: Response) => {
       encounterId,
       parseFloat(totalAmount.toString())
     );
-    res.status(result.success ? 200 : 400).json(result);
+    return res.status(result.success ? 200 : 400).json(result);
   } catch (error: any) {
     console.error('Generate CCC error:', error);
-    res.status(500).json({ success: false, message: 'Server error generating CCC' });
+    return res.status(500).json({ success: false, message: 'Server error generating CCC' });
   }
 };

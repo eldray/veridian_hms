@@ -39,7 +39,7 @@ export class RequisitionService extends BaseService {
     if (!userId) throw new ValidationError('User not authenticated');
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, departmentId: true } });
     if (!user) throw new ValidationError('User not found');
-    if (user.role === 'admin') return;
+    if (['admin', 'super_admin'].includes(String(user.role).toLowerCase())) return;
 
     const isRequester = requisition.requestedById === userId || (!!user.departmentId && user.departmentId === requisition.requestingDepartmentId);
     const isSupplier = !!requisition.supplyingDepartmentId && user.departmentId === requisition.supplyingDepartmentId;
@@ -66,10 +66,25 @@ export class RequisitionService extends BaseService {
     };
   }
 
-  async getRequisitionById(id: string) {
+  async getRequisitionById(id: string, userId: string | undefined) {
     this.logDebug('Fetching requisition by ID', { id });
     const requisition: any = await this.repository.findById(id);
     if (!requisition) throw new Error('Requisition not found');
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, departmentId: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    const isAdmin = ['admin', 'super_admin'].includes(String(user.role || '').toLowerCase());
+    const isRequester = requisition.requestedById === userId;
+    const isDepartmentParticipant = !!user.departmentId &&
+      (user.departmentId === requisition.requestingDepartmentId ||
+       user.departmentId === requisition.supplyingDepartmentId);
+    if (!isAdmin && !isRequester && !isDepartmentParticipant) {
+      throw new ValidationError('You are not authorized to view this requisition');
+    }
 
     // Show the supplier's (and requester's) CURRENT quantities next to each requested line
     const ids = (requisition.RequisitionItem || []).map((i: any) => i.stockItemId);
@@ -91,7 +106,7 @@ export class RequisitionService extends BaseService {
 
     // The requester is the user's OWN department (or a ward they pick). Admins may choose any department.
     const user = await this.prisma.user.findUnique({ where: { id: userId }, select: { departmentId: true, role: true } });
-    const isAdmin = user?.role === 'admin';
+    const isAdmin = ['admin', 'super_admin'].includes(String(user?.role || '').toLowerCase());
 
     if (!data.requestingWardId) {
       if (!isAdmin || !data.requestingDepartmentId) data.requestingDepartmentId = user?.departmentId || data.requestingDepartmentId;
@@ -143,7 +158,15 @@ export class RequisitionService extends BaseService {
     const existingRequisition = await this.repository.findById(id);
     if (!existingRequisition) throw new Error('Requisition not found');
 
-    // ✅ FIXED: Enforce State Machine
+    // Approval must go through approveRequisitionItems so every line is
+    // explicitly approved and checked against the supplying department's stock.
+    // The generic status endpoint must not bypass that audited workflow.
+    if (data.status === 'approved') {
+      throw new ValidationError('Use the item-approval workflow to approve a requisition');
+    }
+
+    // Enforce the state machine; repository update uses this observed status as
+    // an atomic compare-and-set guard against concurrent transitions.
     const currentStatus = existingRequisition.status;
     const allowedNextStatuses = VALID_TRANSITIONS[currentStatus] || [];
 
@@ -152,18 +175,28 @@ export class RequisitionService extends BaseService {
     }
 
     await this.assertCanAct(existingRequisition, userId, data.status as any);
-    const requisition = await this.repository.updateStatus(id, data.status, userId, data.notes);
+    const requisition = await this.repository.updateStatus(id, data.status, userId, data.notes, currentStatus);
     this.logInfo('Requisition status updated', { id, status: requisition.status });
     return requisition;
   }
 
-  async deleteRequisition(id: string) {
+  async deleteRequisition(id: string, userId: string | undefined) {
     this.logInfo('Deleting requisition', { id });
     const existingRequisition = await this.repository.findById(id);
     if (!existingRequisition) throw new Error('Requisition not found');
 
     if (existingRequisition.status !== 'draft') {
       throw new Error('Only draft requisitions can be deleted');
+    }
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    if (!['admin', 'super_admin'].includes(String(user.role).toLowerCase()) && existingRequisition.requestedById !== userId) {
+      throw new ValidationError('Only the original requester or an administrator can delete a draft requisition');
     }
 
     await this.repository.delete(id);
@@ -174,17 +207,44 @@ export class RequisitionService extends BaseService {
     this.logInfo('Approving requisition items', { id, itemCount: data.approvedItems.length });
     if (!data.approvedItems || data.approvedItems.length === 0) throw new Error('At least one approved item is required');
 
+    const seenItems = new Set<string>();
     for (const a of data.approvedItems) {
-      if (!Number.isInteger(a.quantityApproved) || a.quantityApproved < 0) throw new ValidationError('Approved quantities must be whole numbers (0 or more)');
+      if (!a.requisitionItemId || seenItems.has(a.requisitionItemId)) throw new ValidationError('Each requisition line must be included only once');
+      seenItems.add(a.requisitionItemId);
+      if (!Number.isSafeInteger(a.quantityApproved) || a.quantityApproved < 0) throw new ValidationError('Approved quantities must be whole numbers (0 or more)');
     }
     const existing: any = await this.repository.findById(id);
-    if (existing) await this.assertCanAct(existing, userId, 'approved');
+    if (!existing) throw new ValidationError('Requisition not found');
+    if (existing.status !== 'submitted') throw new ValidationError('Only submitted requisitions can be approved');
+    const linesById = new Map((existing.RequisitionItem || []).map((line: any) => [line.id, line]));
+    if (data.approvedItems.length !== linesById.size) throw new ValidationError('Submit an approval quantity for every requisition line. Use 0 for items not approved.');
+    for (const a of data.approvedItems) {
+      const line: any = linesById.get(a.requisitionItemId);
+      if (!line) throw new ValidationError('An approved item does not belong to this requisition');
+      if (a.quantityApproved > line.quantityRequested) throw new ValidationError(`Approved quantity cannot exceed requested quantity for ${line.StockItem?.name || 'item'}`);
+    }
+    await this.assertCanAct(existing, userId, 'approved');
     if (existing?.supplyingDepartmentId) {
-      const qty = await this.repository.getDepartmentQuantities(existing.supplyingDepartmentId, existing.RequisitionItem.map((i: any) => i.stockItemId));
+      const itemIds = existing.RequisitionItem.map((i: any) => i.stockItemId);
+      const qty = await this.repository.getDepartmentQuantities(existing.supplyingDepartmentId, itemIds);
       for (const a of data.approvedItems) {
         const line = existing.RequisitionItem.find((i: any) => i.id === a.requisitionItemId);
-        if (line && a.quantityApproved > (qty.get(line.stockItemId) ?? 0)) {
-          throw new ValidationError(`Cannot approve ${a.quantityApproved} of ${line.StockItem?.name}: ${existing.supplyingDepartment?.name || 'the supplier'} only has ${qty.get(line.stockItemId) ?? 0}`);
+        if (!line || a.quantityApproved === 0) continue;
+        let available = qty.get(line.stockItemId);
+        if (available === undefined) {
+          const batchCount = await this.prisma.stockBatch.count({ where: { stockItemId: line.stockItemId } });
+          if (batchCount === 0) {
+            const balance = await this.prisma.stockItemDepartmentBalance.findUnique({
+              where: { stockItemId_locationKey: { stockItemId: line.stockItemId, locationKey: existing.supplyingDepartmentId } },
+              select: { quantity: true },
+            });
+            available = balance?.quantity ?? 0;
+          } else {
+            available = 0;
+          }
+        }
+        if (a.quantityApproved > available) {
+          throw new ValidationError(`Cannot approve ${a.quantityApproved} of ${line.StockItem?.name}: ${existing.supplyingDepartment?.name || 'the supplier'} only has ${available}`);
         }
       }
     }
@@ -210,6 +270,16 @@ export class RequisitionService extends BaseService {
 
     if (existingRequisition.status !== 'draft') {
       throw new Error('Only draft requisitions can be updated');
+    }
+
+    if (!userId) throw new ValidationError('User not authenticated');
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new ValidationError('User not found');
+    if (!['admin', 'super_admin'].includes(String(user.role).toLowerCase()) && existingRequisition.requestedById !== userId) {
+      throw new ValidationError('Only the original requester or an administrator can update a draft requisition');
     }
 
     const requisition = await this.repository.update(id, data, existingRequisition);

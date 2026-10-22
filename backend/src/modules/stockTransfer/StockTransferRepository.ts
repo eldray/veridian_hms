@@ -2,6 +2,12 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { TransferQueryParams } from './StockTransferTypes';
 
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+};
+
 export class StockTransferRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'stockTransfer');
@@ -12,9 +18,16 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
     const where: any = {};
     if (originId) where.originId = originId;
     if (destinationId) where.destinationId = destinationId;
+    // Keep transfer history scoped to the signed-in user's department unless
+    // the controller explicitly grants an administrator cross-location view.
+    if (!filters.includeAllStockLocations) {
+      const departmentId = String(filters.departmentId || '');
+      if (!departmentId) where.id = '__NO_ACCESS__';
+      else where.OR = [{ originId: departmentId }, { destinationId: departmentId }];
+    }
     if (status) where.status = status;
 
-    return this.findManyWithPagination({
+    const result = await this.findManyWithPagination({
       where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
         origin: { select: { id: true, name: true } },
@@ -24,6 +37,26 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
         items: { include: { stockItem: { select: { id: true, name: true, drugCode: true } } } }
       }
     });
+
+    // A dispatched transfer has left the origin but has not yet entered the
+    // destination balance. Expose this explicitly so reports/UI can distinguish
+    // in-transit stock from stock available in either department. Do not add it
+    // to StockItem.currentStock: that aggregate already retains these units.
+    return {
+      ...result,
+      data: (result.data || []).map((transfer: any) => ({
+        ...transfer,
+        hasStockInTransit: transfer.status === 'dispatched' && transfer.items.some(
+          (item: any) => Number(item.quantitySent) > Number(item.quantityReceived),
+        ),
+        items: transfer.items.map((item: any) => ({
+          ...item,
+          quantityInTransit: transfer.status === 'dispatched'
+            ? Math.max(0, Number(item.quantitySent || 0) - Number(item.quantityReceived || 0))
+            : 0,
+        })),
+      })),
+    };
   }
 
   async findByIdWithDetails(id: string) {
@@ -63,8 +96,9 @@ export class StockTransferRepository extends BaseRepository<any, any, any> {
   async getBatchesByDepartment(stockItemId: string, departmentId: string, tx?: any) {
     const client = tx || this.prisma;
     return client.stockBatch.findMany({
-      where: { stockItemId, departmentId, quantity: { gt: 0 } },
-      orderBy: { expiryDate: 'asc' } // First Expiry, First Out!
+      where: { stockItemId, departmentId, wardId: null, isActive: true, quantity: { gt: 0 }, expiryDate: { gte: startOfCurrentDay() } },
+      // Deterministic FEFO: earliest expiry first, then oldest received batch.
+      orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
     });
   }
 }

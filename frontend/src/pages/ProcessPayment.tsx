@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
+import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
 export default function ProcessPayment() {
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ export default function ProcessPayment() {
 
       success(
         'Payment recorded', 
-        `$${amount.toFixed(2)} received via ${paymentMethod.replace('_', ' ')}`
+        `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
       );
       navigate('/dashboard/billing');
     } catch (error: any) {
@@ -244,7 +245,7 @@ export default function ProcessPayment() {
                   <DollarSign className="w-4 h-4 text-green-600" />
                   <span className="text-xs font-semibold text-green-800">TOTAL AMOUNT</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">${bill.totalAmount?.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(bill.totalAmount)}</p>
               </div>
               
               <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
@@ -252,7 +253,7 @@ export default function ProcessPayment() {
                   <CheckCircle className="w-4 h-4 text-blue-600" />
                   <span className="text-xs font-semibold text-blue-800">AMOUNT PAID</span>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">${bill.paidAmount?.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-blue-600">{formatCurrency(bill.paidAmount)}</p>
               </div>
               
               <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 border border-red-200">
@@ -260,7 +261,7 @@ export default function ProcessPayment() {
                   <DollarSign className="w-4 h-4 text-red-600" />
                   <span className="text-xs font-semibold text-red-800">BALANCE DUE</span>
                 </div>
-                <p className="text-2xl font-bold text-red-600">${bill.balance?.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-red-600">{formatCurrency(bill.balance)}</p>
               </div>
             </div>
 
@@ -275,7 +276,7 @@ export default function ProcessPayment() {
                   {billingBreakdown.items?.map((item: any, index: number) => (
                     <div key={index} className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-3 border border-gray-200">
                       <span className="text-gray-700 font-medium">{item.description}</span>
-                      <span className="font-bold text-gray-900">${item.totalPrice?.toFixed(2)}</span>
+                      <span className="font-bold text-gray-900">{formatCurrency(item.totalPrice)}</span>
                     </div>
                   ))}
                 </div>
@@ -301,7 +302,7 @@ export default function ProcessPayment() {
                         <p className="text-xs text-gray-600 mt-1">Ref: {payment.reference}</p>
                       )}
                     </div>
-                    <span className="text-lg font-bold text-green-600">${payment.amount.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-green-600">{formatCurrency(payment.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -323,7 +324,7 @@ export default function ProcessPayment() {
                 Payment Amount <span className="text-red-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-base font-bold">$</span>
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs font-bold">{CURRENCY_CODE}</span>
                 <input
                   type="number"
                   step="0.01"
@@ -336,7 +337,7 @@ export default function ProcessPayment() {
                 />
               </div>
               <p className="text-xs text-gray-600 mt-2">
-                Maximum: <span className="font-bold text-red-600">${bill.balance?.toFixed(2)}</span>
+                Maximum: <span className="font-bold text-red-600">{formatCurrency(bill.balance)}</span>
               </p>
             </div>
 

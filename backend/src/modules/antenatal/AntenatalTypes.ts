@@ -23,6 +23,7 @@ export interface CreateAntenatalBookingInput {
   hivKnownPositive?: boolean;
   malePartnerInvolved?: boolean;
   itnGiven?: boolean;
+  itnGivenDate?: Date;
   ironGiven?: boolean;
   folateGiven?: boolean;
   ttDosesGiven?: number;
@@ -47,6 +48,7 @@ export interface CreateAntenatalBookingInput {
 export interface UpdateAntenatalBookingInput {
   gravida?: number;
   para?: number;
+  lmp?: Date;
   edd?: Date;
   gestationalAgeWeeks?: number;
   riskLevel?: 'low' | 'medium' | 'high';
@@ -69,6 +71,7 @@ export interface UpdateAntenatalBookingInput {
   bookingWeight?: number;
   bookingBP?: string;
   itnGiven?: boolean;
+  itnGivenDate?: Date | null;
   ironFolateGiven?: boolean;
   previousCSection?: boolean;
 }

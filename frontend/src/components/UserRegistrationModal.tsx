@@ -1,5 +1,6 @@
 // src/components/UserRegistrationModal.tsx
 import { useState } from 'react';
+import { useAuthStore } from '../store/authStore';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { X, Save, User, Mail, Phone, IdCard, Stethoscope, Shield, TrendingUp, GraduationCap } from 'lucide-react';
@@ -19,6 +20,7 @@ interface UserRegistrationModalProps {
 
 export default function UserRegistrationModal({ onClose, onSuccess }: UserRegistrationModalProps) {
   const { createUser, isLoading } = useUserStore();
+  const { user: currentUser } = useAuthStore();
   const { success, error } = useToast();
 
   const [formData, setFormData] = useState({
@@ -127,6 +129,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
               >
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
+                {currentUser?.role === 'super_admin' && <option value="super_admin">Super Admin</option>}
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>
                 <option value="midwife">Midwife</option>

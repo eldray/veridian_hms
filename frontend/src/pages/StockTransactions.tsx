@@ -204,7 +204,7 @@ export default function StockTransactions() {
         new Date(t.transactionDate).toLocaleString(),
         t.StockItem?.name || getStockItemName(t.stockItemId),
         t.transactionType,
-        t.transactionType === 'purchase' ? `+${t.quantity}` : `-${t.quantity}`,
+        t.transactionType === 'adjustment' ? `${t.adjustmentDirection === 'decrease' ? '-' : '+'}${t.quantity}` : ['purchase', 'transfer_in'].includes(t.transactionType) ? `+${t.quantity}` : `-${t.quantity}`,
         t.reference || 'N/A',
         t.balanceAfter,
         t.User 
@@ -618,7 +618,7 @@ export default function StockTransactions() {
                                 ? 'text-[var(--icon-red-text)]'
                                 : 'text-[var(--icon-yellow-text)]'
                             }`}>
-                              {config.direction === 'in' ? '+' : config.direction === 'out' ? '-' : '±'}
+                              {transaction.transactionType === 'adjustment' ? (transaction.adjustmentDirection === 'decrease' ? '-' : '+') : config.direction === 'in' ? '+' : config.direction === 'out' ? '-' : '±'}
                               {transaction.quantity}
                             </span>
                             <span className="text-xs text-[var(--text-tertiary)]">{unit}</span>
