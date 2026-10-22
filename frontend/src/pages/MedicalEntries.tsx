@@ -590,6 +590,7 @@ export default function MedicalEntries() {
   const [odq, setOdq] = useState('');
   const [physicalExam, setPhysicalExam] = useState('');
   const [treatmentPlan, setTreatmentPlan] = useState('');
+  // Keep the unsaved progress-note draft separate from the persistent treatment plan.
   const [treatmentNoteDraft, setTreatmentNoteDraft] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [treatmentNotes, setTreatmentNotes] = useState<{ author: string; date: string; text: string }[]>([]);
@@ -688,6 +689,8 @@ export default function MedicalEntries() {
   // Load encounter clinical notes once per selected attendance. This used to be duplicated,
   // causing two identical requests and competing state updates whenever staff changed visits.
   useEffect(() => {
+    // Discard any unsaved progress-note text when changing visits.
+    setTreatmentNoteDraft('');
     if (!selectedAttendanceId) return;
     let active = true;
     getAttendance(selectedAttendanceId)
@@ -702,7 +705,8 @@ export default function MedicalEntries() {
         setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
         setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
-        setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+        const followUp = (att as any).followUpDate ? new Date((att as any).followUpDate) : null;
+        setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
         setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
         setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
@@ -731,7 +735,7 @@ export default function MedicalEntries() {
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
     setPhysicalExam(''); setTreatmentPlan(''); setTreatmentNoteDraft(''); setFollowUpDate('');
-    setTreatmentNotes([]); setPhysicianNotes([]); // ← add these
+    setTreatmentNotes([]); setPhysicianNotes([]);
     setPhysicianNoteText('');
   };
 
@@ -781,7 +785,7 @@ export default function MedicalEntries() {
         updatedById: user?.id,
       });
       setTreatmentNotes(updatedNotes);
-      setTreatmentNoteDraft(''); // Clear only the note composer; preserve the treatment plan.
+      setTreatmentNoteDraft(''); // clear only the unsaved note draft; preserve the treatment plan
       success('Saved', 'Treatment note added');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) {
