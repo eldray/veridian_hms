@@ -498,19 +498,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addLabTest: async (attendanceId, { serviceCatalogId, templateId, priority, notes }) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add lab test to non-pending attendance');
     }
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddLabTest(attendanceId, { serviceCatalogId, templateId, priority, notes });
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiAddLabTest(attendanceId, { serviceCatalogId, templateId, priority, notes });
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Lab order was saved, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding lab test:', error);
@@ -522,12 +522,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateLabTestStatus: async (attendanceId, labTestId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiUpdateLabTestStatus(attendanceId, labTestId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiUpdateLabTestStatus(attendanceId, labTestId, data);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Lab result was updated, but the visit could not be refreshed');
     } catch (error: any) {
       console.error('Error updating lab test status:', error);
       set({ error: error.message || 'Failed to update lab test status', isLoading: false });
@@ -538,12 +536,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   removeLabTest: async (attendanceId, labTestId) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiRemoveLabTest(attendanceId, labTestId);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiRemoveLabTest(attendanceId, labTestId);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Lab order was removed, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing lab test:', error);
@@ -557,19 +553,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addProcedure: async (attendanceId, { serviceCatalogId, scheduledDate, notes }) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add procedure to non-pending attendance');
     }
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddProcedure(attendanceId, { serviceCatalogId, scheduledDate, notes });
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiAddProcedure(attendanceId, { serviceCatalogId, scheduledDate, notes });
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Procedure was saved, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding procedure:', error);
@@ -581,12 +577,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateProcedureStatus: async (attendanceId, procedureId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiUpdateProcedureStatus(attendanceId, procedureId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiUpdateProcedureStatus(attendanceId, procedureId, data);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Procedure status was updated, but the visit could not be refreshed');
     } catch (error: any) {
       console.error('Error updating procedure status:', error);
       set({ error: error.message || 'Failed to update procedure status', isLoading: false });
@@ -597,12 +591,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   removeProcedure: async (attendanceId, procedureId) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiRemoveProcedure(attendanceId, procedureId);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiRemoveProcedure(attendanceId, procedureId);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Procedure was removed, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing procedure:', error);
@@ -699,19 +691,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addScan: async (attendanceId, { serviceCatalogId, priority, notes }) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add scan to non-pending attendance');
     }
     
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddScan(attendanceId, { serviceCatalogId, priority, notes });
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiAddScan(attendanceId, { serviceCatalogId, priority, notes });
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Scan order was saved, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding scan:', error);
@@ -723,12 +715,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   updateScanStatus: async (attendanceId, scanId, data) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiUpdateScanStatus(attendanceId, scanId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiUpdateScanStatus(attendanceId, scanId, data);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Scan result was updated, but the visit could not be refreshed');
     } catch (error: any) {
       console.error('Error updating scan status:', error);
       set({ error: error.message || 'Failed to update scan status', isLoading: false });
@@ -739,12 +729,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   removeScan: async (attendanceId, scanId) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiRemoveScan(attendanceId, scanId);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
-        isLoading: false,
-      });
+      await apiRemoveScan(attendanceId, scanId);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Scan order was removed, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing scan:', error);
