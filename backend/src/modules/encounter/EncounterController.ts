@@ -252,10 +252,6 @@ export class EncounterController extends BaseController {
     const { procedureId } = req.params;
     const { status, ...updates } = req.body;
     const user = req.user!;
-    delete updates.performedById;
-    if (status === 'in_progress' || status === 'completed') {
-      updates.performedById = user.id;
-    }
     const procedure = await this.service.updateProcedureStatus(procedureId, status, updates, user.id);
     return this.ok(res, procedure, 'Procedure status updated');
   });
