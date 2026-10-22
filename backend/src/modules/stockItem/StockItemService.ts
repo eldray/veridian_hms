@@ -278,6 +278,7 @@ export class StockItemService extends BaseService {
     performedBy?: string,
     departmentId?: string,
     role?: string,
+    batchNumber?: string,
   ) {
     if (!Number.isSafeInteger(quantity) || quantity === 0 || (quantity < 0 && transactionType !== 'adjustment')) {
       throw new ValidationError('Stock quantity must be a non-zero whole number; negative quantities are only allowed for adjustments');
@@ -299,7 +300,7 @@ export class StockItemService extends BaseService {
       throw new ValidationError('Assign this user to a department before recording stock movements');
     }
     this.logInfo('Updating stock level', { id, quantity, transactionType });
-    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId);
+    return this.repo.updateStockLevelSafely(id, quantity, transactionType, reference, notes, performedBy, departmentId, batchNumber);
   }
 
   async allocateUnassignedStock(stockItemId: string, departmentId: string, quantity: number, performedBy?: string) {
