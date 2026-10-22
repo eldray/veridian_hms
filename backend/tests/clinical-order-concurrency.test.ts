@@ -24,7 +24,7 @@ describe('clinical order concurrent-update guards', () => {
   it('does not overwrite a scan changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
-      user: activeActor,
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       scan: {
         findUnique: vi.fn().mockResolvedValue({ id: 'scan-1', status: 'requested' }),
         updateMany,
@@ -43,7 +43,7 @@ describe('clinical order concurrent-update guards', () => {
   it('does not overwrite a procedure changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
-      user: activeActor,
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
       procedure: {
         findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', status: 'scheduled' }),
         updateMany,
