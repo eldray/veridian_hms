@@ -271,6 +271,9 @@ export class AntenatalController extends BaseController {
     body('babyCondition').optional().isIn(['good', 'fair', 'poor', 'critical']),
     body('temperature').optional().isFloat({ min: 25, max: 45 }),
     body('pulse').optional().isInt({ min: 0, max: 300 }),
+    body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
+    body('babyWeight').optional().isFloat({ min: 0.1, max: 15 }),
+    body('babyTemperature').optional().isFloat({ min: 25, max: 45 }),
     body('bloodPressure').optional().isString().isLength({ max: 30 }),
     body('referralMade').optional().isBoolean(),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
