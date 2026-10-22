@@ -427,7 +427,16 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         // Recheck expiry at the atomic write boundary. A batch can cross its
         // expiry time after the initial validation/read and must not gain
         // newly received available quantity once expired.
-        where: { id: existingBatch.id, isActive: true, expiryDate: { gte: startOfCurrentDay() } },
+        where: {
+          id: existingBatch.id,
+          stockItemId,
+          batchNumber: batchNumber.trim(),
+          departmentId: normalizedDepartmentId,
+          wardId: null,
+          isActive: true,
+          expiryDate,
+          costPrice,
+        },
         data: { quantity: { increment: quantity } },
       });
       if (incremented.count !== 1) throw new ValidationError('Batch changed or expired during receipt. Please retry.');
