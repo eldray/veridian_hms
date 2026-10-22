@@ -86,28 +86,58 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       if (isOutgoing && batchCount > 0) {
         if (!departmentId && !wardId) throw new ValidationError('Select the department or ward issuing this stock');
         let remaining = effectiveQuantity;
-        const batches = await tx.stockBatch.findMany({
-          where: {
-            stockItemId, departmentId: departmentId || null, wardId: wardId || null, quantity: { gt: 0 },
-            ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
-          },
-          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
-        });
-        const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
-        if (departmentAvailable < effectiveQuantity) {
-          throw new ValidationError(`Insufficient stock in the selected department. Available: ${departmentAvailable}, requested: ${effectiveQuantity}`);
+        // A write-off must identify the actual affected lot. FEFO is appropriate
+        // for routine dispensing, but can silently write off good stock when a
+        // damaged/expired lot is not the first eligible lot.
+        let batches: any[];
+        if (transactionType === 'write_off') {
+          const requestedBatchNumber = String(data.batchNumber || '').trim();
+          if (!requestedBatchNumber) {
+            throw new ValidationError('Select or enter the batch number being written off');
+          }
+          const batch = await tx.stockBatch.findFirst({
+            where: {
+              stockItemId,
+              batchNumber: requestedBatchNumber,
+              departmentId: departmentId || null,
+              wardId: wardId || null,
+              quantity: { gt: 0 },
+            },
+          });
+          if (!batch) {
+            throw new ValidationError(`Batch ${requestedBatchNumber} was not found at this location or has no remaining stock`);
+          }
+          if (batch.quantity < effectiveQuantity) {
+            throw new ValidationError(`Batch ${requestedBatchNumber} has only ${batch.quantity} units available; requested ${effectiveQuantity}`);
+          }
+          batches = [batch];
+        } else {
+          batches = await tx.stockBatch.findMany({
+            where: {
+              stockItemId, departmentId: departmentId || null, wardId: wardId || null,
+              quantity: { gt: 0 }, isActive: true, expiryDate: { gte: startOfCurrentDay() },
+            },
+            orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }]
+          });
+          const departmentAvailable = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+          if (departmentAvailable < effectiveQuantity) {
+            throw new ValidationError(`Insufficient usable stock in the selected department. Available: ${departmentAvailable}, requested: ${effectiveQuantity}`);
+          }
         }
         for (const batch of batches) {
           if (remaining <= 0) break;
           const move = Math.min(batch.quantity, remaining);
           const changed = await tx.stockBatch.updateMany({
             where: {
-              id: batch.id, departmentId: departmentId || null, wardId: wardId || null, quantity: { gte: move },
+              id: batch.id,
+              departmentId: departmentId || null,
+              wardId: wardId || null,
+              quantity: { gte: move },
               ...(transactionType === 'write_off' ? {} : { isActive: true, expiryDate: { gte: startOfCurrentDay() } }),
             },
             data: { quantity: { decrement: move } }
           });
-          if (changed.count !== 1) throw new ValidationError('Stock changed during the sale. Please retry.');
+          if (changed.count !== 1) throw new ValidationError('Stock changed during the transaction. Please retry.');
           batchAllocations.push({
             batchId: batch.id,
             batchNumber: batch.batchNumber,
