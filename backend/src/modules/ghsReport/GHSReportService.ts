@@ -169,7 +169,7 @@ export class GHSReportService extends BaseService {
 
   async generateMorbidityReport(startDate: Date, endDate: Date): Promise<GHSMorbidityReport> {
     const end = this.eod(endDate);
-    const { attendances, priorRows } = await this.repository.getMorbidityData(startDate, end);
+    const { attendances, priorRows, priorDiagnoses } = await this.repository.getMorbidityData(startDate, end);
     const facility = await this.repository.getFacility();
     
     const emptyBreakdown = (): AgeSexBreakdown => Object.fromEntries(AGE_GROUPS.map(ag => [ag, { male: 0, female: 0 }]));
@@ -197,6 +197,14 @@ export class GHSReportService extends BaseService {
     const reAttMap = new Map<string, boolean>();
     for (const att of sorted) { reAttMap.set(att.id, hadPrior.has(att.patientId) || seenPeriod.has(att.patientId)); seenPeriod.add(att.patientId); }
     
+    const diagnosisHistoryByPatient = new Map<string, Set<string>>();
+    for (const row of priorDiagnoses as any[]) {
+      const patientId = row.Attendance?.patientId;
+      if (!patientId) continue;
+      if (!diagnosisHistoryByPatient.has(patientId)) diagnosisHistoryByPatient.set(patientId, new Set<string>());
+      diagnosisHistoryByPatient.get(patientId)!.add(row.diagnosisId);
+    }
+
     const diagCounts = new Map<string, any>();
     const inc = (section: Record<string, AgeSexBreakdown>, key: string, ag: GHSAgeGroup, gender: Gender) => { if (!section[key]?.[ag]) return; if (gender === 'male') section[key][ag].male++; else if (gender === 'female') section[key][ag].female++; };
     
@@ -209,7 +217,14 @@ export class GHSReportService extends BaseService {
       else { report.totals.totalNewCases++; }
       if (att.referral !== null) { report.totals.totalReferrals++; inc(report.reAttendancesReferrals, 'referrals', ag, gender); }
       
-      for (const diag of att.AttendanceDiagnosis) {
+      const seenDiagnoses = diagnosisHistoryByPatient.get(att.patientId) ?? new Set<string>();
+      const hasFinalDiagnosis = att.AttendanceDiagnosis.some((row: any) => row.diagnosisType === 'primary');
+      const reportableDiagnoses = att.AttendanceDiagnosis.filter((row: any) => row.diagnosisType !== 'provisional' || !hasFinalDiagnosis);
+      for (const diag of reportableDiagnoses) {
+        // GHS monthly OPD morbidity returns are new cases, not every repeat visit.
+        if (seenDiagnoses.has(diag.diagnosisId)) continue;
+        seenDiagnoses.add(diag.diagnosisId);
+        diagnosisHistoryByPatient.set(att.patientId, seenDiagnoses);
         const d = diag.Diagnosis; if (!d?.morbidityGroup) continue;
         const sectionKey = MORBIDITY_SECTION_MAP.get(d.morbidityGroup as string);
         if (sectionKey && sectionKey !== 'reAttendancesReferrals') {
