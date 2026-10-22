@@ -229,6 +229,28 @@ export default function AttendanceDetails() {
   // Get latest vitals
   const latestVitals = vitalsList.length > 0 ? vitalsList[vitalsList.length - 1] : null;
 
+  // Derive a concise, read-only visit summary from the existing encounter payload.
+  // Keep the summary tolerant of older records that may not contain every field.
+  const visitDiagnoses = useMemo(() => {
+    const diagnoses = currentAttendance?.diagnoses || currentAttendance?.AttendanceDiagnosis || [];
+    return diagnoses
+      .map((item: any) => item?.diagnosis?.name || item?.diagnosisName || item?.name || item?.icdCode)
+      .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0);
+  }, [currentAttendance]);
+
+  const visitClinicalSummary = [
+    clinicalNotes.historyPresentingComplaint,
+    clinicalNotes.physicalExamination,
+    clinicalNotes.assessment,
+    clinicalNotes.plan,
+    currentAttendance?.medicalNotes,
+  ].filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0);
+
+  const visitDateValue = currentAttendance?.dateTime || currentAttendance?.createdAt || currentAttendance?.visitDate;
+  const visitDateLabel = visitDateValue && !Number.isNaN(new Date(visitDateValue).getTime())
+    ? new Date(visitDateValue).toLocaleString()
+    : 'Date not recorded';
+
   // Check if vitals are abnormal
   const hasAbnormalVitals = latestVitals ? (
     (latestVitals.bloodPressure && (() => {
@@ -648,6 +670,92 @@ export default function AttendanceDetails() {
           {/* OVERVIEW TAB */}
           {activeTab === 'overview' && (
             <div className="space-y-6">
+              {/* Visit Summary: one-screen clinical snapshot; source records remain unchanged. */}
+              <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 sm:p-5 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <Activity className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+                      <h2 className="text-base font-bold text-[var(--text-primary)]">Visit Summary</h2>
+                    </div>
+                    <p className="text-xs text-[var(--text-secondary)] mt-1">A quick overview of this attendance, its documented findings and outstanding items.</p>
+                  </div>
+                  <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5" /> {visitDateLabel}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                  {[
+                    { label: 'Diagnoses', value: visitDiagnoses.length, icon: Stethoscope, tab: 'clinical' as const },
+                    { label: 'Medicines', value: (currentAttendance?.medications || currentAttendance?.Medication || []).length, icon: Pill, tab: 'medications' as const },
+                    { label: 'Lab tests', value: (currentAttendance?.labTests || currentAttendance?.LabTest || []).length, icon: FlaskConical, tab: 'lab-tests' as const },
+                    { label: 'Procedures', value: (currentAttendance?.procedures || currentAttendance?.Procedure || []).length, icon: Scissors, tab: 'procedures' as const },
+                    { label: 'Vitals recorded', value: vitalsList.length, icon: Heart, tab: 'vitals' as const },
+                  ].map((item) => {
+                    const SummaryIcon = item.icon;
+                    return (
+                      <button key={item.label} type="button" onClick={() => setActiveTab(item.tab)}
+                        className="text-left rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-3 hover:border-[var(--icon-cyan-text)] transition-colors focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-[var(--text-secondary)]">{item.label}</span>
+                          <SummaryIcon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                        </div>
+                        <p className="text-xl font-bold text-[var(--text-primary)] mt-1">{item.value}</p>
+                        <span className="text-[10px] text-[var(--text-secondary)]">View details</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-[var(--border-color)] p-3">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Presenting complaint</p>
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{currentAttendance?.complaints || 'No complaint recorded for this visit.'}</p>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border-color)] p-3">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Recorded diagnoses</p>
+                    {visitDiagnoses.length ? (
+                      <ul className="space-y-1">
+                        {visitDiagnoses.slice(0, 4).map((diagnosis, index) => (
+                          <li key={diagnosis + index} className="text-sm text-[var(--text-primary)] flex gap-2">
+                            <span className="text-[var(--icon-green-text)]">•</span><span>{diagnosis}</span>
+                          </li>
+                        ))}
+                        {visitDiagnoses.length > 4 && <li className="text-xs text-[var(--text-secondary)]">+{visitDiagnoses.length - 4} more diagnoses</li>}
+                      </ul>
+                    ) : <p className="text-sm text-[var(--text-secondary)]">No diagnosis recorded yet.</p>}
+                  </div>
+                  <div className="rounded-lg border border-[var(--border-color)] p-3">
+                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Clinical notes</p>
+                    {visitClinicalSummary.length ? (
+                      <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap line-clamp-5">{visitClinicalSummary.join('\n\n')}</p>
+                    ) : <p className="text-sm text-[var(--text-secondary)]">No additional clinical notes recorded.</p>}
+                    <button type="button" onClick={() => setActiveTab('clinical')} className="mt-2 text-xs font-semibold text-[var(--icon-cyan-text)] hover:underline">Open clinical record</button>
+                  </div>
+                  <div className="rounded-lg border border-[var(--border-color)] p-3">
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <p className="text-xs font-semibold text-[var(--text-secondary)]">Latest observations</p>
+                      {hasAbnormalVitals && <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700"><AlertTriangle className="w-3.5 h-3.5" /> Review</span>}
+                    </div>
+                    {latestVitals ? (
+                      <div className="flex flex-wrap gap-2">
+                        {[
+                          ['BP', latestVitals.bloodPressure],
+                          ['Pulse', latestVitals.pulse != null ? `${latestVitals.pulse} bpm` : ''],
+                          ['Temp', latestVitals.temperature != null ? `${latestVitals.temperature} °C` : ''],
+                          ['SpO₂', latestVitals.spo2 != null ? `${latestVitals.spo2}%` : ''],
+                          ['Weight', latestVitals.weight != null ? `${latestVitals.weight} kg` : ''],
+                        ].filter((entry) => entry[1] !== '' && entry[1] != null).map(([label, value]) => (
+                          <span key={label} className="rounded-md bg-[var(--bg-main)] border border-[var(--border-color)] px-2 py-1 text-xs text-[var(--text-primary)]"><span className="text-[var(--text-secondary)]">{label}:</span> {value}</span>
+                        ))}
+                      </div>
+                    ) : <p className="text-sm text-[var(--text-secondary)]">No observations recorded for this attendance.</p>}
+                    <button type="button" onClick={() => setActiveTab('vitals')} className="mt-2 text-xs font-semibold text-[var(--icon-cyan-text)] hover:underline">View vitals history</button>
+                  </div>
+                </div>
+              </section>
+
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Left Column - Patient Info & Medical Details */}
                 <div className="lg:col-span-2 space-y-6">
