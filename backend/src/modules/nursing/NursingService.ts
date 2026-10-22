@@ -179,12 +179,22 @@ export class NursingService extends BaseService {
   // MAR — writes
   // ═══════════════════════════════════════════════════════════
 
+  private async ensureEncounterOpenForDose(attendanceId?: string | null) {
+    if (!attendanceId) throw new ValidationError('This medication dose is not linked to an attendance/encounter');
+    const attendance = await this.prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true } });
+    if (!attendance) throw new ValidationError('The medication dose encounter was not found');
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+      throw new ValidationError('Medication administration is not allowed for a closed encounter');
+    }
+  }
+
   async administerDose(doseId: string, userId: string, data: AdministerDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
-    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
-    if (existing.status === 'administered') throw new Error('This dose has already been administered');
-    if (existing.status === 'discontinued') throw new Error('This dose was discontinued');
+    if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
+    if (existing.status === 'administered') throw new ValidationError('This dose has already been administered');
+    if (existing.status === 'discontinued') throw new ValidationError('This dose was discontinued');
+    await this.ensureEncounterOpenForDose(existing.medication.attendanceId);
 
     return this.repository.administerDose(doseId, userId, {
       administeredAt: data.administeredAt ? new Date(data.administeredAt) : undefined,
@@ -196,8 +206,9 @@ export class NursingService extends BaseService {
   async recordVariance(doseId: string, userId: string, data: VarianceDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
-    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
-    if (existing.status === 'administered') throw new Error('Cannot record a variance for an administered dose');
+    if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
+    if (existing.status === 'administered') throw new ValidationError('Cannot record a variance for an administered dose');
+    await this.ensureEncounterOpenForDose(existing.medication.attendanceId);
 
     return this.repository.recordDoseVariance(doseId, userId, data);
   }
