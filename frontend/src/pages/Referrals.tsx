@@ -402,12 +402,15 @@ export default function Referrals() {
       ...prev,
       clientName: searchParams.get('patientName') || prev.clientName,
       clinicName: source,
-      patientComplaints: searchParams.get('complaints') || prev.patientComplaints,
+      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || prev.patientComplaints,
       diagnosis: searchParams.get('diagnosis') || prev.diagnosis,
       actionsTaken: searchParams.get('treatment') || prev.actionsTaken,
       reasonForReferral: searchParams.get('reason') || prev.reasonForReferral,
       dateOfReferral: new Date().toISOString().slice(0, 10),
     }));
+    // Referral context from a clinical page should be visible immediately in
+    // the structured letter, not only saved in hidden state.
+    setUseStructuredForm(true);
     setShowModal(true);
   }, [searchParams]);
 
@@ -417,10 +420,15 @@ export default function Referrals() {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
     if (!requestedAttendanceId || !requestedPatientId || !attendances.length) return;
-    const matchingVisit = attendances.find((item: any) =>
-      item.id === requestedAttendanceId &&
-      (item.patientId || item.patient?.id) === requestedPatientId
-    );
+    const matchingVisit = attendances.find((item: any) => {
+      const visitId = item.id || item._id;
+      const linkedPatient = item.patientId || item.patient?.id || item.patient?._id;
+      const linkedPatientId = typeof linkedPatient === 'object'
+        ? linkedPatient.id || linkedPatient._id
+        : linkedPatient;
+      return String(visitId || '') === requestedAttendanceId &&
+        String(linkedPatientId || '') === requestedPatientId;
+    });
     if (!matchingVisit && selectedAttendanceId === requestedAttendanceId) {
       setSelectedAttendanceId('');
       toastError('Visit not found', 'The linked visit could not be matched to this patient. Select the correct visit before submitting the referral.');
