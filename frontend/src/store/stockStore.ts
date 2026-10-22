@@ -539,7 +539,6 @@ getStockItems: async (filters = {}) => {
           limit: transactions.length,
           total: transactions.length,
           pages: 1,
-          totalPages: 1,
         },
         isLoading: false,
       });
