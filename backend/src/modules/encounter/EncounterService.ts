@@ -530,6 +530,7 @@ export class EncounterService extends BaseService {
 
   async getEncounters(filters: any) { return this.repository.findManyEncounters(filters); }
   async updateEncounter(id: string, data: UpdateEncounterDTO, userId: string) { return this.repository.updateEncounter(id, data, userId); }
+  async finalizeClinicalRecord(id: string, userId: string) { return this.repository.finalizeClinicalRecord(id, userId); }
   async updateEncounterStatus(id: string, status: string, userId: string) {
     // Completion must pass the same active-admission and terminal-state checks as
     // the dedicated endpoint. Other clinical transitions have their own workflows.
