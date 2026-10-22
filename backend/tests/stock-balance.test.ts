@@ -1369,3 +1369,31 @@ describe('hospital-wide value summary in-transit valuation', () => {
     expect(report.totalValue).toBe(37);
   });
 });
+
+ 
+describe('zero-quantity batch reconciliation', () => {
+  it('flags aggregate stock with no remaining quantity in its tracked batches', async () => {
+    const repository: any = {
+      getItemsForValueReport: vi.fn().mockResolvedValue([{
+        id: 'tracked-item',
+        name: 'Bandages',
+        currentStock: 5,
+        costPrice: 2,
+        reorderLevel: 1,
+        isMedication: false,
+        _count: { StockBatch: 2 },
+        StockBatch: [],
+        stockBalances: [],
+        inTransitBatchAllocations: [],
+      }]),
+    };
+    const service = new StockItemService({} as any);
+    (service as any).repo = repository;
+
+    const report = await service.getValueSummary(undefined, { includeAllStockLocations: true });
+
+    expect(report.batchQuantityDiscrepancies).toBe(1);
+    expect(report.items[0].stockDiscrepancy).toBe(5);
+    expect(report.items[0].unbatchedQuantity).toBe(5);
+  });
+});
