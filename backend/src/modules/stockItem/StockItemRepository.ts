@@ -554,13 +554,33 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
     // destination batch, so value them at their saved lot cost while in transit.
     const transfersPromise = filters.includeAllStockLocations && (this.prisma as any).stockTransferItem
       ? (this.prisma as any).stockTransferItem.findMany({
-          where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 }, quantityReceived: 0 },
-          select: { stockItemId: true, quantitySent: true, batchAllocations: true },
+          where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 } },
+          select: { stockItemId: true, quantitySent: true, quantityReceived: true, batchAllocations: true },
         })
       : Promise.resolve([]);
     const [items, transferItems] = await Promise.all([itemsPromise, transfersPromise]);
     const inTransit = new Map<string, Array<{ quantity: number; costPrice: number }>>();
+    const inTransitReconciliationIssues = new Map<string, string[]>();
+    const addReconciliationIssue = (stockItemId: string, issue: string) => {
+      const existing = inTransitReconciliationIssues.get(stockItemId) || [];
+      existing.push(issue);
+      inTransitReconciliationIssues.set(stockItemId, existing);
+    };
     for (const transferItem of transferItems as any[]) {
+      const sent = transferItem.quantitySent;
+      const received = transferItem.quantityReceived ?? 0;
+      if (!Number.isSafeInteger(sent) || sent <= 0 ||
+          !Number.isSafeInteger(received) || received < 0 || received > sent) {
+        addReconciliationIssue(transferItem.stockItemId, 'Dispatched transfer has invalid sent/received quantities; reconcile this transfer before valuing in-transit stock.');
+        continue;
+      }
+      // The current workflow receives a transfer in full. A non-zero received
+      // quantity while status remains dispatched is a legacy/partial receipt;
+      // without per-batch receipt allocations, the remaining lots are unknown.
+      if (received > 0) {
+        addReconciliationIssue(transferItem.stockItemId, 'Dispatched transfer has a non-zero received quantity. Partial/legacy receipt allocations cannot be valued safely; reconcile this transfer.');
+        continue;
+      }
       const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
       const valid = allocations.length > 0 && allocations.every((allocation: any) =>
         Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
@@ -568,12 +588,19 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
         !(typeof allocation.costPrice === 'string' && allocation.costPrice.trim() === '') &&
         Number.isFinite(Number(allocation.costPrice)) && Number(allocation.costPrice) >= 0
       );
-      if (!valid || allocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== transferItem.quantitySent) continue;
+      if (!valid || allocations.reduce((sum: number, allocation: any) => sum + allocation.quantity, 0) !== sent) {
+        addReconciliationIssue(transferItem.stockItemId, 'Dispatched transfer is missing valid batch allocations matching the sent quantity; reconcile before valuing in-transit stock.');
+        continue;
+      }
       const current = inTransit.get(transferItem.stockItemId) || [];
       current.push(...allocations.map((allocation: any) => ({ quantity: allocation.quantity, costPrice: Number(allocation.costPrice) })));
       inTransit.set(transferItem.stockItemId, current);
     }
-    return items.map((item: any) => ({ ...item, inTransitBatchAllocations: inTransit.get(item.id) || [] }));
+    return items.map((item: any) => ({
+      ...item,
+      inTransitBatchAllocations: inTransit.get(item.id) || [],
+      inTransitReconciliationIssues: inTransitReconciliationIssues.get(item.id) || [],
+    }));
   }
 
   async getItemsForExpiryReport(
