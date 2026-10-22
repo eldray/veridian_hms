@@ -708,10 +708,10 @@ export default function MedicalEntries() {
           ? att.clinicalNotes as Record<string, any>
           : {};
         setPresentedComplaints(att.complaints || '');
-        setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
+        setHpc((att as any).historyPresentingComplaint ?? clinicalNotes.historyPresentingComplaint ?? '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
-        setPhysicalExam(att.physicalExamination || clinicalNotes.physicalExamination || '');
-        setAssessment(att.assessment || clinicalNotes.assessment || '');
+        setPhysicalExam(att.physicalExamination ?? clinicalNotes.physicalExamination ?? '');
+        setAssessment(att.assessment ?? clinicalNotes.assessment ?? '');
         setReviewOfSystems((att.reviewOfSystems || clinicalNotes.reviewOfSystems || {}) as Record<string, string>);
         setPhysicalExamStructured((att.physicalExamStructured || clinicalNotes.physicalExamStructured || {}) as Record<string, string>);
         setAllergyReviewStatus(att.allergyReviewStatus || 'not_reviewed');
@@ -721,7 +721,7 @@ export default function MedicalEntries() {
         setFollowUpDate(followUp && Number.isFinite(followUp.getTime()) ? followUp.toISOString().slice(0, 16) : '');
         setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
         setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
-        setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
+        setTreatmentPlan((att as any).treatmentPlan ?? clinicalNotes.treatmentPlan ?? '');
       })
       .catch((error: Error) => {
         if (active) toastError('Clinical notes unavailable', error.message || 'Could not load saved clinical notes');
