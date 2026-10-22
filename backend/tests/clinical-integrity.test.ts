@@ -173,7 +173,10 @@ describe('maternal record integrity', () => {
       antenatalBooking: { findUnique: vi.fn() },
       deliveryRecord: { create: deliveryCreate },
     };
-    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
     const repository = new AntenatalRepository(prisma);
 
     await expect(repository.createDeliveryRecord({
@@ -576,7 +579,7 @@ describe('primary diagnosis update atomicity', () => {
 
     await expect(repository.addDiagnosis('attendance-1', {
       diagnosisId: 'diagnosis-1', diagnosisType: 'primary',
-    } as any, 'doctor-1')).rejects.toThrow(/diagnosis already added/i);
+    } as any, 'doctor-1')).rejects.toThrow(/diagnosis has already been added/i);
 
     expect(updateMany).not.toHaveBeenCalled();
     expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
