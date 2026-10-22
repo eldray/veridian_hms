@@ -1047,3 +1047,36 @@ describe('consumable correction movement reconciliation', () => {
     });
   });
 });
+
+
+describe('in-transit batch stock valuation', () => {
+  it('values dispatched batch allocations at their recorded lot costs instead of catalogue cost', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getValuationData: async () => [{
+        id: 'item-in-transit',
+        name: 'Surgical gloves',
+        category: 'consumable',
+        currentStock: 10,
+        costPrice: '5.00',
+        unitOfMeasure: 'pair',
+        reorderLevel: 2,
+        StockBatch: [{ quantity: 4, costPrice: '2.50' }],
+        inTransitBatchAllocations: [{ quantity: 3, costPrice: 4 }],
+      }],
+    };
+
+    const report = await service.getStockValuation(undefined, { includeAllStockLocations: true });
+
+    expect(report.totalValue).toBe(37);
+    expect(report.items[0]).toMatchObject({
+      batchQuantity: 4,
+      batchValue: 10,
+      inTransitBatchQuantity: 3,
+      inTransitBatchValue: 12,
+      unbatchedQuantity: 3,
+      stockDiscrepancy: 0,
+      totalValue: 37,
+    });
+  });
+});
