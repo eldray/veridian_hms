@@ -265,6 +265,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
         Medication: { include: { StockItem: true }, where: { status: { not: 'cancelled' } } },
         referral: { where: { referralType: "outgoing" }, select: { id: true, referredToFacility: true } },
         User_Attendance_createdByIdToUser: { select: { fullName: true } },
+        User_Attendance_providerIdToUser: { select: { fullName: true } },
       },
       orderBy: { dateTime: 'asc' },
     });
