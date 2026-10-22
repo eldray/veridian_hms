@@ -233,50 +233,54 @@ export class EncounterService extends BaseService {
     urgency?: 'routine' | 'urgent' | 'stat';
     referralDate?: string | Date;
   }, userId: string) {
-    if (!data.referredToFacility?.trim()) {
-      throw new ValidationError('referredToFacility is required');
-    }
-    if (!data.referralReason?.trim()) {
-      throw new ValidationError('referralReason is required');
-    }
+    const referredToFacility = data.referredToFacility?.trim();
+    const referralReason = data.referralReason?.trim();
+    if (!referredToFacility) throw new ValidationError('referredToFacility is required');
+    if (!referralReason) throw new ValidationError('referralReason is required');
 
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true, Patient: true, referral: true },
-    });
-    if (!encounter) throw new NotFoundError('Encounter', encounterId);
-
-    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
-    if (terminal.includes(encounter.status)) {
-      throw new ValidationError(`Cannot refer: encounter is already "${encounter.status}"`);
-    }
-    if (encounter.referral) {
-      throw new ValidationError(
-        `This encounter already has referral ${encounter.referral.referralNumber}`,
-      );
-    }
-
-    // Reuse the referral module so the record is created by the same
-    // code path as `POST /referrals/outgoing`.
-    const { ReferralService } = await import('../referral/ReferralService');
-    const referralService = new ReferralService(this.prisma);
-    const referral = await referralService.createOutgoingReferral(
-      {
-        patientId: encounter.patientId,
-        encounterId: encounterId,
-        referralReason: data.referralReason,
-        referredToFacility: data.referredToFacility,
-        referredToDoctor: data.referredToDoctor,
-        referredToDepartment: data.referredToDepartment,
-        referralNotes: data.referralNotes,
-        urgency: data.urgency ?? 'routine',
-        referralDate: data.referralDate as any,
-      } as any,
-      userId,
-    );
-
+    // Referral creation and every encounter side effect must commit or roll back together.
     return this.prisma.$transaction(async (tx) => {
-      // Close admission (transfer) — mirrors dischargeFromEncounter
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        include: { Admission: true, Patient: true, referral: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+
+      const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+      if (terminal.includes(encounter.status)) {
+        throw new ValidationError(`Cannot refer: encounter is already "${encounter.status}"`);
+      }
+      if (encounter.referral) {
+        throw new ValidationError(
+          `This encounter already has referral ${encounter.referral.referralNumber}`,
+        );
+      }
+
+      // The unique attendanceId constraint is a final safeguard against two concurrent
+      // referrals for the same encounter. If anything later fails, this insert rolls back.
+      const referral = await tx.referralRecord.create({
+        data: {
+          referralNumber: getCounterService().nextReferralNumber(),
+          patientId: encounter.patientId,
+          attendanceId: encounterId,
+          referralType: 'outgoing',
+          referralReason,
+          referredToFacility,
+          referredToDoctor: data.referredToDoctor?.trim() || undefined,
+          referredToDepartment: data.referredToDepartment?.trim() || undefined,
+          referralNotes: data.referralNotes?.trim() || undefined,
+          urgency: data.urgency ?? 'routine',
+          referralDate: data.referralDate ? new Date(data.referralDate) : undefined,
+          status: 'pending',
+          createdById: userId,
+        },
+        include: {
+          patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+          createdBy: { select: { fullName: true, role: true } },
+        },
+      });
+
+      // Close admission (transfer) within the same transaction.
       if (encounter.Admission && !encounter.Admission.dischargeDate) {
         const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
           ? (encounter.Admission.dailyNotes as any[])
@@ -291,7 +295,7 @@ export class EncounterService extends BaseService {
               {
                 id: Date.now().toString(),
                 noteType: 'referral',
-                notes: `Referred to ${data.referredToFacility}. Reason: ${data.referralReason}`,
+                notes: `Referred to ${referredToFacility}. Reason: ${referralReason}`,
                 createdBy: userId,
                 createdAt: new Date().toISOString(),
               },
@@ -300,7 +304,7 @@ export class EncounterService extends BaseService {
         });
       }
 
-      // Free the bed / decrement occupancy
+      // Free the bed and update ward occupancy in the same transaction as the referral.
       if (encounter.bedId) {
         await tx.bed.update({
           where: { id: encounter.bedId },
@@ -314,17 +318,21 @@ export class EncounterService extends BaseService {
         }
       }
 
-      // Set attendance status — one field, no derived state
-      const updated = await tx.attendance.update({
-        where: { id: encounterId },
+      // Conditional status update prevents an older request overwriting a concurrent change.
+      const attendanceUpdate = await tx.attendance.updateMany({
+        where: { id: encounterId, status: encounter.status },
         data: { status: 'referred', bedId: null, updatedById: userId },
       });
+      if (attendanceUpdate.count !== 1) {
+        throw new ValidationError('Encounter changed while referral was being saved. Refresh and try again.');
+      }
+      const updated = await tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
 
       await tx.notification.create({
         data: {
           userId,
           title: 'Patient Referred',
-          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} referred to ${data.referredToFacility}.`,
+          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} referred to ${referredToFacility}.`,
           type: 'clinical',
           priority: data.urgency === 'stat' ? 'urgent' : data.urgency === 'urgent' ? 'high' : 'medium',
           actionType: 'referral',
