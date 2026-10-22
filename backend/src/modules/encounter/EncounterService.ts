@@ -401,19 +401,8 @@ export class EncounterService extends BaseService {
         });
       }
 
-      // Free the bed and update ward occupancy in the same transaction as the referral.
-      if (encounter.bedId) {
-        await tx.bed.update({
-          where: { id: encounter.bedId },
-          data: { isOccupied: false },
-        });
-        if (encounter.wardId) {
-          await tx.ward.update({
-            where: { id: encounter.wardId },
-            data: { occupiedBeds: { decrement: 1 } },
-          });
-        }
-      }
+      // Free the bed and reconcile occupancy in the same transaction as the referral.
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       // Conditional status update prevents an older request overwriting a concurrent change.
       const attendanceUpdate = await tx.attendance.updateMany({
@@ -492,12 +481,7 @@ export class EncounterService extends BaseService {
         });
       }
 
-      if (encounter.bedId) {
-        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } });
-        if (encounter.wardId) {
-          await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
-        }
-      }
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       this.logInfo('Encounter absconded', { encounterId, userId, notes: data.notes });
       return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
@@ -530,11 +514,12 @@ export class EncounterService extends BaseService {
       // after another staff member has already changed its lifecycle state.
       const transition = await tx.attendance.updateMany({
         where: { id: encounterId, status: encounter.status },
-        data: { status: 'completed', updatedById: userId },
+        data: { status: 'completed', bedId: null, updatedById: userId },
       });
       if (transition.count !== 1) {
         throw new ValidationError('Encounter changed while completion was being saved. Refresh and try again.');
       }
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
     });
