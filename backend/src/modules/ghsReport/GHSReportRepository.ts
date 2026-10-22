@@ -228,7 +228,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   async getOPDData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
       where: { encounterCategory: 'opd', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
-      include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true } } },
+      include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true, nhisActive: true, nhisExpiryDate: true, nhisNumber: true } } },
     });
 
     const patientIds = [...new Set(attendances.map(a => a.patientId))];
