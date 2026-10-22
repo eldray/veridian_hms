@@ -441,25 +441,34 @@ export class EncounterService extends BaseService {
    * Refuses if an active admission exists — that must be discharged/referred/absconded first.
    */
   async completeEncounter(encounterId: string, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
-      where: { id: encounterId },
-      include: { Admission: true },
-    });
-    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        include: { Admission: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
 
-    const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
-    if (terminal.includes(encounter.status)) {
-      throw new ValidationError(`Cannot complete: encounter is already "${encounter.status}"`);
-    }
-    if (encounter.Admission && !encounter.Admission.dischargeDate) {
-      throw new ValidationError(
-        'Cannot complete while an admission is active. Discharge, refer, or mark absconded first.',
-      );
-    }
+      const terminal = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+      if (terminal.includes(encounter.status)) {
+        throw new ValidationError(`Cannot complete: encounter is already "${encounter.status}"`);
+      }
+      if (encounter.Admission && !encounter.Admission.dischargeDate) {
+        throw new ValidationError(
+          'Cannot complete while an admission is active. Discharge, refer, or mark absconded first.',
+        );
+      }
 
-    return this.prisma.attendance.update({
-      where: { id: encounterId },
-      data: { status: 'completed', updatedById: userId },
+      // Claim completion conditionally to avoid a stale request completing an encounter
+      // after another staff member has already changed its lifecycle state.
+      const transition = await tx.attendance.updateMany({
+        where: { id: encounterId, status: encounter.status },
+        data: { status: 'completed', updatedById: userId },
+      });
+      if (transition.count !== 1) {
+        throw new ValidationError('Encounter changed while completion was being saved. Refresh and try again.');
+      }
+
+      return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
     });
   }
 
