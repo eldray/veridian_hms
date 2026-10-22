@@ -208,7 +208,16 @@ export class GHSReportService extends BaseService {
     const sorted = [...attendances].sort((a, b) => a.dateTime.getTime() - b.dateTime.getTime());
     const seenPeriod = new Set<string>();
     const reAttMap = new Map<string, boolean>();
-    for (const att of sorted) { reAttMap.set(att.id, hadPrior.has(att.patientId) || seenPeriod.has(att.patientId)); seenPeriod.add(att.patientId); }
+    for (const att of sorted) {
+      const hasPreviousVisit = hadPrior.has(att.patientId) || seenPeriod.has(att.patientId);
+      const isReAttendance = att.patientClassification === 'NEW'
+        ? false
+        : att.patientClassification === 'OLD'
+          ? true
+          : hasPreviousVisit;
+      reAttMap.set(att.id, isReAttendance);
+      seenPeriod.add(att.patientId);
+    }
     
     const diagnosisHistoryByPatient = new Map<string, Set<string>>();
     for (const row of (priorDiagnoses || []) as any[]) {
@@ -351,7 +360,12 @@ export class GHSReportService extends BaseService {
       // Ghana OPD reporting asks for NHIS membership status, not the visit's payment mode.
       const insured = Boolean(att.Patient.nhisActive &&
         (!att.Patient.nhisExpiryDate || new Date(att.Patient.nhisExpiryDate) >= att.dateTime));
-      const isNew = !hadPrior.has(att.Patient.id) && !seenPeriod.has(att.Patient.id);
+      const hasPreviousVisit = hadPrior.has(att.Patient.id) || seenPeriod.has(att.Patient.id);
+      const isNew = att.patientClassification === 'NEW'
+        ? true
+        : att.patientClassification === 'OLD'
+          ? false
+          : !hasPreviousVisit;
       seenPeriod.add(att.Patient.id);
       
       const bucket = ageGroups[ag];
@@ -423,7 +437,12 @@ export class GHSReportService extends BaseService {
     
     for (const att of attendances) {
       const patient = att.Patient; if (!patient) continue;
-      const isNew = !hadPrior.has(patient.id) && !seenPeriod.has(patient.id);
+      const hasPreviousVisit = hadPrior.has(patient.id) || seenPeriod.has(patient.id);
+      const isNew = att.patientClassification === 'NEW'
+        ? true
+        : att.patientClassification === 'OLD'
+          ? false
+          : !hasPreviousVisit;
       seenPeriod.add(patient.id);
       const age = this.calculateAge(patient.dateOfBirth, att.dateTime);
       const ageGroup = this.getAgeGroup(age);

@@ -15,6 +15,8 @@ export interface CreateEncounterDTO {
   allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present';
   allergyReviewNotes?: string;
   providerId?: string;
+  // New vs returning patient at facility level; diagnosis-episode classification is stored per diagnosis.
+  patientClassification?: 'NEW' | 'OLD';
   patientId: string;
   attendanceType: 'emergency_acute' | 'antenatal' | 'postnatal' | 'chronic_followup' | 'specialist_consultation' | 'delivery' | 'surgery' | 'general_consultation';
   paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
