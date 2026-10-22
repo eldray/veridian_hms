@@ -537,7 +537,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
     const babies = this.mapNewborns((data as any).Newborn);
     for (const [index, baby] of babies.entries()) {
-      if (!Number.isFinite(baby.birthWeight) || baby.birthWeight <= 0 || baby.birthWeight > 10) {
+      if (!Number.isFinite(baby.birthWeight) || baby.birthWeight < 1 || baby.birthWeight > 15000) {
         throw new ValidationError(`Newborn ${index + 1} must have a valid birth weight`);
       }
       if (!['male', 'female', 'other'].includes(String(baby.gender))) {
