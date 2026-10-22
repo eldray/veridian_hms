@@ -1039,8 +1039,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.pulse !== undefined && (!Number.isInteger(Number(clean.pulse)) || Number(clean.pulse) < 0 || Number(clean.pulse) > 300)) {
       throw new ValidationError('Maternal pulse must be between 0 and 300 bpm');
     }
-    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 60)) {
-      throw new ValidationError('Fundal height must be between 0 and 60 cm');
+    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 100)) {
+      throw new ValidationError('Fundal height must be between 0 and 100 cm');
     }
     if (clean.babyWeight !== undefined && (!Number.isFinite(Number(clean.babyWeight)) || Number(clean.babyWeight) < 0 || Number(clean.babyWeight) > 20)) {
       throw new ValidationError('Baby weight must be between 0 and 20 kg');
