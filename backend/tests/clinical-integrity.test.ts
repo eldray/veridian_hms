@@ -9,6 +9,7 @@ describe('admission, bed and nursing record consistency', () => {
       attendance: {
         findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', status: 'pending', Admission: null }),
         findFirst: vi.fn().mockResolvedValue(null),
+        update: vi.fn(),
       },
       bed: {
         findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }),
@@ -23,7 +24,7 @@ describe('admission, bed and nursing record consistency', () => {
     await expect(repository.createFormalAdmission({ attendanceId: 'attendance-1', bedId: 'bed-1' }, 'admin-1'))
       .rejects.toThrow(/already occupied/i);
     expect(tx.admission.create).not.toHaveBeenCalled();
-    expect(tx.attendance.update).toBeUndefined();
+    expect(tx.attendance.update).not.toHaveBeenCalled();
   });
 
   it('closes the admission and releases its bed when discharging an inpatient encounter', async () => {
