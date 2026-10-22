@@ -130,11 +130,11 @@ const rolePermissions: Record<string, string[]> = {
 
   sonographer: [
     'dashboard', 'patients', 'scans', 'laboratory',
-    'appointments', 'reports', 'profile', 'notifications', 'requisitions',  
+    'appointments', 'reports', 'profile', 'notifications', 'requisitions', 'stock_transfers',  
   ],
 
   lab_tech: [
-    'dashboard', 'patients', 'laboratory', 'requisitions',  
+    'dashboard', 'patients', 'laboratory', 'requisitions', 'stock_transfers',  
     'appointments', 'reports', 'profile', 'notifications',
   ],
 
@@ -155,7 +155,7 @@ const rolePermissions: Record<string, string[]> = {
 
   records: [
     'dashboard', 'patients', 'attendance',
-    'appointments', 'admissions', 'referrals', 'requisitions',  
+    'appointments', 'admissions', 'referrals', 'requisitions', 'stock_transfers',  
     'reports', 'profile', 'notifications',
     'audit_logs',
   ],
