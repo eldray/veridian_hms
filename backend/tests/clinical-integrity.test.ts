@@ -111,8 +111,8 @@ describe('postnatal create/update validation consistency', () => {
       data: {
         temperature: 25,
         pulse: 0,
-        fundalHeight: 80,
-        babyWeight: 18,
+        fundalHeight: 60,
+        babyWeight: 15,
         babyTemperature: 26,
       },
       include: {
