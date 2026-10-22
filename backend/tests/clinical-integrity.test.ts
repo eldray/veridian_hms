@@ -137,6 +137,24 @@ describe('clinical vitals validation', () => {
   });
 });
 
+describe('HMIS diagnosis classification validation', () => {
+  it('rejects an invalid new/old case classification before database writes', async () => {
+    const transaction = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
+      $transaction: transaction,
+    } as any);
+
+    await expect(repository.addDiagnosis('attendance-1', {
+      diagnosisId: 'diagnosis-1',
+      diagnosisType: 'primary',
+      classification: 'NOT_A_CLASSIFICATION' as any,
+    }, 'doctor-1')).rejects.toThrow(/invalid hmis diagnosis classification/i);
+
+    expect(transaction).not.toHaveBeenCalled();
+  });
+});
+
 describe('clinical encounter ownership', () => {
   it('does not cancel a lab order that belongs to another encounter', async () => {
     const findFirst = vi.fn().mockResolvedValue(null);
