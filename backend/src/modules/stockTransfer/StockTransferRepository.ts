@@ -21,6 +21,16 @@ export const annotateTransferReconciliation = (transfer: any) => {
     if (!receivedValid) issues.push('Quantity received is not a valid non-negative whole number.');
     if (sentValid && receivedValid && received > sent) issues.push('Quantity received exceeds quantity sent.');
 
+    const requested = item?.quantityRequested;
+    const requestedValid = Number.isSafeInteger(requested) && requested > 0;
+    if (['dispatched', 'received'].includes(String(transfer.status))) {
+      if (!requestedValid) {
+        issues.push('Dispatched transfer has no valid positive requested quantity.');
+      } else if (sentValid && sent !== requested) {
+        issues.push('Quantity sent does not match the originally requested quantity.');
+      }
+    }
+
     if (transfer.status === 'dispatched') {
       if (!sentValid || sent <= 0) issues.push('Dispatched transfer has no valid positive sent quantity.');
       if (receivedValid && received > 0) issues.push('Transfer is still marked dispatched despite a recorded receipt; manual reconciliation is required.');
