@@ -442,7 +442,13 @@ export default function Referrals() {
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
-    if (!requestedAttendanceId || !requestedPatientId) return;
+    // Never show a visit cached from the previous referral context while a
+    // different linked attendance is being verified (or when no visit is supplied).
+    setPrefilledAttendance(null);
+    if (!requestedAttendanceId || !requestedPatientId) {
+      if (!requestedAttendanceId) setSelectedAttendanceId('');
+      return;
+    }
     let cancelled = false;
     getAttendance(requestedAttendanceId).then((visit: any) => {
       if (cancelled) return;
