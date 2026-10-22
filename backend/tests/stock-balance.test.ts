@@ -1502,3 +1502,61 @@ describe('consumable reversal batch location race protection', () => {
     expect(tx.stockItem.update).not.toHaveBeenCalled();
   });
 });
+
+
+describe('unassigned allocation destination batch concurrency', () => {
+  it('refuses to increment a destination batch whose identity changed after lookup', async () => {
+    const expiryDate = new Date('2027-10-20T00:00:00.000Z');
+    const existingBatch = {
+      id: 'destination-batch',
+      batchNumber: 'LOT-1',
+      expiryDate,
+      costPrice: 10,
+      isActive: true,
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const transactionCreateMany = vi.fn();
+    const tx: any = {
+      stockItem: { findUnique: vi.fn().mockResolvedValue({ id: 'item-1', currentStock: 10 }) },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'unassigned-batch',
+          batchNumber: 'LOT-1',
+          quantity: 3,
+          expiryDate,
+          costPrice: 10,
+          isActive: true,
+          receivedDate: new Date('2026-01-01T00:00:00.000Z'),
+        }]),
+        updateMany: batchUpdateMany,
+        findFirst: vi.fn().mockResolvedValue(existingBatch),
+      },
+      stockItemDepartmentBalance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUnique: vi.fn().mockResolvedValue({ quantity: 7 }),
+        upsert: vi.fn().mockResolvedValue({ quantity: 3 }),
+      },
+      stockTransaction: { createMany: transactionCreateMany },
+    };
+    const repository = new StockItemRepository({} as any);
+
+    await expect(repository.allocateUnassignedStockSafely('item-1', 'pharmacy', 3))
+      .rejects.toThrow(/destination batch LOT-1 changed during unassigned stock allocation/i);
+
+    expect(batchUpdateMany).toHaveBeenNthCalledWith(2, {
+      where: {
+        id: 'destination-batch',
+        stockItemId: 'item-1',
+        batchNumber: 'LOT-1',
+        departmentId: 'pharmacy',
+        wardId: null,
+        expiryDate,
+        costPrice: 10,
+        isActive: true,
+      },
+      data: { quantity: { increment: 3 } },
+    });
+    expect(transactionCreateMany).not.toHaveBeenCalled();
+  });
+});
