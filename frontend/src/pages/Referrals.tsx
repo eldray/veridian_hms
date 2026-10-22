@@ -275,8 +275,10 @@ export default function Referrals() {
   const navigate = useNavigate();
   const location = useLocation();
   const [urlSearchParams] = useSearchParams();
-  // Clinical context is passed through router state, not the URL, to keep patient details
-  // out of browser history, copied links, referrer headers, and routine access logs.
+  // Clinical context is passed through router state rather than URL query strings.
+  // This avoids exposing it in the address bar, copied URLs, and URL-based referrer/log data.
+  // Note: router state can still persist in the browser's session history; it is not a
+  // substitute for access controls or minimizing sensitive clinical details.
   // URL parameters remain supported for older bookmarks/integrations, but new clinical
   // navigation always uses state.
   const searchParams = useMemo(() => {
