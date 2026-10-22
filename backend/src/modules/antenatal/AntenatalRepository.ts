@@ -1048,7 +1048,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       });
       if (!existing) throw new NotFoundError('Postnatal record', id);
       const referralMade = clean.referralMade ?? existing.referralMade;
-      const referredTo = clean.referredTo ?? existing.referredTo;
+      const referredTo = clean.referredTo === undefined ? existing.referredTo : clean.referredTo;
       if (referralMade && (!referredTo || !String(referredTo).trim())) {
         throw new ValidationError('Specify the referral destination when a postnatal referral is made');
       }
