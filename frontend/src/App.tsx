@@ -98,7 +98,7 @@ const rolePermissions: Record<string, string[]> = {
     'laboratory', 'scans', 'theatre', 'pharmacy',
     'billing', 'insurance_claims', 'referrals',
     'maternal_waiting_list', 'antenatal', 'family_planning',
-    'requisitions',  
+    'requisitions', 'stock_transfers',
     'reports', 'profile', 'notifications', 'settings',
     'audit_logs',
   ],
@@ -109,7 +109,7 @@ const rolePermissions: Record<string, string[]> = {
     'medical_waiting_list',
     'medical_entries',           // ✅ NEW
     'theatre',
-    'requisitions', 'referrals',
+    'requisitions', 'referrals', 'stock_transfers',
     'reports', 'profile', 'notifications',
   ],
 
@@ -140,7 +140,7 @@ const rolePermissions: Record<string, string[]> = {
 
   pharmacist: [
     'dashboard', 'pharmacy', 'dispense_medication',
-    'inventory', 'stock_management', 'stock_transactions',
+    'inventory', 'stock_management', 'stock_transactions', 'stock_transfers',
     'stock_reports', 'invoices', 'requisitions',
     'reports', 'profile', 'notifications',
   ],
