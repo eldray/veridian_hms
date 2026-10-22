@@ -73,17 +73,17 @@ export default function StockTransactions() {
     }
   };
 
-  const loadTransactions = async () => {
+  const loadTransactions = async (queryFilters = filters) => {
     try {
-      await getStockTransactions(filters);
+      await getStockTransactions(queryFilters);
     } catch (err) {
       toastError('Load failed', 'Could not load transactions');
     }
   };
 
-  const loadMovementReport = async () => {
+  const loadMovementReport = async (queryFilters = filters) => {
     try {
-      const report = await getStockMovementReport(filters);
+      const report = await getStockMovementReport(queryFilters);
       setMovementReport(report);
     } catch (err) {
       console.error('Report failed:', err);
@@ -103,15 +103,18 @@ export default function StockTransactions() {
   };
 
   const clearFilters = () => {
-    setFilters({
+    // React state updates are asynchronous. Pass the cleared filters directly
+    // so the reload cannot accidentally reuse the previous filter values.
+    const clearedFilters = {
       transactionType: '',
       startDate: '',
       endDate: '',
       stockItemId: ''
-    });
+    };
+    setFilters(clearedFilters);
     setCurrentPage(1);
-    loadTransactions();
-    loadMovementReport();
+    void loadTransactions(clearedFilters);
+    void loadMovementReport(clearedFilters);
     success('Filters cleared', 'Showing all transactions');
   };
 
