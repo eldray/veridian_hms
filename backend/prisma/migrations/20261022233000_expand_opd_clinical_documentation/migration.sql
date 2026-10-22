@@ -19,6 +19,17 @@ ALTER TABLE "Attendance"
   ADD COLUMN "finalizedAt" TIMESTAMP(3),
   ADD COLUMN "finalizedById" TEXT;
 
+-- Preserve existing SOAP/clinicalNotes JSON values in the new queryable fields.
+-- COALESCE protects any values that may already have been entered into the new columns.
+UPDATE "Attendance"
+SET
+  "historyPresentingComplaint" = COALESCE("historyPresentingComplaint", "clinicalNotes"->>'historyPresentingComplaint'),
+  "physicalExamination" = COALESCE("physicalExamination", "clinicalNotes"->>'physicalExamination'),
+  "assessment" = COALESCE("assessment", "clinicalNotes"->>'assessment'),
+  "treatmentPlan" = COALESCE("treatmentPlan", "clinicalNotes"->>'treatmentPlan'),
+  "reviewOfSystems" = COALESCE("reviewOfSystems", "clinicalNotes"->'reviewOfSystems'),
+  "physicalExamStructured" = COALESCE("physicalExamStructured", "clinicalNotes"->'physicalExamStructured');
+
 ALTER TABLE "Attendance"
   ADD CONSTRAINT "Attendance_allergyReviewedById_fkey"
     FOREIGN KEY ("allergyReviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE,
