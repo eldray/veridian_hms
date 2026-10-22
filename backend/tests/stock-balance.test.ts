@@ -1306,6 +1306,18 @@ describe('in-transit batch valuation data', () => {
         quantityReceived: 0,
         batchAllocations: [{ quantity: 1, costPrice: '4.00', batchNumber: 'BAD-LOT' }],
       },
+      {
+        stockItemId: 'item-1',
+        quantitySent: 1,
+        quantityReceived: 0,
+        batchAllocations: [{ quantity: 1, costPrice: null, batchNumber: 'MISSING-COST' }],
+      },
+      {
+        stockItemId: 'item-1',
+        quantitySent: 1,
+        quantityReceived: 0,
+        batchAllocations: [{ quantity: 1, costPrice: '', batchNumber: 'EMPTY-COST' }],
+      },
     ]);
     const repository = new StockTransactionRepository({
       stockItem: { findMany: stockItemFindMany },
