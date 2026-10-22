@@ -585,7 +585,7 @@ export default function Referrals() {
     setStructuredPartII({ institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: '' });
   };
 
-  const selectedAttendance = attendances.find(a => a.id === selectedAttendanceId);
+  const selectedAttendance = attendances.find(a => String(a.id || a._id) === selectedAttendanceId);
 
   // Client-side filtering (search + urgency) on top of server filters
   const displayedReferrals = useMemo(() => {
