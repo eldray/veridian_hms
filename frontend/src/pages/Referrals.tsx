@@ -1,6 +1,6 @@
 // src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
