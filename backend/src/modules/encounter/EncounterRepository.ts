@@ -227,9 +227,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      // followUpDate is nullable by design: an explicit null clears the scheduled date.
-      // Other nullable fields retain the existing ignore-null behavior.
       if (value === undefined || (value === null && key !== 'followUpDate')) return;
+      if (key === 'followUpDate' && value === null) {
+        normalized.followUpDate = null;
+        return;
+      }
       if (key === 'updatedAt') return;
 
       if (key === 'complaint') {
@@ -241,10 +243,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         return;
       }
       if (key === 'dateTime' || key === 'followUpDate') {
-        if (key === 'followUpDate' && value === null) {
-          normalized.followUpDate = null;
-          return;
-        }
         const date = value instanceof Date ? value : new Date(value);
         if (Number.isNaN(date.getTime())) {
           throw new ValidationError(`Invalid ${key}`);
@@ -325,14 +323,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-<<<<<<< HEAD
-  async updateStatus(id: string, status: string) {
-    const allowedStatuses = ['pending', 'admitted', 'discharged', 'completed', 'referred', 'absconded', 'cancelled'];
-    if (!allowedStatuses.includes(String(status))) {
-      throw new ValidationError('Invalid attendance status');
-    }
-    return this.getModel().update({ where: { id }, data: { status: status as any } });
-=======
   async updateStatus(id: string, status: string, userId: string) {
     if (!['pending', 'cancelled'].includes(status)) {
       throw new ValidationError('Use the dedicated admission, completion, discharge, referral or absconded workflow to change an encounter to that status');
@@ -368,7 +358,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
     if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
     return this.prisma.attendance.findUnique({ where: { id } });
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   // ============================================
@@ -377,7 +366,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
-<<<<<<< HEAD
     if (!data?.diagnosisId?.trim()) throw new ValidationError('A diagnosis must be selected');
     if (!['primary', 'additional', 'provisional'].includes(String(data.diagnosisType))) {
       throw new ValidationError('Invalid diagnosis type');
@@ -402,22 +390,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (existing) throw new ConflictError('This diagnosis has already been added to the encounter');
 
-=======
-    await this.requireEncounterId(encounterId);
-
-    // Keep duplicate detection, primary-diagnosis demotion and insertion atomic.
-    // Previously a duplicate-primary request could demote the existing primary
-    // diagnosis before failing the duplicate check.
-    return this.prisma.$transaction(async (tx) => {
-      const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
-      if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
-
-      const existing = await tx.attendanceDiagnosis.findFirst({
-        where: { attendanceId: encounterId, diagnosisId: data.diagnosisId },
-      });
-      if (existing) throw new ConflictError('Diagnosis already added to this encounter');
-
->>>>>>> origin/audit/main-sync-2026-10-20
       if (data.diagnosisType === 'primary') {
         await tx.attendanceDiagnosis.updateMany({
           where: { attendanceId: encounterId, diagnosisType: 'primary' },
@@ -427,7 +399,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       return tx.attendanceDiagnosis.create({
         data: {
-<<<<<<< HEAD
           attendanceId: encounterId,
           diagnosisId: data.diagnosisId,
           diagnosisType: data.diagnosisType,
@@ -438,15 +409,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         include: { Diagnosis: true },
       });
     }, { isolationLevel: 'Serializable' });
-=======
-          attendanceId: encounterId, diagnosisId: data.diagnosisId,
-          diagnosisType: data.diagnosisType, notes: data.notes,
-          createdById: actorId, icdCode: diagnosis.icdCode || '',
-        },
-        include: { Diagnosis: true },
-      });
-    });
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
@@ -825,94 +787,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
-<<<<<<< HEAD
-    const actorId = await this.requireActorId(userId);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new ValidationError('Dispensing quantity must be a positive whole number');
-    }
-    if (expiryDate && Number.isNaN(new Date(expiryDate).getTime())) {
-      throw new ValidationError('A valid expiry date is required when an expiry date is supplied');
-    }
-
-    return this.prisma.$transaction(async (tx) => {
-      // Scope the prescription to the requested attendance and allow dispensing once only.
-      const med = await tx.medication.findFirst({
-        where: { id: medicationId, attendanceId: encounterId },
-        include: { StockItem: true },
-      });
-      if (!med) throw new NotFoundError('Medication', medicationId);
-      if (med.status !== 'prescribed') {
-        throw new ValidationError('Only prescribed medication can be dispensed');
-      }
-      if (!med.stockItemId || !med.StockItem || !med.StockItem.isActive || !med.StockItem.isMedication) {
-        throw new ValidationError('The prescribed medication is not linked to an active medication stock item');
-      }
-
-      // Conditional decrement prevents concurrent requests from taking stock below zero.
-      const decremented = await tx.stockItem.updateMany({
-        where: {
-          id: med.stockItemId,
-          isActive: true,
-          isMedication: true,
-          currentStock: { gte: quantity },
-        },
-        data: { currentStock: { decrement: quantity } },
-      });
-      if (decremented.count !== 1) {
-        const current = await tx.stockItem.findUnique({
-          where: { id: med.stockItemId },
-          select: { currentStock: true },
-        });
-        throw new ValidationError(`Insufficient or unavailable stock. Available: ${current?.currentStock ?? 0}`);
-      }
-
-      const after = await tx.stockItem.findUnique({
-        where: { id: med.stockItemId },
-        select: { currentStock: true },
-      });
-      if (!after) throw new NotFoundError('Stock item', med.stockItemId);
-
-      const updated = await tx.medication.updateMany({
-        where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
-        data: {
-          status: 'dispensed',
-          dispensedAt: new Date(),
-          dispensedById: actorId,
-          dispensedBatchNumber: batchNumber,
-          dispensedExpiryDate: expiryDate,
-          dispensedUnitCost: med.StockItem.costPrice,
-          quantity,
-        },
-      });
-      if (updated.count !== 1) {
-        // Throwing rolls back the conditional stock decrement and transaction log.
-        throw new ConflictError('This prescription has already changed; refresh before dispensing');
-      }
-
-      await tx.stockTransaction.create({
-        data: {
-          stockItemId: med.stockItemId,
-          transactionType: 'sale',
-          quantity: -quantity,
-          balanceAfter: after.currentStock,
-          performedBy: actorId,
-          reference: medicationId,
-        },
-      });
-
-      return tx.medication.findUnique({
-        where: { id: medicationId },
-        include: {
-          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-        },
-      });
-    });
-=======
     // Keep the legacy repository entry point on the same guarded inventory path.
     return this.updateMedication(encounterId, medicationId, {
       status: 'dispensed', quantity, batchNumber, expiryDate,
     }, userId);
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   // Generic medication update: handles dispensing (atomic stock deduction, guarded
@@ -928,36 +806,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
-      const med = await tx.medication.findFirst({
-        where: { id: medicationId, attendanceId: encounterId },
+      // Query by the unique medication ID, then verify encounter ownership before
+      // any stock or medication mutation. This also keeps repository test doubles
+      // aligned with Prisma's unique-record lookup contract.
+      const med = await tx.medication.findUnique({
+        where: { id: medicationId },
         include: { StockItem: true },
       });
-<<<<<<< HEAD
-      if (!med) throw new NotFoundError('Medication', medicationId);
-
-      const allowedStatuses = ['prescribed', 'dispensed', 'administered', 'cancelled'];
-      if (data.status !== undefined && !allowedStatuses.includes(data.status)) {
-        throw new ValidationError('Invalid medication status');
-      }
-      if (data.status !== undefined && data.status !== med.status) {
-        // Cancellation must go through removeMedication so pending MAR doses
-        // are discontinued in the same transaction.
-        const allowedTransitions: Record<string, string[]> = {
-          prescribed: ['dispensed'],
-          dispensed: ['administered'],
-          administered: [],
-          cancelled: [],
-        };
-        if (!(allowedTransitions[med.status] || []).includes(data.status)) {
-          throw new ValidationError(`Medication cannot transition from "${med.status}" to "${data.status}"`);
-        }
-      }
-      if (data.quantity !== undefined && (!Number.isInteger(data.quantity) || data.quantity <= 0)) {
-        throw new ValidationError('Medication quantity must be a positive whole number');
-      }
-      if (['dispensed', 'administered', 'cancelled'].includes(med.status) && data.quantity !== undefined && data.quantity !== med.quantity) {
-        throw new ValidationError('Quantity cannot be changed after dispensing or cancellation; use the correction workflow');
-=======
       if (!med || med.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
 
       // Dispensing is a stock-changing, one-way transition. Never allow a generic
@@ -981,48 +836,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (med.status === 'dispensed' && data.status !== undefined &&
           !['dispensed', 'administered'].includes(String(data.status))) {
         throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
->>>>>>> origin/audit/main-sync-2026-10-20
       }
 
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
-<<<<<<< HEAD
-      const isDispensing = data.status === 'dispensed' && med.status === 'prescribed';
-
-      if (isDispensing) {
-        const qty = data.quantity ?? med.quantity ?? 1;
-
-        if (med.stockItemId) {
-          if (!Number.isInteger(qty) || qty <= 0) {
-            throw new ValidationError('Dispensing quantity must be a positive whole number');
-          }
-          if (!med.StockItem || !med.StockItem.isActive || !med.StockItem.isMedication) {
-            throw new ValidationError('The linked medication stock item is not active');
-          }
-          const stockUpdate = await tx.stockItem.updateMany({
-            where: { id: med.stockItemId, isActive: true, isMedication: true, currentStock: { gte: qty } },
-            data: { currentStock: { decrement: qty } },
-          });
-          if (stockUpdate.count !== 1) {
-            throw new ValidationError('Insufficient or unavailable stock');
-          }
-          const after = await tx.stockItem.findUnique({
-            where: { id: med.stockItemId },
-            select: { currentStock: true },
-          });
-          await tx.stockTransaction.create({
-            data: {
-              stockItemId: med.stockItemId,
-              transactionType: 'sale',
-              quantity: -qty,
-              balanceAfter: after?.currentStock ?? med.StockItem.currentStock - qty,
-              performedBy: actorId,
-              reference: medicationId,
-            },
-          });
-=======
       const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
       if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
         throw new ValidationError('A dispensed quantity cannot be edited directly; use a documented stock correction workflow');
@@ -1032,7 +851,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const qty = Number(data.quantity ?? med.quantity ?? 1);
         if (!Number.isSafeInteger(qty) || qty <= 0) {
           throw new ValidationError('Dispensed quantity must be a positive whole number');
->>>>>>> origin/audit/main-sync-2026-10-20
         }
         if (med.status !== 'prescribed') {
           throw new ValidationError('Only prescribed medication can be dispensed');
@@ -1140,67 +958,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         updateData.administeredById = actorId;
       }
 
-<<<<<<< HEAD
-      let updated;
-      if (isDispensing) {
-        const statusUpdate = await tx.medication.updateMany({
-          where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
-          data: updateData,
-        });
-        if (statusUpdate.count !== 1) {
-          throw new ConflictError('This prescription has already changed; refresh before dispensing');
-        }
-        updated = await tx.medication.findUnique({
-          where: { id: medicationId },
-          include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
-        });
-      } else {
-        updated = await tx.medication.update({
-          where: { id: medicationId },
-          data: updateData,
-          include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
-        });
-      }
-
-      // Handle the MAR write outside the medication transaction? No — keep it inside.
-      if (data.status === 'administered') {
-        // If the caller sent a specific doseId, use it. Otherwise pick the next pending.
-        let dose = data.doseId
-          ? await tx.medicationDose.findFirst({
-              where: { id: data.doseId, medicationId },
-            })
-          : null;
-
-        if (data.doseId && !dose) {
-          throw new ValidationError('The selected dose does not belong to this medication');
-        }
-
-        if (!dose) {
-          dose = await tx.medicationDose.findFirst({
-            where: {
-              medicationId,
-              status: { in: ['scheduled', 'due', 'late'] },
-            },
-            orderBy: { doseNumber: 'asc' },
-          });
-        }
-
-        if (dose && !['scheduled', 'due', 'late'].includes(dose.status)) {
-          throw new ValidationError('This medication dose has already been actioned and cannot be administered again');
-        }
-
-        if (dose) {
-          await tx.medicationDose.update({
-            where: { id: dose.id },
-            data: {
-              status: 'administered',
-              administeredAt: updateData.administeredAt,
-              administeredById: updateData.administeredById,
-              site: data.site ?? undefined,
-              notes: data.notes ?? undefined,
-            },
-          });
-=======
       // Resolve and validate a due dose before any clinical record is changed.
       // A medication must not appear administered when no dose could be recorded.
       let administrationDose: any = null;
@@ -1243,7 +1000,6 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         });
         if (claimedDose.count !== 1) {
           throw new ConflictError('This medication dose was recorded by another user or is no longer awaiting administration');
->>>>>>> origin/audit/main-sync-2026-10-20
         }
       }
 
@@ -1356,42 +1112,6 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-<<<<<<< HEAD
-    const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
-    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid laboratory order status');
-
-    const existing = await this.prisma.labTest.findFirst({
-      where: { id: labOrderId },
-      select: { id: true, attendanceId: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
-    if (existing.status === 'cancelled' && status !== 'cancelled') {
-      throw new ValidationError('A cancelled laboratory order cannot be reopened; create a new order');
-    }
-    if (existing.status === 'completed' && status !== 'completed') {
-      throw new ValidationError('A completed laboratory order cannot be moved back to an earlier status; use the correction workflow');
-    }
-
-    // Only result fields are client-editable. Never accept IDs, audit attribution,
-    // timestamps or other Prisma fields from the request body.
-    const updateData: any = { status };
-    for (const key of ['result', 'normalRange', 'units', 'notes']) {
-      if (data[key] !== undefined) updateData[key] = data[key];
-    }
-    if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
-    return this.prisma.labTest.update({ where: { id: existing.id }, data: updateData });
-  }
-
-  async removeLabTest(encounterId: string, labOrderId: string) {
-    const existing = await this.prisma.labTest.findFirst({
-      where: { id: labOrderId, attendanceId: encounterId },
-      select: { id: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
-    if (existing.status === 'completed') throw new ValidationError('Completed laboratory orders cannot be cancelled here; use the result correction workflow');
-    return this.prisma.labTest.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
-=======
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
     const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Laboratory order', labOrderId);
@@ -1422,7 +1142,6 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     });
     if (result.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
     return { id: labOrderId, status: 'cancelled' };
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
@@ -1530,40 +1249,6 @@ async addScan(encounterId: string, data: any, userId: string) {
 
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-<<<<<<< HEAD
-    const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
-    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid scan status');
-
-    const existing = await this.prisma.scan.findFirst({
-      where: { id: scanId },
-      select: { id: true, attendanceId: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Scan order', scanId);
-    if (existing.status === 'cancelled' && status !== 'cancelled') {
-      throw new ValidationError('A cancelled scan order cannot be reopened; create a new order');
-    }
-    if (existing.status === 'completed' && status !== 'completed') {
-      throw new ValidationError('A completed scan order cannot be moved back to an earlier status; use the correction workflow');
-    }
-
-    const updateData: any = { status };
-    for (const key of ['result', 'findings', 'impression', 'imageUrls']) {
-      if (data[key] !== undefined) updateData[key] = data[key];
-    }
-    if (status === 'completed') updateData.completedAt = new Date();
-    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
-    return this.prisma.scan.update({ where: { id: existing.id }, data: updateData });
-  }
-
-  async removeScan(encounterId: string, scanId: string) {
-    const existing = await this.prisma.scan.findFirst({
-      where: { id: scanId, attendanceId: encounterId },
-      select: { id: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Scan order', scanId);
-    if (existing.status === 'completed') throw new ValidationError('Completed scan orders cannot be cancelled here; use the result correction workflow');
-    return this.prisma.scan.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
-=======
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
     const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Scan order', scanId);
@@ -1597,7 +1282,6 @@ async addScan(encounterId: string, data: any, userId: string) {
     });
     if (result.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
     return { id: scanId, status: 'cancelled' };
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
@@ -1644,42 +1328,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-<<<<<<< HEAD
-    const allowedStatuses = ['scheduled', 'completed', 'cancelled'];
-    if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid procedure status');
-
-    const existing = await this.prisma.procedure.findFirst({
-      where: { id: procedureId },
-      select: { id: true, attendanceId: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Procedure', procedureId);
-    if (existing.status === 'cancelled' && status !== 'cancelled') {
-      throw new ValidationError('A cancelled procedure cannot be reopened; create a new procedure order');
-    }
-    if (existing.status === 'completed' && status !== 'completed') {
-      throw new ValidationError('A completed procedure cannot be moved back to an earlier status; use the correction workflow');
-    }
-
-    const updateData: any = { status };
-    for (const key of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'bloodLoss', 'duration']) {
-      if (data[key] !== undefined) updateData[key] = data[key];
-    }
-    if (status === 'completed') {
-      updateData.performedAt = new Date();
-      updateData.performedById = actorId;
-    }
-    return this.prisma.procedure.update({ where: { id: existing.id }, data: updateData });
-  }
-
-  async removeProcedure(encounterId: string, procedureId: string) {
-    const existing = await this.prisma.procedure.findFirst({
-      where: { id: procedureId, attendanceId: encounterId },
-      select: { id: true, status: true },
-    });
-    if (!existing) throw new NotFoundError('Procedure', procedureId);
-    if (existing.status === 'completed') throw new ValidationError('Completed procedures cannot be cancelled here; use the correction workflow');
-    return this.prisma.procedure.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
-=======
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
@@ -1716,7 +1364,6 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
     if (result.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
     return { id: procedureId, status: 'cancelled' };
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async addService(encounterId: string, data: any, userId: string) {
@@ -1731,20 +1378,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
-<<<<<<< HEAD
-    const existing = await this.prisma.serviceRendered.findFirst({
-      where: { id: serviceRenderedId, attendanceId: encounterId },
-      select: { id: true },
-    });
-    if (!existing) throw new NotFoundError('Rendered service', serviceRenderedId);
-    return this.prisma.serviceRendered.delete({ where: { id: existing.id } });
-=======
     const result = await this.prisma.serviceRendered.deleteMany({
       where: { id: serviceRenderedId, attendanceId: encounterId },
     });
     if (result.count === 0) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
     return { id: serviceRenderedId, removed: true };
->>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async getConsumableUses(encounterId: string) {
