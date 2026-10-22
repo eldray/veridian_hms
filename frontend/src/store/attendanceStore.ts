@@ -748,7 +748,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addVitals: async (attendanceId, data) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canRecordVitals(att)) {
       throw new Error('Cannot record vitals on non-pending attendance');
     }
@@ -907,7 +909,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // ==========================================
 
   addService: async (attendanceId, data) => {
-    const att = get().attendances.find((a) => a.id === attendanceId) || get().currentAttendance;
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add service to non-pending attendance');
     }
