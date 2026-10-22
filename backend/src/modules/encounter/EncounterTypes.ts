@@ -5,6 +5,16 @@ import { EncounterCategory, VisitCategory, AttendanceStatus, PaymentMode } from 
 // ============================================
 
 export interface CreateEncounterDTO {
+  historyPresentingComplaint?: string;
+  reviewOfSystems?: Record<string, string>;
+  physicalExamination?: string;
+  physicalExamStructured?: Record<string, string>;
+  assessment?: string;
+  treatmentPlan?: string;
+  clinicalOutcome?: 'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown';
+  allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present';
+  allergyReviewNotes?: string;
+  providerId?: string;
   patientId: string;
   attendanceType: 'emergency_acute' | 'antenatal' | 'postnatal' | 'chronic_followup' | 'specialist_consultation' | 'delivery' | 'surgery' | 'general_consultation';
   paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
@@ -26,6 +36,16 @@ export interface CreateEncounterDTO {
 }
 
 export interface UpdateEncounterDTO {
+  historyPresentingComplaint?: string | null;
+  reviewOfSystems?: Record<string, string> | null;
+  physicalExamination?: string | null;
+  physicalExamStructured?: Record<string, string> | null;
+  assessment?: string | null;
+  treatmentPlan?: string | null;
+  clinicalOutcome?: 'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | null;
+  allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present' | null;
+  allergyReviewNotes?: string | null;
+  providerId?: string | null;
   status?: AttendanceStatus;
   complaint?: string;
   complaints?: string;
