@@ -97,8 +97,18 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
       _count: { id: true },
     });
+    const priorDiagnoses = patientIds.length ? await this.prisma.attendanceDiagnosis.findMany({
+      where: {
+        Attendance: {
+          patientId: { in: patientIds },
+          dateTime: { lt: startDate },
+          status: { not: 'cancelled' },
+        },
+      },
+      select: { diagnosisId: true, Attendance: { select: { patientId: true } } },
+    }) : [];
 
-    return { attendances, priorRows };
+    return { attendances, priorRows, priorDiagnoses };
   }
 
   // ── Form A Report Data ────────────────────────────────────────────────────
