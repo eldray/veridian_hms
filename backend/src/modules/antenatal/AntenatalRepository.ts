@@ -461,7 +461,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.weight !== undefined && (!Number.isFinite(Number(clean.weight)) || Number(clean.weight) <= 0 || Number(clean.weight) > 350)) {
       throw new ValidationError('Weight must be a valid value in kilograms');
     }
-    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 100)) {
+    if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 60)) {
       throw new ValidationError('Fundal height must be between 0 and 60 cm');
     }
     if (clean.fetalHeartRate !== undefined && (!Number.isInteger(Number(clean.fetalHeartRate)) || Number(clean.fetalHeartRate) < 60 || Number(clean.fetalHeartRate) > 200)) {
@@ -1024,8 +1024,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
     if (clean.temperature !== undefined && (!Number.isFinite(Number(clean.temperature)) || Number(clean.temperature) < 25 || Number(clean.temperature) > 45)) {
       throw new ValidationError('Maternal temperature must be between 25 and 45 °C');
     }
-    if (clean.babyTemperature !== undefined && (!Number.isFinite(Number(clean.babyTemperature)) || Number(clean.babyTemperature) < 30 || Number(clean.babyTemperature) > 45)) {
-      throw new ValidationError('Baby temperature must be between 30 and 45 °C');
+    if (clean.babyTemperature !== undefined && (!Number.isFinite(Number(clean.babyTemperature)) || Number(clean.babyTemperature) < 25 || Number(clean.babyTemperature) > 45)) {
+      throw new ValidationError('Baby temperature must be between 25 and 45 °C');
     }
     if (clean.bloodPressure !== undefined && clean.bloodPressure !== null && String(clean.bloodPressure).trim() !== '') {
       const pressureParts = String(clean.bloodPressure).trim().replace(/\s+/g, '').replace('-', '/').split('/');
@@ -1037,16 +1037,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
     }
     if (clean.pulse !== undefined && (!Number.isInteger(Number(clean.pulse)) || Number(clean.pulse) < 0 || Number(clean.pulse) > 300)) {
-      throw new ValidationError('Maternal pulse must be between 20 and 250 bpm');
+      throw new ValidationError('Maternal pulse must be between 0 and 300 bpm');
     }
     if (clean.fundalHeight !== undefined && (!Number.isFinite(Number(clean.fundalHeight)) || Number(clean.fundalHeight) < 0 || Number(clean.fundalHeight) > 60)) {
       throw new ValidationError('Fundal height must be between 0 and 60 cm');
     }
-    if (clean.babyTemperature !== undefined && (!Number.isFinite(Number(clean.babyTemperature)) || Number(clean.babyTemperature) < 25 || Number(clean.babyTemperature) > 45)) {
-      throw new ValidationError('Baby temperature must be between 25 and 45 °C');
-    }
     if (clean.babyWeight !== undefined && (!Number.isFinite(Number(clean.babyWeight)) || Number(clean.babyWeight) < 0 || Number(clean.babyWeight) > 20)) {
-      throw new ValidationError('Baby weight must be between 0.1 and 15 kg');
+      throw new ValidationError('Baby weight must be between 0 and 20 kg');
     }
     if (clean.examinationDate !== undefined && clean.examinationDate > new Date()) {
       throw new ValidationError('Postnatal examination date cannot be in the future');
