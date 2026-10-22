@@ -1444,3 +1444,56 @@ describe('unassigned batch allocation expiry race protection', () => {
     expect(tx.stockTransaction.createMany).not.toHaveBeenCalled();
   });
 });
+
+describe('consumable reversal batch location race protection', () => {
+  it('does not restore quantity into a batch that moved after the location check', async () => {
+    const use = {
+      id: 'use-1',
+      reference: 'encounter-1',
+      stockItemId: 'item-1',
+      quantity: 2,
+      departmentId: 'pharmacy',
+      batchAllocations: [{ batchId: 'batch-1', quantity: 2 }],
+      notes: 'Consumable use: gloves',
+    };
+    const batchUpdateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const batchUpdate = vi.fn();
+    const transactionUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const tx: any = {
+      stockTransaction: {
+        findFirst: vi.fn().mockResolvedValue(use),
+        updateMany: transactionUpdateMany,
+        update: vi.fn(),
+        create: vi.fn(),
+      },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', departmentId: 'pharmacy', role: 'nurse' }) },
+      stockBatch: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'batch-1', stockItemId: 'item-1', departmentId: 'pharmacy', wardId: null,
+        }),
+        updateMany: batchUpdateMany,
+        update: batchUpdate,
+        count: vi.fn().mockResolvedValue(1),
+      },
+      stockItemDepartmentBalance: { upsert: vi.fn() },
+      stockItem: { update: vi.fn(), findUnique: vi.fn() },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'user-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'encounter-1' }) },
+      $transaction: vi.fn(async (callback: (client: any) => Promise<unknown>) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.deleteConsumableUse('encounter-1', 'use-1', 'user-1'))
+      .rejects.toThrow(/batch location changed during consumable reversal/i);
+
+    expect(batchUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'batch-1', stockItemId: 'item-1', departmentId: 'pharmacy', wardId: null },
+      data: { quantity: { increment: 2 } },
+    });
+    expect(batchUpdate).not.toHaveBeenCalled();
+    expect(tx.stockItemDepartmentBalance.upsert).not.toHaveBeenCalled();
+    expect(tx.stockItem.update).not.toHaveBeenCalled();
+  });
+});
