@@ -321,7 +321,22 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
           if (!existing.isActive) {
             throw new Error(`Destination batch ${batch.batchNumber} is inactive. Reconcile the batch before allocating stock.`);
           }
-          await tx.stockBatch.update({ where: { id: existing.id }, data: { quantity: { increment: move } } });
+          const incremented = await tx.stockBatch.updateMany({
+            where: {
+              id: existing.id,
+              stockItemId,
+              batchNumber: batch.batchNumber,
+              departmentId,
+              wardId: null,
+              expiryDate: batch.expiryDate,
+              costPrice: batch.costPrice,
+              isActive: true,
+            },
+            data: { quantity: { increment: move } },
+          });
+          if (incremented.count !== 1) {
+            throw new Error(`Destination batch ${batch.batchNumber} changed during unassigned stock allocation. Refresh and reconcile before retrying.`);
+          }
         } else {
           await tx.stockBatch.create({
             data: {
