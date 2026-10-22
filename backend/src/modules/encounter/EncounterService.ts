@@ -4,6 +4,7 @@ import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError, ConflictError } from '../../utils/errors';
+import { releaseBedForAttendance } from './bedOccupancy';
 
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
@@ -15,20 +16,6 @@ import {
  *  also cleared the moment anyone saves a change (see realtimeBroadcast), so a screen that
  *  refreshes after a save never receives stale data. */
 const WORKLIST_CACHE_MS = 5_000;
-
-const releaseBedForAttendance = async (tx: any, attendance: { id: string; bedId?: string | null }) => {
-  if (!attendance.bedId) return;
-  const otherActiveAssignment = await tx.attendance.findFirst({
-    where: { id: { not: attendance.id }, bedId: attendance.bedId, status: { in: ['pending', 'admitted'] } },
-    select: { id: true },
-  });
-  if (otherActiveAssignment) return;
-  const bed = await tx.bed.findUnique({ where: { id: attendance.bedId }, select: { id: true, wardId: true, isOccupied: true } });
-  if (!bed || !bed.isOccupied) return;
-  await tx.bed.update({ where: { id: bed.id }, data: { isOccupied: false } });
-  await tx.ward.updateMany({ where: { id: bed.wardId, occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
-};
-
 
 export class EncounterService extends BaseService {
   private repository: EncounterRepository;
