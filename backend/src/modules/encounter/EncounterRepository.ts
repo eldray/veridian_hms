@@ -444,7 +444,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       ];
       const missing = required.filter(([, value]) => typeof value === 'string' ? !value.trim() : value === null || value === undefined)
         .map(([label]) => label);
-      if (!record.Vitals.length) missing.push('vital signs');
+      const latestVitals = record.Vitals[0];
+      const hasVitalMeasurement = Boolean(latestVitals && [
+        latestVitals.bloodPressure, latestVitals.temperature, latestVitals.pulse,
+        latestVitals.respiration, latestVitals.spo2, latestVitals.weight,
+        latestVitals.height, latestVitals.muac,
+      ].some(value => value !== null && value !== undefined && value !== ''));
+      if (!hasVitalMeasurement) missing.push('vital signs with at least one recorded measurement');
       if (!record.reviewOfSystems || typeof record.reviewOfSystems !== 'object' ||
           !Object.values(record.reviewOfSystems as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
         missing.push('structured review of systems');
