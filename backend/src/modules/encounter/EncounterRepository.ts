@@ -322,6 +322,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const requestedNoteStatus = normalizedData.clinicalNoteStatus;
       if (requestedNoteStatus === 'finalized') {
+        const finalisingUser = await tx.user.findUnique({
+          where: { id: actorId },
+          select: { id: true, role: true, isActive: true },
+        });
+        if (!finalisingUser || !['doctor', 'midwife', 'nurse'].includes(finalisingUser.role)) {
+          throw new ValidationError('Only an authorised clinical provider (doctor, midwife or nurse) may finalise a clinical record');
+        }
         const current = await tx.attendance.findUnique({
           where: { id },
           include: { Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
@@ -342,7 +349,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         if (missing.length) throw new ValidationError(`Cannot finalise clinical record. Complete: ${missing.join(', ')}`);
         if (effective.allergyReviewStatus === 'not_reviewed') throw new ValidationError('Review and record allergy status before finalising the clinical record');
         if (!current.Vitals?.length) throw new ValidationError('Record at least one set of vitals before finalising the clinical record');
-        normalizedData.clinicalProviderId = effective.clinicalProviderId || actorId;
+        const providerId = effective.clinicalProviderId || actorId;
+        const provider = await tx.user.findUnique({ where: { id: providerId }, select: { id: true, role: true, isActive: true } });
+        if (!provider?.isActive || !['doctor', 'midwife', 'nurse'].includes(provider.role)) {
+          throw new ValidationError('The selected clinical provider must be an active doctor, midwife or nurse');
+        }
+        normalizedData.clinicalProviderId = providerId;
         normalizedData.clinicalFinalizedById = actorId;
         normalizedData.clinicalFinalizedAt = new Date();
       }
