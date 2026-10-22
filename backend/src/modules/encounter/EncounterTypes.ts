@@ -82,7 +82,14 @@ export interface BaseWorklistItem {
   encounterCategory: string;
 }
 
-export interface AddDiagnosisDTO { diagnosisId: string; diagnosisType: 'primary' | 'additional' | 'provisional'; notes?: string; presentOnAdmission?: 'Y' | 'N' | 'U'; }
+export interface AddDiagnosisDTO {
+  diagnosisId: string;
+  diagnosisType: 'primary' | 'additional' | 'provisional';
+  // Optional for legacy/non-OPD callers; the OPD diagnosis UI asks for this explicitly.
+  classification?: 'NEW_DIAGNOSIS' | 'OLD_DIAGNOSIS';
+  notes?: string;
+  presentOnAdmission?: 'Y' | 'N' | 'U';
+}
 export interface AddVitalsDTO {
   bloodPressure?: string;
   temperature?: number;
