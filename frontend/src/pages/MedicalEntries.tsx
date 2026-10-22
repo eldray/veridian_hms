@@ -680,26 +680,21 @@ export default function MedicalEntries() {
 
   useEffect(() => {
     if (!attendanceId) return;
-    // Load the specific attendance directly (don't gate on the paginated global list,
-    // which may not contain it) and derive the patient from the loaded record.
+    // Select the route attendance directly; the selected-attendance loader below
+    // fetches its record once and also derives the patient selection.
     setSelectedAttendanceId(attendanceId);
-    getAttendance(attendanceId)
-      .then(att => { if (att?.patientId) setSelectedPatientId(att.patientId); })
-      .catch(() => { });
   }, [attendanceId]);
 
+  // Load encounter clinical notes once per selected attendance. This used to be duplicated,
+  // causing two identical requests and competing state updates whenever staff changed visits.
   useEffect(() => {
-    if (!selectedAttendanceId) {
-      setTreatmentNoteDraft('');
-      return;
-    }
-
+    if (!selectedAttendanceId) return;
     let active = true;
-    // A fresh visit starts with an empty unsaved note draft. Persisted notes are loaded below.
-    setTreatmentNoteDraft('');
     getAttendance(selectedAttendanceId)
       .then(att => {
         if (!active || !att) return;
+        const patientId = typeof att.patientId === 'object' ? getEntityId(att.patientId as any) : att.patientId;
+        if (patientId) setSelectedPatientId(patientId);
         const clinicalNotes = att.clinicalNotes && typeof att.clinicalNotes === 'object' && !Array.isArray(att.clinicalNotes)
           ? att.clinicalNotes as Record<string, any>
           : {};
@@ -707,20 +702,15 @@ export default function MedicalEntries() {
         setHpc(clinicalNotes.historyPresentingComplaint || (att as any).historyPresentingComplaint || '');
         setOdq(clinicalNotes.onsetDurationQuality || (att as any).onsetDurationQuality || '');
         setPhysicalExam(clinicalNotes.physicalExamination || (att as any).physicalExamination || '');
-        const followUp = (att as any).followUpDate;
-        const parsedFollowUp = followUp ? new Date(followUp) : null;
-        setFollowUpDate(parsedFollowUp && !Number.isNaN(parsedFollowUp.getTime()) ? parsedFollowUp.toISOString().slice(0, 16) : '');
-        setTreatmentNotes(Array.isArray(clinicalNotes.treatmentNotes) ? clinicalNotes.treatmentNotes : Array.isArray((att as any).treatmentNotes) ? (att as any).treatmentNotes : []);
-        setPhysicianNotes(Array.isArray(clinicalNotes.physicianNotes) ? clinicalNotes.physicianNotes : Array.isArray((att as any).physicianNotes) ? (att as any).physicianNotes : []);
+        setFollowUpDate((att as any).followUpDate ? new Date((att as any).followUpDate).toISOString().slice(0, 16) : '');
+        setTreatmentNotes(clinicalNotes.treatmentNotes || (att as any).treatmentNotes || []);
+        setPhysicianNotes(clinicalNotes.physicianNotes || (att as any).physicianNotes || []);
         setTreatmentPlan(clinicalNotes.treatmentPlan || (att as any).treatmentPlan || '');
       })
-      .catch((err: Error) => {
-        if (active) toastError('Clinical record unavailable', err.message || 'Could not load this attendance clinical record');
+      .catch((error: Error) => {
+        if (active) toastError('Clinical notes unavailable', error.message || 'Could not load saved clinical notes');
       });
-
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selectedAttendanceId, getAttendance, toastError]);
 
   const selectedPatient = (currentPatient?.id === selectedPatientId ? currentPatient : undefined)
@@ -791,7 +781,7 @@ export default function MedicalEntries() {
         updatedById: user?.id,
       });
       setTreatmentNotes(updatedNotes);
-      setTreatmentNoteDraft(''); // Clear only the note composer; preserve the saved treatment plan.
+      setTreatmentNoteDraft(''); // Clear only the note composer; preserve the treatment plan.
       success('Saved', 'Treatment note added');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) {
