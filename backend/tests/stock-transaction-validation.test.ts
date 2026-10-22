@@ -186,3 +186,34 @@ describe('stock transaction validation', () => {
     }));
   });
 });
+
+
+describe('stock transaction valuation discrepancy consistency', () => {
+  it('flags zero-quantity tracked batches and unbatched gaps without flagging legacy untracked stock', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getValuationData: vi.fn().mockResolvedValue([
+        {
+          id: 'tracked-zero', name: 'Bandages', currentStock: 5, costPrice: 2,
+          _count: { StockBatch: 2 }, StockBatch: [], inTransitBatchAllocations: [],
+        },
+        {
+          id: 'tracked-gap', name: 'Gloves', currentStock: 10, costPrice: 5,
+          _count: { StockBatch: 1 }, StockBatch: [{ quantity: 4, costPrice: 2.5 }],
+          inTransitBatchAllocations: [{ quantity: 3, costPrice: 4 }],
+        },
+        {
+          id: 'legacy-untracked', name: 'Cotton', currentStock: 8, costPrice: 2,
+          _count: { StockBatch: 0 }, StockBatch: [], inTransitBatchAllocations: [],
+        },
+      ]),
+    };
+
+    const report = await service.getStockValuation(undefined, { includeAllStockLocations: true });
+
+    expect(report.batchQuantityDiscrepancies).toBe(2);
+    expect(report.items.map((item: any) => item.stockDiscrepancy)).toEqual([5, 3, 0]);
+    expect(report.items[0].unbatchedQuantity).toBe(5);
+    expect(report.items[1].totalValue).toBe(37);
+  });
+});
