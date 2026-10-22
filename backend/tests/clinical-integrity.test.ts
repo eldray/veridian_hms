@@ -39,6 +39,7 @@ describe('admission, bed and nursing record consistency', () => {
       admission: { update: vi.fn().mockResolvedValue({}) },
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }), update: vi.fn().mockResolvedValue({}) },
       ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+      notification: { create: vi.fn().mockResolvedValue({}) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
     const service = new EncounterService(prisma);
