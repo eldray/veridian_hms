@@ -138,6 +138,25 @@ describe('clinical vitals validation', () => {
 });
 
 describe('HMIS diagnosis classification validation', () => {
+  it('requires case classification for OPD diagnoses', async () => {
+    const findDiagnosis = vi.fn();
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', encounterCategory: 'opd' }) },
+      diagnosis: { findUnique: findDiagnosis },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'doctor-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.addDiagnosis('attendance-1', {
+      diagnosisId: 'diagnosis-1',
+      diagnosisType: 'primary',
+    }, 'doctor-1')).rejects.toThrow(/classification is required for opd diagnoses/i);
+
+    expect(findDiagnosis).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid new/old case classification before database writes', async () => {
     const transaction = vi.fn();
     const repository = new EncounterRepository({
