@@ -535,6 +535,7 @@ export class StockItemRepository extends BaseRepository<any, any, any> {
       select: {
         id: true, name: true, category: true, currentStock: true,
         costPrice: true, reorderLevel: true, isMedication: true,
+        _count: { select: { StockBatch: true } },
         StockBatch: {
           where: {
             quantity: { gt: 0 },
