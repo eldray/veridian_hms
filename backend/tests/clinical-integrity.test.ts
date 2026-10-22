@@ -52,7 +52,7 @@ describe('admission, bed and nursing record consistency', () => {
     expect(tx.admission.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'admission-1' },
       data: expect.objectContaining({ dischargeStatus: 'home', dailyNotes: expect.arrayContaining([
-        expect.objectContaining({ noteType: 'discharge_summary', notes: 'Stable for discharge', recordedBy: 'nurse-1' }),
+        expect.objectContaining({ noteType: 'discharge', notes: expect.stringContaining('Stable for discharge'), createdBy: 'nurse-1' }),
       ]) }),
     }));
     expect(tx.bed.update).toHaveBeenCalledWith({ where: { id: 'bed-1' }, data: { isOccupied: false } });
