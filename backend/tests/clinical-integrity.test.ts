@@ -89,6 +89,19 @@ describe('admission, bed and nursing record consistency', () => {
     expect(tx.ward.updateMany).toHaveBeenCalledWith({ where: { id: 'ward-1', occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
   });
 
+  it('blocks medication administration after the encounter is closed', async () => {
+    const prisma: any = { attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) } };
+    const service = new NursingService(prisma);
+    const repository = {
+      findDoseById: vi.fn().mockResolvedValue({ id: 'dose-1', status: 'due', medication: { status: 'dispensed', attendanceId: 'attendance-1' } }),
+      administerDose: vi.fn(),
+    };
+    (service as any).repository = repository;
+
+    await expect(service.administerDose('dose-1', 'nurse-1', {})).rejects.toThrow(/closed encounter/i);
+    expect(repository.administerDose).not.toHaveBeenCalled();
+  });
+
   it('rejects a nursing note when its attendance belongs to a different patient', async () => {
     const prisma: any = {
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-other' }) },
