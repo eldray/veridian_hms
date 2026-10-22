@@ -2125,13 +2125,15 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
       await tx.attendance.update({ where: { id: encounterId }, data: { status: 'discharged' } });
       if (encounter.Admission) {
+        const dailyNotes: any[] = Array.isArray(encounter.Admission.dailyNotes)
+          ? [...encounter.Admission.dailyNotes]
+          : [];
+        if (data.dischargeSummary?.trim()) {
+          dailyNotes.push({ noteType: 'discharge_summary', notes: data.dischargeSummary.trim(), recordedBy: userId, recordedAt: dischargeDate });
+        }
         await tx.admission.update({
           where: { id: encounter.Admission.id },
-          data: {
-            dischargeDate,
-            dischargeStatus,
-            ...(data.dischargeSummary ? { dailyNotes: { push: { noteType: 'discharge_summary', notes: data.dischargeSummary, recordedBy: userId, recordedAt: dischargeDate } } } : {}),
-          }
+          data: { dischargeDate, dischargeStatus, ...(data.dischargeSummary?.trim() ? { dailyNotes } : {}) }
         });
       }
       await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
