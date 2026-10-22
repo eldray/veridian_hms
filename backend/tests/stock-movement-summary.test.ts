@@ -1080,3 +1080,32 @@ describe('in-transit batch stock valuation', () => {
     });
   });
 });
+
+describe('in-transit stock valuation reconciliation', () => {
+  it('flags aggregate stock that is missing from on-hand batches when transfer allocations are not valued', async () => {
+    const service = new StockTransactionService({} as any);
+    (service as any).repo = {
+      getValuationData: async () => [{
+        id: 'item-transit-1',
+        name: 'Amoxicillin',
+        category: 'medication',
+        currentStock: 10,
+        costPrice: '5.00',
+        _count: { StockBatch: 1 },
+        StockBatch: [{ quantity: 4, costPrice: '2.50' }],
+        // The repository must not value malformed/partial allocations as valid
+        // transit stock. The unmatched aggregate quantity remains a discrepancy.
+        inTransitBatchAllocations: [],
+      }],
+    };
+
+    const report = await service.getStockValuation(undefined, { includeAllStockLocations: true });
+
+    expect(report.items[0]).toMatchObject({
+      batchQuantity: 4,
+      inTransitBatchQuantity: 0,
+      stockDiscrepancy: 6,
+    });
+    expect(report.batchQuantityDiscrepancies).toBe(1);
+  });
+});
