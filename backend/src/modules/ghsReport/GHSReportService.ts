@@ -317,7 +317,9 @@ export class GHSReportService extends BaseService {
       if (!att.Patient) continue;
       const ag = getOPDAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender = att.Patient.gender as 'male' | 'female';
-      const insured = att.paymentMode !== 'cash';
+      // Ghana OPD reporting asks for NHIS membership status, not the visit's payment mode.
+      const insured = Boolean(att.Patient.nhisActive &&
+        (!att.Patient.nhisExpiryDate || new Date(att.Patient.nhisExpiryDate) >= att.dateTime));
       const isNew = !hadPrior.has(att.Patient.id) && !seenPeriod.has(att.Patient.id);
       seenPeriod.add(att.Patient.id);
       
@@ -408,7 +410,8 @@ export class GHSReportService extends BaseService {
       const labResults = att.LabTest.filter((l: any) => l.status === 'completed' && l.result).map((l: any) => `${l.LabTestTemplate?.name}: ${(l.result as any)?.result ?? 'Done'}`).join('; ');
       const drugsPrescribed = att.Medication.filter((m: any) => m.status === 'prescribed').map((m: any) => m.StockItem?.name ?? m.name).join(', ');
       const drugsGiven = att.Medication.filter((m: any) => m.status === 'dispensed').map((m: any) => m.StockItem?.name ?? m.name).join(', ');
-      const isNHIS = att.paymentMode === 'nhis';
+      const isNHIS = Boolean(patient.nhisActive &&
+        (!patient.nhisExpiryDate || new Date(patient.nhisExpiryDate) >= att.dateTime));
       const isPregnant = att.attendanceType === 'antenatal' || (att.medicalNotes?.toLowerCase().includes('preg') ?? false);
       const hasReferral = att.referral !== null;
       if (hasReferral) referrals++;
