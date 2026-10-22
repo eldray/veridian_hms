@@ -80,6 +80,8 @@ export interface CreateANCVisitInput {
   bookingId: string;
   attendanceId: string;
   visitNumber: number;
+  gravida?: number;
+  para?: number;
   visitDate: Date;
   gestationalAgeWeeks?: number;
   gestationalAgeDays?: number; 
