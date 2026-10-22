@@ -1459,7 +1459,20 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         if (!batch || batch.stockItemId !== stockItemId || batch.departmentId !== departmentId || batch.wardId !== null) {
           throw new ValidationError('Original batch location has changed; manual reconciliation is required');
         }
-        await tx.stockBatch.update({ where: { id: batchId }, data: { quantity: { increment: amount } } });
+        // Guard the restore with the original item and location. A concurrent transfer
+        // must not move the batch between the read above and this quantity increment.
+        const restored = await tx.stockBatch.updateMany({
+          where: {
+            id: batchId,
+            stockItemId,
+            departmentId: departmentId || null,
+            wardId: null,
+          },
+          data: { quantity: { increment: amount } },
+        });
+        if (restored.count !== 1) {
+          throw new ConflictError('Original batch location changed during consumable reversal; manual reconciliation is required');
+        }
       }
     } else if (await tx.stockBatch.count({ where: { stockItemId } }) > 0) {
       throw new ValidationError('This historic use has no saved batch allocation; manual reconciliation is required');
