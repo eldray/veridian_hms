@@ -1535,6 +1535,10 @@ export default function MedicalEntries() {
             <div className="flex-1 min-w-0 space-y-4">
 
               {/* Clinical presentation */}
+              <div className="text-[10px] text-[var(--text-secondary)]">
+                Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
+                {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Left sub-col */}
                 <div className="space-y-3">
