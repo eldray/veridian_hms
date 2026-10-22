@@ -298,6 +298,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       throw new ValidationError('TT dose number must be between 1 and 5');
     }
 
+    // Validate the actual recorder before either updating a pre-created blank ANC row
+    // or inserting a new visit. Encounter creation may seed the row under a different user.
+    const recorder = await this.prisma.user.findUnique({
+      where: { id: data.recordedById },
+      select: { id: true },
+    });
+    if (!recorder) throw new ValidationError('The selected ANC recording staff account does not exist');
+
     return this.prisma.$transaction(async (tx) => {
       const [attendance, booking] = await Promise.all([
         tx.attendance.findUnique({
@@ -359,7 +367,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (existingVisit) {
         return tx.aNCVisit.update({
           where: { id: existingVisit.id },
-          data: visitFields,
+          // Attribute the completed clinical entry to the person who recorded it,
+          // not necessarily the user who created the attendance or blank seed row.
+          data: { ...visitFields, recordedById: data.recordedById },
           include: { recordedBy: { select: { fullName: true, role: true } } },
         });
       }
