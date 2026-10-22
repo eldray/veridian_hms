@@ -922,11 +922,12 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const updated = await apiAddService(attendanceId, data);
-      set({
-        attendances: get().attendances.map((a) => (a.id === updated.id ? updated : a)),
-        currentAttendance: updated,
+      set((state) => ({
+        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
+        // A late response for another visit must not replace the visit currently open.
+        currentAttendance: state.currentAttendance?.id === attendanceId ? updated : state.currentAttendance,
         isLoading: false,
-      });
+      }));
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding service:', error);
@@ -956,6 +957,10 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   // UTILITIES
   // ==========================================
 
-  clearCurrentAttendance: () => set({ currentAttendance: null }),
+  clearCurrentAttendance: () => {
+    // Invalidate any pending getAttendance request so it cannot restore a visit after navigation away.
+    attendanceFetchSequence += 1;
+    set({ currentAttendance: null });
+  },
   clearError: () => set({ error: null }),
 }));
