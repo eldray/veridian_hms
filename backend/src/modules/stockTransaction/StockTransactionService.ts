@@ -109,7 +109,11 @@ export class StockTransactionService extends BaseService {
       const trackedBatchQuantity = batchQuantity + inTransitBatchQuantity;
       const currentStock = Math.max(0, Number(item.currentStock) || 0);
       const unbatchedQuantity = Math.max(0, currentStock - trackedBatchQuantity);
-      const stockDiscrepancy = Math.max(0, trackedBatchQuantity - currentStock);
+      // Match the stock-item valuation report: legacy items with no batch history
+      // may legitimately be unbatched, but once batch tracking exists, any gap
+      // between the aggregate and tracked on-hand/in-transit quantities is a discrepancy.
+      const hasBatchTracking = batches.length > 0 || Number(item._count?.StockBatch) > 0 || inTransitBatchQuantity > 0;
+      const stockDiscrepancy = hasBatchTracking ? Math.abs(trackedBatchQuantity - currentStock) : 0;
       return {
         ...item,
         batchQuantity,
