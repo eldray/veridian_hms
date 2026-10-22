@@ -11,6 +11,21 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
+/**
+ * Resolve facility-level patient classification separately from diagnosis-episode classification.
+ * Older API clients may omit it; in that case derive it from prior non-cancelled attendances.
+ */
+export const resolvePatientClassification = (
+  provided: unknown,
+  hasPreviousAttendance: boolean,
+): 'NEW' | 'OLD' => {
+  if (provided == null || provided === '') return hasPreviousAttendance ? 'OLD' : 'NEW';
+  if (provided !== 'NEW' && provided !== 'OLD') {
+    throw new ValidationError('Invalid patient classification; expected NEW or OLD');
+  }
+  return provided;
+};
+
 export const LIVE_PENDING_DAYS = 14;
 export const LIVE_RECENT_HOURS = 72;
 
@@ -122,11 +137,17 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async create(data: CreateEncounterDTO, userId: string) {
     this.validateClinicalDocumentation(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
-    const counterService = getCounterService(); 
+    const previousAttendance = await this.prisma.attendance.findFirst({
+      where: { patientId: data.patientId, status: { not: 'cancelled' } },
+      select: { id: true },
+    });
+    const patientClassification = resolvePatientClassification(data.patientClassification, Boolean(previousAttendance));
+    const counterService = getCounterService();
     return this.getModel().create({
       data: {
         attendanceNumber: counterService.nextAttendanceNumber(),
         patientId: data.patientId,
+        patientClassification,
         attendanceType: data.attendanceType,
         paymentMode: data.paymentMode,
         nhisCCC: data.nhisCCC,
