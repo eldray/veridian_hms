@@ -1,7 +1,23 @@
 import { describe, expect, it, vi } from 'vitest';
-import { EncounterRepository } from '../src/modules/encounter/EncounterRepository';
+import { EncounterRepository, resolvePatientClassification } from '../src/modules/encounter/EncounterRepository';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
+
+describe('facility-level patient classification', () => {
+  it('classifies the first non-cancelled encounter as NEW', () => {
+    expect(resolvePatientClassification(undefined, false)).toBe('NEW');
+  });
+
+  it('classifies a patient with a prior non-cancelled encounter as OLD', () => {
+    expect(resolvePatientClassification(undefined, true)).toBe('OLD');
+  });
+
+  it('preserves an explicit valid classification and rejects invalid values', () => {
+    expect(resolvePatientClassification('NEW', true)).toBe('NEW');
+    expect(resolvePatientClassification('OLD', false)).toBe('OLD');
+    expect(() => resolvePatientClassification('RETURNING' as any, false)).toThrow(/invalid patient classification/i);
+  });
+});
 
 describe('OPD clinical record finalization', () => {
   it('does not treat one isolated measurement as a complete vital-sign section', async () => {
