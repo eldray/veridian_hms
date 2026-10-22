@@ -381,11 +381,15 @@ export default function Referrals() {
     } catch { /* optional */ }
   };
 
-  const prefillApplied = useRef(false);
+  const prefillKeyApplied = useRef('');
   useEffect(() => {
     const patientId = searchParams.get('patientId') || '';
-    if (!patientId || prefillApplied.current) return;
-    prefillApplied.current = true;
+    const attendanceId = searchParams.get('attendanceId') || '';
+    const source = searchParams.get('source') || 'Clinical assessment';
+    if (!patientId) return;
+    const prefillKey = [patientId, attendanceId, source].join('|');
+    if (prefillKeyApplied.current === prefillKey) return;
+    prefillKeyApplied.current = prefillKey;
     setSelectedPatientId(patientId);
     setSelectedAttendanceId(searchParams.get('attendanceId') || '');
     setReferralType('outgoing');
@@ -398,7 +402,6 @@ export default function Referrals() {
         ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
         : 'routine'),
     }));
-    const source = searchParams.get('source') || 'Clinical assessment';
     setStructuredPartI(prev => ({
       ...prev,
       clientName: searchParams.get('patientName') || prev.clientName,
@@ -464,7 +467,7 @@ export default function Referrals() {
     setStructuredPartI(prev => ({
       ...prev,
       clientName: prev.clientName || getPatientName(patient),
-      age: prev.age || String(calculatedAge || ''),
+      age: prev.age || (calculatedAge !== '' && calculatedAge != null ? String(calculatedAge) : ''),
       sex: prev.sex || String(patient.gender || patient.sex || ''),
     }));
   }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
