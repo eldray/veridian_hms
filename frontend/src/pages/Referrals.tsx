@@ -279,7 +279,7 @@ export default function Referrals() {
   const { user } = useAuthStore();
 
   const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances } = useAttendanceStore();
+  const { attendances, getAttendances, getAttendance } = useAttendanceStore();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [referrals,     setReferrals]     = useState<Referral[]>([]);
@@ -312,6 +312,7 @@ export default function Referrals() {
 
   const [selectedPatientId,    setSelectedPatientId]    = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
+  const [prefilledAttendance, setPrefilledAttendance] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     referralReason:      '',
@@ -420,20 +421,48 @@ export default function Referrals() {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
     if (!requestedAttendanceId || !requestedPatientId || !attendances.length) return;
-    const matchingVisit = attendances.find((item: any) => {
-      const visitId = item.id || item._id;
-      const linkedPatient = item.patientId || item.patient?.id || item.patient?._id;
+    const requestedVisit = attendances.find((item: any) =>
+      String(item.id || item._id || '') === requestedAttendanceId
+    );
+    if (!requestedVisit) return; // The scoped/global attendance list may not contain older visits.
+    const linkedPatient = requestedVisit.patientId || requestedVisit.patient?.id || requestedVisit.patient?._id;
+    const linkedPatientId = typeof linkedPatient === 'object'
+      ? linkedPatient.id || linkedPatient._id
+      : linkedPatient;
+    if (String(linkedPatientId || '') !== requestedPatientId &&
+        selectedAttendanceId === requestedAttendanceId) {
+      setSelectedAttendanceId('');
+      setPrefilledAttendance(null);
+      toastError('Visit mismatch', 'The linked visit belongs to a different patient. Select the correct visit before submitting the referral.');
+    }
+  }, [attendances, searchParams, selectedAttendanceId, toastError]);
+
+  useEffect(() => {
+    const requestedAttendanceId = searchParams.get('attendanceId');
+    const requestedPatientId = searchParams.get('patientId');
+    if (!requestedAttendanceId || !requestedPatientId) return;
+    let cancelled = false;
+    getAttendance(requestedAttendanceId).then((visit: any) => {
+      if (cancelled) return;
+      const linkedPatient = visit?.patientId || visit?.patient?.id || visit?.patient?._id;
       const linkedPatientId = typeof linkedPatient === 'object'
         ? linkedPatient.id || linkedPatient._id
         : linkedPatient;
-      return String(visitId || '') === requestedAttendanceId &&
-        String(linkedPatientId || '') === requestedPatientId;
-    });
-    if (!matchingVisit && selectedAttendanceId === requestedAttendanceId) {
+      if (String(linkedPatientId || '') !== requestedPatientId) {
+        setSelectedAttendanceId('');
+        setPrefilledAttendance(null);
+        toastError('Visit mismatch', 'The linked visit belongs to a different patient. Select the correct visit before submitting the referral.');
+        return;
+      }
+      setPrefilledAttendance(visit);
+    }).catch(() => {
+      if (cancelled) return;
       setSelectedAttendanceId('');
-      toastError('Visit not found', 'The linked visit could not be matched to this patient. Select the correct visit before submitting the referral.');
-    }
-  }, [attendances, searchParams, selectedAttendanceId, toastError]);
+      setPrefilledAttendance(null);
+      toastError('Visit unavailable', 'The linked visit could not be loaded. Select the correct visit before submitting the referral.');
+    });
+    return () => { cancelled = true; };
+  }, [searchParams, getAttendance, toastError]);
 
   useEffect(() => {
     if (!searchParams.get('patientId') || !selectedPatientId || structuredPartI.clientName) return;
@@ -585,7 +614,8 @@ export default function Referrals() {
     setStructuredPartII({ institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: '' });
   };
 
-  const selectedAttendance = attendances.find(a => String(a.id || a._id) === selectedAttendanceId);
+  const selectedAttendance = [...attendances, ...(prefilledAttendance ? [prefilledAttendance] : [])]
+    .find((a: any) => String(a.id || a._id) === selectedAttendanceId);
 
   // Client-side filtering (search + urgency) on top of server filters
   const displayedReferrals = useMemo(() => {
@@ -1276,7 +1306,9 @@ export default function Referrals() {
                   <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <PatientAttendanceSelector
                       patients={patients}
-                      attendances={attendances}
+                      attendances={prefilledAttendance && !attendances.some((item: any) => String(item.id || item._id) === String(prefilledAttendance.id || prefilledAttendance._id))
+                        ? [...attendances, prefilledAttendance]
+                        : attendances}
                       selectedPatientId={selectedPatientId}
                       selectedAttendanceId={selectedAttendanceId}
                       onPatientSelect={setSelectedPatientId}
