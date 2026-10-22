@@ -198,7 +198,7 @@ export class GHSReportService extends BaseService {
     for (const att of sorted) { reAttMap.set(att.id, hadPrior.has(att.patientId) || seenPeriod.has(att.patientId)); seenPeriod.add(att.patientId); }
     
     const diagnosisHistoryByPatient = new Map<string, Set<string>>();
-    for (const row of priorDiagnoses as any[]) {
+    for (const row of (priorDiagnoses || []) as any[]) {
       const patientId = row.Attendance?.patientId;
       if (!patientId) continue;
       if (!diagnosisHistoryByPatient.has(patientId)) diagnosisHistoryByPatient.set(patientId, new Set<string>());
