@@ -312,7 +312,9 @@ export class StockTransactionRepository extends BaseRepository<any, any, any> {
       const allocations = Array.isArray(transferItem.batchAllocations) ? transferItem.batchAllocations : [];
       const allocationsAreValid = allocations.length > 0 && allocations.every((allocation: any) =>
         Number.isSafeInteger(allocation?.quantity) && allocation.quantity > 0 &&
-        Number.isFinite(Number(allocation?.costPrice)) && Number(allocation.costPrice) >= 0
+        allocation?.costPrice !== null && allocation?.costPrice !== undefined &&
+        !(typeof allocation.costPrice === 'string' && allocation.costPrice.trim() === '') &&
+        Number.isFinite(Number(allocation.costPrice)) && Number(allocation.costPrice) >= 0
       );
       // Avoid inventing valuation when legacy/malformed allocation data cannot
       // reconcile exactly to the quantity still in transit.
