@@ -32,7 +32,7 @@ export interface UpdateEncounterDTO {
   medicalNotes?: string;
   clinicalNotes?: any; // ✅ ADDED
   treatmentPlan?: string;
-  followUpDate?: Date;
+  followUpDate?: Date | null;
   dateTime?: Date;
   attendanceType?: CreateEncounterDTO['attendanceType'];
   paymentMode?: CreateEncounterDTO['paymentMode'];

@@ -381,36 +381,55 @@ export default function Referrals() {
     } catch { /* optional */ }
   };
 
-  const prefillApplied = useRef(false);
+  const prefillKeyApplied = useRef('');
   useEffect(() => {
     const patientId = searchParams.get('patientId') || '';
-    if (!patientId || prefillApplied.current) return;
-    prefillApplied.current = true;
+    const attendanceId = searchParams.get('attendanceId') || '';
+    const source = searchParams.get('source') || 'Clinical assessment';
+    if (!patientId) return;
+    const prefillKey = searchParams.toString();
+    if (prefillKeyApplied.current === prefillKey) return;
+    prefillKeyApplied.current = prefillKey;
     setSelectedPatientId(patientId);
-    setSelectedAttendanceId(searchParams.get('attendanceId') || '');
+    setSelectedAttendanceId(attendanceId);
     setReferralType('outgoing');
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
       referralReason: searchParams.get('reason') || '',
       referralNotes: searchParams.get('notes') || '',
       referredToFacility: searchParams.get('facility') || '',
+      referredToDoctor: '',
+      referredToDepartment: '',
+      referredFromFacility: '',
+      referredFromDoctor: '',
       urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
         ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
         : 'routine'),
-    }));
-    const source = searchParams.get('source') || 'Clinical assessment';
-    setStructuredPartI(prev => ({
-      ...prev,
-      clientName: searchParams.get('patientName') || prev.clientName,
+    });
+    setStructuredPartI({
+      clientName: searchParams.get('patientName') || '',
+      age: '',
+      sex: '',
+      parity: '',
       clinicName: source,
-      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || prev.patientComplaints,
-      diagnosis: searchParams.get('diagnosis') || prev.diagnosis,
-      actionsTaken: searchParams.get('treatment') || prev.actionsTaken,
-      reasonForReferral: searchParams.get('reason') || prev.reasonForReferral,
+      generalCondition: '',
+      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || '',
+      diagnosis: searchParams.get('diagnosis') || '',
+      actionsTaken: searchParams.get('treatment') || '',
+      reasonForReferral: searchParams.get('reason') || '',
       dateOfReferral: new Date().toISOString().slice(0, 10),
-    }));
-    // Referral context from a clinical page should be visible immediately in
-    // the structured letter, not only saved in hidden state.
+      referrerName: '',
+      referrerTitle: '',
+      referrerSignature: '',
+    });
+    setStructuredPartII({
+      institutionName: '',
+      dateReceived: '',
+      findings: '',
+      actionsTaken: '',
+      recommendations: '',
+      receiverName: '',
+      receiverTitle: '',
+    });
     setUseStructuredForm(true);
     setShowModal(true);
   }, [searchParams]);
@@ -418,7 +437,12 @@ export default function Referrals() {
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
-    if (!requestedAttendanceId || !requestedPatientId) return;
+    // Clear stale visit details while the new referral context is checked.
+    setPrefilledAttendance(null);
+    if (!requestedAttendanceId || !requestedPatientId) {
+      if (!requestedAttendanceId) setSelectedAttendanceId('');
+      return;
+    }
     let cancelled = false;
     getAttendance(requestedAttendanceId).then((visit: any) => {
       if (cancelled) return;
@@ -464,7 +488,7 @@ export default function Referrals() {
     setStructuredPartI(prev => ({
       ...prev,
       clientName: prev.clientName || getPatientName(patient),
-      age: prev.age || String(calculatedAge || ''),
+      age: prev.age || (calculatedAge !== '' && calculatedAge != null ? String(calculatedAge) : ''),
       sex: prev.sex || String(patient.gender || patient.sex || ''),
     }));
   }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
