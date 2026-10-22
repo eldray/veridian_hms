@@ -404,7 +404,9 @@ export class StockItemService extends BaseService {
         unbatchedQuantity,
         unbatchedValue,
         currentStock,
-        stockDiscrepancy: (batches.length || inTransitBatchQuantity > 0) ? Math.abs(trackedBatchQuantity - currentStock) : 0,
+        stockDiscrepancy: (batches.length || Number(item._count?.StockBatch) > 0 || inTransitBatchQuantity > 0)
+          ? Math.abs(trackedBatchQuantity - currentStock)
+          : 0,
         totalValue: batchValue + inTransitBatchValue + unbatchedValue,
       };
     });
