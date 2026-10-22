@@ -121,7 +121,7 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
   currentUser,
   paymentMode = 'cash'
 }) => {
-  const { success, error } = useToast(); // TOAST INTEGRATION
+  const { error } = useToast();
   
   // Safe tab counts with proper array access
   const tabCounts = {
@@ -143,6 +143,12 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
   ];
 
   const handleSubmit = () => {
+    // UI permission checks are a usability safeguard; backend authorization remains authoritative.
+    if (!canAddEntries) {
+      error('Read-only access', 'This attendance is not open for medical-entry changes.');
+      return;
+    }
+
     // Validate if there's any data to save
     const hasData = 
       chiefComplaint || 
@@ -283,7 +289,8 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
       <div className="flex justify-end">
         <button
           onClick={handleSubmit}
-          disabled={isSubmitting}
+          disabled={isSubmitting || !canAddEntries}
+          title={!canAddEntries ? 'This attendance is read-only' : 'Save medical entries'}
           className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 flex items-center gap-2 font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
@@ -294,7 +301,7 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
           ) : (
             <>
               <Save className="w-4 h-4" />
-              <span>Save Medical Entries</span>
+              <span>{canAddEntries ? 'Save Medical Entries' : 'Read-only Attendance'}</span>
             </>
           )}
         </button>
