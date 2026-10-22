@@ -103,16 +103,22 @@ export class StockTransactionService extends BaseService {
       const batches = Array.isArray(item.StockBatch) ? item.StockBatch : [];
       const batchQuantity = batches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
       const batchValue = batches.reduce((sum: number, batch: any) => sum + toNumber(batch.costPrice) * Math.max(0, Number(batch.quantity) || 0), 0);
+      const inTransitBatches = Array.isArray(item.inTransitBatchAllocations) ? item.inTransitBatchAllocations : [];
+      const inTransitBatchQuantity = inTransitBatches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.quantity) || 0), 0);
+      const inTransitBatchValue = inTransitBatches.reduce((sum: number, batch: any) => sum + Math.max(0, Number(batch.costPrice) || 0) * Math.max(0, Number(batch.quantity) || 0), 0);
+      const trackedBatchQuantity = batchQuantity + inTransitBatchQuantity;
       const currentStock = Math.max(0, Number(item.currentStock) || 0);
-      const unbatchedQuantity = Math.max(0, currentStock - batchQuantity);
-      const stockDiscrepancy = Math.max(0, batchQuantity - currentStock);
+      const unbatchedQuantity = Math.max(0, currentStock - trackedBatchQuantity);
+      const stockDiscrepancy = Math.max(0, trackedBatchQuantity - currentStock);
       return {
         ...item,
         batchQuantity,
         batchValue,
+        inTransitBatchQuantity,
+        inTransitBatchValue,
         unbatchedQuantity,
         stockDiscrepancy,
-        totalValue: batchValue + toNumber(item.costPrice) * unbatchedQuantity,
+        totalValue: batchValue + inTransitBatchValue + toNumber(item.costPrice) * unbatchedQuantity,
       };
     });
     const totalValue = valuedItems.reduce((sum: number, item: any) => sum + item.totalValue, 0);
