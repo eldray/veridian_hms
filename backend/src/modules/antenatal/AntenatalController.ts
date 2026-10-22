@@ -264,7 +264,8 @@ export class AntenatalController extends BaseController {
   updatePostnatalRecord = [
     body('examinationDate').optional().isISO8601().withMessage('Valid examination date required'),
     body('nextVisitDate').optional({ nullable: true }).isISO8601().withMessage('Valid next visit date required'),
-    body('dayNumber').optional().isInt({ min: 1, max: 60 }),
+    // Repository supports postnatal follow-up day numbers through day 365.
+    body('dayNumber').optional().isInt({ min: 1, max: 365 }),
     body('maternalCondition').optional().isIn(['good', 'fair', 'poor', 'critical']),
     body('breastfeedingStatus').optional().isIn(['exclusive', 'mixed', 'not_breastfeeding']),
     body('babyCondition').optional().isIn(['good', 'fair', 'poor', 'critical']),
