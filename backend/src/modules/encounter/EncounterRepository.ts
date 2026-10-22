@@ -43,6 +43,21 @@ const startOfCurrentDay = (): Date => {
   return today;
 };
 
+/** Release an assigned bed only when no other admitted attendance still uses it. */
+const releaseBedForAttendance = async (tx: any, attendance: { id: string; bedId?: string | null }) => {
+  if (!attendance.bedId) return;
+  const otherActiveAssignment = await tx.attendance.findFirst({
+    where: { id: { not: attendance.id }, bedId: attendance.bedId, status: 'admitted' },
+    select: { id: true },
+  });
+  if (otherActiveAssignment) return;
+
+  const bed = await tx.bed.findUnique({ where: { id: attendance.bedId }, select: { id: true, wardId: true, isOccupied: true } });
+  if (!bed || !bed.isOccupied) return;
+  await tx.bed.update({ where: { id: bed.id }, data: { isOccupied: false } });
+  await tx.ward.updateMany({ where: { id: bed.wardId, occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
+};
+
 export const WORKLIST_OPEN_DAYS = 30;
 export const WORKLIST_DONE_HOURS = 72;
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
@@ -1833,11 +1848,45 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // ============================================
 
   async createFormalAdmission(data: any, userId: string) {
+    if (!data.attendanceId) throw new ValidationError('An attendance/encounter is required to create an admission');
+
     return this.prisma.$transaction(async (tx) => {
+      const attendance = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, patientId: true, status: true, Admission: { select: { id: true } } },
+      });
+      if (!attendance) throw new NotFoundError('Attendance', data.attendanceId);
+      if (['discharged', 'cancelled', 'completed'].includes(attendance.status)) {
+        throw new ConflictError('A closed encounter cannot be admitted; create or reopen the appropriate encounter first');
+      }
+      if (attendance.Admission) throw new ConflictError('This encounter already has an admission record');
+
+      let assignedWardId = data.wardId ?? null;
+      if (data.bedId) {
+        const bed = await tx.bed.findUnique({
+          where: { id: data.bedId },
+          select: { id: true, wardId: true, isOccupied: true, Ward: { select: { id: true, isActive: true } } },
+        });
+        if (!bed) throw new NotFoundError('Bed', data.bedId);
+        if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
+        if (assignedWardId && assignedWardId !== bed.wardId) throw new ValidationError('The selected bed does not belong to the selected ward');
+        const activeAssignment = await tx.attendance.findFirst({
+          where: { bedId: bed.id, status: 'admitted' }, select: { id: true },
+        });
+        if (bed.isOccupied || activeAssignment) throw new ConflictError('The selected bed is already occupied');
+        const reservation = await tx.bed.updateMany({ where: { id: bed.id, isOccupied: false }, data: { isOccupied: true } });
+        if (reservation.count !== 1) throw new ConflictError('The selected bed was just allocated to another patient; refresh available beds');
+        await tx.ward.update({ where: { id: bed.wardId }, data: { occupiedBeds: { increment: 1 } } });
+        assignedWardId = bed.wardId;
+      }
+
       const admission = await tx.admission.create({
         data: { attendanceId: data.attendanceId, admissionNumber: getCounterService().nextAdmissionNumber(), admissionType: data.admissionType || 'emergency', admissionSource: data.admissionSource || 'opd' }
       });
-      await tx.attendance.update({ where: { id: data.attendanceId }, data: { status: 'admitted', bedId: data.bedId, wardId: data.wardId } });
+      await tx.attendance.update({
+        where: { id: data.attendanceId },
+        data: { status: 'admitted', bedId: data.bedId ?? null, wardId: assignedWardId },
+      });
       return admission;
     });
   }
@@ -1994,7 +2043,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateAdmission(id: string, data: any, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.admission.findUnique({ where: { id } });
+      const existing = await tx.admission.findUnique({
+        where: { id },
+        include: { attendance: { select: { id: true, bedId: true } } },
+      });
       if (!existing) throw new NotFoundError('Admission', id);
 
       const update: any = {};
@@ -2022,6 +2074,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       // Discharging an admission also closes the visit
       if (update.dischargeDate && !existing.dischargeDate) {
         await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged' } });
+        await releaseBedForAttendance(tx, { id: existing.attendanceId, bedId: existing.attendance?.bedId });
       }
       return updated;
     });
@@ -2060,17 +2113,29 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async dischargeFromEncounter(encounterId: string, data: any, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true } });
-      if (!encounter) throw new Error('Encounter not found');
+      if (!encounter) throw new NotFoundError('Attendance', encounterId);
+      if (encounter.status === 'discharged') throw new ConflictError('This encounter has already been discharged');
+      const dischargeDate = data.dischargeDate ? new Date(data.dischargeDate) : new Date();
+      if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+      const dischargeStatus = data.dischargeStatus || 'home';
+      const allowedDischargeStatuses = ['home', 'transfer', 'expired', 'against_medical_advice'];
+      if (!allowedDischargeStatuses.includes(dischargeStatus)) {
+        throw new ValidationError(`dischargeStatus must be one of: ${allowedDischargeStatuses.join(', ')}`);
+      }
 
       await tx.attendance.update({ where: { id: encounterId }, data: { status: 'discharged' } });
-      
       if (encounter.Admission) {
         await tx.admission.update({
           where: { id: encounter.Admission.id },
-          data: { dischargeDate: new Date(), dischargeStatus: data.dischargeStatus || 'home' }
+          data: {
+            dischargeDate,
+            dischargeStatus,
+            ...(data.dischargeSummary ? { dailyNotes: { push: { noteType: 'discharge_summary', notes: data.dischargeSummary, recordedBy: userId, recordedAt: dischargeDate } } } : {}),
+          }
         });
       }
-      return { message: 'Patient discharged successfully', dischargeDate: new Date() };
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
+      return { message: 'Patient discharged successfully', dischargeDate };
     });
   }
 
