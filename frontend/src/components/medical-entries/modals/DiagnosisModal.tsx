@@ -71,6 +71,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
   const [selectedDiagnosis, setSelectedDiagnosis] = useState<any>(null);
   const [notes, setNotes] = useState('');
   const [diagnosisType, setDiagnosisType] = useState<DiagnosisType>('provisional');
+  const [classification, setClassification] = useState<'' | 'NEW_DIAGNOSIS' | 'OLD_DIAGNOSIS'>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -87,6 +88,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
     setSelectedDiagnosis(null);
     setNotes('');
     setDiagnosisType('provisional');
+    setClassification('');
     setShowDropdown(false);
     const t = setTimeout(() => searchInputRef.current?.focus(), 60);
     return () => clearTimeout(t);
@@ -118,12 +120,14 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
     setSearchTerm('');
     setNotes('');
     setDiagnosisType('provisional');
+    setClassification('');
     searchInputRef.current?.focus();
   };
 
   const handleSubmit = async () => {
     if (!attendanceId) { error('No attendance', 'Please select an attendance first.'); return; }
     if (!selectedDiagnosis) { error('No diagnosis', 'Please select a diagnosis.'); return; }
+    if (!classification) { error('Case classification required', 'Choose whether this is a new diagnosis/case or an old case / re-attendance for HMIS reporting.'); return; }
     setIsSubmitting(true);
     try {
       await addDiagnosis(attendanceId, {
@@ -131,6 +135,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
         notes,
         primary: diagnosisType === 'primary',
         diagnosisType,
+        classification,
       });
       success('Diagnosis added', `${selectedDiagnosis.name} added as ${diagnosisType.toUpperCase()}`);
       clearSelection();
@@ -255,6 +260,27 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
             </div>
           )}
 
+          {/* HMIS/DHIMS morbidity classification */}
+          <div>
+            <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
+              HMIS case classification <span className="text-[var(--icon-red-text)]">*</span>
+            </label>
+            <select
+              value={classification}
+              onChange={e => setClassification(e.target.value as typeof classification)}
+              className={inputCls}
+              disabled={!canAdd}
+              required
+            >
+              <option value="">Select new or old case…</option>
+              <option value="NEW_DIAGNOSIS">New diagnosis / new case</option>
+              <option value="OLD_DIAGNOSIS">Old case / re-attendance for an existing episode</option>
+            </select>
+            <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5">
+              Classify this diagnosis episode, not whether the patient has visited the hospital before.
+            </p>
+          </div>
+
           {/* Notes */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">
@@ -277,7 +303,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
             Cancel
           </button>
           <button type="button" onClick={handleSubmit}
-            disabled={!selectedDiagnosis || isSubmitting}
+            disabled={!selectedDiagnosis || !classification || isSubmitting}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2">
             {isSubmitting
               ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Adding…</>
