@@ -209,6 +209,55 @@ describe('maternal record integrity', () => {
     expect(tx.antenatalBooking.update).toBeUndefined();
   });
 
+  it('closes the automatically selected active ANC booking when no booking ID is submitted', async () => {
+    const deliveryDate = new Date('2026-10-20T08:30:00.000Z');
+    const booking = { id: 'active-booking-1', patientId: 'patient-1', isActive: true, isCompleted: false };
+    const record = { id: 'delivery-auto-1', patientId: 'patient-1', attendanceId: 'attendance-1', antenatalBookingId: booking.id, deliveryDate, deliveryOutcome: 'live_birth' };
+    const bookingUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const bookingFindFirst = vi.fn().mockResolvedValue(booking);
+    const deliveryCreate = vi.fn().mockResolvedValue(record);
+    const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
+      antenatalBooking: {
+        findUnique: vi.fn(),
+        findFirst: bookingFindFirst,
+        updateMany: bookingUpdateMany,
+      },
+      deliveryRecord: { create: deliveryCreate },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new AntenatalRepository(prisma);
+
+    await expect(repository.createDeliveryRecord({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      attendant: 'midwife-1',
+      deliveryDate,
+      deliveryType: 'spontaneous_vertex',
+      deliveryOutcome: 'live_birth',
+      maternalOutcome: 'alive',
+      createdById: 'midwife-1',
+    })).resolves.toEqual(record);
+
+    expect(bookingFindFirst).toHaveBeenCalledWith({
+      where: { patientId: 'patient-1', isActive: true, isCompleted: false },
+      orderBy: { bookingDate: 'desc' },
+    });
+    expect(bookingUpdateMany).toHaveBeenCalledWith({
+      where: { id: booking.id, patientId: 'patient-1', isActive: true, isCompleted: false },
+      data: expect.objectContaining({
+        isActive: false,
+        isCompleted: true,
+        deliveryDate,
+        deliveryOutcome: 'live_birth',
+        deliveryRecordId: record.id,
+      }),
+    });
+  });
+
   it('closes the matching pregnancy in the same transaction using the actual delivery date and outcome', async () => {
     const deliveryDate = new Date('2026-10-19T08:30:00.000Z');
     const record = { id: 'delivery-1', patientId: 'patient-1', attendanceId: 'attendance-1', deliveryDate, deliveryOutcome: 'stillbirth_fresh' };
