@@ -370,12 +370,17 @@ export default function StockReports() {
       case 'stock-status':
       case 'financial': {
         const discrepancies = (reportData.items || []).filter((i: any) => Number(i.stockDiscrepancy || 0) > 0);
-        if (selectedReport === 'financial' && discrepancies.length) {
+        const transferIssueItems = (reportData.items || []).filter((i: any) =>
+          Array.isArray(i.inTransitReconciliationIssues) && i.inTransitReconciliationIssues.length > 0
+        );
+        if (selectedReport === 'financial' && (discrepancies.length || transferIssueItems.length)) {
+          const flaggedItems = [...new Map([...discrepancies, ...transferIssueItems].map((i: any) => [i.id, i])).values()];
           return {
-            headers: ['Item Name', 'Category', 'Recorded Stock', 'Batch Quantity', 'Difference (Batch - Stock)', 'Batch Value', 'Total Item Value'],
-            rows: discrepancies.map((i: any) => [
+            headers: ['Item Name', 'Category', 'Recorded Stock', 'Batch Quantity', 'Difference (Batch - Stock)', 'Batch Value', 'Total Item Value', 'Transfer Reconciliation Issues'],
+            rows: flaggedItems.map((i: any) => [
               i.name, i.category || 'Uncategorized', Number(i.currentStock || 0), Number(i.batchQuantity || 0),
               Number(i.batchQuantity || 0) - Number(i.currentStock || 0), Number(i.batchValue || 0).toFixed(2), Number(i.totalValue || 0).toFixed(2),
+              (i.inTransitReconciliationIssues || []).join('; '),
             ]),
           };
         }
@@ -841,6 +846,9 @@ export default function StockReports() {
       case 'financial':
       default: {
         const discrepancies = (reportData.items || []).filter((item: any) => Number(item.stockDiscrepancy || 0) > 0);
+        const transferIssueItems = (reportData.items || []).filter((item: any) =>
+          Array.isArray(item.inTransitReconciliationIssues) && item.inTransitReconciliationIssues.length > 0
+        );
         return (
           <>
             {reportData.byCategory && (
@@ -858,6 +866,26 @@ export default function StockReports() {
                     cat: <span className="font-medium">{cat}</span>,
                     count: d.count,
                     value: `₵${Number(d.value || 0).toFixed(2)}`,
+                  }))}
+                />
+              </section>
+            )}
+            {transferIssueItems.length > 0 && (
+              <section>
+                <SectionHeader icon={AlertTriangle} title="Transfer reconciliation required" accent="orange" count={transferIssueItems.length} />
+                <ReportTable
+                  caption="Dispatched transfers that need investigation before their in-transit stock can be valued reliably"
+                  empty="No transfer reconciliation issues found"
+                  searchable
+                  columns={[
+                    { key: 'name', label: 'Item', sortable: true },
+                    { key: 'category', label: 'Category', sortable: true },
+                    { key: 'issues', label: 'Issue', sortable: true },
+                  ]}
+                  rows={transferIssueItems.map((item: any) => ({
+                    name: <span className="font-medium">{item.name}</span>,
+                    category: <span className="capitalize">{item.category || 'Uncategorized'}</span>,
+                    issues: <ul className="list-disc pl-4 space-y-1">{item.inTransitReconciliationIssues.map((issue: string, index: number) => <li key={index}>{issue}</li>)}</ul>,
                   }))}
                 />
               </section>
