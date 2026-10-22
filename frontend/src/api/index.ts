@@ -2155,6 +2155,8 @@ export const createOutgoingReferral = async (data: {
   urgency?: string;
   referralNotes?: string;
   structuredForm?: { partI?: Record<string, unknown>; partII?: Record<string, unknown> };
+  /** Legacy alias retained for existing callers; new clinical flows should use attendanceId. */
+  encounterId?: string;
 }) => {
   const response = await api.post('/referrals/outgoing', data);
   return response.data;
