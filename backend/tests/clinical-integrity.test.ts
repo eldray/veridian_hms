@@ -7,6 +7,7 @@ describe('OPD clinical record finalization', () => {
   it('refuses to finalize when mandatory clinical documentation is missing', async () => {
     const update = vi.fn();
     const tx = {
+      user: { findUnique: vi.fn().mockResolvedValue(null) },
       attendance: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'attendance-1',
