@@ -68,7 +68,11 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
     params.set('reason', reason);
     if (formData.notes) params.set('notes', formData.notes);
     if (formData.referredTo) params.set('facility', formData.referredTo);
-    params.set('urgency', (formData.maternalDangerSigns.length || formData.babyDangerSigns.length) ? 'urgent' : 'routine');
+    const urgentMaternalComplications = ['Postpartum Haemorrhage', 'Preeclampsia/Eclampsia', 'Sepsis', 'Thrombophlebitis', 'Wound Infection'];
+    const hasUrgentMaternalComplication = (formData.maternalComplications || []).some(
+      complication => urgentMaternalComplications.includes(complication),
+    );
+    params.set('urgency', (formData.maternalDangerSigns.length || formData.babyDangerSigns.length || hasUrgentMaternalComplication) ? 'urgent' : 'routine');
     navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
     onClose();
   };
