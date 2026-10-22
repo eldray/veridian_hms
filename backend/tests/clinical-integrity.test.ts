@@ -105,6 +105,40 @@ describe('newborn record validation', () => {
     }])).toEqual([expect.objectContaining({ birthWeight: 3200, outcome: 'alive' })]);
   });
 
+  it('accepts a clinically plausible newborn weight in grams through delivery creation', async () => {
+    const deliveryDate = new Date('2026-10-20T08:30:00.000Z');
+    const record = { id: 'delivery-weight-1', patientId: 'patient-1', attendanceId: 'attendance-1' };
+    const create = vi.fn().mockResolvedValue(record);
+    const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'delivery' }) },
+      antenatalBooking: { findFirst: vi.fn().mockResolvedValue(null), findUnique: vi.fn() },
+      deliveryRecord: { create },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new AntenatalRepository(prisma);
+
+    await expect(repository.createDeliveryRecord({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      attendant: 'midwife-1',
+      deliveryDate,
+      deliveryType: 'spontaneous_vertex',
+      deliveryOutcome: 'live_birth',
+      maternalOutcome: 'alive',
+      createdById: 'midwife-1',
+      Newborn: [{ birthWeight: 3200, gender: 'female', outcome: 'alive' }],
+    } as any)).resolves.toEqual(record);
+
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        Newborn: { create: [expect.objectContaining({ birthWeight: 3200 })] },
+      }),
+    }));
+  });
+
   it('does not silently mark a newborn as alive when outcome is missing', () => {
     const repository = new AntenatalRepository({} as any);
     expect(() => (repository as any).mapNewborns([{ birthWeight: 3200, gender: 'male' }]))
