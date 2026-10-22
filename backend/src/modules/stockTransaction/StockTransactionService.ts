@@ -163,10 +163,25 @@ export class StockTransactionService extends BaseService {
         default: return Number(t.quantity) < 0 ? -quantity : quantity;
       }
     };
+    // Index rows once instead of rescanning the full ledger for every item.
+    // This keeps report work close to O(items + transactions), even for large
+    // hospital ledgers and long reporting periods.
+    const transactionsByItem = new Map<string, any[]>();
+    for (const transaction of transactions as any[]) {
+      const rows = transactionsByItem.get(transaction.stockItemId) || [];
+      rows.push(transaction);
+      transactionsByItem.set(transaction.stockItemId, rows);
+    }
+    const transactionsAfterEndByItem = new Map<string, any[]>();
+    for (const transaction of transactionsAfterEnd as any[]) {
+      const rows = transactionsAfterEndByItem.get(transaction.stockItemId) || [];
+      rows.push(transaction);
+      transactionsAfterEndByItem.set(transaction.stockItemId, rows);
+    }
+
     const movementSummary = stockItems.map(item => {
-      const itemTxs = transactions.filter((t: any) => t.stockItemId === item.id);
-      const afterEndNetChange = (transactionsAfterEnd as any[])
-        .filter((t: any) => t.stockItemId === item.id)
+      const itemTxs = transactionsByItem.get(item.id) || [];
+      const afterEndNetChange = (transactionsAfterEndByItem.get(item.id) || [])
         .reduce((sum: number, t: any) => sum + signedMovement(t), 0);
       // Legacy rows may store outgoing quantities as negative values. Reports
       // normalize movement magnitudes here so totals remain correct for both
