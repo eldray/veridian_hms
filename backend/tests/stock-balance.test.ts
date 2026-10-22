@@ -1201,3 +1201,84 @@ describe('batch-to-balance valuation reconciliation', () => {
   });
 });
 
+
+describe('consumable dispensing stock integrity', () => {
+  it('does not deduct department or hospital balances when usable batches are insufficient', async () => {
+    const departmentDecrease = vi.fn();
+    const hospitalDecrease = vi.fn();
+    const batchDecrease = vi.fn();
+    const tx: any = {
+      stockItem: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'gloves', name: 'Gloves', isActive: true, isMedication: false, currentStock: 20,
+        }),
+        updateMany: hospitalDecrease,
+      },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'batch-1', quantity: 2, expiryDate: new Date('2027-10-20T00:00:00Z'),
+          receivedDate: new Date('2026-10-01T00:00:00Z'), isActive: true,
+        }]),
+        updateMany: batchDecrease,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: departmentDecrease,
+      },
+    };
+    const repository = new EncounterRepository({} as any);
+
+    await expect((repository as any).consumeConsumableStock(tx, 'gloves', 3, 'pharmacy'))
+      .rejects.toThrow(/insufficient usable batch stock/i);
+
+    expect(batchDecrease).not.toHaveBeenCalled();
+    expect(departmentDecrease).not.toHaveBeenCalled();
+    expect(hospitalDecrease).not.toHaveBeenCalled();
+  });
+
+  it('deducts the same quantity from FEFO batches, department balance, and hospital aggregate', async () => {
+    const batchDecrease = vi.fn().mockResolvedValue({ count: 1 });
+    const departmentDecrease = vi.fn().mockResolvedValue({ count: 1 });
+    const departmentFind = vi.fn().mockResolvedValue({ quantity: 4 });
+    const hospitalDecrease = vi.fn().mockResolvedValue({ count: 1 });
+    const tx: any = {
+      stockItem: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({
+            id: 'gloves', name: 'Gloves', isActive: true, isMedication: false, currentStock: 10,
+          })
+          .mockResolvedValueOnce({ id: 'gloves' }),
+        updateMany: hospitalDecrease,
+      },
+      stockBatch: {
+        count: vi.fn().mockResolvedValue(1),
+        findMany: vi.fn().mockResolvedValue([{
+          id: 'batch-1', quantity: 6, expiryDate: new Date('2027-10-20T00:00:00Z'),
+          receivedDate: new Date('2026-10-01T00:00:00Z'), isActive: true,
+        }]),
+        updateMany: batchDecrease,
+      },
+      stockItemDepartmentBalance: {
+        updateMany: departmentDecrease,
+        findUnique: departmentFind,
+      },
+    };
+    const repository = new EncounterRepository({} as any);
+
+    const result = await (repository as any).consumeConsumableStock(tx, 'gloves', 2, 'pharmacy');
+
+    expect(result).toEqual({ balanceAfter: 4, allocations: [{ batchId: 'batch-1', quantity: 2 }] });
+    expect(batchDecrease).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ id: 'batch-1', quantity: { gte: 2 } }),
+      data: { quantity: { decrement: 2 } },
+    }));
+    expect(departmentDecrease).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ stockItemId: 'gloves', locationKey: 'pharmacy', quantity: { gte: 2 } }),
+      data: { quantity: { decrement: 2 } },
+    }));
+    expect(hospitalDecrease).toHaveBeenCalledWith({
+      where: { id: 'gloves', isActive: true, isMedication: false, currentStock: { gte: 2 } },
+      data: { currentStock: { decrement: 2 } },
+    });
+  });
+});
