@@ -23,7 +23,7 @@ describe('admission, bed and nursing record consistency', () => {
     const service = new EncounterService(prisma);
 
     await expect(service.createFormalAdmission({ attendanceId: 'attendance-1' }, 'admin-1'))
-      .rejects.toThrow(/already occupied/i);
+      .rejects.toThrow(/already assigned/i);
     expect(tx.admission.create).not.toHaveBeenCalled();
     expect(tx.attendance.update).not.toHaveBeenCalled();
   });
