@@ -7,6 +7,7 @@ import {
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
+import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -20,6 +21,13 @@ export const LIVE_RECENT_HOURS = 72;
  *  - finished work (result completed, drug dispensed): kept for 72 hours so results can be reviewed
  * Older items stay on the patient's record; they just stop crowding the queue.
  */
+// Expiry is recorded as a calendar date. Keep stock eligible through that day.
+const startOfCurrentDay = (): Date => {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  return today;
+};
+
 export const WORKLIST_OPEN_DAYS = 30;
 export const WORKLIST_DONE_HOURS = 72;
 const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000);
@@ -110,7 +118,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         dateTime: new Date(), 
       },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true } }
+        Patient: { select: {
+          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true,
+          allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
+        } }
       }
     });
   }
@@ -119,7 +130,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.getModel().findUnique({
       where: { id },
       include: {
-        Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
+        Patient: { select: {
+          id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true,
+          allergies: { select: { id: true, allergen: true, reaction: true, severity: true, notes: true } },
+          medicalHistories: { select: { id: true, condition: true, diagnosedAt: true, notes: true } },
+          surgicalHistories: { select: { id: true, procedure: true, surgeryDate: true, notes: true } },
+          familyHistories: { select: { id: true, relation: true, condition: true, notes: true } },
+        } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } } } },
@@ -210,8 +227,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const legacyClinicalNotes: Record<string, any> = {};
 
     Object.entries(data || {}).forEach(([key, value]) => {
-      // followUpDate is nullable by design: an explicit null means clear the scheduled date.
-      // Other nullable fields retain the existing "ignore null" behavior to avoid accidental erasure.
+      // followUpDate is nullable by design: an explicit null clears the scheduled date.
+      // Other nullable fields retain the existing ignore-null behavior.
       if (value === undefined || (value === null && key !== 'followUpDate')) return;
       if (key === 'updatedAt') return;
 
@@ -308,12 +325,50 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
+<<<<<<< HEAD
   async updateStatus(id: string, status: string) {
     const allowedStatuses = ['pending', 'admitted', 'discharged', 'completed', 'referred', 'absconded', 'cancelled'];
     if (!allowedStatuses.includes(String(status))) {
       throw new ValidationError('Invalid attendance status');
     }
     return this.getModel().update({ where: { id }, data: { status: status as any } });
+=======
+  async updateStatus(id: string, status: string, userId: string) {
+    if (!['pending', 'cancelled'].includes(status)) {
+      throw new ValidationError('Use the dedicated admission, completion, discharge, referral or absconded workflow to change an encounter to that status');
+    }
+    const current = await this.prisma.attendance.findUnique({
+      where: { id },
+      include: {
+        _count: { select: {
+          AttendanceDiagnosis: true, LabTest: true, Medication: true, Procedure: true, Scan: true,
+          ServiceRendered: true, Vitals: true, nursingNotes: true, nursingTasks: true,
+          antenatalVisits: true, deliveryRecords: true, abortionRecords: true, postnatalRecords: true,
+          familyPlanningServices: true,
+        } },
+        Bill: { select: { id: true } },
+        Admission: { select: { id: true } },
+      },
+    });
+    if (!current) throw new NotFoundError('Encounter', id);
+    if (status === 'pending') {
+      if (current.status !== 'pending') throw new ConflictError('A non-pending encounter cannot be reset to pending through a generic status update');
+      return current;
+    }
+    if (current.status !== 'pending') throw new ConflictError('Only a pending encounter can be cancelled');
+    const count = current._count || {};
+    const hasClinicalActivity = Object.values(count).some((value: any) => Number(value) > 0);
+    if (hasClinicalActivity || current.Bill || current.Admission) {
+      throw new ConflictError('An encounter with clinical activity, billing or an admission cannot be cancelled through a generic status update');
+    }
+    const actorId = await this.requireActorId(userId);
+    const updated = await this.prisma.attendance.updateMany({
+      where: { id, status: 'pending' },
+      data: { status: 'cancelled', updatedById: actorId },
+    });
+    if (updated.count !== 1) throw new ConflictError('Encounter status changed; refresh and try again');
+    return this.prisma.attendance.findUnique({ where: { id } });
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   // ============================================
@@ -322,6 +377,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async addDiagnosis(encounterId: string, data: AddDiagnosisDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
+<<<<<<< HEAD
     if (!data?.diagnosisId?.trim()) throw new ValidationError('A diagnosis must be selected');
     if (!['primary', 'additional', 'provisional'].includes(String(data.diagnosisType))) {
       throw new ValidationError('Invalid diagnosis type');
@@ -346,6 +402,22 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       });
       if (existing) throw new ConflictError('This diagnosis has already been added to the encounter');
 
+=======
+    await this.requireEncounterId(encounterId);
+
+    // Keep duplicate detection, primary-diagnosis demotion and insertion atomic.
+    // Previously a duplicate-primary request could demote the existing primary
+    // diagnosis before failing the duplicate check.
+    return this.prisma.$transaction(async (tx) => {
+      const diagnosis = await tx.diagnosis.findUnique({ where: { id: data.diagnosisId } });
+      if (!diagnosis) throw new NotFoundError('Diagnosis', data.diagnosisId);
+
+      const existing = await tx.attendanceDiagnosis.findFirst({
+        where: { attendanceId: encounterId, diagnosisId: data.diagnosisId },
+      });
+      if (existing) throw new ConflictError('Diagnosis already added to this encounter');
+
+>>>>>>> origin/audit/main-sync-2026-10-20
       if (data.diagnosisType === 'primary') {
         await tx.attendanceDiagnosis.updateMany({
           where: { attendanceId: encounterId, diagnosisType: 'primary' },
@@ -355,6 +427,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       return tx.attendanceDiagnosis.create({
         data: {
+<<<<<<< HEAD
           attendanceId: encounterId,
           diagnosisId: data.diagnosisId,
           diagnosisType: data.diagnosisType,
@@ -365,10 +438,36 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         include: { Diagnosis: true },
       });
     }, { isolationLevel: 'Serializable' });
+=======
+          attendanceId: encounterId, diagnosisId: data.diagnosisId,
+          diagnosisType: data.diagnosisType, notes: data.notes,
+          createdById: actorId, icdCode: diagnosis.icdCode || '',
+        },
+        include: { Diagnosis: true },
+      });
+    });
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
-    return this.prisma.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.attendanceDiagnosis.findFirst({
+        where: { attendanceId: encounterId, diagnosisId },
+        select: { id: true, diagnosisType: true },
+      });
+      if (!existing) throw new NotFoundError('Diagnosis in encounter', diagnosisId);
+
+      if (existing.diagnosisType === 'primary') {
+        const otherDiagnoses = await tx.attendanceDiagnosis.count({
+          where: { attendanceId: encounterId, diagnosisId: { not: diagnosisId } },
+        });
+        if (otherDiagnoses > 0) {
+          throw new ConflictError('Assign another diagnosis as primary before removing the current primary diagnosis');
+        }
+      }
+
+      return tx.attendanceDiagnosis.deleteMany({ where: { attendanceId: encounterId, diagnosisId } });
+    });
   }
 
   private async getOrCreateANCVisit(tx: any, attendance: { id: string; patientId: string; dateTime: Date }, userId: string) {
@@ -436,7 +535,44 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
+  /**
+   * Reject impossible or clearly malformed measurements without applying adult-only
+   * clinical thresholds to children or newborns. Units are metric and temperature is °C.
+   */
+  private validateClinicalVitalValues(data: Record<string, any>) {
+    const ranges: Record<string, { min: number; max: number; label: string }> = {
+      temperature: { min: 25, max: 45, label: 'Temperature must be recorded in °C between 25 and 45' },
+      pulse: { min: 1, max: 300, label: 'Pulse must be between 1 and 300 beats/minute' },
+      respiration: { min: 1, max: 100, label: 'Respiratory rate must be between 1 and 100 breaths/minute' },
+      spo2: { min: 1, max: 100, label: 'SpO₂ must be between 1 and 100 percent' },
+      weight: { min: 0.1, max: 500, label: 'Weight must be recorded in kilograms between 0.1 and 500' },
+      height: { min: 10, max: 300, label: 'Height/length must be recorded in centimetres between 10 and 300' },
+      muac: { min: 1, max: 80, label: 'MUAC must be recorded in centimetres between 1 and 80' },
+      fetalHeartRate: { min: 60, max: 200, label: 'Fetal heart rate must be between 60 and 200 beats/minute' },
+      fundalHeight: { min: 0, max: 60, label: 'Fundal height must be between 0 and 60 cm' },
+    };
+    for (const [field, range] of Object.entries(ranges)) {
+      const value = data[field];
+      if (value === undefined || value === null || value === '') continue;
+      const number = Number(value);
+      if (!Number.isFinite(number) || number < range.min || number > range.max) {
+        throw new ValidationError(range.label);
+      }
+    }
+    if (data.bloodPressure !== undefined && data.bloodPressure !== null && String(data.bloodPressure).trim() !== '') {
+      const value = String(data.bloodPressure).trim();
+      const match = value.match(/^(\d{2,3})\s*\/\s*(\d{2,3})(?:\s*mmhg)?$/i);
+      if (!match) throw new ValidationError('Blood pressure must use systolic/diastolic format, for example 120/80');
+      const systolic = Number(match[1]);
+      const diastolic = Number(match[2]);
+      if (systolic < 30 || systolic > 300 || diastolic < 20 || diastolic > 200 || diastolic >= systolic) {
+        throw new ValidationError('Blood pressure values are outside plausible limits; verify systolic/diastolic readings');
+      }
+    }
+  }
+
   async addVitals(encounterId: string, data: AddVitalsDTO, userId: string) {
+    this.validateClinicalVitalValues(data as Record<string, any>);
     const actorId = await this.requireActorId(userId);
     const {
       fetalHeartRate,
@@ -501,6 +637,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async updateVitals(vitalsId: string, data: any) {
+    this.validateClinicalVitalValues(data as Record<string, any>);
     const {
       fetalHeartRate,
       fundalHeight,
@@ -614,6 +751,26 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
+
+    // Catch incomplete or impossible prescriptions before creating a medication
+    // record or generating its medication-administration schedule.
+    for (const [field, value] of Object.entries({
+      dosage: data.dosage,
+      frequency: data.frequency,
+      duration: data.duration,
+    })) {
+      if (typeof value !== 'string' || !value.trim()) {
+        throw new ValidationError(`${field[0].toUpperCase() + field.slice(1)} is required for a prescription`);
+      }
+    }
+    const quantity = data.quantity === undefined ? 1 : Number(data.quantity);
+    if (!Number.isInteger(quantity) || quantity < 1 || quantity > 10000) {
+      throw new ValidationError('Prescription quantity must be a whole number between 1 and 10000');
+    }
+    if (data.route !== undefined && !String(data.route).trim()) {
+      throw new ValidationError('Route must be provided as a meaningful value or omitted');
+    }
+
     const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
     if (!stockItem) throw new NotFoundError('Stock item', data.stockItemId);
     if (!data.serviceCatalogId) throw new ValidationError('A medication service is required');
@@ -622,35 +779,45 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       throw new NotFoundError('Medication service', data.serviceCatalogId);
     }
 
-    const medication = await this.prisma.medication.create({
-      data: {
-        attendanceId: encounterId,
-        stockItemId: data.stockItemId,
-        serviceCatalogId: data.serviceCatalogId,
-        name: stockItem.name,
-        dosage: data.dosage,
-        frequency: data.frequency,
-        duration: data.duration,
-        route: data.route,
-        instructions: data.instructions,
-        quantity: data.quantity || 1,
-        status: 'prescribed',
-        prescribedById: actorId,
-        prescribedAt: new Date(),
-      },
-      include: {
-        StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
-      },
-    });
+    // Parse the MAR schedule before writing anything: an unsupported frequency or
+    // duration must not leave a prescription behind without its administration plan.
+    const prescribedAt = new Date();
+    const schedule = this.marService.parseSchedule(data.frequency, data.duration, prescribedAt);
 
-    // ✅ NEW: materialize the MAR schedule
-    await this.marService.scheduleDosesForMedication({
-      medicationId: medication.id,
-      dose: medication.dosage,
-      route: medication.route,
-      frequency: medication.frequency,
-      duration: medication.duration,
-      prescribedAt: medication.prescribedAt,
+    // Keep the prescription and its medication-administration schedule atomic. If
+    // dose creation fails, the prescription itself must roll back as well.
+    const medication = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.medication.create({
+        data: {
+          attendanceId: encounterId,
+          stockItemId: data.stockItemId,
+          serviceCatalogId: data.serviceCatalogId,
+          name: stockItem.name,
+          dosage: data.dosage,
+          frequency: data.frequency,
+          duration: data.duration,
+          route: data.route,
+          instructions: data.instructions,
+          quantity,
+          status: 'prescribed',
+          prescribedById: actorId,
+          prescribedAt,
+        },
+        include: {
+          StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } },
+        },
+      });
+
+      const rows = Array.from({ length: schedule.requiredDoses }, (_, index) => ({
+        medicationId: created.id,
+        doseNumber: index + 1,
+        scheduledAt: new Date(schedule.firstDoseAt.getTime() + index * schedule.intervalHours * 3_600_000),
+        status: 'scheduled' as const,
+        dose: created.dosage,
+        route: created.route,
+      }));
+      if (rows.length > 0) await tx.medicationDose.createMany({ data: rows });
+      return created;
     });
 
     return medication;
@@ -658,6 +825,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   // ✅ PRODUCTION FIX: Dispensing must deduct stock safely using a transaction
   async dispenseMedication(encounterId: string, medicationId: string, quantity: number, userId: string, batchNumber?: string, expiryDate?: Date) {
+<<<<<<< HEAD
     const actorId = await this.requireActorId(userId);
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Dispensing quantity must be a positive whole number');
@@ -739,6 +907,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         },
       });
     });
+=======
+    // Keep the legacy repository entry point on the same guarded inventory path.
+    return this.updateMedication(encounterId, medicationId, {
+      status: 'dispensed', quantity, batchNumber, expiryDate,
+    }, userId);
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   // Generic medication update: handles dispensing (atomic stock deduction, guarded
@@ -758,6 +932,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         where: { id: medicationId, attendanceId: encounterId },
         include: { StockItem: true },
       });
+<<<<<<< HEAD
       if (!med) throw new NotFoundError('Medication', medicationId);
 
       const allowedStatuses = ['prescribed', 'dispensed', 'administered', 'cancelled'];
@@ -782,12 +957,38 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
       if (['dispensed', 'administered', 'cancelled'].includes(med.status) && data.quantity !== undefined && data.quantity !== med.quantity) {
         throw new ValidationError('Quantity cannot be changed after dispensing or cancellation; use the correction workflow');
+=======
+      if (!med || med.attendanceId !== encounterId) throw new NotFoundError('Medication', medicationId);
+
+      // Dispensing is a stock-changing, one-way transition. Never allow a generic
+      // medication edit to reset a dispensed order to "prescribed", because that
+      // would permit the same prescription to deduct stock a second time.
+      if (data.status !== undefined && !['prescribed', 'dispensed', 'administered', 'cancelled'].includes(String(data.status))) {
+        throw new ValidationError('Unsupported medication status');
+      }
+      if (med.status === 'cancelled' && data.status !== undefined && data.status !== 'cancelled') {
+        throw new ConflictError('A cancelled medication cannot be reopened');
+      }
+      if (med.status === 'administered' && data.status !== undefined && data.status !== 'administered') {
+        throw new ConflictError('An administered medication cannot be reset or cancelled through an ordinary status update; use the documented clinical correction workflow');
+      }
+      if (data.status === 'administered' && med.status !== 'dispensed' && med.status !== 'administered') {
+        throw new ConflictError('Medication must be dispensed before administration can be recorded');
+      }
+      if (data.quantity !== undefined && (!Number.isSafeInteger(Number(data.quantity)) || Number(data.quantity) <= 0)) {
+        throw new ValidationError('Medication quantity must be a positive whole number');
+      }
+      if (med.status === 'dispensed' && data.status !== undefined &&
+          !['dispensed', 'administered'].includes(String(data.status))) {
+        throw new ValidationError('A dispensed medication cannot be reset to a pre-dispensing status; use the documented clinical correction workflow');
+>>>>>>> origin/audit/main-sync-2026-10-20
       }
 
       const updateData: any = {};
       if (data.status !== undefined) updateData.status = data.status;
       if (data.notes !== undefined) updateData.notes = data.notes;
 
+<<<<<<< HEAD
       const isDispensing = data.status === 'dispensed' && med.status === 'prescribed';
 
       if (isDispensing) {
@@ -821,23 +1022,125 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
               reference: medicationId,
             },
           });
+=======
+      const isDispensing = data.status === 'dispensed' && med.status !== 'dispensed';
+      if (med.status === 'dispensed' && data.quantity !== undefined && data.quantity !== med.quantity) {
+        throw new ValidationError('A dispensed quantity cannot be edited directly; use a documented stock correction workflow');
+      }
+
+      if (isDispensing) {
+        const qty = Number(data.quantity ?? med.quantity ?? 1);
+        if (!Number.isSafeInteger(qty) || qty <= 0) {
+          throw new ValidationError('Dispensed quantity must be a positive whole number');
+>>>>>>> origin/audit/main-sync-2026-10-20
         }
+        if (med.status !== 'prescribed') {
+          throw new ValidationError('Only prescribed medication can be dispensed');
+        }
+        if (!med.stockItemId || !med.StockItem) {
+          throw new ValidationError('This medication is not linked to a stock item');
+        }
+
+        const dispensingUser = await tx.user.findUnique({
+          where: { id: actorId }, select: { departmentId: true, role: true },
+        });
+        const departmentId = dispensingUser?.departmentId;
+        if (!departmentId) throw new ValidationError('Assign the dispensing user to a pharmacy/issuing department before dispensing');
+
+        const stockItem = med.StockItem;
+        if (!stockItem.isActive) throw new ValidationError('Inactive stock items cannot be dispensed');
+        if (!stockItem.isMedication) throw new ValidationError('The linked stock item is not configured as a medication');
+        const batchCount = await tx.stockBatch.count({ where: { stockItemId: stockItem.id } });
+        const batches = batchCount > 0 ? await tx.stockBatch.findMany({
+          where: {
+            stockItemId: stockItem.id, departmentId, wardId: null, isActive: true,
+            expiryDate: { gte: startOfCurrentDay() }, quantity: { gt: 0 },
+          },
+          orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+        }) : [];
+        const batchAllocations: Array<{ batchId: string; batchNumber: string; quantity: number; expiryDate: Date; costPrice: string }> = [];
+        if (batchCount > 0) {
+          const available = batches.reduce((sum, batch) => sum + batch.quantity, 0);
+          if (available < qty) {
+            throw new ValidationError(`Insufficient usable batch stock in your department. Available: ${available}, requested: ${qty}`);
+          }
+          let remaining = qty;
+          for (const batch of batches) {
+            if (remaining <= 0) break;
+            const move = Math.min(batch.quantity, remaining);
+            const changed = await tx.stockBatch.updateMany({
+              where: {
+                id: batch.id, departmentId, wardId: null, isActive: true,
+                expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: move },
+              },
+              data: { quantity: { decrement: move } },
+            });
+            if (changed.count !== 1) throw new ConflictError('Batch stock changed during dispensing; please retry');
+            batchAllocations.push({
+              batchId: batch.id,
+              batchNumber: batch.batchNumber,
+              quantity: move,
+              expiryDate: batch.expiryDate,
+              costPrice: String(batch.costPrice),
+            });
+            remaining -= move;
+          }
+        }
+
+        // One transaction keeps the physical batches, department ledger and hospital
+        // aggregate aligned. For unbatched legacy items, the department balance is
+        // still required and no aggregate-only fallback is permitted.
+        const departmentBalance = await decreaseDepartmentStockBalance(tx, stockItem.id, departmentId, qty);
+        const stockChanged = await tx.stockItem.updateMany({
+          where: { id: stockItem.id, currentStock: { gte: qty } },
+          data: { currentStock: { decrement: qty } },
+        });
+        if (stockChanged.count !== 1) throw new ValidationError(`Insufficient hospital-wide stock. Available: ${stockItem.currentStock}`);
+
+        const claimed = await tx.medication.updateMany({
+          where: { id: medicationId, attendanceId: encounterId, status: 'prescribed' },
+          data: {
+            status: 'dispensed', quantity: qty, dispensedAt: new Date(), dispensedById: actorId,
+            dispensedBatchNumber: batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined,
+            dispensedExpiryDate: batchAllocations.length === 1 ? batchAllocations[0].expiryDate : undefined,
+            dispensedUnitCost: batchAllocations.length === 1 ? batchAllocations[0].costPrice : stockItem.costPrice,
+          },
+        });
+        if (claimed.count !== 1) throw new ConflictError('Medication has already been dispensed or is no longer available');
+
+        updateData.status = 'dispensed';
         updateData.quantity = qty;
-        updateData.dispensedAt = data.dispensedAt ? new Date(data.dispensedAt) : new Date();
+        updateData.dispensedAt = new Date();
         updateData.dispensedById = actorId;
-        if (data.batchNumber !== undefined) updateData.dispensedBatchNumber = data.batchNumber;
-        updateData.dispensedUnitCost = data.dispensedUnitCost ?? med.StockItem?.costPrice ?? null;
+        updateData.dispensedBatchNumber = batchAllocations.length === 1 ? batchAllocations[0].batchNumber : undefined;
+        updateData.dispensedExpiryDate = batchAllocations.length === 1 ? batchAllocations[0].expiryDate : undefined;
+        updateData.dispensedUnitCost = batchAllocations.length === 1 ? batchAllocations[0].costPrice : stockItem.costPrice;
+
+        const current = await tx.stockItem.findUnique({
+          where: { id: stockItem.id }, select: { currentStock: true },
+        });
+        if (!current) throw new NotFoundError('Stock item', stockItem.id);
+        await tx.stockTransaction.create({
+          data: {
+            stockItemId: stockItem.id, transactionType: 'sale', quantity: qty,
+            // balanceAfter is a location snapshot, not the hospital-wide aggregate.
+            balanceAfter: departmentBalance.quantity, performedBy: actorId,
+            reference: `Encounter ${encounterId}`,
+            notes: batchCount > 0 ? 'Dispensed using FEFO batch allocation' : 'Dispensed from unbatched department stock',
+            departmentId,
+            batchAllocations: batchAllocations as any,
+          },
+        });
       } else if (data.quantity !== undefined) {
         updateData.quantity = data.quantity;
       }
 
-      // ✅ NEW: when marked administered, log it on the due dose row.
-      // The UI passes doseId explicitly now; fall back to the next pending one.
       if (data.status === 'administered') {
         updateData.administeredAt = new Date();
         updateData.administeredById = actorId;
       }
 
+<<<<<<< HEAD
       let updated;
       if (isDispensing) {
         const statusUpdate = await tx.medication.updateMany({
@@ -897,6 +1200,50 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
               notes: data.notes ?? undefined,
             },
           });
+=======
+      // Resolve and validate a due dose before any clinical record is changed.
+      // A medication must not appear administered when no dose could be recorded.
+      let administrationDose: any = null;
+      if (data.status === 'administered') {
+        administrationDose = data.doseId
+          ? await tx.medicationDose.findUnique({ where: { id: data.doseId } })
+          : await tx.medicationDose.findFirst({
+              where: { medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+              orderBy: { doseNumber: 'asc' },
+            });
+        if (data.doseId && !administrationDose) throw new NotFoundError('Medication dose', data.doseId);
+        if (administrationDose && administrationDose.medicationId !== medicationId) {
+          throw new ValidationError('The selected dose does not belong to this medication');
+        }
+        if (administrationDose && !['scheduled', 'due', 'late'].includes(administrationDose.status)) {
+          throw new ConflictError('This medication dose is no longer awaiting administration');
+        }
+        if (!administrationDose) {
+          throw new ConflictError('No scheduled medication dose is awaiting administration; create or select the correct dose before recording administration');
+        }
+      }
+
+      const updated = await tx.medication.update({
+        where: { id: medicationId },
+        data: updateData,
+        include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } } },
+      });
+
+      if (administrationDose) {
+        // Conditional claim prevents two staff sessions from recording the same dose.
+        const claimedDose = await tx.medicationDose.updateMany({
+          where: { id: administrationDose.id, medicationId, status: { in: ['scheduled', 'due', 'late'] } },
+          data: {
+            status: 'administered',
+            administeredAt: updateData.administeredAt,
+            administeredById: updateData.administeredById,
+            site: data.site ?? undefined,
+            notes: data.notes ?? undefined,
+          },
+        });
+        if (claimedDose.count !== 1) {
+          throw new ConflictError('This medication dose was recorded by another user or is no longer awaiting administration');
+>>>>>>> origin/audit/main-sync-2026-10-20
         }
       }
 
@@ -908,9 +1255,18 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const medication = await tx.medication.findFirst({
         where: { id: medicationId, attendanceId: encounterId },
-        select: { id: true },
+        select: { id: true, status: true },
       });
       if (!medication) throw new NotFoundError('Medication', medicationId);
+      if (medication.status === 'dispensed' || medication.status === 'administered') {
+        throw new ConflictError('A dispensed or administered medication cannot be removed as an ordinary cancellation; document a dispensing return or clinical correction');
+      }
+      if (medication.status === 'cancelled') {
+        throw new ConflictError('This medication is already cancelled');
+      }
+      if (medication.status !== 'prescribed') {
+        throw new ConflictError('Only a prescribed, not-yet-dispensed medication can be cancelled');
+      }
 
       const existing = await tx.medication.findUnique({
         where: { id: medication.id },
@@ -1000,6 +1356,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
+<<<<<<< HEAD
     const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid laboratory order status');
 
@@ -1034,6 +1391,38 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (!existing) throw new NotFoundError('Laboratory order', labOrderId);
     if (existing.status === 'completed') throw new ValidationError('Completed laboratory orders cannot be cancelled here; use the result correction workflow');
     return this.prisma.labTest.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
+=======
+    if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
+    const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Laboratory order', labOrderId);
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
+    if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
+    const updateData: any = {};
+    for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (status !== current.status) updateData.status = status;
+    if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
+    else if (status === 'in_progress') updateData.performedById = actorId;
+    if (!Object.keys(updateData).length) throw new ValidationError('No laboratory order changes were provided');
+    return this.prisma.labTest.update({ where: { id: labOrderId }, data: updateData });
+  }
+
+  async removeLabTest(encounterId: string, labOrderId: string) {
+    // Scope by encounter and only cancel orders that have not been completed.
+    const current = await this.prisma.labTest.findFirst({
+      where: { id: labOrderId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Lab order in encounter', labOrderId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled laboratory order cannot be cancelled again');
+    }
+    const result = await this.prisma.labTest.updateMany({
+      where: { id: labOrderId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count !== 1) throw new ConflictError('Laboratory order status changed; refresh and try again');
+    return { id: labOrderId, status: 'cancelled' };
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
 async addScan(encounterId: string, data: any, userId: string) {
@@ -1141,6 +1530,7 @@ async addScan(encounterId: string, data: any, userId: string) {
 
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
+<<<<<<< HEAD
     const allowedStatuses = ['requested', 'in_progress', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid scan status');
 
@@ -1173,6 +1563,41 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (!existing) throw new NotFoundError('Scan order', scanId);
     if (existing.status === 'completed') throw new ValidationError('Completed scan orders cannot be cancelled here; use the result correction workflow');
     return this.prisma.scan.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
+=======
+    if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
+    const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Scan order', scanId);
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled scan order cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed scan report is locked; use the documented report-correction workflow');
+    if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
+    const updateData: any = {};
+    for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (data.imageUrls !== undefined) {
+      if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
+      updateData.imageUrls = data.imageUrls;
+    }
+    if (status !== current.status) updateData.status = status;
+    if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
+    else if (status === 'in_progress') updateData.performedById = actorId;
+    if (!Object.keys(updateData).length) throw new ValidationError('No scan order changes were provided');
+    return this.prisma.scan.update({ where: { id: scanId }, data: updateData });
+  }
+
+  async removeScan(encounterId: string, scanId: string) {
+    const current = await this.prisma.scan.findFirst({
+      where: { id: scanId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Scan in encounter', scanId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled scan order cannot be cancelled again');
+    }
+    const result = await this.prisma.scan.updateMany({
+      where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count !== 1) throw new ConflictError('Scan order status changed; refresh and try again');
+    return { id: scanId, status: 'cancelled' };
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
 async addProcedure(encounterId: string, data: any, userId: string) {
@@ -1219,6 +1644,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
+<<<<<<< HEAD
     const allowedStatuses = ['scheduled', 'completed', 'cancelled'];
     if (!allowedStatuses.includes(status)) throw new ValidationError('Invalid procedure status');
 
@@ -1253,6 +1679,44 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (!existing) throw new NotFoundError('Procedure', procedureId);
     if (existing.status === 'completed') throw new ValidationError('Completed procedures cannot be cancelled here; use the correction workflow');
     return this.prisma.procedure.update({ where: { id: existing.id }, data: { status: 'cancelled' } });
+=======
+    if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
+    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
+    if (!current) throw new NotFoundError('Procedure', procedureId);
+    if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
+    if (current.status === 'completed') throw new ConflictError('A completed procedure record is locked; use the documented clinical correction workflow');
+    if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
+    const updateData: any = {};
+    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
+    if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
+      const scheduledDate = new Date(data.scheduledDate);
+      if (Number.isNaN(scheduledDate.getTime())) throw new ValidationError('Procedure scheduled date must be valid');
+      updateData.scheduledDate = scheduledDate;
+    }
+    if (data.duration !== undefined && data.duration !== null && (!Number.isInteger(Number(data.duration)) || Number(data.duration) < 1 || Number(data.duration) > 1440)) throw new ValidationError('Procedure duration must be between 1 and 1440 minutes');
+    if (data.bloodLoss !== undefined && data.bloodLoss !== null && (!Number.isInteger(Number(data.bloodLoss)) || Number(data.bloodLoss) < 0 || Number(data.bloodLoss) > 20000)) throw new ValidationError('Blood loss must be between 0 and 20000 mL');
+    if (status !== current.status) updateData.status = status;
+    if (status === 'in_progress' || status === 'completed') updateData.performedById = actorId;
+    if (status === 'completed') updateData.performedAt = new Date();
+    if (!Object.keys(updateData).length) throw new ValidationError('No procedure changes were provided');
+    return this.prisma.procedure.update({ where: { id: procedureId }, data: updateData });
+  }
+
+  async removeProcedure(encounterId: string, procedureId: string) {
+    const current = await this.prisma.procedure.findFirst({
+      where: { id: procedureId, attendanceId: encounterId }, select: { id: true, status: true },
+    });
+    if (!current) throw new NotFoundError('Procedure in encounter', procedureId);
+    if (current.status === 'completed' || current.status === 'cancelled') {
+      throw new ConflictError('A completed or cancelled procedure cannot be cancelled again');
+    }
+    const result = await this.prisma.procedure.updateMany({
+      where: { id: procedureId, attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } },
+      data: { status: 'cancelled' },
+    });
+    if (result.count !== 1) throw new ConflictError('Procedure status changed; refresh and try again');
+    return { id: procedureId, status: 'cancelled' };
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async addService(encounterId: string, data: any, userId: string) {
@@ -1267,60 +1731,114 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
+<<<<<<< HEAD
     const existing = await this.prisma.serviceRendered.findFirst({
       where: { id: serviceRenderedId, attendanceId: encounterId },
       select: { id: true },
     });
     if (!existing) throw new NotFoundError('Rendered service', serviceRenderedId);
     return this.prisma.serviceRendered.delete({ where: { id: existing.id } });
+=======
+    const result = await this.prisma.serviceRendered.deleteMany({
+      where: { id: serviceRenderedId, attendanceId: encounterId },
+    });
+    if (result.count === 0) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
+    return { id: serviceRenderedId, removed: true };
+>>>>>>> origin/audit/main-sync-2026-10-20
   }
 
   async getConsumableUses(encounterId: string) {
     await this.requireEncounterId(encounterId);
-    return this.prisma.stockTransaction.findMany({
-      where: {
-        reference: encounterId,
-        notes: { startsWith: 'Consumable use:' },
-      },
+    const rows = await this.prisma.stockTransaction.findMany({
+      where: { reference: encounterId, notes: { startsWith: 'Consumable use:' } },
       include: { StockItem: { select: { id: true, name: true, unitOfMeasure: true } } },
       orderBy: { transactionDate: 'desc' },
     });
+    return rows.filter((row: any) => !/^Consumable use: \[(EDITED|DELETED)\]/i.test(String(row.notes || '')));
+  }
+
+  private async consumeConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string) {
+    const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
+    if (!item || !item.isActive || item.isMedication) throw new NotFoundError('Active consumable', stockItemId);
+    const batchCount = await tx.stockBatch.count({ where: { stockItemId } });
+    const allocations: Array<{ batchId: string; quantity: number }> = [];
+    if (batchCount > 0) {
+      const batches = await tx.stockBatch.findMany({
+        where: { stockItemId, departmentId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gt: 0 } },
+        orderBy: [{ expiryDate: 'asc' }, { receivedDate: 'asc' }],
+      });
+      const available = batches.reduce((sum: number, b: any) => sum + b.quantity, 0);
+      if (available < quantity) throw new ValidationError(`Insufficient usable batch stock for ${item.name}. Available: ${available}, requested: ${quantity}`);
+      let remaining = quantity;
+      for (const batch of batches) {
+        if (remaining <= 0) break;
+        const move = Math.min(batch.quantity, remaining);
+        const result = await tx.stockBatch.updateMany({
+          where: { id: batch.id, departmentId, wardId: null, isActive: true, expiryDate: { gte: startOfCurrentDay() }, quantity: { gte: move } },
+          data: { quantity: { decrement: move } },
+        });
+        if (result.count !== 1) throw new ConflictError('Batch stock changed during consumable use; retry the operation');
+        allocations.push({ batchId: batch.id, quantity: move });
+        remaining -= move;
+      }
+    }
+    const departmentBalance = await decreaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    const changed = await tx.stockItem.updateMany({
+      where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
+      data: { currentStock: { decrement: quantity } },
+    });
+    if (changed.count !== 1) throw new ValidationError(`Insufficient hospital-wide stock for ${item.name}`);
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
+    if (!stock) throw new NotFoundError('Stock item', stockItemId);
+    return { balanceAfter: departmentBalance.quantity, allocations };
+  }
+
+  private async restoreConsumableStock(tx: any, stockItemId: string, quantity: number, departmentId: string | null, allocationsValue: any) {
+    const allocations = Array.isArray(allocationsValue) ? allocationsValue : [];
+    if (allocations.length > 0) {
+      const total = allocations.reduce((sum: number, a: any) => sum + Number(a.quantity || 0), 0);
+      if (total !== quantity) throw new ValidationError('Saved batch allocation does not match the original quantity; manual reconciliation is required');
+      for (const allocation of allocations) {
+        const batchId = String(allocation.batchId || '');
+        const amount = Number(allocation.quantity);
+        if (!batchId || !Number.isSafeInteger(amount) || amount <= 0) throw new ValidationError('Saved batch allocation is invalid');
+        const batch = await tx.stockBatch.findUnique({ where: { id: batchId }, select: { id: true, stockItemId: true, departmentId: true, wardId: true } });
+        if (!batch || batch.stockItemId !== stockItemId || batch.departmentId !== departmentId || batch.wardId !== null) {
+          throw new ValidationError('Original batch location has changed; manual reconciliation is required');
+        }
+        await tx.stockBatch.update({ where: { id: batchId }, data: { quantity: { increment: amount } } });
+      }
+    } else if (await tx.stockBatch.count({ where: { stockItemId } }) > 0) {
+      throw new ValidationError('This historic use has no saved batch allocation; manual reconciliation is required');
+    }
+    const departmentBalance = await increaseDepartmentStockBalance(tx, stockItemId, departmentId, quantity);
+    await tx.stockItem.update({ where: { id: stockItemId }, data: { currentStock: { increment: quantity } } });
+    const stock = await tx.stockItem.findUnique({ where: { id: stockItemId }, select: { id: true } });
+    if (!stock) throw new NotFoundError('Stock item', stockItemId);
+    return departmentBalance.quantity;
   }
 
   async recordConsumableUse(encounterId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Quantity must be a positive whole number');
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      if (!item || !item.isActive || item.isMedication) {
-        throw new NotFoundError('Active consumable', stockItemId);
-      }
-
-      const updated = await tx.stockItem.updateMany({
-        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
-        data: { currentStock: { decrement: quantity } },
-      });
-      if (updated.count === 0) {
-        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock}`);
-      }
-
-      const current = await tx.stockItem.findUnique({
-        where: { id: stockItemId },
-        select: { currentStock: true },
-      });
-      if (!current) throw new NotFoundError('Stock item', stockItemId);
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
+      if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
+      const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
 
       return tx.stockTransaction.create({
         data: {
           stockItemId,
           transactionType: 'sale',
           quantity,
-          balanceAfter: current.currentStock,
+          balanceAfter: consumed.balanceAfter,
           reference: encounterId,
+          departmentId: actor.departmentId,
+          batchAllocations: consumed.allocations as any,
           notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
           performedBy: actorId,
         },
@@ -1332,70 +1850,68 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async updateConsumableUse(encounterId: string, transactionId: string, stockItemId: string, quantity: number, notes: string | undefined, userId: string) {
     const actorId = await this.requireActorId(userId);
     await this.requireEncounterId(encounterId);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
       throw new ValidationError('Quantity must be a positive whole number');
     }
 
     return this.prisma.$transaction(async (tx) => {
       const previous = await tx.stockTransaction.findFirst({
-        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: transactionId,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
       });
       if (!previous) throw new NotFoundError('Consumable use', transactionId);
       const claimed = await tx.stockTransaction.updateMany({
-        where: { id: previous.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: previous.id,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
         data: { notes: `Consumable use edit in progress: ${previous.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
-      const item = await tx.stockItem.findUnique({ where: { id: stockItemId } });
-      if (!item || !item.isActive || item.isMedication) {
-        throw new NotFoundError('Active consumable', stockItemId);
-      }
-
-      await tx.stockItem.update({
-        where: { id: previous.stockItemId },
-        data: { currentStock: { increment: previous.quantity } },
-      });
-      const updated = await tx.stockItem.updateMany({
-        where: { id: stockItemId, isActive: true, isMedication: false, currentStock: { gte: quantity } },
-        data: { currentStock: { decrement: quantity } },
-      });
-      if (updated.count === 0) {
-        throw new ValidationError(`Insufficient stock for ${item.name}. Available: ${item.currentStock + (previous.stockItemId === stockItemId ? previous.quantity : 0)}`);
-      }
-
-      const previousBalance = await tx.stockItem.findUnique({
-        where: { id: previous.stockItemId },
-        select: { currentStock: true },
-      });
-      if (!previousBalance) throw new NotFoundError('Stock item', previous.stockItemId);
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
+      if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
+      if (!['admin', 'super_admin'].includes(String(actor.role).toLowerCase()) && previous.departmentId !== actor.departmentId) throw new ValidationError('You can only edit consumable use recorded by your own department');
+      const previousBalance = await this.restoreConsumableStock(tx, previous.stockItemId, previous.quantity, previous.departmentId, previous.batchAllocations);
+      const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
       await tx.stockTransaction.update({
         where: { id: previous.id },
-        data: { notes: `Consumable use edited: ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+        data: { notes: `Consumable use: [EDITED] ${previous.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
       await tx.stockTransaction.create({
         data: {
           stockItemId: previous.stockItemId,
           transactionType: 'adjustment',
           quantity: previous.quantity,
-          balanceAfter: previousBalance.currentStock,
+          balanceAfter: previousBalance,
           reference: encounterId,
+          departmentId: previous.departmentId,
+          batchAllocations: previous.batchAllocations as any,
           notes: `Consumable use edit reversal: ${previous.id}`,
           performedBy: actorId,
         },
       });
 
-      const current = await tx.stockItem.findUnique({
-        where: { id: stockItemId },
-        select: { currentStock: true },
-      });
-      if (!current) throw new NotFoundError('Stock item', stockItemId);
       return tx.stockTransaction.create({
         data: {
           stockItemId,
           transactionType: 'sale',
           quantity,
-          balanceAfter: current.currentStock,
+          balanceAfter: consumed.balanceAfter,
           reference: encounterId,
+          departmentId: actor.departmentId,
+          batchAllocations: consumed.allocations as any,
           notes: `Consumable use: ${notes?.trim() || 'Used during encounter'}`,
           performedBy: actorId,
         },
@@ -1410,30 +1926,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     return this.prisma.$transaction(async (tx) => {
       const use = await tx.stockTransaction.findFirst({
-        where: { id: transactionId, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: transactionId,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
       });
       if (!use) throw new NotFoundError('Consumable use', transactionId);
       const claimed = await tx.stockTransaction.updateMany({
-        where: { id: use.id, reference: encounterId, notes: { startsWith: 'Consumable use:' } },
+        where: {
+          id: use.id,
+          reference: encounterId,
+          notes: { startsWith: 'Consumable use:' },
+          NOT: [
+            { notes: { startsWith: 'Consumable use: [EDITED]' } },
+            { notes: { startsWith: 'Consumable use: [DELETED]' } },
+          ],
+        },
         data: { notes: `Consumable use deletion in progress: ${use.id}` },
       });
       if (claimed.count !== 1) throw new ConflictError('This consumable use has already been changed');
-      const item = await tx.stockItem.update({
-        where: { id: use.stockItemId },
-        data: { currentStock: { increment: use.quantity } },
-        select: { currentStock: true },
-      });
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
+      if (!actor) throw new UnauthorizedError('Active user could not be verified');
+      if (!['admin', 'super_admin'].includes(String(actor.role).toLowerCase()) && use.departmentId !== actor.departmentId) throw new ValidationError('You can only delete consumable use recorded by your own department');
+      const restoredBalance = await this.restoreConsumableStock(tx, use.stockItemId, use.quantity, use.departmentId, use.batchAllocations);
       await tx.stockTransaction.update({
         where: { id: use.id },
-        data: { notes: `Consumable use deleted: ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
+        data: { notes: `Consumable use: [DELETED] ${use.notes?.replace(/^Consumable use:\s*/, '') || ''}` },
       });
       return tx.stockTransaction.create({
         data: {
           stockItemId: use.stockItemId,
           transactionType: 'adjustment',
           quantity: use.quantity,
-          balanceAfter: item.currentStock,
+          balanceAfter: restoredBalance,
           reference: encounterId,
+          departmentId: use.departmentId,
+          batchAllocations: use.batchAllocations as any,
           notes: `Consumable use deletion reversal: ${use.id}`,
           performedBy: actorId,
         },
@@ -1692,7 +2225,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const activeAttendances = await this.getModel().findMany({ where: { status: 'admitted', bedId: { not: null } }, include: { Patient: true, Bed: { include: { Ward: true } } } });
     
     return {
-      data: activeAttendances.map(a => ({ bed: a.Bed?.bedNumber, ward: a.Bed?.Ward?.wardName, patient: `${a.Patient.surname} ${a.Patient.otherNames}` })),
+      data: activeAttendances.map((a: any) => ({ bed: a.Bed?.bedNumber, ward: a.Bed?.Ward?.wardName, patient: `${a.Patient.surname} ${a.Patient.otherNames}` })),
       summary: { totalBeds: beds.length, occupied: activeAttendances.length, available: beds.length - activeAttendances.length }
     };
   }
@@ -1712,14 +2245,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // ============================================
 
   async getVitalsWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
       where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
 
-    const processedItems = activeAttendances.map(attendance => {
+    const processedItems = activeAttendances.map((attendance: any) => {
       const lastVitals = attendance.Vitals?.[0];
       const hasVitalsToday = lastVitals ? new Date(lastVitals.recordedAt).toDateString() === today.toDateString() : false;
       const waitTime = hasVitalsToday ? 0 : Math.floor((Date.now() - new Date(attendance.dateTime).getTime()) / 60000);
@@ -1734,18 +2267,18 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         waitTime, priority, status: hasVitalsToday ? 'vitals_done' : 'pending_vitals', encounterCategory: attendance.encounterCategory
       };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => !i.hasVitalsToday).length, recent: processedItems.filter(i => i.hasVitalsToday).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasVitalsToday).length, recent: processedItems.filter((i: any) => i.hasVitalsToday).length, data: processedItems };
   }
 
   async getMedicalWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
       where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
 
-    const processedItems = activeAttendances.map(attendance => {
+    const processedItems = activeAttendances.map((attendance: any) => {
       const hasVitalsToday = (attendance.Vitals?.length || 0) > 0;
       const hasMedicalNotesToday = attendance.medicalNotes !== null && attendance.medicalNotes !== '';
       const hasDiagnosis = (attendance.AttendanceDiagnosis?.length || 0) > 0;
@@ -1763,7 +2296,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         status: isPending ? 'pending_doctor' : (hasMedicalNotesToday ? 'reviewed' : 'pending_vitals_first'), encounterCategory: attendance.encounterCategory
       };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => i.status === 'pending_doctor').length, reviewed: processedItems.filter(i => i.hasMedicalNotesToday).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.status === 'pending_doctor').length, reviewed: processedItems.filter((i: any) => i.hasMedicalNotesToday).length, data: processedItems };
   }
 
   async getLabWorklist(): Promise<any> {
@@ -1805,7 +2338,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingTests) { waitTime = Math.floor((Date.now() - new Date(group.oldestRequestedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, testCount: group.tests.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingTests, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, tests: group.tests, waitTime, priority, status: hasPendingTests ? 'pending' : (allCompleted ? 'completed' : 'partial') });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingTests).length, completed: processedItems.filter(i => i.hasResults).length, inProgress: processedItems.filter(i => i.inProgressCount > 0).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingTests).length, completed: processedItems.filter((i: any) => i.hasResults).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, data: processedItems };
   }
 
   async getPharmacyWorklist(): Promise<any> {
@@ -1851,7 +2384,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingPrescriptions) { waitTime = Math.floor((Date.now() - new Date(group.oldestPrescribedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (waitHours > 48) priority = 'stat'; else if (waitHours > 24) priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, prescriptionCount: group.prescribedCount + group.dispensedCount, prescribedCount: group.prescribedCount, dispensedCount: group.dispensedCount, hasPendingPrescriptions, hasBeenDispensed: allDispensed, oldestPrescribedAt: group.oldestPrescribedAt, medications: group.medications.map((m: any) => ({ id: m.id, name: m.StockItem?.name || m.name, dosage: m.dosage, frequency: m.frequency, duration: m.duration, status: m.status, prescribedAt: m.prescribedAt, dispensedAt: m.dispensedAt })), waitTime, priority, status: hasPendingPrescriptions ? 'pending' : (allDispensed ? 'dispensed' : 'partial'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingPrescriptions).length, dispensed: processedItems.filter(i => i.hasBeenDispensed).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingPrescriptions).length, dispensed: processedItems.filter((i: any) => i.hasBeenDispensed).length, data: processedItems };
   }
 
   async getRadiologyWorklist(): Promise<any> {
@@ -1880,48 +2413,48 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (hasPendingScans) { waitTime = Math.floor((Date.now() - new Date(group.oldestRequestedAt).getTime()) / 60000); const waitHours = waitTime / 60; if (priority !== 'stat' && waitHours > 48) priority = 'stat'; else if (priority !== 'stat' && waitHours > 24 && priority !== 'urgent') priority = 'urgent'; }
       processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, scanCount: group.scans.length, requestedCount: group.requestedCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingScans, hasResults: allCompleted, oldestRequestedAt: group.oldestRequestedAt, scanTypes: group.scans.map((s: any) => s.ScanTemplate?.name || s.scanType || 'Unknown').join(', '), waitTime, priority, status: hasPendingScans ? 'pending' : (allCompleted ? 'completed' : 'partial'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, pending: processedItems.filter(i => i.hasPendingScans).length, completed: processedItems.filter(i => i.hasResults).length, inProgress: processedItems.filter(i => i.inProgressCount > 0).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => i.hasPendingScans).length, completed: processedItems.filter((i: any) => i.hasResults).length, inProgress: processedItems.filter((i: any) => i.inProgressCount > 0).length, data: processedItems };
   }
 
   async getProceduresWorklist(): Promise<any> {
     const allProcedures = await this.prisma.procedure.findMany({
-      where: { OR: [{ status: 'scheduled', createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
+      where: { OR: [{ status: { in: ['scheduled', 'in_progress'] }, createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
       include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const procedure of allProcedures) {
       const attendanceId = procedure.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, patientId: procedure.Attendance.patientId, patient: { name: `${procedure.Attendance.Patient.surname} ${procedure.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(procedure.Attendance.Patient.dateOfBirth), gender: procedure.Attendance.Patient.gender, folderNumber: procedure.Attendance.Patient.folderNumber }, location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, completedCount: 0, earliestScheduledDate: null });
+        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, patientId: procedure.Attendance.patientId, patient: { name: `${procedure.Attendance.Patient.surname} ${procedure.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(procedure.Attendance.Patient.dateOfBirth), gender: procedure.Attendance.Patient.gender, folderNumber: procedure.Attendance.Patient.folderNumber }, location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.procedures.push(procedure);
-      if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'completed') group.completedCount++;
+      if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'in_progress') group.inProgressCount++; else if (procedure.status === 'completed') group.completedCount++;
       if (procedure.scheduledDate && (!group.earliestScheduledDate || new Date(procedure.scheduledDate) < new Date(group.earliestScheduledDate))) group.earliestScheduledDate = procedure.scheduledDate;
     }
     const processedItems: any[] = [];
     for (const group of groupedByAttendance.values()) {
-      const hasPendingProcedures = group.scheduledCount > 0;
-      const hasBeenPerformed = group.completedCount > 0 && group.scheduledCount === 0;
+      const hasPendingProcedures = group.scheduledCount > 0 || group.inProgressCount > 0;
+      const hasBeenPerformed = group.completedCount > 0 && group.scheduledCount === 0 && group.inProgressCount === 0;
       let waitTime = 0; let priority: 'routine' | 'urgent' | 'stat' = 'routine';
       if (hasPendingProcedures && group.earliestScheduledDate) {
-        waitTime = Math.floor((new Date(group.earliestScheduledDate).getTime() - Date.now()) / 60000); waitTime = Math.max(0, waitTime);
-        const isOverdue = new Date(group.earliestScheduledDate) < new Date();
-        if (isOverdue) { const overdueHours = Math.abs(waitTime) / 60; if (overdueHours > 24) priority = 'stat'; else if (overdueHours > 12) priority = 'urgent'; } 
-        else { const waitHours = waitTime / 60; if (waitHours < 1) priority = 'stat'; else if (waitHours < 6) priority = 'urgent'; }
+        const minutesUntilScheduled = Math.floor((new Date(group.earliestScheduledDate).getTime() - Date.now()) / 60000);
+        waitTime = Math.max(0, minutesUntilScheduled);
+        if (minutesUntilScheduled < 0) { const overdueHours = Math.abs(minutesUntilScheduled) / 60; if (overdueHours > 24) priority = 'stat'; else if (overdueHours > 12) priority = 'urgent'; }
+        else { const waitHours = minutesUntilScheduled / 60; if (waitHours < 1) priority = 'stat'; else if (waitHours < 6) priority = 'urgent'; }
       }
-      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: 0, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), waitTime, priority, status: hasBeenPerformed ? 'completed' : 'scheduled', encounterCategory: 'ipd' });
+      processedItems.push({ id: group.attendanceId, patientId: group.patientId, attendanceId: group.attendanceId, patient: group.patient, location: group.location, procedureCount: group.procedures.length, scheduledCount: group.scheduledCount, inProgressCount: group.inProgressCount, completedCount: group.completedCount, hasPendingProcedures, hasBeenPerformed, earliestScheduledDate: group.earliestScheduledDate, procedureNames: group.procedures.map((p: any) => p.ProcedureTemplate?.name || 'Unknown').join(', '), waitTime, priority, status: hasBeenPerformed ? 'completed' : (group.inProgressCount > 0 ? 'in_progress' : 'scheduled'), encounterCategory: 'ipd' });
     }
-    return { total: processedItems.length, scheduled: processedItems.filter(i => i.status === 'scheduled').length, inProgress: 0, completed: processedItems.filter(i => i.status === 'completed').length, data: processedItems };
+    return { total: processedItems.length, scheduled: processedItems.filter((i: any) => i.status === 'scheduled').length, inProgress: processedItems.filter((i: any) => i.status === 'in_progress').length, completed: processedItems.filter((i: any) => i.status === 'completed').length, data: processedItems };
   }
 
   async getMaternalWorklist(): Promise<any> {
-    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const maternalAttendances = await this.getModel().findMany({
       where: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] }, OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }] },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 }, antenatalBookings: true, currentAntenatalBookings: true, antenatalVisits: { orderBy: { visitDate: 'desc' }, take: 1 }, deliveryRecords: { orderBy: { deliveryDate: 'desc' }, take: 1 }, postnatalRecords: { orderBy: { examinationDate: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
-    const processedItems = maternalAttendances.map(attendance => {
+    const processedItems = maternalAttendances.map((attendance: any) => {
       const antenatal = attendance.antenatalBookings[0] || attendance.currentAntenatalBookings[0];
       const delivery = attendance.deliveryRecords[0];
       const postnatal = attendance.postnatalRecords[0];
@@ -1934,7 +2467,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!hasBeenAttended) { const waitHours = waitTime / 60; if (riskLevel === 'high' || waitHours > 48) priority = 'stat'; else if (riskLevel === 'medium' || waitHours > 24) priority = 'urgent'; }
       return { id: attendance.id, patientId: attendance.patientId, attendanceId: attendance.id, patient: { name: `${attendance.Patient.surname} ${attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(attendance.Patient.dateOfBirth), gender: attendance.Patient.gender, folderNumber: attendance.Patient.folderNumber }, location: attendance.Bed ? { ward: attendance.Bed.Ward?.wardName, bed: attendance.Bed.bedNumber } : undefined, visitType: attendance.attendanceType as any, status: attendance.status, hasBeenAttended: completedToday, completedAt: completedToday ? attendance.updatedAt : undefined, waitTime, priority, riskLevel, encounterCategory: attendance.encounterCategory, gestationalAge: antenatal?.gestationalAgeWeeks, edd: antenatal?.edd, deliveryDate: delivery?.deliveryDate, deliveryType: delivery?.deliveryType, postnatalDay: postnatal?.dayNumber, complaints: attendance.medicalNotes, latestVitals: lastVitals ? { bloodPressure: lastVitals.bloodPressure, temperature: lastVitals.temperature, pulse: lastVitals.pulse } : undefined };
     });
-    return { total: processedItems.length, pending: processedItems.filter(i => !i.hasBeenAttended).length, recent: processedItems.filter(i => i.hasBeenAttended).length, data: processedItems };
+    return { total: processedItems.length, pending: processedItems.filter((i: any) => !i.hasBeenAttended).length, recent: processedItems.filter((i: any) => i.hasBeenAttended).length, data: processedItems };
   }
 
   // ============================================
