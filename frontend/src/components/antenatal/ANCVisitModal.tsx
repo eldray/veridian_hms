@@ -108,7 +108,11 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
     params.set('reason', reason || 'Antenatal assessment requires referral');
     if (formData.notes) params.set('notes', formData.notes);
     if (formData.referredTo) params.set('facility', formData.referredTo);
-    params.set('urgency', (formData.dangerSignsList || []).length ? 'urgent' : 'routine');
+    const hasRecordedDangerSigns = formData.dangerSignsPresent || (formData.dangerSignsList || []).length > 0;
+    if (hasRecordedDangerSigns && !(formData.dangerSignsList || []).length) {
+      params.set('reason', [reason, 'Danger signs recorded; specific signs not listed'].filter(Boolean).join('; '));
+    }
+    params.set('urgency', hasRecordedDangerSigns ? 'urgent' : 'routine');
     navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
     onClose();
   };
