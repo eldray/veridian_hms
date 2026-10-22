@@ -748,6 +748,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       });
       if (!existing) throw new NotFoundError('Delivery record', id);
 
+      // Once a delivery is linked to an antenatal booking, do not silently switch or
+      // clear that link: the previous booking would otherwise remain marked completed
+      // against a delivery record that no longer references it.
+      if (existing.antenatalBookingId && clean.antenatalBookingId !== undefined && clean.antenatalBookingId !== existing.antenatalBookingId) {
+        throw new ConflictError('A delivery record already linked to an antenatal booking cannot be reassigned or unlinked; use the approved clinical correction workflow');
+      }
+
       const bookingId = clean.antenatalBookingId ?? existing.antenatalBookingId;
       let booking: any = null;
       if (bookingId) {

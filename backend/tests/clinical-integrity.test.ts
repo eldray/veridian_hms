@@ -953,3 +953,53 @@ describe('prescription cancellation integrity', () => {
     expect(medicationUpdate).not.toHaveBeenCalled();
   });
 });
+
+
+describe('delivery-to-ANC booking link integrity', () => {
+  it('refuses to reassign a delivery already linked to a completed pregnancy booking', async () => {
+    const deliveryUpdate = vi.fn();
+    const bookingLookup = vi.fn();
+    const bookingUpdate = vi.fn();
+    const tx = {
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
+          deliveryOutcome: 'live_birth', antenatalBookingId: 'booking-1',
+        }),
+        update: deliveryUpdate,
+      },
+      antenatalBooking: { findUnique: bookingLookup, update: bookingUpdate },
+    };
+    const repository = new AntenatalRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', { antenatalBookingId: 'booking-2' }))
+      .rejects.toThrow(/cannot be reassigned or unlinked/i);
+
+    expect(bookingLookup).not.toHaveBeenCalled();
+    expect(deliveryUpdate).not.toHaveBeenCalled();
+    expect(bookingUpdate).not.toHaveBeenCalled();
+  });
+
+  it('refuses to clear an existing delivery-to-ANC booking link', async () => {
+    const deliveryUpdate = vi.fn();
+    const tx = {
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-10T10:00:00.000Z'),
+          deliveryOutcome: 'live_birth', antenatalBookingId: 'booking-1',
+        }),
+        update: deliveryUpdate,
+      },
+      antenatalBooking: { findUnique: vi.fn(), update: vi.fn() },
+    };
+    const repository = new AntenatalRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.updateDeliveryRecord('delivery-1', { antenatalBookingId: null }))
+      .rejects.toThrow(/cannot be reassigned or unlinked/i);
+    expect(deliveryUpdate).not.toHaveBeenCalled();
+  });
+});
