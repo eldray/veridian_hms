@@ -425,10 +425,22 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async finalizeClinicalRecord(id: string, userId: string) {
     const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
+      // Finalisation is a clinical signature, not an administrative workflow action.
+      const finalizingClinician = await tx.user.findUnique({
+        where: { id: actorId },
+        select: { id: true, role: true, isActive: true },
+      });
+      if (!finalizingClinician || !finalizingClinician.isActive ||
+          !['doctor', 'nurse', 'midwife'].includes(finalizingClinician.role)) {
+        throw new ValidationError('Only an active doctor, nurse, or midwife can finalize a clinical record');
+      }
+
       const record = await tx.attendance.findUnique({
         where: { id },
         include: {
-          Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 },
+          // Vitals are append-only observations; merge the latest non-empty value for
+          // each measurement so saving one measurement later does not hide prior values.
+          Vitals: { orderBy: { recordedAt: 'desc' } },
           Patient: { select: { allergies: { select: { id: true, allergen: true, reaction: true, severity: true } } } },
         },
       });
@@ -451,13 +463,28 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       if (!responsibleProvider || !responsibleProvider.isActive || !['doctor', 'nurse', 'midwife'].includes(responsibleProvider.role)) {
         missing.push('active clinician as responsible provider');
       }
-      const latestVitals = record.Vitals[0];
-      const hasVitalMeasurement = Boolean(latestVitals && [
-        latestVitals.bloodPressure, latestVitals.temperature, latestVitals.pulse,
-        latestVitals.respiration, latestVitals.spo2, latestVitals.weight,
-        latestVitals.height, latestVitals.muac,
-      ].some(value => value !== null && value !== undefined && value !== ''));
-      if (!hasVitalMeasurement) missing.push('vital signs with at least one recorded measurement');
+      const latestVitals: Record<string, unknown> = {};
+      for (const observation of record.Vitals) {
+        for (const field of ['bloodPressure', 'temperature', 'pulse', 'respiration', 'spo2', 'weight', 'height', 'muac']) {
+          const value = (observation as any)[field];
+          if ((latestVitals[field] === undefined || latestVitals[field] === null || latestVitals[field] === '') &&
+              value !== null && value !== undefined && value !== '') {
+            latestVitals[field] = value;
+          }
+        }
+      }
+      // Require the core bedside observations, rather than allowing one measurement
+      // (e.g. weight alone) to satisfy the mandatory vital-sign section. SpO2 and
+      // anthropometry remain recordable when available but are not universal blockers.
+      const missingCoreVitals = [
+        ['blood pressure', latestVitals.bloodPressure],
+        ['temperature', latestVitals.temperature],
+        ['pulse', latestVitals.pulse],
+        ['respiratory rate', latestVitals.respiration],
+      ].filter(([, value]) => value === null || value === undefined || value === '');
+      if (missingCoreVitals.length) {
+        missing.push(`core vital signs (${missingCoreVitals.map(([label]) => label).join(', ')})`);
+      }
       if (!record.reviewOfSystems || typeof record.reviewOfSystems !== 'object' ||
           !Object.values(record.reviewOfSystems as Record<string, unknown>).some(value => typeof value === 'string' && value.trim())) {
         missing.push('structured review of systems');
