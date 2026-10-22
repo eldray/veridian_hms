@@ -47,6 +47,10 @@ export interface ConsultingRoomRegisterFilters {
     referredFrom: string | null;
     
     // Metadata
+    clinicalOutcome: string | null;
+    attendanceStatus: string;
+    assessment: string;
+    treatmentPlan: string;
     clinician: string;
     attendanceId: string;
   }
