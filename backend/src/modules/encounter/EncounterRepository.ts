@@ -361,7 +361,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         'allergyReviewStatus', 'allergyReviewNotes', 'providerId', 'clinicalNotes',
       ];
       if (currentClinicalRecord.finalizedAt && clinicalKeys.some((key) => Object.prototype.hasOwnProperty.call(normalizedData, key))) {
-        throw new ConflictError('This clinical record is finalized. Record a dated addendum rather than overwriting the signed assessment.');
+        throw new ConflictError('This clinical record is finalized and cannot be overwritten. Use the facility-approved correction/addendum process.');
       }
       if (admissionType !== undefined) {
         const admission = await tx.admission.findUnique({
