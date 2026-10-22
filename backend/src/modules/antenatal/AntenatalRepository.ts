@@ -499,9 +499,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   private mapNewborns(input: any): any[] {
     const list: any[] = Array.isArray(input) ? input : Array.isArray(input?.create) ? input.create : [];
     const allowedOutcomes = ['alive', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'];
-    return list.map((b: any, i: number) => {
+    const babies = list.map((b: any, i: number) => {
       if (!b || !allowedOutcomes.includes(String(b.outcome))) {
         throw new ValidationError(`A confirmed outcome is required for newborn ${i + 1}`);
+      }
+      const gender = b.gender || 'other';
+      if (!['male', 'female', 'other'].includes(String(gender))) {
+        throw new ValidationError(`Newborn ${i + 1} has an invalid gender`);
       }
       const birthWeight = Number(b.birthWeight);
       if (!Number.isFinite(birthWeight) || birthWeight <= 0 || birthWeight > 15000) {
@@ -513,7 +517,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         }
       }
       return {
-        order: b.order ?? i + 1, birthWeight, gender: b.gender || 'other',
+        order: b.order ?? i + 1, birthWeight, gender,
         apgarScore1min: b.apgarScore1min ?? null, apgarScore5min: b.apgarScore5min ?? null,
         resuscitation: !!b.resuscitation, outcome: b.outcome, anomalies: b.anomalies || [],
         referredTo: b.referredTo || null, breastfeedingWithin30Min: !!b.breastfeedingWithin30Min,
@@ -522,6 +526,10 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         weightAt6to10DaysDate: b.weightAt6to10DaysDate ? new Date(b.weightAt6to10DaysDate) : null
       };
     });
+    if (new Set(babies.map((baby: any) => baby.order)).size !== babies.length) {
+      throw new ValidationError('Each newborn must have a unique birth order');
+    }
+    return babies;
   }
 
   async createDeliveryRecord(data: CreateDeliveryRecordInput): Promise<any> {
