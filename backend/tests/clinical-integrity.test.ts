@@ -93,6 +93,53 @@ describe('clinical encounter ownership', () => {
   });
 });
 
+describe('postnatal create/update validation consistency', () => {
+  it('accepts the same vital and newborn measurement ranges on update as on creation', async () => {
+    const update = vi.fn().mockResolvedValue({ id: 'postnatal-1' });
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', {
+      temperature: 25,
+      pulse: 0,
+      fundalHeight: 80,
+      babyWeight: 18,
+      babyTemperature: 26,
+    })).resolves.toEqual({ id: 'postnatal-1' });
+
+    expect(update).toHaveBeenCalledWith({
+      where: { id: 'postnatal-1' },
+      data: {
+        temperature: 25,
+        pulse: 0,
+        fundalHeight: 80,
+        babyWeight: 18,
+        babyTemperature: 26,
+      },
+      include: {
+        patient: {
+          select: {
+            id: true,
+            folderNumber: true,
+            surname: true,
+            otherNames: true,
+          },
+        },
+        deliveryRecord: true,
+      },
+    });
+  });
+
+  it('rejects newborn temperature outside the same range used at creation', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({ postnatalRecord: { update } } as any);
+
+    await expect(repository.updatePostnatalRecord('postnatal-1', {
+      babyTemperature: 20,
+    })).rejects.toThrow(/baby temperature must be between 25 and 45/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
 describe('newborn record validation', () => {
   it('accepts a recorded birth weight in grams and an explicit outcome', () => {
     const repository = new AntenatalRepository({} as any);
