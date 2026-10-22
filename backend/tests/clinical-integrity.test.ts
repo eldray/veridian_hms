@@ -214,6 +214,50 @@ describe('newborn record validation', () => {
   });
 });
 
+describe('ANC visit clinical field validation', () => {
+  it('rejects para that reaches gravida when only para is updated', async () => {
+    const update = vi.fn();
+    const findUnique = vi.fn().mockResolvedValue({
+      id: 'visit-1',
+      gravida: 2,
+      para: 0,
+      booking: { gravida: 2, para: 0 },
+    });
+    const repository = new AntenatalRepository({
+      aNCVisit: { findUnique, update },
+    } as any);
+
+    await expect(repository.updateVisit('visit-1', { para: 2 }))
+      .rejects.toThrow(/para must be less than gravida/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('allows IPTp dose numbers above five up to ten on ANC visits', async () => {
+    const update = vi.fn().mockResolvedValue({ id: 'visit-1', iptpDoseNumber: 6 });
+    const repository = new AntenatalRepository({
+      aNCVisit: { update },
+    } as any);
+
+    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 6 }))
+      .resolves.toEqual({ id: 'visit-1', iptpDoseNumber: 6 });
+    expect(update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'visit-1' },
+      data: { iptpDoseNumber: 6 },
+    }));
+  });
+
+  it('rejects IPTp dose numbers above the supported upper bound', async () => {
+    const update = vi.fn();
+    const repository = new AntenatalRepository({
+      aNCVisit: { update },
+    } as any);
+
+    await expect(repository.updateVisit('visit-1', { iptpDoseNumber: 11 }))
+      .rejects.toThrow(/iptp dose number must be between 1 and 10/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+});
+
 describe('maternal record integrity', () => {
   it('rejects parity equal to gravidity for an ongoing pregnancy before database access', async () => {
     const userFindUnique = vi.fn();

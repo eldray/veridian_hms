@@ -370,7 +370,7 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
                           onChange={e => handleChange('iptpDoseNumber', parseInt(e.target.value))}
                           className="w-full px-2.5 py-1.5 text-xs bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg
                             text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]">
-                          {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>Dose {n}</option>)}
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(n => <option key={n} value={n}>Dose {n}</option>)}
                         </select>
                       </div>
                     )}
