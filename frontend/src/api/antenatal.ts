@@ -26,6 +26,8 @@ export interface AntenatalBookingData {
 
 export interface ANCVisitData {
   attendanceId: string;
+  gravida?: number;
+  para?: number;
   gestationalAgeWeeks?: number;
   weight?: number;
   bloodPressure?: string;

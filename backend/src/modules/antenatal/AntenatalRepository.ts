@@ -251,6 +251,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
 
   // ===================== ANC VISITS =====================
   async createVisit(data: CreateANCVisitInput): Promise<any> {
+    this.validateVisitGravidaPara(data.gravida, data.para);
     const visitDate = new Date(data.visitDate);
     if (Number.isNaN(visitDate.getTime())) throw new ValidationError('ANC visit date must be valid');
     const nextVisitDate = data.nextVisitDate ? new Date(data.nextVisitDate) : undefined;
@@ -323,6 +324,8 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       }
 
       const visitFields = {
+        gravida: data.gravida,
+        para: data.para,
         visitDate,
         gestationalAgeWeeks: data.gestationalAgeWeeks,
         gestationalAgeDays: data.gestationalAgeDays,
@@ -387,8 +390,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async updateVisit(id: string, data: UpdateANCVisitInput): Promise<any> {
+    this.validateVisitGravidaPara(data.gravida, data.para);
     const allowed = [
-      'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'weight', 'bloodPressure',
+      'gravida', 'para', 'visitDate', 'gestationalAgeWeeks', 'gestationalAgeDays', 'weight', 'bloodPressure',
       'fundalHeight', 'fetalHeartRate', 'fetalMovements', 'presentation', 'oedema', 'oedemaGrade',
       'urinalysisProtein', 'urinalysisGlucose', 'urinalysisBlood', 'iptpGiven', 'iptpDoseNumber',
       'iptpDrug', 'ttGiven', 'ttDoseNumber', 'ironGiven', 'folateGiven', 'calciumGiven',
@@ -473,6 +477,18 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       data: clean,
       include: { recordedBy: { select: { fullName: true, role: true } } },
     });
+  }
+
+  private validateVisitGravidaPara(gravidaValue?: number, paraValue?: number): void {
+    if (gravidaValue !== undefined && (!Number.isInteger(Number(gravidaValue)) || Number(gravidaValue) < 1)) {
+      throw new ValidationError('Gravida must be a whole number of at least 1');
+    }
+    if (paraValue !== undefined && (!Number.isInteger(Number(paraValue)) || Number(paraValue) < 0)) {
+      throw new ValidationError('Para must be a non-negative whole number');
+    }
+    if (gravidaValue !== undefined && paraValue !== undefined && Number(paraValue) >= Number(gravidaValue)) {
+      throw new ValidationError('Para must be less than gravida for an ongoing pregnancy');
+    }
   }
 
   async deleteVisit(id: string): Promise<void> {
