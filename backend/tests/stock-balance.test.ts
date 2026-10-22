@@ -1327,8 +1327,8 @@ describe('in-transit batch valuation data', () => {
     const result = await repository.getValuationData(undefined, { includeAllStockLocations: true });
 
     expect(stockTransferItemFindMany).toHaveBeenCalledWith({
-      where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 }, quantityReceived: 0 },
-      select: { stockItemId: true, quantitySent: true, batchAllocations: true },
+      where: { transfer: { status: 'dispatched' }, quantitySent: { gt: 0 } },
+      select: { stockItemId: true, quantitySent: true, quantityReceived: true, batchAllocations: true },
     });
     expect(result[0].inTransitBatchAllocations).toEqual([{ quantity: 3, costPrice: 4 }]);
   });
