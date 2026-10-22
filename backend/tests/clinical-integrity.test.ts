@@ -179,6 +179,7 @@ describe('maternal record integrity', () => {
     await expect(repository.createDeliveryRecord({
       patientId: 'patient-a',
       attendanceId: 'delivery-attendance',
+      attendant: 'midwife-1',
       deliveryDate: new Date('2026-10-21T10:00:00.000Z'),
       deliveryType: 'spontaneous_vertex',
       deliveryOutcome: 'live_birth',
@@ -210,6 +211,7 @@ describe('maternal record integrity', () => {
     await expect(repository.createDeliveryRecord({
       patientId: 'patient-1',
       attendanceId: 'attendance-1',
+      attendant: 'midwife-1',
       antenatalBookingId: 'booking-1',
       deliveryDate,
       deliveryType: 'spontaneous_vertex',
@@ -235,6 +237,7 @@ describe('maternal record integrity', () => {
     const create = vi.fn().mockResolvedValue({ id: 'booking-1' });
     const findFirst = vi.fn().mockResolvedValue(null);
     const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
       attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'antenatal' }) },
       antenatalBooking: { findFirst, create },
     };
@@ -355,7 +358,11 @@ describe('investigation and procedure status integrity', () => {
 describe('postnatal record creation validation', () => {
   it('rejects impossible maternal observations before starting a database transaction', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    const repository = new AntenatalRepository({
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'postnatal' }) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1' }) },
+      $transaction: transaction,
+    } as any);
 
     await expect(repository.createPostnatalRecord({
       examinationDate: new Date(),
@@ -510,7 +517,11 @@ describe('postnatal referral completeness', () => {
 
   it('requires a referral destination for a postnatal referral', async () => {
     const transaction = vi.fn();
-    const repository = new AntenatalRepository({ $transaction: transaction } as any);
+    const repository = new AntenatalRepository({
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', patientId: 'patient-1', attendanceType: 'postnatal' }) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: transaction,
+    } as any);
     await expect(repository.createPostnatalRecord({
       examinationDate: new Date(), attendanceId: 'attendance-1', patientId: 'patient-1',
       createdById: 'midwife-1', referralMade: true, referredTo: '  ',
@@ -548,6 +559,7 @@ describe('primary diagnosis update atomicity', () => {
     const updateMany = vi.fn();
     const existingDiagnosis = { id: 'link-1', attendanceId: 'attendance-1', diagnosisId: 'diagnosis-1', diagnosisType: 'primary' };
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1' }) },
       diagnosis: { findUnique: vi.fn().mockResolvedValue({ id: 'diagnosis-1', icdCode: 'A09' }) },
       attendanceDiagnosis: {
         findFirst: vi.fn().mockResolvedValue(existingDiagnosis),
