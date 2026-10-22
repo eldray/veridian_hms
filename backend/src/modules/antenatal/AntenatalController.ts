@@ -35,7 +35,7 @@ export class AntenatalController extends BaseController {
   createAntenatalBooking = [
     body('patientId').notEmpty().withMessage('Patient ID required'),
     body('attendanceId').notEmpty().withMessage('Attendance ID required'),
-    body('gravida').isInt({ min: 0 }).withMessage('Valid gravida required'),
+    body('gravida').isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
     body('para').isInt({ min: 0 }).withMessage('Valid para required'),
     body('lmp').isISO8601().withMessage('Valid LMP date required'),
     body('riskLevel').optional().isIn(['low', 'medium', 'high']).withMessage('Valid risk level required'),
@@ -117,7 +117,7 @@ export class AntenatalController extends BaseController {
     body('attendanceId').notEmpty().withMessage('Attendance ID required'),
     body('visitNumber').isInt({ min: 1 }).withMessage('Valid visit number required'),
     body('visitDate').isISO8601().withMessage('Valid visit date required'),
-    body('gravida').optional().isInt({ min: 0 }).withMessage('Gravida must be 0 or more'),
+    body('gravida').optional().isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
     body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
     body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
     body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
@@ -134,7 +134,7 @@ export class AntenatalController extends BaseController {
   updateANCVisit = [
     body('gestationalAgeWeeks').optional().isInt({ min: 0, max: 42 }),
     body('weight').optional().isFloat({ min: 0 }),
-    body('gravida').optional().isInt({ min: 0 }).withMessage('Gravida must be 0 or more'),
+    body('gravida').optional().isInt({ min: 1 }).withMessage('Gravida must be at least 1 for a current pregnancy'),
     body('para').optional().isInt({ min: 0 }).withMessage('Para must be 0 or more'),
     body('fundalHeight').optional().isFloat({ min: 0, max: 60 }),
     body('fetalHeartRate').optional().isInt({ min: 60, max: 200 }),
