@@ -1,5 +1,6 @@
 // src/components/postnatal/PostnatalModal.tsx — clinical palette
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Heart, Baby, Shield, AlertTriangle, ArrowLeft, Calendar, FileText } from 'lucide-react';
 import { usePostnatalStore } from '../../store/postnatalStore';
 import { useToast } from '../../store/toastStore';
@@ -18,6 +19,7 @@ type SectionKey = 'maternal' | 'baby' | 'family';
 export const PostnatalModal: React.FC<PostnatalModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, patientId, existingPostnatal,
 }) => {
+  const navigate = useNavigate();
   const { createPostnatalRecord, updatePostnatalRecord, isLoading } = usePostnatalStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
@@ -58,6 +60,18 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
     nextVisitType: 'day_42',
     notes: '',
   });
+
+  const handleReferFromPostnatal = () => {
+    const params = new URLSearchParams({ patientId, attendanceId, source: 'Postnatal Examination' });
+    const reason = [...(formData.maternalDangerSigns || []), ...(formData.babyDangerSigns || []), ...(formData.maternalComplications || [])].filter(Boolean).join('; ')
+      || formData.referralReason || 'Postnatal assessment requires referral';
+    params.set('reason', reason);
+    if (formData.notes) params.set('notes', formData.notes);
+    if (formData.referredTo) params.set('facility', formData.referredTo);
+    params.set('urgency', (formData.maternalDangerSigns.length || formData.babyDangerSigns.length) ? 'urgent' : 'routine');
+    navigate(`/dashboard/referrals?${params.toString()}`);
+    onClose();
+  };
 
   const MATERNAL_COMPLICATIONS = [
     'Postpartum Haemorrhage', 'Preeclampsia/Eclampsia', 'Sepsis',
@@ -220,7 +234,11 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
                 </p>
               </div>
             </div>
-            <button onClick={onClose}
+            <button type="button" onClick={handleReferFromPostnatal}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-300 text-cyan-700 hover:bg-cyan-50">
+                    Refer Patient
+                  </button>
+                  <button onClick={onClose}
               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] transition-all">
               <X className="w-4 h-4" />
             </button>

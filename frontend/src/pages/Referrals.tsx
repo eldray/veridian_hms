@@ -1,6 +1,6 @@
 // src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -273,12 +273,13 @@ const Pagination: React.FC<PaginationProps> = ({
 
 export default function Referrals() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
   const { user } = useAuthStore();
 
   const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances } = useAttendanceStore();
+  const { attendances, getAttendances, getAttendance } = useAttendanceStore();
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [referrals,     setReferrals]     = useState<Referral[]>([]);
@@ -311,6 +312,7 @@ export default function Referrals() {
 
   const [selectedPatientId,    setSelectedPatientId]    = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
+  const [prefilledAttendance, setPrefilledAttendance] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     referralReason:      '',
@@ -379,6 +381,94 @@ export default function Referrals() {
     } catch { /* optional */ }
   };
 
+  const prefillApplied = useRef(false);
+  useEffect(() => {
+    const patientId = searchParams.get('patientId') || '';
+    if (!patientId || prefillApplied.current) return;
+    prefillApplied.current = true;
+    setSelectedPatientId(patientId);
+    setSelectedAttendanceId(searchParams.get('attendanceId') || '');
+    setReferralType('outgoing');
+    setFormData(prev => ({
+      ...prev,
+      referralReason: searchParams.get('reason') || '',
+      referralNotes: searchParams.get('notes') || '',
+      referredToFacility: searchParams.get('facility') || '',
+      urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
+        ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
+        : 'routine'),
+    }));
+    const source = searchParams.get('source') || 'Clinical assessment';
+    setStructuredPartI(prev => ({
+      ...prev,
+      clientName: searchParams.get('patientName') || prev.clientName,
+      clinicName: source,
+      patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || prev.patientComplaints,
+      diagnosis: searchParams.get('diagnosis') || prev.diagnosis,
+      actionsTaken: searchParams.get('treatment') || prev.actionsTaken,
+      reasonForReferral: searchParams.get('reason') || prev.reasonForReferral,
+      dateOfReferral: new Date().toISOString().slice(0, 10),
+    }));
+    // Referral context from a clinical page should be visible immediately in
+    // the structured letter, not only saved in hidden state.
+    setUseStructuredForm(true);
+    setShowModal(true);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const requestedAttendanceId = searchParams.get('attendanceId');
+    const requestedPatientId = searchParams.get('patientId');
+    if (!requestedAttendanceId || !requestedPatientId) return;
+    let cancelled = false;
+    getAttendance(requestedAttendanceId).then((visit: any) => {
+      if (cancelled) return;
+      const linkedPatient = visit?.patientId || visit?.patient?.id || visit?.patient?._id;
+      const linkedPatientId = typeof linkedPatient === 'object'
+        ? linkedPatient.id || linkedPatient._id
+        : linkedPatient;
+      if (String(linkedPatientId || '') !== requestedPatientId) {
+        setSelectedAttendanceId('');
+        setPrefilledAttendance(null);
+        toastError('Visit mismatch', 'The linked visit belongs to a different patient. Select the correct visit before submitting the referral.');
+        return;
+      }
+      setPrefilledAttendance(visit);
+    }).catch(() => {
+      if (cancelled) return;
+      setSelectedAttendanceId('');
+      setPrefilledAttendance(null);
+      toastError('Visit unavailable', 'The linked visit could not be loaded. Select the correct visit before submitting the referral.');
+    });
+    return () => { cancelled = true; };
+  }, [searchParams, getAttendance, toastError]);
+
+  useEffect(() => {
+    if (!searchParams.get('patientId') || !selectedPatientId || structuredPartI.clientName) return;
+    const patient: any = patients.find((item: any) =>
+      (item.id || item._id) === selectedPatientId
+    );
+    if (!patient) return;
+    const birthDateValue = patient.dateOfBirth || patient.dob || patient.birthDate;
+    let calculatedAge = patient.ageDisplay || patient.age || '';
+    if (!calculatedAge && birthDateValue) {
+      const birthDate = new Date(birthDateValue);
+      if (Number.isFinite(birthDate.getTime())) {
+        const today = new Date();
+        let years = today.getFullYear() - birthDate.getFullYear();
+        const birthdayPending = today.getMonth() < birthDate.getMonth() ||
+          (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate());
+        if (birthdayPending) years -= 1;
+        if (years >= 0 && years <= 125) calculatedAge = String(years);
+      }
+    }
+    setStructuredPartI(prev => ({
+      ...prev,
+      clientName: getPatientName(patient),
+      age: prev.age || String(calculatedAge || ''),
+      sex: prev.sex || String(patient.gender || patient.sex || ''),
+    }));
+  }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
+
   useEffect(() => { loadData(); }, []);
   useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
 
@@ -391,6 +481,14 @@ export default function Referrals() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId) { toastError('Error', 'Please select a patient'); return; }
+    if (!formData.referralReason.trim()) {
+      toastError('Error', 'Please enter the reason for referral');
+      return;
+    }
+    if (referralType === 'outgoing' && searchParams.get('attendanceId') && !selectedAttendanceId) {
+      toastError('Visit required', 'Select and verify the visit for this clinical referral before submitting.');
+      return;
+    }
     if (referralType === 'outgoing' && !formData.referredToFacility) {
       toastError('Error', 'Please enter the facility to refer to'); return;
     }
@@ -502,7 +600,8 @@ export default function Referrals() {
     setStructuredPartII({ institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: '' });
   };
 
-  const selectedAttendance = attendances.find(a => a.id === selectedAttendanceId);
+  const selectedAttendance = [...attendances, ...(prefilledAttendance ? [prefilledAttendance] : [])]
+    .find((a: any) => String(a.id || a._id) === selectedAttendanceId);
 
   // Client-side filtering (search + urgency) on top of server filters
   const displayedReferrals = useMemo(() => {
@@ -1193,13 +1292,16 @@ export default function Referrals() {
                   <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <PatientAttendanceSelector
                       patients={patients}
-                      attendances={attendances}
+                      attendances={prefilledAttendance && !attendances.some((item: any) => String(item.id || item._id) === String(prefilledAttendance.id || prefilledAttendance._id))
+                        ? [...attendances, prefilledAttendance]
+                        : attendances}
                       selectedPatientId={selectedPatientId}
                       selectedAttendanceId={selectedAttendanceId}
                       onPatientSelect={setSelectedPatientId}
                       onAttendanceSelect={setSelectedAttendanceId}
                       onClearSelection={() => { setSelectedPatientId(''); setSelectedAttendanceId(''); }}
-                      autoSelectMostRecent={true}
+                      // Avoid silently substituting a different visit if a prefilled visit fails validation.
+                      autoSelectMostRecent={!searchParams.get('attendanceId')}
                     />
                   </div>
                 </div>

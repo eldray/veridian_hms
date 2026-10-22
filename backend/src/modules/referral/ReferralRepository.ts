@@ -101,7 +101,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
         referredToFacility: data.referredToFacility, referredToDoctor: data.referredToDoctor,
         referredToDepartment: data.referredToDepartment, urgency: data.urgency || 'routine',
         referralNotes: data.referralNotes, status: 'pending', createdById,
-        structuredForm: (data as any).structuredForm || null
+        structuredForm: data.structuredForm || undefined
       },
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
     });
@@ -115,7 +115,7 @@ export class ReferralRepository extends BaseRepository<any, any, any> {
         referralReason: data.referralReason, referredFromFacility: data.referredFromFacility,
         referredFromDoctor: data.referredFromDoctor, urgency: data.urgency || 'routine',
         referralNotes: data.referralNotes, status: 'pending', createdById,
-        structuredForm: (data as any).structuredForm || null
+        structuredForm: data.structuredForm || undefined
       },
       include: { patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } }, createdBy: { select: { fullName: true, role: true } } }
     });

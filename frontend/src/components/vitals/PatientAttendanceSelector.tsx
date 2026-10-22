@@ -133,8 +133,11 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   // Filter attendances for selected patient
   const patientAttendances = attendances
     .filter(a => {
-      const attendancePatientId = a.patientId || a.patient?.id;
-      return attendancePatientId === selectedPatientId;
+      const linkedPatient = a.patientId || a.patient?.id || a.patient?._id;
+      const linkedPatientId = typeof linkedPatient === 'object'
+        ? linkedPatient?.id || linkedPatient?._id
+        : linkedPatient;
+      return String(linkedPatientId || '') === selectedPatientId;
     })
     .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
 
@@ -154,7 +157,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   // Auto-select most recent attendance
   useEffect(() => {
     if (autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId) {
-      onAttendanceSelect(patientAttendances[0].id);
+      onAttendanceSelect(String(patientAttendances[0].id || patientAttendances[0]._id));
     }
   }, [selectedPatientId, patientAttendances, selectedAttendanceId, onAttendanceSelect, autoSelectMostRecent]);
 
@@ -320,7 +323,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
             <input
               ref={attendanceInputRef}
               type="text"
-              value={selectedAttendanceId ? patientAttendances.find(a => a.id === selectedAttendanceId)?.attendanceNumber || '' : ''}
+              value={selectedAttendanceId ? patientAttendances.find(a => String(a.id || a._id) === selectedAttendanceId)?.attendanceNumber || '' : ''}
               onFocus={() => setShowAttendanceDropdown(true)}
               placeholder={patientAttendances.length > 0 ? "Select a visit..." : "No visits found"}
               readOnly
@@ -351,13 +354,13 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                 {patientAttendances.length > 0 ? (
                   patientAttendances.map((att) => (
                     <button
-                      key={att.id}
+                      key={String(att.id || att._id)}
                       onClick={() => {
-                        onAttendanceSelect(att.id);
+                        onAttendanceSelect(String(att.id || att._id));
                         setShowAttendanceDropdown(false);
                       }}
                       className={`w-full text-left p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors ${
-                        selectedAttendanceId === att.id ? 'bg-indigo-50' : ''
+                        selectedAttendanceId === String(att.id || att._id) ? 'bg-indigo-50' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">

@@ -1,5 +1,6 @@
 // src/components/antenatal/ANCVisitModal.tsx
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Heart, Ruler, Weight, Syringe, AlertTriangle, Activity, FileText } from 'lucide-react';
 import { useAntenatalStore } from '../../store/antenatalStore';
 import { useAuthStore } from '../../store/authStore';
@@ -10,6 +11,7 @@ interface ANCVisitModalProps {
   onClose: () => void;
   onSuccess: () => void;
   attendanceId: string;
+  patientId: string;
   bookingId: string;
   visitNumber?: number;
   existingVisit?: any;
@@ -17,9 +19,10 @@ interface ANCVisitModalProps {
 }
 
 export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
-  isOpen, onClose, onSuccess, attendanceId, bookingId,
+  isOpen, onClose, onSuccess, attendanceId, patientId, bookingId,
   visitNumber = 1, existingVisit, booking,
 }) => {
+  const navigate = useNavigate();
   const { recordANCVisit, updateANCVisit } = useAntenatalStore();
   const { user } = useAuthStore();
   const { success, error: toastError } = useToast();
@@ -98,6 +101,17 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
       });
     }
   }, [isOpen, existingVisit, booking?.gravida, booking?.para]);
+
+  const handleReferFromVisit = () => {
+    const params = new URLSearchParams({ patientId, attendanceId, source: 'Antenatal Visit' });
+    const reason = [formData.referralReason, ...(formData.dangerSignsList || [])].filter(Boolean).join('; ');
+    params.set('reason', reason || 'Antenatal assessment requires referral');
+    if (formData.notes) params.set('notes', formData.notes);
+    if (formData.referredTo) params.set('facility', formData.referredTo);
+    params.set('urgency', (formData.dangerSignsList || []).length ? 'urgent' : 'routine');
+    navigate(`/dashboard/referrals?${params.toString()}`);
+    onClose();
+  };
 
   const handleChange = (field: string, value: any) => setFormData(prev => ({ ...prev, [field]: value }));
 
@@ -216,7 +230,11 @@ export const ANCVisitModal: React.FC<ANCVisitModalProps> = ({
                 </p>
               </div>
             </div>
-            <button onClick={onClose}
+            <button type="button" onClick={handleReferFromVisit}
+                    className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-cyan-300 text-cyan-700 hover:bg-cyan-50">
+                    Refer Patient
+                  </button>
+                  <button onClick={onClose}
               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] transition-all">
               <X className="w-4 h-4" />
             </button>
