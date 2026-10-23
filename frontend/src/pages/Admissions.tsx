@@ -375,7 +375,7 @@ export default function Admissions() {
       isDaySurgery: false,
       isDetention: true,
       isVirtual: false,
-      status: adm.dischargeDate ? 'discharged' : 'admitted',
+      status: adm.status === 'cancelled' ? 'cancelled' : (adm.dischargeDate ? 'discharged' : 'admitted'),
       displayType: 'detention',
     }));
     const daySurgery = virtualDaycaseAdmissions;
