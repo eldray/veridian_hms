@@ -201,18 +201,20 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       if (endDate) where.serviceDate.lte = endDate;
     }
 
-    const [totalServices, newAcceptors, methodMix, categoryMix] = await Promise.all([
+    const [totalServices, newAcceptors, methodMix, categoryMix, clientRows, allServices] = await Promise.all([
       this.getModel().count({ where }),
       this.getModel().count({ where: { ...where, isNewAcceptor: true } }),
       this.getModel().groupBy({ by: ['method'], where, _count: true }),
       this.getModel().groupBy({ by: ['methodCategory'], where, _count: true }),
+      this.getModel().findMany({ where, select: { patientId: true } }),
+      this.getModel().findMany({ where, select: { cypFactor: true } }),
     ]);
 
-    const allServices = await this.getModel().findMany({ where, select: { cypFactor: true } });
+    const currentUsers = new Set(clientRows.map((row: any) => row.patientId)).size;
     const cyp = allServices.reduce((sum: number, s: any) => sum + (s.cypFactor || 0), 0);
 
     return {
-      totalServices, newAcceptors, currentUsers: totalServices - newAcceptors, 
+      totalServices, newAcceptors, currentUsers, 
       methodMix: methodMix.reduce((acc: Record<string, number>, m: any) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
       categoryMix: categoryMix.reduce((acc: Record<string, number>, c: any) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
       cyp: Math.round(cyp * 100) / 100,
