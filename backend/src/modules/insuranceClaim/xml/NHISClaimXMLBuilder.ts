@@ -66,7 +66,7 @@ export class NHISClaimXMLBuilder {
       ? Array.from(new Set(claim.preAuthNumber.split(',').map((value: string) => value.trim()).filter(Boolean)))
       : [];
     const preAuthXml = preAuthNumbers.length
-      ? `<preAuthorizationCodes>${preAuthNumbers.map((number: string) => `<code>${this.esc(number)}</code>`).join('')}</preAuthorizationCodes>`
+      ? `<preAuthorizationCodes>${preAuthNumbers.map((number) => `<code>${this.esc(String(number))}</code>`).join('')}</preAuthorizationCodes>`
       : `<preAuthorizationCodes />`;
     const physicianId = this.esc(this.resolvePhysicianLicense(items));
 
