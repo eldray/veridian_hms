@@ -1,6 +1,6 @@
 import { PrismaClient, AttendanceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
-import { EncounterRepository } from './EncounterRepository';
+import { EncounterRepository, validateClinicalDocumentation } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
@@ -30,6 +30,7 @@ export class EncounterService extends BaseService {
   // CREATE ENCOUNTER (WRAPPED IN ATOMIC TRANSACTION)
   // ============================================
   async createEncounter(data: CreateEncounterDTO, userId: string) {
+    validateClinicalDocumentation(data as Record<string, any>);
     if (data.paymentMode === 'nhis' && !data.nhisCCC) throw new ValidationError('NHIS CCC number is required for NHIS payments');
     if (data.paymentMode === 'corporate' && !data.corporateAccountId) throw new ValidationError('Corporate Account ID is required');
 
@@ -75,7 +76,23 @@ export class EncounterService extends BaseService {
           paymentMode: data.paymentMode,
           nhisCCC: data.nhisCCC,
           insuranceProviderId,
-          medicalNotes: data.complaint || '', // Mapped from schema fix
+          // Persist the same clinical assessment fields accepted by the encounter repository.
+          // This service owns the atomic ANC/admission creation flow used by the API controller.
+          complaints: data.complaints ?? data.complaint ?? '',
+          medicalNotes: data.medicalNotes ?? data.complaint ?? '',
+          historyPresentingComplaint: data.historyPresentingComplaint,
+          reviewOfSystems: data.reviewOfSystems as any,
+          physicalExamination: data.physicalExamination,
+          physicalExamStructured: data.physicalExamStructured as any,
+          assessment: data.assessment,
+          treatmentPlan: data.treatmentPlan,
+          clinicalOutcome: data.clinicalOutcome as any,
+          allergyReviewStatus: data.allergyReviewStatus as any,
+          allergyReviewNotes: data.allergyReviewNotes,
+          providerId: data.providerId,
+          ...(data.allergyReviewStatus && data.allergyReviewStatus !== 'not_reviewed'
+            ? { allergyReviewedAt: new Date(), allergyReviewedById: userId }
+            : {}),
           encounterCategory,
           status: 'pending',
           createdById: userId,
