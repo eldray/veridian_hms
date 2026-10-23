@@ -1551,7 +1551,48 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
     await this.requireOpenEncounter(current.attendanceId);
     const updateData: any = {}
-    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss', 'clinicalRecord']) {
+      if (data[field] !== undefined) updateData[field] = data[field];
+    }
+    if (data.clinicalRecord !== undefined) {
+      const record = data.clinicalRecord;
+      if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new ValidationError('Theatre clinical record must be a structured object');
+      }
+      const booleanFields = ['identityConfirmed', 'procedureAndSiteConfirmed', 'siteMarked', 'consentConfirmed', 'allergyStatusReviewed', 'preOpAssessmentCompleted', 'instrumentCountsCorrect', 'specimenLabelled'];
+      for (const field of booleanFields) {
+        if (record[field] !== undefined && typeof record[field] !== 'boolean') {
+          throw new ValidationError(`Theatre checklist field ${field} must be true or false`);
+        }
+      }
+      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes'];
+      for (const field of textFields) {
+        if (record[field] !== undefined && typeof record[field] !== 'string') {
+          throw new ValidationError(`Theatre clinical record field ${field} must be text`);
+        }
+        if (typeof record[field] === 'string' && record[field].length > 10000) {
+          throw new ValidationError(`Theatre clinical record field ${field} exceeds the maximum supported length`);
+        }
+      }
+    }
+    if (status === 'completed') {
+      const record = data.clinicalRecord;
+      if (!record || record.identityConfirmed !== true || record.procedureAndSiteConfirmed !== true) {
+        throw new ValidationError('Before completing a procedure, confirm patient identity and the planned procedure/site');
+      }
+      if (record.consentConfirmed !== true && record.consentStatus !== 'emergency_exception') {
+        throw new ValidationError('Before completing a procedure, record consent or document the emergency exception');
+      }
+      if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
+        throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
+      }
+      if (record.instrumentCountsCorrect !== true) {
+        throw new ValidationError('Before completing a procedure, confirm instrument/swab/needle counts or document the exception in the handover');
+      }
+      if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
+        throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
+      }
+    }
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
       const scheduledDate = new Date(data.scheduledDate);
       if (Number.isNaN(scheduledDate.getTime())) throw new ValidationError('Procedure scheduled date must be valid');
