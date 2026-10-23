@@ -987,15 +987,39 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
         throw new ValidationError('Postnatal record must be linked to a delivery or postnatal attendance');
       }
 
-      if (d.antenatalBookingId) {
-        const booking = await tx.antenatalBooking.findUnique({ where: { id: d.antenatalBookingId }, select: { id: true, patientId: true } });
-        if (!booking) throw new NotFoundError('Antenatal booking', d.antenatalBookingId);
-        if (booking.patientId !== d.patientId) throw new ValidationError('Antenatal booking must belong to the postnatal patient');
+      const booking = d.antenatalBookingId
+        ? await tx.antenatalBooking.findUnique({
+            where: { id: d.antenatalBookingId },
+            select: { id: true, patientId: true, deliveryRecordId: true },
+          })
+        : null;
+      if (d.antenatalBookingId && !booking) throw new NotFoundError('Antenatal booking', d.antenatalBookingId);
+      if (booking && booking.patientId !== d.patientId) {
+        throw new ValidationError('Antenatal booking must belong to the postnatal patient');
       }
-      if (d.deliveryRecordId) {
-        const delivery = await tx.deliveryRecord.findUnique({ where: { id: d.deliveryRecordId }, select: { id: true, patientId: true } });
-        if (!delivery) throw new NotFoundError('Delivery record', d.deliveryRecordId);
-        if (delivery.patientId !== d.patientId) throw new ValidationError('Delivery record must belong to the postnatal patient');
+
+      const delivery = d.deliveryRecordId
+        ? await tx.deliveryRecord.findUnique({
+            where: { id: d.deliveryRecordId },
+            select: { id: true, patientId: true, attendanceId: true, antenatalBookingId: true },
+          })
+        : null;
+      if (d.deliveryRecordId && !delivery) throw new NotFoundError('Delivery record', d.deliveryRecordId);
+      if (delivery && delivery.patientId !== d.patientId) {
+        throw new ValidationError('Delivery record must belong to the postnatal patient');
+      }
+
+      // When both links are supplied, they must describe the same pregnancy/delivery.
+      // Historical records with one missing link remain supported; conflicting links do not.
+      if (booking?.deliveryRecordId && delivery && booking.deliveryRecordId !== delivery.id) {
+        throw new ConflictError('The selected antenatal booking is already linked to a different delivery record');
+      }
+      if (delivery?.antenatalBookingId && booking && delivery.antenatalBookingId !== booking.id) {
+        throw new ConflictError('The selected delivery record belongs to a different antenatal booking');
+      }
+      // A postnatal examination entered on the delivery attendance must reference that same delivery.
+      if (attendance.attendanceType === 'delivery' && delivery && delivery.attendanceId !== attendance.id) {
+        throw new ValidationError('The selected delivery record must match the delivery attendance');
       }
 
       return tx.postnatalRecord.create({

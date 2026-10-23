@@ -2169,3 +2169,48 @@ describe('maternal clinical record deletion integrity', () => {
       .rejects.toThrow(/Postnatal record.*not found/i);
   });
 });
+
+
+describe('postnatal pregnancy and delivery linkage integrity', () => {
+  it('rejects a booking and delivery record that belong to different pregnancy links', async () => {
+    const booking = {
+      id: 'booking-1', patientId: 'patient-1', deliveryRecordId: 'delivery-other',
+    };
+    const delivery = {
+      id: 'delivery-2', patientId: 'patient-1', attendanceId: 'delivery-attendance-2',
+      antenatalBookingId: 'booking-1',
+    };
+    const create = vi.fn();
+    const tx = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'postnatal-attendance', patientId: 'patient-1', attendanceType: 'postnatal',
+        }),
+      },
+      antenatalBooking: { findUnique: vi.fn().mockResolvedValue(booking) },
+      deliveryRecord: { findUnique: vi.fn().mockResolvedValue(delivery) },
+      postnatalRecord: { create },
+    };
+    const prisma = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({
+        id: 'postnatal-attendance', patientId: 'patient-1', attendanceType: 'postnatal',
+      }) },
+      antenatalBooking: { findUnique: vi.fn().mockResolvedValue(booking) },
+      deliveryRecord: { findUnique: vi.fn().mockResolvedValue(delivery) },
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'midwife-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new AntenatalRepository(prisma as any);
+
+    await expect(repository.createPostnatalRecord({
+      patientId: 'patient-1',
+      attendanceId: 'postnatal-attendance',
+      createdById: 'midwife-1',
+      antenatalBookingId: 'booking-1',
+      deliveryRecordId: 'delivery-2',
+      examinationDate: new Date('2026-10-20T10:00:00.000Z'),
+    } as any)).rejects.toThrow(/already linked to a different delivery record/i);
+
+    expect(create).not.toHaveBeenCalled();
+  });
+});
