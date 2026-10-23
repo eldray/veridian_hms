@@ -465,7 +465,7 @@ ${claimsXml}
           const matchingApproval = approvals.find((approval) =>
             approvedServicesCoverPrescription(approval.approvedServices, {
               stockItemId: med.stockItemId,
-              serviceCatalogId: med.serviceCatalogId,
+              serviceCatalogId: med.serviceCatalogId ?? '',
             }),
           );
           if (!matchingApproval?.authNumber) {
