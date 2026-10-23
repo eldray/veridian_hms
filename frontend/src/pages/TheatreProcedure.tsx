@@ -1015,7 +1015,7 @@ export default function TheatreProcedure() {
                                 </label>
                                 <label className="md:col-span-3 block text-xs font-semibold text-[var(--text-primary)]">
                                   Response type
-                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? Boolean(item.value) : (e.target.value === 'note' ? String(item.value || '') : String(item.value || '')) } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
+                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? false : '' } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
                                     <option value="note">Long note</option>
                                     <option value="text">Short text</option>
                                     <option value="number">Number</option>
