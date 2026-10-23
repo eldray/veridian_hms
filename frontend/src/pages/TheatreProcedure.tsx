@@ -339,7 +339,7 @@ export default function TheatreProcedure() {
       setAnesthesiaNotes(selectedProcedure.anesthesiaNotes || '');
       setIntraOperativeNotes(selectedProcedure.intraOperativeNotes || '');
       setPostOperativeNotes(selectedProcedure.postOperativeNotes || '');
-      setBloodLoss(selectedProcedure.bloodLoss || '');
+      setBloodLoss(selectedProcedure.bloodLoss ?? '');
       setComplications(selectedProcedure.complications || '');
       setHasComplications(!!selectedProcedure.complications);
       setOutcome(selectedProcedure.outcome || '');
@@ -512,7 +512,7 @@ export default function TheatreProcedure() {
         anesthesiaNotes: anesthesiaNotes || null,
         intraOperativeNotes: intraOperativeNotes || null,
         postOperativeNotes: postOperativeNotes || null,
-        bloodLoss: bloodLoss ? Number(bloodLoss) : null,
+        bloodLoss: bloodLoss !== '' && bloodLoss !== null ? Number(bloodLoss) : null,
         complications: hasComplications ? complications : null,
         outcome: outcome || null,
         clinicalRecord: { ...clinicalRecord, anesthesiaType },
