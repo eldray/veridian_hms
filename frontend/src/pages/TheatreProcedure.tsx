@@ -473,8 +473,8 @@ export default function TheatreProcedure() {
   };
 
   const handleSubmitTheatreNotes = async (complete = true) => {
-    if (bloodLoss !== '' && (!Number.isFinite(Number(bloodLoss)) || Number(bloodLoss) < 0)) {
-      toastError('Invalid estimated blood loss', 'Enter zero or a positive blood loss value in millilitres.');
+    if (bloodLoss !== '' && (!Number.isFinite(Number(bloodLoss)) || !Number.isInteger(Number(bloodLoss)) || Number(bloodLoss) < 0)) {
+      toastError('Invalid estimated blood loss', 'Enter zero or a positive whole-number blood loss in millilitres.');
       return;
     }
     if (!selectedProcedureId || !selectedAttendanceId) {
