@@ -24,7 +24,7 @@ describe('billing payment concurrency guards', () => {
     }, 'cashier-1');
 
     expect(billUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'bill-1', balance: { gte: 100 } },
+      where: { id: 'bill-1', balance: { gte: 100 }, status: { not: 'cancelled' } },
       data: { paidAmount: { increment: 100 }, balance: { decrement: 100 } },
     });
     expect(result.payment.id).toBe('payment-1');
@@ -55,8 +55,35 @@ describe('billing payment concurrency guards', () => {
 
     expect(paymentCreate).not.toHaveBeenCalled();
     expect(billUpdateMany).toHaveBeenCalledWith({
-      where: { id: 'bill-1', balance: { gte: 80 } },
+      where: { id: 'bill-1', balance: { gte: 80 }, status: { not: 'cancelled' } },
       data: { paidAmount: { increment: 80 }, balance: { decrement: 80 } },
     });
   });
 });
+
+
+  it('returns the original payment when the same idempotency key is retried', async () => {
+    const priorPayment = { id: 'payment-existing', billId: 'bill-1', amount: 25, idempotencyKey: 'retry-key' };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn().mockResolvedValue({ id: 'bill-1', balance: 75 }) },
+      billLineItem: {},
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = {
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+      payment: { findUnique: vi.fn() },
+      bill: { findUnique: vi.fn() },
+    };
+    const repository = new BillRepository(prisma);
+    const result = await repository.addPayment('bill-1', {
+      amount: 25,
+      paymentMethod: 'cash' as any,
+      idempotencyKey: 'retry-key',
+    }, 'cashier-1');
+
+    expect(result.payment.id).toBe('payment-existing');
+    expect((result as any).duplicate).toBe(true);
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.updateMany).toBeUndefined();
+  });
