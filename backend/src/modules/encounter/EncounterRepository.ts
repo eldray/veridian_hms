@@ -964,12 +964,13 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           take: 2,
           select: { id: true, type: true, isActive: true },
         });
-        if (activeNHISPayers.length !== 1) {
+        const selectedPayer = activeNHISPayers[0];
+        if (activeNHISPayers.length !== 1 || !selectedPayer) {
           throw new ValidationError(
             'Select the correct active NHIS insurance provider on this attendance before prescribing NHIS-covered medicine.',
           );
         }
-        payer = activeNHISPayers[0];
+        payer = selectedPayer;
       }
       if (!payer) {
         throw new ValidationError('No active NHIS insurance provider is configured for this attendance.');
