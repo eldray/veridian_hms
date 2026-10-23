@@ -311,7 +311,16 @@ export const deleteTestData = async (force: boolean = false) => {
     });
     const testAttendanceIds = testAttendances.map((a) => a.id);
     const testBedIds = [...new Set(testAttendances.map((a) => a.bedId).filter((id): id is string => Boolean(id)))];
-    const affectedWardIds = [...new Set(testAttendances.map((a) => a.wardId).filter((id): id is string => Boolean(id)))];
+    const testBeds = testBedIds.length
+      ? await prisma.bed.findMany({
+          where: { id: { in: testBedIds } },
+          select: { id: true, wardId: true },
+        })
+      : [];
+    const affectedWardIds = [...new Set([
+      ...testAttendances.map((a) => a.wardId),
+      ...testBeds.map((bed) => bed.wardId),
+    ].filter((id): id is string => Boolean(id)))];
 
     const testBookings = await prisma.antenatalBooking.findMany({
       where: { patientId: { in: testPatientIds } },
@@ -374,14 +383,25 @@ export const deleteTestData = async (force: boolean = false) => {
     await prisma.attendance.deleteMany({ where: { id: { in: testAttendanceIds } } });
     await prisma.patient.deleteMany({ where: { id: { in: testPatientIds } } });
 
-    // Release only beds assigned to the test patients. Never reset occupancy for
-    // unrelated facility patients when cleaning the test dataset.
-    if (testBedIds.length > 0) {
-      await prisma.bed.updateMany({
-        where: { id: { in: testBedIds } },
-        data: { isOccupied: false },
+    // Release test beds only when no other active encounter still references them.
+    // This protects real patients if legacy data ever contains a shared bed assignment.
+    for (const bed of testBeds) {
+      const otherActiveAssignment = await prisma.attendance.findFirst({
+        where: {
+          id: { notIn: testAttendanceIds },
+          bedId: bed.id,
+          status: { in: [AttendanceStatus.pending, AttendanceStatus.admitted] },
+        },
+        select: { id: true },
       });
+      if (!otherActiveAssignment) {
+        await prisma.bed.updateMany({
+          where: { id: bed.id },
+          data: { isOccupied: false },
+        });
+      }
     }
+    // Recalculate from actual bed records instead of trusting a possibly stale counter.
     for (const wardId of affectedWardIds) {
       const occupiedBeds = await prisma.bed.count({ where: { wardId, isOccupied: true } });
       await prisma.ward.update({ where: { id: wardId }, data: { occupiedBeds } });
