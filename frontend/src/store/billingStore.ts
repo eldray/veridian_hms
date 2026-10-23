@@ -345,13 +345,20 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   generateBillFromAttendance: async (attendanceId: string) => {
     set({ isLoading: true });
     try {
-      const newBill = await apiGenerateBillFromAttendance(attendanceId);
-      const parsedBill = parseBillAmounts(newBill);
+      const response = await apiGenerateBillFromAttendance(attendanceId);
+      // BaseController wraps successful responses as { success, data }; unwrap before parsing.
+      const billData = response?.data?.data ?? response?.data ?? response;
+      const parsedBill = parseBillAmounts(billData);
       const bills = get().bills;
-      set({ 
-        bills: [parsedBill, ...bills],
-        currentBill: parsedBill,
-        isLoading: false 
+      const updatedBills = parsedBill?.id
+        ? (bills.some((bill) => bill.id === parsedBill.id)
+            ? bills.map((bill) => bill.id === parsedBill.id ? parsedBill : bill)
+            : [parsedBill, ...bills])
+        : bills;
+      set({
+        bills: updatedBills,
+        currentBill: parsedBill?.id ? parsedBill : get().currentBill,
+        isLoading: false
       });
       return parsedBill;
     } catch (error: unknown) {
