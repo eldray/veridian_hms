@@ -67,7 +67,7 @@ export class BillingService extends BaseService {
         const covered = !!rule && rule.isCovered === true && inEffectiveWindow;
         const allocation = calculateNHISMedicineAllocation({
           cashPrice,
-          nhisTariff: Number(rule?.tariffPrice ?? currentPrice.nhisPrice),
+          nhisTariff: Number(rule?.tariffPrice ?? (Number(currentPrice.nhisPrice) > 0 ? currentPrice.nhisPrice : cashPrice)),
           covered,
           copaymentMode: rule?.copaymentMode,
           copaymentAmount: rule?.copaymentAmount == null ? null : Number(rule.copaymentAmount),
