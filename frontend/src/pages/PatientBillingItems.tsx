@@ -353,18 +353,7 @@ export default function PatientBillingItems() {
   useEffect(() => {
     if (!currentBill) return;
 
-    setSelectedBill((prev) => {
-      // Skip if same bill and no meaningful change
-      if (
-        prev?.id === currentBill.id &&
-        (prev as any).updatedAt === (currentBill as any).updatedAt &&
-        (prev as any).paidAmount === (currentBill as any).paidAmount &&
-        (prev as any).status === (currentBill as any).status
-      ) {
-        return prev;
-      }
-
-      return {
+    setSelectedBill(() => ({
         ...currentBill,
         BillLineItem:
           currentBill.BillLineItem?.map((item: any) => ({
@@ -380,8 +369,7 @@ export default function PatientBillingItems() {
             isFullyPaid: item.isFullyPaid ?? currentBill.status === 'paid',
             serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
           })) || [],
-      };
-    });
+      }));
 
     setExpandedBillId(currentBill.id);
     setSelectedItems(new Set());
