@@ -1360,7 +1360,7 @@ describe('medication administration requires a due dose', () => {
         }),
         update: medicationUpdate,
       },
-      medicationDose:
+      medicationDose: {
         findFirst: vi.fn().mockResolvedValue(null),
       },
     };
