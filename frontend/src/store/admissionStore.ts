@@ -196,7 +196,7 @@ interface AdmissionStore {
     dailyNotes?: any;
     dischargeSummary?: string;
   }) => Promise<Admission | null>;
-  deleteAdmission: (id: string) => Promise<void>;
+  deleteAdmission: (id: string, reason: string) => Promise<void>;
   
   // Daycase/Observation Operations
   getDaycasePatients: (filters?: { status?: 'active' | 'discharged'; wardId?: string; page?: number; limit?: number }) => Promise<void>;
@@ -431,21 +431,25 @@ getAdmissions: async (filters = {}, options = {}) => {
   },
 
   /**
-   * Delete admission (admin only, only if not discharged)
+   * Cancel an admission entered in error. Keep it visible for audit/history.
    */
-  deleteAdmission: async (id) => {
+  deleteAdmission: async (id, reason) => {
     set({ isLoading: true, error: null });
     try {
-      await apiDeleteAdmission(id);
-      
+      const result = await apiDeleteAdmission(id, reason);
       set(state => ({
-        admissions: state.admissions.filter(a => a.id !== id),
-        currentAdmission: state.currentAdmission?.id === id ? null : state.currentAdmission,
+        admissions: state.admissions.map(a => a.id === id ? {
+          ...a, status: 'cancelled', cancelledAt: new Date().toISOString(), cancellationReason: reason,
+        } : a),
+        currentAdmission: state.currentAdmission?.id === id && state.currentAdmission
+          ? { ...state.currentAdmission, status: 'cancelled', cancelledAt: new Date().toISOString(), cancellationReason: reason }
+          : state.currentAdmission,
         isLoading: false
       }));
+      return result;
     } catch (error: any) {
-      console.error('❌ Failed to delete admission:', error);
-      set({ error: error.message || 'Failed to delete admission', isLoading: false });
+      console.error('Failed to cancel admission:', error);
+      set({ error: error.message || 'Failed to cancel admission', isLoading: false });
       throw error;
     }
   },
