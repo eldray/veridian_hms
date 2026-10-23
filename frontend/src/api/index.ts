@@ -2968,8 +2968,8 @@ export const getBackupStats = async () => {
 // DOCUMENT GENERATION
 // ──────────────────────────────────────────────
 
-export const generateReceipt = (billId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`).then(r => r.data);
+export const generateReceipt = (billId: string, paymentId?: string) =>
+  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`, undefined, { params: paymentId ? { paymentId } : undefined }).then(r => r.data);
 
 export const generateBillStatement = (billId: string) =>
   api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => r.data);
