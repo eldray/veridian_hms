@@ -455,7 +455,7 @@ export default function TheatreProcedure() {
     }
   };
 
-  const handleSubmitTheatreNotes = async () => {
+  const handleSubmitTheatreNotes = async (complete = true) => {
     if (!selectedProcedureId || !selectedAttendanceId) {
       toastError('Selection required', 'Please select a procedure');
       return;
@@ -464,6 +464,7 @@ export default function TheatreProcedure() {
       toastError('Access denied', 'Cannot update completed/cancelled attendance');
       return;
     }
+    if (complete) {
     if (!clinicalRecord.identityConfirmed || !clinicalRecord.procedureAndSiteConfirmed) {
       toastError('Safety checks incomplete', 'Confirm patient identity and the planned procedure/site before completion.');
       return;
@@ -484,10 +485,11 @@ export default function TheatreProcedure() {
       toastError('Post-operative handover incomplete', 'Record the post-operative destination and care plan.');
       return;
     }
+    }
     setIsSubmitting(true);
     try {
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
-        status: 'completed',
+        status: complete ? 'completed' : 'in_progress',
         anesthesiaNotes: anesthesiaNotes || null,
         intraOperativeNotes: intraOperativeNotes || null,
         postOperativeNotes: postOperativeNotes || null,
@@ -498,12 +500,17 @@ export default function TheatreProcedure() {
         performedById: user?.id || '',
         performedAt: new Date().toISOString(),
       });
-      success('Operation notes saved', 'Theatre procedure completed');
-      resetForm();
-      setSelectedProcedureId('');
-      setOpenTile(null);
-      await getAttendance(selectedAttendanceId);
-      await calculateBill(selectedAttendanceId);
+      if (complete) {
+        success('Operation notes saved', 'Theatre procedure completed');
+        resetForm();
+        setSelectedProcedureId('');
+        setOpenTile(null);
+        await getAttendance(selectedAttendanceId);
+        await calculateBill(selectedAttendanceId);
+      } else {
+        success('Theatre record saved', 'Your procedure documentation has been saved as in progress');
+        await getAttendance(selectedAttendanceId);
+      }
     } catch (err: any) {
       toastError('Save failed', err.message || 'Could not save operation notes');
     } finally {
@@ -1209,8 +1216,16 @@ export default function TheatreProcedure() {
                               </button>
                             )}
                             {selectedProcedure.status === 'in_progress' && (
+                              <>
                               <button
-                                onClick={handleSubmitTheatreNotes}
+                                onClick={() => handleSubmitTheatreNotes(false)}
+                                disabled={isSubmitting}
+                                className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
+                              >
+                                Save Progress
+                              </button>
+                              <button
+                                onClick={() => handleSubmitTheatreNotes(true)}
                                 disabled={isSubmitting}
                                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
                               >
@@ -1226,6 +1241,7 @@ export default function TheatreProcedure() {
                                   </>
                                 )}
                               </button>
+                              </>
                             )}
                           </>
                         )}
