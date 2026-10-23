@@ -2599,7 +2599,7 @@ model FamilyPlanningService {
   isNewAcceptor  Boolean          @default(false)
 
   counsellingGiven Boolean @default(true)
-  informedConsent  Boolean @default(true)
+  informedConsent  Boolean @default(false)
 
   sideEffects                String?
   contraindications          String?
