@@ -1189,9 +1189,11 @@ export default function MedicalEntries() {
     if (!selectedPatientId || !selectedAttendanceId) return;
     const params = new URLSearchParams({ patientId: selectedPatientId, attendanceId: selectedAttendanceId, source: 'Medical Entries' });
     if (selectedPatient) params.set('patientName', getPatientName(selectedPatient));
-    const complaints = String(currentAttendance?.complaints || presentedComplaints || '');
+    const complaints = String(presentedComplaints || currentAttendance?.complaints || '');
     const diagnosis = diagnosesList.map((d: any) => d.diagnosis?.name || d.diagnosisName || d.name).filter(Boolean).join(', ');
-    const notes = [hpc, odq, physicalExam, assessment].filter(Boolean).join('\\n');
+    const structuredReview = Object.entries(reviewOfSystems).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join('; ');
+    const structuredExam = Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join('; ');
+    const notes = [hpc, odq, physicalExam, structuredReview && `Review of systems: ${structuredReview}`, structuredExam && `Structured physical examination: ${structuredExam}`, assessment].filter(Boolean).join('\\n');
     if (complaints) params.set('complaints', complaints);
     if (diagnosis) params.set('diagnosis', diagnosis);
     if (notes) params.set('notes', notes);
@@ -1655,7 +1657,7 @@ export default function MedicalEntries() {
                       <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><FileText className="w-3 h-3" /> Presented Complaints</label>
                       <button type="button" onClick={() => setClinicalModal('reviewOfSystems')} disabled={!canAddEntries || isClinicalFinalized}
                         className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
-                        <ClipboardList className="w-3 h-3" /> Structured review
+                        <ClipboardList className="w-3 h-3" /> Structured data
                       </button>
                     </div>
                     <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
