@@ -111,7 +111,7 @@ export const calculateNHISMedicineAllocation = (input: {
   copaymentPercentage?: number | null;
 }): NHISMedicineAllocation => {
   const cashPrice = money(Math.max(0, Number.isFinite(input.cashPrice) ? input.cashPrice : 0));
-  const tariff = money(Math.max(0, Number.isFinite(input.nhisTariff) ? input.nhisTariff : 0));
+  const tariff = money(Math.min(cashPrice, Math.max(0, Number.isFinite(input.nhisTariff) ? input.nhisTariff : 0)));
 
   // Unknown or uncovered medicines are patient-payable at the cash price and are not claimable.
   if (!input.covered) {
