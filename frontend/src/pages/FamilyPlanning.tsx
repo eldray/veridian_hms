@@ -224,14 +224,22 @@ const FamilyPlanningServiceModal: React.FC<{
         const cat = METHOD_CATEGORY_OF[value];
         if (cat) next.methodCategory = cat;
       }
-      if (field === 'isPostpartum' && value) {
-        next.isPostAbortion = false;
-        next.postAbortionRecordId = '';
+      if (field === 'isPostpartum') {
+        if (value) next.isPostAbortion = false;
+        if (value) next.postAbortionRecordId = '';
+        else {
+          next.postpartumDeliveryRecordId = '';
+          next.postnatalRecordId = '';
+        }
       }
-      if (field === 'isPostAbortion' && value) {
-        next.isPostpartum = false;
-        next.postpartumDeliveryRecordId = '';
-        next.postnatalRecordId = '';
+      if (field === 'isPostAbortion') {
+        if (value) {
+          next.isPostpartum = false;
+          next.postpartumDeliveryRecordId = '';
+          next.postnatalRecordId = '';
+        } else {
+          next.postAbortionRecordId = '';
+        }
       }
       return next;
     });
@@ -257,9 +265,9 @@ const FamilyPlanningServiceModal: React.FC<{
         isPostpartum: formData.isPostpartum,
         isPostAbortion: formData.isPostAbortion,
         postpartumWeeks: formData.postpartumWeeks ? parseInt(formData.postpartumWeeks) : undefined,
-        postpartumDeliveryRecordId: formData.isPostpartum ? (formData.postpartumDeliveryRecordId || undefined) : undefined,
-        postnatalRecordId: formData.isPostpartum ? (formData.postnatalRecordId || undefined) : undefined,
-        postAbortionRecordId: formData.isPostAbortion ? (formData.postAbortionRecordId || undefined) : undefined,
+        postpartumDeliveryRecordId: formData.isPostpartum ? (formData.postpartumDeliveryRecordId || null) : null,
+        postnatalRecordId: formData.isPostpartum ? (formData.postnatalRecordId || null) : null,
+        postAbortionRecordId: formData.isPostAbortion ? (formData.postAbortionRecordId || null) : null,
         notes: formData.notes || undefined,
       };
       if (existingService) {
