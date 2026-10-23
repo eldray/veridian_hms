@@ -1041,9 +1041,14 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         hasDoctorAtFacility,
       });
 
-      // Unknown authorisation metadata is not permission. When the payer rule explicitly
-      // requires authorisation, require an active approval for this same attendance/payer
-      // and explicit approval of this medicine or its medication service.
+      // Unknown authorisation metadata is not permission. Require an explicit payer-rule
+      // decision before an NHIS prescription can proceed; only explicit false means no pre-auth.
+      if (payerRule.authorizationRequired == null) {
+        throw new ValidationError(
+          'The NHIS authorisation requirement for this medicine is not configured. Confirm whether prior authorisation is required in the medicine payer rule before prescribing.',
+        );
+      }
+
       if (payerRule.authorizationRequired === true) {
         const approvedRequests = await this.prisma.preAuthorisationRequest.findMany({
           where: {
