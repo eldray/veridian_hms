@@ -3190,11 +3190,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Chloramphenicol Eye Drops, 0.5%",
@@ -4961,11 +4961,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Digoxin Tablet, 125 microgram",
@@ -4984,11 +4984,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Digoxin Tablet, 250 microgram",
@@ -5007,11 +5007,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Digoxin Tablet, 62.5 microgram",
@@ -5030,11 +5030,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Dihydroartemisin + Piperaquine Granular Powder, 10 mg + 80 mg",
@@ -5053,11 +5053,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Dihydrocodeine Tablet, 30 mg",
@@ -5076,11 +5076,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Disopyramide Capsule, 100 mg",
@@ -5099,11 +5099,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Disopyramide Phosphate Injection, 10 mg/mL in 5 mL",
@@ -5122,11 +5122,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Docetaxel Injection, 20 mg/mL",
@@ -5145,11 +5145,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Domperidone Tablet, 10 mg",
@@ -5168,11 +5168,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Dopamine Injection, 40 mg/mL in 5 mL",
@@ -8963,11 +8963,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Midazolam Injection, 5 mg/5mL",
@@ -11907,11 +11907,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Quinine Injection, 300 mg/mL in 2 mL",
@@ -11930,11 +11930,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Quinine Syrup, 75 mg/5 mL",
@@ -11953,11 +11953,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Quinine Tablet, 300 mg",
@@ -11976,11 +11976,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ramipril Tablet, 2.5 mg",
@@ -11999,11 +11999,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ramipril Tablet, 5 mg",
@@ -12022,11 +12022,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ranitidine Tablet, 150 mg",
@@ -12045,11 +12045,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Retinol Soft Capsule, 200,000 IU",
@@ -12068,11 +12068,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ringer - Lactate Solution, 500 mL",
@@ -12091,11 +12091,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Risperidone Liquid, 1 mg/mL",
@@ -12114,11 +12114,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Risperidone Tablet, 1 mg",
@@ -12137,11 +12137,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Risperidone Tablet, 2 mg",
@@ -12160,11 +12160,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Risperidone Tablet, 500 microgram",
@@ -12183,11 +12183,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Rituximab Injection 100mg/10ml",
@@ -12206,11 +12206,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Rituximab Injection 500mg/10ml",
@@ -12229,11 +12229,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Salbutamol Inhaler, 100 microgram/metered dose, 200 doses",
