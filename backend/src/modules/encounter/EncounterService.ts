@@ -232,9 +232,9 @@ export class EncounterService extends BaseService {
         }
         assignedBedId = bed.id;
         assignedWardId = targetWardId;
-      } else if (requestedWardId) {
-        // A ward without a bed is not a complete bed assignment. Legacy callers may still
-        // create an admission without either field; explicit partial selections are rejected.
+      } else if (data.wardId) {
+        // Reject an explicitly submitted ward without a bed, but preserve legacy callers
+        // when the attendance already has a ward reference and no bed was selected.
         throw new ValidationError('Select a bed in the chosen ward before completing admission');
       }
 
