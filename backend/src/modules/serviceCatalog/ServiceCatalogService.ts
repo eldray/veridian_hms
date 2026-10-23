@@ -137,12 +137,14 @@ export class ServiceCatalogService extends BaseService {
     if (!service) throw new NotFoundError('Service catalog item', serviceCatalogId);
     if (!service.stockItemId) throw new ValidationError('This service is not linked to a stock item, so medicine payer rules cannot be configured here.');
 
-    const payer = await this.prisma.insuranceProvider.findFirst({
+    const payers = await this.prisma.insuranceProvider.findMany({
       where: { isActive: true, type: 'nhis' },
       select: { id: true, name: true },
       orderBy: { createdAt: 'asc' },
     });
-    if (!payer) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+    if (payers.length === 0) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+    if (payers.length > 1) throw new ValidationError('More than one active NHIS payer is configured. Resolve the duplicate payer setup before configuring medicine rules.');
+    const payer = payers[0];
 
     const rule = await this.prisma.stockItemPayerRule.findUnique({
       where: { stockItemId_insuranceProviderId: { stockItemId: service.stockItemId, insuranceProviderId: payer.id } },
@@ -158,12 +160,14 @@ export class ServiceCatalogService extends BaseService {
     if (!service) throw new NotFoundError('Service catalog item', serviceCatalogId);
     if (!service.stockItemId) throw new ValidationError('This service is not linked to a stock item, so medicine payer rules cannot be configured here.');
 
-    const payer = await this.prisma.insuranceProvider.findFirst({
+    const payers = await this.prisma.insuranceProvider.findMany({
       where: { isActive: true, type: 'nhis' },
       select: { id: true },
       orderBy: { createdAt: 'asc' },
     });
-    if (!payer) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+    if (payers.length === 0) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+    if (payers.length > 1) throw new ValidationError('More than one active NHIS payer is configured. Resolve the duplicate payer setup before configuring medicine rules.');
+    const payer = payers[0];
 
     const validLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
     const validModes = ['none', 'fixed_amount', 'percentage', 'cash_price_difference'];
@@ -181,6 +185,21 @@ export class ServiceCatalogService extends BaseService {
     const tariff = input.tariffPrice === '' || input.tariffPrice == null ? null : Number(input.tariffPrice);
     if (tariff != null && (!Number.isFinite(tariff) || tariff < 0)) throw new ValidationError('NHIS tariff must be zero or greater.');
 
+    const effectiveFrom = input.effectiveFrom ? new Date(input.effectiveFrom) : new Date();
+    const effectiveTo = input.effectiveTo ? new Date(input.effectiveTo) : null;
+    if (Number.isNaN(effectiveFrom.getTime())) throw new ValidationError('Enter a valid policy start date.');
+    if (effectiveTo && Number.isNaN(effectiveTo.getTime())) throw new ValidationError('Enter a valid policy end date.');
+    if (effectiveTo && effectiveTo < effectiveFrom) throw new ValidationError('Policy end date cannot be earlier than its start date.');
+    if (input.copaymentMode === 'cash_price_difference' && amount != null) {
+      throw new ValidationError('For cash-price-difference co-payment, leave the fixed co-payment amount blank.');
+    }
+    if (input.copaymentMode !== 'fixed_amount' && amount != null) {
+      throw new ValidationError('A fixed co-payment amount can only be set for the fixed amount policy.');
+    }
+    if (input.copaymentMode !== 'percentage' && percentage != null) {
+      throw new ValidationError('A co-payment percentage can only be set for the percentage policy.');
+    }
+
     return this.prisma.stockItemPayerRule.upsert({
       where: { stockItemId_insuranceProviderId: { stockItemId: service.stockItemId, insuranceProviderId: payer.id } },
       create: {
@@ -195,8 +214,8 @@ export class ServiceCatalogService extends BaseService {
         tariffPrice: tariff,
         sourceFile: 'Service Catalog manual configuration',
         sourceVersion: 'manual',
-        effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : new Date(),
-        effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+        effectiveFrom,
+        effectiveTo,
         notes: input.notes || null,
       },
       update: {
