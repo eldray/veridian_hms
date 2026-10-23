@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 type NHISMedicineReference = {
   drugCode: string;
   prescribingLevel?: string | null;
+  prescribingLevelSource?: string | null;
   nhisRequiresAuth?: boolean | null;
   sourceVersion?: string;
   effectiveFrom?: string;
