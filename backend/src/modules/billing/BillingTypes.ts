@@ -32,7 +32,6 @@ export interface UpdateBillStatusDTO {
 
 export interface BillFilters {
   patientId?: string;
-  attendanceId?: string;
   status?: BillStatus | BillStatus[];
   paymentMode?: PaymentMode;
   dateFrom?: Date;
