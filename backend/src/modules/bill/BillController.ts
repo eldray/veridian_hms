@@ -43,12 +43,15 @@ export const applyWaiverValidation = [
 export class BillController extends BaseController {
   
   getBills = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
+    const { patientId, attendanceId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 50 } = req.query;
     const pageNum = Math.max(1, parseInt(page as string));
     const limitNum = Math.min(100, Math.max(1, parseInt(limit as string)));
 
     const filters: any = { page: pageNum, limit: limitNum };
     if (patientId) filters.patientId = patientId;
+    // AttendanceDetails requests bills for one visit. Preserve this filter so the
+    // patient-wide billing list cannot leak into an attendance-scoped view.
+    if (attendanceId) filters.attendanceId = String(attendanceId);
     if (status) filters.status = typeof status === 'string' && status.includes(',') ? status.split(',').map((s: string) => s.trim()) : status;
     if (paymentMode) filters.paymentMode = paymentMode;
     if (dateFrom) filters.dateFrom = new Date(dateFrom as string);
