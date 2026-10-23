@@ -16,6 +16,19 @@ import { toHttpError } from './utils/httpError';
 
 const app = express();
 
+// Authentication configuration preflight. Never print the secret itself.
+// AuthService rejects missing/short secrets during token signing; warn at startup
+// so the API does not appear healthy while every valid login fails with HTTP 500.
+const configuredJwtSecret = process.env.JWT_SECRET;
+if (!configuredJwtSecret || configuredJwtSecret.length < 32) {
+  console.error(
+    '🚨 Authentication configuration error: JWT_SECRET is missing or shorter than 32 characters. ' +
+    'Set JWT_SECRET in the backend environment and restart the API; login/token generation will fail until corrected.'
+  );
+} else {
+  console.log('🔐 JWT_SECRET configuration check passed');
+}
+
 const isDesktopApp = process.env.ELECTRON === 'true' && process.env.NODE_ENV === 'production';
 
 // Security middleware
