@@ -26,6 +26,7 @@ describe('encounter clinical documentation persistence', () => {
     const attendanceCreate = vi.fn().mockResolvedValue(createdEncounter);
     const tx = { attendance: { create: attendanceCreate } };
     const prisma = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
       $transaction: vi.fn(async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx)),
     };
     const service = new EncounterService(prisma as any);
@@ -40,6 +41,7 @@ describe('encounter clinical documentation persistence', () => {
     const payload = attendanceCreate.mock.calls[0][0].data;
     expect(payload).toMatchObject({
       complaints: 'Headache and dizziness',
+      patientClassification: 'NEW',
       historyPresentingComplaint: clinicalFields.historyPresentingComplaint,
       reviewOfSystems: clinicalFields.reviewOfSystems,
       physicalExamination: clinicalFields.physicalExamination,
