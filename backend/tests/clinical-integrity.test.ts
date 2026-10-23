@@ -1929,6 +1929,61 @@ describe('newborn update validation consistency', () => {
 });
 
 
+describe('theatre procedure scheduling input validation', () => {
+  const makeSchedulingPrisma = () => ({
+    user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+    attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
+    procedureTemplate: { findUnique: vi.fn().mockResolvedValue({ id: 'template-1', name: 'Minor procedure' }) },
+    procedure: { create: vi.fn().mockResolvedValue({ id: 'procedure-1' }) },
+  });
+
+  it('rejects an invalid scheduled date before creating a procedure', async () => {
+    const prisma: any = makeSchedulingPrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.addProcedure('attendance-1', {
+      templateId: 'template-1',
+      scheduledDate: 'not-a-date',
+    }, 'nurse-1')).rejects.toThrow(/procedure scheduled date must be valid/i);
+
+    expect(prisma.procedureTemplate.findUnique).not.toHaveBeenCalled();
+    expect(prisma.procedure.create).not.toHaveBeenCalled();
+  });
+
+  it.each([0, -1, 1441, 2.5, 'invalid'])('rejects invalid procedure duration %s before creating a procedure', async (duration) => {
+    const prisma: any = makeSchedulingPrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.addProcedure('attendance-1', {
+      templateId: 'template-1',
+      duration,
+    }, 'nurse-1')).rejects.toThrow(/procedure duration must be between 1 and 1440 minutes/i);
+
+    expect(prisma.procedure.create).not.toHaveBeenCalled();
+  });
+
+  it('accepts valid scheduling inputs and preserves an omitted duration', async () => {
+    const prisma: any = makeSchedulingPrisma();
+    const repository = new EncounterRepository(prisma);
+    const scheduledDate = '2026-11-02T10:30:00.000Z';
+
+    await repository.addProcedure('attendance-1', {
+      templateId: 'template-1',
+      scheduledDate,
+      duration: 60,
+    }, 'nurse-1');
+
+    expect(prisma.procedure.create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({
+        scheduledDate: new Date(scheduledDate),
+        duration: 60,
+        status: 'scheduled',
+      }),
+      include: { ProcedureTemplate: true },
+    }));
+  });
+});
+
 describe('theatre procedure safety documentation', () => {
   const validTheatreRecord = {
     identityConfirmed: true,
