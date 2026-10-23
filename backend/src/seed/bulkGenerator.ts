@@ -520,11 +520,11 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     // ── BILLS / PAYMENTS / CLAIMS
     if (chance(COUNTS.billPerAttendance)) {
       const subtotal = +between(50, 2000).toFixed(2);
-      const paid = chance(0.6) ? subtotal : +between(0, subtotal).toFixed(2);
       const billNumber = `BILL-${++billCounter}`;
       const isNHIS = patient.paymentMode === 'nhis';
       const insuranceCovered = isNHIS || patient.paymentMode === 'private_insurance' ? subtotal * 0.8 : 0;
-      const patientPayable = subtotal - insuranceCovered;
+      const patientPayable = +(subtotal - insuranceCovered).toFixed(2);
+      const paid = +(chance(0.6) ? patientPayable : between(0, patientPayable)).toFixed(2);
 
       b.bills.push({
         billNumber,
@@ -562,7 +562,9 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
           attendanceKey,
           patientFolderNumber: patient.folderNumber,
           totalClaimAmount: subtotal,
-          status: pick(['draft','submitted','approved','paid']),
+          // InsuranceClaim.status currently shares ClaimStatus with bills (draft/finalized).
+          // Do not generate values the Prisma enum cannot persist.
+          status: pick(['draft', 'finalized']),
           diagnosisCodes: ['B54'],
           submissionDate: dateTime,
         });
@@ -584,7 +586,7 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     }
 
     // ── ADMISSIONS
-    if (chance(COUNTS.admissionsPerAttendance)) {
+    if (isIpd && chance(COUNTS.admissionsPerAttendance)) {
       b.admissions.push({
         admissionNumber: `ADM-${attendanceNumber}`,
         attendanceKey,

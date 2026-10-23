@@ -307,9 +307,20 @@ export const deleteTestData = async (force: boolean = false) => {
 
     const testAttendances = await prisma.attendance.findMany({
       where: { patientId: { in: testPatientIds } },
-      select: { id: true },
+      select: { id: true, bedId: true, wardId: true },
     });
     const testAttendanceIds = testAttendances.map((a) => a.id);
+    const testBedIds = [...new Set(testAttendances.map((a) => a.bedId).filter((id): id is string => Boolean(id)))];
+    const testBeds = testBedIds.length
+      ? await prisma.bed.findMany({
+          where: { id: { in: testBedIds } },
+          select: { id: true, wardId: true },
+        })
+      : [];
+    const affectedWardIds = [...new Set([
+      ...testAttendances.map((a) => a.wardId),
+      ...testBeds.map((bed) => bed.wardId),
+    ].filter((id): id is string => Boolean(id)))];
 
     const testBookings = await prisma.antenatalBooking.findMany({
       where: { patientId: { in: testPatientIds } },
@@ -372,7 +383,29 @@ export const deleteTestData = async (force: boolean = false) => {
     await prisma.attendance.deleteMany({ where: { id: { in: testAttendanceIds } } });
     await prisma.patient.deleteMany({ where: { id: { in: testPatientIds } } });
 
-    await prisma.bed.updateMany({ data: { isOccupied: false } });
+    // Release test beds only when no other active encounter still references them.
+    // This protects real patients if legacy data ever contains a shared bed assignment.
+    for (const bed of testBeds) {
+      const otherActiveAssignment = await prisma.attendance.findFirst({
+        where: {
+          id: { notIn: testAttendanceIds },
+          bedId: bed.id,
+          status: { in: [AttendanceStatus.pending, AttendanceStatus.admitted] },
+        },
+        select: { id: true },
+      });
+      if (!otherActiveAssignment) {
+        await prisma.bed.updateMany({
+          where: { id: bed.id },
+          data: { isOccupied: false },
+        });
+      }
+    }
+    // Recalculate from actual bed records instead of trusting a possibly stale counter.
+    for (const wardId of affectedWardIds) {
+      const occupiedBeds = await prisma.bed.count({ where: { wardId, isOccupied: true } });
+      await prisma.ward.update({ where: { id: wardId }, data: { occupiedBeds } });
+    }
 
     console.log('✅ Test data deleted');
     return { success: true, message: 'Test data deleted' };
@@ -806,24 +839,74 @@ export const seedTestData = async (force: boolean = false) => {
     console.log(`✅ ${refRows.length} referrals created`);
 
     // ── ADMISSIONS
+    // Seed a coherent IPD state: active admissions own a bed and have an admitted
+    // attendance; discharged admissions have a closed attendance and no bed link.
     let admDone = 0;
+    const availableBeds = await prisma.bed.findMany({
+      where: { isOccupied: false, Ward: { isActive: true } },
+      select: { id: true, wardId: true },
+      orderBy: [{ wardId: 'asc' }, { bedNumber: 'asc' }],
+    });
+    const wardOccupancyAdded = new Set<string>();
     for (const a of bundle.admissions) {
       const attId = attendanceMap.get(a.attendanceKey);
       if (!attId) continue;
-      await prisma.admission.create({
-        data: {
-          attendanceId: attId,
-          admissionNumber: a.admissionNumber,
-          admissionType: a.admissionType as AdmissionType,
-          admissionSource: a.admissionSource as AdmissionSource,
-          admissionDate: a.admissionDate,
-          dischargeDate: a.dischargeDate,
-          dischargeStatus: a.dischargeStatus as DischargeStatus,
-        },
+
+      const bed = a.dischargeStatus == null ? availableBeds.shift() : undefined;
+      const isActiveAdmission = a.dischargeStatus == null && Boolean(bed);
+      const dischargeStatus = isActiveAdmission ? null : (a.dischargeStatus ?? 'home');
+      const dischargeDate = isActiveAdmission ? null : (a.dischargeDate ?? new Date());
+
+      await prisma.$transaction(async (tx) => {
+        await tx.admission.create({
+          data: {
+            attendanceId: attId,
+            admissionNumber: a.admissionNumber,
+            admissionType: a.admissionType as AdmissionType,
+            admissionSource: a.admissionSource as AdmissionSource,
+            admissionDate: a.admissionDate,
+            dischargeDate,
+            dischargeStatus: dischargeStatus as DischargeStatus | null,
+          },
+        });
+
+        await tx.attendance.update({
+          where: { id: attId },
+          data: isActiveAdmission && bed
+            ? {
+                status: 'admitted',
+                encounterCategory: 'ipd',
+                serviceCategory: 'ipd',
+                bedId: bed.id,
+                wardId: bed.wardId,
+              }
+            : {
+                status: 'discharged',
+                encounterCategory: 'ipd',
+                serviceCategory: 'ipd',
+                bedId: null,
+                wardId: null,
+              },
+        });
+
+        if (isActiveAdmission && bed) {
+          const reservation = await tx.bed.updateMany({
+            where: { id: bed.id, isOccupied: false },
+            data: { isOccupied: true },
+          });
+          if (reservation.count !== 1) {
+            throw new Error(`Could not reserve seed bed ${bed.id}`);
+          }
+          await tx.ward.update({
+            where: { id: bed.wardId },
+            data: { occupiedBeds: { increment: 1 } },
+          });
+          wardOccupancyAdded.add(bed.wardId);
+        }
       });
       admDone++;
     }
-    console.log(`✅ ${admDone} admissions created`);
+    console.log(`✅ ${admDone} admissions created (${wardOccupancyAdded.size} wards with seeded occupancy)`);
 
     // ── MATERNITY LINKED RECORDS
     console.log('🤰 Creating maternity links...');
