@@ -32,6 +32,24 @@ describe('NHIS prescribing-level validation', () => {
     })).not.toThrow();
   });
 
+  it('rejects non-clinical or unlicensed accounts for NHIS prescribing', () => {
+    expect(() => validateNHISPrescribingLevel({
+      level: 'C',
+      facilityType: 'Primary',
+      prescriber: { role: 'admin' },
+    })).toThrow(/allowed clinical role/i);
+    expect(() => validateNHISPrescribingLevel({
+      level: 'C',
+      facilityType: 'Primary',
+      prescriber: { role: 'doctor', specialization: 'Internal Medicine' },
+    })).toThrow(/professional licence/i);
+    expect(() => validateNHISPrescribingLevel({
+      level: 'C',
+      facilityType: 'Primary',
+      prescriber: { role: 'nurse', licenseNumber: 'RN-123' },
+    })).toThrow(/nursing specialization/i);
+  });
+
   it('requires a midwife for level M', () => {
     expect(() => validateNHISPrescribingLevel({
       level: 'M',
