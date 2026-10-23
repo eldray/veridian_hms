@@ -4,6 +4,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { getCounterService } from '../../services/CounterService';
 import { mapAttendanceToNHIS } from '../../utils/nhisAttendanceMapping';
+import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -415,6 +416,67 @@ ${claimsXml}
       const pd = att.AttendanceDiagnosis[0];
       if (!pd) throw new ValidationError(`Attendance ${att.attendanceNumber} has no primary diagnosis. Record a primary diagnosis before creating the NHIS claim.`);
 
+      // Revalidate dispensed NHIS medicines at claim-generation time so legacy or
+      // imported prescriptions cannot bypass payer coverage/authorisation controls.
+      const authorizationNumbers = new Set<string>();
+      const claimValidationDate = new Date();
+      for (const med of att.Medication) {
+        if (!med.StockItem) {
+          throw new ValidationError(`NHIS claim cannot include medicine ${med.name ?? med.id}: its stock item is missing.`);
+        }
+        const payerRule = await tx.stockItemPayerRule.findUnique({
+          where: {
+            stockItemId_insuranceProviderId: {
+              stockItemId: med.stockItemId,
+              insuranceProviderId: att.insuranceProviderId!,
+            },
+          },
+          select: {
+            isCovered: true,
+            authorizationRequired: true,
+            effectiveFrom: true,
+            effectiveTo: true,
+          },
+        });
+        if (!payerRule || payerRule.isCovered !== true ||
+            (payerRule.effectiveFrom && payerRule.effectiveFrom > claimValidationDate) ||
+            (payerRule.effectiveTo && payerRule.effectiveTo < claimValidationDate)) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? med.StockItem.name}: its medicine coverage rule is missing, uncovered, or outside its effective dates.`,
+          );
+        }
+        if (payerRule.authorizationRequired == null) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? med.StockItem.name}: its authorisation requirement is unknown. Configure the medicine payer rule before claim generation.`,
+          );
+        }
+        if (payerRule.authorizationRequired === true) {
+          const approvals = await tx.preAuthorisationRequest.findMany({
+            where: {
+              attendanceId: att.id,
+              patientId: att.patientId,
+              insuranceProviderId: att.insuranceProviderId!,
+              status: { in: ['approved', 'partially_approved'] },
+              authNumber: { not: null },
+              authExpiry: { gt: claimValidationDate },
+            },
+            select: { authNumber: true, approvedServices: true },
+          });
+          const matchingApproval = approvals.find((approval) =>
+            approvedServicesCoverPrescription(approval.approvedServices, {
+              stockItemId: med.stockItemId,
+              serviceCatalogId: med.serviceCatalogId,
+            }),
+          );
+          if (!matchingApproval?.authNumber) {
+            throw new ValidationError(
+              `NHIS claim cannot include ${med.name ?? med.StockItem.name}: no current authorisation explicitly covering this medicine was found.`,
+            );
+          }
+          authorizationNumbers.add(matchingApproval.authNumber);
+        }
+      }
+
       const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
       if (!gdrgLink) throw new ValidationError(`No G-DRG tariff is mapped to the primary diagnosis "${pd.Diagnosis?.name ?? pd.diagnosisId}". Map it in G-DRG settings or choose a mapped diagnosis.`);
 
@@ -440,6 +502,7 @@ ${claimsXml}
       const claim = await tx.insuranceClaim.create({
         data: {
           claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
+          preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : undefined,
           totalClaimAmount: tariff.nhiaTariff, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
