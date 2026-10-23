@@ -3,7 +3,7 @@ import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } fro
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { resolveUnitPrice } from '../../utils/pricing';
+import { isPayerCovered, resolveUnitPrice } from '../../utils/pricing';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -312,10 +312,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
         where: { id: encounterId },
         include: {
           ServiceRendered: { include: { ServiceCatalog: { include: activePricing } } },
-          LabTest: { include: { ServiceCatalog: { include: activePricing }, LabTestTemplate: true } },
-          Scan: { include: { ServiceCatalog: { include: activePricing } } },
-          Procedure: { include: { ServiceCatalog: { include: activePricing } } },
-          Medication: { include: { ServiceCatalog: { include: activePricing } } }
+          LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing }, LabTestTemplate: true } },
+          Scan: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
+          Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
+          Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: { include: activePricing } } }
         }
       });
       if (!attendance) throw new Error('Encounter not found');
@@ -353,6 +353,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const { unitPrice, lineTotal } = priceFor(catalog, quantity);
         const serviceType: ServiceType = (catalog?.serviceType as ServiceType) || fallbackType;
         const description = catalog ? `${catalog.name} (${catalog.code})` : fallbackName;
+        // A covered payer tariff is the insurer's liability, not a patient charge.
+        // Uncovered / missing-tariff services fall back to cash through resolveUnitPrice.
+        const payerCoversLine = !!catalog && !!catalog.pricing?.[0] &&
+          isPayerCovered(catalog.pricing[0], paymentMode, {
+            isNHISCovered: catalog.isNHISCovered,
+            isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted
+          });
+        const insuranceCoveredAmount = payerCoversLine ? lineTotal : 0;
+        const patientPayableAmount = payerCoversLine ? 0 : lineTotal;
         lineItemsData.push({
           serviceCatalogId: catalog?.id ?? null,
           description,
@@ -361,8 +370,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
           unitPrice,
           pricingBasis: paymentMode,
           lineTotal,
-          insuranceCoveredAmount: 0,
-          patientPayableAmount: lineTotal,
+          insuranceCoveredAmount,
+          patientPayableAmount,
           discount: 0,
           isVoided: false
         });
@@ -385,6 +394,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       }
 
       const totalAmount = lineItemsData.reduce((sum, i) => sum + i.lineTotal, 0);
+      const insuranceCovered = lineItemsData.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0);
+      const patientPayable = lineItemsData.reduce((sum, i) => sum + i.patientPayableAmount, 0);
 
       const bill = await tx.bill.create({
         data: {
@@ -395,10 +406,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
           status: 'pending',
           subtotal: totalAmount,
           totalAmount,
-          patientPayable: totalAmount,
-          balance: totalAmount,
+          patientPayable,
+          balance: patientPayable,
           paidAmount: 0,
-          insuranceCovered: 0,
+          insuranceCovered,
           waiverAmount: 0,
           discount: 0,
           taxAmount: 0,
@@ -415,7 +426,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: totalAmount } });
+      await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: patientPayable } });
 
       return bill;
     });
