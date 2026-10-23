@@ -928,7 +928,6 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       }
       // Claim edits must not increase the quantity beyond what was actually dispensed.
       // Track totals across rows too, so duplicating a line cannot inflate the claim.
-      const matchingDispensedMedicine = matchingDispensedMedicines[0];
       const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
