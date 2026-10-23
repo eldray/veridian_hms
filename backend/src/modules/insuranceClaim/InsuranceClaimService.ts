@@ -448,7 +448,7 @@ ${claimsXml}
         }
         if (payerRule.authorizationRequired == null) {
           throw new ValidationError(
-            `NHIS claim cannot include ${med.name ?? med.StockItem.name}: its authorisation requirement is unknown. Configure the medicine payer rule before claim generation.`,
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its authorisation requirement is unknown. Configure the medicine payer rule before claim generation.`,
           );
         }
         if (payerRule.authorizationRequired === true) {
@@ -471,7 +471,7 @@ ${claimsXml}
           );
           if (!matchingApproval?.authNumber) {
             throw new ValidationError(
-              `NHIS claim cannot include ${med.name ?? med.StockItem.name}: no current authorisation explicitly covering this medicine was found.`,
+              `NHIS claim cannot include ${med.name ?? stockItem.name}: no current authorisation explicitly covering this medicine was found.`,
             );
           }
           authorizationNumbers.add(matchingApproval.authNumber);
