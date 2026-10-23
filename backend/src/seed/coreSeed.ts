@@ -973,10 +973,11 @@ export const seedCoreData = async (force: boolean = false) => {
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
 
     // ── STEP 12a: Payer-specific NHIS medicine rules ──────────
-    // The NHIS JSON does not currently provide prescribing levels or authorization requirements.
-    // Store those fields as null (unknown) instead of defaulting them to "not required".
+    // The 2025 NHIS JSON includes source-verified prescribing levels where available.
+    // Authorization requirements remain unknown because the published list does not specify
+    // medicine-by-medicine prior authorization. Null levels remain unknown, not permission.
     // Re-running the seed updates source/tariff metadata but preserves manually configured rules
-    // whenever the JSON does not explicitly supply those fields.
+    // whenever the reference does not explicitly supply a verified value.
     const nhisProvider = await prisma.insuranceProvider.findFirst({
       where: { type: InsuranceType.nhis, isActive: true },
       orderBy: { name: 'asc' },
@@ -987,6 +988,7 @@ export const seedCoreData = async (force: boolean = false) => {
       console.warn('⚠️ No active NHIS insurance provider found; skipping NHIS medicine payer rules.');
     } else {
       let nhisRulesSeeded = 0;
+      const allowedPrescribingLevels = new Set(['A', 'M', 'B1', 'B2', 'C', 'D', 'SM']);
       for (const [drugCode, reference] of nhisReferenceByDrugCode) {
         const stockItem = stockItemMap.get(drugCode);
         if (!stockItem) continue;
@@ -996,7 +998,6 @@ export const seedCoreData = async (force: boolean = false) => {
         const suppliedAuth = typeof reference.nhisRequiresAuth === 'boolean'
           ? reference.nhisRequiresAuth
           : undefined;
-        const allowedPrescribingLevels = new Set(['A', 'M', 'B1', 'B2', 'C', 'D', 'SM']);
         const rawEffectiveFrom = typeof reference.effectiveFrom === 'string' ? new Date(reference.effectiveFrom) : null;
         const effectiveFrom = rawEffectiveFrom && Number.isFinite(rawEffectiveFrom.getTime()) ? rawEffectiveFrom : undefined;
         const rawLevel = typeof reference.prescribingLevel === 'string' ? reference.prescribingLevel.trim().toUpperCase() : '';
