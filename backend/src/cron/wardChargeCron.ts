@@ -32,6 +32,18 @@ export interface WardChargeResult {
   totalAmount: number;
 }
 
+/** Admission stays eligible for a daily charge only when it was active on that date. */
+export const buildWardChargeAdmissionWhere = (startOfDay: Date, endOfDay: Date) => ({
+  status: 'active',
+  cancelledAt: null,
+  admissionDate: { lte: endOfDay },
+  OR: [
+    { dischargeDate: null },
+    { dischargeDate: { gte: startOfDay } }
+  ],
+  attendance: { status: 'admitted' }
+});
+
 export class WardChargeService {
 
   // ==========================================
@@ -51,20 +63,7 @@ export class WardChargeService {
 
     // ✅ FIXED: Include all necessary relations through Attendance
     const activeAdmissions = await prisma.admission.findMany({
-      where: {
-        // Charge only stays that were active on the requested billing date.
-        // This also makes historical range runs respect admission/discharge dates.
-        status: 'active',
-        cancelledAt: null,
-        admissionDate: { lte: endOfDay },
-        OR: [
-          { dischargeDate: null },
-          { dischargeDate: { gte: startOfDay } }
-        ],
-        attendance: {
-          status: 'admitted'
-        }
-      },
+      where: buildWardChargeAdmissionWhere(startOfDay, endOfDay),
       include: {
         attendance: {
           include: {
