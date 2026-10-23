@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance, StockItemRepository } from '../src/modules/stockItem/StockItemRepository';
+import { startOfCurrentUtcDay } from '../src/modules/requisition/RequisitionRepository';
 import { StockItemService } from '../src/modules/stockItem/StockItemService';
 import { ValidationError } from '../src/utils/errors';
 import { PurchaseInvoiceRepository } from '../src/modules/purchaseInvoice/PurchaseInvoiceRepository';
@@ -1559,5 +1560,22 @@ describe('unassigned allocation destination batch concurrency', () => {
       data: { quantity: { increment: 3 } },
     });
     expect(transactionCreateMany).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('requisition batch expiry day boundary', () => {
+  it('keeps a batch eligible through its UTC expiry calendar day', () => {
+    const now = new Date('2026-10-23T18:45:00.000Z');
+    expect(startOfCurrentUtcDay(now)).toEqual(new Date('2026-10-23T00:00:00.000Z'));
+    const expiresToday = new Date('2026-10-23T00:00:00.000Z');
+    expect(expiresToday.getTime()).toBeGreaterThanOrEqual(startOfCurrentUtcDay(now).getTime());
+  });
+
+  it('moves the eligibility boundary at UTC midnight, not at the current instant', () => {
+    const justAfterMidnight = new Date('2026-10-24T00:01:00.000Z');
+    expect(startOfCurrentUtcDay(justAfterMidnight)).toEqual(new Date('2026-10-24T00:00:00.000Z'));
+    const yesterdayExpiry = new Date('2026-10-23T00:00:00.000Z');
+    expect(yesterdayExpiry.getTime()).toBeLessThan(startOfCurrentUtcDay(justAfterMidnight).getTime());
   });
 });
