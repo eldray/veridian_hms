@@ -26,6 +26,7 @@ const validInput: any = {
   method: 'injectable_dmpa',
   methodCategory: 'modern_short_acting',
   serviceDate: '2026-10-22T12:00:00.000Z',
+  informedConsent: true,
 };
 
 describe('family-planning encounter integrity', () => {
@@ -36,6 +37,14 @@ describe('family-planning encounter integrity', () => {
     expect(stats.totalServices).toBe(0);
     expect(stats.currentUsers).toBe(2);
     expect(prisma.familyPlanningService.findMany).toHaveBeenCalledTimes(2);
+  });
+
+
+  it('requires explicit informed consent instead of relying on a default-checked box', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await expect(repository.createFPService({ ...validInput, informedConsent: false }))
+      .rejects.toThrow(/explicit informed consent/i);
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('rejects an attendance belonging to another patient', async () => {
