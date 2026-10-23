@@ -329,7 +329,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
           LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing }, LabTestTemplate: true } },
           Scan: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
           Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
-          Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: { include: activePricing } } }
+          Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: { include: activePricing } } },
+          WardChargeRecord: { where: { isBilled: false } }
         }
       });
       if (!attendance) throw new Error('Encounter not found');
@@ -408,6 +409,32 @@ export class BillRepository extends BaseRepository<any, any, any> {
         pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity);
       }
 
+      // Ward charges are already priced and recorded per attendance/day by the ward workflow.
+      // Include only unbilled records and link them to the generated bill lines below.
+      const wardChargeLinks: Array<{ id: string; description: string }> = [];
+      for (const charge of attendance.WardChargeRecord || []) {
+        const lineTotal = toNumber(charge.dailyRate);
+        if (lineTotal <= 0) continue;
+        const serviceDate = new Date(charge.chargeDate).toISOString().slice(0, 10);
+        const description = `Ward accommodation (${charge.wardId}) - ${serviceDate}`;
+        const insurerCovers = (paymentMode === 'nhis' && toNumber(charge.nhisPrice) > 0) ||
+          (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
+        lineItemsData.push({
+          serviceCatalogId: null,
+          description,
+          serviceType: 'ward',
+          quantity: 1,
+          unitPrice: lineTotal,
+          pricingBasis: paymentMode,
+          lineTotal,
+          insuranceCoveredAmount: insurerCovers ? lineTotal : 0,
+          patientPayableAmount: insurerCovers ? 0 : lineTotal,
+          discount: 0,
+          isVoided: false
+        });
+        wardChargeLinks.push({ id: charge.id, description });
+      }
+
       const totalAmount = lineItemsData.reduce((sum, i) => sum + i.lineTotal, 0);
       const insuranceCovered = lineItemsData.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0);
       const patientPayable = lineItemsData.reduce((sum, i) => sum + i.patientPayableAmount, 0);
@@ -440,6 +467,20 @@ export class BillRepository extends BaseRepository<any, any, any> {
           BillLineItem: { include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } }
         }
       });
+
+      // Link ward-day records to their bill lines so a refresh/retry cannot bill them twice.
+      for (const link of wardChargeLinks) {
+        const line = await tx.billLineItem.findFirst({
+          where: { billId: bill.id, description: link.description, isVoided: false },
+          select: { id: true }
+        });
+        if (line) {
+          await tx.wardChargeRecord.update({
+            where: { id: link.id },
+            data: { isBilled: true, billLineItemId: line.id }
+          });
+        }
+      }
 
       await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: patientPayable } });
 
