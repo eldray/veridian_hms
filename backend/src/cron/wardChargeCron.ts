@@ -1,5 +1,5 @@
 // cron/wardChargeCron.ts - Daily Ward Charge Generation (ALL BUGS FIXED)
-import { PrismaClient, PaymentMode } from '@prisma/client';
+import { PrismaClient, Prisma, PaymentMode } from '@prisma/client';
 import { getCounterService } from '../services/CounterService';
 import { resolveWardDailyRate } from '../utils/pricing';
 
@@ -32,6 +32,18 @@ export interface WardChargeResult {
   totalAmount: number;
 }
 
+/** Admission stays eligible for a daily charge only when it was active on that date. */
+export const buildWardChargeAdmissionWhere = (startOfDay: Date, endOfDay: Date): Prisma.AdmissionWhereInput => ({
+  status: 'active',
+  cancelledAt: null,
+  admissionDate: { lte: endOfDay },
+  OR: [
+    { dischargeDate: null },
+    { dischargeDate: { gte: startOfDay } }
+  ],
+  attendance: { is: { status: 'admitted' } }
+});
+
 export class WardChargeService {
 
   // ==========================================
@@ -51,9 +63,7 @@ export class WardChargeService {
 
     // ✅ FIXED: Include all necessary relations through Attendance
     const activeAdmissions = await prisma.admission.findMany({
-      where: {
-        dischargeDate: null
-      },
+      where: buildWardChargeAdmissionWhere(startOfDay, endOfDay),
       include: {
         attendance: {
           include: {
