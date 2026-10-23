@@ -34,6 +34,17 @@ describe('NHIS prior-authorisation service matching', () => {
     expect(approvedServicesCoverPrescription(null, prescription)).toBe(false);
   });
 
+  it('does not match empty identifiers in malformed approval payloads', () => {
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: '', serviceCatalogId: '' }],
+      { stockItemId: '', serviceCatalogId: '' },
+    )).toBe(false);
+    expect(approvedServicesCoverPrescription(
+      [{ serviceCatalogId: '' }],
+      { stockItemId: 'stock-123', serviceCatalogId: '' },
+    )).toBe(false);
+  });
+
   it('does not match a different medicine or service', () => {
     expect(approvedServicesCoverPrescription(
       [{ stockItemId: 'stock-other', serviceCatalogId: 'service-other' }],
