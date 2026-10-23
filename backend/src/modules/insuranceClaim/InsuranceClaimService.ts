@@ -856,7 +856,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   let totalClaimAmount: number | undefined;
   const authorizationNumbers = new Set<string>();
   if (claim.InsuranceProvider?.type === 'nhis') {
-    const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
+    let gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
     const policyDate = new Date(claim.Attendance?.Admission?.admissionDate ?? claim.Attendance?.dateTime ?? claim.createdAt);
     if (Number.isNaN(policyDate.getTime())) {
@@ -878,7 +878,36 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the service date ${policyDate.toISOString().slice(0, 10)}. Activate or correct its tariff before saving the claim.`);
     }
     const gdrgAmount = Number(tariff.nhiaTariff);
-    if (gdrgRow) {
+    if (!gdrgRow) {
+      // The G-DRG is the principal payable line. Add it when a draft payload
+      // omits it so the saved claim items cannot silently disagree with the header.
+      gdrgRow = {
+        claimId,
+        itemNumber: 1,
+        itemCategory: 'gdrg',
+        itemType: null,
+        code: gdrgCode,
+        description: `G-DRG ${gdrgCode}`,
+        quantity: 1,
+        noOfDays: null,
+        unitPrice: gdrgAmount,
+        lineTotal: gdrgAmount,
+        serviceDate: policyDate,
+        clinician: null,
+        prescriberNo: null,
+        prescriptionText: null,
+        serviceCatalogId: null,
+        diagnosisId: null,
+        gdrgTariffId: tariff.id,
+        billLineItemId: null,
+        labTestId: null,
+        scanId: null,
+        procedureId: null,
+        medicationId: null,
+      };
+      rows.unshift(gdrgRow);
+      rows.forEach((row, index) => { row.itemNumber = index + 1; });
+    } else {
       gdrgRow.unitPrice = gdrgAmount;
       gdrgRow.lineTotal = gdrgAmount;
       gdrgRow.gdrgTariffId = tariff.id;
