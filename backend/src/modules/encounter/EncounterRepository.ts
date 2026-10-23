@@ -1909,7 +1909,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     return {
       ...a,
-      status: a.dischargeDate ? 'discharged' : 'active',
+      status: a.status === 'cancelled' ? 'cancelled' : (a.dischargeDate ? 'discharged' : 'active'),
       patient, ward, bed,
       // Flattened fields used by the detention / observation list
       attendanceNumber: att?.attendanceNumber,
@@ -1933,8 +1933,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   private buildAdmissionWhere(filters: any) {
     const where: any = {};
 
-    if (filters.status === 'active') where.dischargeDate = null;
-    else if (filters.status === 'discharged') where.dischargeDate = { not: null };
+    if (filters.status === 'active') { where.status = 'active'; where.dischargeDate = null; }
+    else if (filters.status === 'discharged') { where.status = { not: 'cancelled' }; where.dischargeDate = { not: null }; }
 
     if (filters.admissionType) where.admissionType = filters.admissionType;
     else if (this.isTrue(filters.excludeDetention)) where.admissionType = { not: 'detention_observation' };
@@ -1978,6 +1978,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async countReadyForDecision(hours = 24) {
     return this.prisma.admission.count({
       where: {
+        status: 'active',
         dischargeDate: null,
         admissionType: 'detention_observation',
         admissionDate: { lte: new Date(Date.now() - hours * 3_600_000) }
