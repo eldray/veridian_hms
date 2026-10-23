@@ -2,7 +2,7 @@
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { NursingRepository } from './NursingRepository';
-import { ValidationError } from '../../utils/errors';
+import { ValidationError, NotFoundError } from '../../utils/errors';
 import {
   MarFilters,
   ScheduleDosesInput,
@@ -179,12 +179,22 @@ export class NursingService extends BaseService {
   // MAR — writes
   // ═══════════════════════════════════════════════════════════
 
+  private async ensureEncounterOpenForDose(attendanceId?: string | null) {
+    if (!attendanceId) throw new ValidationError('This medication dose is not linked to an attendance/encounter');
+    const attendance = await this.prisma.attendance.findUnique({ where: { id: attendanceId }, select: { id: true, status: true } });
+    if (!attendance) throw new ValidationError('The medication dose encounter was not found');
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+      throw new ValidationError('Medication administration is not allowed for a closed encounter');
+    }
+  }
+
   async administerDose(doseId: string, userId: string, data: AdministerDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
-    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
-    if (existing.status === 'administered') throw new Error('This dose has already been administered');
-    if (existing.status === 'discontinued') throw new Error('This dose was discontinued');
+    if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
+    if (existing.status === 'administered') throw new ValidationError('This dose has already been administered');
+    if (existing.status === 'discontinued') throw new ValidationError('This dose was discontinued');
+    await this.ensureEncounterOpenForDose(existing.medication.attendanceId);
 
     return this.repository.administerDose(doseId, userId, {
       administeredAt: data.administeredAt ? new Date(data.administeredAt) : undefined,
@@ -196,8 +206,9 @@ export class NursingService extends BaseService {
   async recordVariance(doseId: string, userId: string, data: VarianceDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
     if (!existing) throw new Error('Dose not found');
-    if (existing.medication.status === 'cancelled') throw new Error('This prescription was cancelled');
-    if (existing.status === 'administered') throw new Error('Cannot record a variance for an administered dose');
+    if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
+    if (existing.status === 'administered') throw new ValidationError('Cannot record a variance for an administered dose');
+    await this.ensureEncounterOpenForDose(existing.medication.attendanceId);
 
     return this.repository.recordDoseVariance(doseId, userId, data);
   }
@@ -220,8 +231,44 @@ export class NursingService extends BaseService {
     return note;
   }
 
+  /**
+   * Keep nursing documentation attached to one coherent patient encounter.
+   * These are separate foreign keys in the schema, so Prisma alone cannot ensure
+   * that patientId, attendanceId and admissionId all refer to the same patient/stay.
+   */
+  private async validateClinicalLinks(patientId: string, attendanceId?: string | null, admissionId?: string | null) {
+    if (!patientId?.trim()) throw new ValidationError('Patient is required for nursing documentation');
+
+    let linkedAttendanceId = attendanceId ?? null;
+    if (linkedAttendanceId) {
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: linkedAttendanceId },
+        select: { id: true, patientId: true },
+      });
+      if (!attendance) throw new ValidationError('The selected attendance/encounter was not found');
+      if (attendance.patientId !== patientId) {
+        throw new ValidationError('The selected attendance belongs to a different patient');
+      }
+    }
+
+    if (admissionId) {
+      const admission = await this.prisma.admission.findUnique({
+        where: { id: admissionId },
+        select: { id: true, attendanceId: true, attendance: { select: { patientId: true } } },
+      });
+      if (!admission) throw new ValidationError('The selected admission was not found');
+      if (admission.attendance.patientId !== patientId) {
+        throw new ValidationError('The selected admission belongs to a different patient');
+      }
+      if (linkedAttendanceId && admission.attendanceId !== linkedAttendanceId) {
+        throw new ValidationError('The selected admission does not belong to the selected attendance');
+      }
+    }
+  }
+
   async createNote(dto: CreateNursingNoteDTO, userId: string) {
-    if (!dto.content?.trim()) throw new Error('Note content is required');
+    if (!dto.content?.trim()) throw new ValidationError('Note content is required');
+    await this.validateClinicalLinks(dto.patientId, dto.attendanceId, dto.admissionId);
 
     const data = {
       patientId: dto.patientId,
@@ -282,8 +329,9 @@ export class NursingService extends BaseService {
   }
 
   async createTask(dto: CreateNursingTaskDTO, userId: string) {
-    if (!dto.title?.trim()) throw new Error('Task title is required');
-    if (!dto.attendanceId) throw new Error('Task must be linked to an attendance');
+    if (!dto.title?.trim()) throw new ValidationError('Task title is required');
+    if (!dto.attendanceId) throw new ValidationError('Task must be linked to an attendance');
+    await this.validateClinicalLinks(dto.patientId, dto.attendanceId, dto.admissionId);
 
     const data = {
       patientId: dto.patientId,
@@ -328,9 +376,13 @@ export class NursingService extends BaseService {
     return this.repository.updateTask(id, data);
   }
 
-  async deleteTask(id: string) {
+  async deleteTask(id: string, actor: { userId: string; role: string }) {
     const existing = await this.repository.findTaskById(id);
-    if (!existing) throw new Error('Task not found');
+    if (!existing) throw new NotFoundError('Nursing task', id);
+    const isAdminLike = ['super_admin', 'admin'].includes(actor.role);
+    if (existing.createdById !== actor.userId && !isAdminLike) {
+      throw new ValidationError('Only the task creator or an admin can delete this task');
+    }
     await this.repository.deleteTask(id);
   }
 }

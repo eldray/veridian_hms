@@ -3,7 +3,8 @@ import { BaseService } from '../../shared/base/BaseService';
 import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
-import { ValidationError, NotFoundError } from '../../utils/errors';
+import { ValidationError, NotFoundError, ConflictError } from '../../utils/errors';
+import { releaseBedForAttendance } from './bedOccupancy';
 
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
@@ -65,7 +66,28 @@ export class EncounterService extends BaseService {
     if (data.paymentMode === 'cash' || data.paymentMode === 'corporate') insuranceProviderId = undefined;
 
     // ✅ PRODUCTION FIX: Wrap entire complex creation flow in a transaction
+    if (data.bedId && !data.wardId) throw new ValidationError('A ward is required when assigning a bed');
+
     return await this.prisma.$transaction(async (tx) => {
+      // Validate and reserve the bed inside the same transaction as encounter creation.
+      // A stale bed list or two concurrent registrations must not allocate one bed twice.
+      if (data.bedId) {
+        const bed = await tx.bed.findUnique({
+          where: { id: data.bedId },
+          select: { id: true, wardId: true, isOccupied: true, Ward: { select: { id: true, isActive: true } } },
+        });
+        if (!bed) throw new NotFoundError('Bed', data.bedId);
+        if (bed.wardId !== data.wardId) throw new ValidationError('The selected bed does not belong to the selected ward');
+        if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
+        const activeAssignment = await tx.attendance.findFirst({
+          where: { bedId: bed.id, status: { in: ['pending', 'admitted'] } }, select: { id: true },
+        });
+        if (bed.isOccupied || activeAssignment) throw new ConflictError('The selected bed is already occupied');
+        const reservation = await tx.bed.updateMany({ where: { id: bed.id, isOccupied: false }, data: { isOccupied: true } });
+        if (reservation.count !== 1) throw new ConflictError('The selected bed was just allocated to another patient; refresh available beds');
+        await tx.ward.update({ where: { id: bed.wardId }, data: { occupiedBeds: { increment: 1 } } });
+      }
+
       const counterService = getCounterService();
       const encounter = await tx.attendance.create({
         data: {
@@ -77,6 +99,8 @@ export class EncounterService extends BaseService {
           insuranceProviderId,
           medicalNotes: data.complaint || '', // Mapped from schema fix
           encounterCategory,
+          bedId: data.bedId ?? null,
+          wardId: data.wardId ?? null,
           status: 'pending',
           createdById: userId,
           dateTime: new Date(),
@@ -89,12 +113,6 @@ export class EncounterService extends BaseService {
       // Delivery and postnatal forms must record clinician-confirmed findings. Do not
       // pre-create records with assumed live birth, maternal wellbeing or breastfeeding status.
       // Their dedicated save endpoints create the clinical record after staff complete the form.
-
-      // 2. Bed/Ward Logic (Removed currentPatientId per schema fix)
-      if (data.bedId) {
-        await tx.bed.update({ where: { id: data.bedId }, data: { isOccupied: true } });
-        await tx.ward.update({ where: { id: data.wardId! }, data: { occupiedBeds: { increment: 1 } } });
-      }
 
       // 3. Admission Logic
       if (shouldCreateAdmission && encounterCategory === 'ipd') {
@@ -154,22 +172,57 @@ export class EncounterService extends BaseService {
   // ADMISSION & DISCHARGE (WRAPPED IN TRANSACTIONS)
   // ============================================
   async createFormalAdmission(data: CreateAdmissionDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({ where: { id: data.attendanceId }, include: { Admission: true } });
-    if (!encounter) throw new NotFoundError('Encounter', data.attendanceId);
-    if (encounter.Admission) throw new ValidationError('This encounter already has a formal admission record');
+    if (!data.attendanceId) throw new ValidationError('An attendance/encounter is required to create an admission');
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        include: { Admission: true, Bed: { include: { Ward: true } } },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', data.attendanceId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+        throw new ConflictError('A closed encounter cannot be admitted; create or reopen the appropriate encounter first');
+      }
+      if (encounter.Admission) {
+        // Encounter creation may already create the admission for IPD. Treat a repeated
+        // request as idempotent rather than returning an error or allocating the bed twice.
+        return tx.admission.findUnique({
+          where: { id: encounter.Admission.id },
+          include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
+        });
+      }
 
-    return await this.prisma.$transaction(async (tx) => {
+      // Bed selection is attached to the encounter before admission. Reserve that bed
+      // here atomically so the bed list, occupancy totals and admission cannot drift apart.
+      if (encounter.bedId) {
+        const bed = await tx.bed.findUnique({
+          where: { id: encounter.bedId },
+          select: { id: true, wardId: true, isOccupied: true, Ward: { select: { id: true, isActive: true } } },
+        });
+        if (!bed) throw new NotFoundError('Bed', encounter.bedId);
+        if (!bed.Ward?.isActive) throw new ValidationError('A bed in an inactive ward cannot be assigned');
+        const otherActiveAssignment = await tx.attendance.findFirst({
+          where: { id: { not: encounter.id }, bedId: bed.id, status: { in: ['pending', 'admitted'] } }, select: { id: true },
+        });
+        if (otherActiveAssignment) throw new ConflictError('The selected bed is already assigned to another admitted patient');
+        if (!bed.isOccupied) {
+          const reservation = await tx.bed.updateMany({ where: { id: bed.id, isOccupied: false }, data: { isOccupied: true } });
+          if (reservation.count !== 1) throw new ConflictError('The selected bed was just allocated to another patient; refresh available beds');
+          await tx.ward.update({ where: { id: bed.wardId }, data: { occupiedBeds: { increment: 1 } } });
+        }
+      }
+
+      const admissionDate = data.admissionDate ? new Date(data.admissionDate as any) : new Date();
+      if (Number.isNaN(admissionDate.getTime())) throw new ValidationError('A valid admission date is required');
       const admission = await tx.admission.create({
         data: {
           attendanceId: data.attendanceId,
           admissionNumber: getCounterService().nextAdmissionNumber(),
           admissionType: (data.admissionType as any) || 'emergency',
           admissionSource: (data.admissionSource as any) || 'home',
-          admissionDate: data.admissionDate || new Date(),
+          admissionDate,
         },
         include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } }
       });
-      
       await tx.attendance.update({ where: { id: data.attendanceId }, data: { status: 'admitted' } });
       return admission;
     });
@@ -187,6 +240,13 @@ export class EncounterService extends BaseService {
       if (terminal.includes(encounter.status)) {
         throw new ValidationError(`Cannot discharge: encounter is already "${encounter.status}"`);
       }
+      const dischargeDate = dischargeData.dischargeDate ? new Date(dischargeData.dischargeDate) : new Date();
+      if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+      const dischargeStatus = dischargeData.dischargeStatus || 'home';
+      const allowedDischargeStatuses = ['home', 'transfer', 'expired', 'against_medical_advice'];
+      if (!allowedDischargeStatuses.includes(dischargeStatus)) {
+        throw new ValidationError(`dischargeStatus must be one of: ${allowedDischargeStatuses.join(', ')}`);
+      }
 
       const transition = await tx.attendance.updateMany({
         where: { id: encounterId, status: encounter.status },
@@ -203,8 +263,8 @@ export class EncounterService extends BaseService {
         await tx.admission.update({
           where: { id: encounter.Admission.id },
           data: {
-            dischargeDate: dischargeData.dischargeDate || new Date(),
-            dischargeStatus: (dischargeData.dischargeStatus as any) || 'home',
+            dischargeDate,
+            dischargeStatus: dischargeStatus as any,
             dailyNotes: [
               ...existingNotes,
               {
@@ -219,12 +279,7 @@ export class EncounterService extends BaseService {
         });
       }
 
-      if (encounter.bedId) {
-        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } });
-        if (encounter.wardId) {
-          await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
-        }
-      }
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       await tx.notification.create({
         data: {
@@ -238,7 +293,7 @@ export class EncounterService extends BaseService {
         },
       });
 
-      return { message: 'Patient discharged successfully', dischargeDate: dischargeData.dischargeDate || new Date() };
+      return { message: 'Patient discharged successfully', dischargeDate };
     });
   }
 
@@ -333,19 +388,8 @@ export class EncounterService extends BaseService {
         });
       }
 
-      // Free the bed and update ward occupancy in the same transaction as the referral.
-      if (encounter.bedId) {
-        await tx.bed.update({
-          where: { id: encounter.bedId },
-          data: { isOccupied: false },
-        });
-        if (encounter.wardId) {
-          await tx.ward.update({
-            where: { id: encounter.wardId },
-            data: { occupiedBeds: { decrement: 1 } },
-          });
-        }
-      }
+      // Free the bed and reconcile occupancy in the same transaction as the referral.
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       // Conditional status update prevents an older request overwriting a concurrent change.
       const attendanceUpdate = await tx.attendance.updateMany({
@@ -424,12 +468,7 @@ export class EncounterService extends BaseService {
         });
       }
 
-      if (encounter.bedId) {
-        await tx.bed.update({ where: { id: encounter.bedId }, data: { isOccupied: false } });
-        if (encounter.wardId) {
-          await tx.ward.update({ where: { id: encounter.wardId }, data: { occupiedBeds: { decrement: 1 } } });
-        }
-      }
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       this.logInfo('Encounter absconded', { encounterId, userId, notes: data.notes });
       return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
@@ -462,11 +501,12 @@ export class EncounterService extends BaseService {
       // after another staff member has already changed its lifecycle state.
       const transition = await tx.attendance.updateMany({
         where: { id: encounterId, status: encounter.status },
-        data: { status: 'completed', updatedById: userId },
+        data: { status: 'completed', bedId: null, updatedById: userId },
       });
       if (transition.count !== 1) {
         throw new ValidationError('Encounter changed while completion was being saved. Refresh and try again.');
       }
+      await releaseBedForAttendance(tx, { id: encounter.id, bedId: encounter.bedId });
 
       return tx.attendance.findUniqueOrThrow({ where: { id: encounterId } });
     });

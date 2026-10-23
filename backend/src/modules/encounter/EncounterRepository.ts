@@ -8,6 +8,7 @@ import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
+import { releaseBedForAttendance } from './bedOccupancy';
 
 // ✅ FIXED: Extends BaseRepository for enterprise consistency
 /** "Live" visit window (see findManyEncounters). */
@@ -104,6 +105,18 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       select: { id: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    return encounter.id;
+  }
+
+  private async requireOpenEncounter(encounterId: string) {
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { id: true, status: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+      throw new ConflictError('Clinical service orders cannot be added or changed for a closed encounter');
+    }
     return encounter.id;
   }
   
@@ -1244,7 +1257,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
 async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireEncounterId(encounterId);
+  await this.requireOpenEncounter(encounterId);
   let templateId: string | undefined;
 
   if (data.serviceCatalogId) {
@@ -1301,12 +1314,13 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
-    const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true } });
+    const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true, attendanceId: true } });
     if (!current) throw new NotFoundError('Laboratory order', labOrderId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
-    const updateData: any = {};
+    await this.requireOpenEncounter(current.attendanceId);
+    const updateData: any = {}
     for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
     if (status !== current.status) updateData.status = status;
     if (status === 'completed') { updateData.completedAt = new Date(); updateData.performedById = actorId; }
@@ -1329,6 +1343,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled laboratory order cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.labTest.updateMany({
       where: { id: labOrderId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
@@ -1339,7 +1354,7 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
 
 async addScan(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireEncounterId(encounterId);
+  await this.requireOpenEncounter(encounterId);
   let templateId: string | undefined;
   const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
@@ -1443,12 +1458,13 @@ async addScan(encounterId: string, data: any, userId: string) {
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
-    const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true } });
+    const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true, attendanceId: true } });
     if (!current) throw new NotFoundError('Scan order', scanId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled scan order cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed scan report is locked; use the documented report-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
-    const updateData: any = {};
+    await this.requireOpenEncounter(current.attendanceId);
+    const updateData: any = {}
     for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.imageUrls !== undefined) {
       if (!Array.isArray(data.imageUrls) || data.imageUrls.some((url: unknown) => typeof url !== 'string' || !url.trim())) throw new ValidationError('Scan image URLs must be a list of non-empty strings');
@@ -1474,6 +1490,7 @@ async addScan(encounterId: string, data: any, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled scan order cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.scan.updateMany({
       where: { id: scanId, attendanceId: encounterId, status: { in: ['requested', 'in_progress'] } },
       data: { status: 'cancelled' },
@@ -1484,7 +1501,7 @@ async addScan(encounterId: string, data: any, userId: string) {
 
 async addProcedure(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
-  await this.requireEncounterId(encounterId);
+  await this.requireOpenEncounter(encounterId);
   let templateId: string | undefined;
   const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
@@ -1527,12 +1544,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
-    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true } });
+    const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed procedure record is locked; use the documented clinical correction workflow');
     if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
-    const updateData: any = {};
+    await this.requireOpenEncounter(current.attendanceId);
+    const updateData: any = {}
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
       const scheduledDate = new Date(data.scheduledDate);
@@ -1561,6 +1579,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (current.status === 'completed' || current.status === 'cancelled') {
       throw new ConflictError('A completed or cancelled procedure cannot be cancelled again');
     }
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.procedure.updateMany({
       where: { id: procedureId, attendanceId: encounterId, status: { in: ['scheduled', 'in_progress'] } },
       data: { status: 'cancelled' },
@@ -1994,7 +2013,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async updateAdmission(id: string, data: any, userId?: string) {
     return this.prisma.$transaction(async (tx) => {
-      const existing = await tx.admission.findUnique({ where: { id } });
+      const existing = await tx.admission.findUnique({
+        where: { id },
+        include: { attendance: { select: { id: true, bedId: true } } },
+      });
       if (!existing) throw new NotFoundError('Admission', id);
 
       const update: any = {};
@@ -2007,7 +2029,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         }
         update.dischargeStatus = data.dischargeStatus;
       }
-      if (data.dischargeDate) update.dischargeDate = new Date(data.dischargeDate);
+      if (data.dischargeDate) {
+        const dischargeDate = new Date(data.dischargeDate);
+        if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+        update.dischargeDate = dischargeDate;
+      }
 
       // The Admission table has no dischargeSummary column: keep it as a note instead of dropping it.
       let notes: any[] = Array.isArray(existing.dailyNotes) ? [...(existing.dailyNotes as any[])] : [];
@@ -2019,9 +2045,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
       const updated = await tx.admission.update({ where: { id }, data: update });
 
-      // Discharging an admission also closes the visit
+      // Discharging an admission also closes the visit and releases its bed.
       if (update.dischargeDate && !existing.dischargeDate) {
-        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged' } });
+        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged', bedId: null } });
+        await releaseBedForAttendance(tx, { id: existing.attendanceId, bedId: existing.attendance?.bedId });
       }
       return updated;
     });
