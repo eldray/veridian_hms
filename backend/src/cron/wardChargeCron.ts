@@ -52,7 +52,18 @@ export class WardChargeService {
     // ✅ FIXED: Include all necessary relations through Attendance
     const activeAdmissions = await prisma.admission.findMany({
       where: {
-        dischargeDate: null
+        // Charge only stays that were active on the requested billing date.
+        // This also makes historical range runs respect admission/discharge dates.
+        status: 'active',
+        cancelledAt: null,
+        admissionDate: { lte: endOfDay },
+        OR: [
+          { dischargeDate: null },
+          { dischargeDate: { gte: startOfDay } }
+        ],
+        attendance: {
+          status: 'admitted'
+        }
       },
       include: {
         attendance: {
