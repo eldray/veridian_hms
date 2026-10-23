@@ -140,6 +140,9 @@ export default function AdmissionDetails() {
   };
 
   const getStatusBadge = () => {
+    if (admission?.status === 'cancelled') {
+      return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200"><AlertCircle className="w-3 h-3" />CANCELLED</span>;
+    }
     const isDischarged = Boolean(admission?.dischargeDate) || attendance?.status === 'discharged';
     if (isDischarged) {
       return <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200"><CheckCircle className="w-3 h-3" />DISCHARGED</span>;
@@ -212,7 +215,7 @@ export default function AdmissionDetails() {
   }
 
   const lengthOfStay = getLengthOfStay();
-  const isActive = !admission?.dischargeDate && attendance?.status !== 'discharged';
+  const isActive = admission?.status !== 'cancelled' && !admission?.dischargeDate && attendance?.status !== 'discharged' && attendance?.status !== 'completed';
   const isDetention = admission?.admissionType === 'detention_observation';
   const isDaySurgery = attendance?.encounterCategory === 'daycase';
   const patientName = patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'Unknown Patient';
@@ -546,6 +549,45 @@ export default function AdmissionDetails() {
               </div>
             </div>
           </div>
+
+          {/* Inpatient care workspace: shortcuts to existing modules, without duplicate clinical records */}
+          {attendance && admission?.status !== 'cancelled' && (
+            <div className="rounded-xl border border-teal-200 dark:border-teal-900/60 bg-gradient-to-br from-teal-50/80 to-cyan-50/60 dark:from-teal-950/20 dark:to-cyan-950/10 overflow-hidden shadow-sm">
+              <div className="px-5 py-3 border-b border-teal-200/80 dark:border-teal-900/60 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-teal-700 dark:text-teal-300" />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)]">Inpatient Care Workspace</h2>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Clinical notes stay in Medical Entries; nursing care and observations stay in their existing modules.</p>
+                </div>
+                <span className="hidden sm:inline-flex items-center rounded-full border border-teal-200 dark:border-teal-900 px-2 py-1 text-[10px] font-semibold text-teal-800 dark:text-teal-200">{isActive ? 'IN CARE' : 'RECORD VIEW'}</span>
+              </div>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Presenting complaint</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.complaints || 'Not documented yet'}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Primary diagnosis</p>
+                  <p className="text-sm text-[var(--text-primary)]">{primaryDiagnosis?.name || primaryDiagnosis?.description || primaryDiagnosis?.code || 'Not recorded yet'}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Assessment and treatment plan</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.assessment || attendance?.treatmentPlan || 'Open Medical Entries to document the assessment and inpatient plan.'}</p>
+                </div>
+                {attendance?.medicalNotes && (
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Encounter notes / admission context</p>
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words">{attendance.medicalNotes}</p>
+                  </div>
+                )}
+              </div>
+              <div className="px-4 pb-4 flex flex-wrap gap-2">
+                <button onClick={() => navigate(`/dashboard/medical-entries/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-800 transition-colors"><Stethoscope className="w-3.5 h-3.5" />Clinical entries</button>
+                <button onClick={() => navigate(`/dashboard/nursing/patient/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors"><ClipboardList className="w-3.5 h-3.5" />Nursing care</button>
+                <button onClick={() => navigate(`/dashboard/vitals/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors"><Activity className="w-3.5 h-3.5" />Record observations</button>
+              </div>
+            </div>
+          )}
 
           {/* Clinical Summary */}
           {attendance && (
