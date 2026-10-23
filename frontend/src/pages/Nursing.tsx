@@ -155,24 +155,27 @@ export default function Nursing() {
     return null;
   }, [patients]);
 
-  // ── Load base data ──
+  // ── Load the nursing board without letting optional lookups block the page ──
   const loadData = useCallback(async () => {
     setRefreshing(true);
     try {
-      // The ward board only needs patients who are admitted right now (the visit already carries
-      // the patient's name), not every visit of the last 3 days, every admission ever, or all patients.
-      await Promise.all([
-        getAttendances({ status: 'admitted' }),
-        getAdmissions({ status: 'active' }),
-        getWards(),
-        getBeds(),
-      ]);
+      // The inpatient list is the essential first render. Wards, beds and admission
+      // metadata can hydrate in the background; one slow secondary endpoint must not
+      // hold the whole nursing station behind a full-screen spinner.
+      await getAttendances({ status: 'admitted' });
     } catch (err: any) {
-      toastError('Load failed', err?.message || 'Could not load nursing data');
+      toastError('Load failed', err?.message || 'Could not load the inpatient list');
     } finally {
-      setRefreshing(false);
       setIsLoading(false);
+      setRefreshing(false);
     }
+
+    // These datasets enrich the board but are not prerequisites for displaying it.
+    void Promise.allSettled([
+      getAdmissions({ status: 'active' }),
+      getWards(),
+      getBeds(),
+    ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

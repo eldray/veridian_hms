@@ -87,7 +87,7 @@ export default function MaternalWaitingList() {
     return (saved as ViewMode) || 'grid';
   });
 
-  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  const { worklistItems, fetchWorklist } = useWorklistStore();
 
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('maternal', { silent: true }));
 
@@ -228,7 +228,7 @@ export default function MaternalWaitingList() {
     }
   };
 
-  if (isLoading || worklistLoading) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
