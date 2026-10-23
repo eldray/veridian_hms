@@ -74,6 +74,9 @@ export class BillingService extends BaseService {
         const currentPrice = detail?.pricing?.[0];
         if (!currentPrice) throw new Error(`No active cash/NHIS pricing is configured for medicine: ${service.name} on ${serviceDate.toISOString().slice(0, 10)}`);
         const cashPrice = Number(currentPrice.cashPrice);
+        if (!Number.isFinite(cashPrice) || cashPrice <= 0) {
+          throw new Error(`No valid active cash price is configured for medicine: ${service.name} on ${serviceDate.toISOString().slice(0, 10)}`);
+        }
         const rule = detail?.StockItem?.payerRules?.[0];
         const configuredNHISTariff = resolveConfiguredNHISTariff(rule?.tariffPrice, currentPrice.nhisPrice);
         const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= serviceDate) && (!rule.effectiveTo || rule.effectiveTo >= serviceDate);
