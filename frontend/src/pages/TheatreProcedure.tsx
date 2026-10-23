@@ -336,16 +336,16 @@ export default function TheatreProcedure() {
 
   // When arriving from the theatre worklist, open the exact pending/in-progress
   // procedure that was selected there instead of requiring staff to find it again.
-  const hasAppliedInitialProcedureSelection = useRef(false);
+  const appliedInitialProcedureId = useRef<string | null>(null);
   useEffect(() => {
     const requestedProcedureId = location.state?.procedureId;
     if (
-      !hasAppliedInitialProcedureSelection.current &&
       typeof requestedProcedureId === 'string' &&
+      requestedProcedureId !== appliedInitialProcedureId.current &&
       procedures.some((procedure: any) => procedure.id === requestedProcedureId)
     ) {
       setSelectedProcedureId(requestedProcedureId);
-      hasAppliedInitialProcedureSelection.current = true;
+      appliedInitialProcedureId.current = requestedProcedureId;
     }
   }, [procedures, location.state?.procedureId]);
 
@@ -501,6 +501,17 @@ export default function TheatreProcedure() {
     }
     if (!clinicalRecord.consentConfirmed && clinicalRecord.consentStatus !== 'emergency_exception') {
       toastError('Consent documentation required', 'Record informed consent or document the emergency exception.');
+      return;
+    }
+    if (
+      clinicalRecord.consentStatus === 'emergency_exception' &&
+      !String(clinicalRecord.consentNotes || '').trim()
+    ) {
+      toastError('Emergency exception details required', 'Document the reason and circumstances for proceeding without informed consent.');
+      return;
+    }
+    if (String(clinicalRecord.specimens || '').trim() && clinicalRecord.specimenLabelled !== true) {
+      toastError('Specimen labelling required', 'Confirm that the specimen is correctly labelled before completing the procedure.');
       return;
     }
     if (!clinicalRecord.allergyStatusReviewed || !clinicalRecord.preOpAssessmentCompleted) {
