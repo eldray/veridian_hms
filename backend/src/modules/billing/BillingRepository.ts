@@ -134,11 +134,11 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Decimals
       const paymentAmount = toNumber(paymentData.amount);
       const newPaidAmount = toNumber(bill.paidAmount) + paymentAmount;
-      const newBalance = toNumber(bill.totalAmount) - newPaidAmount;
+      const newBalance = toNumber(bill.patientPayable) - newPaidAmount;
 
       let newStatus: BillStatus = bill.status;
       if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.totalAmount)) newStatus = 'partial';
+      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.patientPayable)) newStatus = 'partial';
 
       const updatedBill = await tx.bill.update({
         where: { id },
