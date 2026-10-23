@@ -400,11 +400,11 @@ export default function ProcessPayment() {
             <div className="flex flex-col gap-3 pt-5 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isSubmittingPayment}
                 className="flex items-center justify-center gap-2.5 px-7 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
-                {isLoading ? 'Processing...' : 'Process Payment'}
+                {isLoading || isSubmittingPayment ? 'Processing...' : 'Process Payment'}
               </button>
               <button
                 type="button"
