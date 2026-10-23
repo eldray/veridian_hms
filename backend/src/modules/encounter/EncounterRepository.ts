@@ -74,6 +74,29 @@ const normalizeBodyPart = (value?: unknown): BodyPart => {
   return bodyParts.find((part) => text.includes(part)) || 'other';
 };
 
+export const validateClinicalDocumentation = (data: Record<string, any>) => {
+    const outcomes = ['improved', 'stable', 'unchanged', 'deteriorated', 'deceased', 'unknown'];
+    const allergyStatuses = ['not_reviewed', 'no_known_allergies', 'allergies_present'];
+    if (data.clinicalOutcome != null && !outcomes.includes(String(data.clinicalOutcome))) {
+      throw new ValidationError('Invalid clinical condition outcome');
+    }
+    if (data.allergyReviewStatus != null && !allergyStatuses.includes(String(data.allergyReviewStatus))) {
+      throw new ValidationError('Invalid allergy review status');
+    }
+    for (const field of ['reviewOfSystems', 'physicalExamStructured']) {
+      const value = data[field];
+      if (value != null && (typeof value !== 'object' || Array.isArray(value))) {
+        throw new ValidationError(`${field} must be a structured object keyed by clinical system`);
+      }
+    }
+    for (const field of ['complaints', 'historyPresentingComplaint', 'physicalExamination', 'assessment', 'treatmentPlan', 'allergyReviewNotes']) {
+      const value = data[field];
+      if (value != null && typeof value !== 'string') throw new ValidationError(`${field} must be text`);
+      if (typeof value === 'string' && value.length > 20000) throw new ValidationError(`${field} exceeds the maximum supported length`);
+    }
+  
+};
+
 export class EncounterRepository extends BaseRepository<Attendance, CreateEncounterDTO, UpdateEncounterDTO> {
  private marService: MarService;
   constructor(prisma: PrismaClient) {
@@ -113,25 +136,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   // ============================================
   
   private validateClinicalDocumentation(data: Record<string, any>) {
-    const outcomes = ['improved', 'stable', 'unchanged', 'deteriorated', 'deceased', 'unknown'];
-    const allergyStatuses = ['not_reviewed', 'no_known_allergies', 'allergies_present'];
-    if (data.clinicalOutcome != null && !outcomes.includes(String(data.clinicalOutcome))) {
-      throw new ValidationError('Invalid clinical condition outcome');
-    }
-    if (data.allergyReviewStatus != null && !allergyStatuses.includes(String(data.allergyReviewStatus))) {
-      throw new ValidationError('Invalid allergy review status');
-    }
-    for (const field of ['reviewOfSystems', 'physicalExamStructured']) {
-      const value = data[field];
-      if (value != null && (typeof value !== 'object' || Array.isArray(value))) {
-        throw new ValidationError(`${field} must be a structured object keyed by clinical system`);
-      }
-    }
-    for (const field of ['complaints', 'historyPresentingComplaint', 'physicalExamination', 'assessment', 'treatmentPlan', 'allergyReviewNotes']) {
-      const value = data[field];
-      if (value != null && typeof value !== 'string') throw new ValidationError(`${field} must be text`);
-      if (typeof value === 'string' && value.length > 20000) throw new ValidationError(`${field} exceeds the maximum supported length`);
-    }
+    validateClinicalDocumentation(data);
   }
 
   async create(data: CreateEncounterDTO, userId: string) {
