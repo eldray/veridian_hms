@@ -857,6 +857,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           select: { authNumber: true, approvedServices: true },
         })
       : [];
+    const claimedQuantityByStockItem = new Map<string, number>();
     for (const row of medRows) {
       const catalog = await this.prisma.serviceCatalog.findFirst({
         where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
@@ -897,6 +898,19 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       if (!matchingDispensedMedicine) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
       }
+      // Claim edits must not increase the quantity beyond what was actually dispensed.
+      // Track totals across rows too, so duplicating a line cannot inflate the claim.
+      const matchingDispensedMedicines = dispensedMedicines.filter((med: any) =>
+        med.StockItem?.id === catalog.StockItem?.id ||
+        (!!row.code && (med.StockItem?.drugCode === row.code || med.ServiceCatalog?.code === row.code)),
+      );
+      const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
+      const rowQuantity = Number(row.quantity);
+      const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem.id) ?? 0;
+      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > dispensedQuantity) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${dispensedQuantity - alreadyClaimedQuantity} remaining).`);
+      }
+      claimedQuantityByStockItem.set(catalog.StockItem.id, alreadyClaimedQuantity + rowQuantity);
       if (rule.authorizationRequired === true) {
         const approval = authorisations.find((candidate: any) =>
           approvedServicesCoverPrescription(candidate.approvedServices, {
