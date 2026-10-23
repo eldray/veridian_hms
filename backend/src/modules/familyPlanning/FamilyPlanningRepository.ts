@@ -84,7 +84,11 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     // Determine first-time acceptance from this patient's dated FP history, not a client-supplied checkbox.
     // Same-day additional method records are continuing records, preventing duplicate "new acceptor" counts.
     const priorOrSameDayServices = await this.getModel().count({
-      where: { patientId: data.patientId, serviceDate: { lte: serviceDate } },
+      where: {
+        patientId: data.patientId,
+        serviceDate: { lte: serviceDate },
+        OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
+      },
     });
     const isNewAcceptor = priorOrSameDayServices === 0;
 
