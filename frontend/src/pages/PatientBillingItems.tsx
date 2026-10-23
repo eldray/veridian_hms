@@ -141,6 +141,7 @@ export default function PatientBillingItems() {
 
   // Guard so loadData only runs once per patientId
   const loadedForPatientRef = useRef<string | null>(null);
+  const autoOpenedBillRef = useRef<string | null>(null);
 
   // ===== Helpers =====
   const formatCurrency = useCallback(
@@ -310,6 +311,17 @@ export default function PatientBillingItems() {
     );
   }, [bills, actualPatientId, searchQuery]);
 
+  // When opened from the main Billing list, open the exact bill the user selected.
+  // The patient history remains visible, but its selected visit/bill details are loaded separately.
+  useEffect(() => {
+    const requestedBillId = new URLSearchParams(window.location.search).get('billId');
+    if (!dataLoaded || !requestedBillId || autoOpenedBillRef.current === requestedBillId) return;
+    if (!patientBills.some((bill) => bill.id === requestedBillId)) return;
+    autoOpenedBillRef.current = requestedBillId;
+    setExpandedBillId(requestedBillId);
+    void handleViewBillDetails(requestedBillId);
+  }, [dataLoaded, patientBills, handleViewBillDetails]);
+
   const totalPages = Math.ceil(patientBills.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedBills = useMemo(
@@ -341,31 +353,23 @@ export default function PatientBillingItems() {
   useEffect(() => {
     if (!currentBill) return;
 
-    setSelectedBill((prev) => {
-      // Skip if same bill and no meaningful change
-      if (
-        prev?.id === currentBill.id &&
-        (prev as any).updatedAt === (currentBill as any).updatedAt &&
-        (prev as any).paidAmount === (currentBill as any).paidAmount &&
-        (prev as any).status === (currentBill as any).status
-      ) {
-        return prev;
-      }
-
-      return {
+    setSelectedBill(() => ({
         ...currentBill,
         BillLineItem:
           currentBill.BillLineItem?.map((item: any) => ({
             ...item,
+            // Prefer actual per-line payment allocation from the API. Only fall back
+            // to bill status for legacy records that do not expose line-level amounts.
             paidAmount:
-              currentBill.status === 'paid' ? item.patientPayableAmount : 0,
+              item.paidAmount ??
+              (currentBill.status === 'paid' ? item.patientPayableAmount : 0),
             balance:
-              currentBill.status === 'paid' ? 0 : item.patientPayableAmount,
-            isFullyPaid: currentBill.status === 'paid',
-            serviceCategory: item.serviceType || 'miscellaneous',
+              item.balance ??
+              (currentBill.status === 'paid' ? 0 : item.patientPayableAmount),
+            isFullyPaid: item.isFullyPaid ?? currentBill.status === 'paid',
+            serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
           })) || [],
-      };
-    });
+      }));
 
     setExpandedBillId(currentBill.id);
     setSelectedItems(new Set());
@@ -1042,6 +1046,12 @@ export default function PatientBillingItems() {
                               <Calendar className="w-3 h-3" />
                               {formatDate(bill.billDate || bill.createdAt)}
                             </span>
+                            {bill.Attendance?.attendanceNumber && (
+                              <span className="flex items-center gap-1" title="Visit / attendance">
+                                <ClipboardList className="w-3 h-3" />
+                                Visit {bill.Attendance.attendanceNumber}
+                              </span>
+                            )}
                             <span className="flex items-center gap-1">
                               <CreditCard className="w-3 h-3" />
                               {getPaymentModeLabel(bill.paymentMode)}
@@ -1093,7 +1103,7 @@ export default function PatientBillingItems() {
                         <div className="flex justify-center py-12">
                           <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
                         </div>
-                      ) : selectedBill ? (
+                      ) : selectedBill?.id === bill.id ? (
                         <div className="p-4">
                           {/* Add Service Button */}
                           {canMakePayment &&
