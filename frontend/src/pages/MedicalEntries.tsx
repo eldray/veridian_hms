@@ -2222,7 +2222,6 @@ export default function MedicalEntries() {
                 )}
               </div>
             </div>
-          </div>
         </>
       ) : selectedPatientId && !selectedAttendanceId ? (
         <div className="flex flex-col items-center justify-center gap-3 py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
