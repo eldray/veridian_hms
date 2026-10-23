@@ -16,7 +16,7 @@ import {
   Clock, MapPin, Phone, Mail, Clipboard, Heart, Thermometer, 
   Droplet, Ruler, Weight, Brain, Bone, Eye, Microscope, Scan,
   Syringe, Hospital, CheckCircle, XCircle, AlertTriangle, TrendingUp,
-  Receipt, Printer, Download, Building2, Bed, Moon, Sun, History  
+  Receipt, Printer, Download, Building2, Bed, Moon, Sun, History, RefreshCw  
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
 
@@ -140,7 +140,7 @@ export default function AttendanceDetails() {
   } = usePatientStore();
   
   const { hasRole } = useAuthStore();
-  const { bills, getBills, isLoading: billsLoading } = useBillingStore();
+  const { bills, getBills, generateBillFromAttendance, isLoading: billsLoading } = useBillingStore();
 
   // ── State ─────────────────────────────────────
   const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'procedures' | 'billing' | 'vitals' | 'clinical'>('overview');
@@ -149,6 +149,7 @@ export default function AttendanceDetails() {
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [vitalsLoading, setVitalsLoading] = useState(false);
+  const [syncingBilling, setSyncingBilling] = useState(false);
   
   const isLoading = attendanceLoading || patientsLoading || billsLoading;
 
@@ -331,6 +332,22 @@ export default function AttendanceDetails() {
   const handleGoToBilling = () => {
     if (patient) {
       navigate(`/dashboard/billing/patient/${patient.id}`);
+    }
+  };
+
+  // Generate the first bill or synchronize newly completed billable items into the
+  // existing attendance bill. The backend source keys prevent duplicate line items.
+  const handleSyncAttendanceBilling = async () => {
+    if (!id || syncingBilling) return;
+    setSyncingBilling(true);
+    try {
+      await generateBillFromAttendance(id);
+      await getBills({ attendanceId: id });
+      success('Billing synchronized', 'The attendance bill has been refreshed from its billable clinical and ward records.');
+    } catch (err: any) {
+      toastError('Billing synchronization failed', err?.response?.data?.message || err?.message || 'Could not synchronize this attendance bill.');
+    } finally {
+      setSyncingBilling(false);
     }
   };
 
@@ -1291,7 +1308,22 @@ export default function AttendanceDetails() {
 
           {/* BILLING TAB */}
           {activeTab === 'billing' && (
-            <div>
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="font-semibold text-[var(--text-primary)]">Attendance billing</h2>
+                  <p className="text-xs text-[var(--text-secondary)]">Charges are limited to this visit. Synchronize after new billable services or ward charges are recorded.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleSyncAttendanceBilling}
+                  disabled={syncingBilling || !currentAttendance}
+                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-bg)] px-3 py-2 text-sm font-medium text-[var(--icon-cyan-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <RefreshCw className={syncingBilling ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                  {syncingBilling ? 'Synchronizing…' : attendanceBills.length > 0 ? 'Sync bill' : 'Generate bill'}
+                </button>
+              </div>
               {attendanceBills.length > 0 ? (
                 <div className="space-y-4">
                   {attendanceBills.map((bill: any) => (
@@ -1338,15 +1370,10 @@ export default function AttendanceDetails() {
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12">
-                  <Receipt className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                  <p className="text-[var(--text-secondary)]">No billing records for this attendance.</p>
-                  <button
-                    onClick={handleGoToBilling}
-                    className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
-                  >
-                    Go to Billing
-                  </button>
+                <div className="rounded-xl border border-dashed border-[var(--border-color)] py-10 text-center">
+                  <Receipt className="mx-auto mb-3 h-12 w-12 text-[var(--text-tertiary)]" />
+                  <p className="text-[var(--text-secondary)]">No bill has been generated for this attendance yet.</p>
+                  <p className="mt-1 text-xs text-[var(--text-tertiary)]">Generate it when billable services are ready.</p>
                 </div>
               )}
             </div>

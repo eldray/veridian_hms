@@ -250,10 +250,14 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       const newBill = await apiCreateBill(data);
       const parsedBill = parseBillAmounts(newBill);
       const bills = get().bills;
-      set({ 
-        bills: [parsedBill, ...bills],
+      // Sync may return the same bill ID; upsert instead of duplicating it in the UI.
+      const updatedBills = bills.some((bill) => bill.id === parsedBill.id)
+        ? bills.map((bill) => bill.id === parsedBill.id ? parsedBill : bill)
+        : [parsedBill, ...bills];
+      set({
+        bills: updatedBills,
         currentBill: parsedBill,
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: unknown) {
       console.error('❌ Failed to create bill:', error);
