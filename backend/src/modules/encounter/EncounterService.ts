@@ -723,7 +723,7 @@ export class EncounterService extends BaseService {
   }
   async getAdmissionsByPatientId(patientId: string, filters: any) { return this.repository.getAdmissionsByPatientId(patientId, filters); }
   async updateAdmission(id: string, data: any, userId?: string) { return this.repository.updateAdmission(id, data, userId); }
-  async deleteAdmission(id: string) { return this.repository.deleteAdmission(id); }
+  async deleteAdmission(id: string, userId: string, reason: string) { return this.repository.deleteAdmission(id, userId, reason); }
   async addDailyNotes(id: string, data: AddDailyNoteDTO, userId: string) { return this.repository.addDailyNotes(id, data, userId); }
   async getBedOccupancy() { return this.repository.getBedOccupancy(); }
    async getDaycasePatients(filters: any) {
