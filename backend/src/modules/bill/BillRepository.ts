@@ -179,6 +179,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
+      if (bill?.attendanceId) {
+        await tx.attendance.update({
+          where: { id: bill.attendanceId },
+          data: { totalBill: newTotal, outstandingBalance: newBalance }
+        });
+      }
+
       return { lineItem: updatedLineItem, billId: lineItem.billId };
     });
   }
@@ -228,10 +235,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals
-      const newWaiverAmount = toNumber(bill.waiverAmount) + toNumber(waiver.amountApproved);
-      const newPatientPayable = toNumber(bill.patientPayable) - toNumber(waiver.amountApproved);
-      const newBalance = newPatientPayable - toNumber(bill.paidAmount);
+      // Approved waivers may reduce only the remaining patient liability.
+      const waiverAmount = toNumber(waiver.amountApproved);
+      const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
+      if (waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
+        throw new ValidationError('Approved waiver exceeds the remaining patient liability');
+      }
+      const newWaiverAmount = toNumber(bill.waiverAmount) + waiverAmount;
+      const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - waiverAmount);
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updatedBill = await tx.bill.update({
         where: { id: billId },
