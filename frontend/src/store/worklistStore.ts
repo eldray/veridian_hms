@@ -13,6 +13,9 @@ import {
 } from '../api';
 import { WorklistState, WorklistItem, DepartmentType } from '../types/worklist';
 
+// Prevent a slow response from a previous worklist/page from replacing the active queue.
+const worklistRequestVersions: Partial<Record<DepartmentType, number>> = {};
+
 const initialState: WorklistState = {
   currentDepartment: null,
   worklistItems: [],
@@ -35,8 +38,18 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
   },
 
   fetchWorklist: async (department: DepartmentType, options: { silent?: boolean } = {}) => {
-    // silent = background refresh: keep the list on screen, no spinner, no error banner
-    if (!options.silent) set({ isLoading: true, error: null });
+    // Background refreshes should only update the department currently displayed.
+    // A non-silent fetch represents navigation to this department.
+    if (options.silent && get().currentDepartment !== department) return;
+    if (!options.silent) {
+      set({ currentDepartment: department, isLoading: true, error: null });
+    }
+
+    const requestVersion = (worklistRequestVersions[department] || 0) + 1;
+    worklistRequestVersions[department] = requestVersion;
+    const isCurrentRequest = () =>
+      worklistRequestVersions[department] === requestVersion &&
+      get().currentDepartment === department;
     try {
       let apiCall;
       
@@ -51,11 +64,14 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
         case 'maternal': apiCall = getMaternalWorklist(); break;
         default:
           await getWorklistSummary();
-          set({ worklistItems: [], stats: { total: 0, urgent: 0, critical: 0 }, ...(options.silent ? {} : { isLoading: false }) });
+          if (isCurrentRequest()) {
+            set({ worklistItems: [], stats: { total: 0, urgent: 0, critical: 0 }, isLoading: false });
+          }
           return;
       }
 
       const response = await apiCall;
+      if (!isCurrentRequest()) return;
 
       // ✅ 2. BULLETPROOF UNWRAPPING LOGIC
       let items: any[] = [];
@@ -91,14 +107,22 @@ export const useWorklistStore = create<WorklistState>((set, get) => ({
         critical: items.filter((i: any) => i.priority === 'critical' || i.priority === 'stat').length
       };
 
-      set(options.silent ? { worklistItems: items, stats } : { worklistItems: items, stats, isLoading: false });
+      // Even a silent refresh can finish the first load; it must not leave the
+      // page's full-screen loading state stuck. Silent refreshes never turn it on.
+      set({ worklistItems: items, stats, isLoading: false, error: null });
 
     } catch (error: any) {
-      if (options.silent) return;
+      if (!isCurrentRequest()) return;
+      if (options.silent) {
+        // Keep the existing list, but release an initial loading state if this was
+        // the latest request and the initial load failed.
+        set({ isLoading: false });
+        return;
+      }
       console.error('Worklist fetch error:', error);
-      set({ 
-        error: error.response?.data?.message || error.message || 'Failed to fetch worklist', 
-        isLoading: false 
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to fetch worklist',
+        isLoading: false
       });
     }
   },
