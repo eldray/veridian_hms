@@ -13,7 +13,7 @@ interface NewbornData {
   apgarScore1min?: number;
   apgarScore5min?: number;
   resuscitation: boolean;
-  outcome: '' | 'alive' | 'dead_within_24hrs' | 'dead_1_7days' | 'dead_8_28days' | 'referred_out';
+  outcome: '' | 'alive' | 'stillbirth_fresh' | 'stillbirth_macerated' | 'dead_within_24hrs' | 'dead_1_7days' | 'dead_8_28days' | 'referred_out';
   anomalies: string[];
   referredTo?: string;
   breastfeedingWithin30Min: boolean;
@@ -425,8 +425,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                         <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1">Outcome</label>
                         <select value={baby.outcome} onChange={e => updateNewborn(idx, 'outcome', e.target.value)} required className={fieldCls}>
                           <option value="" disabled>Select outcome</option>
-                          <option value="alive">Alive</option>
-                          <option value="dead_within_24hrs">Dead within 24hrs</option>
+                          <option value="alive">Live birth / alive</option>
+                          <option value="stillbirth_fresh">Stillbirth — fresh</option>
+                          <option value="stillbirth_macerated">Stillbirth — macerated</option>
+                          <option value="dead_within_24hrs">Neonatal death within 24hrs</option>
                           <option value="dead_1_7days">Dead 1-7 days</option>
                           <option value="dead_8_28days">Dead 8-28 days</option>
                           <option value="referred_out">Referred Out</option>
