@@ -1009,6 +1009,8 @@ model BillLineItem {
   id                     String      @id @default(cuid())
   billId                 String
   serviceCatalogId       String?
+  // Stable billing-only source identity; independent of insurance claim records.
+  sourceKey              String?
   description            String
   serviceType            ServiceType
   quantity               Int         @default(1)
@@ -1036,6 +1038,7 @@ model BillLineItem {
   @@index([billId])
   @@index([serviceCatalogId])
   @@index([serviceType])
+  @@unique([billId, sourceKey])
   @@map("bill_line_items")
 }
 
