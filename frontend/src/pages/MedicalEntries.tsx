@@ -918,35 +918,23 @@ export default function MedicalEntries() {
 
     setIsProcessing(true);
     try {
-      // Update the bed to occupied
-      await updateBed(bedId, {
-        isOccupied: true,
-        currentPatientId: selectedPatientId
-      });
-
-      // Create admission with detention_observation type
+      // Reserve the bed, update attendance and create the admission in one backend transaction.
       await createAdmission({
         attendanceId: selectedAttendanceId,
+        bedId,
+        wardId,
         admissionType: 'detention_observation',
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
-      });
-
-      // Update attendance
-      await updateAttendance(selectedAttendanceId, {
-        encounterCategory: 'ipd',
-        status: 'admitted',
-        admissionType: 'detention_observation',
-        bedId: bedId,
-        wardId: wardId,
-        medicalNotes: `${currentAttendance.medicalNotes || ''}\n\n[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
-        updatedById: user?.id
+        admissionNotes: `[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
       });
 
       success('Detained', `Patient placed under observation for ${detentionHours} hours in Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
       await getAttendances();
       await getDetentionPatients();
+      await getAdmissions();
+      await getFormalIPDPatients();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setDetentionHours(24);
@@ -969,33 +957,21 @@ export default function MedicalEntries() {
 
     setIsProcessing(true);
     try {
-      // Update the bed to occupied
-      await updateBed(bedId, {
-        isOccupied: true,
-        currentPatientId: selectedPatientId
-      });
-
-      // Create formal admission
+      // The backend reserves the bed, updates attendance and creates the admission atomically.
       await createAdmission({
         attendanceId: selectedAttendanceId,
+        bedId,
+        wardId,
         admissionType: 'emergency',
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
       });
 
-      // Update attendance
-      await updateAttendance(selectedAttendanceId, {
-        encounterCategory: 'ipd',
-        status: 'admitted',
-        admissionType: 'emergency',
-        bedId: bedId,
-        wardId: wardId,
-        updatedById: user?.id
-      });
-
       success('Admitted', `Patient admitted to Bed ${bedNumber} in ${wardName} as formal IPD`);
       await getAttendance(selectedAttendanceId);
+      await getAttendances();
       await getAdmissions();
+      await getDetentionPatients();
       await getFormalIPDPatients();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
