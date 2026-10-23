@@ -826,6 +826,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   });
 
   let totalClaimAmount: number | undefined;
+  const authorizationNumbers = new Set<string>();
   if (claim.InsuranceProvider?.type === 'nhis') {
     const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
@@ -857,7 +858,6 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           select: { authNumber: true, approvedServices: true },
         })
       : [];
-    const authorizationNumbers = new Set<string>();
     const claimedQuantityByStockItem = new Map<string, number>();
     for (const row of medRows) {
       const catalog = await this.prisma.serviceCatalog.findFirst({
