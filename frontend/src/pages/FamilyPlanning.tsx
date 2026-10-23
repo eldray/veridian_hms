@@ -215,7 +215,7 @@ const FamilyPlanningServiceModal: React.FC<{
     try {
       const data: any = {
         patientId,
-        attendanceId,
+        ...(attendanceId ? { attendanceId } : {}),
         serviceDate: new Date(formData.serviceDate).toISOString(),
         method: formData.method,
         methodCategory: formData.methodCategory,
