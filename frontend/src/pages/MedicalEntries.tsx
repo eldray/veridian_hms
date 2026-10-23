@@ -279,10 +279,16 @@ const PatientStatusBadge: React.FC<{ attendance: any; admissionType?: string }> 
 const BedWardSelectionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (bedId: string, wardId: string, wardName: string, bedNumber: string) => Promise<void>;
+  onConfirm: (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes: string) => Promise<void>;
   admissionType: 'day_surgery' | 'detention' | 'ipd';
   isLoading: boolean;
-}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading }) => {
+  admissionNotes: string;
+  onAdmissionNotesChange: (value: string) => void;
+  selectedAdmissionClass: 'emergency' | 'elective' | 'transfer';
+  onAdmissionClassChange: (value: 'emergency' | 'elective' | 'transfer') => void;
+  selectedAdmissionSource: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  onAdmissionSourceChange: (value: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency') => void;
+}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading, admissionNotes, onAdmissionNotesChange, selectedAdmissionClass, onAdmissionClassChange, selectedAdmissionSource, onAdmissionSourceChange }) => {
   const { wards, beds, getWards, getBeds, getAvailableBeds, availableBeds, isLoading: wardsLoading } = useWardStore();
   const [selectedWardId, setSelectedWardId] = useState('');
   const [selectedBedId, setSelectedBedId] = useState('');
@@ -324,7 +330,7 @@ const BedWardSelectionModal: React.FC<{
     if (!selectedWardId || !selectedBedId) {
       return;
     }
-    onConfirm(selectedBedId, selectedWardId, selectedWardName, selectedBedNumber);
+    onConfirm(selectedBedId, selectedWardId, selectedWardName, selectedBedNumber, admissionNotes);
   };
 
   const getTitle = () => {
@@ -372,6 +378,46 @@ const BedWardSelectionModal: React.FC<{
               <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{getSubtitle()}</p>
             </div>
           </div>
+
+          {admissionType === 'ipd' && (
+            <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="admission-class" className="block text-xs font-semibold text-[var(--text-secondary)]">Admission type</label>
+                <select id="admission-class" value={selectedAdmissionClass} onChange={event => onAdmissionClassChange(event.target.value as 'emergency' | 'elective' | 'transfer')} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40">
+                  <option value="emergency">Emergency</option>
+                  <option value="elective">Elective</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="admission-source" className="block text-xs font-semibold text-[var(--text-secondary)]">Admission source</label>
+                <select id="admission-source" value={selectedAdmissionSource} onChange={event => onAdmissionSourceChange(event.target.value as 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency')} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40">
+                  <option value="opd">OPD</option>
+                  <option value="emergency">Emergency unit</option>
+                  <option value="referral">Referral</option>
+                  <option value="another_facility">Another facility</option>
+                  <option value="home">Home / direct presentation</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="admission-notes" className="block text-xs font-semibold text-[var(--text-secondary)]">
+                Reason for admission / initial admission note <span className="text-[var(--text-tertiary)] font-normal">(recommended)</span>
+              </label>
+              <textarea
+                id="admission-notes"
+                value={admissionNotes}
+                onChange={event => onAdmissionNotesChange(event.target.value)}
+                rows={3}
+                maxLength={4000}
+                placeholder="Document why inpatient admission is required, key clinical concerns, and the initial plan. Detailed progress notes remain in Medical Entries."
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40 resize-y"
+              />
+              <p className="text-[10px] text-[var(--text-tertiary)]">This is saved with the encounter's medical notes. Keep ongoing progress notes in Medical Entries to avoid duplication.</p>
+            </div>
+            </>
+          )}
 
           {wardsLoading ? (
             <div className="flex justify-center py-8">
@@ -584,6 +630,9 @@ export default function MedicalEntries() {
   const [detentionHours, setDetentionHours] = useState(24);
   const [detentionReason, setDetentionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [admissionNotes, setAdmissionNotes] = useState('');
+  const [selectedAdmissionClass, setSelectedAdmissionClass] = useState<'emergency' | 'elective' | 'transfer'>('emergency');
+  const [selectedAdmissionSource, setSelectedAdmissionSource] = useState<'home' | 'referral' | 'another_facility' | 'opd' | 'emergency'>('opd');
 
   const [presentedComplaints, setPresentedComplaints] = useState('');
   const [hpc, setHpc] = useState('');
@@ -734,6 +783,10 @@ export default function MedicalEntries() {
     || null;
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
   const isClinicalFinalized = Boolean((currentAttendance as any)?.finalizedAt);
+  const linkedAdmission = (currentAttendance as any)?.Admission || (currentAttendance as any)?.admission || null;
+  const isActiveInpatient = currentAttendance?.encounterCategory === 'ipd'
+    && currentAttendance?.status === 'admitted'
+    && linkedAdmission?.status !== 'cancelled';
 
   const diagnosesList = currentAttendance?.AttendanceDiagnosis || [];
   const labTestsList = currentAttendance?.LabTest || [];
@@ -926,6 +979,7 @@ export default function MedicalEntries() {
         admissionType: 'detention_observation',
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
+        admissionNotes: admissionNotes.trim() || undefined,
         admissionNotes: `[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
       });
 
@@ -952,7 +1006,7 @@ export default function MedicalEntries() {
     setShowBedWardModal(true);
   };
 
-  const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+  const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
 
     setIsProcessing(true);
@@ -962,8 +1016,8 @@ export default function MedicalEntries() {
         attendanceId: selectedAttendanceId,
         bedId,
         wardId,
-        admissionType: 'emergency',
-        admissionSource: 'opd',
+        admissionType: selectedAdmissionClass,
+        admissionSource: selectedAdmissionSource,
         admissionDate: new Date().toISOString(),
       });
 
@@ -975,6 +1029,9 @@ export default function MedicalEntries() {
       await getFormalIPDPatients();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
+      setAdmissionNotes('');
+      setSelectedAdmissionClass('emergency');
+      setSelectedAdmissionSource('opd');
     } catch (err: any) {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
@@ -983,7 +1040,7 @@ export default function MedicalEntries() {
   };
 
   // Handle bed/ward confirmation
-  const handleBedWardConfirm = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+  const handleBedWardConfirm = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes = '') => {
     switch (pendingAdmissionType) {
       case 'day_surgery':
         await executeDaySurgery(bedId, wardId, wardName, bedNumber);
@@ -992,7 +1049,7 @@ export default function MedicalEntries() {
         await executeDetention(bedId, wardId, wardName, bedNumber);
         break;
       case 'ipd':
-        await executeAdmission(bedId, wardId, wardName, bedNumber);
+        await executeAdmission(bedId, wardId, wardName, bedNumber, admissionNotes);
         break;
       default:
         break;
@@ -1246,10 +1303,19 @@ export default function MedicalEntries() {
         onClose={() => {
           setShowBedWardModal(false);
           setPendingAdmissionType(null);
+          setAdmissionNotes('');
+          setSelectedAdmissionClass('emergency');
+          setSelectedAdmissionSource('opd');
         }}
         onConfirm={handleBedWardConfirm}
         admissionType={pendingAdmissionType || 'ipd'}
         isLoading={isProcessing}
+        admissionNotes={admissionNotes}
+        onAdmissionNotesChange={setAdmissionNotes}
+        selectedAdmissionClass={selectedAdmissionClass}
+        onAdmissionClassChange={setSelectedAdmissionClass}
+        selectedAdmissionSource={selectedAdmissionSource}
+        onAdmissionSourceChange={setSelectedAdmissionSource}
       />
 
       {/* Detention Modal */}
@@ -1486,6 +1552,54 @@ export default function MedicalEntries() {
               </div>
             )}
           </div>
+
+          {/* ── INPATIENT CONTEXT: keep IPD work linked to this admission ── */}
+          {isActiveInpatient && (
+            <section className="rounded-xl border border-teal-200 dark:border-teal-900/70 bg-gradient-to-r from-teal-50/90 to-cyan-50/70 dark:from-teal-950/25 dark:to-cyan-950/15 overflow-hidden"
+              aria-label="Active inpatient admission">
+              <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-start gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-teal-700 text-white flex items-center justify-center flex-shrink-0">
+                    <Hospital className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-bold text-[var(--text-primary)]">Active Inpatient Admission</h3>
+                      <span className="rounded-full bg-teal-100 dark:bg-teal-900/50 px-2 py-0.5 text-[10px] font-bold text-teal-800 dark:text-teal-200">IPD</span>
+                      {linkedAdmission?.admissionNumber && <span className="text-[10px] font-mono text-[var(--text-secondary)]">#{linkedAdmission.admissionNumber}</span>}
+                    </div>
+                    <p className="mt-1 text-xs text-[var(--text-secondary)]">
+                      {currentAttendance?.Ward?.wardName || currentAttendance?.ward?.wardName || 'Ward not assigned'}
+                      {' · '}
+                      {currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber
+                        ? `Bed ${currentAttendance?.Bed?.bedNumber || currentAttendance?.bed?.bedNumber}`
+                        : 'Bed not assigned'}
+                      {linkedAdmission?.admissionDate ? ` · Admitted ${new Date(linkedAdmission.admissionDate).toLocaleDateString()}` : ''}
+                    </p>
+                    <p className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                      Continue documenting progress, diagnoses, medications, investigations and treatment here. Use Admission Details for the stay overview and nursing/bed coordination.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 sm:justify-end">
+                  {linkedAdmission?.id && (
+                    <button type="button" onClick={() => navigate(`/dashboard/admissions/${linkedAdmission.id}`)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-800 transition-colors">
+                      <Bed className="w-3.5 h-3.5" /> Admission Details
+                    </button>
+                  )}
+                  <button type="button" onClick={() => navigate(`/dashboard/nursing/patient/${selectedAttendanceId}`)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors">
+                    <ClipboardList className="w-3.5 h-3.5" /> Nursing
+                  </button>
+                  <button type="button" onClick={() => navigate(`/dashboard/vitals/${selectedAttendanceId}`)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors">
+                    <Activity className="w-3.5 h-3.5" /> Observations
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
 
           {/* ── VITALS STRIP ───────────────────────────────────────────── */}
           {latestVitals && (
