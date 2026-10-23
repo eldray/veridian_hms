@@ -1066,7 +1066,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           approvedServicesCoverPrescription(request.approvedServices, {
             stockItemId: stockItem.id,
             serviceCatalogId: data.serviceCatalogId,
-          }),
+          }, quantity),
         );
 
         if (!hasMatchingApproval) {
