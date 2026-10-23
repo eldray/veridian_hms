@@ -369,12 +369,16 @@ export default function PatientBillingItems() {
         BillLineItem:
           currentBill.BillLineItem?.map((item: any) => ({
             ...item,
+            // Prefer actual per-line payment allocation from the API. Only fall back
+            // to bill status for legacy records that do not expose line-level amounts.
             paidAmount:
-              currentBill.status === 'paid' ? item.patientPayableAmount : 0,
+              item.paidAmount ??
+              (currentBill.status === 'paid' ? item.patientPayableAmount : 0),
             balance:
-              currentBill.status === 'paid' ? 0 : item.patientPayableAmount,
-            isFullyPaid: currentBill.status === 'paid',
-            serviceCategory: item.serviceType || 'miscellaneous',
+              item.balance ??
+              (currentBill.status === 'paid' ? 0 : item.patientPayableAmount),
+            isFullyPaid: item.isFullyPaid ?? currentBill.status === 'paid',
+            serviceCategory: item.serviceCategory || item.serviceType || 'miscellaneous',
           })) || [],
       };
     });
