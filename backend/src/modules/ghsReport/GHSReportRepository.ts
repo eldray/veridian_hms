@@ -122,6 +122,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
           serviceDate: { gte: startDate, lte: endDate },
           OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
         },
+        orderBy: { serviceDate: 'asc' },
         include: { patient: { select: { id: true, dateOfBirth: true, gender: true, maritalStatus: true } } },
       }),
       p.stockItem.findMany({ where: { isActive: true }, select: { id: true, name: true, supplier: true, currentStock: true } }),
