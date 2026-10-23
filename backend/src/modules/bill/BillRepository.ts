@@ -488,6 +488,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const pendingItems = lineItemsData.filter((item) => !existingSourceKeys.has(item.sourceKey));
 
       let bill: any;
+      if (!existingBill && lineItemsData.length === 0) {
+        // Do not persist an empty, zero-value bill when an attendance has no
+        // completed billable clinical items or unbilled ward charges.
+        throw new Error('No billable items found for this encounter');
+      }
       if (!existingBill) {
         const totalAmount = lineItemsData.reduce((sum, item) => sum + item.lineTotal, 0);
         const insuranceCovered = lineItemsData.reduce((sum, item) => sum + item.insuranceCoveredAmount, 0);
