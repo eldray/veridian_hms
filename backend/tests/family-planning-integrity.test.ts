@@ -6,7 +6,7 @@ function makeRepository(attendance: any = null) {
   const prisma: any = {
     patient: { findUnique: vi.fn().mockResolvedValue({ id: 'patient-1' }) },
     attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
-    familyPlanningService: { create, count: vi.fn().mockResolvedValue(0) },
+    familyPlanningService: { create, count: vi.fn().mockResolvedValue(0), findUnique: vi.fn().mockResolvedValue({ method: 'injectable_dmpa', methodCategory: 'modern_short_acting' }), update: vi.fn().mockResolvedValue({ id: 'fp-1' }) },
   };
   return { repository: new FamilyPlanningRepository(prisma), prisma, create };
 }
@@ -43,6 +43,14 @@ describe('family-planning encounter integrity', () => {
     const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
     await expect(repository.createFPService({ ...validInput, isPostpartum: true, isPostAbortion: true })).rejects.toThrow(/both postpartum and post-abortion/i);
     expect(create).not.toHaveBeenCalled();
+  });
+
+
+  it('rejects updates that change a method without a matching category', async () => {
+    const { repository, prisma } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await expect(repository.update('fp-1', { method: 'implant_jadelle' as any }))
+      .rejects.toThrow(/does not belong/i);
+    expect(prisma.familyPlanningService.update).not.toHaveBeenCalled();
   });
 
   it('allows a valid service linked to the same active patient attendance', async () => {
