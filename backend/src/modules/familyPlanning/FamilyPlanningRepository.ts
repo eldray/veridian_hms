@@ -391,7 +391,9 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     };
 
     const [totalServices, methodMix, categoryMix, newAcceptors, postpartumFP, postAbortionFP,
-      linkedPostpartumFP, unlinkedPostpartumFP, linkedPostAbortionFP, unlinkedPostAbortionFP] = await Promise.all([
+      linkedPostpartumFP, unlinkedPostpartumFP, linkedPostAbortionFP, unlinkedPostAbortionFP,
+      postnatalFPCounselled, postnatalMethodAccepted, postnatalAcceptedWithoutLinkedService,
+      abortionFPCounselled, abortionFPAccepted, abortionAcceptedWithoutLinkedService] = await Promise.all([
       this.getModel().count({ where }),
       this.getModel().groupBy({ by: ['method'], where, _count: true }),
       this.getModel().groupBy({ by: ['methodCategory'], where, _count: true }),
@@ -407,6 +409,32 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       }] } }),
       this.getModel().count({ where: { AND: [where, { isPostAbortion: true, postAbortionRecordId: { not: null } }] } }),
       this.getModel().count({ where: { AND: [where, { isPostAbortion: true, postAbortionRecordId: null }] } }),
+      this.prisma.postnatalRecord.count({
+        where: { examinationDate: { gte: startDate, lte: endDate }, familyPlanningDiscussed: true },
+      }),
+      this.prisma.postnatalRecord.count({
+        where: { examinationDate: { gte: startDate, lte: endDate }, familyPlanningMethodAccepted: { not: null } },
+      }),
+      this.prisma.postnatalRecord.count({
+        where: {
+          examinationDate: { gte: startDate, lte: endDate },
+          familyPlanningMethodAccepted: { not: null },
+          familyPlanningServices: { none: {} },
+        },
+      }),
+      this.prisma.abortionRecord.count({
+        where: { abortionDate: { gte: startDate, lte: endDate }, postAbortionFPCounselled: true },
+      }),
+      this.prisma.abortionRecord.count({
+        where: { abortionDate: { gte: startDate, lte: endDate }, postAbortionFPAccepted: true },
+      }),
+      this.prisma.abortionRecord.count({
+        where: {
+          abortionDate: { gte: startDate, lte: endDate },
+          postAbortionFPAccepted: true,
+          familyPlanningServices: { none: {} },
+        },
+      }),
     ]);
 
     return {
@@ -414,6 +442,20 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       summary: {
         totalServices, newAcceptors, postpartumFP, postAbortionFP,
         linkedPostpartumFP, unlinkedPostpartumFP, linkedPostAbortionFP, unlinkedPostAbortionFP,
+      },
+      maternalEventReconciliation: {
+        eventDatePeriod: { startDate, endDate },
+        postnatal: {
+          familyPlanningDiscussed: postnatalFPCounselled,
+          methodAccepted: postnatalMethodAccepted,
+          acceptedWithoutLinkedFPService: postnatalAcceptedWithoutLinkedService,
+        },
+        abortion: {
+          familyPlanningCounselled: abortionFPCounselled,
+          methodAccepted: abortionFPAccepted,
+          acceptedWithoutLinkedFPService: abortionAcceptedWithoutLinkedService,
+        },
+        note: 'Accepted-without-linked-service counts are reconciliation prompts, not proof that care was missed; the method may have been provided elsewhere or recorded in an unlinked legacy row.',
       },
       methodMix: methodMix.reduce((acc: Record<string, number>, m: any) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
       categoryMix: categoryMix.reduce((acc: Record<string, number>, c: any) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
