@@ -70,6 +70,8 @@ export default function ServiceCatalogTab() {
   const [nhisPolicyLoading, setNhisPolicyLoading] = useState(false);
   const [nhisPolicySaving, setNhisPolicySaving] = useState(false);
   const [nhisPolicyConfigured, setNhisPolicyConfigured] = useState(false);
+  const [nhisCoverageVerified, setNhisCoverageVerified] = useState(false);
+  const [nhisAuthorizationVerified, setNhisAuthorizationVerified] = useState(false);
   const [nhisPayerName, setNhisPayerName] = useState('NHIS');
   const [nhisPolicy, setNhisPolicy] = useState({
     isCovered: true,
@@ -237,6 +239,8 @@ export default function ServiceCatalogTab() {
       const rule = result?.rule;
       setNhisPayerName(result?.payer?.name || 'NHIS');
       setNhisPolicyConfigured(Boolean(result?.configured));
+      setNhisCoverageVerified(typeof rule?.isCovered === 'boolean');
+      setNhisAuthorizationVerified(typeof rule?.authorizationRequired === 'boolean');
       setNhisPolicy({
         isCovered: rule?.isCovered === true,
         authorizationRequired: rule?.authorizationRequired === true,
@@ -251,6 +255,8 @@ export default function ServiceCatalogTab() {
       });
     } catch (error: any) {
       setNhisPolicyConfigured(false);
+      setNhisCoverageVerified(false);
+      setNhisAuthorizationVerified(false);
       toastError('NHIS policy unavailable', error?.response?.data?.message || 'Could not load the medicine payer rule. Confirm an active NHIS payer is configured.');
     } finally {
       setNhisPolicyLoading(false);
@@ -1121,8 +1127,8 @@ export default function ServiceCatalogTab() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">NHIS coverage status *</label>
-                          <select value={nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                            <option value="covered">Covered by NHIS</option>
+                          <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <option value="unverified">Select coverage status…</option>\n                            <option value="covered">Covered by NHIS</option>
                             <option value="not_covered">Not covered — patient pays cash price</option>
                           </select>
                         </div>
@@ -1134,8 +1140,8 @@ export default function ServiceCatalogTab() {
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Prior authorization *</label>
-                          <select value={nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                            <option value="yes">Required</option>
+                          <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <option value="unverified">Select requirement…</option>\n                            <option value="yes">Required</option>
                             <option value="no">Not required</option>
                           </select>
                         </div>
@@ -1176,7 +1182,7 @@ export default function ServiceCatalogTab() {
                       {nhisPolicy.copaymentMode === 'cash_price_difference' && <p className="text-xs text-amber-800">The patient will pay only the positive difference between the cash price and NHIS tariff. Select this only when the applicable payer policy permits it.</p>}
                       <div className="flex items-center justify-between gap-3 border-t border-cyan-100 pt-3">
                         <p className="text-xs text-gray-600">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p>
-                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-50">
+                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-50">
                           <Save className="w-4 h-4" /> {nhisPolicySaving ? 'Saving…' : 'Save NHIS policy'}
                         </button>
                       </div>
