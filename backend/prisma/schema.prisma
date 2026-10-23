@@ -1282,6 +1282,11 @@ model Admission {
   admissionType   AdmissionType    @default(emergency)
   admissionSource AdmissionSource  @default(home)
   dischargeStatus DischargeStatus?
+  // A cancelled admission is retained for audit and can never be mistaken for an active stay.
+  status            String    @default("active")
+  cancelledAt       DateTime?
+  cancelledById     String?
+  cancellationReason String?  @db.Text
 
   admissionDate DateTime  @default(now())
   dischargeDate DateTime?
