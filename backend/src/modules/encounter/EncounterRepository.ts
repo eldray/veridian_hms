@@ -2015,13 +2015,25 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.admission.findUnique({
         where: { id },
-        include: { attendance: { select: { id: true, bedId: true } } },
+        include: { attendance: { select: { id: true, bedId: true, wardId: true, status: true } } },
       });
       if (!existing) throw new NotFoundError('Admission', id);
 
       const update: any = {};
-      if (data.admissionType) update.admissionType = data.admissionType;
-      if (data.admissionSource) update.admissionSource = data.admissionSource;
+      if (data.admissionType) {
+        const allowed = ['elective', 'emergency', 'transfer', 'detention_observation'];
+        if (!allowed.includes(data.admissionType)) {
+          throw new ValidationError(`admissionType must be one of: ${allowed.join(', ')}`);
+        }
+        update.admissionType = data.admissionType;
+      }
+      if (data.admissionSource) {
+        const allowed = ['home', 'referral', 'another_facility', 'opd', 'emergency'];
+        if (!allowed.includes(data.admissionSource)) {
+          throw new ValidationError(`admissionSource must be one of: ${allowed.join(', ')}`);
+        }
+        update.admissionSource = data.admissionSource;
+      }
       if (data.dischargeStatus) {
         const allowed = ['home', 'transfer', 'expired', 'against_medical_advice'];
         if (!allowed.includes(data.dischargeStatus)) {
@@ -2029,26 +2041,69 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         }
         update.dischargeStatus = data.dischargeStatus;
       }
-      if (data.dischargeDate) {
-        const dischargeDate = new Date(data.dischargeDate);
+
+      const isDischargeRequest = data.dischargeDate !== undefined && data.dischargeDate !== null && data.dischargeDate !== '';
+      let dischargeDate: Date | undefined;
+      if (isDischargeRequest) {
+        dischargeDate = new Date(data.dischargeDate);
         if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
+        if (existing.dischargeDate) {
+          throw new ConflictError('This admission has already been discharged');
+        }
+        const terminalStatuses = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+        if (terminalStatuses.includes(existing.attendance.status)) {
+          throw new ConflictError(`Cannot discharge an encounter already marked "${existing.attendance.status}"`);
+        }
+
+        // Claim the encounter transition first, conditionally. The admission update and
+        // bed release below share this transaction, so any conflict rolls the whole change back.
+        const transition = await tx.attendance.updateMany({
+          where: { id: existing.attendanceId, status: existing.attendance.status },
+          data: { status: 'discharged', bedId: null, updatedById: userId },
+        });
+        if (transition.count !== 1) {
+          throw new ConflictError('The encounter changed while discharge was being saved. Refresh and try again.');
+        }
         update.dischargeDate = dischargeDate;
+        update.dischargeStatus = data.dischargeStatus || 'home';
       }
 
-      // The Admission table has no dischargeSummary column: keep it as a note instead of dropping it.
+      // The Admission table has no dischargeSummary column: preserve it as a daily note.
       let notes: any[] = Array.isArray(existing.dailyNotes) ? [...(existing.dailyNotes as any[])] : [];
       if (Array.isArray(data.dailyNotes)) notes = data.dailyNotes;
       if (data.dischargeSummary) {
-        notes.push({ noteType: 'discharge_summary', notes: data.dischargeSummary, recordedBy: userId, recordedAt: new Date() });
+        notes.push({
+          id: `discharge-summary-${id}-${Date.now()}`,
+          noteType: 'discharge_summary',
+          notes: data.dischargeSummary,
+          recordedBy: userId,
+          recordedAt: new Date().toISOString(),
+        });
       }
-      if (Array.isArray(data.dailyNotes) || data.dischargeSummary) update.dailyNotes = notes;
+      if (isDischargeRequest) {
+        notes.push({
+          id: `discharge-${id}-${dischargeDate!.getTime()}`,
+          noteType: 'discharge',
+          notes: `Discharged. Summary: ${data.dischargeSummary || 'None'}`,
+          recordedBy: userId,
+          recordedAt: new Date().toISOString(),
+        });
+      }
+      if (Array.isArray(data.dailyNotes) || data.dischargeSummary || isDischargeRequest) update.dailyNotes = notes;
 
-      const updated = await tx.admission.update({ where: { id }, data: update });
-
-      // Discharging an admission also closes the visit and releases its bed.
-      if (update.dischargeDate && !existing.dischargeDate) {
-        await tx.attendance.update({ where: { id: existing.attendanceId }, data: { status: 'discharged', bedId: null } });
+      let updated: any;
+      if (isDischargeRequest) {
+        const changed = await tx.admission.updateMany({
+          where: { id, dischargeDate: null },
+          data: update,
+        });
+        if (changed.count !== 1) {
+          throw new ConflictError('The admission was changed by another request. Refresh and try again.');
+        }
+        updated = await tx.admission.findUniqueOrThrow({ where: { id } });
         await releaseBedForAttendance(tx, { id: existing.attendanceId, bedId: existing.attendance?.bedId });
+      } else {
+        updated = await tx.admission.update({ where: { id }, data: update });
       }
       return updated;
     });
