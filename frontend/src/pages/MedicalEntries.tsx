@@ -1227,8 +1227,7 @@ export default function MedicalEntries() {
           >
             <CheckCircle className="w-3.5 h-3.5" /> Discharge
           </button>
-          <button type="button" onClick={handleReferPatient}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+          <button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
             <ArrowRight className="w-3.5 h-3.5" /> Refer
           </button>
         </div>
@@ -1239,16 +1238,11 @@ export default function MedicalEntries() {
     if (status === 'admitted' && category === 'ipd') {
       return (
         <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => navigate(`/dashboard/admissions/${currentAttendance?.Admission?.id || ''}`)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-              bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]
-              hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
-          >
+          <button onClick={() => navigate(`/dashboard/admissions/${currentAttendance?.Admission?.id || ''}`)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white transition-all">
             <Hospital className="w-3.5 h-3.5" /> Manage Admission
           </button>
-          <button type="button" onClick={handleReferPatient}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+          <button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
             <ArrowRight className="w-3.5 h-3.5" /> Refer
           </button>
         </div>
@@ -1282,8 +1276,7 @@ export default function MedicalEntries() {
         >
           <Hospital className="w-3.5 h-3.5" /> Admit (IPD)
         </button>
-        <button type="button" onClick={handleReferPatient}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+        <button type="button" onClick={handleReferPatient} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
           <ArrowRight className="w-3.5 h-3.5" /> Refer
         </button>
       </div>
@@ -1654,38 +1647,82 @@ export default function MedicalEntries() {
                 Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
                 {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
               </div>
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" />
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Allergy Review</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Left sub-col */}
+                <div className="space-y-3">
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><FileText className="w-3 h-3" /> Presented Complaints</label>
+                      <button type="button" onClick={() => setClinicalModal('reviewOfSystems')} disabled={!canAddEntries || isClinicalFinalized}
+                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
+                        <ClipboardList className="w-3 h-3" /> Structured review
+                      </button>
+                    </div>
+                    <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
+                      placeholder="Search or type complaints…" disabled={!canAddEntries || isClinicalFinalized} />
+                    {Object.values(reviewOfSystems).some(value => String(value || '').trim()) && (
+                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured review recorded: {Object.entries(reviewOfSystems).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
+                    )}
+                  </div>
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+                      <History className="w-3 h-3" /> History of Presenting Complaint
+                    </label>
+                    <textarea value={hpc} onChange={e => setHpc(e.target.value)} rows={3}
+                      disabled={!canAddEntries || isClinicalFinalized}
+                      placeholder="History of presenting complaint…"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
+                  </div>
                 </div>
+                {/* Right sub-col */}
+                <div className="space-y-3">
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                       <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><Stethoscope className="w-3 h-3" /> Physical Examination</label>
+                       <button type="button" onClick={() => setClinicalModal('physicalExam')} disabled={!canAddEntries || isClinicalFinalized}
+                         className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
+                         <ClipboardList className="w-3 h-3" /> Structured PE
+                       </button>
+                     </div>
+                    <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
+                      disabled={!canAddEntries || isClinicalFinalized}
+                      placeholder="Physical examination findings…"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
+                    {Object.values(physicalExamStructured).some(value => String(value || '').trim()) && (
+                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured findings recorded: {Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
+                    )}
+                  </div>
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+                      <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
+                    </label>
+                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
+                <div className="flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" /><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Allergy Review</h3></div>
                 <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries || isClinicalFinalized}
                   className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
-                  <option value="not_reviewed">Not reviewed</option>
-                  <option value="no_known_allergies">No known allergies (confirmed)</option>
-                  <option value="allergies_present">Allergies present / recorded</option>
+                  <option value="not_reviewed">Not reviewed</option><option value="no_known_allergies">No known allergies (confirmed)</option><option value="allergies_present">Allergies present / recorded</option>
                 </select>
-                {(() => {
-                  const existingAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
+                {(() => { const existingAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
                   return Array.isArray(existingAllergies) && existingAllergies.length > 0
                     ? <p className="text-[10px] text-amber-600">Existing patient allergies: {existingAllergies.map((a: any) => [a.allergen, a.reaction, a.severity].filter(Boolean).join(' — ')).join('; ')}</p>
-                    : <p className="text-[10px] text-[var(--text-tertiary)]">No patient allergy entries are currently recorded.</p>;
-                })()}
+                    : <p className="text-[10px] text-[var(--text-tertiary)]">No patient allergy entries are currently recorded.</p>; })()}
                 <textarea value={allergyReviewNotes} onChange={e => setAllergyReviewNotes(e.target.value)} rows={2} disabled={!canAddEntries || isClinicalFinalized}
-                  placeholder="Allergy/reaction details or review notes…"
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
+                  placeholder="Allergy/reaction details or review notes…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
               </div>
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Condition at End of Visit</label>
                 <select value={clinicalOutcome} onChange={e => setClinicalOutcome(e.target.value as typeof clinicalOutcome)} disabled={!canAddEntries || isClinicalFinalized}
                   className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
-                  <option value="">Not recorded</option>
-                  <option value="improved">Improved</option>
-                  <option value="stable">Stable</option>
-                  <option value="unchanged">Unchanged</option>
-                  <option value="deteriorated">Deteriorated</option>
-                  <option value="deceased">Deceased</option>
-                  <option value="unknown">Unknown / unable to assess</option>
+                  <option value="">Not recorded</option><option value="improved">Improved</option><option value="stable">Stable</option><option value="unchanged">Unchanged</option><option value="deteriorated">Deteriorated</option><option value="deceased">Deceased</option><option value="unknown">Unknown / unable to assess</option>
                 </select>
               </div>
 
@@ -2057,10 +2094,8 @@ export default function MedicalEntries() {
               >
                 <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Impression</label>
-                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3}
-                    disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder="Working or final clinical impression…"
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] disabled:opacity-60" />
+                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Working or final clinical impression…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] disabled:opacity-60" />
                 </div>
                 {/* ── PHYSICIAN NOTES ── */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
@@ -2164,44 +2199,27 @@ export default function MedicalEntries() {
       ) : null}
 
       {clinicalModal && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="presentation"
-          onMouseDown={e => { if (e.target === e.currentTarget) setClinicalModal(null); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="clinical-structured-modal-title"
-            className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
+        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setClinicalModal(null); }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="clinical-structured-modal-title" className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4">
-              <div>
-                <h2 id="clinical-structured-modal-title" className="text-sm font-bold text-[var(--text-primary)]">
-                  {clinicalModal === 'reviewOfSystems' ? 'Structured Review of Systems' : 'Structured Physical Examination'}
-                </h2>
-                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Record only what was assessed. Leave unassessed systems blank.</p>
-              </div>
-              <button type="button" onClick={() => setClinicalModal(null)} aria-label="Close structured clinical form"
-                className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Close</button>
+              <div><h2 id="clinical-structured-modal-title" className="text-sm font-bold text-[var(--text-primary)]">{clinicalModal === 'reviewOfSystems' ? 'Structured Review of Systems' : 'Structured Physical Examination'}</h2>
+                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Record only what was assessed. Leave unassessed systems blank.</p></div>
+              <button type="button" onClick={() => setClinicalModal(null)} aria-label="Close structured clinical form" className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Close</button>
             </div>
             <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
-              {(clinicalModal === 'reviewOfSystems'
-                ? ['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other']
-                : ['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other']
-              ).map(system => {
+              {(clinicalModal === 'reviewOfSystems' ? ['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'] : ['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other']).map(system => {
                 const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
                 const values = clinicalModal === 'reviewOfSystems' ? reviewOfSystems : physicalExamStructured;
                 const setValues = clinicalModal === 'reviewOfSystems' ? setReviewOfSystems : setPhysicalExamStructured;
-                return (
-                  <label key={key} className="text-[11px] font-medium text-[var(--text-secondary)]">
-                    <span className="mb-1 block">{system}</span>
-                    <textarea value={values[key] || ''} rows={2}
-                      onChange={e => setValues((prev: Record<string, string>) => ({ ...prev, [key]: e.target.value }))}
-                      disabled={!canAddEntries || isClinicalFinalized}
-                      placeholder={clinicalModal === 'reviewOfSystems' ? 'Not assessed / symptoms and findings' : 'Not examined / findings'}
-                      className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-60" />
-                  </label>
-                );
+                return <label key={key} className="text-[11px] font-medium text-[var(--text-secondary)]"><span className="mb-1 block">{system}</span>
+                  <textarea value={values[key] || ''} rows={2} onChange={e => setValues((prev: Record<string, string>) => ({ ...prev, [key]: e.target.value }))} disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder={clinicalModal === 'reviewOfSystems' ? 'Not assessed / symptoms and findings' : 'Not examined / findings'} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-60" />
+                </label>;
               })}
             </div>
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] px-5 py-4">
               <p className="text-[10px] text-[var(--text-tertiary)]">The summary appears under its corresponding clinical field. Click Save Clinical to persist all changes.</p>
-              <button type="button" onClick={() => setClinicalModal(null)}
-                className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90">Done</button>
+              <button type="button" onClick={() => setClinicalModal(null)} className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90">Done</button>
             </div>
           </section>
         </div>
