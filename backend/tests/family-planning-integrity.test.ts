@@ -1,0 +1,55 @@
+import { describe, expect, it, vi } from 'vitest';
+import { FamilyPlanningRepository } from '../src/modules/familyPlanning/FamilyPlanningRepository';
+
+function makeRepository(attendance: any = null) {
+  const create = vi.fn().mockResolvedValue({ id: 'fp-1' });
+  const prisma: any = {
+    patient: { findUnique: vi.fn().mockResolvedValue({ id: 'patient-1' }) },
+    attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
+    familyPlanningService: { create, count: vi.fn().mockResolvedValue(0) },
+  };
+  return { repository: new FamilyPlanningRepository(prisma), prisma, create };
+}
+
+const validInput: any = {
+  patientId: 'patient-1',
+  attendanceId: 'attendance-1',
+  providedById: 'staff-1',
+  method: 'injectable_dmpa',
+  methodCategory: 'modern_short_acting',
+  serviceDate: '2026-10-22T12:00:00.000Z',
+};
+
+describe('family-planning encounter integrity', () => {
+  it('rejects an attendance belonging to another patient', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-2', status: 'completed' });
+    await expect(repository.createFPService(validInput)).rejects.toThrow(/must match the linked attendance/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects cancelled attendance records', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'cancelled' });
+    await expect(repository.createFPService(validInput)).rejects.toThrow(/cancelled attendance/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a method/category mismatch instead of producing incorrect method-mix reports', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await expect(repository.createFPService({ ...validInput, method: 'implant_jadelle' })).rejects.toThrow(/does not belong/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects contradictory postpartum and post-abortion classifications', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await expect(repository.createFPService({ ...validInput, isPostpartum: true, isPostAbortion: true })).rejects.toThrow(/both postpartum and post-abortion/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('allows a valid service linked to the same active patient attendance', async () => {
+    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await repository.createFPService(validInput);
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ patientId: 'patient-1', attendanceId: 'attendance-1', methodCategory: 'modern_short_acting' }),
+    }));
+  });
+});
