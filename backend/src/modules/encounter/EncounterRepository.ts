@@ -1565,6 +1565,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           throw new ValidationError(`Theatre checklist field ${field} must be true or false`);
         }
       }
+      if (record.instrumentCountsStatus !== undefined && !['', 'correct', 'not_applicable', 'discrepancy'].includes(String(record.instrumentCountsStatus))) {
+        throw new ValidationError('Invalid instrument/swab/needle count status');
+      }
       const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes', 'instrumentCountsStatus', 'instrumentCountNotes'];
       for (const field of textFields) {
         if (record[field] !== undefined && typeof record[field] !== 'string') {
@@ -1590,11 +1593,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
         throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
       }
       const countStatus = record.instrumentCountsStatus;
-      if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
-        throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable; unresolved discrepancies must not be marked complete');
-      }
       if (countStatus === 'discrepancy') {
         throw new ValidationError('Resolve and escalate the instrument/swab/needle count discrepancy before completing the procedure');
+      }
+      if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
+        throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable before completing the procedure');
       }
       if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
         throw new ValidationError('Confirm specimen labelling when specimens are recorded');
