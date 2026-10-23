@@ -1076,6 +1076,7 @@ model Payment {
   amount          Decimal       @db.Decimal(15, 2)
   paymentMethod   PaymentMethod
   reference       String?
+  idempotencyKey  String?       @unique
   transactionDate DateTime      @default(now())
   receivedById    String
   notes           String?
