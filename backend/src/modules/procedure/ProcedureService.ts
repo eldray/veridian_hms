@@ -126,8 +126,11 @@ export class ProcedureService extends BaseService {
     }
 
     // Check procedure code uniqueness if changing
-    if (data.procedureCode && data.procedureCode !== existing.procedureCode) {
-      const procCodeExists = await this.procedureRepository.procedureCodeExists(data.procedureCode, id);
+    if (data.procedureCode && data.procedureCode !== existing.ProcedureTemplate?.procedureCode) {
+      const procCodeExists = await this.procedureRepository.procedureCodeExists(
+        data.procedureCode,
+        existing.ProcedureTemplate?.id,
+      );
       if (procCodeExists) {
         throw new Error('Procedure code already exists');
       }
