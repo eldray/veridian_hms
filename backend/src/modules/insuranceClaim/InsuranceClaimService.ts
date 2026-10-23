@@ -854,6 +854,10 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   });
 
   let totalClaimAmount: number | undefined;
+  // Preserve validated NHIS header fields outside the validation block so the
+  // transaction below can keep the claim header consistent with its line items.
+  let nhisPrincipalGdrg: string | undefined;
+  let nhisServiceCode: string | null | undefined;
   const authorizationNumbers = new Set<string>();
   if (claim.InsuranceProvider?.type === 'nhis') {
     let gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
@@ -877,6 +881,8 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
       throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the service date ${policyDate.toISOString().slice(0, 10)}. Activate or correct its tariff before saving the claim.`);
     }
+    nhisPrincipalGdrg = gdrgCode;
+    nhisServiceCode = tariff.nhisServiceCode;
     const gdrgAmount = Number(tariff.nhiaTariff);
     if (!gdrgRow) {
       // The G-DRG is the principal payable line. Add it when a draft payload
@@ -1055,9 +1061,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         ...(totalClaimAmount !== undefined
           ? {
               totalClaimAmount,
-              principalGDRG: gdrgCode,
-              gdrgCodes: [gdrgCode],
-              nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
+              principalGDRG: nhisPrincipalGdrg ?? null,
+              gdrgCodes: nhisPrincipalGdrg ? [nhisPrincipalGdrg] : [],
+              nhisServiceCodes: nhisServiceCode ? [nhisServiceCode] : [],
               // Keep the claim header in sync with the G-DRG and medicines still
               // present after editing claim lines; remove stale authorisation numbers.
               preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : null,
