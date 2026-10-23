@@ -922,7 +922,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const actorId = await this.requireActorId(userId);
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId },
-      select: { id: true, paymentMode: true, insuranceProviderId: true },
+      select: { id: true, patientId: true, paymentMode: true, insuranceProviderId: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
 
@@ -1048,10 +1048,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const approvedRequests = await this.prisma.preAuthorisationRequest.findMany({
           where: {
             attendanceId: encounterId,
-            patientId: (await this.prisma.attendance.findUnique({
-              where: { id: encounterId },
-              select: { patientId: true },
-            }))?.patientId,
+            patientId: encounter.patientId,
             insuranceProviderId: payer.id,
             status: { in: ['approved', 'partially_approved'] },
             authNumber: { not: null },
