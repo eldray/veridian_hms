@@ -388,7 +388,14 @@ ${claimsXml}
       // Revalidate dispensed NHIS medicines at claim-generation time so legacy or
       // imported prescriptions cannot bypass payer coverage/authorisation controls.
       const authorizationNumbers = new Set<string>();
-      const claimValidationDate = new Date();
+      // Price and validate the claim against the encounter's service date, not the
+      // day someone happens to submit the claim. For inpatient stays, use admission
+      // date because this claim currently carries one G-DRG tariff for the stay.
+      const servicePolicyDate = new Date(att.Admission?.admissionDate ?? att.dateTime);
+      if (Number.isNaN(servicePolicyDate.getTime())) {
+        throw new ValidationError('NHIS claim cannot be generated because the attendance service date is invalid.');
+      }
+      const claimValidationDate = servicePolicyDate;
       let nhisMedicineClaimTotal = 0;
       for (const med of att.Medication) {
         const stockItem = med.StockItem;
@@ -521,7 +528,17 @@ ${claimsXml}
       const split = age >= 12 ? 'A' : 'C';
       const base = gdrgLink.gdrgTariff.gdrgCode.slice(0, -1);
       const finalCode = base + split;
-      const tariff = await tx.gDRGTariff.findFirst({ where: { gdrgCode: finalCode, isActive: true } }) || gdrgLink.gdrgTariff;
+      const tariff = await tx.gDRGTariff.findFirst({
+        where: {
+          gdrgCode: finalCode,
+          isActive: true,
+          effectiveFrom: { lte: servicePolicyDate },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: servicePolicyDate } }],
+        },
+      });
+      if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
+        throw new ValidationError(`NHIS claim G-DRG "${finalCode}" has no valid active tariff for the service date ${servicePolicyDate.toISOString().slice(0, 10)}.`);
+      }
 
       // nextNHISClaimNumber() already returns "NHIS-<n>" - do not prefix it again
       const claimNumber = getCounterService().nextNHISClaimNumber();
