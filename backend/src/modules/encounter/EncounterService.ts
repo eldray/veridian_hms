@@ -249,6 +249,7 @@ export class EncounterService extends BaseService {
         where: { id: encounter.id, status: encounter.status },
         data: {
           status: 'admitted',
+          encounterCategory: 'ipd',
           ...(assignedBedId ? { bedId: assignedBedId } : {}),
           ...(assignedWardId ? { wardId: assignedWardId } : {}),
           ...(data.admissionNotes ? { medicalNotes } : {}),
