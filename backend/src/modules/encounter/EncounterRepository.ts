@@ -1618,6 +1618,15 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async updateProcedureStatus(procedureId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
+    if (data.bloodLoss !== undefined && data.bloodLoss !== null) {
+      const rawBloodLoss = data.bloodLoss;
+      const estimatedBloodLoss = Number(rawBloodLoss);
+      if ((typeof rawBloodLoss === 'string' && rawBloodLoss.trim() === '') ||
+          !Number.isFinite(estimatedBloodLoss) || estimatedBloodLoss < 0) {
+        throw new ValidationError('Estimated blood loss must be a valid non-negative number of millilitres');
+      }
+      data = { ...data, bloodLoss: estimatedBloodLoss };
+    }
     const current = await this.prisma.procedure.findUnique({ where: { id: procedureId }, select: { id: true, status: true, attendanceId: true } });
     if (!current) throw new NotFoundError('Procedure', procedureId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled procedure cannot be reopened or changed');
