@@ -13,7 +13,7 @@ import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '
 // Batch expiry is a calendar date: stock remains usable through the end of its
 // recorded expiry day. Compare against UTC midnight, matching dispensing and
 // transfer workflows, rather than the current instant.
-const startOfCurrentUtcDay = (value: Date = new Date()): Date => {
+export const startOfCurrentUtcDay = (value: Date = new Date()): Date => {
   const day = new Date(value);
   day.setUTCHours(0, 0, 0, 0);
   return day;
