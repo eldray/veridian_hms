@@ -24,10 +24,11 @@ describe('NHIS 2025 medicine reference metadata', () => {
     expect(new Set(codes).size).toBe(codes.length);
   });
 
-  it('uses only official prescribing-level codes and keeps unverified levels unknown', () => {
+  it('has a source-verified prescribing level for every 2025 formulation', () => {
     for (const medicine of medicines) {
-      expect(medicine).toHaveProperty('prescribingLevel');
-      expect(medicine.prescribingLevel === null || validPrescribingLevels.has(medicine.prescribingLevel!)).toBe(true);
+      expect(medicine.prescribingLevel).toBeTruthy();
+      expect(validPrescribingLevels.has(medicine.prescribingLevel!)).toBe(true);
+      expect(medicine.prescribingLevelSource).toBe('WHO-hosted NHIA NHIS Medicines List 2025, Section 10');
       expect(medicine).toHaveProperty('nhisRequiresAuth', null);
       expect(medicine.sourceVersion).toBe('NHIS Medicines List 2025 Version 1.0');
       expect(medicine.effectiveFrom).toBe('2025-03-01');
