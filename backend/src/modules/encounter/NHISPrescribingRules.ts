@@ -38,6 +38,18 @@ export function validateNHISPrescribingLevel(context: NHISPrescribingContext): v
   }
 
   const { facilityType, prescriber } = context;
+  const hasProfessionalCredential = Boolean(prescriber.licenseNumber?.trim());
+  if (!['doctor', 'midwife', 'nurse'].includes(prescriber.role) || !hasProfessionalCredential) {
+    throw new ValidationError(
+      'NHIS prescriptions must be entered by an active clinician account with an allowed clinical role and a recorded professional licence.',
+    );
+  }
+  if (prescriber.role === 'nurse' && !prescriber.specialization?.trim()) {
+    throw new ValidationError(
+      'NHIS prescribing by a nurse requires a recorded nursing specialization.',
+    );
+  }
+
   const isHigherHospital = ['Primary', 'Secondary', 'Tertiary'].includes(facilityType);
   const isSecondaryOrTertiary = ['Secondary', 'Tertiary'].includes(facilityType);
 
