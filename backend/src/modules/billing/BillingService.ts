@@ -3,7 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
-import { calculateNHISMedicineAllocation } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, resolveConfiguredNHISTariff } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 export class BillingService extends BaseService {
@@ -74,7 +74,11 @@ export class BillingService extends BaseService {
         const currentPrice = detail?.pricing?.[0];
         if (!currentPrice) throw new Error(`No active cash/NHIS pricing is configured for medicine: ${service.name} on ${serviceDate.toISOString().slice(0, 10)}`);
         const cashPrice = Number(currentPrice.cashPrice);
+        if (!Number.isFinite(cashPrice) || cashPrice <= 0) {
+          throw new Error(`No valid active cash price is configured for medicine: ${service.name} on ${serviceDate.toISOString().slice(0, 10)}`);
+        }
         const rule = detail?.StockItem?.payerRules?.[0];
+        const configuredNHISTariff = resolveConfiguredNHISTariff(rule?.tariffPrice, currentPrice.nhisPrice);
         const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= serviceDate) && (!rule.effectiveTo || rule.effectiveTo >= serviceDate);
         const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
         // Billing must fail closed just like prescribing and claims: an NHIS rule is not
@@ -82,7 +86,8 @@ export class BillingService extends BaseService {
         const policyConfigured = !!rule &&
           rule.isCovered === true &&
           rule.authorizationRequired != null &&
-          validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase());
+          validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) &&
+          configuredNHISTariff !== null;
 
         // Do not allocate a medicine to NHIS when its rule requires pre-authorisation
         // but no current approval explicitly covers this stock item/service and quantity.
@@ -110,7 +115,7 @@ export class BillingService extends BaseService {
         const covered = policyConfigured && inEffectiveWindow && hasRequiredAuthorization;
         const allocation = calculateNHISMedicineAllocation({
           cashPrice,
-          nhisTariff: Number(rule?.tariffPrice ?? (Number(currentPrice.nhisPrice) > 0 ? currentPrice.nhisPrice : cashPrice)),
+          nhisTariff: configuredNHISTariff ?? 0,
           covered,
           copaymentMode: rule?.copaymentMode,
           copaymentAmount: rule?.copaymentAmount == null ? null : Number(rule.copaymentAmount),
