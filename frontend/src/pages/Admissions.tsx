@@ -423,14 +423,18 @@ export default function Admissions() {
     const dateRange = getDateRange();
 
     const filtered = allAdmissions.filter((admission) => {
-      if (dateRange) {
-        const admissionDate = new Date(admission.admissionDate);
-        if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
-      }
-
       const isCancelled = admission.status === 'cancelled';
       const isDischarged =
         admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
+
+      // The admissions page is also the current inpatient census. Do not hide
+      // an active inpatient simply because the original admission date is
+      // before the selected historical date range. Date filters apply to
+      // closed/cancelled records; active patients remain visible until closed.
+      if (dateRange && (isDischarged || isCancelled)) {
+        const admissionDate = new Date(admission.admissionDate);
+        if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
+      }
 
       if (activeTab === 'active' && (isDischarged || isCancelled)) return false;
       if (activeTab === 'discharged' && (!isDischarged || isCancelled)) return false;
