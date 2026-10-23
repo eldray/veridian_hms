@@ -132,18 +132,48 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
 
   async getCurrentMethodForPatient(patientId: string) {
     return this.getModel().findFirst({
-      where: { patientId }, orderBy: { serviceDate: 'desc' }, include: this.getStandardIncludes()
+      where: { patientId, ...this.activeAttendanceFilter() },
+      orderBy: { serviceDate: 'desc' }, include: this.getStandardIncludes()
     });
   }
 
   async getFPHistoryForPatient(patientId: string) {
     return this.getModel().findMany({
-      where: { patientId }, orderBy: { serviceDate: 'desc' }, include: this.getStandardIncludes()
+      where: { patientId, ...this.activeAttendanceFilter() },
+      orderBy: { serviceDate: 'desc' }, include: this.getStandardIncludes()
     });
   }
 
   // Override update to include relations
   async update(id: string, data: UpdateFPServiceInput) {
+    if (data.method !== undefined || data.methodCategory !== undefined) {
+      const current = await this.getModel().findUnique({
+        where: { id },
+        select: { method: true, methodCategory: true },
+      });
+      if (!current) throw new ValidationError('Family-planning service not found');
+
+      const method = data.method ?? current.method;
+      const methodCategory = data.methodCategory ?? current.methodCategory;
+      const expected: Record<string, string> = {
+        pill_coc: 'modern_short_acting', pill_pop: 'modern_short_acting',
+        injectable_dmpa: 'modern_short_acting', injectable_net_en: 'modern_short_acting',
+        condom_male: 'modern_short_acting', condom_female: 'modern_short_acting',
+        implant_implanon: 'modern_long_acting', implant_jadelle: 'modern_long_acting',
+        iud_copper: 'modern_long_acting', iud_hormonal: 'modern_long_acting',
+        female_sterilization: 'permanent', male_sterilization: 'permanent',
+        lam: 'traditional', withdrawal: 'traditional', calendar: 'traditional',
+        other_traditional: 'traditional', emergency_contraception: 'emergency',
+      };
+      if (expected[method] !== methodCategory) {
+        throw new ValidationError('The selected method does not belong to the selected family-planning category');
+      }
+    }
+    if (data.medicalEligibilityCategory != null &&
+      (!Number.isInteger(Number(data.medicalEligibilityCategory)) ||
+       Number(data.medicalEligibilityCategory) < 1 || Number(data.medicalEligibilityCategory) > 4)) {
+      throw new ValidationError('Medical eligibility category must be WHO MEC category 1, 2, 3 or 4');
+    }
     return this.getModel().update({ where: { id }, data, include: this.getStandardIncludes() });
   }
 
@@ -202,6 +232,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       where: { id: patientId },
       include: {
         familyPlanningServices: {
+          where: { OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }] },
           orderBy: { serviceDate: 'desc' },
           include: { providedBy: { select: { id: true, fullName: true, role: true } } },
         },
