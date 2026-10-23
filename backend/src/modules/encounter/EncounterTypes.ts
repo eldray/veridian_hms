@@ -127,7 +127,7 @@ export interface EncounterFilters {
 // ADMISSION & DETENTION DTOs
 // ============================================
 
-export interface CreateAdmissionDTO { attendanceId: string; admissionType?: 'elective' | 'emergency' | 'transfer' | 'detention_observation'; admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency'; admissionDate?: Date; }
+export interface CreateAdmissionDTO { attendanceId: string; bedId?: string; wardId?: string; admissionType?: 'elective' | 'emergency' | 'transfer' | 'detention_observation'; admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency'; admissionDate?: Date; admissionNotes?: string; }
 export interface AddDailyNoteDTO { notes: string; noteType?: string; }
 export interface DetentionPatientFilters { status?: 'active' | 'discharged'; wardId?: string; observationHours?: number; readyForDecision?: boolean; page?: number; limit?: number; }
 export interface ConvertDetentionToIPDDTO { admissionType: 'elective' | 'emergency' | 'transfer'; clinicalNotes?: string; decisionReason?: string; }
