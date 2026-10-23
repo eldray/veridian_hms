@@ -30,6 +30,18 @@ export class BillingService extends BaseService {
   async createBill(data: CreateBillDTO, userId: string) {
     this.logInfo('Creating new bill', { patientId: data.patientId, paymentMode: data.paymentMode });
 
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: data.attendanceId },
+      select: { id: true, patientId: true, dateTime: true },
+    });
+    if (!attendance) throw new Error(`Attendance not found: ${data.attendanceId}`);
+    if (attendance.patientId !== data.patientId) {
+      throw new Error('The selected attendance does not belong to this patient.');
+    }
+    // Payer rules and tariffs are evaluated on the date care was delivered, not
+    // the day someone happens to generate the bill or submit the claim.
+    const serviceDate = attendance.dateTime;
+
     let totalAmount = 0;
     const itemsWithPrices = [];
 
@@ -54,16 +66,15 @@ export class BillingService extends BaseService {
         const detail = await this.prisma.serviceCatalog.findUnique({
           where: { id: item.serviceId },
           include: {
-            pricing: { where: { isActive: true, effectiveDate: { lte: new Date() }, OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }] }, take: 1, orderBy: { effectiveDate: 'desc' } },
+            pricing: { where: { isActive: true, effectiveDate: { lte: serviceDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }] }, take: 1, orderBy: { effectiveDate: 'desc' } },
             StockItem: { include: { payerRules: { where: { insuranceProviderId: data.insuranceProviderId ?? '' }, take: 1 } } }
           }
         });
         const currentPrice = detail?.pricing?.[0];
-        if (!currentPrice) throw new Error(`No active cash/NHIS pricing is configured for medicine: ${service.name}`);
+        if (!currentPrice) throw new Error(`No active cash/NHIS pricing is configured for medicine: ${service.name} on ${serviceDate.toISOString().slice(0, 10)}`);
         const cashPrice = Number(currentPrice.cashPrice);
         const rule = detail?.StockItem?.payerRules?.[0];
-        const now = new Date();
-        const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= now) && (!rule.effectiveTo || rule.effectiveTo >= now);
+        const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= serviceDate) && (!rule.effectiveTo || rule.effectiveTo >= serviceDate);
         const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
         // Billing must fail closed just like prescribing and claims: an NHIS rule is not
         // claim-ready until coverage, prescribing level and authorisation requirement are explicit.
