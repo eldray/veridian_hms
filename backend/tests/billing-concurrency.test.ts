@@ -87,3 +87,34 @@ describe('billing payment concurrency guards', () => {
     expect(tx.payment.create).not.toHaveBeenCalled();
     expect(tx.bill.updateMany).toBeUndefined();
   });
+
+
+  it('records a partial payment and keeps the exact remaining balance', async () => {
+    const billFindUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'bill-1', balance: 100, paidAmount: 0, patientPayable: 100, attendanceId: 'attendance-1' })
+      .mockResolvedValueOnce({ id: 'bill-1', balance: 70, paidAmount: 30, patientPayable: 100, attendanceId: 'attendance-1' });
+    const billUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const billUpdate = vi.fn().mockResolvedValue({ id: 'bill-1', balance: 70, status: 'partial' });
+    const paymentCreate = vi.fn().mockResolvedValue({ id: 'payment-partial', amount: 30 });
+    const attendanceUpdate = vi.fn().mockResolvedValue({ id: 'attendance-1' });
+    const tx: any = {
+      bill: { findUnique: billFindUnique, updateMany: billUpdateMany, update: billUpdate },
+      payment: { create: paymentCreate },
+      attendance: { update: attendanceUpdate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    const result = await repository.addPayment('bill-1', {
+      amount: 30,
+      paymentMethod: 'cash' as any,
+    }, 'cashier-1');
+
+    expect(result.bill.status).toBe('partial');
+    expect(result.bill.balance).toBe(70);
+    expect(result.payment.amount).toBe(30);
+    expect(attendanceUpdate).toHaveBeenCalledWith({
+      where: { id: 'attendance-1' },
+      data: { outstandingBalance: 70 },
+    });
+  });
