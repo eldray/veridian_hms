@@ -1,5 +1,5 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
-import { useState, FormEvent, useEffect } from 'react'; 
+import { useState, FormEvent, useEffect, useRef } from 'react'; 
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
@@ -39,6 +39,8 @@ export default function ProcessPayment() {
   const [billingBreakdown, setBillingBreakdown] = useState<any>(null);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showSendReceipt, setShowSendReceipt] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const paymentAttemptKey = useRef(crypto.randomUUID());
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,6 +77,7 @@ export default function ProcessPayment() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
+    if (isSubmittingPayment) return;
     if (!bill || !user) {
       toastError('Missing data', 'Bill or user information not available');
       return;
@@ -90,14 +93,17 @@ export default function ProcessPayment() {
     }
 
     try {
+      setIsSubmittingPayment(true);
       await addPaymentToBill(bill.id, {
         amount,
         paymentMethod,
         reference: reference || undefined,
         transactionDate: new Date().toISOString(),
         receivedById: user.id,
+        idempotencyKey: paymentAttemptKey.current,
       });
 
+      paymentAttemptKey.current = crypto.randomUUID();
       success(
         'Payment recorded', 
         `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
@@ -105,6 +111,8 @@ export default function ProcessPayment() {
       navigate('/dashboard/billing');
     } catch (error: any) {
       toastError('Payment failed', error.message || 'Failed to process payment');
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
