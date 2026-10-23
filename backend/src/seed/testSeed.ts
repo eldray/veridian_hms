@@ -11,7 +11,6 @@ import {
   DischargeStatus,
   VisitCategory,
   BillStatus,
-  ClaimStatus,
   AttendanceStatus,
   LabTestStatus,
   ProcedureStatus,
@@ -720,7 +719,6 @@ export const seedTestData = async (force: boolean = false) => {
           insuranceProviderId: patient.insuranceProviderId ?? undefined,
           billDate: b.billDate,
           createdById: accounts?.id ?? admin.id,
-          claimStatus: b.claimStatus as ClaimStatus,
         },
       });
       billMap.set(b.billNumber, bill.id);
