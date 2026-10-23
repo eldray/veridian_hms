@@ -63,7 +63,7 @@ describe('NHIS prescribing-level validation', () => {
     })).not.toThrow();
   });
 
-  it('requires a licensed doctor with a recorded specialization for SM', () => {
+  it('requires a licensed specialist clinician with a recorded specialization for SM', () => {
     expect(() => validateNHISPrescribingLevel({
       level: 'SM',
       facilityType: 'Primary',
@@ -73,6 +73,11 @@ describe('NHIS prescribing-level validation', () => {
       level: 'SM',
       facilityType: 'Primary',
       prescriber: doctor,
+    })).not.toThrow();
+    expect(() => validateNHISPrescribingLevel({
+      level: 'SM',
+      facilityType: 'Primary',
+      prescriber: { role: 'nurse', licenseNumber: 'RN-123', specialization: 'Anaesthesia' },
     })).not.toThrow();
   });
 
