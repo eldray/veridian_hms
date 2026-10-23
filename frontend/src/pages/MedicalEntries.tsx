@@ -641,6 +641,8 @@ export default function MedicalEntries() {
   const [assessment, setAssessment] = useState('');
   const [reviewOfSystems, setReviewOfSystems] = useState<Record<string, string>>({});
   const [physicalExamStructured, setPhysicalExamStructured] = useState<Record<string, string>>({});
+  const [showStructuredHistoryModal, setShowStructuredHistoryModal] = useState(false);
+  const [showStructuredExamModal, setShowStructuredExamModal] = useState(false);
   const [allergyReviewStatus, setAllergyReviewStatus] = useState<'not_reviewed' | 'no_known_allergies' | 'allergies_present'>('not_reviewed');
   const [allergyReviewNotes, setAllergyReviewNotes] = useState('');
   const [clinicalOutcome, setClinicalOutcome] = useState<'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | ''>('');
@@ -1646,11 +1648,25 @@ export default function MedicalEntries() {
                 {/* Left sub-col */}
                 <div className="space-y-3">
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                      <FileText className="w-3 h-3" /> Presented Complaints
-                    </label>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                        <FileText className="w-3 h-3" /> Presented Complaints
+                      </label>
+                      <button type="button" onClick={() => setShowStructuredHistoryModal(true)} disabled={!canAddEntries || isClinicalFinalized}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border border-[var(--border-color)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
+                        <ClipboardList className="w-3 h-3" /> Structured history
+                      </button>
+                    </div>
                     <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
                       placeholder="Search or type complaints…" disabled={!canAddEntries || isClinicalFinalized} />
+                    {Object.values(reviewOfSystems).some(value => value?.trim()) && (
+                      <div className="mt-2 pt-2 border-t border-[var(--border-color)]">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-1">Structured review of systems</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] whitespace-pre-wrap">
+                          {Object.entries(reviewOfSystems).filter(([, value]) => value?.trim()).map(([system, value]) => system.replace(/_/g, ' ') + ': ' + value).join(' · ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
@@ -1667,15 +1683,29 @@ export default function MedicalEntries() {
                 {/* Right sub-col */}
                 <div className="space-y-3">
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                      <Stethoscope className="w-3 h-3" /> Physical Examination
-                    </label>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                        <Stethoscope className="w-3 h-3" /> Physical Examination
+                      </label>
+                      <button type="button" onClick={() => setShowStructuredExamModal(true)} disabled={!canAddEntries || isClinicalFinalized}
+                        className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold border border-[var(--border-color)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
+                        <Stethoscope className="w-3 h-3" /> Structured PE
+                      </button>
+                    </div>
                     <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
                       disabled={!canAddEntries || isClinicalFinalized}
                       placeholder="Physical examination findings…"
                       className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
                         focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
                         text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
+                    {Object.values(physicalExamStructured).some(value => value?.trim()) && (
+                      <div className="mt-2 pt-2 border-t border-[var(--border-color)]">
+                        <p className="text-[9px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)] mb-1">Structured examination findings</p>
+                        <p className="text-[10px] text-[var(--text-secondary)] whitespace-pre-wrap">
+                          {Object.entries(physicalExamStructured).filter(([, value]) => value?.trim()).map(([system, value]) => system.replace(/_/g, ' ') + ': ' + value).join(' · ')}
+                        </p>
+                      </div>
+                    )}
                   </div>
                   <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
                     <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
@@ -1686,56 +1716,9 @@ export default function MedicalEntries() {
                 </div>
               </div>
 
-              {/* Structured review of systems: blank means not assessed; clinicians document findings by system. */}
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Review of Systems (structured)</h3>
-                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Document findings by system. Leave blank if not assessed; do not assume a normal result.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'].map(system => {
-                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
-                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
-                      <span className="block font-semibold mb-1">{system}</span>
-                      <input value={reviewOfSystems[key] || ''} onChange={e => setReviewOfSystems(prev => ({ ...prev, [key]: e.target.value }))}
-                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not assessed / symptoms and findings"
-                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
-                    </label>;
-                  })}
-                </div>
-              </div>
+              {/* Structured ROS and PE are opened from their corresponding existing fields. */}
 
-              {/* Structured examination plus existing narrative examination are both retained. */}
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Physical Examination (structured)</h3>
-                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">Use the narrative examination above for a full account and these fields for system-based findings.</p>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other'].map(system => {
-                    const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
-                    return <label key={key} className="text-[10px] text-[var(--text-secondary)]">
-                      <span className="block font-semibold mb-1">{system}</span>
-                      <input value={physicalExamStructured[key] || ''} onChange={e => setPhysicalExamStructured(prev => ({ ...prev, [key]: e.target.value }))}
-                        disabled={!canAddEntries || isClinicalFinalized} placeholder="Not examined / findings"
-                        className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
-                    </label>;
-                  })}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Assessment / Impression</label>
-                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder="Working or final clinical assessment…"
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mt-3 mb-2">Management Plan / Instructions</label>
-                  <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={4} disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder="Treatment, investigations, counselling, self-care, safety-netting and follow-up plan…"
-                    className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]" />
-                </div>
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Allergy Review</label>
                   <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries || isClinicalFinalized}
                     className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
@@ -2132,6 +2115,15 @@ export default function MedicalEntries() {
                   boxShadow: 'var(--shadow-sm)',
                 }}
               >
+                {/* Clinical impression belongs with the clinician's notes, not duplicated in the main form. */}
+                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide text-[var(--text-tertiary)] mb-1.5">Clinical Impression</label>
+                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3}
+                    disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Working or final clinical impression…"
+                    className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] disabled:opacity-60" />
+                  <p className="text-[9px] text-[var(--text-tertiary)] mt-1">Saved with the clinical record using Save Clinical Info.</p>
+                </div>
                 {/* ── PHYSICIAN NOTES ── */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
                   <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -2184,6 +2176,15 @@ export default function MedicalEntries() {
                   <div className="flex-1 h-px bg-[var(--border-color)]" />
                 </div>
 
+                {/* Existing Treatment Plan field; separate treatment-note history remains below it. */}
+                <div className="px-3 pt-3 bg-[var(--bg-card)] flex-shrink-0">
+                  <label className="block text-[10px] font-semibold text-[var(--text-tertiary)] mb-1">Current Treatment Plan</label>
+                  <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={2}
+                    disabled={!canAddEntries || isClinicalFinalized}
+                    placeholder="Enter or update the treatment plan…"
+                    className="w-full px-2.5 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] disabled:opacity-60" />
+                  <p className="text-[9px] text-[var(--text-tertiary)] mt-1">Saved with Save Clinical Info.</p>
+                </div>
                 {/* Logged treatment notes */}
                 <div
                   className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
@@ -2232,6 +2233,68 @@ export default function MedicalEntries() {
           </div>
         </div>
       ) : null}
+
+      {/* Structured history modal: values update the existing clinical record state. */}
+      {showStructuredHistoryModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="structured-history-title">
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-3">
+              <div>
+                <h2 id="structured-history-title" className="text-sm font-bold text-[var(--text-primary)]">Structured Review of Systems</h2>
+                <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">Record only systems assessed. Blank fields remain undocumented, not normal.</p>
+              </div>
+              <button type="button" onClick={() => setShowStructuredHistoryModal(false)} className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close structured history">
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid max-h-[65vh] grid-cols-1 gap-3 overflow-y-auto p-5 sm:grid-cols-2">
+              {['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'].map(system => {
+                const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                return <label key={key} className="text-[11px] text-[var(--text-secondary)]">
+                  <span className="mb-1 block font-semibold">{system}</span>
+                  <textarea value={reviewOfSystems[key] || ''} onChange={e => setReviewOfSystems(prev => ({ ...prev, [key]: e.target.value }))}
+                    disabled={!canAddEntries || isClinicalFinalized} rows={2} placeholder="Not assessed / symptoms and findings"
+                    className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-60" />
+                </label>;
+              })}
+            </div>
+            <div className="flex justify-end border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
+              <button type="button" onClick={() => setShowStructuredHistoryModal(false)} className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Structured physical examination modal uses the same values shown under Physical Examination. */}
+      {showStructuredExamModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="structured-exam-title">
+          <div className="w-full max-w-3xl max-h-[85vh] overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] px-5 py-3">
+              <div>
+                <h2 id="structured-exam-title" className="text-sm font-bold text-[var(--text-primary)]">Structured Physical Examination</h2>
+                <p className="mt-0.5 text-[10px] text-[var(--text-tertiary)]">The narrative examination remains the main free-text field. Add structured findings where useful.</p>
+              </div>
+              <button type="button" onClick={() => setShowStructuredExamModal(false)} className="rounded-lg p-1.5 text-[var(--text-secondary)] hover:bg-[var(--border-color)]" aria-label="Close structured examination">
+                <XCircle className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid max-h-[65vh] grid-cols-1 gap-3 overflow-y-auto p-5 sm:grid-cols-2">
+              {['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other'].map(system => {
+                const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
+                return <label key={key} className="text-[11px] text-[var(--text-secondary)]">
+                  <span className="mb-1 block font-semibold">{system}</span>
+                  <textarea value={physicalExamStructured[key] || ''} onChange={e => setPhysicalExamStructured(prev => ({ ...prev, [key]: e.target.value }))}
+                    disabled={!canAddEntries || isClinicalFinalized} rows={2} placeholder="Not examined / findings"
+                    className="w-full resize-y rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-60" />
+                </label>;
+              })}
+            </div>
+            <div className="flex justify-end border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
+              <button type="button" onClick={() => setShowStructuredExamModal(false)} className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white">Done</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
