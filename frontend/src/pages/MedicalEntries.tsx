@@ -284,7 +284,11 @@ const BedWardSelectionModal: React.FC<{
   isLoading: boolean;
   admissionNotes: string;
   onAdmissionNotesChange: (value: string) => void;
-}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading, admissionNotes, onAdmissionNotesChange }) => {
+  selectedAdmissionClass: 'emergency' | 'elective' | 'transfer';
+  onAdmissionClassChange: (value: 'emergency' | 'elective' | 'transfer') => void;
+  selectedAdmissionSource: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency';
+  onAdmissionSourceChange: (value: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency') => void;
+}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading, admissionNotes, onAdmissionNotesChange, selectedAdmissionClass, onAdmissionClassChange, selectedAdmissionSource, onAdmissionSourceChange }) => {
   const { wards, beds, getWards, getBeds, getAvailableBeds, availableBeds, isLoading: wardsLoading } = useWardStore();
   const [selectedWardId, setSelectedWardId] = useState('');
   const [selectedBedId, setSelectedBedId] = useState('');
@@ -376,6 +380,27 @@ const BedWardSelectionModal: React.FC<{
           </div>
 
           {admissionType === 'ipd' && (
+            <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label htmlFor="admission-class" className="block text-xs font-semibold text-[var(--text-secondary)]">Admission type</label>
+                <select id="admission-class" value={selectedAdmissionClass} onChange={event => onAdmissionClassChange(event.target.value as 'emergency' | 'elective' | 'transfer')} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40">
+                  <option value="emergency">Emergency</option>
+                  <option value="elective">Elective</option>
+                  <option value="transfer">Transfer</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="admission-source" className="block text-xs font-semibold text-[var(--text-secondary)]">Admission source</label>
+                <select id="admission-source" value={selectedAdmissionSource} onChange={event => onAdmissionSourceChange(event.target.value as 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency')} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40">
+                  <option value="opd">OPD</option>
+                  <option value="emergency">Emergency unit</option>
+                  <option value="referral">Referral</option>
+                  <option value="another_facility">Another facility</option>
+                  <option value="home">Home / direct presentation</option>
+                </select>
+              </div>
+            </div>
             <div className="space-y-1.5">
               <label htmlFor="admission-notes" className="block text-xs font-semibold text-[var(--text-secondary)]">
                 Reason for admission / initial admission note <span className="text-[var(--text-tertiary)] font-normal">(recommended)</span>
@@ -391,6 +416,7 @@ const BedWardSelectionModal: React.FC<{
               />
               <p className="text-[10px] text-[var(--text-tertiary)]">This is saved with the encounter's medical notes. Keep ongoing progress notes in Medical Entries to avoid duplication.</p>
             </div>
+            </>
           )}
 
           {wardsLoading ? (
@@ -605,6 +631,8 @@ export default function MedicalEntries() {
   const [detentionReason, setDetentionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [admissionNotes, setAdmissionNotes] = useState('');
+  const [selectedAdmissionClass, setSelectedAdmissionClass] = useState<'emergency' | 'elective' | 'transfer'>('emergency');
+  const [selectedAdmissionSource, setSelectedAdmissionSource] = useState<'home' | 'referral' | 'another_facility' | 'opd' | 'emergency'>('opd');
 
   const [presentedComplaints, setPresentedComplaints] = useState('');
   const [hpc, setHpc] = useState('');
@@ -988,8 +1016,8 @@ export default function MedicalEntries() {
         attendanceId: selectedAttendanceId,
         bedId,
         wardId,
-        admissionType: 'emergency',
-        admissionSource: 'opd',
+        admissionType: selectedAdmissionClass,
+        admissionSource: selectedAdmissionSource,
         admissionDate: new Date().toISOString(),
       });
 
@@ -1002,6 +1030,8 @@ export default function MedicalEntries() {
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setAdmissionNotes('');
+      setSelectedAdmissionClass('emergency');
+      setSelectedAdmissionSource('opd');
     } catch (err: any) {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
@@ -1274,12 +1304,18 @@ export default function MedicalEntries() {
           setShowBedWardModal(false);
           setPendingAdmissionType(null);
           setAdmissionNotes('');
+          setSelectedAdmissionClass('emergency');
+          setSelectedAdmissionSource('opd');
         }}
         onConfirm={handleBedWardConfirm}
         admissionType={pendingAdmissionType || 'ipd'}
         isLoading={isProcessing}
         admissionNotes={admissionNotes}
         onAdmissionNotesChange={setAdmissionNotes}
+        selectedAdmissionClass={selectedAdmissionClass}
+        onAdmissionClassChange={setSelectedAdmissionClass}
+        selectedAdmissionSource={selectedAdmissionSource}
+        onAdmissionSourceChange={setSelectedAdmissionSource}
       />
 
       {/* Detention Modal */}
