@@ -1568,6 +1568,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (record.instrumentCountsStatus !== undefined && !['', 'correct', 'not_applicable', 'discrepancy'].includes(String(record.instrumentCountsStatus))) {
         throw new ValidationError('Invalid instrument/swab/needle count status');
       }
+      if (record.customProtocolFields !== undefined) {
+        if (!Array.isArray(record.customProtocolFields) || record.customProtocolFields.length > 100) {
+          throw new ValidationError('Hospital-specific theatre protocol fields must be a list of no more than 100 fields');
+        }
+        const allowedTypes = ['note', 'text', 'number', 'date', 'time', 'checkbox'];
+        const seenIds = new Set<string>();
+        for (const field of record.customProtocolFields) {
+          if (!field || typeof field !== 'object' || Array.isArray(field)) {
+            throw new ValidationError('Each hospital-specific theatre protocol field must be an object');
+          }
+          if (typeof field.id !== 'string' || !field.id.trim() || field.id.length > 200 || seenIds.has(field.id)) {
+            throw new ValidationError('Each hospital-specific theatre protocol field needs a unique valid ID');
+          }
+          seenIds.add(field.id);
+          if (typeof field.label !== 'string' || !field.label.trim() || field.label.length > 160) {
+            throw new ValidationError('Each hospital-specific theatre protocol field needs a label of 160 characters or fewer');
+          }
+          if (!allowedTypes.includes(field.type)) {
+            throw new ValidationError('Unsupported hospital-specific theatre protocol field type');
+          }
+          if (field.required !== undefined && typeof field.required !== 'boolean') {
+            throw new ValidationError('Hospital-specific theatre protocol required flag must be true or false');
+          }
+          if (field.type === 'checkbox') {
+            if (field.value !== undefined && typeof field.value !== 'boolean') {
+              throw new ValidationError(`Protocol field ${field.label} must use a true/false value`);
+            }
+          } else if (field.value !== undefined && typeof field.value !== 'string' && typeof field.value !== 'number') {
+            throw new ValidationError(`Protocol field ${field.label} must contain text or a number`);
+          }
+          if (typeof field.value === 'string' && field.value.length > 10000) {
+            throw new ValidationError(`Protocol field ${field.label} exceeds the maximum supported length`);
+          }
+          if (status === 'completed' && field.required === true) {
+            const hasValue = field.type === 'checkbox' ? field.value === true : String(field.value ?? '').trim() !== '';
+            if (!hasValue) {
+              throw new ValidationError(`Complete the required hospital protocol field: ${field.label}`);
+            }
+          }
+        }
+      }
       const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes', 'instrumentCountsStatus', 'instrumentCountNotes'];
       for (const field of textFields) {
         if (record[field] !== undefined && typeof record[field] !== 'string') {
