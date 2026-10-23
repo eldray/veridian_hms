@@ -464,7 +464,7 @@ ${claimsXml}
           });
           const matchingApproval = approvals.find((approval) =>
             approvedServicesCoverPrescription(approval.approvedServices, {
-              stockItemId: med.stockItemId,
+              stockItemId: med.StockItem.id,
               serviceCatalogId: med.serviceCatalogId ?? '',
             }),
           );
