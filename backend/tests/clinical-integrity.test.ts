@@ -1562,6 +1562,43 @@ describe('nursing task encounter lifecycle integrity', () => {
     expect(create).not.toHaveBeenCalled();
   });
 
+  it('rejects rescheduling or reopening a task for a closed encounter', async () => {
+    const update = vi.fn();
+    const existingTask = {
+      id: 'task-1', patientId: 'patient-1', attendanceId: 'attendance-1', admissionId: null,
+      title: 'Check vital signs', status: 'pending', createdById: 'nurse-1',
+    };
+    const prisma: any = {
+      nursingTask: { findUnique: vi.fn().mockResolvedValue(existingTask), update },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.updateTask('task-1', { status: 'in_progress' } as any, 'nurse-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('rejects actionable task changes when the admission is closed but attendance is stale', async () => {
+    const update = vi.fn();
+    const existingTask = {
+      id: 'task-1', patientId: 'patient-1', attendanceId: 'attendance-1', admissionId: 'admission-1',
+      title: 'Check vital signs', status: 'pending', createdById: 'nurse-1',
+    };
+    const prisma: any = {
+      nursingTask: { findUnique: vi.fn().mockResolvedValue(existingTask), update },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
+      admission: { findUnique: vi.fn().mockResolvedValue({
+        id: 'admission-1', attendanceId: 'attendance-1', status: 'active', dischargeDate: new Date('2026-10-22T10:00:00.000Z'),
+      }) },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.updateTask('task-1', { scheduledAt: '2026-10-23T10:00:00.000Z' } as any, 'nurse-1'))
+      .rejects.toThrow(/closed admission/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('creates a nursing task for an active encounter', async () => {
     const create = vi.fn().mockResolvedValue({ id: 'task-1', title: 'Check vital signs' });
     const prisma: any = {
