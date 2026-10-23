@@ -49,12 +49,12 @@ export class ProcedureService extends BaseService {
       throw new Error('Service code already exists');
     }
 
-    // Check for duplicate procedure code if provided
-    if (data.procedureCode) {
-      const procCodeExists = await this.procedureRepository.procedureCodeExists(data.procedureCode);
-      if (procCodeExists) {
-        throw new Error('Procedure code already exists');
-      }
+    // The procedure code falls back to the service code when the form omits it,
+    // so uniqueness must be checked against that effective value as well.
+    const effectiveProcedureCode = data.procedureCode ?? data.code;
+    const procCodeExists = await this.procedureRepository.procedureCodeExists(effectiveProcedureCode);
+    if (procCodeExists) {
+      throw new Error('Procedure code already exists');
     }
 
     const template = await this.prisma.$transaction(async (tx) => {
