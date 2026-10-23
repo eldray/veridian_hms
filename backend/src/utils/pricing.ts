@@ -34,6 +34,14 @@ export const toPriceNumber = (val: any): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/** Return only a genuinely configured positive NHIS tariff; never substitute the cash price. */
+export const resolveConfiguredNHISTariff = (payerRuleTariff: unknown, serviceNHISPrice: unknown): number | null => {
+  const raw = payerRuleTariff ?? serviceNHISPrice;
+  if (raw === null || raw === undefined || raw === '') return null;
+  const amount = Number(raw);
+  return Number.isFinite(amount) && amount > 0 ? amount : null;
+};
+
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** True when the payer (NHIS / private insurance) actually pays its own price for this service. */
