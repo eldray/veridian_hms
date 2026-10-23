@@ -1661,6 +1661,14 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           throw new ValidationError(`Theatre clinical record field ${field} exceeds the maximum supported length`);
         }
       }
+      // Enforce native time-input constraints at the API boundary as well.
+      for (const field of ['incisionTime', 'closureTime']) {
+        const value = record[field];
+        if (value !== undefined && value !== null && String(value).trim() !== '' &&
+            !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(value))) {
+          throw new ValidationError(`Theatre clinical record field ${field} must be a valid time in HH:MM format`);
+        }
+      }
     }
     if (status === 'completed') {
       const record = data.clinicalRecord;
