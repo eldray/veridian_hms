@@ -45,13 +45,34 @@ function matchesAny(entry: Record<string, unknown>, keys: readonly string[], exp
  * Returns true only when the approved payload explicitly identifies this exact
  * stock item or its medication service. Unrecognised payload shapes fail closed.
  */
+const APPROVED_QUANTITY_KEYS = [
+  'approvedQuantity', 'approved_quantity', 'maxQuantity', 'maximumQuantity', 'quantity', 'qty',
+] as const;
+
+/**
+ * If an approval explicitly records a quantity, the prescription/claim must not
+ * exceed it. Older approvals that identify a service but contain no quantity
+ * remain compatible; malformed or non-positive explicit quantities fail closed.
+ */
+function approvedQuantityCoversPrescription(entry: Record<string, unknown>, requestedQuantity?: number): boolean {
+  if (requestedQuantity === undefined) return true;
+  if (!Number.isSafeInteger(requestedQuantity) || requestedQuantity <= 0) return false;
+  const quantityKey = APPROVED_QUANTITY_KEYS.find((key) => key in entry);
+  if (!quantityKey) return true;
+  const approvedQuantity = Number(entry[quantityKey]);
+  return Number.isSafeInteger(approvedQuantity) && approvedQuantity > 0 && approvedQuantity >= requestedQuantity;
+}
+
 export function approvedServicesCoverPrescription(
   approvedServices: unknown,
   prescription: NHISPrescriptionIdentity,
+  requestedQuantity?: number,
 ): boolean {
   if (!approvedServices) return false;
-  return collectApprovedEntries(approvedServices).some((entry) =>
-    matchesAny(entry, STOCK_ID_KEYS, prescription.stockItemId) ||
-    matchesAny(entry, SERVICE_ID_KEYS, prescription.serviceCatalogId),
-  );
+  return collectApprovedEntries(approvedServices).some((entry) => {
+    const matchesPrescription =
+      matchesAny(entry, STOCK_ID_KEYS, prescription.stockItemId) ||
+      matchesAny(entry, SERVICE_ID_KEYS, prescription.serviceCatalogId);
+    return matchesPrescription && approvedQuantityCoversPrescription(entry, requestedQuantity);
+  });
 }
