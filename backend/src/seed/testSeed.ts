@@ -11,6 +11,7 @@ import {
   DischargeStatus,
   VisitCategory,
   BillStatus,
+  ClaimStatus,
   AttendanceStatus,
   LabTestStatus,
   ProcedureStatus,
