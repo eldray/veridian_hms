@@ -8,6 +8,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getBillingCollections } from '../api';
 import api from '../api/api';
@@ -119,6 +120,7 @@ export default function Billing() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState(() => searchParams.get('attendanceId') || '');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
   const [expandedBillId, setExpandedBillId] = useState<string | null>(null);
   const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
     totalAmount: 0,
@@ -285,7 +287,15 @@ export default function Billing() {
     if (attendanceIdFromUrl && attendanceIdFromUrl !== selectedAttendanceId) {
       setSelectedAttendanceId(attendanceIdFromUrl);
     }
-  }, [searchParams]);
+    // When launched from another clinical page, hydrate the patient context for the
+    // same attendance so the shared patient/attendance selector displays correctly.
+    if (attendanceIdFromUrl && attendances.length) {
+      const linkedAttendance = attendances.find((attendance: any) => String(attendance.id || attendance._id) === attendanceIdFromUrl);
+      const linkedPatient = linkedAttendance?.patientId || linkedAttendance?.patient?.id || linkedAttendance?.Patient?.id;
+      const linkedPatientId = typeof linkedPatient === 'object' ? linkedPatient?.id || linkedPatient?._id : linkedPatient;
+      if (linkedPatientId) setSelectedPatientId(String(linkedPatientId));
+    }
+  }, [searchParams, attendances]);
 
   useEffect(() => {
     void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
@@ -717,34 +727,47 @@ const handlePrintStatement = async (billId: string) => {
       </div>
 
       {activeTab === 'bills' && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <label htmlFor="billing-attendance-select" className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-            Bill by attendance
-          </label>
-          <select
-            id="billing-attendance-select"
-            value={selectedAttendanceId}
-            onChange={(e) => { setSelectedAttendanceId(e.target.value); setCurrentPage(1); }}
-            className="w-full sm:max-w-2xl px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-          >
-            <option value="">All attendances — historical billing</option>
-            {[...attendances]
-              .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
-              .map((attendance) => {
-                const patient = attendance.patient || (attendance as any).Patient;
-                const patientName = patient
-                  ? `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
-                  : 'Patient';
-                return (
-                  <option key={attendance.id} value={attendance.id}>
-                    {attendance.attendanceNumber} — {patientName} — {formatDateOnly(attendance.dateTime)}
-                  </option>
-                );
-              })}
-          </select>
-          <p className="text-xs text-[var(--text-secondary)] mt-2">
-            Select a visit to synchronize and show only that attendance's consultation, completed tests/scans/procedures, dispensed medicines and ward charges. Clear the selection to browse historical bills across visits.
-          </p>
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Find patient and select attendance</h2>
+            <p className="text-xs text-[var(--text-secondary)] mt-1">
+              Search the patient first, then choose their current or a previous visit. Only the selected attendance's bill and itemised charges will be shown.
+            </p>
+          </div>
+          <PatientAttendanceSelector
+            patients={patients}
+            attendances={attendances}
+            selectedPatientId={selectedPatientId}
+            selectedAttendanceId={selectedAttendanceId}
+            onPatientSelect={(patientId) => {
+              setSelectedPatientId(patientId);
+              setSelectedAttendanceId('');
+              setCurrentPage(1);
+            }}
+            onAttendanceSelect={(attendanceId) => {
+              setSelectedAttendanceId(attendanceId);
+              setCurrentPage(1);
+            }}
+            onClearSelection={() => {
+              setSelectedPatientId('');
+              setSelectedAttendanceId('');
+              setCurrentPage(1);
+            }}
+            autoSelectMostRecent={false}
+          />
+          {selectedAttendanceId ? (
+            <p className="text-xs text-[var(--icon-green-text)]">
+              Billing is scoped to the selected attendance. Choose another attendance to review a different visit.
+            </p>
+          ) : selectedPatientId ? (
+            <p className="text-xs text-[var(--text-secondary)]">
+              Select one of this patient's attendances to load that visit's bill.
+            </p>
+          ) : (
+            <p className="text-xs text-[var(--text-secondary)]">
+              No attendance selected. Choose a patient and attendance to view visit-specific billing, or use the bill list below to browse historical bills.
+            </p>
+          )}
         </div>
       )}
 
