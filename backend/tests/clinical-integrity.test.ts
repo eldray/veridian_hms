@@ -179,7 +179,10 @@ describe('admission, bed and nursing record consistency', () => {
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }), updateMany: vi.fn() },
       attendance: { findFirst: vi.fn().mockResolvedValue({ id: 'attendance-existing' }), create: vi.fn() },
     };
-    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const prisma: any = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
     const service = new EncounterService(prisma);
 
     await expect(service.createEncounter({
@@ -2123,5 +2126,46 @@ describe('ward charge admission date eligibility', () => {
       ],
       attendance: { is: { status: 'admitted' } },
     });
+  });
+});
+
+
+describe('maternal clinical record deletion integrity', () => {
+  it('preserves ANC visit history and reports missing visits clearly', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'anc-visit-1' });
+    const deleteRecord = vi.fn();
+    const repository = new AntenatalRepository({
+      aNCVisit: { findUnique, delete: deleteRecord },
+    } as any);
+
+    await expect(repository.deleteVisit('anc-visit-1'))
+      .rejects.toThrow(/cannot be physically deleted.*clinical record/i);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'anc-visit-1' }, select: { id: true },
+    });
+    expect(deleteRecord).not.toHaveBeenCalled();
+
+    findUnique.mockResolvedValueOnce(null);
+    await expect(repository.deleteVisit('missing-visit'))
+      .rejects.toThrow(/ANC visit.*not found/i);
+  });
+
+  it('preserves postnatal history and reports missing records clearly', async () => {
+    const findUnique = vi.fn().mockResolvedValue({ id: 'pnc-1' });
+    const deleteRecord = vi.fn();
+    const repository = new AntenatalRepository({
+      postnatalRecord: { findUnique, delete: deleteRecord },
+    } as any);
+
+    await expect(repository.deletePostnatalRecord('pnc-1'))
+      .rejects.toThrow(/cannot be physically deleted.*clinical record/i);
+    expect(findUnique).toHaveBeenCalledWith({
+      where: { id: 'pnc-1' }, select: { id: true },
+    });
+    expect(deleteRecord).not.toHaveBeenCalled();
+
+    findUnique.mockResolvedValueOnce(null);
+    await expect(repository.deletePostnatalRecord('missing-pnc'))
+      .rejects.toThrow(/Postnatal record.*not found/i);
   });
 });

@@ -375,7 +375,7 @@ export default function Antenatal() {
   const { stockItems, getStockItems } = useStockStore();
 
   const { currentRecord, currentVisits, getActiveAntenatalRecordByPatient, getANCVisitsByAntenatalRecord,
-    registerAntenatalBooking, recordANCVisit, updateANCVisit, deleteANCVisit, isLoading: ancLoading } = useAntenatalStore();
+    registerAntenatalBooking, recordANCVisit, updateANCVisit, isLoading: ancLoading } = useAntenatalStore();
 
   const { deliveries, getDeliveryRecords, deleteDeliveryRecord } = useDeliveryStore();
   const { postnatalRecords, getPostnatalRecords, deletePostnatalRecord } = usePostnatalStore();
@@ -635,34 +635,12 @@ useEffect(() => {
     setShowANCVisitModal(true);
   };
 
-  const handleDeleteANCVisit = async (id: string) => {
-    if (!window.confirm('Delete this ANC visit?')) return;
-    try {
-      await deleteANCVisit(id);
-      if (currentRecord?.id) getANCVisitsByAntenatalRecord(currentRecord.id);
-      success('Deleted', 'Visit removed');
-    } catch (err: any) {
-      toastError('Delete failed', err.message);
-    }
-  };
-
   const handleDeleteDeliveryRecord = async (id: string) => {
     if (!window.confirm('Delete this delivery record?')) return;
     try {
       await deleteDeliveryRecord(id);
       await getDeliveryRecords({ patientId: selectedPatientId });
       success('Deleted', 'Delivery removed');
-    } catch (err: any) {
-      toastError('Delete failed', err.message);
-    }
-  };
-
-  const handleDeletePostnatalRecord = async (id: string) => {
-    if (!window.confirm('Delete this postnatal record?')) return;
-    try {
-      await deletePostnatalRecord(id);
-      await getPostnatalRecords({ patientId: selectedPatientId });
-      success('Deleted', 'Record removed');
     } catch (err: any) {
       toastError('Delete failed', err.message);
     }
@@ -1599,7 +1577,6 @@ useEffect(() => {
                                   <div className="flex gap-0.5 shrink-0">
                                     <button onClick={() => { setSelectedVisit(v); setShowVisitDetails(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
                                     <button onClick={() => { setEditingVisit(v); setSelectedBookingId(currentRecord?.id || ''); setShowANCVisitModal(true); }} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                                    <button onClick={() => handleDeleteANCVisit(v.id)} className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                                   </div>
                                 </div>
 
@@ -1746,7 +1723,6 @@ useEffect(() => {
                               <div className="flex gap-0.5">
                                 <button onClick={() => { setSelectedPostnatal(pn); setShowPostnatalDetails(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Eye className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => { setEditingPostnatal(pn); setShowPostnatalModal(true); }} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all"><Edit className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => handleDeletePostnatalRecord(pn.id)} className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
                           </div>
