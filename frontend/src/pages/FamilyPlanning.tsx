@@ -210,7 +210,7 @@ const FamilyPlanningServiceModal: React.FC<{
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!attendanceId) { toastError('Error', 'No attendance selected'); return; }
+    if (!attendanceId && !existingService) { toastError('Error', 'Select a patient from the queue before recording a new family-planning service'); return; }
     setLoading(true);
     try {
       const data: any = {
@@ -361,10 +361,13 @@ const FamilyPlanningServiceModal: React.FC<{
                   </div>
                 )}
 
+                <p className="text-xs text-[var(--text-secondary)] rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] px-3 py-2">
+                  New-acceptor status is calculated from the patient’s dated family-planning history to keep monthly returns consistent.
+                </p>
+
                 {/* Toggle grid */}
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { key: 'isNewAcceptor', label: 'New Acceptor', icon: UserCheck },
                     { key: 'counsellingGiven', label: 'Counselling Given', icon: Info },
                     { key: 'informedConsent', label: 'Informed Consent', icon: ShieldCheck },
                     { key: 'isPostpartum', label: 'Postpartum', icon: Baby },
@@ -670,12 +673,13 @@ export default function FamilyPlanning() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => openNew()}
+            onClick={() => setActiveTab('queue')}
+            title="Select a patient from the queue before recording a service"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-500/20 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">New FP Service</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">Select Client</span>
+            <span className="sm:hidden">Select</span>
           </button>
           <button
             onClick={() => activeTab === 'queue' ? fetchWorklist('maternal') : getServices({ startDate: dateRange.start, endDate: dateRange.end })}
