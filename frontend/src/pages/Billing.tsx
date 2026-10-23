@@ -992,7 +992,7 @@ const handlePrintStatement = async (billId: string) => {
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
                             <Link
-                              to={`/dashboard/patients/${bill.patientId}/billing`}
+                              to={`/dashboard/patients/${bill.patientId}/billing?billId=${encodeURIComponent(bill.id)}`}
                               className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
                               title="View Patient Billing Items"
                             >
