@@ -25,6 +25,9 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     if (!data.patientId?.trim()) throw new ValidationError('A patient is required for a family-planning service');
     if (!data.providedById?.trim()) throw new ValidationError('Recording staff is required for a family-planning service');
     if (!data.method || !data.methodCategory) throw new ValidationError('A contraceptive method and method category are required');
+    if (data.informedConsent !== true) {
+      throw new ValidationError('Explicit informed consent must be documented before saving a family-planning method service');
+    }
 
     const methodCategoryByMethod: Record<string, string> = {
       pill_coc: 'modern_short_acting', pill_pop: 'modern_short_acting',
@@ -97,7 +100,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
         patientId: data.patientId, attendanceId: data.attendanceId || undefined,
         serviceDate, method: data.method as any,
         methodCategory: data.methodCategory as any, isNewAcceptor,
-        counsellingGiven: data.counsellingGiven ?? true, informedConsent: data.informedConsent ?? true,
+        counsellingGiven: data.counsellingGiven ?? true, informedConsent: data.informedConsent === true,
         sideEffects: data.sideEffects, contraindications: data.contraindications,
         medicalEligibilityCategory: data.medicalEligibilityCategory, nextFollowUpDate: data.nextFollowUpDate,
         isPostpartum: data.isPostpartum || false, isPostAbortion: data.isPostAbortion || false,
