@@ -336,6 +336,24 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     const patient = await this.prisma.patient.findUnique({
       where: { id: patientId },
       include: {
+        deliveryRecords: {
+          where: { deliveryDate: { lte: new Date() } },
+          orderBy: { deliveryDate: 'desc' },
+          take: 10,
+          select: { id: true, deliveryDate: true, deliveryType: true, deliveryOutcome: true },
+        },
+        postnatalRecords: {
+          where: { examinationDate: { lte: new Date() } },
+          orderBy: { examinationDate: 'desc' },
+          take: 10,
+          select: { id: true, examinationDate: true, deliveryRecordId: true, familyPlanningDiscussed: true, familyPlanningMethodAccepted: true },
+        },
+        abortionRecords: {
+          where: { abortionDate: { lte: new Date() } },
+          orderBy: { abortionDate: 'desc' },
+          take: 10,
+          select: { id: true, abortionDate: true, abortionType: true, postAbortionFPCounselled: true, postAbortionFPAccepted: true, fpMethodAccepted: true },
+        },
         familyPlanningServices: {
           where: { OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }] },
           orderBy: { serviceDate: 'desc' },
@@ -358,6 +376,11 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       },
       currentMethod, fpHistory, totalVisits: fpHistory.length,
       lastVisitDate: currentMethod?.serviceDate, nextFollowUp,
+      maternalEvents: {
+        deliveries: patient.deliveryRecords || [],
+        postnatalRecords: patient.postnatalRecords || [],
+        abortions: patient.abortionRecords || [],
+      },
     };
   }
 
@@ -367,18 +390,31 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       serviceDate: { gte: startDate, lte: endDate },
     };
 
-    const [totalServices, methodMix, categoryMix, newAcceptors, postpartumFP, postAbortionFP] = await Promise.all([
+    const [totalServices, methodMix, categoryMix, newAcceptors, postpartumFP, postAbortionFP,
+      linkedPostpartumFP, unlinkedPostpartumFP, linkedPostAbortionFP, unlinkedPostAbortionFP] = await Promise.all([
       this.getModel().count({ where }),
       this.getModel().groupBy({ by: ['method'], where, _count: true }),
       this.getModel().groupBy({ by: ['methodCategory'], where, _count: true }),
       this.getModel().count({ where: { ...where, isNewAcceptor: true } }),
       this.getModel().count({ where: { ...where, isPostpartum: true } }),
       this.getModel().count({ where: { ...where, isPostAbortion: true } }),
+      this.getModel().count({ where: {
+        ...where, isPostpartum: true,
+        OR: [{ postpartumDeliveryRecordId: { not: null } }, { postnatalRecordId: { not: null } }],
+      } }),
+      this.getModel().count({ where: {
+        ...where, isPostpartum: true, postpartumDeliveryRecordId: null, postnatalRecordId: null,
+      } }),
+      this.getModel().count({ where: { ...where, isPostAbortion: true, postAbortionRecordId: { not: null } } }),
+      this.getModel().count({ where: { ...where, isPostAbortion: true, postAbortionRecordId: null } }),
     ]);
 
     return {
       period: { startDate, endDate },
-      summary: { totalServices, newAcceptors, postpartumFP, postAbortionFP },
+      summary: {
+        totalServices, newAcceptors, postpartumFP, postAbortionFP,
+        linkedPostpartumFP, unlinkedPostpartumFP, linkedPostAbortionFP, unlinkedPostAbortionFP,
+      },
       methodMix: methodMix.reduce((acc: Record<string, number>, m: any) => { acc[m.method] = m._count; return acc; }, {} as Record<string, number>),
       categoryMix: categoryMix.reduce((acc: Record<string, number>, c: any) => { acc[c.methodCategory] = c._count; return acc; }, {} as Record<string, number>),
     };
