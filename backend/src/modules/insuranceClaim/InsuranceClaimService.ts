@@ -455,7 +455,7 @@ ${claimsXml}
             approvedServicesCoverPrescription(approval.approvedServices, {
               stockItemId: stockItem.id,
               serviceCatalogId: med.serviceCatalogId ?? '',
-            }),
+            }, Number(med.quantity ?? 1)),
           );
           if (!matchingApproval?.authNumber) {
             throw new ValidationError(
@@ -1011,12 +1011,12 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           approvedServicesCoverPrescription(candidate.approvedServices, {
             stockItemId: catalog.StockItem?.id ?? '',
             serviceCatalogId: '',
-          }) ||
+          }, rowQuantity) ||
           Array.from(matchingServiceCatalogIds).some(serviceCatalogId =>
             approvedServicesCoverPrescription(candidate.approvedServices, {
               stockItemId: catalog.StockItem?.id ?? '',
               serviceCatalogId,
-            }),
+            }, rowQuantity),
           ),
         );
         if (!approval?.authNumber) {
