@@ -421,13 +421,14 @@ ${claimsXml}
       const authorizationNumbers = new Set<string>();
       const claimValidationDate = new Date();
       for (const med of att.Medication) {
-        if (!med.StockItem) {
+        const stockItem = med.StockItem;
+        if (!stockItem) {
           throw new ValidationError(`NHIS claim cannot include medicine ${med.name ?? med.id}: its stock item is missing.`);
         }
         const payerRule = await tx.stockItemPayerRule.findUnique({
           where: {
             stockItemId_insuranceProviderId: {
-              stockItemId: med.stockItemId,
+              stockItemId: stockItem.id,
               insuranceProviderId: att.insuranceProviderId!,
             },
           },
@@ -442,7 +443,7 @@ ${claimsXml}
             (payerRule.effectiveFrom && payerRule.effectiveFrom > claimValidationDate) ||
             (payerRule.effectiveTo && payerRule.effectiveTo < claimValidationDate)) {
           throw new ValidationError(
-            `NHIS claim cannot include ${med.name ?? med.StockItem.name}: its medicine coverage rule is missing, uncovered, or outside its effective dates.`,
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its medicine coverage rule is missing, uncovered, or outside its effective dates.`,
           );
         }
         if (payerRule.authorizationRequired == null) {
@@ -464,7 +465,7 @@ ${claimsXml}
           });
           const matchingApproval = approvals.find((approval) =>
             approvedServicesCoverPrescription(approval.approvedServices, {
-              stockItemId: med.StockItem.id,
+              stockItemId: stockItem.id,
               serviceCatalogId: med.serviceCatalogId ?? '',
             }),
           );
