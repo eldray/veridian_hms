@@ -1,6 +1,6 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
@@ -102,6 +102,7 @@ const getWaiverTypeLabel = (type: string) => {
 
 export default function Billing() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { success, error: toastError } = useToast();
 
   // Tab state
@@ -117,7 +118,8 @@ export default function Billing() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState(() => searchParams.get('attendanceId') || '');
+  const [expandedBillId, setExpandedBillId] = useState<string | null>(null);
   const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
     totalAmount: 0,
     paymentCount: 0,
@@ -141,6 +143,7 @@ export default function Billing() {
     isLoading: billsLoading,
     getBills,
     getBillStatistics,
+    generateBillFromAttendance,
   } = useBillingStore();
 
   const {
@@ -230,6 +233,17 @@ export default function Billing() {
         setCollectionsReport({ totalAmount: 0, paymentCount: 0, payments: [] });
       }
       const filters: any = {};
+      // Synchronize a selected visit's completed clinical and ward charges before reading its bill.
+      // Source-linked billing is idempotent; the backend updates the one bill for this attendance.
+      if (activeTab === 'bills' && selectedAttendanceId) {
+        try {
+          await generateBillFromAttendance(selectedAttendanceId);
+        } catch (syncError: any) {
+          // Existing legacy bills may need reconciliation. Still show their saved lines and balances.
+          console.warn('Attendance billing sync did not complete:', syncError);
+          toastError('Billing sync needs review', syncError?.response?.data?.message || syncError?.message || 'Could not sync new charges for this attendance.');
+        }
+      }
       // A selected attendance takes precedence over the date window: a visit may
       // have started earlier but its current bill must still be shown in full.
       if (activeTab === 'bills' && selectedAttendanceId) {
@@ -722,7 +736,7 @@ const handlePrintStatement = async (billId: string) => {
               })}
           </select>
           <p className="text-xs text-[var(--text-secondary)] mt-2">
-            Select a visit to see only its bill. Clear the selection to return to the patient's wider billing history.
+            Select a visit to synchronize and show only that attendance's consultation, completed tests/scans/procedures, dispensed medicines and ward charges. Clear the selection to browse historical bills across visits.
           </p>
         </div>
       )}
@@ -970,13 +984,19 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
+                    const lineItems = (bill as any).BillLineItem || (bill as any).billLineItems || [];
+                    const isExpanded = expandedBillId === bill.id;
                     return (
-                      <tr key={bill.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
+                      <Fragment key={bill.id}>
+                      <tr className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-[var(--text-primary)] text-sm">{bill.billNumber}</p>
                           {bill.claimNumber && (
                             <p className="text-xs text-[var(--text-secondary)]">Claim: {bill.claimNumber}</p>
                           )}
+                          <button type="button" onClick={() => setExpandedBillId(isExpanded ? null : bill.id)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--icon-cyan-text)] hover:underline" aria-expanded={isExpanded}>
+                            <Layers className="w-3 h-3" /> {isExpanded ? 'Hide' : 'View'} {lineItems.length} item{lineItems.length === 1 ? '' : 's'}
+                          </button>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1071,6 +1091,43 @@ const handlePrintStatement = async (billId: string) => {
                           </div>
                         </td>
                       </tr>
+                      {isExpanded && (
+                        <tr className="bg-[var(--bg-main)]">
+                          <td colSpan={10} className="px-5 py-4">
+                            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-x-auto">
+                              <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between gap-3">
+                                <div>
+                                  <p className="font-semibold text-sm text-[var(--text-primary)]">Itemised charges — {bill.billNumber}</p>
+                                  <p className="text-xs text-[var(--text-secondary)]">{(bill as any).Attendance?.attendanceNumber ? `Attendance ${(bill as any).Attendance.attendanceNumber}` : 'Attendance-linked bill'}</p>
+                                </div>
+                                <span className="text-xs text-[var(--text-secondary)]">{lineItems.length} active line{lineItems.length === 1 ? '' : 's'}</span>
+                              </div>
+                              {lineItems.length === 0 ? (
+                                <p className="px-4 py-5 text-sm text-[var(--text-secondary)]">No itemised charges are recorded on this bill yet. If the attendance has completed billable services, refresh or reselect the attendance to synchronize them.</p>
+                              ) : (
+                                <table className="w-full min-w-[620px] text-sm">
+                                  <thead className="bg-[var(--bg-main)]"><tr>
+                                    {['Description', 'Type', 'Qty', 'Unit price', 'Line total', 'Patient share'].map((heading) => <th key={heading} className={`px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] ${['Qty', 'Unit price', 'Line total', 'Patient share'].includes(heading) ? 'text-right' : 'text-left'}`}>{heading}</th>)}
+                                  </tr></thead>
+                                  <tbody className="divide-y divide-[var(--border-color)]">
+                                    {lineItems.map((item: any) => (
+                                      <tr key={item.id}>
+                                        <td className="px-4 py-2.5 text-[var(--text-primary)]">{item.description || item.serviceCatalog?.name || 'Service'}</td>
+                                        <td className="px-4 py-2.5 text-[var(--text-secondary)]">{String(item.serviceType || item.serviceCatalog?.serviceType || 'other').replace(/_/g, ' ')}</td>
+                                        <td className="px-4 py-2.5 text-right tabular-nums">{Number(item.quantity || 0)}</td>
+                                        <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(item.unitPrice)}</td>
+                                        <td className="px-4 py-2.5 text-right font-medium tabular-nums">{formatCurrency(item.lineTotal)}</td>
+                                        <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(item.patientPayableAmount ?? item.lineTotal)}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>
