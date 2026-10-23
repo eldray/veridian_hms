@@ -1,4 +1,5 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { ValidationError } from '../../utils/errors';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { CreateFPServiceInput, UpdateFPServiceInput, FPServiceFilters } from './FamilyPlanningTypes';
 
@@ -21,16 +22,75 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
   }
 
   async createFPService(data: CreateFPServiceInput) {
+    if (!data.patientId?.trim()) throw new ValidationError('A patient is required for a family-planning service');
+    if (!data.providedById?.trim()) throw new ValidationError('Recording staff is required for a family-planning service');
+    if (!data.method || !data.methodCategory) throw new ValidationError('A contraceptive method and method category are required');
+
+    const methodCategoryByMethod: Record<string, string> = {
+      pill_coc: 'modern_short_acting', pill_pop: 'modern_short_acting',
+      injectable_dmpa: 'modern_short_acting', injectable_net_en: 'modern_short_acting',
+      condom_male: 'modern_short_acting', condom_female: 'modern_short_acting',
+      implant_implanon: 'modern_long_acting', implant_jadelle: 'modern_long_acting',
+      iud_copper: 'modern_long_acting', iud_hormonal: 'modern_long_acting',
+      female_sterilization: 'permanent', male_sterilization: 'permanent',
+      lam: 'traditional', withdrawal: 'traditional', calendar: 'traditional',
+      other_traditional: 'traditional', emergency_contraception: 'emergency',
+    };
+    if (methodCategoryByMethod[data.method] !== data.methodCategory) {
+      throw new ValidationError('The selected method does not belong to the selected family-planning category');
+    }
+
+    const serviceDate = data.serviceDate ? new Date(data.serviceDate) : new Date();
+    if (!Number.isFinite(serviceDate.getTime())) throw new ValidationError('Family-planning service date must be valid');
+    const now = new Date();
+    const serviceDay = new Date(serviceDate.getFullYear(), serviceDate.getMonth(), serviceDate.getDate()).getTime();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    if (serviceDay > today) throw new ValidationError('A family-planning service date cannot be in the future');
+
+    if (data.medicalEligibilityCategory != null &&
+      (!Number.isInteger(Number(data.medicalEligibilityCategory)) ||
+       Number(data.medicalEligibilityCategory) < 1 || Number(data.medicalEligibilityCategory) > 4)) {
+      throw new ValidationError('Medical eligibility category must be WHO MEC category 1, 2, 3 or 4');
+    }
+    if (data.isPostpartum && data.isPostAbortion) {
+      throw new ValidationError('A service cannot be classified as both postpartum and post-abortion');
+    }
+    if (data.postpartumWeeks != null &&
+      (!data.isPostpartum || !Number.isInteger(Number(data.postpartumWeeks)) ||
+       Number(data.postpartumWeeks) < 0 || Number(data.postpartumWeeks) > 52)) {
+      throw new ValidationError('Postpartum weeks must be a whole number from 0 to 52 and the service must be marked postpartum');
+    }
+    if (data.cypFactor != null && (!Number.isFinite(Number(data.cypFactor)) || Number(data.cypFactor) < 0)) {
+      throw new ValidationError('CYP factor must be a non-negative number');
+    }
+
+    const patient = await this.prisma.patient.findUnique({ where: { id: data.patientId }, select: { id: true } });
+    if (!patient) throw new ValidationError('The selected family-planning patient does not exist');
+
+    if (data.attendanceId) {
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: data.attendanceId },
+        select: { id: true, patientId: true, status: true },
+      });
+      if (!attendance) throw new ValidationError('The selected attendance does not exist');
+      if (attendance.patientId !== data.patientId) {
+        throw new ValidationError('Family-planning patient must match the linked attendance patient');
+      }
+      if (attendance.status === 'cancelled') {
+        throw new ValidationError('Family-planning service cannot be recorded against a cancelled attendance');
+      }
+    }
+
     return this.getModel().create({
       data: {
-        patientId: data.patientId, attendanceId: data.attendanceId,
-        serviceDate: data.serviceDate || new Date(), method: data.method as any,
+        patientId: data.patientId, attendanceId: data.attendanceId || undefined,
+        serviceDate, method: data.method as any,
         methodCategory: data.methodCategory as any, isNewAcceptor: data.isNewAcceptor || false,
         counsellingGiven: data.counsellingGiven ?? true, informedConsent: data.informedConsent ?? true,
         sideEffects: data.sideEffects, contraindications: data.contraindications,
         medicalEligibilityCategory: data.medicalEligibilityCategory, nextFollowUpDate: data.nextFollowUpDate,
         isPostpartum: data.isPostpartum || false, isPostAbortion: data.isPostAbortion || false,
-        postpartumWeeks: data.postpartumWeeks, cypFactor: data.cypFactor || this.calculateCYP(data.method),
+        postpartumWeeks: data.postpartumWeeks, cypFactor: data.cypFactor ?? this.calculateCYP(data.method),
         providedById: data.providedById, notes: data.notes,
       },
       include: this.getStandardIncludes()
@@ -87,8 +147,13 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
     return this.getModel().update({ where: { id }, data, include: this.getStandardIncludes() });
   }
 
+  private activeAttendanceFilter(): Prisma.FamilyPlanningServiceWhereInput {
+    // Preserve historical standalone records, but exclude services linked to cancelled encounters.
+    return { OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }] };
+  }
+
   async getFPStatistics(startDate?: Date, endDate?: Date) {
-    const where: Prisma.FamilyPlanningServiceWhereInput = {};
+    const where: Prisma.FamilyPlanningServiceWhereInput = { ...this.activeAttendanceFilter() };
     if (startDate || endDate) {
       where.serviceDate = {};
       if (startDate) where.serviceDate.gte = startDate;
@@ -114,7 +179,7 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
   }
 
   async getMethodMix(startDate?: Date, endDate?: Date) {
-    const where: Prisma.FamilyPlanningServiceWhereInput = {};
+    const where: Prisma.FamilyPlanningServiceWhereInput = { ...this.activeAttendanceFilter() };
     if (startDate || endDate) {
       where.serviceDate = {};
       if (startDate) where.serviceDate.gte = startDate;
@@ -161,7 +226,10 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
   }
 
   async getGHSFPReport(startDate: Date, endDate: Date) {
-    const where = { serviceDate: { gte: startDate, lte: endDate } };
+    const where: Prisma.FamilyPlanningServiceWhereInput = {
+      ...this.activeAttendanceFilter(),
+      serviceDate: { gte: startDate, lte: endDate },
+    };
 
     const [totalServices, methodMix, categoryMix, newAcceptors, postpartumFP, postAbortionFP] = await Promise.all([
       this.getModel().count({ where }),
