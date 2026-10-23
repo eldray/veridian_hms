@@ -111,14 +111,19 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals before math
+      // Patient receipts reduce the patient's liability, not the insurer's share.
       const amount = toNumber(paymentData.amount);
+      const patientLiability = toNumber(bill.patientPayable);
+      const currentBalance = Math.max(0, toNumber(bill.balance));
+      if (amount > currentBalance) {
+        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${currentBalance.toFixed(2)})`);
+      }
       const newPaidAmount = toNumber(bill.paidAmount) + amount;
-      const newBalance = toNumber(bill.totalAmount) - newPaidAmount;
+      const newBalance = Math.max(0, patientLiability - newPaidAmount);
 
       let newStatus: BillStatus = bill.status;
       if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.totalAmount)) newStatus = 'partial';
+      else if (newPaidAmount > 0) newStatus = 'partial';
 
       const [updatedBill, payment] = await Promise.all([
         tx.bill.update({ where: { id: billId }, data: { paidAmount: newPaidAmount, balance: newBalance, status: newStatus } }),
@@ -158,11 +163,20 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Decimals
       const newTotal = activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
       const newPatientPayable = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const newInsuranceCovered = activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
       const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill?.paidAmount || 0));
 
       await tx.bill.update({
         where: { id: lineItem.billId },
-        data: { totalAmount: newTotal, patientPayable: newPatientPayable, balance: newPatientPayable - toNumber(bill?.paidAmount || 0) }
+        data: {
+          subtotal: newTotal,
+          totalAmount: newTotal,
+          insuranceCovered: newInsuranceCovered,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newBalance <= 0 ? 'paid' : (toNumber(bill?.paidAmount || 0) > 0 ? 'partial' : 'pending')
+        }
       });
 
       return { lineItem: updatedLineItem, billId: lineItem.billId };
