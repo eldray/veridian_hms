@@ -806,7 +806,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, Medication: { where: { status: 'dispensed' }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: 'dispensed' }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -858,7 +858,10 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   if (claim.InsuranceProvider?.type === 'nhis') {
     const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
-    const policyDate = new Date();
+    const policyDate = new Date(claim.Attendance?.Admission?.admissionDate ?? claim.Attendance?.dateTime ?? claim.createdAt);
+    if (Number.isNaN(policyDate.getTime())) {
+      throw new ValidationError('NHIS claim cannot be edited because its attendance service date is invalid.');
+    }
     if (!gdrgCode) {
       throw new ValidationError('NHIS claim requires a G-DRG code. Select a valid G-DRG tariff before saving the claim.');
     }
@@ -872,7 +875,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       select: { id: true, nhiaTariff: true },
     });
     if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
-      throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the current date. Activate or correct its tariff before saving the claim.`);
+      throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the service date ${policyDate.toISOString().slice(0, 10)}. Activate or correct its tariff before saving the claim.`);
     }
     const gdrgAmount = Number(tariff.nhiaTariff);
     if (gdrgRow) {
@@ -900,6 +903,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       : [];
     const claimedQuantityByStockItem = new Map<string, number>();
     for (const row of medRows) {
+      const rowPolicyDate = row.serviceDate ?? policyDate;
       const catalog = await this.prisma.serviceCatalog.findFirst({
         where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
         select: {
@@ -918,7 +922,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
             },
           },
           pricing: {
-            where: { isActive: true, effectiveDate: { lte: policyDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: policyDate } }] },
+            where: { isActive: true, effectiveDate: { lte: rowPolicyDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: rowPolicyDate } }] },
             orderBy: { effectiveDate: 'desc' },
             take: 1,
             select: { cashPrice: true, nhisPrice: true },
@@ -929,7 +933,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       const currentPricing = catalog?.pricing?.[0];
       if (!catalog?.StockItem || !rule || rule.isCovered !== true || rule.authorizationRequired == null ||
           !['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) ||
-          (rule.effectiveFrom && rule.effectiveFrom > policyDate) || (rule.effectiveTo && rule.effectiveTo < policyDate)) {
+          (rule.effectiveFrom && rule.effectiveFrom > rowPolicyDate) || (rule.effectiveTo && rule.effectiveTo < rowPolicyDate)) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
       }
       // A payer tariff alone is not enough to safely calculate the patient/NHIS
