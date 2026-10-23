@@ -242,7 +242,7 @@ export class EncounterService extends BaseService {
       if (Number.isNaN(admissionDate.getTime())) throw new ValidationError('A valid admission date is required');
 
       const medicalNotes = data.admissionNotes
-        ? [encounter.medicalNotes, data.admissionNotes].filter(Boolean).join('\\n\\n')
+        ? [encounter.medicalNotes, data.admissionNotes].filter(Boolean).join('\n\n')
         : encounter.medicalNotes;
 
       const transition = await tx.attendance.updateMany({
