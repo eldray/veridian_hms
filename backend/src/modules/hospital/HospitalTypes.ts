@@ -7,7 +7,7 @@ export interface Hospital {
   phone: string;
   email: string;
   nhisFacilityCode: string;
-  nhisFacilityType: 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
+  nhisFacilityType: 'CHPS' | 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
   nhisAccreditationNumber?: string;
   nhisAccreditationDate?: Date;
   nhisAccreditationExpiry?: Date;
@@ -25,7 +25,7 @@ export interface CreateHospitalDTO {
   phone: string;
   email: string;
   nhisFacilityCode: string;
-  nhisFacilityType: 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
+  nhisFacilityType: 'CHPS' | 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
   nhisAccreditationNumber?: string;
   nhisAccreditationDate?: Date;
   nhisAccreditationExpiry?: Date;
@@ -41,7 +41,7 @@ export interface UpdateHospitalDTO {
   phone?: string;
   email?: string;
   nhisFacilityCode?: string;
-  nhisFacilityType?: 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
+  nhisFacilityType?: 'CHPS' | 'Tertiary' | 'Secondary' | 'Primary' | 'Clinic' | 'Health_Center' | 'Maternity_Home';
   nhisAccreditationNumber?: string;
   nhisAccreditationDate?: Date;
   nhisAccreditationExpiry?: Date;
