@@ -33,6 +33,25 @@ const num = (v: any) => (v == null ? null : Number(v));
 /** Newborn weights are entered in grams on the delivery form; the report works in kg. */
 const kg = (v: any) => { const n = num(v); if (n == null || Number.isNaN(n)) return null; return n > 20 ? n / 1000 : n; };
 
+/**
+ * Returns calendar days from delivery to postnatal examination.
+ * UTC calendar boundaries avoid fractional-day errors caused by time-of-day.
+ * Legacy records without a linked delivery may use their recorded dayNumber.
+ * Missing/invalid dates are unknown (null), never silently assumed to be day 1.
+ */
+export function postnatalDayAfterDelivery(examinationDate: any, deliveryDate: any, legacyDayNumber?: any): number | null {
+  if (deliveryDate != null) {
+    const exam = new Date(examinationDate);
+    const delivery = new Date(deliveryDate);
+    if (!examinationDate || !Number.isFinite(exam.getTime()) || !Number.isFinite(delivery.getTime())) return null;
+    const examDay = Date.UTC(exam.getUTCFullYear(), exam.getUTCMonth(), exam.getUTCDate());
+    const deliveryDay = Date.UTC(delivery.getUTCFullYear(), delivery.getUTCMonth(), delivery.getUTCDate());
+    return Math.floor((examDay - deliveryDay) / 86400000);
+  }
+  const legacyDay = legacyDayNumber == null || legacyDayNumber === '' ? null : Number(legacyDayNumber);
+  return legacyDay != null && Number.isInteger(legacyDay) && legacyDay >= 0 ? legacyDay : null;
+}
+
 export function ageOn(dob: any, asOf: any): number | null {
   if (!dob) return null;
   const b = new Date(dob), t = new Date(asOf);
@@ -366,17 +385,17 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
   ]);
 
   // ── Postnatal ──────────────────────────────────────────────────────────────
-  const pDay = (p: any) => {
-    if (p.dayNumber != null && p.dayNumber > 0 && !p.deliveryRecord?.deliveryDate) return p.dayNumber;
-    if (p.deliveryRecord?.deliveryDate) return Math.floor((new Date(p.examinationDate).getTime() - new Date(p.deliveryRecord.deliveryDate).getTime()) / 86400000) + (0);
-    return p.dayNumber ?? 1;
-  };
+  const pDay = (p: any): number | null => postnatalDayAfterDelivery(
+    p.examinationDate,
+    p.deliveryRecord?.deliveryDate,
+    p.dayNumber,
+  );
   const pAge = byAge(postnatal, p => p.patient?.dateOfBirth, p => p.examinationDate);
   const pncTiming: FormATable = single('PNC attendance by days after delivery', [
     ['Total PNC attendances', postnatal.length],
-    ['Within 48 hours (day 0-2)', postnatal.filter(p => pDay(p) <= 2).length],
-    ['Day 3-7', postnatal.filter(p => pDay(p) >= 3 && pDay(p) <= 7).length],
-    ['Day 8-42 (6 weeks)', postnatal.filter(p => pDay(p) >= 8).length],
+    ['Within 48 hours (day 0-2)', postnatal.filter(p => { const day = pDay(p); return day != null && day >= 0 && day <= 2; }).length],
+    ['Day 3-7', postnatal.filter(p => { const day = pDay(p); return day != null && day >= 3 && day <= 7; }).length],
+    ['Day 8-42 (6 weeks)', postnatal.filter(p => { const day = pDay(p); return day != null && day >= 8 && day <= 42; }).length],
   ]);
   const fpm = (p: any) => lc(p.familyPlanningMethodAccepted);
   const FP: [string, string[]][] = [['Pill', ['pill']], ['Injectable', ['inject', 'depo']], ['Implant', ['implant', 'jadelle']], ['IUD', ['iud', 'coil']], ['Condom', ['condom']], ['Sterilisation', ['steril', 'tubal', 'vasect']]];
