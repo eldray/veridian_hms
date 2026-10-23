@@ -35,6 +35,9 @@ function collectApprovedEntries(value: unknown, depth = 0): Record<string, unkno
 }
 
 function matchesAny(entry: Record<string, unknown>, keys: readonly string[], expected: string): boolean {
+  // Empty identifiers are missing data, not identities. In particular, never
+  // let an empty serviceCatalogId accidentally match an empty payload field.
+  if (!expected) return false;
   return keys.some((key) => typeof entry[key] === 'string' && entry[key] === expected);
 }
 
