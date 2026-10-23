@@ -45,6 +45,40 @@ describe('NHIS prior-authorisation service matching', () => {
     )).toBe(false);
   });
 
+  it('rejects a requested quantity above the explicitly approved quantity', () => {
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: 'stock-123', approvedQuantity: 10 }],
+      prescription,
+      11,
+    )).toBe(false);
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: 'stock-123', approvedQuantity: 10 }],
+      prescription,
+      10,
+    )).toBe(true);
+  });
+
+  it('fails closed for malformed explicit approved quantities', () => {
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: 'stock-123', approvedQuantity: 'not-a-number' }],
+      prescription,
+      1,
+    )).toBe(false);
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: 'stock-123', approvedQuantity: 0 }],
+      prescription,
+      1,
+    )).toBe(false);
+  });
+
+  it('preserves compatibility with service approvals that do not state a quantity', () => {
+    expect(approvedServicesCoverPrescription(
+      [{ stockItemId: 'stock-123' }],
+      prescription,
+      5,
+    )).toBe(true);
+  });
+
   it('does not match a different medicine or service', () => {
     expect(approvedServicesCoverPrescription(
       [{ stockItemId: 'stock-other', serviceCatalogId: 'service-other' }],
