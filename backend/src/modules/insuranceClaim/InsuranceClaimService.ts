@@ -841,11 +841,24 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   if (claim.InsuranceProvider?.type === 'nhis') {
     const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
-    const tariff = gdrgCode
-      ? await this.prisma.gDRGTariff.findUnique({ where: { gdrgCode }, select: { id: true, nhiaTariff: true } })
-      : null;
-    const gdrgAmount = Number(tariff?.nhiaTariff ?? 0);
-    if (gdrgRow && tariff) {
+    const policyDate = new Date();
+    if (!gdrgCode) {
+      throw new ValidationError('NHIS claim requires a G-DRG code. Select a valid G-DRG tariff before saving the claim.');
+    }
+    const tariff = await this.prisma.gDRGTariff.findFirst({
+      where: {
+        gdrgCode,
+        isActive: true,
+        effectiveFrom: { lte: policyDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: policyDate } }],
+      },
+      select: { id: true, nhiaTariff: true },
+    });
+    if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
+      throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the current date. Activate or correct its tariff before saving the claim.`);
+    }
+    const gdrgAmount = Number(tariff.nhiaTariff);
+    if (gdrgRow) {
       gdrgRow.unitPrice = gdrgAmount;
       gdrgRow.lineTotal = gdrgAmount;
       gdrgRow.gdrgTariffId = tariff.id;
@@ -853,7 +866,6 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
 
     const medRows = rows.filter(r => r.itemCategory === 'medicine');
     let medicinesTotal = 0;
-    const policyDate = new Date();
     const attendance = claim.Attendance;
     const dispensedMedicines = attendance?.Medication ?? [];
     const authorisations = attendance && claim.insuranceProviderId
