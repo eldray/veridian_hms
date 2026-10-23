@@ -143,7 +143,12 @@ export const calculateNHISMedicineAllocation = (input: {
     case 'cash_price_difference':
       // This is permitted only when a hospital has explicitly selected this policy.
       copayment = Math.max(0, cashPrice - tariff);
-      break;
+      return {
+        cashPrice,
+        nhisCoveredAmount: tariff,
+        patientPayableAmount: money(copayment),
+        copaymentAmount: money(copayment),
+      };
     default:
       throw new Error(`Unsupported NHIS co-payment mode: ${mode}`);
   }
