@@ -464,6 +464,26 @@ export default function TheatreProcedure() {
       toastError('Access denied', 'Cannot update completed/cancelled attendance');
       return;
     }
+    if (!clinicalRecord.identityConfirmed || !clinicalRecord.procedureAndSiteConfirmed) {
+      toastError('Safety checks incomplete', 'Confirm patient identity and the planned procedure/site before completion.');
+      return;
+    }
+    if (!clinicalRecord.consentConfirmed && clinicalRecord.consentStatus !== 'emergency_exception') {
+      toastError('Consent documentation required', 'Record informed consent or document the emergency exception.');
+      return;
+    }
+    if (!clinicalRecord.allergyStatusReviewed || !clinicalRecord.preOpAssessmentCompleted) {
+      toastError('Pre-operative checks incomplete', 'Review allergies and complete the pre-operative assessment.');
+      return;
+    }
+    if (!clinicalRecord.instrumentCountsCorrect) {
+      toastError('Counts not confirmed', 'Confirm instrument/swab/needle counts or document why this is not applicable before completion.');
+      return;
+    }
+    if (!String(clinicalRecord.postOpDestination || '').trim() || !String(clinicalRecord.postOpPlan || '').trim()) {
+      toastError('Post-operative handover incomplete', 'Record the post-operative destination and care plan.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await updateProcedureStatus(selectedAttendanceId, selectedProcedureId, {
@@ -876,7 +896,6 @@ export default function TheatreProcedure() {
                             <option value="">Select consent status</option>
                             <option value="consented">Informed consent obtained</option>
                             <option value="emergency_exception">Emergency exception (must explain below)</option>
-                            <option value="not_applicable">Not applicable (explain below)</option>
                           </select>
                         </label>
                         <label className="block text-xs font-semibold text-[var(--text-primary)]">
@@ -905,7 +924,7 @@ export default function TheatreProcedure() {
                       <div className="border-t border-[var(--border-color)] pt-4">
                         <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3">Intra-operative safety & handover</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Incision / procedure start time<input type="time" value={clinicalRecord.incisonTime || clinicalRecord.incisionTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, incisionTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Incision / procedure start time<input type="time" value={clinicalRecord.incisionTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, incisionTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
                           <label className="block text-xs font-semibold text-[var(--text-primary)]">Closure / procedure end time<input type="time" value={clinicalRecord.closureTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, closureTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
                           <label className="block text-xs font-semibold text-[var(--text-primary)]">Specimens / pathology requests<textarea value={clinicalRecord.specimens || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimens: e.target.value }))} rows={2} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
                           <label className="block text-xs font-semibold text-[var(--text-primary)]">Post-operative destination<textarea value={clinicalRecord.postOpDestination || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, postOpDestination: e.target.value }))} rows={2} placeholder="Recovery, ward, HDU/ICU, referral…" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
