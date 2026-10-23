@@ -1565,7 +1565,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           throw new ValidationError(`Theatre checklist field ${field} must be true or false`);
         }
       }
-      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes'];
+      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes', 'instrumentCountsStatus', 'instrumentCountNotes'];
       for (const field of textFields) {
         if (record[field] !== undefined && typeof record[field] !== 'string') {
           throw new ValidationError(`Theatre clinical record field ${field} must be text`);
@@ -1589,8 +1589,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
         throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
       }
-      if (record.instrumentCountsCorrect !== true) {
-        throw new ValidationError('Before completing a procedure, confirm instrument/swab/needle counts or document the exception in the handover');
+      const countStatus = record.instrumentCountsStatus;
+      if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
+        throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable; unresolved discrepancies must not be marked complete');
+      }
+      if (countStatus === 'discrepancy') {
+        throw new ValidationError('Resolve and escalate the instrument/swab/needle count discrepancy before completing the procedure');
       }
       if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
         throw new ValidationError('Confirm specimen labelling when specimens are recorded');
