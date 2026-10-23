@@ -136,7 +136,18 @@ const AdmissionTypeBadge: React.FC<{ type: string }> = ({ type }) => {
   );
 };
 
-const StatusBadge: React.FC<{ isDischarged: boolean }> = ({ isDischarged }) => {
+const StatusBadge: React.FC<{ isDischarged: boolean; isCancelled?: boolean }> = ({ isDischarged, isCancelled = false }) => {
+  if (isCancelled) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+        style={{ background: 'var(--bg-main)', color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}
+      >
+        <X className="w-2.5 h-2.5" />
+        CANCELLED
+      </span>
+    );
+  }
   if (isDischarged) {
     return (
       <span
@@ -412,11 +423,12 @@ export default function Admissions() {
         if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
       }
 
+      const isCancelled = admission.status === 'cancelled';
       const isDischarged =
         admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
 
-      if (activeTab === 'active' && isDischarged) return false;
-      if (activeTab === 'discharged' && !isDischarged) return false;
+      if (activeTab === 'active' && (isDischarged || isCancelled)) return false;
+      if (activeTab === 'discharged' && (!isDischarged || isCancelled)) return false;
 
       if (searchQuery) {
         const patient =
@@ -1007,7 +1019,7 @@ export default function Admissions() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge isDischarged={isDischarged} />
+                          <StatusBadge isDischarged={isDischarged} isCancelled={admission.status === 'cancelled'} />
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
