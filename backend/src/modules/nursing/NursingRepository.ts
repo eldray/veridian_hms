@@ -182,8 +182,18 @@ export class NursingRepository extends BaseRepository<any, any, any> {
   }
 
   async markOverdueAsDue(now: Date = new Date()) {
+    // Do not keep advancing the MAR for prescriptions or encounters that have closed.
     return this.prisma.medicationDose.updateMany({
-      where: { status: 'scheduled', scheduledAt: { lte: now } },
+      where: {
+        status: 'scheduled',
+        scheduledAt: { lte: now },
+        medication: {
+          is: {
+            status: { not: 'cancelled' },
+            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+          },
+        },
+      },
       data: { status: 'due' },
     });
   }
