@@ -435,6 +435,7 @@ ${claimsXml}
           select: {
             isCovered: true,
             authorizationRequired: true,
+            prescribingLevel: true,
             effectiveFrom: true,
             effectiveTo: true,
           },
@@ -444,6 +445,12 @@ ${claimsXml}
             (payerRule.effectiveTo && payerRule.effectiveTo < claimValidationDate)) {
           throw new ValidationError(
             `NHIS claim cannot include ${med.name ?? stockItem.name}: its medicine coverage rule is missing, uncovered, or outside its effective dates.`,
+          );
+        }
+        const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+        if (!payerRule.prescribingLevel || !validPrescribingLevels.includes(String(payerRule.prescribingLevel).trim().toUpperCase())) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its prescribing level is missing or invalid. Configure the medicine payer rule before claim generation.`,
           );
         }
         if (payerRule.authorizationRequired == null) {
