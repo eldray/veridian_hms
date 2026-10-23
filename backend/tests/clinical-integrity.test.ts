@@ -179,7 +179,10 @@ describe('admission, bed and nursing record consistency', () => {
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true, Ward: { id: 'ward-1', isActive: true } }), updateMany: vi.fn() },
       attendance: { findFirst: vi.fn().mockResolvedValue({ id: 'attendance-existing' }), create: vi.fn() },
     };
-    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const prisma: any = {
+      attendance: { findFirst: vi.fn().mockResolvedValue(null) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
     const service = new EncounterService(prisma);
 
     await expect(service.createEncounter({
