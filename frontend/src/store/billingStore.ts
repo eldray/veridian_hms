@@ -21,6 +21,8 @@ import {
 import type { Bill, Pagination, Payment } from '../types';
 import type { BillFilters, BillStatistics, BillingBreakdown, BillLineItem } from '../types/billing';
 
+let billsRequestVersion = 0;
+
 // ==========================================
 // ✅ HELPER: Parse numeric fields in bill data
 // ==========================================
@@ -193,8 +195,9 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   // GET ALL BILLS
   // ==========================================
   getBills: async (filters = {}) => {
-    if (get().isLoading) return;
-    
+    // Do not drop a new attendance/filter request just because an older list is loading.
+    // Only the most recent request is allowed to update the shared billing list.
+    const requestVersion = ++billsRequestVersion;
     set({ isLoading: true });
     try {
       const response = await apiGetBills(filters);
@@ -226,12 +229,14 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       
       console.log('✅ Billing Store - Processed Bills:', parsedBills.length);
       
+      if (requestVersion !== billsRequestVersion) return;
       set({ 
         bills: parsedBills,
         pagination: paginationData,
         isLoading: false 
       });
     } catch (error: unknown) {
+      if (requestVersion !== billsRequestVersion) return;
       console.error('❌ Failed to fetch bills:', error);
       set({ 
         bills: [],
