@@ -50,6 +50,9 @@ describe('theatre completion outcome validation', () => {
         postOpDestination: 'Recovery',
         postOpPlan: 'Monitor observations and pain',
         handoverNotes: 'Handover completed to recovery nurse',
+        indication: 'Clinical indication documented',
+        preOpDiagnosis: 'Pre-operative diagnosis documented',
+        operativeSite: 'Documented operative site',
       },
     }, 'nurse-1')).rejects.toThrow(/procedure outcome/i);
     expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
