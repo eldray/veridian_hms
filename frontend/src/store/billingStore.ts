@@ -320,17 +320,15 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   addPaymentToBill: async (billId: string, paymentData: Partial<Payment>) => {
     set({ isLoading: true });
     try {
-      const updatedBill = await apiAddPaymentToBill(billId, paymentData);
-      const parsedBill = parseBillAmounts(updatedBill);
-      
-      const bills = get().bills.map(bill => 
-        bill.id === billId ? parsedBill : bill
-      );
-      
-      set({ 
+      const response = await apiAddPaymentToBill(billId, paymentData);
+      const payload = response?.data ?? response;
+      const billPayload = payload?.bill ?? payload?.data?.bill ?? payload;
+      const parsedBill = parseBillAmounts(billPayload);
+      const bills = get().bills.map(bill => bill.id === billId ? parsedBill : bill);
+      set({
         bills,
         currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
-        isLoading: false 
+        isLoading: false
       });
     } catch (error: unknown) {
       console.error('❌ Failed to add payment:', error);
