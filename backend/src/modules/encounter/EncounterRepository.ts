@@ -1897,6 +1897,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!String(record.handoverNotes || '').trim()) {
         throw new ValidationError('Before completing a procedure, document the clinical handover to the receiving recovery or ward team');
       }
+      if (!String(record.indication || '').trim() ||
+          !String(record.preOpDiagnosis || '').trim() ||
+          !String(record.operativeSite || '').trim()) {
+        throw new ValidationError('Before completing a procedure, document the clinical indication, pre-operative diagnosis and operative site');
+      }
       if (!String(data.outcome || '').trim()) {
         throw new ValidationError('Select and document the theatre procedure outcome before completing the record');
       }
