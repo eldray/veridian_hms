@@ -1034,8 +1034,27 @@ describe('ANC danger-sign and referral completeness', () => {
 
 
 describe('medication administration integrity', () => {
+  it('rejects legacy medication administration when the encounter has closed', async () => {
+    const medicationLookup = vi.fn();
+    const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
+      medication: { findUnique: medicationLookup },
+    };
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateMedication('attendance-1', 'medication-1', {
+      status: 'administered',
+    }, 'nurse-1')).rejects.toThrow(/closed encounter/i);
+    expect(medicationLookup).not.toHaveBeenCalled();
+  });
+
   it('rejects a dose belonging to a different medication', async () => {
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
@@ -1051,6 +1070,7 @@ describe('medication administration integrity', () => {
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new EncounterRepository(prisma);
@@ -1081,6 +1101,7 @@ describe('medication administration integrity', () => {
   it('does not allow administration before dispensing', async () => {
     const update = vi.fn();
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'prescribed',
@@ -1091,6 +1112,7 @@ describe('medication administration integrity', () => {
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new EncounterRepository(prisma);
@@ -1330,6 +1352,7 @@ describe('medication administration requires a due dose', () => {
   it('does not mark a medication administered when no scheduled dose exists', async () => {
     const medicationUpdate = vi.fn();
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
@@ -1343,6 +1366,7 @@ describe('medication administration requires a due dose', () => {
     };
     const prisma: any = {
       user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       $transaction: vi.fn(async (callback: any) => callback(tx)),
     };
     const repository = new EncounterRepository(prisma);
