@@ -55,6 +55,45 @@ describe('clinical order concurrent-update guards', () => {
     expect(updateMany).not.toHaveBeenCalled();
   });
 
+  it('requires a meaningful result before completing a laboratory order', async () => {
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
+      labTest: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'lab-1', attendanceId: 'attendance-1', status: 'in_progress', result: null }),
+        updateMany,
+      },
+    } as any);
+
+    await expect(repository.updateLabTestStatus('lab-1', 'completed', { result: '   ' }, 'staff-1'))
+      .rejects.toThrow(/result must be recorded/i);
+    await expect(repository.updateLabTestStatus('lab-1', 'completed', {
+      result: { parameters: [{ name: 'Haemoglobin', value: '' }] },
+    }, 'staff-1')).rejects.toThrow(/result must be recorded/i);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('requires report text before completing a scan order', async () => {
+    const updateMany = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
+      scan: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'scan-1', attendanceId: 'attendance-1', status: 'in_progress',
+          result: null, findings: null, impression: null,
+        }),
+        updateMany,
+      },
+    } as any);
+
+    await expect(repository.updateScanStatus('scan-1', 'completed', {
+      findings: '  ', impression: '', result: '',
+    }, 'staff-1')).rejects.toThrow(/findings, impression, or report text/i);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
   it('does not overwrite a laboratory order changed by another request', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
     const prisma: any = {
