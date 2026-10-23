@@ -862,7 +862,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   if (claim.InsuranceProvider?.type === 'nhis') {
     let gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
-    const policyDate = new Date(claim.Attendance?.Admission?.admissionDate ?? claim.Attendance?.dateTime ?? claim.createdAt);
+    const policyDate = new Date(claim.Attendance?.dateTime ?? claim.Attendance?.Admission?.admissionDate ?? claim.createdAt);
     if (Number.isNaN(policyDate.getTime())) {
       throw new ValidationError('NHIS claim cannot be edited because its attendance service date is invalid.');
     }
