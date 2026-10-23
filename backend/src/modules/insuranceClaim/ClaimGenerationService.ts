@@ -340,6 +340,12 @@ function extractNHISPrice(
   serviceCatalog: any,
 ): Prisma.Decimal {
   const pricing = serviceCatalog?.pricing?.[0];
-  if (!pricing) return new Prisma.Decimal(0);
-  return new Prisma.Decimal((pricing.nhisPrice ?? 0).toString());
+  // A configured tariff alone does not make a service claimable: the service
+  // catalogue's explicit NHIS coverage flag must also allow it.
+  if (!pricing || serviceCatalog?.isNHISCovered === false) {
+    return new Prisma.Decimal(0);
+  }
+  const amount = Number(pricing.nhisPrice ?? 0);
+  if (!Number.isFinite(amount) || amount <= 0) return new Prisma.Decimal(0);
+  return new Prisma.Decimal(amount.toString());
 }
