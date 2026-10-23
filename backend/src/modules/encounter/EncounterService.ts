@@ -560,30 +560,75 @@ export class EncounterService extends BaseService {
 
   
   async convertDetentionToFormalIPD(encounterId: string, data: ConvertDetentionToIPDDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true, Patient: true } });
-    if (!encounter || !encounter.Admission || encounter.Admission.admissionType !== 'detention_observation') {
-      throw new ValidationError('Only detention/observation patients can be converted');
+    const allowedAdmissionTypes = ['elective', 'emergency', 'transfer'];
+    if (!allowedAdmissionTypes.includes(data.admissionType)) {
+      throw new ValidationError(`admissionType must be one of: ${allowedAdmissionTypes.join(', ')}`);
     }
 
-    return await this.prisma.$transaction(async (tx) => {
-      const updatedAdmission = await tx.admission.update({
-        where: { id: encounter.Admission!.id },
-        data: {
-          admissionType: data.admissionType as any,
-          dailyNotes: [
-            ...(encounter.Admission!.dailyNotes as any[] || []),
-            { id: Date.now().toString(), notes: `Converted to formal IPD. Reason: ${data.decisionReason || 'Clinical'}`, noteType: 'conversion', createdBy: userId, createdAt: new Date().toISOString() }
-          ]
-        }
-      });
-
-      // ✅ FIXED: Removed invalid `admissionType` update on Attendance
-      await tx.attendance.update({
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
         where: { id: encounterId },
-        data: { medicalNotes: `${encounter.medicalNotes || ''}\n\n[${new Date().toISOString()}] Converted to formal IPD` }
+        include: { Admission: true, Patient: true },
       });
+      if (!encounter || !encounter.Admission || encounter.Admission.admissionType !== 'detention_observation') {
+        throw new ValidationError('Only detention/observation patients can be converted');
+      }
+      if (
+        ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status) ||
+        encounter.Admission.dischargeDate
+      ) {
+        throw new ConflictError('A closed detention encounter cannot be converted to formal IPD');
+      }
 
-      return { success: true, admission: updatedAdmission, message: `Converted to ${data.admissionType}` };
+      const existingNotes = Array.isArray(encounter.Admission.dailyNotes)
+        ? (encounter.Admission.dailyNotes as any[])
+        : [];
+      const conversionDate = new Date();
+      const admissionUpdate = await tx.admission.updateMany({
+        where: {
+          id: encounter.Admission.id,
+          admissionType: 'detention_observation',
+          dischargeDate: null,
+        },
+        data: {
+          admissionType: data.admissionType,
+          dailyNotes: [
+            ...existingNotes,
+            {
+              id: `conversion-${encounter.Admission.id}-${conversionDate.getTime()}`,
+              notes: `Converted to formal IPD. Reason: ${data.decisionReason?.trim() || 'Clinical'}`,
+              noteType: 'conversion',
+              createdBy: userId,
+              createdAt: conversionDate.toISOString(),
+            },
+          ],
+        },
+      });
+      if (admissionUpdate.count !== 1) {
+        throw new ConflictError('The detention admission changed while conversion was being processed. Refresh and try again.');
+      }
+
+      const attendanceUpdate = await tx.attendance.updateMany({
+        where: { id: encounterId, status: encounter.status },
+        data: {
+          status: 'admitted',
+          encounterCategory: 'ipd',
+          serviceCategory: 'ipd',
+          medicalNotes: [
+            encounter.medicalNotes?.trim(),
+            `[${conversionDate.toISOString()}] Converted from detention/observation to formal IPD. Reason: ${data.decisionReason?.trim() || 'Clinical'}`,
+          ].filter(Boolean).join('\n\n'),
+          updatedById: userId,
+        },
+      });
+      if (attendanceUpdate.count !== 1) {
+        throw new ConflictError('The encounter changed while conversion was being processed. Refresh and try again.');
+      }
+
+      const admission = await tx.admission.findUniqueOrThrow({
+        where: { id: encounter.Admission.id },
+      });
+      return { success: true, admission, message: `Converted to ${data.admissionType}` };
     });
   }
 
