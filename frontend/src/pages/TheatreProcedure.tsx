@@ -492,6 +492,10 @@ export default function TheatreProcedure() {
       return;
     }
     if (complete) {
+    if (!outcome || !outcomeOptions.some((option) => option.value === outcome)) {
+      toastError('Procedure outcome required', 'Select the documented outcome before completing the theatre record.');
+      return;
+    }
     const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
       field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
     ));

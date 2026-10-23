@@ -1774,6 +1774,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss', 'clinicalRecord']) {
       if (data[field] !== undefined) updateData[field] = data[field];
     }
+    // Preserve legacy/free-text outcome values from existing records and integrations.
+    // Completion requires a meaningful value, while the frontend presents the standard choices.
+    if (data.outcome !== undefined && data.outcome !== null &&
+        (typeof data.outcome !== 'string' || data.outcome.length > 1000)) {
+      throw new ValidationError('Theatre procedure outcome must be text of 1000 characters or fewer');
+    }
     if (data.clinicalRecord !== undefined) {
       const record = data.clinicalRecord;
       if (!record || typeof record !== 'object' || Array.isArray(record)) {
@@ -1890,6 +1896,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       }
       if (!String(record.handoverNotes || '').trim()) {
         throw new ValidationError('Before completing a procedure, document the clinical handover to the receiving recovery or ward team');
+      }
+      if (!String(data.outcome || '').trim()) {
+        throw new ValidationError('Select and document the theatre procedure outcome before completing the record');
       }
     }
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
