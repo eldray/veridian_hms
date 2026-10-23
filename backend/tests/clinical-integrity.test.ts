@@ -1997,7 +1997,7 @@ describe('theatre procedure safety documentation', () => {
     expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
   });
 
-  it('rejects invalid date and time values in hospital-specific theatre fields', async () => {
+  it('rejects invalid date values in hospital-specific theatre fields', async () => {
     const prisma = makeProcedurePrisma();
     const repository = new EncounterRepository(prisma);
 
