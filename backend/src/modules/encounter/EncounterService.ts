@@ -193,6 +193,9 @@ export class EncounterService extends BaseService {
           admissionType: data.admissionType || 'emergency',
           bedId: data.bedId,
           wardId: data.wardId,
+          medicalNotes: data.admissionNotes
+            ? [encounter.medicalNotes, data.admissionNotes].filter(Boolean).join('\n\n')
+            : encounter.medicalNotes,
           updatedById: userId,
         },
       });
