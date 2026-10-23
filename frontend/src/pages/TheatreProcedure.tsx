@@ -339,7 +339,7 @@ export default function TheatreProcedure() {
       setAnesthesiaNotes(selectedProcedure.anesthesiaNotes || '');
       setIntraOperativeNotes(selectedProcedure.intraOperativeNotes || '');
       setPostOperativeNotes(selectedProcedure.postOperativeNotes || '');
-      setBloodLoss(selectedProcedure.bloodLoss || '');
+      setBloodLoss(selectedProcedure.bloodLoss ?? '');
       setComplications(selectedProcedure.complications || '');
       setHasComplications(!!selectedProcedure.complications);
       setOutcome(selectedProcedure.outcome || '');
@@ -383,7 +383,8 @@ export default function TheatreProcedure() {
       allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
       asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
       scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
-      instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+      instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '',
+      specimens: '', specimenLabelled: false,
       postOpDestination: '', postOpPlan: '', handoverNotes: '',
     });
   };
@@ -465,8 +466,13 @@ export default function TheatreProcedure() {
       toastError('Access denied', 'Cannot update completed/cancelled attendance');
       return;
     }
-    if (complete) {
     const customProtocolFields = Array.isArray(clinicalRecord.customProtocolFields) ? clinicalRecord.customProtocolFields : [];
+    const unlabeledProtocolField = customProtocolFields.find((field: any) => !String(field.label || '').trim());
+    if (unlabeledProtocolField) {
+      toastError('Protocol field label required', 'Give each hospital-specific theatre field a name before saving.');
+      return;
+    }
+    if (complete) {
     const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
       field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
     ));
@@ -506,7 +512,7 @@ export default function TheatreProcedure() {
         anesthesiaNotes: anesthesiaNotes || null,
         intraOperativeNotes: intraOperativeNotes || null,
         postOperativeNotes: postOperativeNotes || null,
-        bloodLoss: bloodLoss ? Number(bloodLoss) : null,
+        bloodLoss: bloodLoss !== '' && bloodLoss !== null ? Number(bloodLoss) : null,
         complications: hasComplications ? complications : null,
         outcome: outcome || null,
         clinicalRecord: { ...clinicalRecord, anesthesiaType },
@@ -1010,11 +1016,11 @@ export default function TheatreProcedure() {
                               <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                                 <label className="md:col-span-5 block text-xs font-semibold text-[var(--text-primary)]">
                                   Field label / protocol requirement
-                                  <input value={field.label || ''} maxLength={160} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, label: e.target.value } : item) }))} placeholder="e.g. Antibiotic prophylaxis" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
+                                  <input value={field.label || ''} maxLength={160} required onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, label: e.target.value } : item) }))} placeholder="e.g. Antibiotic prophylaxis" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
                                 </label>
                                 <label className="md:col-span-3 block text-xs font-semibold text-[var(--text-primary)]">
                                   Response type
-                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? Boolean(item.value) : (e.target.value === 'note' ? String(item.value || '') : String(item.value || '')) } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
+                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? false : '' } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
                                     <option value="note">Long note</option>
                                     <option value="text">Short text</option>
                                     <option value="number">Number</option>
