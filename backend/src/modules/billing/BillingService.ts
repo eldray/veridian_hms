@@ -174,7 +174,7 @@ export class BillingService extends BaseService {
     if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
 
     // ✅ FIXED: Safely compare Decimals
-    const balance = parseFloat(bill.balance.toString());
+    const balance = Number(bill.balance);
     if (data.amount > balance) throw new Error(`Payment amount (${data.amount}) exceeds bill balance (${balance})`);
 
     return this.repository.addPayment(id, { ...data, userId });
