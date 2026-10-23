@@ -133,35 +133,52 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   async addPayment(id: string, paymentData: any) {
-    return this.prisma.$transaction(async (tx) => {
-      const bill = await tx.bill.findUnique({ where: { id } });
-      if (!bill) throw new Error('Bill not found');
-
-      // ✅ FIXED: Safely parse Decimals
-      const paymentAmount = toNumber(paymentData.amount);
-      const newPaidAmount = toNumber(bill.paidAmount) + paymentAmount;
-      const newBalance = toNumber(bill.patientPayable) - newPaidAmount;
-
-      let newStatus: BillStatus = bill.status;
-      if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.patientPayable)) newStatus = 'partial';
-
-      const updatedBill = await tx.bill.update({
-        where: { id },
-        data: { paidAmount: newPaidAmount, balance: newBalance, status: newStatus, updatedAt: new Date() },
-        include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } }, Attendance: { select: { attendanceNumber: true, attendanceType: true } }, CorporateAccount: true }
+    const idempotencyKey = paymentData.idempotencyKey;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (idempotencyKey) {
+          const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
+          if (priorPayment) {
+            if (priorPayment.billId !== id) throw new Error('Payment request key has already been used for another bill.');
+            const priorBill = await tx.bill.findUnique({ where: { id } });
+            return { bill: priorBill, payment: priorPayment, duplicate: true };
+          }
+        }
+        const bill = await tx.bill.findUnique({ where: { id } });
+        if (!bill) throw new Error('Bill not found');
+        const amount = Math.round(toNumber(paymentData.amount) * 100) / 100;
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero.');
+        const changed = await tx.bill.updateMany({
+          where: { id, balance: { gte: amount }, status: { not: 'cancelled' } },
+          data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
+        });
+        if (changed.count !== 1) {
+          const latest = await tx.bill.findUnique({ where: { id }, select: { balance: true, status: true } });
+          throw new Error(latest?.status === 'cancelled' ? 'Cannot accept payment against a cancelled bill.' : `Payment exceeds the patient's outstanding balance (${Math.max(0, toNumber(latest?.balance)).toFixed(2)}). Refresh the bill and try again.`);
+        }
+        const current = await tx.bill.findUnique({ where: { id } });
+        if (!current) throw new Error('Bill not found');
+        const newBalance = Math.max(0, toNumber(current.balance));
+        const updatedBill = await tx.bill.update({
+          where: { id }, data: { status: newBalance <= 0 ? 'paid' : 'partial', updatedAt: new Date() },
+          include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } }, Attendance: { select: { attendanceNumber: true, attendanceType: true } }, CorporateAccount: true }
+        });
+        const payment = await tx.payment.create({
+          data: { billId: id, amount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || null, idempotencyKey, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
+        });
+        if (current.attendanceId) await tx.attendance.update({ where: { id: current.attendanceId }, data: { outstandingBalance: newBalance } });
+        return { bill: updatedBill, payment, duplicate: false };
       });
-
-      const payment = await tx.payment.create({
-        data: { billId: id, amount: paymentAmount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || `PAY-${Date.now()}`, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
-      });
-
-      if (bill.attendanceId) {
-        await tx.attendance.update({ where: { id: bill.attendanceId }, data: { outstandingBalance: newBalance } });
+    } catch (error: any) {
+      if (idempotencyKey && error?.code === 'P2002') {
+        const priorPayment = await this.prisma.payment.findUnique({ where: { idempotencyKey } });
+        if (priorPayment?.billId === id) {
+          const priorBill = await this.prisma.bill.findUnique({ where: { id } });
+          if (priorBill) return { bill: priorBill, payment: priorPayment, duplicate: true };
+        }
       }
-
-      return { bill: updatedBill, payment };
-    });
+      throw error;
+    }
   }
 
   async findCollections(dateFrom: Date, dateTo: Date) {
