@@ -1619,11 +1619,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           if (hasFieldValue && field.type === 'date') {
             const dateValue = String(field.value);
             const parsedDate = new Date(`${dateValue}T00:00:00.000Z`);
-            if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateValue) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateValue) {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateValue) {
               throw new ValidationError(`Protocol field ${field.label} must contain a valid date in YYYY-MM-DD format`);
             }
           }
-          if (hasFieldValue && field.type === 'time' && !/^(?:[01]\\d|2[0-3]):[0-5]\\d$/.test(String(field.value))) {
+          if (hasFieldValue && field.type === 'time' && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(field.value))) {
             throw new ValidationError(`Protocol field ${field.label} must contain a valid time in HH:MM format`);
           }
           if (typeof field.value === 'string' && field.value.length > 10000) {
