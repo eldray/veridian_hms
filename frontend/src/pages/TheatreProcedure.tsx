@@ -211,7 +211,7 @@ export default function TheatreProcedure() {
     allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
     asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
     scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
-    instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+    instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '', specimens: '', specimenLabelled: false,
     postOpDestination: '', postOpPlan: '', handoverNotes: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -350,10 +350,11 @@ export default function TheatreProcedure() {
         allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
         asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
         scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
-        instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+        instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '', specimens: '', specimenLabelled: false,
         postOpDestination: '', postOpPlan: '', handoverNotes: '',
         ...(selectedProcedure.clinicalRecord || {}),
       });
+      setAnesthesiaType(selectedProcedure.clinicalRecord?.anesthesiaType || 'general');
       if (selectedProcedure.anesthesiaNotes) {
         const n = selectedProcedure.anesthesiaNotes.toLowerCase();
         ['general', 'spinal', 'epidural', 'local', 'sedation', 'regional'].forEach(t => {
@@ -477,8 +478,8 @@ export default function TheatreProcedure() {
       toastError('Pre-operative checks incomplete', 'Review allergies and complete the pre-operative assessment.');
       return;
     }
-    if (!clinicalRecord.instrumentCountsCorrect) {
-      toastError('Counts not confirmed', 'Confirm instrument/swab/needle counts or document why this is not applicable before completion.');
+    if (clinicalRecord.instrumentCountsStatus !== 'correct' && !(clinicalRecord.instrumentCountsStatus === 'not_applicable' && String(clinicalRecord.instrumentCountNotes || '').trim())) {
+      toastError('Counts not confirmed', 'Confirm counts or document why they are not applicable. Resolve any discrepancy before completion.');
       return;
     }
     if (!String(clinicalRecord.postOpDestination || '').trim() || !String(clinicalRecord.postOpPlan || '').trim()) {
@@ -951,7 +952,17 @@ export default function TheatreProcedure() {
                           <label className="block text-xs font-semibold text-[var(--text-primary)] md:col-span-2">Handover notes<textarea value={clinicalRecord.handoverNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, handoverNotes: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
                         </div>
                         <div className="flex flex-wrap gap-3 mt-3">
-                          <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.instrumentCountsCorrect === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountsCorrect: e.target.checked }))} />Instrument, swab and needle counts correct (or discrepancy documented)</label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Instrument / swab / needle counts
+                            <select value={clinicalRecord.instrumentCountsStatus || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountsStatus: e.target.value, instrumentCountsCorrect: e.target.value === 'correct' }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
+                              <option value="">Select count status</option>
+                              <option value="correct">Counts correct</option>
+                              <option value="not_applicable">Not applicable to this procedure</option>
+                              <option value="discrepancy">Discrepancy — must be resolved before completion</option>
+                            </select>
+                          </label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Count exception / reconciliation notes
+                            <input value={clinicalRecord.instrumentCountNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountNotes: e.target.value }))} placeholder="Required when counts are not applicable" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
+                          </label>
                           <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.specimenLabelled === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimenLabelled: e.target.checked }))} />Specimen correctly labelled, if applicable</label>
                         </div>
                       </div>
