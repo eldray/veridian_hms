@@ -398,15 +398,15 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       this.getModel().count({ where: { ...where, isNewAcceptor: true } }),
       this.getModel().count({ where: { ...where, isPostpartum: true } }),
       this.getModel().count({ where: { ...where, isPostAbortion: true } }),
-      this.getModel().count({ where: {
-        ...where, isPostpartum: true,
+      this.getModel().count({ where: { AND: [where, {
+        isPostpartum: true,
         OR: [{ postpartumDeliveryRecordId: { not: null } }, { postnatalRecordId: { not: null } }],
-      } }),
-      this.getModel().count({ where: {
-        ...where, isPostpartum: true, postpartumDeliveryRecordId: null, postnatalRecordId: null,
-      } }),
-      this.getModel().count({ where: { ...where, isPostAbortion: true, postAbortionRecordId: { not: null } } }),
-      this.getModel().count({ where: { ...where, isPostAbortion: true, postAbortionRecordId: null } }),
+      }] } }),
+      this.getModel().count({ where: { AND: [where, {
+        isPostpartum: true, postpartumDeliveryRecordId: null, postnatalRecordId: null,
+      }] } }),
+      this.getModel().count({ where: { AND: [where, { isPostAbortion: true, postAbortionRecordId: { not: null } }] } }),
+      this.getModel().count({ where: { AND: [where, { isPostAbortion: true, postAbortionRecordId: null }] } }),
     ]);
 
     return {
