@@ -281,6 +281,13 @@ export default function Billing() {
   };
 
   useEffect(() => {
+    const attendanceIdFromUrl = searchParams.get('attendanceId');
+    if (attendanceIdFromUrl && attendanceIdFromUrl !== selectedAttendanceId) {
+      setSelectedAttendanceId(attendanceIdFromUrl);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
   }, [getAttendances]);
 
@@ -720,11 +727,11 @@ const handlePrintStatement = async (billId: string) => {
             onChange={(e) => { setSelectedAttendanceId(e.target.value); setCurrentPage(1); }}
             className="w-full sm:max-w-2xl px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
           >
-            <option value="">All attendances (billing history)</option>
+            <option value="">All attendances — historical billing</option>
             {[...attendances]
               .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
               .map((attendance) => {
-                const patient = attendance.patient;
+                const patient = attendance.patient || (attendance as any).Patient;
                 const patientName = patient
                   ? `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
                   : 'Patient';
