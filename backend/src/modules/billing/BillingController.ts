@@ -22,7 +22,6 @@ export class BillingController extends BaseController {
 
     const filters = {
       patientId: req.query.patientId as string,
-      attendanceId: req.query.attendanceId as string,
       status: req.query.status as any,
       paymentMode: req.query.paymentMode as any,
       dateFrom: req.query.dateFrom ? new Date(req.query.dateFrom as string) : undefined,
