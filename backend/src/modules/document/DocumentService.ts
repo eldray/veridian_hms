@@ -75,11 +75,22 @@ export class DocumentService {
     }
   }
 
-  async generateReceipt(billId: string, userId: string) {
+  async generateReceipt(billId: string, userId: string, paymentId?: string) {
     try {
       const bill = await this.getEntityData('bill', billId);
       if (!bill) {
         return { success: false, error: 'Bill not found' };
+      }
+
+      // A receipt acknowledges one actual payment, not the lifetime totals on the bill.
+      // Keep bill-level statements separate from payment receipts.
+      let payment: any = null;
+      if (paymentId) {
+        payment = await prisma.payment.findFirst({
+          where: { id: paymentId, billId, isVoided: false },
+          include: { User: { select: { fullName: true, username: true } } }
+        });
+        if (!payment) return { success: false, error: 'Payment not found for this bill, or payment has been voided.' };
       }
 
       const template = await this.documentRepository.getDefaultTemplate('receipt');
@@ -87,19 +98,30 @@ export class DocumentService {
         return { success: false, error: 'Receipt template not found' };
       }
 
-      // Generate receipt content (simplified)
+      const paymentAmount = payment ? Number(payment.amount) : null;
+      const paymentDate = payment?.transactionDate ? new Date(payment.transactionDate) : new Date();
       const content = `
-        RECEIPT
-        =======
+        PAYMENT RECEIPT
+        ===============
+        Receipt Reference: ${payment ? payment.id : `BILL-${bill.billNumber}-SUMMARY`}
         Bill Number: ${bill.billNumber}
-        Patient: ${bill.Patient?.surname} ${bill.Patient?.otherNames}
-        Amount: ${bill.totalAmount}
-        Paid: ${bill.paidAmount}
-        Balance: ${bill.balance}
-        Date: ${new Date().toLocaleDateString()}
+        Patient: ${bill.Patient?.surname || ''} ${bill.Patient?.otherNames || ''}
+        Patient Folder: ${bill.Patient?.folderNumber || 'N/A'}
+        Visit Number: ${bill.Attendance?.attendanceNumber || 'N/A'}
+        ${payment ? `Payment Amount: ${paymentAmount?.toFixed(2)}
+        Payment Method: ${String(payment.paymentMethod).replace('_', ' ').toUpperCase()}
+        Payment Reference: ${payment.reference || 'N/A'}
+        Received By: ${payment.User?.fullName || payment.User?.username || userId}
+        Transaction Date: ${paymentDate.toLocaleString()}` : `Receipt Type: Bill payment summary (not proof of a single transaction)`}
+        Bill Total: ${Number(bill.totalAmount || 0).toFixed(2)}
+        Total Paid: ${Number(bill.paidAmount || 0).toFixed(2)}
+        Outstanding Balance: ${Number(bill.balance || 0).toFixed(2)}
+        Generated: ${new Date().toLocaleString()}
       `;
 
-      const fileName = `receipt_${billId}_${Date.now()}.pdf`;
+      const fileName = payment
+        ? `receipt_${billId}_${payment.id}.pdf`
+        : `bill_payment_summary_${billId}_${Date.now()}.pdf`;
       const filePath = await this.generatePdf(content, fileName, template);
 
       const document = await this.documentRepository.createDocument({
