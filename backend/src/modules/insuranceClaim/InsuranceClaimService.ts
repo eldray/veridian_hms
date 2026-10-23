@@ -872,7 +872,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         effectiveFrom: { lte: policyDate },
         OR: [{ effectiveTo: null }, { effectiveTo: { gt: policyDate } }],
       },
-      select: { id: true, nhiaTariff: true },
+      select: { id: true, nhiaTariff: true, nhisServiceCode: true },
     });
     if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
       throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the service date ${policyDate.toISOString().slice(0, 10)}. Activate or correct its tariff before saving the claim.`);
@@ -1055,8 +1055,11 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         ...(totalClaimAmount !== undefined
           ? {
               totalClaimAmount,
-              // Keep the claim header in sync with the medicines still present
-              // after editing claim lines; remove stale authorisation numbers.
+              principalGDRG: gdrgCode,
+              gdrgCodes: [gdrgCode],
+              nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
+              // Keep the claim header in sync with the G-DRG and medicines still
+              // present after editing claim lines; remove stale authorisation numbers.
               preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : null,
             }
           : {}),
