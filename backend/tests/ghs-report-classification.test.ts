@@ -15,3 +15,25 @@ describe('HMIS diagnosis case classification', () => {
     expect(isNewHMISDiagnosisCase(undefined, true)).toBe(false);
   });
 });
+
+import { postnatalDayAfterDelivery } from '../src/modules/ghsReport/formA';
+
+describe('GHS Form A postnatal timing', () => {
+  it('uses calendar days rather than elapsed 24-hour blocks', () => {
+    expect(postnatalDayAfterDelivery('2026-10-03T01:00:00.000Z', '2026-10-02T23:00:00.000Z')).toBe(1);
+  });
+
+  it('returns negative days for a postnatal record dated before delivery so reports can exclude it', () => {
+    expect(postnatalDayAfterDelivery('2026-10-01T12:00:00.000Z', '2026-10-02T08:00:00.000Z')).toBe(-1);
+  });
+
+  it('uses a valid legacy day number only when there is no linked delivery date', () => {
+    expect(postnatalDayAfterDelivery('2026-10-05', null, 3)).toBe(3);
+    expect(postnatalDayAfterDelivery('2026-10-05', null, null)).toBeNull();
+  });
+
+  it('does not fabricate a day when dates are missing or invalid', () => {
+    expect(postnatalDayAfterDelivery(null, '2026-10-02')).toBeNull();
+    expect(postnatalDayAfterDelivery('not-a-date', '2026-10-02')).toBeNull();
+  });
+});
