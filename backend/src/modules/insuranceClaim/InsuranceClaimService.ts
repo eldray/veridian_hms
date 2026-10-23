@@ -892,6 +892,15 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           (rule.effectiveFrom && rule.effectiveFrom > policyDate) || (rule.effectiveTo && rule.effectiveTo < policyDate)) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
       }
+      // A payer tariff alone is not enough to safely calculate the patient/NHIS
+      // allocation: require an active cash-price record as the allocation ceiling.
+      if (!currentPricing || !Number.isFinite(Number(currentPricing.cashPrice)) || Number(currentPricing.cashPrice) <= 0) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid active cash price. Configure current medicine pricing before adding it to an NHIS claim.`);
+      }
+      const configuredTariff = rule.tariffPrice ?? currentPricing.nhisPrice;
+      if (configuredTariff == null || !Number.isFinite(Number(configuredTariff)) || Number(configuredTariff) <= 0) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid NHIS tariff. Configure the payer-rule tariff or active NHIS price before claiming it.`);
+      }
       const matchingDispensedMedicine = dispensedMedicines.find((med: any) =>
         med.StockItem?.id === catalog.StockItem?.id ||
         (!!row.code && (med.StockItem?.drugCode === row.code || med.ServiceCatalog?.code === row.code)),
