@@ -55,7 +55,10 @@ export class BillService extends BaseService {
     const bill = await this.billRepository.findById(billId);
     if (!bill) throw new Error('Bill not found');
     if (paymentData.amount <= 0) throw new Error('Payment amount must be greater than 0');
-    if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
+    // Resolve idempotent retries in the repository before rejecting a now-paid bill.
+    if (!paymentData.idempotencyKey && bill.status === 'paid') {
+      throw new Error('Cannot add payment to a fully paid bill');
+    }
     return this.billRepository.addPayment(billId, paymentData, receivedById);
   }
 
