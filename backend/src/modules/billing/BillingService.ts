@@ -171,11 +171,14 @@ export class BillingService extends BaseService {
     this.logInfo('Adding payment to bill', { billId: id, amount: data.amount });
     const bill = await this.repository.findById(id);
     if (!bill) throw new Error('Bill not found');
-    if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
-
-    // ✅ FIXED: Safely compare Decimals
-    const balance = Number(bill.balance);
-    if (data.amount > balance) throw new Error(`Payment amount (${data.amount}) exceeds bill balance (${balance})`);
+    // A retry may arrive after the first request fully paid the bill. Let the
+    // repository resolve an existing idempotency key before stale-balance checks.
+    // New payment attempts still receive the normal paid/overpayment validation.
+    if (!data.idempotencyKey) {
+      if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
+      const balance = Number(bill.balance);
+      if (data.amount > balance) throw new Error(`Payment amount (${data.amount}) exceeds bill balance (${balance})`);
+    }
 
     return this.repository.addPayment(id, { ...data, userId });
   }
