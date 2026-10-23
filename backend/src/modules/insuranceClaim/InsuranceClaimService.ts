@@ -857,6 +857,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           select: { authNumber: true, approvedServices: true },
         })
       : [];
+    const authorizationNumbers = new Set<string>();
     const claimedQuantityByStockItem = new Map<string, number>();
     for (const row of medRows) {
       const catalog = await this.prisma.serviceCatalog.findFirst({
@@ -921,6 +922,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         if (!approval?.authNumber) {
           throw new ValidationError(`NHIS claim medicine "${row.description}" requires a current, explicit pre-authorisation. The claim item cannot be saved without it.`);
         }
+        authorizationNumbers.add(approval.authNumber);
       }
       let allocation;
       try {
@@ -947,7 +949,18 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     if (rows.length) await tx.insuranceClaimItem.createMany({ data: rows });
     await tx.insuranceClaim.update({
       where: { id: claimId },
-      data: { updatedById: userId, updatedAt: new Date(), ...(totalClaimAmount !== undefined ? { totalClaimAmount } : {}) },
+      data: {
+        updatedById: userId,
+        updatedAt: new Date(),
+        ...(totalClaimAmount !== undefined
+          ? {
+              totalClaimAmount,
+              // Keep the claim header in sync with the medicines still present
+              // after editing claim lines; remove stale authorisation numbers.
+              preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : null,
+            }
+          : {}),
+      },
     });
   });
 
