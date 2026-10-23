@@ -436,7 +436,7 @@ getAdmissions: async (filters = {}, options = {}) => {
   deleteAdmission: async (id, reason) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await apiDeleteAdmission(id, reason);
+      await apiDeleteAdmission(id, reason);
       set(state => ({
         admissions: state.admissions.map(a => a.id === id ? {
           ...a, status: 'cancelled', cancelledAt: new Date().toISOString(), cancellationReason: reason,
@@ -446,7 +446,6 @@ getAdmissions: async (filters = {}, options = {}) => {
           : state.currentAdmission,
         isLoading: false
       }));
-      return result;
     } catch (error: any) {
       console.error('Failed to cancel admission:', error);
       set({ error: error.message || 'Failed to cancel admission', isLoading: false });
