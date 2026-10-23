@@ -1520,10 +1520,11 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // Validate scheduling inputs before looking up templates or writing a procedure.
   let scheduledDate: Date | null = null;
   if (data.scheduledDate) {
-    scheduledDate = data.scheduledDate instanceof Date ? data.scheduledDate : new Date(data.scheduledDate);
-    if (Number.isNaN(scheduledDate.getTime())) {
+    const parsedScheduledDate: Date = data.scheduledDate instanceof Date ? data.scheduledDate : new Date(data.scheduledDate);
+    if (Number.isNaN(parsedScheduledDate.getTime())) {
       throw new ValidationError('Procedure scheduled date must be valid');
     }
+    scheduledDate = parsedScheduledDate;
   }
   if (data.duration !== undefined && data.duration !== null &&
       (!Number.isInteger(Number(data.duration)) || Number(data.duration) < 1 || Number(data.duration) > 1440)) {
