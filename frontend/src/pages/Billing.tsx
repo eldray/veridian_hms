@@ -1,6 +1,6 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
-import { Fragment, useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
@@ -8,7 +8,6 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
-import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getBillingCollections } from '../api';
 import api from '../api/api';
@@ -103,7 +102,6 @@ const getWaiverTypeLabel = (type: string) => {
 
 export default function Billing() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { success, error: toastError } = useToast();
 
   // Tab state
@@ -119,9 +117,7 @@ export default function Billing() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [selectedAttendanceId, setSelectedAttendanceId] = useState(() => searchParams.get('attendanceId') || '');
-  const [selectedPatientId, setSelectedPatientId] = useState('');
-  const [expandedBillId, setExpandedBillId] = useState<string | null>(null);
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
     totalAmount: 0,
     paymentCount: 0,
@@ -145,7 +141,6 @@ export default function Billing() {
     isLoading: billsLoading,
     getBills,
     getBillStatistics,
-    generateBillFromAttendance,
   } = useBillingStore();
 
   const {
@@ -235,17 +230,6 @@ export default function Billing() {
         setCollectionsReport({ totalAmount: 0, paymentCount: 0, payments: [] });
       }
       const filters: any = {};
-      // Synchronize a selected visit's completed clinical and ward charges before reading its bill.
-      // Source-linked billing is idempotent; the backend updates the one bill for this attendance.
-      if (activeTab === 'bills' && selectedAttendanceId) {
-        try {
-          await generateBillFromAttendance(selectedAttendanceId);
-        } catch (syncError: any) {
-          // Existing legacy bills may need reconciliation. Still show their saved lines and balances.
-          console.warn('Attendance billing sync did not complete:', syncError);
-          toastError('Billing sync needs review', syncError?.response?.data?.message || syncError?.message || 'Could not sync new charges for this attendance.');
-        }
-      }
       // A selected attendance takes precedence over the date window: a visit may
       // have started earlier but its current bill must still be shown in full.
       if (activeTab === 'bills' && selectedAttendanceId) {
@@ -281,21 +265,6 @@ export default function Billing() {
       setCollectionsLoading(false);
     }
   };
-
-  useEffect(() => {
-    const attendanceIdFromUrl = searchParams.get('attendanceId');
-    if (attendanceIdFromUrl && attendanceIdFromUrl !== selectedAttendanceId) {
-      setSelectedAttendanceId(attendanceIdFromUrl);
-    }
-    // When launched from another clinical page, hydrate the patient context for the
-    // same attendance so the shared patient/attendance selector displays correctly.
-    if (attendanceIdFromUrl && attendances.length) {
-      const linkedAttendance = attendances.find((attendance: any) => String(attendance.id || attendance._id) === attendanceIdFromUrl);
-      const linkedPatient = linkedAttendance?.patientId || linkedAttendance?.patient?.id || linkedAttendance?.Patient?.id;
-      const linkedPatientId = typeof linkedPatient === 'object' ? linkedPatient?.id || linkedPatient?._id : linkedPatient;
-      if (linkedPatientId) setSelectedPatientId(String(linkedPatientId));
-    }
-  }, [searchParams, attendances]);
 
   useEffect(() => {
     void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
@@ -727,47 +696,34 @@ const handlePrintStatement = async (billId: string) => {
       </div>
 
       {activeTab === 'bills' && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] space-y-3">
-          <div>
-            <h2 className="text-sm font-semibold text-[var(--text-primary)]">Find patient and select attendance</h2>
-            <p className="text-xs text-[var(--text-secondary)] mt-1">
-              Search the patient first, then choose their current or a previous visit. Only the selected attendance's bill and itemised charges will be shown.
-            </p>
-          </div>
-          <PatientAttendanceSelector
-            patients={patients}
-            attendances={attendances}
-            selectedPatientId={selectedPatientId}
-            selectedAttendanceId={selectedAttendanceId}
-            onPatientSelect={(patientId) => {
-              setSelectedPatientId(patientId);
-              setSelectedAttendanceId('');
-              setCurrentPage(1);
-            }}
-            onAttendanceSelect={(attendanceId) => {
-              setSelectedAttendanceId(attendanceId);
-              setCurrentPage(1);
-            }}
-            onClearSelection={() => {
-              setSelectedPatientId('');
-              setSelectedAttendanceId('');
-              setCurrentPage(1);
-            }}
-            autoSelectMostRecent={false}
-          />
-          {selectedAttendanceId ? (
-            <p className="text-xs text-[var(--icon-green-text)]">
-              Billing is scoped to the selected attendance. Choose another attendance to review a different visit.
-            </p>
-          ) : selectedPatientId ? (
-            <p className="text-xs text-[var(--text-secondary)]">
-              Select one of this patient's attendances to load that visit's bill.
-            </p>
-          ) : (
-            <p className="text-xs text-[var(--text-secondary)]">
-              No attendance selected. Choose a patient and attendance to view visit-specific billing, or use the bill list below to browse historical bills.
-            </p>
-          )}
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+          <label htmlFor="billing-attendance-select" className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+            Bill by attendance
+          </label>
+          <select
+            id="billing-attendance-select"
+            value={selectedAttendanceId}
+            onChange={(e) => { setSelectedAttendanceId(e.target.value); setCurrentPage(1); }}
+            className="w-full sm:max-w-2xl px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+          >
+            <option value="">All attendances (billing history)</option>
+            {[...attendances]
+              .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+              .map((attendance) => {
+                const patient = attendance.patient;
+                const patientName = patient
+                  ? `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
+                  : 'Patient';
+                return (
+                  <option key={attendance.id} value={attendance.id}>
+                    {attendance.attendanceNumber} — {patientName} — {formatDateOnly(attendance.dateTime)}
+                  </option>
+                );
+              })}
+          </select>
+          <p className="text-xs text-[var(--text-secondary)] mt-2">
+            Select a visit to see only its bill. Clear the selection to return to the patient's wider billing history.
+          </p>
         </div>
       )}
 
@@ -1014,19 +970,13 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
-                    const lineItems = (bill as any).BillLineItem || (bill as any).billLineItems || [];
-                    const isExpanded = expandedBillId === bill.id;
                     return (
-                      <Fragment key={bill.id}>
-                      <tr className="hover:bg-[var(--bg-main)] transition-colors duration-150">
+                      <tr key={bill.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-[var(--text-primary)] text-sm">{bill.billNumber}</p>
                           {bill.claimNumber && (
                             <p className="text-xs text-[var(--text-secondary)]">Claim: {bill.claimNumber}</p>
                           )}
-                          <button type="button" onClick={() => setExpandedBillId(isExpanded ? null : bill.id)} className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-[var(--icon-cyan-text)] hover:underline" aria-expanded={isExpanded}>
-                            <Layers className="w-3 h-3" /> {isExpanded ? 'Hide' : 'View'} {lineItems.length} item{lineItems.length === 1 ? '' : 's'}
-                          </button>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
@@ -1121,43 +1071,6 @@ const handlePrintStatement = async (billId: string) => {
                           </div>
                         </td>
                       </tr>
-                      {isExpanded && (
-                        <tr className="bg-[var(--bg-main)]">
-                          <td colSpan={10} className="px-5 py-4">
-                            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] overflow-x-auto">
-                              <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center justify-between gap-3">
-                                <div>
-                                  <p className="font-semibold text-sm text-[var(--text-primary)]">Itemised charges — {bill.billNumber}</p>
-                                  <p className="text-xs text-[var(--text-secondary)]">{(bill as any).Attendance?.attendanceNumber ? `Attendance ${(bill as any).Attendance.attendanceNumber}` : 'Attendance-linked bill'}</p>
-                                </div>
-                                <span className="text-xs text-[var(--text-secondary)]">{lineItems.length} active line{lineItems.length === 1 ? '' : 's'}</span>
-                              </div>
-                              {lineItems.length === 0 ? (
-                                <p className="px-4 py-5 text-sm text-[var(--text-secondary)]">No itemised charges are recorded on this bill yet. If the attendance has completed billable services, refresh or reselect the attendance to synchronize them.</p>
-                              ) : (
-                                <table className="w-full min-w-[620px] text-sm">
-                                  <thead className="bg-[var(--bg-main)]"><tr>
-                                    {['Description', 'Type', 'Qty', 'Unit price', 'Line total', 'Patient share'].map((heading) => <th key={heading} className={`px-4 py-2 text-xs font-semibold text-[var(--text-secondary)] ${['Qty', 'Unit price', 'Line total', 'Patient share'].includes(heading) ? 'text-right' : 'text-left'}`}>{heading}</th>)}
-                                  </tr></thead>
-                                  <tbody className="divide-y divide-[var(--border-color)]">
-                                    {lineItems.map((item: any) => (
-                                      <tr key={item.id}>
-                                        <td className="px-4 py-2.5 text-[var(--text-primary)]">{item.description || item.serviceCatalog?.name || 'Service'}</td>
-                                        <td className="px-4 py-2.5 text-[var(--text-secondary)]">{String(item.serviceType || item.serviceCatalog?.serviceType || 'other').replace(/_/g, ' ')}</td>
-                                        <td className="px-4 py-2.5 text-right tabular-nums">{Number(item.quantity || 0)}</td>
-                                        <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(item.unitPrice)}</td>
-                                        <td className="px-4 py-2.5 text-right font-medium tabular-nums">{formatCurrency(item.lineTotal)}</td>
-                                        <td className="px-4 py-2.5 text-right tabular-nums">{formatCurrency(item.patientPayableAmount ?? item.lineTotal)}</td>
-                                      </tr>
-                                    ))}
-                                  </tbody>
-                                </table>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      </Fragment>
                     );
                   })}
                 </tbody>
