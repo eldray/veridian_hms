@@ -46,7 +46,7 @@ export default function NHISConfigTab() {
   const [error, setError] = useState<string | null>(null);
 
   const facilityTypes = [
-    'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home'
+    'CHPS', 'Tertiary', 'Secondary', 'Primary', 'Clinic', 'Health_Center', 'Maternity_Home'
   ];
 
   // Load NHIS configuration from backend

@@ -71,6 +71,12 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         if (!data.insuranceProviderId) throw new Error('Insurance Provider ID is required');
         const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
         if (!provider || !provider.isActive) throw new Error('Invalid or inactive insurance provider');
+        if (data.paymentMode === 'nhis' && provider.type !== 'nhis') {
+          throw new Error('The selected insurance provider is not configured as an NHIS payer.');
+        }
+        if (data.paymentMode === 'private_insurance' && provider.type === 'nhis') {
+          throw new Error('NHIS payer cannot be used for a private-insurance bill.');
+        }
       }
   
       if (data.paymentMode === 'corporate') {
@@ -94,12 +100,20 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const totalAmount = lineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
       let patientPayable = totalAmount;
       let insuranceCovered = 0;
-  
+
       if ((data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') && data.insuranceProviderId) {
         const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
         if (provider) {
-          insuranceCovered = totalAmount * (toNumber(provider.coveragePercentage) / 100);
-          patientPayable = totalAmount - insuranceCovered;
+          const coverageRate = toNumber(provider.coveragePercentage) / 100;
+          // NHIS medicine lines carry explicit payer-rule allocations; other lines keep existing percentage coverage.
+          insuranceCovered = lineItems.reduce((sum, line) => {
+            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.insuranceCoveredAmount);
+            return sum + toNumber(line.lineTotal) * coverageRate;
+          }, 0);
+          patientPayable = lineItems.reduce((sum, line) => {
+            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.patientPayableAmount);
+            return sum + toNumber(line.lineTotal) * (1 - coverageRate);
+          }, 0);
         }
       } else if (data.paymentMode === 'corporate' && data.corporateAccountId) {
         const corporate = await tx.corporateAccount.findUnique({ where: { id: data.corporateAccountId } });
@@ -126,11 +140,11 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Decimals
       const paymentAmount = toNumber(paymentData.amount);
       const newPaidAmount = toNumber(bill.paidAmount) + paymentAmount;
-      const newBalance = toNumber(bill.totalAmount) - newPaidAmount;
+      const newBalance = toNumber(bill.patientPayable) - newPaidAmount;
 
       let newStatus: BillStatus = bill.status;
       if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.totalAmount)) newStatus = 'partial';
+      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.patientPayable)) newStatus = 'partial';
 
       const updatedBill = await tx.bill.update({
         where: { id },

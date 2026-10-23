@@ -56,6 +56,16 @@ export class ServiceCatalogController extends BaseController {
     return this.ok(res, service, 'Service updated');
   });
 
+  getNHISMedicinePolicy = this.asyncHandler(async (req: Request, res: Response) => {
+    const policy = await this.service.getNHISMedicinePolicy(req.params.id);
+    return this.ok(res, policy, 'NHIS medicine policy retrieved');
+  });
+
+  updateNHISMedicinePolicy = this.asyncHandler(async (req: Request, res: Response) => {
+    const policy = await this.service.updateNHISMedicinePolicy(req.params.id, req.body);
+    return this.ok(res, policy, 'NHIS medicine policy saved');
+  });
+
   updatePricing = this.asyncHandler(async (req: Request, res: Response) => {
     const pricing = await this.service.updatePricingOnly(req.params.id, req.body);
     return this.ok(res, pricing, 'Pricing updated');

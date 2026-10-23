@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
+import api from '../../api/api';
 import {
   Plus, Search, ClipboardList, Edit, Trash2, RefreshCw,
   DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope,
@@ -64,6 +65,25 @@ export default function ServiceCatalogTab() {
     tariffCode: '',
     vatRate: 0,
     isTaxable: true,
+  });
+
+  const [nhisPolicyLoading, setNhisPolicyLoading] = useState(false);
+  const [nhisPolicySaving, setNhisPolicySaving] = useState(false);
+  const [nhisPolicyConfigured, setNhisPolicyConfigured] = useState(false);
+  const [nhisCoverageVerified, setNhisCoverageVerified] = useState(false);
+  const [nhisAuthorizationVerified, setNhisAuthorizationVerified] = useState(false);
+  const [nhisPayerName, setNhisPayerName] = useState('NHIS');
+  const [nhisPolicy, setNhisPolicy] = useState({
+    isCovered: true,
+    authorizationRequired: false,
+    prescribingLevel: 'C',
+    copaymentMode: 'none',
+    copaymentAmount: '',
+    copaymentPercentage: '',
+    tariffPrice: '',
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveTo: '',
+    notes: '',
   });
 
   // Combined loading state
@@ -211,6 +231,59 @@ export default function ServiceCatalogTab() {
     }
   };
 
+  const loadNHISMedicinePolicy = async (serviceId: string) => {
+    setNhisPolicyLoading(true);
+    try {
+      const response = await api.get(`/service-catalog/${serviceId}/nhis-medicine-policy`);
+      const result = response.data?.data || response.data;
+      const rule = result?.rule;
+      setNhisPayerName(result?.payer?.name || 'NHIS');
+      setNhisPolicyConfigured(Boolean(result?.configured));
+      setNhisCoverageVerified(typeof rule?.isCovered === 'boolean');
+      setNhisAuthorizationVerified(typeof rule?.authorizationRequired === 'boolean');
+      setNhisPolicy({
+        isCovered: rule?.isCovered === true,
+        authorizationRequired: rule?.authorizationRequired === true,
+        prescribingLevel: rule?.prescribingLevel || 'C',
+        copaymentMode: rule?.copaymentMode || 'none',
+        copaymentAmount: rule?.copaymentAmount == null ? '' : String(rule.copaymentAmount),
+        copaymentPercentage: rule?.copaymentPercentage == null ? '' : String(rule.copaymentPercentage),
+        tariffPrice: rule?.tariffPrice == null ? '' : String(rule.tariffPrice),
+        effectiveFrom: rule?.effectiveFrom ? String(rule.effectiveFrom).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        effectiveTo: rule?.effectiveTo ? String(rule.effectiveTo).slice(0, 10) : '',
+        notes: rule?.notes || '',
+      });
+    } catch (error: any) {
+      setNhisPolicyConfigured(false);
+      setNhisCoverageVerified(false);
+      setNhisAuthorizationVerified(false);
+      toastError('NHIS policy unavailable', error?.response?.data?.message || 'Could not load the medicine payer rule. Confirm an active NHIS payer is configured.');
+    } finally {
+      setNhisPolicyLoading(false);
+    }
+  };
+
+  const saveNHISMedicinePolicy = async () => {
+    if (!editingItem?.id || !editingItem?.StockItem?.id) return;
+    setNhisPolicySaving(true);
+    try {
+      await api.put(`/service-catalog/${editingItem.id}/nhis-medicine-policy`, {
+        ...nhisPolicy,
+        copaymentAmount: nhisPolicy.copaymentAmount === '' ? null : Number(nhisPolicy.copaymentAmount),
+        copaymentPercentage: nhisPolicy.copaymentPercentage === '' ? null : Number(nhisPolicy.copaymentPercentage),
+        tariffPrice: nhisPolicy.tariffPrice === '' ? null : Number(nhisPolicy.tariffPrice),
+        effectiveTo: nhisPolicy.effectiveTo || null,
+      });
+      setNhisPolicyConfigured(true);
+      success('NHIS medicine policy saved', 'Coverage, prescribing and co-payment rules have been updated.');
+      await loadNHISMedicinePolicy(editingItem.id);
+    } catch (error: any) {
+      toastError('Policy save failed', error?.response?.data?.message || error?.message || 'Could not save NHIS medicine policy');
+    } finally {
+      setNhisPolicySaving(false);
+    }
+  };
+
   const handleEdit = (item: any) => {
     if (!item?.id) {
       toastError('Error', 'Cannot edit this service');
@@ -218,6 +291,7 @@ export default function ServiceCatalogTab() {
     }
 
     setEditingItem(item);
+    if (item.StockItem?.id && item.serviceType === 'medication') void loadNHISMedicinePolicy(item.id);
     setFormData({
       name: item.name || '',
       code: item.code || '',
@@ -1034,6 +1108,90 @@ export default function ServiceCatalogTab() {
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
                 />
               </div>
+
+              {editingItem?.StockItem?.id && editingItem?.serviceType === 'medication' && (
+                <section className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Shield className="w-4 h-4 text-cyan-700" /> NHIS medicine payer policy</h3>
+                      <p className="text-xs text-gray-600 mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {nhisPolicyConfigured ? 'Policy configured' : 'Needs verification'}
+                    </span>
+                  </div>
+                  {nhisPolicyLoading ? (
+                    <p className="text-sm text-gray-500">Loading payer rule…</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS coverage status *</label>
+                          <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <option value="unverified">Select coverage status…</option>
+                            <option value="covered">Covered by NHIS</option>
+                            <option value="not_covered">Not covered — patient pays cash price</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS prescribing level *</label>
+                          <select value={nhisPolicy.prescribingLevel} onChange={e => setNhisPolicy({ ...nhisPolicy, prescribingLevel: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            {['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].map(level => <option key={level} value={level}>{level}</option>)}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Prior authorization *</label>
+                          <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <option value="unverified">Select requirement…</option>
+                            <option value="yes">Required</option>
+                            <option value="no">Not required</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Co-payment policy *</label>
+                          <select value={nhisPolicy.copaymentMode} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentMode: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                            <option value="none">No co-payment</option>
+                            <option value="fixed_amount">Fixed amount (GHS)</option>
+                            <option value="percentage">Percentage of NHIS tariff</option>
+                            <option value="cash_price_difference">Cash price minus NHIS tariff</option>
+                          </select>
+                        </div>
+                        {nhisPolicy.copaymentMode === 'fixed_amount' && <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Fixed co-payment (GHS) *</label>
+                          <input type="number" min="0" step="0.01" value={nhisPolicy.copaymentAmount} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentAmount: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        </div>}
+                        {nhisPolicy.copaymentMode === 'percentage' && <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Co-payment percentage (0–100) *</label>
+                          <input type="number" min="0" max="100" step="0.01" value={nhisPolicy.copaymentPercentage} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentPercentage: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        </div>}
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS tariff (GHS)</label>
+                          <input type="number" min="0" step="0.01" value={nhisPolicy.tariffPrice} onChange={e => setNhisPolicy({ ...nhisPolicy, tariffPrice: e.target.value })} placeholder="Use the service NHIS price if blank" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Effective from *</label>
+                          <input type="date" required value={nhisPolicy.effectiveFrom} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveFrom: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Effective to (optional)</label>
+                          <input type="date" value={nhisPolicy.effectiveTo} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveTo: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Policy notes / verification reference</label>
+                        <textarea rows={2} value={nhisPolicy.notes} onChange={e => setNhisPolicy({ ...nhisPolicy, notes: e.target.value })} placeholder="Record the source or reason for this policy decision" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                      </div>
+                      {nhisPolicy.copaymentMode === 'cash_price_difference' && <p className="text-xs text-amber-800">The patient will pay only the positive difference between the cash price and NHIS tariff. Select this only when the applicable payer policy permits it.</p>}
+                      <div className="flex items-center justify-between gap-3 border-t border-cyan-100 pt-3">
+                        <p className="text-xs text-gray-600">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p>
+                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-50">
+                          <Save className="w-4 h-4" /> {nhisPolicySaving ? 'Saving…' : 'Save NHIS policy'}
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </section>
+              )}
 
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2">

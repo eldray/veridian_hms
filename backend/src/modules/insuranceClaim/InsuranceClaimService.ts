@@ -4,6 +4,8 @@ import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { getCounterService } from '../../services/CounterService';
 import { mapAttendanceToNHIS } from '../../utils/nhisAttendanceMapping';
+import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
+import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -42,39 +44,7 @@ export class InsuranceClaimService extends BaseService {
   }
 
 
-    /**
-   * NHIS price per medicine, keyed by drug code. Looks the drug up through its service catalog entry
-   * and takes the latest active NHIS price. Drugs with no price are simply absent from the map.
-   */
-  private async nhisMedicinePrices(client: any, codes: string[]): Promise<Map<string, number>> {
-    const prices = new Map<string, number>();
-    const unique = Array.from(new Set(codes.filter(Boolean)));
-    if (!unique.length) return prices;
-
-    const catalogs = await client.serviceCatalog.findMany({
-      where: { OR: [{ code: { in: unique } }, { StockItem: { drugCode: { in: unique } } }] },
-      select: {
-        code: true,
-        StockItem: { select: { drugCode: true } },
-        pricing: {
-          where: { isActive: true, effectiveDate: { lte: new Date() } },
-          orderBy: { effectiveDate: 'desc' },
-          take: 1,
-          select: { nhisPrice: true },
-        },
-      },
-    });
-
-    for (const c of catalogs) {
-      const price = Number(c.pricing?.[0]?.nhisPrice ?? 0);
-      for (const key of [c.StockItem?.drugCode, c.code]) {
-        if (key && unique.includes(key) && (price > 0 || !prices.has(key))) prices.set(key, price);
-      }
-    }
-    return prices;
-  }
-  
-  // ==========================================
+    // ==========================================
   // BATCH SERVICES (Fully Restored)
   // ==========================================
   async createClaimBatch(claimIds: string[], description: string | null, insuranceType: string | null, userId: string) {
@@ -415,6 +385,142 @@ ${claimsXml}
       const pd = att.AttendanceDiagnosis[0];
       if (!pd) throw new ValidationError(`Attendance ${att.attendanceNumber} has no primary diagnosis. Record a primary diagnosis before creating the NHIS claim.`);
 
+      // Revalidate dispensed NHIS medicines at claim-generation time so legacy or
+      // imported prescriptions cannot bypass payer coverage/authorisation controls.
+      const authorizationNumbers = new Set<string>();
+      // Price and validate the claim against the encounter's service date, not the
+      // day someone happens to submit the claim. For inpatient stays, use admission
+      // date because this claim currently carries one G-DRG tariff for the stay.
+      const servicePolicyDate = new Date(att.Admission?.admissionDate ?? att.dateTime);
+      if (Number.isNaN(servicePolicyDate.getTime())) {
+        throw new ValidationError('NHIS claim cannot be generated because the attendance service date is invalid.');
+      }
+      const claimValidationDate = servicePolicyDate;
+      let nhisMedicineClaimTotal = 0;
+      for (const med of att.Medication) {
+        const stockItem = med.StockItem;
+        if (!stockItem) {
+          throw new ValidationError(`NHIS claim cannot include medicine ${med.name ?? med.id}: its stock item is missing.`);
+        }
+        const payerRule = await tx.stockItemPayerRule.findUnique({
+          where: {
+            stockItemId_insuranceProviderId: {
+              stockItemId: stockItem.id,
+              insuranceProviderId: att.insuranceProviderId!,
+            },
+          },
+          select: {
+            isCovered: true,
+            authorizationRequired: true,
+            prescribingLevel: true,
+            effectiveFrom: true,
+            effectiveTo: true,
+            tariffPrice: true,
+            copaymentMode: true,
+            copaymentAmount: true,
+            copaymentPercentage: true,
+          },
+        });
+        if (!payerRule || payerRule.isCovered !== true ||
+            (payerRule.effectiveFrom && payerRule.effectiveFrom > claimValidationDate) ||
+            (payerRule.effectiveTo && payerRule.effectiveTo < claimValidationDate)) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its medicine coverage rule is missing, uncovered, or outside its effective dates.`,
+          );
+        }
+        const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+        if (!payerRule.prescribingLevel || !validPrescribingLevels.includes(String(payerRule.prescribingLevel).trim().toUpperCase())) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its prescribing level is missing or invalid. Configure the medicine payer rule before claim generation.`,
+          );
+        }
+        if (payerRule.authorizationRequired == null) {
+          throw new ValidationError(
+            `NHIS claim cannot include ${med.name ?? stockItem.name}: its authorisation requirement is unknown. Configure the medicine payer rule before claim generation.`,
+          );
+        }
+        if (payerRule.authorizationRequired === true) {
+          const approvals = await tx.preAuthorisationRequest.findMany({
+            where: {
+              attendanceId: att.id,
+              patientId: att.patientId,
+              insuranceProviderId: att.insuranceProviderId!,
+              status: { in: ['approved', 'partially_approved'] },
+              authNumber: { not: null },
+              authExpiry: { gt: claimValidationDate },
+            },
+            select: { authNumber: true, approvedServices: true },
+          });
+          const matchingApproval = approvals.find((approval) =>
+            approvedServicesCoverPrescription(approval.approvedServices, {
+              stockItemId: stockItem.id,
+              serviceCatalogId: med.serviceCatalogId ?? '',
+            }, Number(med.quantity ?? 1)),
+          );
+          if (!matchingApproval?.authNumber) {
+            throw new ValidationError(
+              `NHIS claim cannot include ${med.name ?? stockItem.name}: no current authorisation explicitly covering this medicine was found.`,
+            );
+          }
+          authorizationNumbers.add(matchingApproval.authNumber);
+        }
+
+        // Use the same explicit payer-rule allocation as billing. NHIS receives only
+        // its covered share; the patient's configured contribution is not added to
+        // the insurer claim. Resolve the cash tariff as of the claim-generation date.
+        const catalog = med.serviceCatalogId
+          ? await tx.serviceCatalog.findUnique({
+              where: { id: med.serviceCatalogId },
+              select: {
+                pricing: {
+                  where: {
+                    isActive: true,
+                    effectiveDate: { lte: claimValidationDate },
+                    OR: [{ expiryDate: null }, { expiryDate: { gt: claimValidationDate } }],
+                  },
+                  orderBy: { effectiveDate: 'desc' },
+                  take: 1,
+                  select: { cashPrice: true, nhisPrice: true },
+                },
+              },
+            })
+          : null;
+        const currentPricing = catalog?.pricing?.[0];
+        if (!currentPricing || !Number.isFinite(Number(currentPricing.cashPrice)) || Number(currentPricing.cashPrice) <= 0) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: no valid active cash price is configured for this medicine.`,
+          );
+        }
+        const cashPrice = Number(currentPricing.cashPrice);
+        const configuredTariff = payerRule.tariffPrice ?? currentPricing.nhisPrice;
+        if (configuredTariff == null || !Number.isFinite(Number(configuredTariff)) || Number(configuredTariff) <= 0) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: no valid NHIS tariff is configured in the payer rule or active pricing.`,
+          );
+        }
+        const nhisTariff = Number(configuredTariff);
+        let allocation;
+        try {
+          allocation = calculateNHISMedicineAllocation({
+            cashPrice,
+            nhisTariff,
+            covered: true,
+            copaymentMode: payerRule.copaymentMode,
+            copaymentAmount: payerRule.copaymentAmount == null ? null : Number(payerRule.copaymentAmount),
+            copaymentPercentage: payerRule.copaymentPercentage ?? null,
+          });
+        } catch (error) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: ${error instanceof Error ? error.message : 'the medicine payer policy is invalid'}`,
+          );
+        }
+        const quantity = Number(med.quantity ?? 1);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
+        }
+        nhisMedicineClaimTotal += Math.round(allocation.nhisCoveredAmount * quantity * 100) / 100;
+      }
+
       const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
       if (!gdrgLink) throw new ValidationError(`No G-DRG tariff is mapped to the primary diagnosis "${pd.Diagnosis?.name ?? pd.diagnosisId}". Map it in G-DRG settings or choose a mapped diagnosis.`);
 
@@ -422,7 +528,17 @@ ${claimsXml}
       const split = age >= 12 ? 'A' : 'C';
       const base = gdrgLink.gdrgTariff.gdrgCode.slice(0, -1);
       const finalCode = base + split;
-      const tariff = await tx.gDRGTariff.findFirst({ where: { gdrgCode: finalCode, isActive: true } }) || gdrgLink.gdrgTariff;
+      const tariff = await tx.gDRGTariff.findFirst({
+        where: {
+          gdrgCode: finalCode,
+          isActive: true,
+          effectiveFrom: { lte: servicePolicyDate },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: servicePolicyDate } }],
+        },
+      });
+      if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
+        throw new ValidationError(`NHIS claim G-DRG "${finalCode}" has no valid active tariff for the service date ${servicePolicyDate.toISOString().slice(0, 10)}.`);
+      }
 
       // nextNHISClaimNumber() already returns "NHIS-<n>" - do not prefix it again
       const claimNumber = getCounterService().nextNHISClaimNumber();
@@ -440,7 +556,8 @@ ${claimsXml}
       const claim = await tx.insuranceClaim.create({
         data: {
           claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
-          totalClaimAmount: tariff.nhiaTariff, status: 'draft', createdById: userId,
+          preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : undefined,
+          totalClaimAmount: Math.round((Number(tariff.nhiaTariff) + nhisMedicineClaimTotal) * 100) / 100, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
@@ -689,7 +806,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { type: true } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, dateTime: true, Admission: { select: { admissionDate: true } }, Medication: { where: { status: 'dispensed' }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -736,28 +853,199 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     };
   });
 
-    // ⬇️ ADD THIS ENTIRE BLOCK — it's missing in the "file name" version
   let totalClaimAmount: number | undefined;
+  // Preserve validated NHIS header fields outside the validation block so the
+  // transaction below can keep the claim header consistent with its line items.
+  let nhisPrincipalGdrg: string | undefined;
+  let nhisServiceCode: string | null | undefined;
+  const authorizationNumbers = new Set<string>();
   if (claim.InsuranceProvider?.type === 'nhis') {
-    const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
+    let gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
     const gdrgCode = gdrgRow?.code || claim.principalGDRG;
-    const tariff = gdrgCode
-      ? await this.prisma.gDRGTariff.findUnique({ where: { gdrgCode }, select: { id: true, nhiaTariff: true } })
-      : null;
-    const gdrgAmount = Number(tariff?.nhiaTariff ?? 0);
-    if (gdrgRow && tariff) {
+    const policyDate = new Date(claim.Attendance?.dateTime ?? claim.Attendance?.Admission?.admissionDate ?? claim.createdAt);
+    if (Number.isNaN(policyDate.getTime())) {
+      throw new ValidationError('NHIS claim cannot be edited because its attendance service date is invalid.');
+    }
+    if (!gdrgCode) {
+      throw new ValidationError('NHIS claim requires a G-DRG code. Select a valid G-DRG tariff before saving the claim.');
+    }
+    const tariff = await this.prisma.gDRGTariff.findFirst({
+      where: {
+        gdrgCode,
+        isActive: true,
+        effectiveFrom: { lte: policyDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: policyDate } }],
+      },
+      select: { id: true, nhiaTariff: true, nhisServiceCode: true },
+    });
+    if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
+      throw new ValidationError(`NHIS claim G-DRG "${gdrgCode}" has no valid active tariff for the service date ${policyDate.toISOString().slice(0, 10)}. Activate or correct its tariff before saving the claim.`);
+    }
+    nhisPrincipalGdrg = gdrgCode;
+    nhisServiceCode = tariff.nhisServiceCode;
+    const gdrgAmount = Number(tariff.nhiaTariff);
+    if (!gdrgRow) {
+      // The G-DRG is the principal payable line. Add it when a draft payload
+      // omits it so the saved claim items cannot silently disagree with the header.
+      gdrgRow = {
+        claimId,
+        itemNumber: 1,
+        itemCategory: 'gdrg',
+        itemType: null,
+        code: gdrgCode,
+        description: `G-DRG ${gdrgCode}`,
+        quantity: 1,
+        noOfDays: null,
+        unitPrice: gdrgAmount,
+        lineTotal: gdrgAmount,
+        serviceDate: policyDate,
+        clinician: null,
+        prescriberNo: null,
+        prescriptionText: null,
+        serviceCatalogId: null,
+        diagnosisId: null,
+        gdrgTariffId: tariff.id,
+        billLineItemId: null,
+        labTestId: null,
+        scanId: null,
+        procedureId: null,
+        medicationId: null,
+      };
+      rows.unshift(gdrgRow);
+      rows.forEach((row, index) => { row.itemNumber = index + 1; });
+    } else {
       gdrgRow.unitPrice = gdrgAmount;
       gdrgRow.lineTotal = gdrgAmount;
       gdrgRow.gdrgTariffId = tariff.id;
     }
 
     const medRows = rows.filter(r => r.itemCategory === 'medicine');
-    const medPrices = await this.nhisMedicinePrices(this.prisma, medRows.map(r => r.code));
     let medicinesTotal = 0;
-    for (const r of medRows) {
-      r.unitPrice = medPrices.get(r.code) ?? 0;
-      r.lineTotal = Math.round(r.unitPrice * r.quantity * 100) / 100;
-      medicinesTotal += r.lineTotal;
+    const attendance = claim.Attendance;
+    const dispensedMedicines = attendance?.Medication ?? [];
+    const authorisations = attendance && claim.insuranceProviderId
+      ? await this.prisma.preAuthorisationRequest.findMany({
+          where: {
+            attendanceId: attendance.id,
+            patientId: attendance.patientId,
+            insuranceProviderId: claim.insuranceProviderId,
+            status: { in: ['approved', 'partially_approved'] },
+            authNumber: { not: null },
+            authExpiry: { gt: policyDate },
+          },
+          select: { authNumber: true, approvedServices: true },
+        })
+      : [];
+    const claimedQuantityByStockItem = new Map<string, number>();
+    for (const row of medRows) {
+      const rowPolicyDate = row.serviceDate ?? policyDate;
+      const catalog = await this.prisma.serviceCatalog.findFirst({
+        where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
+        select: {
+          code: true,
+          StockItem: {
+            select: {
+              id: true,
+              payerRules: {
+                where: { insuranceProviderId: claim.insuranceProviderId },
+                select: {
+                  isCovered: true, authorizationRequired: true, prescribingLevel: true,
+                  effectiveFrom: true, effectiveTo: true, tariffPrice: true,
+                  copaymentMode: true, copaymentAmount: true, copaymentPercentage: true,
+                },
+              },
+            },
+          },
+          pricing: {
+            where: { isActive: true, effectiveDate: { lte: rowPolicyDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: rowPolicyDate } }] },
+            orderBy: { effectiveDate: 'desc' },
+            take: 1,
+            select: { cashPrice: true, nhisPrice: true },
+          },
+        },
+      });
+      const rule = catalog?.StockItem?.payerRules?.[0];
+      const currentPricing = catalog?.pricing?.[0];
+      if (!catalog?.StockItem || !rule || rule.isCovered !== true || rule.authorizationRequired == null ||
+          !['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) ||
+          (rule.effectiveFrom && rule.effectiveFrom > rowPolicyDate) || (rule.effectiveTo && rule.effectiveTo < rowPolicyDate)) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
+      }
+      // A payer tariff alone is not enough to safely calculate the patient/NHIS
+      // allocation: require an active cash-price record as the allocation ceiling.
+      if (!currentPricing || !Number.isFinite(Number(currentPricing.cashPrice)) || Number(currentPricing.cashPrice) <= 0) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid active cash price. Configure current medicine pricing before adding it to an NHIS claim.`);
+      }
+      const configuredTariff = rule.tariffPrice ?? currentPricing.nhisPrice;
+      if (configuredTariff == null || !Number.isFinite(Number(configuredTariff)) || Number(configuredTariff) <= 0) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid NHIS tariff. Configure the payer-rule tariff or active NHIS price before claiming it.`);
+      }
+      // Prefer the canonical stock-item identity. A matching drug/service code is
+      // only a safe fallback when the dispensed record has no stock-item relation;
+      // otherwise a reused code must never pull quantities from a different item.
+      const matchesDispensedStockItem = (med: any) => {
+        if (med.StockItem?.id) return med.StockItem.id === catalog.StockItem?.id;
+        return !!row.code && (
+          med.StockItem?.drugCode === row.code ||
+          med.ServiceCatalog?.code === row.code
+        );
+      };
+      const matchingDispensedMedicines = dispensedMedicines.filter(matchesDispensedStockItem);
+      if (!matchingDispensedMedicines.length) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
+      }
+      // Claim edits must not increase the quantity beyond what was actually dispensed.
+      // Track totals across rows too, so duplicating a line cannot inflate the claim.
+      const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
+      const rowQuantity = Number(row.quantity);
+      const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
+      if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > dispensedQuantity) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${dispensedQuantity - alreadyClaimedQuantity} remaining).`);
+      }
+      claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
+      if (rule.authorizationRequired === true) {
+        // A stock item may have more than one dispensed row/service-catalog link.
+        // Accept authorisation for the canonical stock item or any exact catalog
+        // identity attached to those matching dispensed rows, never an unrelated
+        // row that merely shares a drug code.
+        const matchingServiceCatalogIds = new Set<string>(
+          matchingDispensedMedicines
+            .map((med: any) => med.serviceCatalogId)
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0),
+        );
+        const approval = authorisations.find((candidate: any) =>
+          approvedServicesCoverPrescription(candidate.approvedServices, {
+            stockItemId: catalog.StockItem?.id ?? '',
+            serviceCatalogId: '',
+          }, rowQuantity) ||
+          Array.from(matchingServiceCatalogIds).some(serviceCatalogId =>
+            approvedServicesCoverPrescription(candidate.approvedServices, {
+              stockItemId: catalog.StockItem?.id ?? '',
+              serviceCatalogId,
+            }, rowQuantity),
+          ),
+        );
+        if (!approval?.authNumber) {
+          throw new ValidationError(`NHIS claim medicine "${row.description}" requires a current, explicit pre-authorisation. The claim item cannot be saved without it.`);
+        }
+        authorizationNumbers.add(approval.authNumber);
+      }
+      let allocation;
+      try {
+        allocation = calculateNHISMedicineAllocation({
+          cashPrice: Number(currentPricing?.cashPrice ?? 0),
+          nhisTariff: Number(rule.tariffPrice ?? currentPricing?.nhisPrice ?? 0),
+          covered: true,
+          copaymentMode: rule.copaymentMode,
+          copaymentAmount: rule.copaymentAmount == null ? null : Number(rule.copaymentAmount),
+          copaymentPercentage: rule.copaymentPercentage ?? null,
+        });
+      } catch (error) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" cannot be priced: ${error instanceof Error ? error.message : 'invalid payer policy'}`);
+      }
+      row.unitPrice = allocation.nhisCoveredAmount;
+      row.lineTotal = Math.round(row.unitPrice * row.quantity * 100) / 100;
+      medicinesTotal += row.lineTotal;
     }
     totalClaimAmount = Math.round((gdrgAmount + medicinesTotal) * 100) / 100;
   }
@@ -765,7 +1053,24 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   await this.prisma.$transaction(async (tx) => {
     await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
     if (rows.length) await tx.insuranceClaimItem.createMany({ data: rows });
-    await tx.insuranceClaim.update({ where: { id: claimId }, data: { updatedById: userId, updatedAt: new Date() } });
+    await tx.insuranceClaim.update({
+      where: { id: claimId },
+      data: {
+        updatedById: userId,
+        updatedAt: new Date(),
+        ...(totalClaimAmount !== undefined
+          ? {
+              totalClaimAmount,
+              principalGDRG: nhisPrincipalGdrg ?? null,
+              gdrgCodes: nhisPrincipalGdrg ? [nhisPrincipalGdrg] : [],
+              nhisServiceCodes: nhisServiceCode ? [nhisServiceCode] : [],
+              // Keep the claim header in sync with the G-DRG and medicines still
+              // present after editing claim lines; remove stale authorisation numbers.
+              preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : null,
+            }
+          : {}),
+      },
+    });
   });
 
   return this.getInsuranceClaim(claimId);

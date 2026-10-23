@@ -1735,6 +1735,10 @@ model StockItemPayerRule {
   isCovered             Boolean?
   authorizationRequired Boolean?
   prescribingLevel      String?
+  // Patient contribution is policy-configured; no contribution is inferred from tariff gaps.
+  copaymentMode         String             @default("none")
+  copaymentAmount       Decimal?           @db.Decimal(15, 2)
+  copaymentPercentage   Float?
   tariffPrice           Decimal?           @db.Decimal(15, 2)
   sourceFile            String?
   sourceVersion         String?
@@ -3049,6 +3053,7 @@ enum ClaimStatus {
 }
 
 enum FacilityType {
+  CHPS
   Tertiary
   Secondary
   Primary

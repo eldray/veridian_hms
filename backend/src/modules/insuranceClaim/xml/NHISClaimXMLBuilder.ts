@@ -60,8 +60,13 @@ export class NHISClaimXMLBuilder {
     // ── Header ──
     const claimId = this.esc(claim.claimNumber ?? '');
     const claimCheckCode = this.esc(claim.claimCheckCode ?? attendance.nhisCCC ?? '');
-    const preAuthXml = claim.preAuthNumber
-      ? `<preAuthorizationCodes><code>${this.esc(claim.preAuthNumber)}</code></preAuthorizationCodes>`
+    // Claims may include multiple medicines authorised under different numbers.
+    // The database stores these as a comma-separated list; emit one XML <code> per number.
+    const preAuthNumbers = typeof claim.preAuthNumber === 'string'
+      ? Array.from(new Set(claim.preAuthNumber.split(',').map((value: string) => value.trim()).filter(Boolean)))
+      : [];
+    const preAuthXml = preAuthNumbers.length
+      ? `<preAuthorizationCodes>${preAuthNumbers.map((number) => `<code>${this.esc(String(number))}</code>`).join('')}</preAuthorizationCodes>`
       : `<preAuthorizationCodes />`;
     const physicianId = this.esc(this.resolvePhysicianLicense(items));
 

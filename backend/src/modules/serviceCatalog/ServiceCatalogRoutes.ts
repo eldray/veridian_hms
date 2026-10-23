@@ -17,6 +17,7 @@ export function createServiceCatalogRoutes(): Router {
   router.get('/nhis/:nhisCode', c.getServiceByNHISCode); // Single service by NHIS code (must precede /:id)
   router.get('/stats', c.getServiceStatistics);
   router.get('/nhis-readiness', c.getNHISReadinessReport);
+  router.get('/:id/nhis-medicine-policy', c.getNHISMedicinePolicy);
   router.get('/export', c.getServiceCatalog); // Reuses main logic
   router.get('/:id', c.getServiceCatalogById);
 
@@ -25,6 +26,7 @@ export function createServiceCatalogRoutes(): Router {
   router.put('/:id', requireRole(['admin', 'accounts']), c.updateServiceCatalog);
   router.patch('/:id/toggle', requireRole(['admin', 'accounts']), c.toggleServiceStatus);
   router.put('/:id/pricing', requireRole(['admin', 'accounts']), c.updatePricing);
+  router.put('/:id/nhis-medicine-policy', requireRole(['admin', 'accounts']), c.updateNHISMedicinePolicy);
   router.delete('/:id', requireRole(['admin']), c.deleteServiceCatalog);
   router.post('/bulk-import', requireRole(['admin', 'accounts']), c.bulkImportServices);
 
