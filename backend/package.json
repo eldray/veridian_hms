@@ -5,7 +5,9 @@
   "main": "src/server.ts",
   "type": "module",
   "scripts": {
+    "prestart": "prisma generate",
     "start": "node --loader ts-node/esm src/server.ts",
+    "predev": "prisma generate",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "build:watch": "tsc --watch",
