@@ -617,7 +617,7 @@ export class EncounterService extends BaseService {
           medicalNotes: [
             encounter.medicalNotes?.trim(),
             `[${conversionDate.toISOString()}] Converted from detention/observation to formal IPD. Reason: ${data.decisionReason?.trim() || 'Clinical'}`,
-          ].filter(Boolean).join('\\n\\n'),
+          ].filter(Boolean).join('\n\n'),
           updatedById: userId,
         },
       });
