@@ -279,10 +279,12 @@ const PatientStatusBadge: React.FC<{ attendance: any; admissionType?: string }> 
 const BedWardSelectionModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (bedId: string, wardId: string, wardName: string, bedNumber: string) => Promise<void>;
+  onConfirm: (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes: string) => Promise<void>;
   admissionType: 'day_surgery' | 'detention' | 'ipd';
   isLoading: boolean;
-}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading }) => {
+  admissionNotes: string;
+  onAdmissionNotesChange: (value: string) => void;
+}> = ({ isOpen, onClose, onConfirm, admissionType, isLoading, admissionNotes, onAdmissionNotesChange }) => {
   const { wards, beds, getWards, getBeds, getAvailableBeds, availableBeds, isLoading: wardsLoading } = useWardStore();
   const [selectedWardId, setSelectedWardId] = useState('');
   const [selectedBedId, setSelectedBedId] = useState('');
@@ -324,7 +326,7 @@ const BedWardSelectionModal: React.FC<{
     if (!selectedWardId || !selectedBedId) {
       return;
     }
-    onConfirm(selectedBedId, selectedWardId, selectedWardName, selectedBedNumber);
+    onConfirm(selectedBedId, selectedWardId, selectedWardName, selectedBedNumber, admissionNotes);
   };
 
   const getTitle = () => {
@@ -372,6 +374,24 @@ const BedWardSelectionModal: React.FC<{
               <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">{getSubtitle()}</p>
             </div>
           </div>
+
+          {admissionType === 'ipd' && (
+            <div className="space-y-1.5">
+              <label htmlFor="admission-notes" className="block text-xs font-semibold text-[var(--text-secondary)]">
+                Reason for admission / initial admission note <span className="text-[var(--text-tertiary)] font-normal">(recommended)</span>
+              </label>
+              <textarea
+                id="admission-notes"
+                value={admissionNotes}
+                onChange={event => onAdmissionNotesChange(event.target.value)}
+                rows={3}
+                maxLength={4000}
+                placeholder="Document why inpatient admission is required, key clinical concerns, and the initial plan. Detailed progress notes remain in Medical Entries."
+                className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]/40 resize-y"
+              />
+              <p className="text-[10px] text-[var(--text-tertiary)]">This is saved with the encounter's medical notes. Keep ongoing progress notes in Medical Entries to avoid duplication.</p>
+            </div>
+          )}
 
           {wardsLoading ? (
             <div className="flex justify-center py-8">
@@ -584,6 +604,7 @@ export default function MedicalEntries() {
   const [detentionHours, setDetentionHours] = useState(24);
   const [detentionReason, setDetentionReason] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [admissionNotes, setAdmissionNotes] = useState('');
 
   const [presentedComplaints, setPresentedComplaints] = useState('');
   const [hpc, setHpc] = useState('');
@@ -930,6 +951,7 @@ export default function MedicalEntries() {
         admissionType: 'detention_observation',
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
+        admissionNotes: admissionNotes.trim() || undefined,
         admissionNotes: `[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
       });
 
@@ -956,7 +978,7 @@ export default function MedicalEntries() {
     setShowBedWardModal(true);
   };
 
-  const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+  const executeAdmission = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes: string) => {
     if (!selectedAttendanceId || !currentAttendance || !selectedPatient) return;
 
     setIsProcessing(true);
@@ -979,6 +1001,7 @@ export default function MedicalEntries() {
       await getFormalIPDPatients();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
+      setAdmissionNotes('');
     } catch (err: any) {
       toastError('Admission Failed', err.response?.data?.message || err.message);
     } finally {
@@ -987,7 +1010,7 @@ export default function MedicalEntries() {
   };
 
   // Handle bed/ward confirmation
-  const handleBedWardConfirm = async (bedId: string, wardId: string, wardName: string, bedNumber: string) => {
+  const handleBedWardConfirm = async (bedId: string, wardId: string, wardName: string, bedNumber: string, admissionNotes = '') => {
     switch (pendingAdmissionType) {
       case 'day_surgery':
         await executeDaySurgery(bedId, wardId, wardName, bedNumber);
@@ -996,7 +1019,7 @@ export default function MedicalEntries() {
         await executeDetention(bedId, wardId, wardName, bedNumber);
         break;
       case 'ipd':
-        await executeAdmission(bedId, wardId, wardName, bedNumber);
+        await executeAdmission(bedId, wardId, wardName, bedNumber, admissionNotes);
         break;
       default:
         break;
@@ -1250,10 +1273,13 @@ export default function MedicalEntries() {
         onClose={() => {
           setShowBedWardModal(false);
           setPendingAdmissionType(null);
+          setAdmissionNotes('');
         }}
         onConfirm={handleBedWardConfirm}
         admissionType={pendingAdmissionType || 'ipd'}
         isLoading={isProcessing}
+        admissionNotes={admissionNotes}
+        onAdmissionNotesChange={setAdmissionNotes}
       />
 
       {/* Detention Modal */}
