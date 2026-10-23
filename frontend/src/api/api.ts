@@ -18,25 +18,90 @@ const api = axios.create({
 
 
 // ── GET concurrency gate ─────────────────────────────────────────────────────
-// Browsers/Electron allow ~6 connections per server and the live-update stream keeps one open.
-// A screen that fires 20+ requests at once (nursing board, antenatal, medical entries...) made the
-// rest wait in the browser's queue, and the 30 s timeout then expired while they were still waiting.
-// Here at most MAX_GETS reads run at once and the rest wait their turn BEFORE the timeout starts.
-// Saves (POST/PUT/PATCH/DELETE) are never queued, so clicking Save is always immediate.
+// Keep request bursts from starving the browser/Electron connection pool, but never
+// leave a page's reads waiting indefinitely before Axios' own timeout can start.
 const MAX_GETS = 4;
+const MAX_QUEUED_GETS = 80;
+const MAX_GET_QUEUE_WAIT_MS = 12_000;
 let activeGets = 0;
-const waiting: Array<() => void> = [];
+
+type GetWaiter = {
+  config: any;
+  grant: () => void;
+  reject: (error: any) => void;
+  timer: ReturnType<typeof setTimeout>;
+  onAbort?: () => void;
+};
+const waiting: GetWaiter[] = [];
+
+const removeWaiter = (waiter: GetWaiter) => {
+  const index = waiting.indexOf(waiter);
+  if (index >= 0) waiting.splice(index, 1);
+  clearTimeout(waiter.timer);
+  waiter.config.signal?.removeEventListener?.('abort', waiter.onAbort);
+};
 
 const acquireSlot = (config: any): Promise<void> => {
   if (config.__slot) return Promise.resolve();
+  if (config.signal?.aborted) {
+    return Promise.reject(new axios.CanceledError('GET request was cancelled before it started.'));
+  }
+
   const take = () => {
     activeGets++;
     config.__slot = true;
-    // safety net: never hold a slot longer than the request timeout + a little
+    // Safety net if the request adapter never settles. Normal Axios timeout is 30 seconds.
     config.__slotTimer = setTimeout(() => releaseSlot(config), 65_000);
   };
-  if (activeGets < MAX_GETS) { take(); return Promise.resolve(); }
-  return new Promise<void>((resolve) => waiting.push(() => { take(); resolve(); }));
+
+  if (activeGets < MAX_GETS) {
+    take();
+    return Promise.resolve();
+  }
+  if (waiting.length >= MAX_QUEUED_GETS) {
+    return Promise.reject(new axios.CanceledError(
+      'The application is busy loading data. Please retry this request.',
+    ));
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const routeWhenQueued = typeof window !== 'undefined' ? window.location.pathname : '';
+    let waiter: GetWaiter;
+    const cleanup = () => {
+      clearTimeout(waiter.timer);
+      config.signal?.removeEventListener?.('abort', waiter.onAbort);
+    };
+    waiter = {
+      config,
+      timer: setTimeout(() => {
+        const index = waiting.indexOf(waiter);
+        if (index >= 0) waiting.splice(index, 1);
+        cleanup();
+        reject(new axios.CanceledError(
+          'This data request waited too long behind other requests. Retry the page load.',
+        ));
+      }, MAX_GET_QUEUE_WAIT_MS),
+      onAbort: undefined,
+      grant: () => {
+        cleanup();
+        // Avoid sending a backlog of reads belonging to a page the user has already left.
+        if (config.signal?.aborted ||
+            (routeWhenQueued && typeof window !== 'undefined' && window.location.pathname !== routeWhenQueued)) {
+          reject(new axios.CanceledError('The page changed before this data request could start.'));
+          return;
+        }
+        take();
+        resolve();
+      },
+      reject,
+    };
+    waiter.onAbort = () => {
+      removeWaiter(waiter);
+      reject(new axios.CanceledError('GET request was cancelled while waiting for a connection.'));
+    };
+    config.signal?.addEventListener?.('abort', waiter.onAbort, { once: true });
+    waiting.push(waiter);
+  });
 };
 
 const releaseSlot = (config: any) => {
@@ -44,8 +109,19 @@ const releaseSlot = (config: any) => {
   config.__slot = false;
   clearTimeout(config.__slotTimer);
   activeGets = Math.max(0, activeGets - 1);
-  const next = waiting.shift();
-  if (next) next();
+
+  while (waiting.length > 0 && activeGets < MAX_GETS) {
+    const next = waiting.shift()!;
+    clearTimeout(next.timer);
+    next.config.signal?.removeEventListener?.('abort', next.onAbort);
+    if (next.config.signal?.aborted) {
+      next.reject(new axios.CanceledError('GET request was cancelled while waiting for a connection.'));
+      continue;
+    }
+    next.grant();
+    // grant may reject a stale route without taking a slot; continue looking.
+    if (next.config.__slot) break;
+  }
 };
 
 api.interceptors.request.use(
