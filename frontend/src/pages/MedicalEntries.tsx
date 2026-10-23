@@ -979,8 +979,10 @@ export default function MedicalEntries() {
         admissionType: 'detention_observation',
         admissionSource: 'opd',
         admissionDate: new Date().toISOString(),
-        admissionNotes: admissionNotes.trim() || undefined,
-        admissionNotes: `[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
+        admissionNotes: [
+          admissionNotes.trim(),
+          `[Detention] ${detentionReason || 'Placed under observation for monitoring'}. Expected observation period: ${detentionHours} hours. Bed: ${bedNumber}, Ward: ${wardName}`,
+        ].filter(Boolean).join(' '),
       });
 
       success('Detained', `Patient placed under observation for ${detentionHours} hours in Bed ${bedNumber}, ${wardName}`);
