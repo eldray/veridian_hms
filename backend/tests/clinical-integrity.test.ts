@@ -8,6 +8,30 @@ import { buildWardChargeAdmissionWhere } from '../src/cron/wardChargeCron';
 
 
 
+describe('overdue MAR dose transitions', () => {
+  it('does not mark doses due for cancelled prescriptions or closed encounters', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const repository = new NursingRepository({ medicationDose: { updateMany } } as any);
+    const now = new Date('2026-10-23T12:00:00.000Z');
+
+    await repository.markOverdueAsDue(now);
+
+    expect(updateMany).toHaveBeenCalledWith({
+      where: {
+        status: 'scheduled',
+        scheduledAt: { lte: now },
+        medication: {
+          is: {
+            status: { not: 'cancelled' },
+            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+          },
+        },
+      },
+      data: { status: 'due' },
+    });
+  });
+});
+
 describe('atomic MAR dose writes', () => {
   it('claims only an eligible dose for administration and rejects a lost race', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
