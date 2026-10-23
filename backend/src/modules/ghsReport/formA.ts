@@ -34,17 +34,18 @@ const num = (v: any) => (v == null ? null : Number(v));
 const kg = (v: any) => { const n = num(v); if (n == null || Number.isNaN(n)) return null; return n > 20 ? n / 1000 : n; };
 
 export function ageOn(dob: any, asOf: any): number | null {
-  if (!dob) return null;
+  if (!dob || !asOf) return null;
   const b = new Date(dob), t = new Date(asOf);
+  if (Number.isNaN(b.getTime()) || Number.isNaN(t.getTime()) || b > t) return null;
   let a = t.getFullYear() - b.getFullYear();
   const m = t.getMonth() - b.getMonth();
   if (m < 0 || (m === 0 && t.getDate() < b.getDate())) a--;
-  return Math.max(0, a);
+  return a;
 }
 
 export function ageGroup(dob: any, asOf: any): FormAAge | null {
   const a = ageOn(dob, asOf);
-  if (a == null) return null;
+  if (a == null || a < 10) return null;
   if (a < 15) return '10-14';
   if (a < 20) return '15-19';
   if (a < 25) return '20-24';
