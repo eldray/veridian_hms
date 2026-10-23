@@ -1999,7 +1999,7 @@ describe('ward charge admission date eligibility', () => {
         { dischargeDate: null },
         { dischargeDate: { gte: start } },
       ],
-      attendance: { is: { status: { in: ['admitted', 'discharged', 'referred', 'absconded', 'completed'] } } },
+      attendance: { is: { status: 'admitted' } },
     });
   });
 });
