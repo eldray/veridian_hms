@@ -51,6 +51,7 @@ export interface AddPaymentInput {
   paymentMethod: PaymentMethod; // ✅ Fixed from paymentMode
   reference?: string;           // ✅ Fixed from referenceNumber
   notes?: string;
+  idempotencyKey?: string;
 }
 
 export interface BillFilter {
