@@ -29,7 +29,7 @@ ON "stock_item_payer_rules"("stockItemId", "authorizationRequired");
 
 ALTER TABLE "stock_item_payer_rules"
 ADD CONSTRAINT "stock_item_payer_rules_stockItemId_fkey"
-FOREIGN KEY ("stockItemId") REFERENCES "stock_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+FOREIGN KEY ("stockItemId") REFERENCES "StockItem"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 ALTER TABLE "stock_item_payer_rules"
 ADD CONSTRAINT "stock_item_payer_rules_insuranceProviderId_fkey"
