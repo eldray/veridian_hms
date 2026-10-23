@@ -12,12 +12,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: BillFilters) {
-    const { patientId, attendanceId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (patientId) where.patientId = patientId;
-    // A selected attendance is the billing scope; never mix bills from other visits.
-    if (attendanceId) where.attendanceId = attendanceId;
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
     if (paymentMode) where.paymentMode = paymentMode;
     if (dateFrom || dateTo) {
@@ -35,12 +33,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         CorporateAccount: { select: { id: true, companyName: true, creditLimit: true, currentBalance: true } },
-        Payment: { where: { isVoided: false }, orderBy: { transactionDate: 'desc' } },
-        BillLineItem: {
-          where: { isVoided: false },
-          include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true, serviceCategory: true } } },
-          orderBy: { createdAt: 'asc' }
-        }
+        Payment: true
       }
     });
 
