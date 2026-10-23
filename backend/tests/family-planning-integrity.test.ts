@@ -57,7 +57,11 @@ describe('family-planning encounter integrity', () => {
     const { repository, create, prisma } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
     await repository.createFPService({ ...validInput, isNewAcceptor: false });
     expect(prisma.familyPlanningService.count).toHaveBeenCalledWith({
-      where: { patientId: 'patient-1', serviceDate: { lte: new Date(validInput.serviceDate) } },
+      where: {
+        patientId: 'patient-1',
+        serviceDate: { lte: new Date(validInput.serviceDate) },
+        OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
+      },
     });
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
       data: expect.objectContaining({ patientId: 'patient-1', attendanceId: 'attendance-1', methodCategory: 'modern_short_acting', isNewAcceptor: true }),
