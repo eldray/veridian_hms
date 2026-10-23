@@ -307,9 +307,11 @@ export const deleteTestData = async (force: boolean = false) => {
 
     const testAttendances = await prisma.attendance.findMany({
       where: { patientId: { in: testPatientIds } },
-      select: { id: true },
+      select: { id: true, bedId: true, wardId: true },
     });
     const testAttendanceIds = testAttendances.map((a) => a.id);
+    const testBedIds = [...new Set(testAttendances.map((a) => a.bedId).filter((id): id is string => Boolean(id)))];
+    const affectedWardIds = [...new Set(testAttendances.map((a) => a.wardId).filter((id): id is string => Boolean(id)))];
 
     const testBookings = await prisma.antenatalBooking.findMany({
       where: { patientId: { in: testPatientIds } },
@@ -372,7 +374,18 @@ export const deleteTestData = async (force: boolean = false) => {
     await prisma.attendance.deleteMany({ where: { id: { in: testAttendanceIds } } });
     await prisma.patient.deleteMany({ where: { id: { in: testPatientIds } } });
 
-    await prisma.bed.updateMany({ data: { isOccupied: false } });
+    // Release only beds assigned to the test patients. Never reset occupancy for
+    // unrelated facility patients when cleaning the test dataset.
+    if (testBedIds.length > 0) {
+      await prisma.bed.updateMany({
+        where: { id: { in: testBedIds } },
+        data: { isOccupied: false },
+      });
+    }
+    for (const wardId of affectedWardIds) {
+      const occupiedBeds = await prisma.bed.count({ where: { wardId, isOccupied: true } });
+      await prisma.ward.update({ where: { id: wardId }, data: { occupiedBeds } });
+    }
 
     console.log('✅ Test data deleted');
     return { success: true, message: 'Test data deleted' };
