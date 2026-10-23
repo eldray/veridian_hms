@@ -64,7 +64,14 @@ export class BillingService extends BaseService {
         const rule = detail?.StockItem?.payerRules?.[0];
         const now = new Date();
         const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= now) && (!rule.effectiveTo || rule.effectiveTo >= now);
-        const covered = !!rule && rule.isCovered === true && inEffectiveWindow;
+        const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+        // Billing must fail closed just like prescribing and claims: an NHIS rule is not
+        // claim-ready until coverage, prescribing level and authorisation requirement are explicit.
+        const policyConfigured = !!rule &&
+          rule.isCovered === true &&
+          rule.authorizationRequired != null &&
+          validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase());
+        const covered = policyConfigured && inEffectiveWindow;
         const allocation = calculateNHISMedicineAllocation({
           cashPrice,
           nhisTariff: Number(rule?.tariffPrice ?? (Number(currentPrice.nhisPrice) > 0 ? currentPrice.nhisPrice : cashPrice)),
