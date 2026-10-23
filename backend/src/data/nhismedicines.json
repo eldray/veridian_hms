@@ -2109,11 +2109,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Betaxolol HCL Eye Drops, 0.5%",
@@ -3857,11 +3857,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole + Hydrocortisone Cream, 1% + 1%",
@@ -3880,11 +3880,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole Cream, 1%",
@@ -3903,11 +3903,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole Cream, 2%",
@@ -3926,11 +3926,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole Pessary, 100 mg",
@@ -3949,11 +3949,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole Pessary, 200 mg",
@@ -3972,11 +3972,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Clotrimazole Pessary, 500 mg",
@@ -3995,11 +3995,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Cloxacillin Injection, 250 mg",
@@ -4018,11 +4018,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Cloxacillin Injection, 500 mg",
@@ -4041,11 +4041,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Codeine Tablet, 30 mg",
@@ -4202,11 +4202,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Cotrimoxazole Tablet, (400+80) mg",
@@ -4731,11 +4731,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Diazepam Tablet, 5 mg",
@@ -6939,11 +6939,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hydrocortisone Eye Ointment, 1%",
@@ -6962,11 +6962,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hydrocortisone Sodium Succinate Injection, 100 mg",
@@ -6985,11 +6985,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hydroxocobalamin Injection, 1 mg/mL",
@@ -7008,11 +7008,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hydroxyurea Capsule, 500mg",
@@ -7031,11 +7031,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "SM",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hyoscine Butylbromide Injection, 20 mg/ mL",
@@ -7054,11 +7054,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hyoscine Butylbromide Tablet, 10 mg",
@@ -7077,11 +7077,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ibuprofen Suspension, 100 mg/5 mL",
@@ -8503,11 +8503,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Methotrexate Injection, 25 mg/ mL in 2mL",
@@ -8526,11 +8526,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Methotrexate Tablet, 10 mg",
@@ -8549,11 +8549,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Methotrexate Tablet, 2.5 mg",
@@ -8572,11 +8572,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Methyl Cellulose Eye Drops, 0.3%",
@@ -8595,11 +8595,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Methyldopa Tablet, 250 mg",
@@ -8618,11 +8618,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metoclopramide Injection, 5 mg/mL in 2 mL",
@@ -8641,11 +8641,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metoclopramide Syrup, 5 mg/5 mL",
@@ -8664,11 +8664,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metoclopramide Tablet, 10 mg",
@@ -8687,11 +8687,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metolazone Tablet, 5 mg",
@@ -8710,11 +8710,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metoprolol Tartrate Tablet 100 mg",
@@ -8733,11 +8733,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Injection, 5 mg/mL in 100 mL",
@@ -8756,11 +8756,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Suppository, 500 mg",
@@ -8779,11 +8779,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Suspension, 100 mg/5 mL (as benzoate)",
@@ -8802,11 +8802,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Suspension, 200 mg/5 mL(as benzoate)",
@@ -8825,11 +8825,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Tablet, 200 mg",
@@ -8848,11 +8848,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Metronidazole Tablet, 400 mg",
@@ -8871,11 +8871,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Miconazole + Hydrocortisone Cream, 2% + 1%",
@@ -8894,11 +8894,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Miconazole Cream, 2%",
@@ -8917,11 +8917,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Miconazole Oral Gel, 25 mg/mL",
@@ -8940,11 +8940,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Miconazole Ovule, 400 mg",
@@ -8986,11 +8986,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Midazolam Tablet, 15 mg",
@@ -10596,11 +10596,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Spironolactone Tablet, 25 mg",
@@ -10619,11 +10619,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Spironolactone Tablet, 50 mg",
@@ -10642,11 +10642,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Streptokinase Injection, 100,000 unit-vial",
@@ -10665,11 +10665,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Streptokinase Injection, 250,000 unit-vial",
@@ -10688,11 +10688,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Streptokinase Injection, 750,000 unit-vial",
@@ -10711,11 +10711,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Sulfasalazine Tablet, 500 mg",
@@ -10734,11 +10734,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Tamoxifen Tablet, 10 mg",
@@ -11723,11 +11723,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B1",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Promethazine Hydrochloride Tablet, 25 mg",
@@ -11746,11 +11746,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Promethazine Theoclate Tablet, 25 mg",
@@ -11769,11 +11769,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Propranolol Injection, 1 mg/mL in 1mL",
@@ -11792,11 +11792,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Propranolol Tablet, 10 mg",
@@ -11815,11 +11815,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Propranolol Tablet, 40 mg",
@@ -11838,11 +11838,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Propranolol Tablet, 80 mg",
@@ -11861,11 +11861,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Propylthiouracil Tablet, 50 mg",
@@ -11884,11 +11884,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Protamine Sulphate Injection, 10 mg/mL in 5 mL",
