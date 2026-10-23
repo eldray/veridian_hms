@@ -1857,6 +1857,9 @@ export const getAdmission = (id: string) =>
 // CREATE formal admission from IPD encounter
 export const createAdmission = (data: {
   attendanceId: string;
+  bedId?: string;
+  wardId?: string;
+  admissionNotes?: string;
   admissionType?: 'emergency' | 'elective' | 'transfer' | 'detention_observation' | 'antenatal_observation' | 'delivery' | 'postpartum_observation';
   admissionSource?: 'home' | 'referral' | 'another_facility' | 'opd' | 'emergency' | 'antenatal' | 'delivery';
   admissionDate?: string;
