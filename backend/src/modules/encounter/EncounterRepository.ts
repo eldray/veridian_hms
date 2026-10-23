@@ -1646,6 +1646,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
         throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
       }
+      if (!String(record.handoverNotes || '').trim()) {
+        throw new ValidationError('Before completing a procedure, document the clinical handover to the receiving recovery or ward team');
+      }
     }
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
       const scheduledDate = new Date(data.scheduledDate);

@@ -1803,6 +1803,7 @@ describe('theatre procedure safety documentation', () => {
     instrumentCountsStatus: 'correct',
     postOpDestination: 'Recovery room',
     postOpPlan: 'Monitor observations and pain; escalate deterioration',
+    handoverNotes: 'Handover given to recovery nurse: airway, observations, analgesia and escalation plan reviewed',
     indication: 'Clinical indication documented',
     preOpDiagnosis: 'Pre-operative diagnosis documented',
     operativeSite: 'Documented site',
@@ -1829,6 +1830,18 @@ describe('theatre procedure safety documentation', () => {
     await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
       clinicalRecord: { identityConfirmed: true },
     }, 'nurse-1')).rejects.toThrow(/confirm patient identity and the planned procedure\/site/i);
+
+    expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('blocks completion when the receiving-team clinical handover is missing', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+    const { handoverNotes: _handoverNotes, ...recordWithoutHandover } = validTheatreRecord;
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
+      clinicalRecord: recordWithoutHandover,
+    }, 'nurse-1')).rejects.toThrow(/clinical handover to the receiving recovery or ward team/i);
 
     expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
   });

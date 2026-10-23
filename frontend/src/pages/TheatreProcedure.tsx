@@ -494,6 +494,10 @@ export default function TheatreProcedure() {
       toastError('Post-operative handover incomplete', 'Record the post-operative destination and care plan.');
       return;
     }
+    if (!String(clinicalRecord.handoverNotes || '').trim()) {
+      toastError('Clinical handover required', 'Document the key information handed over to the receiving recovery or ward team.');
+      return;
+    }
     }
     setIsSubmitting(true);
     try {
