@@ -81,6 +81,49 @@ describe('NHIS prescribing-level validation', () => {
     })).not.toThrow();
   });
 
+  it('restricts level A medicines to CHPS facilities', () => {
+    expect(() => validateNHISPrescribingLevel({
+      level: 'A',
+      facilityType: 'Primary',
+      prescriber: doctor,
+    })).toThrow(/level A facilities/i);
+    expect(() => validateNHISPrescribingLevel({
+      level: 'A',
+      facilityType: 'CHPS',
+      prescriber: doctor,
+    })).not.toThrow();
+  });
+
+  it('requires a Health Centre without a doctor for level B1', () => {
+    expect(() => validateNHISPrescribingLevel({
+      level: 'B1',
+      facilityType: 'Health_Center',
+      prescriber: doctor,
+      hasDoctorAtFacility: true,
+    })).toThrow(/without a doctor/i);
+    expect(() => validateNHISPrescribingLevel({
+      level: 'B1',
+      facilityType: 'Health_Center',
+      prescriber: doctor,
+      hasDoctorAtFacility: false,
+    })).not.toThrow();
+    expect(() => validateNHISPrescribingLevel({
+      level: 'B1',
+      facilityType: 'Primary',
+      prescriber: doctor,
+      hasDoctorAtFacility: false,
+    })).toThrow(/without a doctor/i);
+  });
+
+  it('restricts level B2 medicines to Health Centres with a doctor', () => {
+    expect(() => validateNHISPrescribingLevel({
+      level: 'B2',
+      facilityType: 'Primary',
+      prescriber: doctor,
+      hasDoctorAtFacility: true,
+    })).toThrow(/level B2 Health Centres/i);
+  });
+
   it('requires a configured doctor for B2 medicines at a Health Centre', () => {
     expect(() => validateNHISPrescribingLevel({
       level: 'B2',
