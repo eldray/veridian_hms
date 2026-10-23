@@ -819,24 +819,74 @@ export const seedTestData = async (force: boolean = false) => {
     console.log(`✅ ${refRows.length} referrals created`);
 
     // ── ADMISSIONS
+    // Seed a coherent IPD state: active admissions own a bed and have an admitted
+    // attendance; discharged admissions have a closed attendance and no bed link.
     let admDone = 0;
+    const availableBeds = await prisma.bed.findMany({
+      where: { isOccupied: false, Ward: { isActive: true } },
+      select: { id: true, wardId: true },
+      orderBy: [{ wardId: 'asc' }, { bedNumber: 'asc' }],
+    });
+    const wardOccupancyAdded = new Set<string>();
     for (const a of bundle.admissions) {
       const attId = attendanceMap.get(a.attendanceKey);
       if (!attId) continue;
-      await prisma.admission.create({
-        data: {
-          attendanceId: attId,
-          admissionNumber: a.admissionNumber,
-          admissionType: a.admissionType as AdmissionType,
-          admissionSource: a.admissionSource as AdmissionSource,
-          admissionDate: a.admissionDate,
-          dischargeDate: a.dischargeDate,
-          dischargeStatus: a.dischargeStatus as DischargeStatus,
-        },
+
+      const bed = a.dischargeStatus == null ? availableBeds.shift() : undefined;
+      const isActiveAdmission = a.dischargeStatus == null && Boolean(bed);
+      const dischargeStatus = isActiveAdmission ? null : (a.dischargeStatus ?? 'home');
+      const dischargeDate = isActiveAdmission ? null : (a.dischargeDate ?? new Date());
+
+      await prisma.$transaction(async (tx) => {
+        await tx.admission.create({
+          data: {
+            attendanceId: attId,
+            admissionNumber: a.admissionNumber,
+            admissionType: a.admissionType as AdmissionType,
+            admissionSource: a.admissionSource as AdmissionSource,
+            admissionDate: a.admissionDate,
+            dischargeDate,
+            dischargeStatus: dischargeStatus as DischargeStatus | null,
+          },
+        });
+
+        await tx.attendance.update({
+          where: { id: attId },
+          data: isActiveAdmission && bed
+            ? {
+                status: 'admitted',
+                encounterCategory: 'ipd',
+                serviceCategory: 'ipd',
+                bedId: bed.id,
+                wardId: bed.wardId,
+              }
+            : {
+                status: 'discharged',
+                encounterCategory: 'ipd',
+                serviceCategory: 'ipd',
+                bedId: null,
+                wardId: null,
+              },
+        });
+
+        if (isActiveAdmission && bed) {
+          const reservation = await tx.bed.updateMany({
+            where: { id: bed.id, isOccupied: false },
+            data: { isOccupied: true },
+          });
+          if (reservation.count !== 1) {
+            throw new Error(`Could not reserve seed bed ${bed.id}`);
+          }
+          await tx.ward.update({
+            where: { id: bed.wardId },
+            data: { occupiedBeds: { increment: 1 } },
+          });
+          wardOccupancyAdded.add(bed.wardId);
+        }
       });
       admDone++;
     }
-    console.log(`✅ ${admDone} admissions created`);
+    console.log(`✅ ${admDone} admissions created (${wardOccupancyAdded.size} wards with seeded occupancy)`);
 
     // ── MATERNITY LINKED RECORDS
     console.log('🤰 Creating maternity links...');
