@@ -190,7 +190,6 @@ export class EncounterService extends BaseService {
         data: {
           status: 'admitted',
           encounterCategory: 'ipd',
-          admissionType: data.admissionType || 'emergency',
           bedId: data.bedId,
           wardId: data.wardId,
           medicalNotes: data.admissionNotes
