@@ -3121,11 +3121,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "B2",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Cetirizine Tablet, 10 mg",
@@ -3144,11 +3144,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Cetrimide Solution",
@@ -3167,11 +3167,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Chloramphenicol Ear Drops, 5%",
@@ -4754,11 +4754,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "M",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Diclofenac Capsule, 75 mg",
@@ -6870,11 +6870,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "C",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Hydralazine Tablet, 25 mg",
@@ -7100,11 +7100,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ibuprofen Tablet, 200 mg",
@@ -7123,11 +7123,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Ibuprofen Tablet, 400 mg",
@@ -7146,11 +7146,11 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "A",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   },
   {
     "name": "Imipramine Tablet, 25 mg",
@@ -12666,10 +12666,10 @@
     "vatRate": 0,
     "isTaxable": true,
     "isMedication": true,
-    "prescribingLevel": null,
+    "prescribingLevel": "D",
     "nhisRequiresAuth": null,
     "sourceVersion": "NHIS Medicines List 2025 Version 1.0",
     "effectiveFrom": "2025-03-01",
-    "prescribingLevelSource": null
+    "prescribingLevelSource": "WHO-hosted NHIA NHIS Medicines List 2025, Section 10"
   }
 ]
