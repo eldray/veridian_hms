@@ -1800,6 +1800,7 @@ describe('theatre procedure safety documentation', () => {
     allergyStatusReviewed: true,
     preOpAssessmentCompleted: true,
     instrumentCountsCorrect: true,
+    instrumentCountsStatus: 'correct',
     postOpDestination: 'Recovery room',
     postOpPlan: 'Monitor observations and pain; escalate deterioration',
     indication: 'Clinical indication documented',
