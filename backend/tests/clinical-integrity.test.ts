@@ -5,6 +5,7 @@ import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepositor
 import { NursingService } from '../src/modules/nursing/NursingService';
 import { NursingRepository } from '../src/modules/nursing/NursingRepository';
 import { buildWardChargeAdmissionWhere } from '../src/cron/wardChargeCron';
+import { classifyNewbornOutcomes } from '../src/modules/ghsReport/formA';
 
 
 
@@ -2283,5 +2284,40 @@ describe('newborn follow-up preservation during delivery edits', () => {
     expect(newbornUpdate).not.toHaveBeenCalled();
     expect(newbornCreate).not.toHaveBeenCalled();
     expect(deliveryUpdate).toHaveBeenCalled();
+  });
+});
+
+
+describe('GHS Form A newborn outcome classification', () => {
+  it('classifies mixed outcomes individually for a multiple birth', () => {
+    const result = classifyNewbornOutcomes('live_birth', [
+      { order: 1, outcome: 'alive' },
+      { order: 2, outcome: 'stillbirth_fresh' },
+      { order: 3, outcome: 'stillbirth_macerated' },
+    ]);
+    expect(result.map(x => [x.stillborn, x.fresh, x.died])).toEqual([
+      [false, false, null],
+      [true, true, null],
+      [true, false, null],
+    ]);
+  });
+
+  it('keeps legacy delivery-level stillbirth classification when newborns have no per-baby stillbirth type', () => {
+    const result = classifyNewbornOutcomes('stillbirth_macerated', [
+      { order: 1, outcome: 'alive' },
+      { order: 2, outcome: 'alive' },
+    ]);
+    expect(result.map(x => [x.stillborn, x.fresh])).toEqual([
+      [true, false],
+      [true, false],
+    ]);
+  });
+
+  it('classifies neonatal deaths by the recorded newborn outcome', () => {
+    const result = classifyNewbornOutcomes('live_birth', [
+      { order: 1, outcome: 'dead_within_24hrs' },
+      { order: 2, outcome: 'dead_8_28days' },
+    ]);
+    expect(result.map(x => x.died)).toEqual(['early', 'late']);
   });
 });

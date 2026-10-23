@@ -3485,6 +3485,8 @@ enum MaternalOutcome {
 
 enum NewbornOutcome {
   alive
+  stillbirth_fresh
+  stillbirth_macerated
   dead_within_24hrs
   dead_1_7days
   dead_8_28days

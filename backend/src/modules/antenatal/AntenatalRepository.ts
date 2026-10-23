@@ -522,7 +522,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   // ===================== DELIVERY RECORDS =====================
   private mapNewborns(input: any): any[] {
     const list: any[] = Array.isArray(input) ? input : Array.isArray(input?.create) ? input.create : [];
-    const allowedOutcomes = ['alive', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'];
+    const allowedOutcomes = ['alive', 'stillbirth_fresh', 'stillbirth_macerated', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'];
     const babies = list.map((b: any, i: number) => {
       if (!b || !allowedOutcomes.includes(String(b.outcome))) {
         throw new ValidationError(`A confirmed outcome is required for newborn ${i + 1}`);
@@ -596,7 +596,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (!['male', 'female', 'other'].includes(String(baby.gender))) {
         throw new ValidationError(`Newborn ${index + 1} has an invalid gender`);
       }
-      if (!['alive', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'].includes(String(baby.outcome))) {
+      if (!['alive', 'stillbirth_fresh', 'stillbirth_macerated', 'dead_within_24hrs', 'dead_1_7days', 'dead_8_28days', 'referred_out'].includes(String(baby.outcome))) {
         throw new ValidationError(`Newborn ${index + 1} has an invalid outcome`);
       }
       for (const scoreKey of ['apgarScore1min', 'apgarScore5min']) {

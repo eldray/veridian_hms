@@ -102,6 +102,39 @@ const resultPositive = (r: any) => /posit|reactiv/.test(lc(JSON.stringify(r)));
 const hivTested = (s: any) => !!s && !/^(unknown|not tested|untested|n\/a|none|-)$/i.test(String(s).trim());
 const hivPositive = (s: any) => /^pos/i.test(String(s ?? '').trim());
 
+/**
+ * Classify birth outcomes per baby for GHS Form A. Older records only stored
+ * stillbirth type on DeliveryRecord, so retain that aggregate fallback when no
+ * newborn has an explicit fresh/macerated classification. Once any baby has an
+ * explicit stillbirth type, each baby's own outcome is authoritative (important
+ * for multiple births with different outcomes).
+ */
+export function classifyNewbornOutcomes(deliveryOutcome: string, newborns: any[]) {
+  const list: any[] = newborns?.length ? newborns : [null];
+  const hasPerBabyStillbirth = list.some(nb =>
+    nb?.outcome === 'stillbirth_fresh' || nb?.outcome === 'stillbirth_macerated'
+  );
+  const legacyStillbirth = !hasPerBabyStillbirth &&
+    (deliveryOutcome === 'stillbirth_fresh' || deliveryOutcome === 'stillbirth_macerated');
+
+  return list.map(nb => {
+    const fresh = nb?.outcome === 'stillbirth_fresh' ||
+      (!hasPerBabyStillbirth && !nb && deliveryOutcome === 'stillbirth_fresh') ||
+      (!hasPerBabyStillbirth && !!nb && legacyStillbirth && deliveryOutcome === 'stillbirth_fresh');
+    const macerated = nb?.outcome === 'stillbirth_macerated' ||
+      (!hasPerBabyStillbirth && !nb && deliveryOutcome === 'stillbirth_macerated') ||
+      (!hasPerBabyStillbirth && !!nb && legacyStillbirth && deliveryOutcome === 'stillbirth_macerated');
+    const stillborn = fresh || macerated;
+    let died: string | null = null;
+    if (!stillborn) {
+      if (nb?.outcome === 'dead_within_24hrs' || nb?.outcome === 'dead_1_7days') died = 'early';
+      else if (nb?.outcome === 'dead_8_28days') died = 'late';
+      else if (!nb && deliveryOutcome === 'neonatal_death') died = 'early';
+    }
+    return { nb, stillborn, fresh, died };
+  });
+}
+
 export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?: boolean }) {
   const { bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications } = inp;
 
@@ -249,16 +282,9 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
 
   const babies: { sex: string; weight: number | null; stillborn: boolean; fresh: boolean; died: string | null; parity: number | null; delivery: any; nb: any }[] = [];
   deliveries.forEach(d => {
-    const still = d.deliveryOutcome === 'stillbirth_fresh' || d.deliveryOutcome === 'stillbirth_macerated';
     const nbs: any[] = d.Newborn?.length ? d.Newborn : [null];
-    nbs.forEach(nb => {
-      let died: string | null = null;
-      if (!still) {
-        if (nb?.outcome === 'dead_within_24hrs' || nb?.outcome === 'dead_1_7days') died = 'early';
-        else if (nb?.outcome === 'dead_8_28days') died = 'late';
-        else if (!nb && d.deliveryOutcome === 'neonatal_death') died = 'early';
-      }
-      babies.push({ sex: nb?.gender ?? 'unknown', weight: kg(nb?.birthWeight ?? d.birthWeight), stillborn: still, fresh: d.deliveryOutcome === 'stillbirth_fresh', died, parity: para(d), delivery: d, nb });
+    classifyNewbornOutcomes(d.deliveryOutcome, nbs).forEach(({ nb, stillborn, fresh, died }) => {
+      babies.push({ sex: nb?.gender ?? 'unknown', weight: kg(nb?.birthWeight ?? d.birthWeight), stillborn, fresh, died, parity: para(d), delivery: d, nb });
     });
   });
   const sexCols = ['Male', 'Female', 'Total'];
