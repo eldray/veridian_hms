@@ -1007,6 +1007,20 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   async updateMedication(encounterId: string, medicationId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     return this.prisma.$transaction(async (tx) => {
+      // The legacy medication-status endpoint can also record an administered dose.
+      // Recheck encounter state inside the write transaction so it cannot rely only
+      // on the nursing service's earlier (out-of-transaction) check.
+      if (data.status === 'administered') {
+        const encounter = await tx.attendance.findUnique({
+          where: { id: encounterId },
+          select: { id: true, status: true },
+        });
+        if (!encounter) throw new NotFoundError('Encounter', encounterId);
+        if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+          throw new ConflictError('Medication administration is not allowed for a closed encounter');
+        }
+      }
+
       // Query by the unique medication ID, then verify encounter ownership before
       // any stock or medication mutation. This also keeps repository test doubles
       // aligned with Prisma's unique-record lookup contract.
