@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
+import api from '../../api/api';
 import {
   Plus, Search, ClipboardList, Edit, Trash2, RefreshCw,
   DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope,
@@ -64,6 +65,23 @@ export default function ServiceCatalogTab() {
     tariffCode: '',
     vatRate: 0,
     isTaxable: true,
+  });
+
+  const [nhisPolicyLoading, setNhisPolicyLoading] = useState(false);
+  const [nhisPolicySaving, setNhisPolicySaving] = useState(false);
+  const [nhisPolicyConfigured, setNhisPolicyConfigured] = useState(false);
+  const [nhisPayerName, setNhisPayerName] = useState('NHIS');
+  const [nhisPolicy, setNhisPolicy] = useState({
+    isCovered: true,
+    authorizationRequired: false,
+    prescribingLevel: 'C',
+    copaymentMode: 'none',
+    copaymentAmount: '',
+    copaymentPercentage: '',
+    tariffPrice: '',
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveTo: '',
+    notes: '',
   });
 
   // Combined loading state
@@ -211,6 +229,55 @@ export default function ServiceCatalogTab() {
     }
   };
 
+  const loadNHISMedicinePolicy = async (serviceId: string) => {
+    setNhisPolicyLoading(true);
+    try {
+      const response = await api.get(`/service-catalog/${serviceId}/nhis-medicine-policy`);
+      const result = response.data?.data || response.data;
+      const rule = result?.rule;
+      setNhisPayerName(result?.payer?.name || 'NHIS');
+      setNhisPolicyConfigured(Boolean(result?.configured));
+      setNhisPolicy({
+        isCovered: rule?.isCovered === true,
+        authorizationRequired: rule?.authorizationRequired === true,
+        prescribingLevel: rule?.prescribingLevel || 'C',
+        copaymentMode: rule?.copaymentMode || 'none',
+        copaymentAmount: rule?.copaymentAmount == null ? '' : String(rule.copaymentAmount),
+        copaymentPercentage: rule?.copaymentPercentage == null ? '' : String(rule.copaymentPercentage),
+        tariffPrice: rule?.tariffPrice == null ? '' : String(rule.tariffPrice),
+        effectiveFrom: rule?.effectiveFrom ? String(rule.effectiveFrom).slice(0, 10) : new Date().toISOString().slice(0, 10),
+        effectiveTo: rule?.effectiveTo ? String(rule.effectiveTo).slice(0, 10) : '',
+        notes: rule?.notes || '',
+      });
+    } catch (error: any) {
+      setNhisPolicyConfigured(false);
+      toastError('NHIS policy unavailable', error?.response?.data?.message || 'Could not load the medicine payer rule. Confirm an active NHIS payer is configured.');
+    } finally {
+      setNhisPolicyLoading(false);
+    }
+  };
+
+  const saveNHISMedicinePolicy = async () => {
+    if (!editingItem?.id || !editingItem?.StockItem?.id) return;
+    setNhisPolicySaving(true);
+    try {
+      await api.put(`/service-catalog/${editingItem.id}/nhis-medicine-policy`, {
+        ...nhisPolicy,
+        copaymentAmount: nhisPolicy.copaymentAmount === '' ? null : Number(nhisPolicy.copaymentAmount),
+        copaymentPercentage: nhisPolicy.copaymentPercentage === '' ? null : Number(nhisPolicy.copaymentPercentage),
+        tariffPrice: nhisPolicy.tariffPrice === '' ? null : Number(nhisPolicy.tariffPrice),
+        effectiveTo: nhisPolicy.effectiveTo || null,
+      });
+      setNhisPolicyConfigured(true);
+      success('NHIS medicine policy saved', 'Coverage, prescribing and co-payment rules have been updated.');
+      await loadNHISMedicinePolicy(editingItem.id);
+    } catch (error: any) {
+      toastError('Policy save failed', error?.response?.data?.message || error?.message || 'Could not save NHIS medicine policy');
+    } finally {
+      setNhisPolicySaving(false);
+    }
+  };
+
   const handleEdit = (item: any) => {
     if (!item?.id) {
       toastError('Error', 'Cannot edit this service');
@@ -218,6 +285,7 @@ export default function ServiceCatalogTab() {
     }
 
     setEditingItem(item);
+    if (item.StockItem?.id && item.serviceType === 'medication') void loadNHISMedicinePolicy(item.id);
     setFormData({
       name: item.name || '',
       code: item.code || '',
