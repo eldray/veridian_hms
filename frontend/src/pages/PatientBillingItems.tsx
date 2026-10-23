@@ -274,17 +274,6 @@ export default function PatientBillingItems() {
     loadData();
   }, [patientId, loadData]);
 
-  // When opened from the main Billing list, open the exact bill the user selected.
-  // The patient history remains visible, but its selected visit/bill details are loaded separately.
-  useEffect(() => {
-    const requestedBillId = new URLSearchParams(window.location.search).get('billId');
-    if (!dataLoaded || !requestedBillId || autoOpenedBillRef.current === requestedBillId) return;
-    if (!patientBills.some((bill) => bill.id === requestedBillId)) return;
-    autoOpenedBillRef.current = requestedBillId;
-    setExpandedBillId(requestedBillId);
-    void handleViewBillDetails(requestedBillId);
-  }, [dataLoaded, patientBills, handleViewBillDetails]);
-
   const handleRefresh = useCallback(() => {
     loadedForPatientRef.current = null;
     setDataLoaded(false);
@@ -321,6 +310,17 @@ export default function PatientBillingItems() {
         new Date(a.billDate || a.createdAt).getTime()
     );
   }, [bills, actualPatientId, searchQuery]);
+
+  // When opened from the main Billing list, open the exact bill the user selected.
+  // The patient history remains visible, but its selected visit/bill details are loaded separately.
+  useEffect(() => {
+    const requestedBillId = new URLSearchParams(window.location.search).get('billId');
+    if (!dataLoaded || !requestedBillId || autoOpenedBillRef.current === requestedBillId) return;
+    if (!patientBills.some((bill) => bill.id === requestedBillId)) return;
+    autoOpenedBillRef.current = requestedBillId;
+    setExpandedBillId(requestedBillId);
+    void handleViewBillDetails(requestedBillId);
+  }, [dataLoaded, patientBills, handleViewBillDetails]);
 
   const totalPages = Math.ceil(patientBills.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
