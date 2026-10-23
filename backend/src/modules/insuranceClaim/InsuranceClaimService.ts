@@ -479,8 +479,19 @@ ${claimsXml}
             })
           : null;
         const currentPricing = catalog?.pricing?.[0];
-        const cashPrice = Number(currentPricing?.cashPrice ?? 0);
-        const nhisTariff = Number(payerRule.tariffPrice ?? currentPricing?.nhisPrice ?? 0);
+        if (!currentPricing || !Number.isFinite(Number(currentPricing.cashPrice)) || Number(currentPricing.cashPrice) <= 0) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: no valid active cash price is configured for this medicine.`,
+          );
+        }
+        const cashPrice = Number(currentPricing.cashPrice);
+        const configuredTariff = payerRule.tariffPrice ?? currentPricing.nhisPrice;
+        if (configuredTariff == null || !Number.isFinite(Number(configuredTariff)) || Number(configuredTariff) <= 0) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: no valid NHIS tariff is configured in the payer rule or active pricing.`,
+          );
+        }
+        const nhisTariff = Number(configuredTariff);
         let allocation;
         try {
           allocation = calculateNHISMedicineAllocation({
