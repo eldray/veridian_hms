@@ -1984,6 +1984,31 @@ describe('theatre procedure safety documentation', () => {
     expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
   });
 
+  it('rejects non-numeric values in hospital-specific theatre number fields', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
+      clinicalRecord: {
+        customProtocolFields: [{ id: 'temperature', label: 'Temperature', type: 'number', value: 'high', required: false }],
+      },
+    }, 'nurse-1')).rejects.toThrow(/temperature must contain a valid number/i);
+
+    expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects invalid date and time values in hospital-specific theatre fields', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
+      clinicalRecord: {
+        customProtocolFields: [{ id: 'date', label: 'Date', type: 'date', value: '2026-02-31', required: false }],
+      },
+    }, 'nurse-1')).rejects.toThrow(/date must contain a valid date/i);
+    expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
+  });
+
   it('persists the structured theatre record when all mandatory checks are documented', async () => {
     const prisma = makeProcedurePrisma();
     const repository = new EncounterRepository(prisma);
