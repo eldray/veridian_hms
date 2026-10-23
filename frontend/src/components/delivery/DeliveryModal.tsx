@@ -180,6 +180,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
         auditNotes: formData.maternalDeathsAudited ? formData.auditNotes : undefined,
         Newborn: {
           create: newborns.map(baby => ({
+            ...(existingDelivery && baby.id ? { id: baby.id } : {}),
             order: baby.order,
             birthWeight: baby.birthWeight,
             gender: baby.gender,
@@ -388,7 +389,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
                   <div key={idx} className="mb-3 p-4 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)]">
                     <div className="flex justify-between items-center mb-3">
                       <h5 className="text-xs font-bold text-[var(--text-primary)]">Baby #{baby.order}</h5>
-                      {newborns.length > 1 && (
+                      {!existingDelivery && newborns.length > 1 && (
                         <button type="button" onClick={() => removeNewborn(idx)}
                           className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
                           <Trash2 className="w-3.5 h-3.5" />

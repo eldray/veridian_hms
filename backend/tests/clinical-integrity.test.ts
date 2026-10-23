@@ -2214,3 +2214,74 @@ describe('postnatal pregnancy and delivery linkage integrity', () => {
     expect(create).not.toHaveBeenCalled();
   });
 });
+
+
+describe('newborn follow-up preservation during delivery edits', () => {
+  it('updates birth details in place without overwriting neonatal follow-up fields', async () => {
+    const newbornUpdate = vi.fn();
+    const newbornCreate = vi.fn();
+    const deliveryUpdate = vi.fn().mockResolvedValue({
+      id: 'delivery-1',
+      Newborn: [{ id: 'baby-1', order: 1, birthWeight: 3300, babyWeightAt6to10Days: 2800 }],
+    });
+    const tx = {
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
+          deliveryOutcome: 'live_birth', antenatalBookingId: null,
+        }),
+        update: deliveryUpdate,
+      },
+      newbornRecord: {
+        findFirst: vi.fn().mockResolvedValue({ id: 'baby-1', order: 1 }),
+        update: newbornUpdate,
+        create: newbornCreate,
+      },
+    };
+    const repository = new AntenatalRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await repository.updateDeliveryRecord('delivery-1', {
+      Newborn: [{ order: 1, birthWeight: 3300, gender: 'female', outcome: 'alive' }],
+    });
+
+    expect(newbornUpdate).toHaveBeenCalledWith({
+      where: { id: 'baby-1' },
+      data: expect.objectContaining({ birthWeight: 3300, outcome: 'alive' }),
+    });
+    const updateData = newbornUpdate.mock.calls[0][0].data;
+    expect(updateData).not.toHaveProperty('babyWeightAt6to10Days');
+    expect(updateData).not.toHaveProperty('weightAt6to10DaysDate');
+    expect(newbornCreate).not.toHaveBeenCalled();
+    expect(deliveryUpdate).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.not.objectContaining({ Newborn: expect.anything() }),
+    }));
+  });
+
+  it('does not delete existing newborns when an edit submits an empty newborn list', async () => {
+    const newbornUpdate = vi.fn();
+    const newbornCreate = vi.fn();
+    const deliveryUpdate = vi.fn().mockResolvedValue({ id: 'delivery-1', Newborn: [{ id: 'baby-1' }] });
+    const tx = {
+      deliveryRecord: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20'),
+          deliveryOutcome: 'live_birth', antenatalBookingId: null,
+        }),
+        update: deliveryUpdate,
+      },
+      newbornRecord: { findFirst: vi.fn(), update: newbornUpdate, create: newbornCreate },
+    };
+    const repository = new AntenatalRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await repository.updateDeliveryRecord('delivery-1', { Newborn: [] });
+
+    expect(tx.newbornRecord.findFirst).not.toHaveBeenCalled();
+    expect(newbornUpdate).not.toHaveBeenCalled();
+    expect(newbornCreate).not.toHaveBeenCalled();
+    expect(deliveryUpdate).toHaveBeenCalled();
+  });
+});

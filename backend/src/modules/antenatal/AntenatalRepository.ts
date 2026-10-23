@@ -540,8 +540,13 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           throw new ValidationError(`${field} for newborn ${i + 1} must be an integer between 0 and 10`);
         }
       }
+      const order = b.order === undefined || b.order === null ? i + 1 : Number(b.order);
+      if (!Number.isInteger(order) || order < 1) {
+        throw new ValidationError(`Newborn ${i + 1} must have a positive whole-number birth order`);
+      }
       return {
-        order: b.order ?? i + 1, birthWeight, gender,
+        ...(typeof b.id === 'string' && b.id.trim() ? { id: b.id.trim() } : {}),
+        order, birthWeight, gender,
         apgarScore1min: b.apgarScore1min ?? null, apgarScore5min: b.apgarScore5min ?? null,
         resuscitation: !!b.resuscitation, outcome: b.outcome, anomalies: b.anomalies || [],
         referredTo: b.referredTo || null, breastfeedingWithin30Min: !!b.breastfeedingWithin30Min,
@@ -675,7 +680,7 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
           maternalDeathsAudited: data.maternalDeathsAudited || false, auditNotes: data.auditNotes || data.notes, referralTo: data.referralTo,
           birthWeight: data.birthWeight ?? (babies.length ? babies[0].birthWeight : undefined),
           createdById: data.createdById,
-          ...(babies.length ? { Newborn: { create: babies } } : {})
+          ...(babies.length ? { Newborn: { create: babies.map(({ id: _id, ...baby }) => baby) } } : {})
         },
         include: { patient: true, attendance: true, Newborn: true }
       });
@@ -817,9 +822,44 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       const updatePayload: any = { ...clean };
       if (data.Newborn !== undefined) {
         const babies = this.mapNewborns(data.Newborn);
-        // Only replace the newborn list when at least one explicit newborn was submitted.
-        // An omitted/empty form payload must not erase previously documented babies.
-        if (babies.length > 0) updatePayload.Newborn = { deleteMany: {}, create: babies };
+        // Delivery edits must not cascade-delete neonatal follow-up history. Match each
+        // submitted baby by stable birth order, update birth details in place, and create
+        // new orders only when no record exists. Omitted babies are preserved for review.
+        for (const baby of babies) {
+          const currentBaby = baby.id
+            ? await tx.newbornRecord.findFirst({
+                where: { id: baby.id, deliveryRecordId: id },
+                select: { id: true, order: true },
+              })
+            : await tx.newbornRecord.findFirst({
+                where: { deliveryRecordId: id, order: baby.order },
+                select: { id: true, order: true },
+              });
+
+          if (baby.id && !currentBaby) {
+            throw new ConflictError('A submitted newborn record does not belong to this delivery');
+          }
+          if (currentBaby) {
+            if (currentBaby.order !== baby.order) {
+              throw new ConflictError('A newborn birth order cannot be changed during a delivery edit; use the authorized clinical correction workflow');
+            }
+            const {
+              id: _babyId,
+              babyWeightAt6to10Days: _followUpWeight,
+              weightAt6to10DaysDate: _followUpDate,
+              ...birthDetails
+            } = baby;
+            await tx.newbornRecord.update({
+              where: { id: currentBaby.id },
+              data: birthDetails,
+            });
+          } else {
+            const { id: _babyId, ...newbornData } = baby;
+            await tx.newbornRecord.create({
+              data: { ...newbornData, deliveryRecordId: id },
+            });
+          }
+        }
       }
 
       const record = await tx.deliveryRecord.update({
