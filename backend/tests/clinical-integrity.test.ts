@@ -1987,7 +1987,7 @@ describe('theatre procedure safety documentation', () => {
 
 
 describe('ward charge admission date eligibility', () => {
-  it('charges only admissions active on the requested date and excludes cancelled/non-admitted stays', () => {
+  it('charges only admissions active on the requested date and excludes cancelled stays', () => {
     const start = new Date('2026-10-23T00:00:00.000Z');
     const end = new Date('2026-10-23T23:59:59.999Z');
 
