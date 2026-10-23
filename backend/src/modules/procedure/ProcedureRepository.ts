@@ -35,7 +35,7 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
     const [templates, total] = await Promise.all([
       this.getModel().findMany({
         where,
-        include: { pricing: this.getPricingInclude(), ProcedureTemplate: { select: { department: true } }, procedures: { select: { id: true, status: true }, take: 1 } },
+        include: { pricing: this.getPricingInclude(), ProcedureTemplate: { select: { id: true, procedureCode: true, department: true } }, procedures: { select: { id: true, status: true }, take: 1 } },
         orderBy: [{ name: 'asc' }, { id: 'asc' }], skip, take: limit
       }),
       this.getModel().count({ where })
@@ -72,7 +72,7 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
       const procedureTemplate = await this.prisma.procedureTemplate.create({
         data: {
           name: data.name,
-          procedureCode: data.code,
+          procedureCode: data.procedureCode ?? data.code,
           description: data.description,
           category: data.category,
           department: data.department || 'General',
@@ -111,7 +111,69 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
   }
 
   async updateTemplate(id: string, data: any) {
-    return this.getModel().update({ where: { id }, data: { ...data, updatedAt: new Date() } });
+    // ProcedureTemplate and ServiceCatalog are separate models. Split the incoming form
+    // payload so Prisma never receives fields that belong to the other model.
+    const existing = await this.getModel().findUnique({
+      where: { id },
+      select: { id: true, procedureTemplateId: true, metadata: true },
+    });
+    if (!existing) throw new Error('Procedure template not found');
+
+    const procedureTemplateFields = [
+      'name', 'description', 'department', 'isNHISCovered', 'nhisRequiresAuth',
+      'privateInsRequiresAuth', 'isActive', 'tariffCode', 'duration',
+    ];
+    const catalogFields = [
+      'name', 'code', 'description', 'serviceCategory', 'nhisServiceCode', 'tariffCode',
+      'isNHISCovered', 'nhisRequiresAuth', 'isPrivateInsuranceExempted',
+      'privateInsRequiresAuth', 'requiresClinicalNotes', 'isActive', 'unit',
+      'gdrgTariffId', 'wardId',
+    ];
+    const metadataFields = [
+      'requiresAssistant', 'anesthesiaType', 'anesthesiaNotes', 'intraOperativeNotes',
+      'postOperativeNotes', 'bloodLoss', 'complications', 'outcome', 'cost',
+    ];
+    const pickDefined = (keys: string[]) => Object.fromEntries(
+      keys.filter((key) => Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined)
+        .map((key) => [key, data[key]])
+    );
+
+    const procedureTemplateData = pickDefined(procedureTemplateFields);
+    if (Object.prototype.hasOwnProperty.call(data, 'procedureCode') && data.procedureCode !== undefined) {
+      procedureTemplateData.procedureCode = data.procedureCode;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'isPrivateInsuranceExempted') && data.isPrivateInsuranceExempted !== undefined) {
+      procedureTemplateData.isPrivateInsExempted = data.isPrivateInsuranceExempted;
+    }
+    if (Object.prototype.hasOwnProperty.call(data, 'category') && data.category !== undefined) {
+      procedureTemplateData.category = data.category;
+    }
+
+    const catalogData = pickDefined(catalogFields);
+    if (Object.prototype.hasOwnProperty.call(data, 'category') && data.category !== undefined) {
+      catalogData.subType = data.category;
+    }
+    const metadataUpdates = pickDefined(metadataFields);
+    if (Object.keys(metadataUpdates).length) {
+      const currentMetadata = existing.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata)
+        ? existing.metadata as Record<string, unknown>
+        : {};
+      catalogData.metadata = { ...currentMetadata, ...metadataUpdates };
+    }
+
+    const updatedCatalog = await this.getModel().update({
+      where: { id },
+      data: { ...catalogData, updatedAt: new Date() },
+    });
+
+    if (existing.procedureTemplateId && Object.keys(procedureTemplateData).length) {
+      await this.prisma.procedureTemplate.update({
+        where: { id: existing.procedureTemplateId },
+        data: { ...procedureTemplateData, updatedAt: new Date() },
+      });
+    }
+
+    return updatedCatalog;
   }
 
   // ✅ FIXED: Historical Pricing Logic (Expire old, create new)
@@ -161,13 +223,17 @@ export class ProcedureRepository extends BaseRepository<any, any, any> {
   async procedureCodeExists(procedureCode: string, excludeId?: string) {
     const where: any = { procedureCode };
     if (excludeId) where.id = { not: excludeId };
-    return !!(await this.getModel().findFirst({ where }));
+    return !!(await this.prisma.procedureTemplate.findFirst({ where, select: { id: true } }));
   }
 
   async findWithRelations(id: string) {
     return this.getModel().findFirst({
       where: { id, serviceType: ServiceType.procedure },
-      include: { procedures: { take: 1 }, pricing: this.getPricingInclude() }
+      include: {
+        procedures: { take: 1 },
+        pricing: this.getPricingInclude(),
+        ProcedureTemplate: { select: { id: true, procedureCode: true } },
+      }
     });
   }
 
