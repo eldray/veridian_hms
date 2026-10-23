@@ -1046,6 +1046,9 @@ describe('investigation and procedure status integrity', () => {
     await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: -1 }, 'staff-1'))
       .rejects.toThrow(/estimated blood loss must be a valid non-negative number/i);
 
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: '' }, 'staff-1'))
+      .rejects.toThrow(/estimated blood loss must be a valid non-negative number/i);
+
     expect(procedureFindUnique).not.toHaveBeenCalled();
     expect(procedureUpdateMany).not.toHaveBeenCalled();
   });
