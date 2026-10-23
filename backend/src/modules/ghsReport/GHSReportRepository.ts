@@ -134,10 +134,40 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   async getFormAInputs(startDate: Date, endDate: Date) {
     const p = this.prisma as any;
     const [bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications, shortMothers, hospital] = await Promise.all([
-      p.antenatalBooking.findMany({ where: { bookingDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } } } }),
-      p.aNCVisit.findMany({ where: { visitDate: { gte: startDate, lte: endDate } } }),
-      p.deliveryRecord.findMany({ where: { deliveryDate: { gte: startDate, lte: endDate } }, include: { Newborn: true, patient: { select: { dateOfBirth: true } }, antenatalBooking: { select: { para: true } } } }),
-      p.postnatalRecord.findMany({ where: { examinationDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } }, deliveryRecord: { select: { deliveryDate: true } } } }),
+      p.antenatalBooking.findMany({
+        where: {
+          bookingDate: { gte: startDate, lte: endDate },
+          attendance: { is: { status: { not: 'cancelled' } } },
+        },
+        include: { patient: { select: { dateOfBirth: true } } },
+      }),
+      p.aNCVisit.findMany({
+        where: {
+          visitDate: { gte: startDate, lte: endDate },
+          attendance: { is: { status: { not: 'cancelled' } } },
+        },
+      }),
+      p.deliveryRecord.findMany({
+        where: {
+          deliveryDate: { gte: startDate, lte: endDate },
+          attendance: { is: { status: { not: 'cancelled' } } },
+        },
+        include: {
+          Newborn: true,
+          patient: { select: { dateOfBirth: true } },
+          antenatalBooking: { select: { para: true } },
+        },
+      }),
+      p.postnatalRecord.findMany({
+        where: {
+          examinationDate: { gte: startDate, lte: endDate },
+          attendance: { is: { status: { not: 'cancelled' } } },
+        },
+        include: {
+          patient: { select: { dateOfBirth: true } },
+          deliveryRecord: { select: { deliveryDate: true } },
+        },
+      }),
       p.abortionRecord.findMany({ where: { abortionDate: { gte: startDate, lte: endDate } }, include: { patient: { select: { dateOfBirth: true } } } }),
       p.referralRecord.findMany({ where: { referralDate: { gte: startDate, lte: endDate }, attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } } }, include: { attendance: { select: { attendanceType: true } }, patient: { select: { dateOfBirth: true } } } }),
       p.labTest.findMany({ where: { requestedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal'] } } }, include: { LabTestTemplate: true } }),
