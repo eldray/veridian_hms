@@ -1619,8 +1619,10 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['scheduled', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported procedure status; use scheduled, in_progress, completed or cancelled');
     if (data.bloodLoss !== undefined && data.bloodLoss !== null) {
-      const estimatedBloodLoss = Number(data.bloodLoss);
-      if (!Number.isFinite(estimatedBloodLoss) || estimatedBloodLoss < 0) {
+      const rawBloodLoss = data.bloodLoss;
+      const estimatedBloodLoss = Number(rawBloodLoss);
+      if ((typeof rawBloodLoss === 'string' && rawBloodLoss.trim() === '') ||
+          !Number.isFinite(estimatedBloodLoss) || estimatedBloodLoss < 0) {
         throw new ValidationError('Estimated blood loss must be a valid non-negative number of millilitres');
       }
       data = { ...data, bloodLoss: estimatedBloodLoss };
