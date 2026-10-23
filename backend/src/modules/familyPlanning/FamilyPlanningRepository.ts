@@ -18,7 +18,74 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       },
       providedBy: { select: { id: true, fullName: true, role: true } },
       attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
+      postpartumDeliveryRecord: { select: { id: true, deliveryDate: true, deliveryOutcome: true } },
+      postnatalRecord: { select: { id: true, examinationDate: true, familyPlanningDiscussed: true, familyPlanningMethodAccepted: true } },
+      postAbortionRecord: { select: { id: true, abortionDate: true, postAbortionFPCounselled: true, postAbortionFPAccepted: true, fpMethodAccepted: true } },
     };
+  }
+
+  private async validateMaternalEventLinks(
+    input: {
+      isPostpartum?: boolean;
+      isPostAbortion?: boolean;
+      postpartumDeliveryRecordId?: string | null;
+      postnatalRecordId?: string | null;
+      postAbortionRecordId?: string | null;
+    },
+    patientId: string,
+    serviceDate: Date,
+  ) {
+    if (input.isPostpartum && input.isPostAbortion) {
+      throw new ValidationError('A service cannot be classified as both postpartum and post-abortion');
+    }
+
+    if (input.postpartumDeliveryRecordId) {
+      if (!input.isPostpartum) throw new ValidationError('A linked delivery requires the service to be marked postpartum');
+      const delivery = await this.prisma.deliveryRecord.findUnique({
+        where: { id: input.postpartumDeliveryRecordId },
+        select: { id: true, patientId: true, deliveryDate: true },
+      });
+      if (!delivery) throw new ValidationError('The linked delivery record does not exist');
+      if (delivery.patientId !== patientId) throw new ValidationError('The linked delivery must belong to the same patient');
+      if (new Date(delivery.deliveryDate).getTime() > serviceDate.getTime()) {
+        throw new ValidationError('The linked delivery cannot occur after the family-planning service');
+      }
+    }
+
+    if (input.postnatalRecordId) {
+      if (!input.isPostpartum) throw new ValidationError('A linked postnatal record requires the service to be marked postpartum');
+      const postnatal = await this.prisma.postnatalRecord.findUnique({
+        where: { id: input.postnatalRecordId },
+        select: { id: true, patientId: true, examinationDate: true },
+      });
+      if (!postnatal) throw new ValidationError('The linked postnatal record does not exist');
+      if (postnatal.patientId !== patientId) throw new ValidationError('The linked postnatal record must belong to the same patient');
+      if (new Date(postnatal.examinationDate).getTime() > serviceDate.getTime()) {
+        throw new ValidationError('The linked postnatal record cannot occur after the family-planning service');
+      }
+    }
+
+    if (input.postAbortionRecordId) {
+      if (!input.isPostAbortion) throw new ValidationError('A linked abortion record requires the service to be marked post-abortion');
+      const abortion = await this.prisma.abortionRecord.findUnique({
+        where: { id: input.postAbortionRecordId },
+        select: { id: true, patientId: true, abortionDate: true },
+      });
+      if (!abortion) throw new ValidationError('The linked abortion record does not exist');
+      if (abortion.patientId !== patientId) throw new ValidationError('The linked abortion record must belong to the same patient');
+      if (new Date(abortion.abortionDate).getTime() > serviceDate.getTime()) {
+        throw new ValidationError('The linked abortion cannot occur after the family-planning service');
+      }
+    }
+
+    if (input.postpartumDeliveryRecordId && input.postnatalRecordId) {
+      const postnatal = await this.prisma.postnatalRecord.findUnique({
+        where: { id: input.postnatalRecordId }, select: { deliveryRecordId: true },
+      });
+      if (postnatal?.deliveryRecordId && postnatal.deliveryRecordId !== input.postpartumDeliveryRecordId) {
+        throw new ValidationError('The linked delivery and postnatal records must refer to the same delivery');
+      }
+    }
   }
 
   async createFPService(data: CreateFPServiceInput) {
@@ -84,6 +151,8 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
       }
     }
 
+    await this.validateMaternalEventLinks(data, data.patientId, serviceDate);
+
     // Determine first-time acceptance from this patient's dated FP history, not a client-supplied checkbox.
     // Same-day additional method records are continuing records, preventing duplicate "new acceptor" counts.
     const priorOrSameDayServices = await this.getModel().count({
@@ -104,7 +173,11 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
         sideEffects: data.sideEffects, contraindications: data.contraindications,
         medicalEligibilityCategory: data.medicalEligibilityCategory, nextFollowUpDate: data.nextFollowUpDate,
         isPostpartum: data.isPostpartum || false, isPostAbortion: data.isPostAbortion || false,
-        postpartumWeeks: data.postpartumWeeks, cypFactor: data.cypFactor ?? this.calculateCYP(data.method),
+        postpartumWeeks: data.postpartumWeeks,
+        postpartumDeliveryRecordId: data.postpartumDeliveryRecordId || undefined,
+        postnatalRecordId: data.postnatalRecordId || undefined,
+        postAbortionRecordId: data.postAbortionRecordId || undefined,
+        cypFactor: data.cypFactor ?? this.calculateCYP(data.method),
         providedById: data.providedById, notes: data.notes,
       },
       include: this.getStandardIncludes()
@@ -188,6 +261,22 @@ export class FamilyPlanningRepository extends BaseRepository<any, CreateFPServic
        Number(data.medicalEligibilityCategory) < 1 || Number(data.medicalEligibilityCategory) > 4)) {
       throw new ValidationError('Medical eligibility category must be WHO MEC category 1, 2, 3 or 4');
     }
+    const current = await this.getModel().findUnique({
+      where: { id },
+      select: {
+        patientId: true, serviceDate: true, isPostpartum: true, isPostAbortion: true,
+        postpartumDeliveryRecordId: true, postnatalRecordId: true, postAbortionRecordId: true,
+      },
+    });
+    if (!current) throw new ValidationError('Family-planning service not found');
+    const merged = {
+      isPostpartum: data.isPostpartum ?? current.isPostpartum,
+      isPostAbortion: data.isPostAbortion ?? current.isPostAbortion,
+      postpartumDeliveryRecordId: data.postpartumDeliveryRecordId === undefined ? current.postpartumDeliveryRecordId : data.postpartumDeliveryRecordId,
+      postnatalRecordId: data.postnatalRecordId === undefined ? current.postnatalRecordId : data.postnatalRecordId,
+      postAbortionRecordId: data.postAbortionRecordId === undefined ? current.postAbortionRecordId : data.postAbortionRecordId,
+    };
+    await this.validateMaternalEventLinks(merged, current.patientId, new Date(current.serviceDate));
     return this.getModel().update({ where: { id }, data, include: this.getStandardIncludes() });
   }
 
