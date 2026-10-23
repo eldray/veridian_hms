@@ -154,12 +154,58 @@ export class EncounterService extends BaseService {
   // ADMISSION & DISCHARGE (WRAPPED IN TRANSACTIONS)
   // ============================================
   async createFormalAdmission(data: CreateAdmissionDTO, userId: string) {
-    const encounter = await this.prisma.attendance.findUnique({ where: { id: data.attendanceId }, include: { Admission: true } });
-    if (!encounter) throw new NotFoundError('Encounter', data.attendanceId);
-    if (encounter.Admission) throw new ValidationError('This encounter already has a formal admission record');
+    if (!data.bedId || !data.wardId) {
+      throw new ValidationError('A bed and ward must be selected before admission');
+    }
 
-    return await this.prisma.$transaction(async (tx) => {
-      const admission = await tx.admission.create({
+    return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: data.attendanceId },
+        include: { Admission: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', data.attendanceId);
+      if (encounter.Admission) throw new ValidationError('This encounter already has a formal admission record');
+      if (['admitted', 'discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+        throw new ValidationError('This encounter cannot be admitted in its current status');
+      }
+
+      const ward = await tx.ward.findUnique({ where: { id: data.wardId } });
+      if (!ward || !ward.isActive) throw new ValidationError('The selected ward is unavailable');
+      const bed = await tx.bed.findUnique({ where: { id: data.bedId } });
+      if (!bed || bed.wardId !== data.wardId) {
+        throw new ValidationError('The selected bed does not belong to the selected ward');
+      }
+
+      // Conditionally claim the bed to prevent concurrent admissions from sharing it.
+      const bedClaim = await tx.bed.updateMany({
+        where: { id: data.bedId, wardId: data.wardId, isOccupied: false },
+        data: { isOccupied: true },
+      });
+      if (bedClaim.count !== 1) {
+        throw new ValidationError('The selected bed is no longer available. Refresh the bed list and choose another bed.');
+      }
+
+      const attendanceUpdate = await tx.attendance.updateMany({
+        where: { id: data.attendanceId, status: encounter.status, bedId: null },
+        data: {
+          status: 'admitted',
+          encounterCategory: 'ipd',
+          admissionType: data.admissionType || 'emergency',
+          bedId: data.bedId,
+          wardId: data.wardId,
+          updatedById: userId,
+        },
+      });
+      if (attendanceUpdate.count !== 1) {
+        throw new ValidationError('The encounter changed while admission was being processed. Refresh and try again.');
+      }
+
+      await tx.ward.update({
+        where: { id: data.wardId },
+        data: { occupiedBeds: { increment: 1 } },
+      });
+
+      return tx.admission.create({
         data: {
           attendanceId: data.attendanceId,
           admissionNumber: getCounterService().nextAdmissionNumber(),
@@ -167,14 +213,10 @@ export class EncounterService extends BaseService {
           admissionSource: (data.admissionSource as any) || 'home',
           admissionDate: data.admissionDate || new Date(),
         },
-        include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } }
+        include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
       });
-      
-      await tx.attendance.update({ where: { id: data.attendanceId }, data: { status: 'admitted' } });
-      return admission;
     });
   }
-
   async dischargeFromEncounter(encounterId: string, dischargeData: any, userId: string) {
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
