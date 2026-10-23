@@ -912,19 +912,23 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       if (configuredTariff == null || !Number.isFinite(Number(configuredTariff)) || Number(configuredTariff) <= 0) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid NHIS tariff. Configure the payer-rule tariff or active NHIS price before claiming it.`);
       }
-      const matchingDispensedMedicine = dispensedMedicines.find((med: any) =>
-        med.StockItem?.id === catalog.StockItem?.id ||
-        (!!row.code && (med.StockItem?.drugCode === row.code || med.ServiceCatalog?.code === row.code)),
-      );
-      if (!matchingDispensedMedicine) {
+      // Prefer the canonical stock-item identity. A matching drug/service code is
+      // only a safe fallback when the dispensed record has no stock-item relation;
+      // otherwise a reused code must never pull quantities from a different item.
+      const matchesDispensedStockItem = (med: any) => {
+        if (med.StockItem?.id) return med.StockItem.id === catalog.StockItem?.id;
+        return !!row.code && (
+          med.StockItem?.drugCode === row.code ||
+          med.ServiceCatalog?.code === row.code
+        );
+      };
+      const matchingDispensedMedicines = dispensedMedicines.filter(matchesDispensedStockItem);
+      if (!matchingDispensedMedicines.length) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
       }
       // Claim edits must not increase the quantity beyond what was actually dispensed.
       // Track totals across rows too, so duplicating a line cannot inflate the claim.
-      const matchingDispensedMedicines = dispensedMedicines.filter((med: any) =>
-        med.StockItem?.id === catalog.StockItem?.id ||
-        (!!row.code && (med.StockItem?.drugCode === row.code || med.ServiceCatalog?.code === row.code)),
-      );
+      const matchingDispensedMedicine = matchingDispensedMedicines[0];
       const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
       const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
@@ -933,11 +937,26 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       if (rule.authorizationRequired === true) {
+        // A stock item may have more than one dispensed row/service-catalog link.
+        // Accept authorisation for the canonical stock item or any exact catalog
+        // identity attached to those matching dispensed rows, never an unrelated
+        // row that merely shares a drug code.
+        const matchingServiceCatalogIds = new Set<string>(
+          matchingDispensedMedicines
+            .map((med: any) => med.serviceCatalogId)
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0),
+        );
         const approval = authorisations.find((candidate: any) =>
           approvedServicesCoverPrescription(candidate.approvedServices, {
             stockItemId: catalog.StockItem?.id ?? '',
-            serviceCatalogId: matchingDispensedMedicine.serviceCatalogId ?? '',
-          }),
+            serviceCatalogId: '',
+          }) ||
+          Array.from(matchingServiceCatalogIds).some(serviceCatalogId =>
+            approvedServicesCoverPrescription(candidate.approvedServices, {
+              stockItemId: catalog.StockItem?.id ?? '',
+              serviceCatalogId,
+            }),
+          ),
         );
         if (!approval?.authNumber) {
           throw new ValidationError(`NHIS claim medicine "${row.description}" requires a current, explicit pre-authorisation. The claim item cannot be saved without it.`);
