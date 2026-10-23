@@ -79,12 +79,12 @@ export function validateNHISPrescribingLevel(context: NHISPrescribingContext): v
 
   if (level === 'SM') {
     const isQualifiedSpecialist =
-      prescriber.role === 'doctor' &&
+      ['doctor', 'nurse'].includes(prescriber.role) &&
       Boolean(prescriber.licenseNumber?.trim()) &&
       Boolean(prescriber.specialization?.trim());
     if (!isQualifiedSpecialist) {
       throw new ValidationError(
-        'This NHIS specialist medicine requires a doctor with a recorded professional licence and specialization.',
+        'This NHIS specialist medicine requires a licensed clinician with a recorded specialization.',
       );
     }
   }
