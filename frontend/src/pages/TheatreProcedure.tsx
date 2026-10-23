@@ -466,6 +466,14 @@ export default function TheatreProcedure() {
       return;
     }
     if (complete) {
+    const customProtocolFields = Array.isArray(clinicalRecord.customProtocolFields) ? clinicalRecord.customProtocolFields : [];
+    const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
+      field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
+    ));
+    if (missingProtocolField) {
+      toastError('Hospital protocol field required', `Complete the required field: ${missingProtocolField.label || 'Unnamed protocol field'}`);
+      return;
+    }
     if (!clinicalRecord.identityConfirmed || !clinicalRecord.procedureAndSiteConfirmed) {
       toastError('Safety checks incomplete', 'Confirm patient identity and the planned procedure/site before completion.');
       return;
@@ -966,6 +974,76 @@ export default function TheatreProcedure() {
                           <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.specimenLabelled === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimenLabelled: e.target.checked }))} />Specimen correctly labelled, if applicable</label>
                         </div>
                       </div>
+                    </section>
+
+                    {/* Hospital-specific protocol fields: stored with this procedure's clinical record. */}
+                    <section className="col-span-full rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                        <div>
+                          <h3 className="text-sm font-bold text-[var(--text-primary)]">Hospital-specific theatre protocol</h3>
+                          <p className="text-xs text-[var(--text-secondary)] mt-1">Add local protocol items that are not covered above. Examples include antibiotic prophylaxis, positioning, airway checks, implant details, equipment checks or specialty-specific notes. These additions are saved with this procedure.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setClinicalRecord((prev: any) => ({
+                            ...prev,
+                            customProtocolFields: [...(Array.isArray(prev.customProtocolFields) ? prev.customProtocolFields : []), {
+                              id: `protocol-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                              label: '', type: 'note', required: false, value: '',
+                            }],
+                          }))}
+                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                        >
+                          <Plus size={15} /> Add protocol field
+                        </button>
+                      </div>
+                      {(!Array.isArray(clinicalRecord.customProtocolFields) || clinicalRecord.customProtocolFields.length === 0) ? (
+                        <p className="rounded-lg bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">No additional local protocol fields have been added to this entry.</p>
+                      ) : (
+                        <div className="space-y-3">
+                          {clinicalRecord.customProtocolFields.map((field: any, index: number) => (
+                            <div key={field.id || index} className="rounded-lg border border-[var(--border-color)] p-3 space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                <label className="md:col-span-5 block text-xs font-semibold text-[var(--text-primary)]">
+                                  Field label / protocol requirement
+                                  <input value={field.label || ''} maxLength={160} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, label: e.target.value } : item) }))} placeholder="e.g. Antibiotic prophylaxis" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
+                                </label>
+                                <label className="md:col-span-3 block text-xs font-semibold text-[var(--text-primary)]">
+                                  Response type
+                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? Boolean(item.value) : (e.target.value === 'note' ? String(item.value || '') : String(item.value || '')) } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
+                                    <option value="note">Long note</option>
+                                    <option value="text">Short text</option>
+                                    <option value="number">Number</option>
+                                    <option value="date">Date</option>
+                                    <option value="time">Time</option>
+                                    <option value="checkbox">Yes / checked</option>
+                                  </select>
+                                </label>
+                                <div className="md:col-span-3 flex items-end">
+                                  <label className="flex items-center gap-2 pb-2 text-xs text-[var(--text-primary)]">
+                                    <input type="checkbox" checked={field.required === true} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, required: e.target.checked } : item) }))} />
+                                    Required to complete
+                                  </label>
+                                </div>
+                                <div className="md:col-span-1 flex items-end justify-end">
+                                  <button type="button" aria-label="Remove protocol field" onClick={() => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.filter((_: any, i: number) => i !== index) }))} className="p-2 rounded-lg text-red-600 hover:bg-red-50"><X size={16} /></button>
+                                </div>
+                              </div>
+                              {field.type === 'checkbox' ? (
+                                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
+                                  <input type="checkbox" checked={field.value === true} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.checked } : item) }))} />
+                                  {field.label || 'Confirm this protocol item'}
+                                </label>
+                              ) : field.type === 'note' ? (
+                                <textarea value={String(field.value ?? '')} rows={3} maxLength={10000} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item) }))} placeholder="Document the hospital-specific requirement, finding or action…" className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm" />
+                              ) : (
+                                <input type={['text', 'number', 'date', 'time'].includes(field.type) ? field.type : 'text'} value={String(field.value ?? '')} maxLength={field.type === 'text' ? 1000 : undefined} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item) }))} className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-xs text-[var(--text-secondary)]">Local protocol fields supplement, and do not replace, mandatory safety checks or your hospital's approved theatre policy. Avoid adding duplicate fields where a standard clinical field already exists.</p>
                     </section>
 
                     {/* Anesthesia */}
