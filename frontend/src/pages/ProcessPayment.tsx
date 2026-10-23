@@ -127,7 +127,7 @@ export default function ProcessPayment() {
             link.remove();
             URL.revokeObjectURL(blobUrl);
           } else {
-            toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the receipt document could not be prepared. You can retry the receipt from billing.');
+            toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the receipt document could not be prepared. Please ask an authorised accounts user to generate the payment receipt.');
           }
         } catch (receiptError: any) {
           toastError('Payment recorded; receipt unavailable', receiptError?.message || 'The payment was saved, but the receipt could not be generated.');
