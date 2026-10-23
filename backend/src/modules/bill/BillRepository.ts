@@ -3,7 +3,7 @@ import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } fro
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { resolveUnitPrice } from '../../utils/pricing';
+import { isPayerCovered, resolveUnitPrice } from '../../utils/pricing';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -111,14 +111,19 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals before math
+      // Patient receipts reduce the patient's liability, not the insurer's share.
       const amount = toNumber(paymentData.amount);
+      const patientLiability = toNumber(bill.patientPayable);
+      const currentBalance = Math.max(0, toNumber(bill.balance));
+      if (amount > currentBalance) {
+        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${currentBalance.toFixed(2)})`);
+      }
       const newPaidAmount = toNumber(bill.paidAmount) + amount;
-      const newBalance = toNumber(bill.totalAmount) - newPaidAmount;
+      const newBalance = Math.max(0, patientLiability - newPaidAmount);
 
       let newStatus: BillStatus = bill.status;
       if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.totalAmount)) newStatus = 'partial';
+      else if (newPaidAmount > 0) newStatus = 'partial';
 
       const [updatedBill, payment] = await Promise.all([
         tx.bill.update({ where: { id: billId }, data: { paidAmount: newPaidAmount, balance: newBalance, status: newStatus } }),
@@ -158,12 +163,28 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Decimals
       const newTotal = activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
       const newPatientPayable = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const newInsuranceCovered = activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
       const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill?.paidAmount || 0));
 
       await tx.bill.update({
         where: { id: lineItem.billId },
-        data: { totalAmount: newTotal, patientPayable: newPatientPayable, balance: newPatientPayable - toNumber(bill?.paidAmount || 0) }
+        data: {
+          subtotal: newTotal,
+          totalAmount: newTotal,
+          insuranceCovered: newInsuranceCovered,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newBalance <= 0 ? 'paid' : (toNumber(bill?.paidAmount || 0) > 0 ? 'partial' : 'pending')
+        }
       });
+
+      if (bill?.attendanceId) {
+        await tx.attendance.update({
+          where: { id: bill.attendanceId },
+          data: { totalBill: newTotal, outstandingBalance: newBalance }
+        });
+      }
 
       return { lineItem: updatedLineItem, billId: lineItem.billId };
     });
@@ -214,10 +235,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals
-      const newWaiverAmount = toNumber(bill.waiverAmount) + toNumber(waiver.amountApproved);
-      const newPatientPayable = toNumber(bill.patientPayable) - toNumber(waiver.amountApproved);
-      const newBalance = newPatientPayable - toNumber(bill.paidAmount);
+      // Approved waivers may reduce only the remaining patient liability.
+      const waiverAmount = toNumber(waiver.amountApproved);
+      const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
+      if (waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
+        throw new ValidationError('Approved waiver exceeds the remaining patient liability');
+      }
+      const newWaiverAmount = toNumber(bill.waiverAmount) + waiverAmount;
+      const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - waiverAmount);
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updatedBill = await tx.bill.update({
         where: { id: billId },
@@ -312,10 +338,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
         where: { id: encounterId },
         include: {
           ServiceRendered: { include: { ServiceCatalog: { include: activePricing } } },
-          LabTest: { include: { ServiceCatalog: { include: activePricing }, LabTestTemplate: true } },
-          Scan: { include: { ServiceCatalog: { include: activePricing } } },
-          Procedure: { include: { ServiceCatalog: { include: activePricing } } },
-          Medication: { include: { ServiceCatalog: { include: activePricing } } }
+          LabTest: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing }, LabTestTemplate: true } },
+          Scan: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
+          Procedure: { where: { status: 'completed' }, include: { ServiceCatalog: { include: activePricing } } },
+          Medication: { where: { status: { in: ['dispensed', 'administered'] } }, include: { ServiceCatalog: { include: activePricing } } },
+          WardChargeRecord: { where: { isBilled: false } }
         }
       });
       if (!attendance) throw new Error('Encounter not found');
@@ -353,6 +380,16 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const { unitPrice, lineTotal } = priceFor(catalog, quantity);
         const serviceType: ServiceType = (catalog?.serviceType as ServiceType) || fallbackType;
         const description = catalog ? `${catalog.name} (${catalog.code})` : fallbackName;
+        // A covered payer tariff is the insurer's liability, not a patient charge.
+        // Uncovered / missing-tariff services fall back to cash through resolveUnitPrice.
+        const payerCoversLine = (paymentMode === 'nhis' || paymentMode === 'private_insurance') &&
+          !!catalog && !!catalog.pricing?.[0] &&
+          isPayerCovered(catalog.pricing[0], paymentMode, {
+            isNHISCovered: catalog.isNHISCovered,
+            isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted
+          });
+        const insuranceCoveredAmount = payerCoversLine ? lineTotal : 0;
+        const patientPayableAmount = payerCoversLine ? 0 : lineTotal;
         lineItemsData.push({
           serviceCatalogId: catalog?.id ?? null,
           description,
@@ -361,8 +398,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
           unitPrice,
           pricingBasis: paymentMode,
           lineTotal,
-          insuranceCoveredAmount: 0,
-          patientPayableAmount: lineTotal,
+          insuranceCoveredAmount,
+          patientPayableAmount,
           discount: 0,
           isVoided: false
         });
@@ -384,7 +421,44 @@ export class BillRepository extends BaseRepository<any, any, any> {
         pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity);
       }
 
+      // Ward charges are already priced and recorded per attendance/day by the ward workflow.
+      // Include only unbilled records and link them to the generated bill lines below.
+      const wardChargeLinks: Array<{ id: string; description: string }> = [];
+      for (const charge of attendance.WardChargeRecord || []) {
+        // Use the payer-specific rate snapshot, not dailyRate blindly: dailyRate is
+        // historical/display data and may not be the rate applicable to this payer.
+        const wardPrice = {
+          cashPrice: charge.cashPrice,
+          nhisPrice: charge.nhisPrice,
+          insurancePrice: charge.insurancePrice,
+          corporatePrice: charge.corporatePrice
+        };
+        const unitPrice = resolveUnitPrice(wardPrice, paymentMode);
+        if (unitPrice <= 0) continue;
+        const lineTotal = unitPrice;
+        const serviceDate = new Date(charge.chargeDate).toISOString().slice(0, 10);
+        const description = `Ward accommodation (${charge.wardId}) - ${serviceDate}`;
+        const insurerCovers = (paymentMode === 'nhis' && toNumber(charge.nhisPrice) > 0) ||
+          (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
+        lineItemsData.push({
+          serviceCatalogId: null,
+          description,
+          serviceType: 'ward',
+          quantity: 1,
+          unitPrice,
+          pricingBasis: paymentMode,
+          lineTotal,
+          insuranceCoveredAmount: insurerCovers ? lineTotal : 0,
+          patientPayableAmount: insurerCovers ? 0 : lineTotal,
+          discount: 0,
+          isVoided: false
+        });
+        wardChargeLinks.push({ id: charge.id, description });
+      }
+
       const totalAmount = lineItemsData.reduce((sum, i) => sum + i.lineTotal, 0);
+      const insuranceCovered = lineItemsData.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0);
+      const patientPayable = lineItemsData.reduce((sum, i) => sum + i.patientPayableAmount, 0);
 
       const bill = await tx.bill.create({
         data: {
@@ -395,10 +469,10 @@ export class BillRepository extends BaseRepository<any, any, any> {
           status: 'pending',
           subtotal: totalAmount,
           totalAmount,
-          patientPayable: totalAmount,
-          balance: totalAmount,
+          patientPayable,
+          balance: patientPayable,
           paidAmount: 0,
-          insuranceCovered: 0,
+          insuranceCovered,
           waiverAmount: 0,
           discount: 0,
           taxAmount: 0,
@@ -415,7 +489,21 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: totalAmount } });
+      // Link ward-day records to their bill lines so a refresh/retry cannot bill them twice.
+      for (const link of wardChargeLinks) {
+        const line = await tx.billLineItem.findFirst({
+          where: { billId: bill.id, description: link.description, isVoided: false },
+          select: { id: true }
+        });
+        if (line) {
+          await tx.wardChargeRecord.update({
+            where: { id: link.id },
+            data: { isBilled: true, billLineItemId: line.id }
+          });
+        }
+      }
+
+      await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: patientPayable } });
 
       return bill;
     });

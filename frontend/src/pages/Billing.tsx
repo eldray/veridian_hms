@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
+import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
@@ -116,6 +117,7 @@ export default function Billing() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
     totalAmount: 0,
     paymentCount: 0,
@@ -153,6 +155,7 @@ export default function Billing() {
   } = useWaiverStore();
 
   const { patients, loadPatients } = usePatientStore();
+  const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { isLoading: isDocLoading } = useDocumentStore();
 
@@ -227,7 +230,11 @@ export default function Billing() {
         setCollectionsReport({ totalAmount: 0, paymentCount: 0, payments: [] });
       }
       const filters: any = {};
-      if (dateRange) {
+      // A selected attendance takes precedence over the date window: a visit may
+      // have started earlier but its current bill must still be shown in full.
+      if (activeTab === 'bills' && selectedAttendanceId) {
+        filters.attendanceId = selectedAttendanceId;
+      } else if (dateRange) {
         filters.dateFrom = dateRange.startDate.toISOString();
         filters.dateTo = dateRange.endDate.toISOString();
       }
@@ -260,8 +267,12 @@ export default function Billing() {
   };
 
   useEffect(() => {
+    void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
+  }, [getAttendances]);
+
+  useEffect(() => {
     loadData();
-  }, [dateFilter, customStartDate, customEndDate, statusFilter, activeTab]);
+  }, [dateFilter, customStartDate, customEndDate, statusFilter, activeTab, selectedAttendanceId]);
 
   // Reset page when filters change
   useEffect(() => {
@@ -683,6 +694,38 @@ const handlePrintStatement = async (billId: string) => {
           )}
         </div>
       </div>
+
+      {activeTab === 'bills' && (
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+          <label htmlFor="billing-attendance-select" className="block text-sm font-medium text-[var(--text-primary)] mb-2">
+            Bill by attendance
+          </label>
+          <select
+            id="billing-attendance-select"
+            value={selectedAttendanceId}
+            onChange={(e) => { setSelectedAttendanceId(e.target.value); setCurrentPage(1); }}
+            className="w-full sm:max-w-2xl px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+          >
+            <option value="">All attendances (billing history)</option>
+            {[...attendances]
+              .sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())
+              .map((attendance) => {
+                const patient = attendance.patient;
+                const patientName = patient
+                  ? `${patient.surname || ''} ${patient.otherNames || ''}`.trim()
+                  : 'Patient';
+                return (
+                  <option key={attendance.id} value={attendance.id}>
+                    {attendance.attendanceNumber} — {patientName} — {formatDateOnly(attendance.dateTime)}
+                  </option>
+                );
+              })}
+          </select>
+          <p className="text-xs text-[var(--text-secondary)] mt-2">
+            Select a visit to see only its bill. Clear the selection to return to the patient's wider billing history.
+          </p>
+        </div>
+      )}
 
       {/* Status Filter & Search */}
       {activeTab !== 'collections' && <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
