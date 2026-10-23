@@ -3,6 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
+import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
 export class BillingService extends BaseService {
   private repository: BillingRepository;
@@ -36,26 +37,63 @@ export class BillingService extends BaseService {
       // ✅ FIXED: Fetch actual service details instead of hardcoding 'consultation'
       const service = await this.prisma.serviceCatalog.findUnique({
         where: { id: item.serviceId },
-        select: { name: true, code: true, serviceType: true }
+        select: { name: true, code: true, serviceType: true, stockItemId: true }
       });
 
       if (!service) throw new Error(`Service catalog item not found for ID: ${item.serviceId}`);
 
-      const price = await this.repository.getServicePrice(item.serviceId, data.paymentMode, data.corporateAccountId);
-      const lineTotal = item.quantity * price;
+      let price = await this.repository.getServicePrice(item.serviceId, data.paymentMode, data.corporateAccountId);
+      let lineTotal = item.quantity * price;
+      let insuranceCoveredAmount = 0;
+      let patientPayableAmount = lineTotal;
+      let sourceKey: string | undefined;
+
+      // Medicine-specific NHIS rules override the generic service-level price only when
+      // this service is linked to a stock item. Missing/unverified rules default to cash.
+      if (data.paymentMode === 'nhis' && service.stockItemId) {
+        const detail = await this.prisma.serviceCatalog.findUnique({
+          where: { id: item.serviceId },
+          include: {
+            pricing: { where: { isActive: true, effectiveDate: { lte: new Date() }, OR: [{ expiryDate: null }, { expiryDate: { gt: new Date() } }] }, take: 1, orderBy: { effectiveDate: 'desc' } },
+            StockItem: { include: { payerRules: { where: { insuranceProviderId: data.insuranceProviderId ?? '' }, take: 1 } } }
+          }
+        });
+        const currentPrice = detail?.pricing?.[0];
+        if (!currentPrice) throw new Error(`No active cash/NHIS pricing is configured for medicine: ${service.name}`);
+        const cashPrice = Number(currentPrice.cashPrice);
+        const rule = detail?.StockItem?.payerRules?.[0];
+        const now = new Date();
+        const inEffectiveWindow = !!rule && (!rule.effectiveFrom || rule.effectiveFrom <= now) && (!rule.effectiveTo || rule.effectiveTo >= now);
+        const covered = !!rule && rule.isCovered === true && inEffectiveWindow;
+        const allocation = calculateNHISMedicineAllocation({
+          cashPrice,
+          nhisTariff: Number(rule?.tariffPrice ?? currentPrice.nhisPrice),
+          covered,
+          copaymentMode: rule?.copaymentMode,
+          copaymentAmount: rule?.copaymentAmount == null ? null : Number(rule.copaymentAmount),
+          copaymentPercentage: rule?.copaymentPercentage ?? null
+        });
+        insuranceCoveredAmount = allocation.nhisCoveredAmount * item.quantity;
+        patientPayableAmount = allocation.patientPayableAmount * item.quantity;
+        lineTotal = (allocation.nhisCoveredAmount + allocation.patientPayableAmount) * item.quantity;
+        price = item.quantity > 0 ? lineTotal / item.quantity : 0;
+        sourceKey = 'nhis-medicine-payer-rule';
+      }
+
       totalAmount += lineTotal;
-      
+
       itemsWithPrices.push({
         serviceCatalogId: item.serviceId,
+        sourceKey,
         quantity: item.quantity,
         unitPrice: price,
         pricingBasis: data.paymentMode,
         lineTotal: lineTotal,
-        insuranceCoveredAmount: 0,
-        patientPayableAmount: lineTotal,
+        insuranceCoveredAmount,
+        patientPayableAmount,
         discount: 0,
-        description: `${service.name} (${service.code})`, // ✅ Uses actual name
-        serviceType: service.serviceType // ✅ Uses actual serviceType
+        description: `${service.name} (${service.code})`,
+        serviceType: service.serviceType
       });
     }
     
