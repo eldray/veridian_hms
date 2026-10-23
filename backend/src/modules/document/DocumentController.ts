@@ -22,7 +22,8 @@ export class DocumentController {
         });
       }
 
-      const result = await this.documentService.generateReceipt(billId, req.user.id);
+      const paymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId : undefined;
+      const result = await this.documentService.generateReceipt(billId, req.user.id, paymentId);
 
       if (!result.success) {
         return res.status(500).json({
