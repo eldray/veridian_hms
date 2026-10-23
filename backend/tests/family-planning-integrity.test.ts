@@ -6,6 +6,9 @@ function makeRepository(attendance: any = null) {
   const prisma: any = {
     patient: { findUnique: vi.fn().mockResolvedValue({ id: 'patient-1' }) },
     attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
+    deliveryRecord: { findUnique: vi.fn().mockResolvedValue(null) },
+    postnatalRecord: { findUnique: vi.fn().mockResolvedValue(null) },
+    abortionRecord: { findUnique: vi.fn().mockResolvedValue(null) },
     familyPlanningService: {
       create, count: vi.fn().mockResolvedValue(0),
       findUnique: vi.fn().mockResolvedValue({ method: 'injectable_dmpa', methodCategory: 'modern_short_acting' }),
@@ -44,6 +47,53 @@ describe('family-planning encounter integrity', () => {
     const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
     await expect(repository.createFPService({ ...validInput, informedConsent: false }))
       .rejects.toThrow(/explicit informed consent/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+
+  it('links postpartum family planning to a prior delivery for the same patient', async () => {
+    const { repository, prisma, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    prisma.deliveryRecord.findUnique.mockResolvedValue({
+      id: 'delivery-1', patientId: 'patient-1', deliveryDate: new Date('2026-10-20T10:00:00.000Z'),
+    });
+    await repository.createFPService({
+      ...validInput, isPostpartum: true, postpartumDeliveryRecordId: 'delivery-1', postpartumWeeks: 0,
+    });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ isPostpartum: true, postpartumDeliveryRecordId: 'delivery-1' }),
+    }));
+  });
+
+  it('rejects a postpartum delivery link belonging to a different patient', async () => {
+    const { repository, prisma, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    prisma.deliveryRecord.findUnique.mockResolvedValue({
+      id: 'delivery-1', patientId: 'patient-2', deliveryDate: new Date('2026-10-20T10:00:00.000Z'),
+    });
+    await expect(repository.createFPService({
+      ...validInput, isPostpartum: true, postpartumDeliveryRecordId: 'delivery-1',
+    })).rejects.toThrow(/same patient/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a delivery or abortion that occurs after the family-planning service', async () => {
+    const { repository, prisma, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    prisma.abortionRecord.findUnique.mockResolvedValue({
+      id: 'abortion-1', patientId: 'patient-1', abortionDate: new Date('2026-10-23T10:00:00.000Z'),
+    });
+    await expect(repository.createFPService({
+      ...validInput, serviceDate: '2026-10-22T12:00:00.000Z',
+      isPostAbortion: true, postAbortionRecordId: 'abortion-1',
+    })).rejects.toThrow(/cannot occur after/i);
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('requires the matching postpartum/post-abortion classification when an event is linked', async () => {
+    const { repository, prisma, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    prisma.abortionRecord.findUnique.mockResolvedValue({
+      id: 'abortion-1', patientId: 'patient-1', abortionDate: new Date('2026-10-20T10:00:00.000Z'),
+    });
+    await expect(repository.createFPService({ ...validInput, postAbortionRecordId: 'abortion-1' }))
+      .rejects.toThrow(/marked post-abortion/i);
     expect(create).not.toHaveBeenCalled();
   });
 
