@@ -900,7 +900,7 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       if (rule.authorizationRequired === true) {
         const approval = authorisations.find((candidate: any) =>
           approvedServicesCoverPrescription(candidate.approvedServices, {
-            stockItemId: catalog.StockItem.id,
+            stockItemId: catalog.StockItem?.id ?? '',
             serviceCatalogId: matchingDispensedMedicine.serviceCatalogId ?? '',
           }),
         );
