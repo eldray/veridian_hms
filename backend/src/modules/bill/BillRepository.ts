@@ -162,9 +162,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       // ✅ FIXED: Safely parse Decimals
       const newTotal = activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
-      const newPatientPayable = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const grossPatientLiability = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
       const newInsuranceCovered = activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
       const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      // patientPayable already reflects approved waivers; recompute it from active lines
+      // so voiding a line cannot accidentally restore liability that was previously waived.
+      const newPatientPayable = Math.max(0, grossPatientLiability - toNumber(bill?.waiverAmount || 0));
       const newBalance = Math.max(0, newPatientPayable - toNumber(bill?.paidAmount || 0));
 
       await tx.bill.update({
