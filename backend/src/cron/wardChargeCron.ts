@@ -41,7 +41,7 @@ export const buildWardChargeAdmissionWhere = (startOfDay: Date, endOfDay: Date) 
     { dischargeDate: null },
     { dischargeDate: { gte: startOfDay } }
   ],
-  attendance: { status: 'admitted' }
+  attendance: { status: { in: ['admitted', 'discharged', 'referred', 'absconded', 'completed'] } }
 });
 
 export class WardChargeService {
