@@ -118,3 +118,86 @@ describe('billing payment concurrency guards', () => {
       data: { outstandingBalance: 70 },
     });
   });
+
+
+import { BillingRepository } from '../src/modules/billing/BillingRepository';
+
+describe('legacy billing-module payment safeguards', () => {
+  it('returns the existing payment for an idempotent retry without changing balances', async () => {
+    const existingPayment = { id: 'payment-legacy', billId: 'bill-legacy', amount: 20, idempotencyKey: 'retry-key' };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(existingPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn().mockResolvedValue({ id: 'bill-legacy', balance: 80 }), updateMany: vi.fn(), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = {
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+      payment: { findUnique: vi.fn() },
+      bill: { findUnique: vi.fn() },
+    };
+    const repository = new BillingRepository(prisma);
+
+    const result = await repository.addPayment('bill-legacy', {
+      amount: 20,
+      paymentMethod: 'cash',
+      idempotencyKey: 'retry-key',
+      userId: 'cashier-1',
+    });
+
+    expect(result.payment.id).toBe('payment-legacy');
+    expect(result.duplicate).toBe(true);
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('keeps the outstanding balance after a partial payment in the legacy billing module', async () => {
+    const findUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'bill-legacy', balance: 100, paidAmount: 0, attendanceId: 'attendance-legacy', status: 'pending' })
+      .mockResolvedValueOnce({ id: 'bill-legacy', balance: 70, paidAmount: 30, attendanceId: 'attendance-legacy', status: 'pending' });
+    const tx: any = {
+      payment: { create: vi.fn().mockResolvedValue({ id: 'payment-legacy-partial', amount: 30 }) },
+      bill: {
+        findUnique,
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        update: vi.fn().mockResolvedValue({ id: 'bill-legacy', balance: 70, status: 'partial' }),
+      },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    const result = await repository.addPayment('bill-legacy', {
+      amount: 30,
+      paymentMethod: 'cash',
+      userId: 'cashier-1',
+    });
+
+    expect(result.bill.balance).toBe(70);
+    expect(result.bill.status).toBe('partial');
+    expect(result.payment.amount).toBe(30);
+    expect(tx.attendance.update).toHaveBeenCalledWith({
+      where: { id: 'attendance-legacy' },
+      data: { outstandingBalance: 70 },
+    });
+  });
+
+  it('rejects payments against cancelled bills in the legacy billing module', async () => {
+    const findUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'bill-legacy', balance: 100, paidAmount: 0, attendanceId: 'attendance-legacy', status: 'cancelled' })
+      .mockResolvedValueOnce({ id: 'bill-legacy', balance: 100, status: 'cancelled' });
+    const tx: any = {
+      payment: { create: vi.fn() },
+      bill: { findUnique, updateMany: vi.fn().mockResolvedValue({ count: 0 }), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    await expect(repository.addPayment('bill-legacy', {
+      amount: 20,
+      paymentMethod: 'cash',
+      userId: 'cashier-1',
+    })).rejects.toThrow(/cancelled bill/i);
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+});
