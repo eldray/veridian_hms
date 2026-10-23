@@ -810,7 +810,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { type: true } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -857,7 +857,6 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     };
   });
 
-    // ⬇️ ADD THIS ENTIRE BLOCK — it's missing in the "file name" version
   let totalClaimAmount: number | undefined;
   if (claim.InsuranceProvider?.type === 'nhis') {
     const gdrgRow = rows.find(r => r.itemCategory === 'gdrg');
@@ -873,12 +872,57 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     }
 
     const medRows = rows.filter(r => r.itemCategory === 'medicine');
-    const medPrices = await this.nhisMedicinePrices(this.prisma, medRows.map(r => r.code));
     let medicinesTotal = 0;
-    for (const r of medRows) {
-      r.unitPrice = medPrices.get(r.code) ?? 0;
-      r.lineTotal = Math.round(r.unitPrice * r.quantity * 100) / 100;
-      medicinesTotal += r.lineTotal;
+    const policyDate = new Date();
+    for (const row of medRows) {
+      const catalog = await this.prisma.serviceCatalog.findFirst({
+        where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
+        select: {
+          code: true,
+          StockItem: {
+            select: {
+              id: true,
+              payerRules: {
+                where: { insuranceProviderId: claim.insuranceProviderId },
+                select: {
+                  isCovered: true, authorizationRequired: true, prescribingLevel: true,
+                  effectiveFrom: true, effectiveTo: true, tariffPrice: true,
+                  copaymentMode: true, copaymentAmount: true, copaymentPercentage: true,
+                },
+              },
+            },
+          },
+          pricing: {
+            where: { isActive: true, effectiveDate: { lte: policyDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: policyDate } }] },
+            orderBy: { effectiveDate: 'desc' },
+            take: 1,
+            select: { cashPrice: true, nhisPrice: true },
+          },
+        },
+      });
+      const rule = catalog?.StockItem?.payerRules?.[0];
+      const currentPricing = catalog?.pricing?.[0];
+      if (!catalog?.StockItem || !rule || rule.isCovered !== true || rule.authorizationRequired == null ||
+          !['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) ||
+          (rule.effectiveFrom && rule.effectiveFrom > policyDate) || (rule.effectiveTo && rule.effectiveTo < policyDate)) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
+      }
+      let allocation;
+      try {
+        allocation = calculateNHISMedicineAllocation({
+          cashPrice: Number(currentPricing?.cashPrice ?? 0),
+          nhisTariff: Number(rule.tariffPrice ?? currentPricing?.nhisPrice ?? 0),
+          covered: true,
+          copaymentMode: rule.copaymentMode,
+          copaymentAmount: rule.copaymentAmount == null ? null : Number(rule.copaymentAmount),
+          copaymentPercentage: rule.copaymentPercentage ?? null,
+        });
+      } catch (error) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" cannot be priced: ${error instanceof Error ? error.message : 'invalid payer policy'}`);
+      }
+      row.unitPrice = allocation.nhisCoveredAmount;
+      row.lineTotal = Math.round(row.unitPrice * row.quantity * 100) / 100;
+      medicinesTotal += row.lineTotal;
     }
     totalClaimAmount = Math.round((gdrgAmount + medicinesTotal) * 100) / 100;
   }
@@ -886,7 +930,10 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   await this.prisma.$transaction(async (tx) => {
     await tx.insuranceClaimItem.deleteMany({ where: { claimId } });
     if (rows.length) await tx.insuranceClaimItem.createMany({ data: rows });
-    await tx.insuranceClaim.update({ where: { id: claimId }, data: { updatedById: userId, updatedAt: new Date() } });
+    await tx.insuranceClaim.update({
+      where: { id: claimId },
+      data: { updatedById: userId, updatedAt: new Date(), ...(totalClaimAmount !== undefined ? { totalClaimAmount } : {}) },
+    });
   });
 
   return this.getInsuranceClaim(claimId);
