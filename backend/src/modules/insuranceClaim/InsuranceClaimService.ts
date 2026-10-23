@@ -44,39 +44,7 @@ export class InsuranceClaimService extends BaseService {
   }
 
 
-    /**
-   * NHIS price per medicine, keyed by drug code. Looks the drug up through its service catalog entry
-   * and takes the latest active NHIS price. Drugs with no price are simply absent from the map.
-   */
-  private async nhisMedicinePrices(client: any, codes: string[]): Promise<Map<string, number>> {
-    const prices = new Map<string, number>();
-    const unique = Array.from(new Set(codes.filter(Boolean)));
-    if (!unique.length) return prices;
-
-    const catalogs = await client.serviceCatalog.findMany({
-      where: { OR: [{ code: { in: unique } }, { StockItem: { drugCode: { in: unique } } }] },
-      select: {
-        code: true,
-        StockItem: { select: { drugCode: true } },
-        pricing: {
-          where: { isActive: true, effectiveDate: { lte: new Date() } },
-          orderBy: { effectiveDate: 'desc' },
-          take: 1,
-          select: { nhisPrice: true },
-        },
-      },
-    });
-
-    for (const c of catalogs) {
-      const price = Number(c.pricing?.[0]?.nhisPrice ?? 0);
-      for (const key of [c.StockItem?.drugCode, c.code]) {
-        if (key && unique.includes(key) && (price > 0 || !prices.has(key))) prices.set(key, price);
-      }
-    }
-    return prices;
-  }
-  
-  // ==========================================
+    // ==========================================
   // BATCH SERVICES (Fully Restored)
   // ==========================================
   async createClaimBatch(claimIds: string[], description: string | null, insuranceType: string | null, userId: string) {
