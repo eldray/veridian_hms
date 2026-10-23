@@ -71,6 +71,12 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         if (!data.insuranceProviderId) throw new Error('Insurance Provider ID is required');
         const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
         if (!provider || !provider.isActive) throw new Error('Invalid or inactive insurance provider');
+        if (data.paymentMode === 'nhis' && provider.type !== 'nhis') {
+          throw new Error('The selected insurance provider is not configured as an NHIS payer.');
+        }
+        if (data.paymentMode === 'private_insurance' && provider.type === 'nhis') {
+          throw new Error('NHIS payer cannot be used for a private-insurance bill.');
+        }
       }
   
       if (data.paymentMode === 'corporate') {
