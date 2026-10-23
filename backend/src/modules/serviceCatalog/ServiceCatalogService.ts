@@ -125,6 +125,95 @@ export class ServiceCatalogService extends BaseService {
     return this.flattenPricing(full);
   }
 
+  /**
+   * Reads and updates the NHIS medicine payer rule for a catalog item linked to stock.
+   * A missing rule is returned as unconfigured; it is never silently treated as covered.
+   */
+  async getNHISMedicinePolicy(serviceCatalogId: string) {
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: serviceCatalogId },
+      select: { id: true, name: true, stockItemId: true },
+    });
+    if (!service) throw new NotFoundError('Service catalog item', serviceCatalogId);
+    if (!service.stockItemId) throw new ValidationError('This service is not linked to a stock item, so medicine payer rules cannot be configured here.');
+
+    const payer = await this.prisma.insuranceProvider.findFirst({
+      where: { isActive: true, type: 'nhis' },
+      select: { id: true, name: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!payer) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+
+    const rule = await this.prisma.stockItemPayerRule.findUnique({
+      where: { stockItemId_insuranceProviderId: { stockItemId: service.stockItemId, insuranceProviderId: payer.id } },
+    });
+    return { serviceCatalogId: service.id, serviceName: service.name, stockItemId: service.stockItemId, payer, configured: !!rule, rule };
+  }
+
+  async updateNHISMedicinePolicy(serviceCatalogId: string, input: any) {
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: serviceCatalogId },
+      select: { id: true, name: true, stockItemId: true },
+    });
+    if (!service) throw new NotFoundError('Service catalog item', serviceCatalogId);
+    if (!service.stockItemId) throw new ValidationError('This service is not linked to a stock item, so medicine payer rules cannot be configured here.');
+
+    const payer = await this.prisma.insuranceProvider.findFirst({
+      where: { isActive: true, type: 'nhis' },
+      select: { id: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!payer) throw new ValidationError('No active NHIS payer is configured. Add or activate the NHIS insurance provider first.');
+
+    const validLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+    const validModes = ['none', 'fixed_amount', 'percentage', 'cash_price_difference'];
+    if (typeof input.isCovered !== 'boolean') throw new ValidationError('Choose whether this medicine is covered by NHIS.');
+    if (typeof input.authorizationRequired !== 'boolean') throw new ValidationError('Configure whether NHIS prior authorization is required.');
+    if (!validLevels.includes(input.prescribingLevel)) throw new ValidationError('Select a valid NHIS prescribing level.');
+    if (!validModes.includes(input.copaymentMode)) throw new ValidationError('Select a valid co-payment policy.');
+
+    const amount = input.copaymentAmount === '' || input.copaymentAmount == null ? null : Number(input.copaymentAmount);
+    const percentage = input.copaymentPercentage === '' || input.copaymentPercentage == null ? null : Number(input.copaymentPercentage);
+    if (amount != null && (!Number.isFinite(amount) || amount < 0)) throw new ValidationError('Co-payment amount must be zero or greater.');
+    if (percentage != null && (!Number.isFinite(percentage) || percentage < 0 || percentage > 100)) throw new ValidationError('Co-payment percentage must be between 0 and 100.');
+    if (input.copaymentMode === 'fixed_amount' && amount == null) throw new ValidationError('Enter a fixed co-payment amount.');
+    if (input.copaymentMode === 'percentage' && percentage == null) throw new ValidationError('Enter a co-payment percentage between 0 and 100.');
+    const tariff = input.tariffPrice === '' || input.tariffPrice == null ? null : Number(input.tariffPrice);
+    if (tariff != null && (!Number.isFinite(tariff) || tariff < 0)) throw new ValidationError('NHIS tariff must be zero or greater.');
+
+    return this.prisma.stockItemPayerRule.upsert({
+      where: { stockItemId_insuranceProviderId: { stockItemId: service.stockItemId, insuranceProviderId: payer.id } },
+      create: {
+        stockItemId: service.stockItemId,
+        insuranceProviderId: payer.id,
+        isCovered: input.isCovered,
+        authorizationRequired: input.authorizationRequired,
+        prescribingLevel: input.prescribingLevel,
+        copaymentMode: input.copaymentMode,
+        copaymentAmount: amount,
+        copaymentPercentage: percentage,
+        tariffPrice: tariff,
+        sourceFile: 'Service Catalog manual configuration',
+        sourceVersion: 'manual',
+        effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : new Date(),
+        effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+        notes: input.notes || null,
+      },
+      update: {
+        isCovered: input.isCovered,
+        authorizationRequired: input.authorizationRequired,
+        prescribingLevel: input.prescribingLevel,
+        copaymentMode: input.copaymentMode,
+        copaymentAmount: amount,
+        copaymentPercentage: percentage,
+        tariffPrice: tariff,
+        effectiveFrom: input.effectiveFrom ? new Date(input.effectiveFrom) : new Date(),
+        effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
+        notes: input.notes || null,
+      },
+    });
+  }
+
   async update(id: string, updateData: any) {
     const existingService = await this.repo.findByIdWithDetails(id);
     if (!existingService) throw new NotFoundError('Service catalog item', id);
