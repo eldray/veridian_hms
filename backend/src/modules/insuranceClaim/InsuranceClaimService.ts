@@ -5,6 +5,7 @@ import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { getCounterService } from '../../services/CounterService';
 import { mapAttendanceToNHIS } from '../../utils/nhisAttendanceMapping';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
+import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
@@ -420,6 +421,7 @@ ${claimsXml}
       // imported prescriptions cannot bypass payer coverage/authorisation controls.
       const authorizationNumbers = new Set<string>();
       const claimValidationDate = new Date();
+      let nhisMedicineClaimTotal = 0;
       for (const med of att.Medication) {
         const stockItem = med.StockItem;
         if (!stockItem) {
@@ -438,6 +440,10 @@ ${claimsXml}
             prescribingLevel: true,
             effectiveFrom: true,
             effectiveTo: true,
+            tariffPrice: true,
+            copaymentMode: true,
+            copaymentAmount: true,
+            copaymentPercentage: true,
           },
         });
         if (!payerRule || payerRule.isCovered !== true ||
@@ -483,6 +489,50 @@ ${claimsXml}
           }
           authorizationNumbers.add(matchingApproval.authNumber);
         }
+
+        // Use the same explicit payer-rule allocation as billing. NHIS receives only
+        // its covered share; the patient's configured contribution is not added to
+        // the insurer claim. Resolve the cash tariff as of the claim-generation date.
+        const catalog = med.serviceCatalogId
+          ? await tx.serviceCatalog.findUnique({
+              where: { id: med.serviceCatalogId },
+              select: {
+                pricing: {
+                  where: {
+                    isActive: true,
+                    effectiveDate: { lte: claimValidationDate },
+                    OR: [{ expiryDate: null }, { expiryDate: { gt: claimValidationDate } }],
+                  },
+                  orderBy: { effectiveDate: 'desc' },
+                  take: 1,
+                  select: { cashPrice: true, nhisPrice: true },
+                },
+              },
+            })
+          : null;
+        const currentPricing = catalog?.pricing?.[0];
+        const cashPrice = Number(currentPricing?.cashPrice ?? 0);
+        const nhisTariff = Number(payerRule.tariffPrice ?? currentPricing?.nhisPrice ?? 0);
+        let allocation;
+        try {
+          allocation = calculateNHISMedicineAllocation({
+            cashPrice,
+            nhisTariff,
+            covered: true,
+            copaymentMode: payerRule.copaymentMode,
+            copaymentAmount: payerRule.copaymentAmount == null ? null : Number(payerRule.copaymentAmount),
+            copaymentPercentage: payerRule.copaymentPercentage ?? null,
+          });
+        } catch (error) {
+          throw new ValidationError(
+            `NHIS claim cannot price ${med.name ?? stockItem.name}: ${error instanceof Error ? error.message : 'the medicine payer policy is invalid'}`,
+          );
+        }
+        const quantity = Number(med.quantity ?? 1);
+        if (!Number.isFinite(quantity) || quantity <= 0) {
+          throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
+        }
+        nhisMedicineClaimTotal += Math.round(allocation.nhisCoveredAmount * quantity * 100) / 100;
       }
 
       const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
@@ -511,7 +561,7 @@ ${claimsXml}
         data: {
           claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
           preAuthNumber: authorizationNumbers.size ? Array.from(authorizationNumbers).join(',') : undefined,
-          totalClaimAmount: tariff.nhiaTariff, status: 'draft', createdById: userId,
+          totalClaimAmount: Math.round((Number(tariff.nhiaTariff) + nhisMedicineClaimTotal) * 100) / 100, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap([pd.Diagnosis?.icdCode], c => c),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.nhisServiceCode),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.nhisServiceCode),
