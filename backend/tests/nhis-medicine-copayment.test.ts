@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { calculateNHISMedicineAllocation } from '../src/utils/pricing';
+import { calculateNHISMedicineAllocation, resolveConfiguredNHISTariff } from '../src/utils/pricing';
 
 describe('NHIS medicine co-payment allocation', () => {
+  it('does not substitute the cash price when an NHIS tariff is missing or invalid', () => {
+    expect(resolveConfiguredNHISTariff(null, null)).toBeNull();
+    expect(resolveConfiguredNHISTariff(undefined, 0)).toBeNull();
+    expect(resolveConfiguredNHISTariff(0, 18)).toBeNull();
+    expect(resolveConfiguredNHISTariff(null, 18)).toBe(18);
+    expect(resolveConfiguredNHISTariff(15, 18)).toBe(15);
+  });
+
   it('charges the full cash price for uncovered or unverified medicines and excludes them from the claim', () => {
     expect(calculateNHISMedicineAllocation({ cashPrice: 30, nhisTariff: 20, covered: false })).toEqual({
       cashPrice: 30, nhisCoveredAmount: 0, patientPayableAmount: 30, copaymentAmount: 0,
