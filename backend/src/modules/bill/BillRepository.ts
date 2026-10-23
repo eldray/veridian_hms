@@ -462,11 +462,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // Fail closed instead of silently adding duplicate charges to those bills.
       const existingLines = existingBill
         ? await tx.billLineItem.findMany({
-            where: { billId: existingBill.id, isVoided: false },
+            where: { billId: existingBill.id },
             select: { id: true, sourceKey: true }
           })
         : [];
-      if (existingBill && existingLines.some((line) => !line.sourceKey)) {
+      if (existingBill && existingLines.length > 0 && existingLines.every((line) => !line.sourceKey)) {
         throw new Error(
           'This attendance has a legacy bill without source links. Review/reconcile the existing bill before synchronizing new charges.'
         );
@@ -558,7 +558,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
           BillLineItem: {
             where: { isVoided: false },
-            include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } }
+            include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } }
           }
         }
       });
