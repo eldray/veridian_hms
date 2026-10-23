@@ -107,53 +107,60 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const bill = await tx.bill.findUnique({ where: { id: billId } });
-      if (!bill) throw new Error('Bill not found');
-
-      // Use the persisted outstanding balance as the guard, then decrement it atomically.
-      // This prevents two concurrent cashiers from both collecting against the same stale balance.
-      const amount = toNumber(paymentData.amount);
-      const currentBalance = Math.max(0, toNumber(bill.balance));
-      if (amount > currentBalance) {
-        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${currentBalance.toFixed(2)})`);
-      }
-
-      const balanceUpdate = await tx.bill.updateMany({
-        where: { id: billId, balance: { gte: amount } },
-        data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
-      });
-      if (balanceUpdate.count !== 1) {
-        const latestBill = await tx.bill.findUnique({ where: { id: billId }, select: { balance: true } });
-        const latestBalance = Math.max(0, toNumber(latestBill?.balance));
-        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${latestBalance.toFixed(2)}). Refresh the bill and try again.`);
-      }
-
-      const currentBill = await tx.bill.findUnique({ where: { id: billId } });
-      if (!currentBill) throw new Error('Bill not found');
-      const newBalance = Math.max(0, toNumber(currentBill.balance));
-      const newStatus: BillStatus = newBalance <= 0 ? 'paid' : 'partial';
-      const updatedBill = await tx.bill.update({
-        where: { id: billId },
-        data: { status: newStatus }
-      });
-      const payment = await tx.payment.create({
-        data: {
-          billId, amount,
-          paymentMethod: paymentData.paymentMethod as PaymentMethod,
-          reference: paymentData.reference,
-          notes: paymentData.notes,
-          receivedById,
-          transactionDate: new Date()
+    const idempotencyKey = paymentData.idempotencyKey;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        if (idempotencyKey) {
+          const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
+          if (priorPayment) {
+            if (priorPayment.billId !== billId) throw new ValidationError('Payment request key has already been used for another bill.');
+            const priorBill = await tx.bill.findUnique({ where: { id: billId } });
+            if (!priorBill) throw new Error('Bill not found');
+            return { bill: priorBill, payment: priorPayment, duplicate: true };
+          }
         }
+        const bill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!bill) throw new Error('Bill not found');
+        const amount = Math.round(Number(paymentData.amount) * 100) / 100;
+        if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError('Payment amount must be greater than zero.');
+
+        const balanceUpdate = await tx.bill.updateMany({
+          where: { id: billId, balance: { gte: amount }, status: { not: 'cancelled' } },
+          data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
+        });
+        if (balanceUpdate.count !== 1) {
+          const latestBill = await tx.bill.findUnique({ where: { id: billId }, select: { balance: true, status: true } });
+          const latestBalance = Math.max(0, toNumber(latestBill?.balance));
+          throw new ValidationError(latestBill?.status === 'cancelled'
+            ? 'Cannot accept payment against a cancelled bill.'
+            : `Payment exceeds the patient's outstanding balance (${latestBalance.toFixed(2)}). Refresh the bill and try again.`);
+        }
+        const currentBill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!currentBill) throw new Error('Bill not found');
+        const newBalance = Math.max(0, toNumber(currentBill.balance));
+        const updatedBill = await tx.bill.update({ where: { id: billId }, data: { status: newBalance <= 0 ? 'paid' : 'partial' } });
+        const payment = await tx.payment.create({
+          data: {
+            billId, amount, paymentMethod: paymentData.paymentMethod as PaymentMethod,
+            reference: paymentData.reference || null, idempotencyKey, notes: paymentData.notes,
+            receivedById, transactionDate: new Date()
+          }
+        });
+        if (currentBill.attendanceId) {
+          await tx.attendance.update({ where: { id: currentBill.attendanceId }, data: { outstandingBalance: newBalance } });
+        }
+        return { bill: updatedBill, payment, duplicate: false };
       });
-
-      if (currentBill.attendanceId) {
-        await tx.attendance.update({ where: { id: currentBill.attendanceId }, data: { outstandingBalance: newBalance } });
+    } catch (error: any) {
+      if (idempotencyKey && error?.code === 'P2002') {
+        const priorPayment = await this.prisma.payment.findUnique({ where: { idempotencyKey } });
+        if (priorPayment?.billId === billId) {
+          const priorBill = await this.prisma.bill.findUnique({ where: { id: billId } });
+          if (priorBill) return { bill: priorBill, payment: priorPayment, duplicate: true };
+        }
       }
-
-      return { bill: updatedBill, payment };
-    });
+      throw error;
+    }
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {
