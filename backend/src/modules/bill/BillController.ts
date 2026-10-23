@@ -204,7 +204,10 @@ export class BillController extends BaseController {
       return this.created(res, bill, 'Bill generated from encounter successfully');
     } catch (error: any) {
       if (error.message === 'Encounter not found') return this.notFound(res, 'Encounter');
-      if (error.message === 'A bill already exists for this encounter') return this.conflict(res, error.message);
+      if (error.message === 'A bill already exists for this encounter' ||
+          error.message?.includes('legacy bill without source links')) {
+        return this.conflict(res, error.message);
+      }
       throw error;
     }
   });
