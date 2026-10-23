@@ -20,7 +20,7 @@ import { ProcedureModal } from '../components/medical-entries/modals/ProcedureMo
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 
 import ComplaintInput from '../components/ComplaintInput';
@@ -1046,17 +1046,29 @@ export default function MedicalEntries() {
   // ─── DISCHARGE FROM OBSERVATION ────────────────────────────────────────────
   const handleDischargeFromObservation = async () => {
     if (!selectedAttendanceId || !currentAttendance) return;
+    if (currentAttendance.status === 'discharged') {
+      toastError('Already discharged', 'This encounter is already closed. Refresh the record before taking further action.');
+      return;
+    }
+
+    setIsProcessing(true);
     try {
-      await updateAttendance(selectedAttendanceId, {
-        status: 'discharged',
-        bedId: null,
-        updatedById: user?.id
-      });
-      success('Discharged', 'Patient discharged from observation');
-      await getAttendance(selectedAttendanceId);
-      await getDetentionPatients();
+      // Use the encounter terminal-transition endpoint, not the generic attendance update.
+      // The backend closes the admission and releases the assigned bed/ward occupancy
+      // in the same transaction as the status change.
+      await dischargeFromEncounter(selectedAttendanceId, { dischargeStatus: 'home' });
+      success('Discharged', 'Patient discharged from observation and bed occupancy updated.');
+      await Promise.all([
+        getAttendance(selectedAttendanceId),
+        getAttendances(),
+        getDetentionPatients(),
+        getAdmissions(),
+        getFormalIPDPatients(),
+      ]);
     } catch (err: any) {
-      toastError('Discharge Failed', err.message);
+      toastError('Discharge Failed', err.response?.data?.message || err.message || 'The patient could not be discharged.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
