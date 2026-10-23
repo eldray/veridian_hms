@@ -468,6 +468,7 @@ const FamilyPlanningServiceModal: React.FC<{
                       placeholder="e.g. 6"
                       className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     />
+                    </div>
                   </div>
                 )}
 
