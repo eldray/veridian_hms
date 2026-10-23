@@ -1565,7 +1565,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           throw new ValidationError(`Theatre checklist field ${field} must be true or false`);
         }
       }
-      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes'];
+      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes'];
       for (const field of textFields) {
         if (record[field] !== undefined && typeof record[field] !== 'string') {
           throw new ValidationError(`Theatre clinical record field ${field} must be text`);
