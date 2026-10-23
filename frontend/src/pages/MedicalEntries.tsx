@@ -1193,7 +1193,7 @@ export default function MedicalEntries() {
     const diagnosis = diagnosesList.map((d: any) => d.diagnosis?.name || d.diagnosisName || d.name).filter(Boolean).join(', ');
     const structuredReview = Object.entries(reviewOfSystems).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join('; ');
     const structuredExam = Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join('; ');
-    const notes = [hpc, odq, physicalExam, structuredReview && `Review of systems: ${structuredReview}`, structuredExam && `Structured physical examination: ${structuredExam}`, assessment].filter(Boolean).join('\\n');
+    const notes = [hpc, odq, physicalExam, structuredReview && `Review of systems: ${structuredReview}`, structuredExam && `Structured physical examination: ${structuredExam}`, assessment].filter(Boolean).join('\n');
     if (complaints) params.set('complaints', complaints);
     if (diagnosis) params.set('diagnosis', diagnosis);
     if (notes) params.set('notes', notes);
