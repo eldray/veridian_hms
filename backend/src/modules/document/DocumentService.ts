@@ -4,6 +4,7 @@ import { DocumentRepository } from './DocumentRepository';
 import { IDocument, IDocumentTemplate, IDocumentTemplateCreateDTO, IDocumentTemplateUpdateDTO } from './DocumentTypes';
 import path from 'path';
 import fs from 'fs';
+import { jsPDF } from 'jspdf';
 
 import prisma from '../../core/database/prisma.client';
 
@@ -15,18 +16,47 @@ export class DocumentService {
   }
 
   private async generatePdf(content: string, fileName: string, template: any): Promise<string> {
-    // Create documents directory if it doesn't exist
     const docsDir = path.join(process.cwd(), 'uploads', 'documents');
-    if (!fs.existsSync(docsDir)) {
-      fs.mkdirSync(docsDir, { recursive: true });
-    }
+    fs.mkdirSync(docsDir, { recursive: true });
 
     const filePath = path.join(docsDir, fileName);
-    
-    // For now, just save the content as a text file
-    // In production, use a PDF generation library like puppeteer or pdfkit
-    fs.writeFileSync(filePath.replace('.pdf', '.txt'), content);
-    
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 18;
+    const maxWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    // Render the generated document as a real PDF. Previously this method wrote only
+    // a .txt file while returning a .pdf path, causing receipt downloads to fail.
+    const lines = content
+      .trim()
+      .split(/\\r?\\n/)
+      .map((line) => line.trim())
+      .flatMap((line) => (line ? pdf.splitTextToSize(line, maxWidth) : ['']));
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(10);
+    for (const line of lines) {
+      if (y > pageHeight - margin) {
+        pdf.addPage();
+        y = margin;
+      }
+      if (/^(PAYMENT RECEIPT|REFERRAL LETTER|DISCHARGE SUMMARY|LABORATORY RESULT|PRESCRIPTION|BILL STATEMENT)$/.test(line)) {
+        pdf.setFont('helvetica', 'bold');
+        pdf.setFontSize(15);
+      } else if (/^=+$/.test(line)) {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+      } else {
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(10);
+      }
+      pdf.text(line, margin, y);
+      y += 5;
+    }
+
+    fs.writeFileSync(filePath, Buffer.from(pdf.output('arraybuffer')));
     return `/uploads/documents/${fileName}`;
   }
 
