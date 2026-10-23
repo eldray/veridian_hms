@@ -6,7 +6,15 @@ function makeRepository(attendance: any = null) {
   const prisma: any = {
     patient: { findUnique: vi.fn().mockResolvedValue({ id: 'patient-1' }) },
     attendance: { findUnique: vi.fn().mockResolvedValue(attendance) },
-    familyPlanningService: { create, count: vi.fn().mockResolvedValue(0), findUnique: vi.fn().mockResolvedValue({ method: 'injectable_dmpa', methodCategory: 'modern_short_acting' }), update: vi.fn().mockResolvedValue({ id: 'fp-1' }) },
+    familyPlanningService: {
+      create, count: vi.fn().mockResolvedValue(0),
+      findUnique: vi.fn().mockResolvedValue({ method: 'injectable_dmpa', methodCategory: 'modern_short_acting' }),
+      update: vi.fn().mockResolvedValue({ id: 'fp-1' }),
+      groupBy: vi.fn().mockResolvedValue([]),
+      findMany: vi.fn().mockResolvedValue([
+        { patientId: 'p1', cypFactor: 1 }, { patientId: 'p1', cypFactor: 1 }, { patientId: 'p2', cypFactor: 0.5 },
+      ]),
+    },
   };
   return { repository: new FamilyPlanningRepository(prisma), prisma, create };
 }
@@ -21,6 +29,15 @@ const validInput: any = {
 };
 
 describe('family-planning encounter integrity', () => {
+
+  it('counts unique clients separately from service visits in statistics', async () => {
+    const { repository, prisma } = makeRepository(null);
+    const stats = await repository.getFPStatistics(new Date('2026-10-01'), new Date('2026-10-31'));
+    expect(stats.totalServices).toBe(0);
+    expect(stats.currentUsers).toBe(2);
+    expect(prisma.familyPlanningService.findMany).toHaveBeenCalledTimes(2);
+  });
+
   it('rejects an attendance belonging to another patient', async () => {
     const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-2', status: 'completed' });
     await expect(repository.createFPService(validInput)).rejects.toThrow(/must match the linked attendance/i);
