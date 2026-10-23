@@ -299,7 +299,8 @@ export async function fetchAllPages<T = any>(
   const pageSize = options.pageSize ?? API_PAGE_SIZE;
   const maxItems = options.maxItems ?? Number.POSITIVE_INFINITY;
   const maxPages = options.maxPages ?? 500;
-  const concurrency = Math.max(1, options.concurrency ?? 4);
+  // Keep database-backed list pagination from flooding the API with parallel requests.
+  const concurrency = Math.max(1, options.concurrency ?? 2);
   const { page: _page, limit: _limit, ...filters } = params || {};
 
   const seen = new Set<any>();
@@ -353,13 +354,17 @@ export async function fetchAllPages<T = any>(
  * For endpoints whose callers read the raw response envelope ({ data: [...], summary, pagination }):
  * fetches every page and returns the first response with `data` replaced by all rows.
  */
-async function fetchAllEnvelope(fetchPage: (params: any) => Promise<any>, filters: any = {}): Promise<any> {
+async function fetchAllEnvelope(
+  fetchPage: (params: any) => Promise<any>,
+  filters: any = {},
+  options: { maxItems?: number; concurrency?: number } = {},
+): Promise<any> {
   let envelope: any = null;
   const rows = await fetchAllPages<any>(async (params) => {
     const resp = await fetchPage(params);
     if (!envelope) envelope = resp;
     return resp;
-  }, filters, { maxItems: 5000 });
+  }, filters, { maxItems: options.maxItems ?? 5000, concurrency: options.concurrency ?? 1 });
   const base = envelope ?? {};
   const inner = base?.data;
   // Shape A: { data: [...] }   Shape B: { data: { data: [...], pagination } }
@@ -1847,7 +1852,7 @@ export const getAdmissions = async (filters?: {
   limit?: number;
 }) => {
   if (!wantsMoreThanOnePage(filters)) return getAdmissionsPage(filters);
-  return fetchAllPages<any>(getAdmissionsPage, filters, { maxItems: Number(filters!.limit) });
+  return fetchAllPages<any>(getAdmissionsPage, filters, { maxItems: Number(filters!.limit), concurrency: 2 });
 };
 
 // GET single admission by ID

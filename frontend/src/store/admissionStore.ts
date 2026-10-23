@@ -358,7 +358,8 @@ getAdmissions: async (filters = {}, options = {}) => {
     // A failed background refresh keeps the list that is already on screen
     if (options.silent) return;
     console.error('❌ Failed to fetch admissions:', error);
-    set({ error: error.message || 'Failed to fetch admissions', admissions: [], isLoading: false });
+    // Keep the last successful data visible if a refresh fails.
+    set({ error: error.message || 'Failed to fetch admissions', isLoading: false });
   }
 },
 
@@ -524,7 +525,8 @@ getAdmissions: async (filters = {}, options = {}) => {
       console.log(`📊 Loaded ${transformed.length} detention patients`);
     } catch (error: any) {
       console.error('❌ Failed to fetch detention patients:', error);
-      set({ error: error.message || 'Failed to fetch detention patients', detentionPatients: [], isLoading: false });
+      // Preserve the last successful list on transient timeout/network errors.
+      set({ error: error.message || 'Failed to fetch detention patients', isLoading: false });
     }
   },
 
@@ -544,7 +546,8 @@ getAdmissions: async (filters = {}, options = {}) => {
       console.log(`📊 Loaded ${transformed.length} formal IPD patients`);
     } catch (error: any) {
       console.error('❌ Failed to fetch formal IPD patients:', error);
-      set({ error: error.message || 'Failed to fetch formal IPD patients', formalIPDPatients: [], isLoading: false });
+      // Preserve the last successful list on transient timeout/network errors.
+      set({ error: error.message || 'Failed to fetch formal IPD patients', isLoading: false });
     }
   },
 

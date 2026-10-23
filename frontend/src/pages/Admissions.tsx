@@ -269,18 +269,19 @@ export default function Admissions() {
       setRefreshing(true);
       if (!hasLoadedOnce) setIsLoading(true);
       const range = getDateRange();
-      await Promise.all([
-        getAdmissions({ limit: 2000 }),
-        loadPatients(),
-        getAttendances({
-          limit: 5000,
-          ...(range
-            ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
-            : {}),
-        }),
-        getDetentionPatients(),
-        getFormalIPDPatients(),
-      ]);
+      // Avoid starting several large paginated database queries at once.
+      // This page intentionally loads these lists sequentially to prevent API/DB
+      // overload and the 30-second Axios timeouts seen during initial page load.
+      await getAdmissions({ limit: 2000 });
+      await getDetentionPatients();
+      await getFormalIPDPatients();
+      await loadPatients();
+      await getAttendances({
+        limit: 5000,
+        ...(range
+          ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
+          : {}),
+      });
     } catch (err: any) {
       error('Load Failed', err?.response?.data?.message || 'Failed to load admissions data');
     } finally {
@@ -295,20 +296,19 @@ export default function Admissions() {
     ['admissions', 'encounters', 'nursing'],
     async () => {
       const range = getDateRange();
-      await Promise.all([
-        getAdmissions({ limit: 2000 }, { silent: true }),
-        getAttendances(
-          {
-            limit: 5000,
-            ...(range
-              ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
-              : {}),
-          },
-          { silent: true },
-        ),
-        getDetentionPatients(),
-        getFormalIPDPatients(),
-      ]);
+      // Keep live refreshes from competing for database connections.
+      await getAdmissions({ limit: 2000 }, { silent: true });
+      await getDetentionPatients();
+      await getFormalIPDPatients();
+      await getAttendances(
+        {
+          limit: 5000,
+          ...(range
+            ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
+            : {}),
+        },
+        { silent: true },
+      );
     },
     !(dateFilter === 'custom' && !(customStartDate && customEndDate)),
   );
