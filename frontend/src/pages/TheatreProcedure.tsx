@@ -334,6 +334,21 @@ export default function TheatreProcedure() {
 
   const selectedProcedure = procedures.find((p: any) => p.id === selectedProcedureId);
 
+  // When arriving from the theatre worklist, open the exact pending/in-progress
+  // procedure that was selected there instead of requiring staff to find it again.
+  const hasAppliedInitialProcedureSelection = useRef(false);
+  useEffect(() => {
+    const requestedProcedureId = location.state?.procedureId;
+    if (
+      !hasAppliedInitialProcedureSelection.current &&
+      typeof requestedProcedureId === 'string' &&
+      procedures.some((procedure: any) => procedure.id === requestedProcedureId)
+    ) {
+      setSelectedProcedureId(requestedProcedureId);
+      hasAppliedInitialProcedureSelection.current = true;
+    }
+  }, [procedures, location.state?.procedureId]);
+
   useEffect(() => {
     if (selectedProcedure) {
       setAnesthesiaNotes(selectedProcedure.anesthesiaNotes || '');
