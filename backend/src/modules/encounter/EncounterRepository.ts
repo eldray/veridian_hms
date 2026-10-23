@@ -971,6 +971,9 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         }
         payer = activeNHISPayers[0];
       }
+      if (!payer) {
+        throw new ValidationError('No active NHIS insurance provider is configured for this attendance.');
+      }
 
       if (!payer.isActive || payer.type !== 'nhis') {
         throw new ValidationError('An NHIS attendance must reference an active NHIS insurance provider.');
