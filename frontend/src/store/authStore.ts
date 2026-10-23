@@ -166,15 +166,23 @@ export const useAuthStore = create<AuthState>()(
               isLoading: false,
               isInitialized: true,
             });
-          } catch {
-            clearToken();
-            set({
-              user: null,
-              token: null,
-              refreshToken: null,
-              isLoading: false,
-              isInitialized: true,
-            });
+          } catch (error: any) {
+            const status = error?.response?.status;
+            // A transient network/5xx failure while checking the session must not
+            // destroy a valid local session. Only an explicit unauthorized response
+            // proves that the access token is no longer accepted.
+            if (status === 401) {
+              clearToken();
+              set({
+                user: null,
+                token: null,
+                refreshToken: null,
+                isLoading: false,
+                isInitialized: true,
+              });
+            } else {
+              set({ isLoading: false, isInitialized: true });
+            }
           }
           return;
         }
@@ -200,15 +208,27 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
             isInitialized: true,
           });
-        } catch {
-          clearToken();
-          set({
-            user: null,
-            token: null,
-            refreshToken: null,
-            isLoading: false,
-            isInitialized: true,
-          });
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status === 401) {
+            clearToken();
+            set({
+              user: null,
+              token: null,
+              refreshToken: null,
+              isLoading: false,
+              isInitialized: true,
+            });
+          } else {
+            // Keep the token on network/server errors so a temporary outage does
+            // not permanently sign the user out. A later profile check can retry.
+            set({
+              user: null,
+              token: storedToken,
+              isLoading: false,
+              isInitialized: true,
+            });
+          }
         }
       },
 
