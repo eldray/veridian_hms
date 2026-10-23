@@ -1026,7 +1026,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
 
       let hasDoctorAtFacility: boolean | undefined;
-      if (hospital.nhisFacilityType === 'Health_Center') {
+      if (hospital.nhisFacilityType === 'Health_Center' &&
+          ['B1', 'B2'].includes(String(payerRule.prescribingLevel ?? '').trim().toUpperCase())) {
         hasDoctorAtFacility = (await this.prisma.user.count({
           where: { role: 'doctor', isActive: true },
         })) > 0;
