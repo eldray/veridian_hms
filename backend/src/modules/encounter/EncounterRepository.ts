@@ -1583,11 +1583,17 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       if (record.consentConfirmed !== true && record.consentStatus !== 'emergency_exception') {
         throw new ValidationError('Before completing a procedure, record consent or document the emergency exception');
       }
+      if (record.consentStatus === 'emergency_exception' && !String(record.consentNotes || '').trim()) {
+        throw new ValidationError('Document the reason and circumstances for the emergency consent exception');
+      }
       if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
         throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
       }
       if (record.instrumentCountsCorrect !== true) {
         throw new ValidationError('Before completing a procedure, confirm instrument/swab/needle counts or document the exception in the handover');
+      }
+      if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
+        throw new ValidationError('Confirm specimen labelling when specimens are recorded');
       }
       if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
         throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
