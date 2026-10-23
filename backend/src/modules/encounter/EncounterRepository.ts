@@ -7,6 +7,7 @@ import {
 import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
+import { validateNHISPrescribingLevel } from './NHISPrescribingRules';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 
@@ -918,7 +919,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
     const actorId = await this.requireActorId(userId);
-    await this.requireEncounterId(encounterId);
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { id: true, paymentMode: true, insuranceProviderId: true },
+    });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
 
     // Catch incomplete or impossible prescriptions before creating a medication
     // record or generating its medication-administration schedule.
@@ -941,6 +946,100 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
     const stockItem = await this.prisma.stockItem.findUnique({ where: { id: data.stockItemId } });
     if (!stockItem) throw new NotFoundError('Stock item', data.stockItemId);
+
+    // Apply payer-specific coverage and prescribing-level rules only to NHIS
+    // encounters. Cash and private-insurance prescriptions remain unaffected.
+    if (encounter.paymentMode === 'nhis') {
+      let payer = encounter.insuranceProviderId
+        ? await this.prisma.insuranceProvider.findUnique({
+            where: { id: encounter.insuranceProviderId },
+            select: { id: true, type: true, isActive: true },
+          })
+        : null;
+
+      if (!payer) {
+        const activeNHISPayers = await this.prisma.insuranceProvider.findMany({
+          where: { type: 'nhis', isActive: true },
+          orderBy: { name: 'asc' },
+          take: 2,
+          select: { id: true, type: true, isActive: true },
+        });
+        if (activeNHISPayers.length !== 1) {
+          throw new ValidationError(
+            'Select the correct active NHIS insurance provider on this attendance before prescribing NHIS-covered medicine.',
+          );
+        }
+        payer = activeNHISPayers[0];
+      }
+
+      if (!payer.isActive || payer.type !== 'nhis') {
+        throw new ValidationError('An NHIS attendance must reference an active NHIS insurance provider.');
+      }
+
+      const payerRule = await this.prisma.stockItemPayerRule.findUnique({
+        where: {
+          stockItemId_insuranceProviderId: {
+            stockItemId: stockItem.id,
+            insuranceProviderId: payer.id,
+          },
+        },
+        select: {
+          isCovered: true,
+          prescribingLevel: true,
+          authorizationRequired: true,
+          effectiveFrom: true,
+          effectiveTo: true,
+        },
+      });
+
+      if (!payerRule || payerRule.isCovered !== true) {
+        throw new ValidationError(
+          'This medicine has no verified active NHIS coverage rule. Check the NHIS medicine reference before prescribing it under NHIS.',
+        );
+      }
+
+      const now = new Date();
+      if ((payerRule.effectiveFrom && payerRule.effectiveFrom > now) ||
+          (payerRule.effectiveTo && payerRule.effectiveTo < now)) {
+        throw new ValidationError('The NHIS medicine payer rule is outside its effective date range.');
+      }
+
+      const hospital = await this.prisma.hospital.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+        select: { nhisFacilityType: true },
+      });
+      if (!hospital) {
+        throw new ValidationError('Configure the active hospital NHIS facility type before prescribing NHIS medicines.');
+      }
+
+      const prescriber = await this.prisma.user.findUnique({
+        where: { id: actorId },
+        select: { role: true, licenseNumber: true, specialization: true, isActive: true },
+      });
+      if (!prescriber || !prescriber.isActive) {
+        throw new UnauthorizedError('Your prescribing account is inactive. Please sign in again.');
+      }
+
+      let hasDoctorAtFacility: boolean | undefined;
+      if (hospital.nhisFacilityType === 'Health_Center') {
+        hasDoctorAtFacility = (await this.prisma.user.count({
+          where: { role: 'doctor', isActive: true },
+        })) > 0;
+      }
+
+      validateNHISPrescribingLevel({
+        level: payerRule.prescribingLevel,
+        facilityType: hospital.nhisFacilityType,
+        prescriber,
+        hasDoctorAtFacility,
+      });
+
+      // authorizationRequired is intentionally not treated as false when null.
+      // Prior-authorisation matching belongs in claim/pre-authorisation validation;
+      // this reference currently leaves that value unknown for all 551 medicines.
+    }
+
     if (!data.serviceCatalogId) throw new ValidationError('A medication service is required');
     const service = await this.prisma.serviceCatalog.findUnique({ where: { id: data.serviceCatalogId } });
     if (!service || service.serviceType !== 'medication') {
