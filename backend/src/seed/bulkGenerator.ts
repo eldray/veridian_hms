@@ -543,7 +543,6 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
           { description: 'Consultation', serviceType: 'consultation', quantity: 1, unitPrice: +between(50, 150).toFixed(2), pricingBasis: patient.paymentMode },
           { description: 'Lab Test',     serviceType: 'lab_test',     quantity: 1, unitPrice: +between(30, 200).toFixed(2), pricingBasis: patient.paymentMode },
         ],
-        claimStatus: isNHIS ? 'pending' : 'not_required',
       });
 
       if (paid > 0) {
