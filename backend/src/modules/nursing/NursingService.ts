@@ -380,6 +380,41 @@ export class NursingService extends BaseService {
     const existing = await this.repository.findTaskById(id);
     if (!existing) throw new Error('Task not found');
 
+    // A closed encounter must not receive new or rescheduled actionable work via
+    // the update endpoint. Completing/skipping an existing task and adding a
+    // retrospective note remain possible for accurate close-out documentation.
+    const changesActionableWork = dto.title !== undefined
+      || dto.description !== undefined
+      || dto.taskType !== undefined
+      || dto.priority !== undefined
+      || dto.scheduledAt !== undefined
+      || dto.status === 'pending'
+      || dto.status === 'in_progress';
+
+    if (changesActionableWork) {
+      const attendance = await this.prisma.attendance.findUnique({
+        where: { id: existing.attendanceId },
+        select: { id: true, status: true },
+      });
+      if (!attendance) throw new ValidationError('The task encounter was not found');
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+        throw new ValidationError('Cannot schedule or change actionable nursing work for a closed encounter');
+      }
+
+      if (existing.admissionId) {
+        const admission = await this.prisma.admission.findUnique({
+          where: { id: existing.admissionId },
+          select: { id: true, status: true, dischargeDate: true, attendanceId: true },
+        });
+        if (!admission || admission.attendanceId !== existing.attendanceId) {
+          throw new ValidationError('The task admission does not belong to its encounter');
+        }
+        if (admission.status === 'cancelled' || admission.dischargeDate) {
+          throw new ValidationError('Cannot schedule or change actionable nursing work for a closed admission');
+        }
+      }
+    }
+
     const data: any = {};
     if (dto.title !== undefined) data.title = dto.title.trim();
     if (dto.description !== undefined) data.description = dto.description;
