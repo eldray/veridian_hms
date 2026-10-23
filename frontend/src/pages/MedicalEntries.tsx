@@ -1171,11 +1171,12 @@ export default function MedicalEntries() {
           </button>
           <button
             onClick={handleDischargeFromObservation}
+            disabled={isProcessing}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
               bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]
-              hover:bg-[var(--icon-green-text)] hover:text-white transition-all"
+              hover:bg-[var(--icon-green-text)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <CheckCircle className="w-3.5 h-3.5" /> Discharge
+            <CheckCircle className="w-3.5 h-3.5" /> {isProcessing ? 'Discharging…' : 'Discharge'}
           </button>
         </div>
       );
