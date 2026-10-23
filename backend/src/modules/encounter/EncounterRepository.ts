@@ -1328,12 +1328,36 @@ async addLabTest(encounterId: string, data: AddLabTestDTO, userId: string) {
   async updateLabTestStatus(labOrderId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported laboratory order status');
-    const current = await this.prisma.labTest.findUnique({ where: { id: labOrderId }, select: { id: true, status: true, attendanceId: true } });
+    const current = await this.prisma.labTest.findUnique({
+      where: { id: labOrderId },
+      select: { id: true, status: true, attendanceId: true, result: true },
+    });
     if (!current) throw new NotFoundError('Laboratory order', labOrderId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled laboratory order cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed laboratory result is locked; use the documented result-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A laboratory order in progress cannot return to requested');
     await this.requireOpenEncounter(current.attendanceId);
+
+    const finalResult = data.result !== undefined ? data.result : current.result;
+    const hasMeaningfulLabResult = (value: unknown): boolean => {
+      if (typeof value === 'string') return value.trim().length > 0;
+      if (typeof value === 'number') return Number.isFinite(value);
+      if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+      const record = value as Record<string, unknown>;
+      if (Array.isArray(record.parameters)) {
+        return record.parameters.some((parameter: any) =>
+          parameter && typeof parameter === 'object' &&
+          parameter.value !== null && parameter.value !== undefined &&
+          String(parameter.value).trim() !== ''
+        );
+      }
+      if ('value' in record) return hasMeaningfulLabResult(record.value);
+      return Object.values(record).some((item) => typeof item === 'string' && item.trim().length > 0);
+    };
+    if (status === 'completed' && !hasMeaningfulLabResult(finalResult)) {
+      throw new ValidationError('A laboratory result must be recorded before completing the order');
+    }
+
     const updateData: any = {}
     for (const field of ['result', 'normalRange', 'units', 'notes']) if (data[field] !== undefined) updateData[field] = data[field];
     if (status !== current.status) updateData.status = status;
@@ -1472,12 +1496,28 @@ async addScan(encounterId: string, data: any, userId: string) {
   async updateScanStatus(scanId: string, status: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
     if (!['requested', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new ValidationError('Unsupported scan order status');
-    const current = await this.prisma.scan.findUnique({ where: { id: scanId }, select: { id: true, status: true, attendanceId: true } });
+    const current = await this.prisma.scan.findUnique({
+      where: { id: scanId },
+      select: { id: true, status: true, attendanceId: true, result: true, findings: true, impression: true },
+    });
     if (!current) throw new NotFoundError('Scan order', scanId);
     if (current.status === 'cancelled') throw new ConflictError('A cancelled scan order cannot be reopened or changed');
     if (current.status === 'completed') throw new ConflictError('A completed scan report is locked; use the documented report-correction workflow');
     if (current.status === 'in_progress' && status === 'requested') throw new ConflictError('A scan in progress cannot return to requested');
     await this.requireOpenEncounter(current.attendanceId);
+
+    const finalReport = {
+      result: data.result !== undefined ? data.result : current.result,
+      findings: data.findings !== undefined ? data.findings : current.findings,
+      impression: data.impression !== undefined ? data.impression : current.impression,
+    };
+    const hasReportText = Object.values(finalReport).some(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+    if (status === 'completed' && !hasReportText) {
+      throw new ValidationError('Record scan findings, impression, or report text before completing the scan');
+    }
+
     const updateData: any = {}
     for (const field of ['result', 'findings', 'impression']) if (data[field] !== undefined) updateData[field] = data[field];
     if (data.imageUrls !== undefined) {
