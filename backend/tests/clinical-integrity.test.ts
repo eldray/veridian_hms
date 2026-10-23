@@ -796,7 +796,12 @@ describe('maternal record integrity', () => {
 
     expect(tx.aNCVisit.update).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: 'visit-1' },
-      data: expect.objectContaining({ gravida: 3, para: 1, bloodPressure: '120/80' }),
+      data: expect.objectContaining({
+        gravida: 3,
+        para: 1,
+        bloodPressure: '120/80',
+        recordedById: 'midwife-1',
+      }),
     }));
     expect(tx.aNCVisit.create).not.toHaveBeenCalled();
     expect(tx.aNCVisit.count).not.toHaveBeenCalled();

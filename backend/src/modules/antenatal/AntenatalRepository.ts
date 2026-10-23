@@ -359,7 +359,9 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
       if (existingVisit) {
         return tx.aNCVisit.update({
           where: { id: existingVisit.id },
-          data: visitFields,
+          // Attribute the completed clinical entry to the person who recorded it,
+          // not necessarily the user who created the attendance or blank seed row.
+          data: { ...visitFields, recordedById: data.recordedById },
           include: { recordedBy: { select: { fullName: true, role: true } } },
         });
       }
