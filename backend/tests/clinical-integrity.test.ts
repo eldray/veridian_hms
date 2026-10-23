@@ -1054,6 +1054,7 @@ describe('medication administration integrity', () => {
 
   it('rejects a dose belonging to a different medication', async () => {
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
@@ -1100,6 +1101,7 @@ describe('medication administration integrity', () => {
   it('does not allow administration before dispensing', async () => {
     const update = vi.fn();
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'prescribed',
@@ -1350,6 +1352,7 @@ describe('medication administration requires a due dose', () => {
   it('does not mark a medication administered when no scheduled dose exists', async () => {
     const medicationUpdate = vi.fn();
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'medication-1', attendanceId: 'attendance-1', status: 'dispensed',
@@ -1357,7 +1360,7 @@ describe('medication administration requires a due dose', () => {
         }),
         update: medicationUpdate,
       },
-      medicationDose: {
+      medicationDose:
         findFirst: vi.fn().mockResolvedValue(null),
       },
     };
