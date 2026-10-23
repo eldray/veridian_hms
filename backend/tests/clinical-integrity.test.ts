@@ -1545,6 +1545,7 @@ describe('nursing task encounter lifecycle integrity', () => {
           attendanceId: 'attendance-1',
           status: 'active',
           dischargeDate: new Date('2026-10-22T10:00:00.000Z'),
+          attendance: { patientId: 'patient-1' },
         }),
       },
       nursingTask: { create },
