@@ -473,6 +473,10 @@ export default function TheatreProcedure() {
   };
 
   const handleSubmitTheatreNotes = async (complete = true) => {
+    if (bloodLoss !== '' && (!Number.isFinite(Number(bloodLoss)) || !Number.isInteger(Number(bloodLoss)) || Number(bloodLoss) < 0)) {
+      toastError('Invalid estimated blood loss', 'Enter zero or a positive whole-number blood loss in millilitres.');
+      return;
+    }
     if (!selectedProcedureId || !selectedAttendanceId) {
       toastError('Selection required', 'Please select a procedure');
       return;
@@ -1119,6 +1123,8 @@ export default function TheatreProcedure() {
                           </label>
                           <input
                             type="number"
+                            min={0}
+                            step={1}
                             value={bloodLoss}
                             onChange={(e) => setBloodLoss(e.target.value ? Number(e.target.value) : '')}
                             placeholder="Optional"
@@ -1163,6 +1169,8 @@ export default function TheatreProcedure() {
                         </label>
                         <input
                           type="number"
+                          min={0}
+                          step={1}
                           value={bloodLoss}
                           onChange={(e) => setBloodLoss(e.target.value ? Number(e.target.value) : '')}
                           placeholder="e.g., 150"
