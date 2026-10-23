@@ -509,7 +509,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async deleteVisit(id: string): Promise<void> {
-    await this.prisma.aNCVisit.delete({ where: { id } });
+    const existing = await this.prisma.aNCVisit.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new NotFoundError('ANC visit', id);
+
+    // ANC visits are clinical source records. Until an audited correction/void workflow
+    // exists, never physically delete them and erase the pregnancy care timeline.
+    throw new ConflictError(
+      'ANC visits cannot be physically deleted because they are part of the clinical record. An authorized clinical correction workflow is required.'
+    );
   }
 
   // ===================== DELIVERY RECORDS =====================
@@ -1126,7 +1133,14 @@ export class AntenatalRepository extends BaseRepository<any, any, any> {
   }
 
   async deletePostnatalRecord(id: string): Promise<void> {
-    await this.prisma.postnatalRecord.delete({ where: { id } });
+    const existing = await this.prisma.postnatalRecord.findUnique({ where: { id }, select: { id: true } });
+    if (!existing) throw new NotFoundError('Postnatal record', id);
+
+    // Preserve maternal/newborn follow-up and audit history. The schema has no
+    // soft-delete/void state yet, so a DELETE request must not erase this record.
+    throw new ConflictError(
+      'Postnatal records cannot be physically deleted because they are part of the clinical record. An authorized clinical correction workflow is required.'
+    );
   }
 
   // ===================== STATISTICS =====================
