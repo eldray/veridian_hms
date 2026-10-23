@@ -111,36 +111,45 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // Patient receipts reduce the patient's liability, not the insurer's share.
+      // Use the persisted outstanding balance as the guard, then decrement it atomically.
+      // This prevents two concurrent cashiers from both collecting against the same stale balance.
       const amount = toNumber(paymentData.amount);
-      const patientLiability = toNumber(bill.patientPayable);
       const currentBalance = Math.max(0, toNumber(bill.balance));
       if (amount > currentBalance) {
         throw new ValidationError(`Payment exceeds the patient's outstanding balance (${currentBalance.toFixed(2)})`);
       }
-      const newPaidAmount = toNumber(bill.paidAmount) + amount;
-      const newBalance = Math.max(0, patientLiability - newPaidAmount);
 
-      let newStatus: BillStatus = bill.status;
-      if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0) newStatus = 'partial';
+      const balanceUpdate = await tx.bill.updateMany({
+        where: { id: billId, balance: { gte: amount } },
+        data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
+      });
+      if (balanceUpdate.count !== 1) {
+        const latestBill = await tx.bill.findUnique({ where: { id: billId }, select: { balance: true } });
+        const latestBalance = Math.max(0, toNumber(latestBill?.balance));
+        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${latestBalance.toFixed(2)}). Refresh the bill and try again.`);
+      }
 
-      const [updatedBill, payment] = await Promise.all([
-        tx.bill.update({ where: { id: billId }, data: { paidAmount: newPaidAmount, balance: newBalance, status: newStatus } }),
-        tx.payment.create({
-          data: {
-            billId, amount,
-            paymentMethod: paymentData.paymentMethod as PaymentMethod, // ✅ FIXED: Uses correct schema field
-            reference: paymentData.reference,                           // ✅ FIXED: Uses correct schema field
-            notes: paymentData.notes,
-            receivedById,                                               // ✅ FIXED: Uses correct schema field
-            transactionDate: new Date()
-          }
-        })
-      ]);
+      const currentBill = await tx.bill.findUnique({ where: { id: billId } });
+      if (!currentBill) throw new Error('Bill not found');
+      const newBalance = Math.max(0, toNumber(currentBill.balance));
+      const newStatus: BillStatus = newBalance <= 0 ? 'paid' : 'partial';
+      const updatedBill = await tx.bill.update({
+        where: { id: billId },
+        data: { status: newStatus }
+      });
+      const payment = await tx.payment.create({
+        data: {
+          billId, amount,
+          paymentMethod: paymentData.paymentMethod as PaymentMethod,
+          reference: paymentData.reference,
+          notes: paymentData.notes,
+          receivedById,
+          transactionDate: new Date()
+        }
+      });
 
-      if (bill.attendanceId) {
-        await tx.attendance.update({ where: { id: bill.attendanceId }, data: { outstandingBalance: newBalance } });
+      if (currentBill.attendanceId) {
+        await tx.attendance.update({ where: { id: currentBill.attendanceId }, data: { outstandingBalance: newBalance } });
       }
 
       return { bill: updatedBill, payment };
