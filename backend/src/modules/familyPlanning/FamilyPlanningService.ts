@@ -12,19 +12,9 @@ export class FamilyPlanningService extends BaseService {
   }
 
   async createFPService(data: CreateFPServiceInput) {
-    // ✅ REMOVED manual patient/attendance existence checks!
-    // Because patientId and attendanceId are foreign keys in your schema, 
-    // Prisma will automatically throw a P2003 error if they don't exist.
-    // BaseController.error() automatically maps P2003 to a clean 400 Bad Request.
-
-    // Business logic: Check if this is truly a new acceptor
-    if (data.isNewAcceptor) {
-      const existingCount = await this.repository.count({ patientId: data.patientId });
-      if (existingCount > 0) {
-        data.isNewAcceptor = false; // Auto-correct if they already have a history
-      }
-    }
-
+    // The repository derives new-acceptor status from dated patient FP history so
+    // clients cannot accidentally undercount first-time acceptors or mark repeat
+    // visits as new. This also handles backdated entry more accurately.
     return this.repository.createFPService(data);
   }
 

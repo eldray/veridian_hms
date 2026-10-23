@@ -16,6 +16,9 @@ export interface CreateFPServiceInput {
   isPostpartum?: boolean;
   isPostAbortion?: boolean;
   postpartumWeeks?: number;
+  postpartumDeliveryRecordId?: string | null;
+  postnatalRecordId?: string | null;
+  postAbortionRecordId?: string | null;
   cypFactor?: number;
   notes?: string;
   providedById: string;
@@ -29,6 +32,12 @@ export interface UpdateFPServiceInput {
   medicalEligibilityCategory?: number;
   nextFollowUpDate?: Date;
   followUpStatus?: string;
+  isPostpartum?: boolean;
+  isPostAbortion?: boolean;
+  postpartumWeeks?: number;
+  postpartumDeliveryRecordId?: string | null;
+  postnatalRecordId?: string | null;
+  postAbortionRecordId?: string | null;
   notes?: string;
 }
 

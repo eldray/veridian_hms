@@ -51,6 +51,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     const fpAttendances = await this.prisma.familyPlanningService.findMany({
       where: {
         serviceDate: { gte: startDate, lte: endDate },
+        OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
       },
       include: {
         patient: {
@@ -117,7 +118,11 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     const keys = FP_COMMODITIES.flatMap(c => c.stockKeys);
     const [services, allItems] = await Promise.all([
       p.familyPlanningService.findMany({
-        where: { serviceDate: { gte: startDate, lte: endDate } },
+        where: {
+          serviceDate: { gte: startDate, lte: endDate },
+          OR: [{ attendanceId: null }, { attendance: { is: { status: { not: 'cancelled' } } } }],
+        },
+        orderBy: { serviceDate: 'asc' },
         include: { patient: { select: { id: true, dateOfBirth: true, gender: true, maritalStatus: true } } },
       }),
       p.stockItem.findMany({ where: { isActive: true }, select: { id: true, name: true, supplier: true, currentStock: true } }),

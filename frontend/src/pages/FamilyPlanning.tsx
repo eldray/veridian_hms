@@ -141,9 +141,10 @@ const FamilyPlanningServiceModal: React.FC<{
   existingService?: any;
   patient?: any;
 }> = ({ isOpen, onClose, onSuccess, attendanceId, patientId, existingService, patient }) => {
-  const { createService, updateService } = useFamilyPlanningStore();
+  const { createService, updateService, getClientDetails } = useFamilyPlanningStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
+  const [maternalEvents, setMaternalEvents] = useState<{ deliveries: any[]; postnatalRecords: any[]; abortions: any[] }>({ deliveries: [], postnatalRecords: [], abortions: [] });
 
   const [formData, setFormData] = useState({
     serviceDate: new Date().toISOString().split('T')[0],
@@ -151,13 +152,16 @@ const FamilyPlanningServiceModal: React.FC<{
     methodCategory: '',
     isNewAcceptor: false,
     counsellingGiven: true,
-    informedConsent: true,
+    informedConsent: false,
     sideEffects: '',
     contraindications: '',
     nextFollowUpDate: '',
     isPostpartum: false,
     isPostAbortion: false,
     postpartumWeeks: '',
+    postpartumDeliveryRecordId: '',
+    postnatalRecordId: '',
+    postAbortionRecordId: '',
     notes: '',
   });
 
@@ -169,13 +173,16 @@ const FamilyPlanningServiceModal: React.FC<{
         methodCategory: existingService.methodCategory || '',
         isNewAcceptor: existingService.isNewAcceptor || false,
         counsellingGiven: existingService.counsellingGiven ?? true,
-        informedConsent: existingService.informedConsent ?? true,
+        informedConsent: existingService.informedConsent ?? false,
         sideEffects: existingService.sideEffects || '',
         contraindications: existingService.contraindications || '',
         nextFollowUpDate: existingService.nextFollowUpDate?.split('T')[0] || '',
         isPostpartum: existingService.isPostpartum || false,
         isPostAbortion: existingService.isPostAbortion || false,
         postpartumWeeks: existingService.postpartumWeeks?.toString() || '',
+        postpartumDeliveryRecordId: existingService.postpartumDeliveryRecordId || '',
+        postnatalRecordId: existingService.postnatalRecordId || '',
+        postAbortionRecordId: existingService.postAbortionRecordId || '',
         notes: existingService.notes || '',
       });
     } else if (isOpen && !existingService) {
@@ -185,17 +192,30 @@ const FamilyPlanningServiceModal: React.FC<{
         methodCategory: '',
         isNewAcceptor: false,
         counsellingGiven: true,
-        informedConsent: true,
+        informedConsent: false,
         sideEffects: '',
         contraindications: '',
         nextFollowUpDate: '',
         isPostpartum: false,
         isPostAbortion: false,
         postpartumWeeks: '',
+        postpartumDeliveryRecordId: '',
+        postnatalRecordId: '',
+        postAbortionRecordId: '',
         notes: '',
       });
     }
   }, [isOpen, existingService]);
+
+  useEffect(() => {
+    if (!isOpen || !patientId) {
+      setMaternalEvents({ deliveries: [], postnatalRecords: [], abortions: [] });
+      return;
+    }
+    getClientDetails(patientId)
+      .then((details: any) => setMaternalEvents(details?.maternalEvents || { deliveries: [], postnatalRecords: [], abortions: [] }))
+      .catch(() => setMaternalEvents({ deliveries: [], postnatalRecords: [], abortions: [] }));
+  }, [isOpen, patientId, getClientDetails]);
 
   const handleChange = (field: string, value: any) => {
     setFormData(prev => {
@@ -204,18 +224,35 @@ const FamilyPlanningServiceModal: React.FC<{
         const cat = METHOD_CATEGORY_OF[value];
         if (cat) next.methodCategory = cat;
       }
+      if (field === 'isPostpartum') {
+        if (value) next.isPostAbortion = false;
+        if (value) next.postAbortionRecordId = '';
+        else {
+          next.postpartumDeliveryRecordId = '';
+          next.postnatalRecordId = '';
+        }
+      }
+      if (field === 'isPostAbortion') {
+        if (value) {
+          next.isPostpartum = false;
+          next.postpartumDeliveryRecordId = '';
+          next.postnatalRecordId = '';
+        } else {
+          next.postAbortionRecordId = '';
+        }
+      }
       return next;
     });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!attendanceId) { toastError('Error', 'No attendance selected'); return; }
+    if (!attendanceId && !existingService) { toastError('Error', 'Select a patient from the queue before recording a new family-planning service'); return; }
     setLoading(true);
     try {
       const data: any = {
         patientId,
-        attendanceId,
+        ...(attendanceId ? { attendanceId } : {}),
         serviceDate: new Date(formData.serviceDate).toISOString(),
         method: formData.method,
         methodCategory: formData.methodCategory,
@@ -228,6 +265,9 @@ const FamilyPlanningServiceModal: React.FC<{
         isPostpartum: formData.isPostpartum,
         isPostAbortion: formData.isPostAbortion,
         postpartumWeeks: formData.postpartumWeeks ? parseInt(formData.postpartumWeeks) : undefined,
+        postpartumDeliveryRecordId: formData.isPostpartum ? (formData.postpartumDeliveryRecordId || null) : null,
+        postnatalRecordId: formData.isPostpartum ? (formData.postnatalRecordId || null) : null,
+        postAbortionRecordId: formData.isPostAbortion ? (formData.postAbortionRecordId || null) : null,
         notes: formData.notes || undefined,
       };
       if (existingService) {
@@ -361,10 +401,13 @@ const FamilyPlanningServiceModal: React.FC<{
                   </div>
                 )}
 
+                <p className="text-xs text-[var(--text-secondary)] rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] px-3 py-2">
+                  New-acceptor status is calculated from the patient’s dated family-planning history to keep monthly returns consistent.
+                </p>
+
                 {/* Toggle grid */}
                 <div className="grid grid-cols-2 gap-2">
                   {[
-                    { key: 'isNewAcceptor', label: 'New Acceptor', icon: UserCheck },
                     { key: 'counsellingGiven', label: 'Counselling Given', icon: Info },
                     { key: 'informedConsent', label: 'Informed Consent', icon: ShieldCheck },
                     { key: 'isPostpartum', label: 'Postpartum', icon: Baby },
@@ -396,10 +439,35 @@ const FamilyPlanningServiceModal: React.FC<{
                 </div>
 
                 {formData.isPostpartum && (
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">
-                      Postpartum Weeks
-                    </label>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">Link to Delivery (if recorded here)</label>
+                      <select value={formData.postpartumDeliveryRecordId}
+                        onChange={e => handleChange('postpartumDeliveryRecordId', e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
+                        <option value="">Not linked / delivery at another facility</option>
+                        {maternalEvents.deliveries.map((event: any) => (
+                          <option key={event.id} value={event.id}>
+                            {new Date(event.deliveryDate).toLocaleDateString()} — {String(event.deliveryType || 'Delivery').replace(/_/g, ' ')} ({String(event.deliveryOutcome || 'Outcome not recorded').replace(/_/g, ' ')})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">Link to Postnatal Visit (optional)</label>
+                      <select value={formData.postnatalRecordId}
+                        onChange={e => handleChange('postnatalRecordId', e.target.value)}
+                        className="w-full px-3 py-2.5 text-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
+                        <option value="">Not linked</option>
+                        {maternalEvents.postnatalRecords.map((event: any) => (
+                          <option key={event.id} value={event.id}>
+                            {new Date(event.examinationDate).toLocaleDateString()} — Postnatal visit{event.familyPlanningMethodAccepted ? '; FP: ' + event.familyPlanningMethodAccepted : ''}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">Postpartum Weeks</label>
                     <input
                       type="number"
                       min="0"
@@ -408,6 +476,24 @@ const FamilyPlanningServiceModal: React.FC<{
                       placeholder="e.g. 6"
                       className="w-full px-3 py-2.5 text-sm text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
                     />
+                    </div>
+                  </div>
+                )}
+
+                {formData.isPostAbortion && (
+                  <div>
+                    <label className="block text-xs font-semibold mb-1.5 text-[var(--text-primary)]">Link to Abortion Record (if recorded here)</label>
+                    <select value={formData.postAbortionRecordId}
+                      onChange={e => handleChange('postAbortionRecordId', e.target.value)}
+                      className="w-full px-3 py-2.5 text-sm bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
+                      <option value="">Not linked / event at another facility</option>
+                      {maternalEvents.abortions.map((event: any) => (
+                        <option key={event.id} value={event.id}>
+                          {new Date(event.abortionDate).toLocaleDateString()} — {String(event.abortionType || 'Abortion').replace(/_/g, ' ')}
+                          {event.postAbortionFPAccepted ? '; accepted ' + (event.fpMethodAccepted || 'method') : ''}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 )}
               </div>
@@ -670,12 +756,13 @@ export default function FamilyPlanning() {
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => openNew()}
+            onClick={() => setActiveTab('queue')}
+            title="Select a patient from the queue before recording a service"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-purple-600 text-white hover:bg-purple-700 shadow-sm shadow-purple-500/20 transition-all"
           >
             <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">New FP Service</span>
-            <span className="sm:hidden">New</span>
+            <span className="hidden sm:inline">Select Client</span>
+            <span className="sm:hidden">Select</span>
           </button>
           <button
             onClick={() => activeTab === 'queue' ? fetchWorklist('maternal') : getServices({ startDate: dateRange.start, endDate: dateRange.end })}

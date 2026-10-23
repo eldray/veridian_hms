@@ -1580,6 +1580,7 @@ model PostnatalRecord {
   attendance       Attendance        @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
   antenatalBooking AntenatalBooking? @relation("BookingPostnatal", fields: [antenatalBookingId], references: [id]) // CHANGED relation name
   deliveryRecord   DeliveryRecord?   @relation(fields: [deliveryRecordId], references: [id])
+  familyPlanningServices FamilyPlanningService[] @relation("FPPostnatalRecord")
   createdBy        User              @relation(fields: [createdById], references: [id])
 
   @@index([patientId])
@@ -2423,6 +2424,7 @@ model DeliveryRecord {
   createdBy  User       @relation(fields: [createdById], references: [id])
 
   antenatalBooking AntenatalBooking? @relation("BookingDelivery")
+  familyPlanningServices FamilyPlanningService[] @relation("FPPostpartumDelivery")
   Newborn          NewbornRecord[]
   postnatalRecords PostnatalRecord[]
 
@@ -2480,6 +2482,7 @@ model AbortionRecord {
   createdBy  User       @relation(fields: [createdById], references: [id])
 
   antenatalBooking AntenatalBooking? @relation("BookingAbortion")
+  familyPlanningServices FamilyPlanningService[] @relation("FPPostAbortionRecord")
 
   @@index([abortionDate])
   @@map("abortion_records")
@@ -2638,7 +2641,7 @@ model FamilyPlanningService {
   isNewAcceptor  Boolean          @default(false)
 
   counsellingGiven Boolean @default(true)
-  informedConsent  Boolean @default(true)
+  informedConsent  Boolean @default(false)
 
   sideEffects                String?
   contraindications          String?
@@ -2650,6 +2653,11 @@ model FamilyPlanningService {
   isPostpartum    Boolean @default(false)
   isPostAbortion  Boolean @default(false)
   postpartumWeeks Int?
+
+  // Explicit links keep family-planning services traceable to local maternal events.
+  postpartumDeliveryRecordId String?
+  postnatalRecordId          String?
+  postAbortionRecordId       String?
 
   cypFactor Float @default(1.0)
 
@@ -2663,6 +2671,13 @@ model FamilyPlanningService {
   attendance Attendance? @relation(fields: [attendanceId], references: [id])
   providedBy User        @relation(fields: [providedById], references: [id])
 
+  postpartumDeliveryRecord DeliveryRecord? @relation("FPPostpartumDelivery", fields: [postpartumDeliveryRecordId], references: [id], onDelete: SetNull)
+  postnatalRecord          PostnatalRecord? @relation("FPPostnatalRecord", fields: [postnatalRecordId], references: [id], onDelete: SetNull)
+  postAbortionRecord       AbortionRecord?  @relation("FPPostAbortionRecord", fields: [postAbortionRecordId], references: [id], onDelete: SetNull)
+
+  @@index([postpartumDeliveryRecordId])
+  @@index([postnatalRecordId])
+  @@index([postAbortionRecordId])
   @@index([patientId])
   @@index([serviceDate])
   @@index([method])

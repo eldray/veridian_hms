@@ -206,7 +206,13 @@ export function buildFPReturns(inp: FPReturnsInputs) {
     ],
   };
   if (acceptors > 0 && maritalKnown < acceptors) notCaptured.push(`Marital status recorded for ${maritalKnown} of ${acceptors} acceptors (patient registration does not capture it yet)`);
-  notCaptured.push('Counselled only (no way to record a counselling-only visit)', 'Sayana Press self-inject / provider-admin split', 'C/S BTL vs BTL (all sterilisations are counted under BTL)', 'GHS vs other-source split is inferred from the supplier name');
+  notCaptured.push(
+    'Counselled only (no way to record a counselling-only visit)',
+    'Sayana Press self-inject / provider-admin split',
+    'C/S BTL vs BTL (all sterilisations are counted under BTL)',
+    'GHS vs other-source split is inferred from the supplier name',
+    'Postpartum/post-abortion FP flags are not linked to a specific delivery/abortion record, so cross-record validation is not yet possible',
+  );
 
   const sections: FormASection[] = [
     { id: 'logistics', title: 'Commodity Logistics', tables: [logistics] },
