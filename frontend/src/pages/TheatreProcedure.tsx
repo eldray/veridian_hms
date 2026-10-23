@@ -496,6 +496,14 @@ export default function TheatreProcedure() {
       toastError('Procedure outcome required', 'Select the documented outcome before completing the theatre record.');
       return;
     }
+    if (
+      !String(clinicalRecord.indication || '').trim() ||
+      !String(clinicalRecord.preOpDiagnosis || '').trim() ||
+      !String(clinicalRecord.operativeSite || '').trim()
+    ) {
+      toastError('Operative details incomplete', 'Record the clinical indication, pre-operative diagnosis and operative site before completing the theatre record.');
+      return;
+    }
     const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
       field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
     ));

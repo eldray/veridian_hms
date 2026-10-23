@@ -49,6 +49,9 @@ describe('clinical order concurrent-update guards', () => {
         postOpDestination: 'Recovery room',
         postOpPlan: 'Monitor and escalate deterioration',
         handoverNotes: 'Recovery nurse received patient and post-operative plan',
+        indication: 'Clinical indication documented',
+        preOpDiagnosis: 'Pre-operative diagnosis documented',
+        operativeSite: 'Documented operative site',
       },
     }, 'staff-1'))
       .rejects.toThrow(/closed encounter/i);
@@ -159,6 +162,9 @@ describe('clinical order concurrent-update guards', () => {
         postOpDestination: 'Recovery room',
         postOpPlan: 'Monitor and escalate deterioration',
         handoverNotes: 'Recovery nurse received patient and post-operative plan',
+        indication: 'Symptomatic condition requiring intervention',
+        preOpDiagnosis: 'Documented pre-operative diagnosis',
+        operativeSite: 'Right side',
       },
     }, 'staff-1'))
       .rejects.toThrow(/procedure status changed/i);
