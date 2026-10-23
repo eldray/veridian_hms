@@ -105,7 +105,8 @@ Create a `.env` file in the `backend` directory:
 DATABASE_URL="postgresql://postgres:postgres@localhost:5432/hmis_db?schema=public"
 ENABLE_SEEDING=true
 NODE_ENV=development
-JWT_SECRET=your-secret-key
+# Must be at least 32 characters; generate a unique random value for each environment.
+JWT_SECRET=replace-with-a-unique-random-secret-at-least-32-characters
 CLOUDINARY_CLOUD_NAME=your-cloud-name
 CLOUDINARY_API_KEY=your-api-key
 CLOUDINARY_API_SECRET=your-api-secret
