@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
+import { generateReceipt, downloadDocument } from '../api';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
 export default function ProcessPayment() {
@@ -94,7 +95,7 @@ export default function ProcessPayment() {
 
     try {
       setIsSubmittingPayment(true);
-      await addPaymentToBill(bill.id, {
+      const paymentResult = await addPaymentToBill(bill.id, {
         amount,
         paymentMethod,
         reference: reference || undefined,
@@ -108,6 +109,32 @@ export default function ProcessPayment() {
         'Payment recorded', 
         `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
       );
+      // Receipt generation is deliberately separate from payment posting: a receipt-template
+      // failure must never make a successfully committed payment look unsuccessful.
+      const recordedPayment = paymentResult?.payment ?? paymentResult?.data?.payment;
+      if (recordedPayment?.id) {
+        try {
+          const receiptResult: any = await generateReceipt(bill.id, recordedPayment.id);
+          const documentId = receiptResult?.data?.documentId ?? receiptResult?.documentId;
+          if (documentId) {
+            const fileBlob = await downloadDocument(documentId);
+            const blobUrl = URL.createObjectURL(fileBlob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `receipt_${bill.billNumber || bill.id}_${recordedPayment.id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(blobUrl);
+          } else {
+            toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the receipt document could not be prepared. You can retry the receipt from billing.');
+          }
+        } catch (receiptError: any) {
+          toastError('Payment recorded; receipt unavailable', receiptError?.message || 'The payment was saved, but the receipt could not be generated.');
+        }
+      } else {
+        toastError('Payment recorded; receipt unavailable', 'The payment was saved, but no payment reference was returned to generate its receipt.');
+      }
       navigate('/dashboard/billing');
     } catch (error: any) {
       toastError('Payment failed', error.message || 'Failed to process payment');
