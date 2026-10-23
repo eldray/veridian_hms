@@ -333,6 +333,32 @@ export class NursingService extends BaseService {
     if (!dto.attendanceId) throw new ValidationError('Task must be linked to an attendance');
     await this.validateClinicalLinks(dto.patientId, dto.attendanceId, dto.admissionId);
 
+    // New care tasks must belong to an encounter that is still open. Historical
+    // nursing notes may be added as documented addenda, but closed stays must not
+    // receive newly scheduled tasks that cannot be carried out in that admission.
+    const attendance = await this.prisma.attendance.findUnique({
+      where: { id: dto.attendanceId },
+      select: { id: true, status: true },
+    });
+    if (!attendance) throw new ValidationError('The selected attendance/encounter was not found');
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+      throw new ValidationError('Cannot create a nursing task for a closed encounter');
+    }
+
+    if (dto.admissionId) {
+      const admission = await this.prisma.admission.findUnique({
+        where: { id: dto.admissionId },
+        select: { id: true, status: true, dischargeDate: true, attendanceId: true },
+      });
+      if (!admission) throw new ValidationError('The selected admission was not found');
+      if (admission.attendanceId !== dto.attendanceId) {
+        throw new ValidationError('The selected admission does not belong to the selected attendance');
+      }
+      if (admission.status === 'cancelled' || admission.dischargeDate) {
+        throw new ValidationError('Cannot create a nursing task for a cancelled or closed admission');
+      }
+    }
+
     const data = {
       patientId: dto.patientId,
       attendanceId: dto.attendanceId,

@@ -1509,6 +1509,81 @@ describe('delivery record correction validation', () => {
 });
 
 
+describe('nursing task encounter lifecycle integrity', () => {
+  it('rejects new nursing tasks for a closed encounter', async () => {
+    const create = vi.fn();
+    const prisma: any = {
+      attendance: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({ id: 'attendance-1', patientId: 'patient-1' })
+          .mockResolvedValueOnce({ id: 'attendance-1', status: 'discharged' }),
+      },
+      nursingTask: { create },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.createTask({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      title: 'Check vital signs',
+    } as any, 'nurse-1')).rejects.toThrow(/closed encounter/i);
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('rejects a nursing task linked to a closed admission even if encounter status is stale', async () => {
+    const create = vi.fn();
+    const prisma: any = {
+      attendance: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({ id: 'attendance-1', patientId: 'patient-1' })
+          .mockResolvedValueOnce({ id: 'attendance-1', status: 'admitted' }),
+      },
+      admission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'admission-1',
+          attendanceId: 'attendance-1',
+          status: 'active',
+          dischargeDate: new Date('2026-10-22T10:00:00.000Z'),
+          attendance: { patientId: 'patient-1' },
+        }),
+      },
+      nursingTask: { create },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.createTask({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      admissionId: 'admission-1',
+      title: 'Check vital signs',
+    } as any, 'nurse-1')).rejects.toThrow(/closed admission/i);
+
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('creates a nursing task for an active encounter', async () => {
+    const create = vi.fn().mockResolvedValue({ id: 'task-1', title: 'Check vital signs' });
+    const prisma: any = {
+      attendance: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({ id: 'attendance-1', patientId: 'patient-1' })
+          .mockResolvedValueOnce({ id: 'attendance-1', status: 'admitted' }),
+      },
+      nursingTask: { create },
+    };
+    const service = new NursingService(prisma);
+
+    await expect(service.createTask({
+      patientId: 'patient-1',
+      attendanceId: 'attendance-1',
+      title: 'Check vital signs',
+    } as any, 'nurse-1')).resolves.toEqual({ id: 'task-1', title: 'Check vital signs' });
+
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe('prescription cancellation integrity', () => {
   it('does not cancel an already dispensed medication without a return or correction workflow', async () => {
     const medicationUpdate = vi.fn();
