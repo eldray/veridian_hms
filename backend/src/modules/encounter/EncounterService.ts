@@ -1,6 +1,6 @@
 import { PrismaClient, AttendanceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
-import { EncounterRepository, validateClinicalDocumentation } from './EncounterRepository';
+import { EncounterRepository, resolvePatientClassification, validateClinicalDocumentation } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError } from '../../utils/errors';
@@ -33,6 +33,13 @@ export class EncounterService extends BaseService {
     validateClinicalDocumentation(data as Record<string, any>);
     if (data.paymentMode === 'nhis' && !data.nhisCCC) throw new ValidationError('NHIS CCC number is required for NHIS payments');
     if (data.paymentMode === 'corporate' && !data.corporateAccountId) throw new ValidationError('Corporate Account ID is required');
+
+    // Keep facility-level NEW/OLD classification consistent with the repository path used by reports.
+    const previousAttendance = await this.prisma.attendance.findFirst({
+      where: { patientId: data.patientId, status: { not: 'cancelled' } },
+      select: { id: true },
+    });
+    const patientClassification = resolvePatientClassification(data.patientClassification, Boolean(previousAttendance));
 
     let encounterCategory = data.encounterCategory || 'opd';
     let admissionType = data.admissionType;
@@ -72,6 +79,7 @@ export class EncounterService extends BaseService {
         data: {
           attendanceNumber: counterService.nextAttendanceNumber(),
           patientId: data.patientId,
+          patientClassification,
           attendanceType: data.attendanceType,
           paymentMode: data.paymentMode,
           nhisCCC: data.nhisCCC,
