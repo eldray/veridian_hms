@@ -147,7 +147,7 @@ export class ServiceCatalogService extends BaseService {
     const rule = await this.prisma.stockItemPayerRule.findUnique({
       where: { stockItemId_insuranceProviderId: { stockItemId: service.stockItemId, insuranceProviderId: payer.id } },
     });
-    return { serviceCatalogId: service.id, serviceName: service.name, stockItemId: service.stockItemId, payer, configured: !!rule, rule };
+    return { serviceCatalogId: service.id, serviceName: service.name, stockItemId: service.stockItemId, payer, configured: !!rule && rule.isCovered != null && rule.authorizationRequired != null && !!rule.prescribingLevel, rule };
   }
 
   async updateNHISMedicinePolicy(serviceCatalogId: string, input: any) {
