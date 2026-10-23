@@ -1789,3 +1789,71 @@ describe('newborn update validation consistency', () => {
     ])).toThrow(/unique birth order/i);
   });
 });
+
+
+describe('theatre procedure safety documentation', () => {
+  const validTheatreRecord = {
+    identityConfirmed: true,
+    procedureAndSiteConfirmed: true,
+    consentConfirmed: true,
+    consentStatus: 'consented',
+    allergyStatusReviewed: true,
+    preOpAssessmentCompleted: true,
+    instrumentCountsCorrect: true,
+    instrumentCountsStatus: 'correct',
+    postOpDestination: 'Recovery room',
+    postOpPlan: 'Monitor observations and pain; escalate deterioration',
+    indication: 'Clinical indication documented',
+    preOpDiagnosis: 'Pre-operative diagnosis documented',
+    operativeSite: 'Documented site',
+  };
+
+  const makeProcedurePrisma = () => {
+    const prisma: any = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'nurse-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'admitted' }) },
+      procedure: {
+        findUnique: vi.fn()
+          .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress', attendanceId: 'attendance-1' })
+          .mockResolvedValue({ id: 'procedure-1', status: 'completed', clinicalRecord: validTheatreRecord }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+    };
+    return prisma;
+  };
+
+  it('blocks completion when mandatory pre-operative safety checks are missing', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
+      clinicalRecord: { identityConfirmed: true },
+    }, 'nurse-1')).rejects.toThrow(/confirm patient identity and the planned procedure\/site/i);
+
+    expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('persists the structured theatre record when all mandatory checks are documented', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await repository.updateProcedureStatus('procedure-1', 'completed', {
+      clinicalRecord: validTheatreRecord,
+      anesthesiaNotes: 'Spinal anaesthesia; monitoring documented',
+      intraOperativeNotes: 'Procedure details documented',
+      postOperativeNotes: 'Recovery plan documented',
+      bloodLoss: 100,
+      outcome: 'successful',
+    }, 'nurse-1');
+
+    expect(prisma.procedure.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'procedure-1', status: 'in_progress' },
+      data: expect.objectContaining({
+        status: 'completed',
+        clinicalRecord: validTheatreRecord,
+        anesthesiaNotes: 'Spinal anaesthesia; monitoring documented',
+        bloodLoss: 100,
+      }),
+    }));
+  });
+});

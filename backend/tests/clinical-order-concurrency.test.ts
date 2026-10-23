@@ -36,7 +36,20 @@ describe('clinical order concurrent-update guards', () => {
       procedure: { findUnique: vi.fn().mockResolvedValue({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' }), updateMany },
     } as any);
 
-    await expect(repository.updateProcedureStatus('procedure-1', 'completed', { outcome: 'Recorded' }, 'staff-1'))
+    await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
+      outcome: 'Recorded',
+      clinicalRecord: {
+        identityConfirmed: true,
+        procedureAndSiteConfirmed: true,
+        consentConfirmed: true,
+        consentStatus: 'consented',
+        allergyStatusReviewed: true,
+        preOpAssessmentCompleted: true,
+        instrumentCountsStatus: 'correct',
+        postOpDestination: 'Recovery room',
+        postOpPlan: 'Monitor and escalate deterioration',
+      },
+    }, 'staff-1'))
       .rejects.toThrow(/closed encounter/i);
     expect(updateMany).not.toHaveBeenCalled();
   });
@@ -93,7 +106,20 @@ describe('clinical order concurrent-update guards', () => {
     };
     const repository = new EncounterRepository(prisma);
 
-    await expect(repository.updateProcedureStatus('procedure-1', 'completed', { outcome: 'Recorded' }, 'staff-1'))
+    await expect(repository.updateProcedureStatus('procedure-1', 'completed', {
+      outcome: 'Recorded',
+      clinicalRecord: {
+        identityConfirmed: true,
+        procedureAndSiteConfirmed: true,
+        consentConfirmed: true,
+        consentStatus: 'consented',
+        allergyStatusReviewed: true,
+        preOpAssessmentCompleted: true,
+        instrumentCountsStatus: 'correct',
+        postOpDestination: 'Recovery room',
+        postOpPlan: 'Monitor and escalate deterioration',
+      },
+    }, 'staff-1'))
       .rejects.toThrow(/procedure status changed/i);
     expect(updateMany).toHaveBeenCalledWith({
       where: { id: 'procedure-1', status: 'scheduled' },

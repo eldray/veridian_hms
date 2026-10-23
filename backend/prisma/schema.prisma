@@ -693,6 +693,8 @@ model Procedure {
   anesthesiaNotes     String?
   intraOperativeNotes String?
   postOperativeNotes  String?
+  // Structured peri-operative safety checklist and clinical handover; existing narrative fields remain intact.
+  clinicalRecord      Json?
   bloodLoss           Int?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt

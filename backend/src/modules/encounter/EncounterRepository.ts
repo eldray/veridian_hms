@@ -1551,7 +1551,61 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     if (current.status === 'in_progress' && status === 'scheduled') throw new ConflictError('A procedure in progress cannot return to scheduled');
     await this.requireOpenEncounter(current.attendanceId);
     const updateData: any = {}
-    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss']) if (data[field] !== undefined) updateData[field] = data[field];
+    for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss', 'clinicalRecord']) {
+      if (data[field] !== undefined) updateData[field] = data[field];
+    }
+    if (data.clinicalRecord !== undefined) {
+      const record = data.clinicalRecord;
+      if (!record || typeof record !== 'object' || Array.isArray(record)) {
+        throw new ValidationError('Theatre clinical record must be a structured object');
+      }
+      const booleanFields = ['identityConfirmed', 'procedureAndSiteConfirmed', 'siteMarked', 'consentConfirmed', 'allergyStatusReviewed', 'preOpAssessmentCompleted', 'instrumentCountsCorrect', 'specimenLabelled'];
+      for (const field of booleanFields) {
+        if (record[field] !== undefined && typeof record[field] !== 'boolean') {
+          throw new ValidationError(`Theatre checklist field ${field} must be true or false`);
+        }
+      }
+      if (record.instrumentCountsStatus !== undefined && !['', 'correct', 'not_applicable', 'discrepancy'].includes(String(record.instrumentCountsStatus))) {
+        throw new ValidationError('Invalid instrument/swab/needle count status');
+      }
+      const textFields = ['indication', 'preOpDiagnosis', 'operativeSite', 'consentNotes', 'allergyNotes', 'asaClass', 'consentStatus', 'anesthesiaType', 'surgeonName', 'assistantName', 'anaesthetistName', 'scrubNurseName', 'circulatingNurseName', 'incisionTime', 'closureTime', 'specimens', 'postOpDestination', 'postOpPlan', 'handoverNotes', 'instrumentCountsStatus', 'instrumentCountNotes'];
+      for (const field of textFields) {
+        if (record[field] !== undefined && typeof record[field] !== 'string') {
+          throw new ValidationError(`Theatre clinical record field ${field} must be text`);
+        }
+        if (typeof record[field] === 'string' && record[field].length > 10000) {
+          throw new ValidationError(`Theatre clinical record field ${field} exceeds the maximum supported length`);
+        }
+      }
+    }
+    if (status === 'completed') {
+      const record = data.clinicalRecord;
+      if (!record || record.identityConfirmed !== true || record.procedureAndSiteConfirmed !== true) {
+        throw new ValidationError('Before completing a procedure, confirm patient identity and the planned procedure/site');
+      }
+      if (record.consentConfirmed !== true && record.consentStatus !== 'emergency_exception') {
+        throw new ValidationError('Before completing a procedure, record consent or document the emergency exception');
+      }
+      if (record.consentStatus === 'emergency_exception' && !String(record.consentNotes || '').trim()) {
+        throw new ValidationError('Document the reason and circumstances for the emergency consent exception');
+      }
+      if (record.allergyStatusReviewed !== true || record.preOpAssessmentCompleted !== true) {
+        throw new ValidationError('Before completing a procedure, complete the allergy review and pre-operative assessment');
+      }
+      const countStatus = record.instrumentCountsStatus;
+      if (countStatus === 'discrepancy') {
+        throw new ValidationError('Resolve and escalate the instrument/swab/needle count discrepancy before completing the procedure');
+      }
+      if (countStatus !== 'correct' && !(countStatus === 'not_applicable' && String(record.instrumentCountNotes || '').trim())) {
+        throw new ValidationError('Confirm instrument/swab/needle counts, or document why counts are not applicable before completing the procedure');
+      }
+      if (String(record.specimens || '').trim() && record.specimenLabelled !== true) {
+        throw new ValidationError('Confirm specimen labelling when specimens are recorded');
+      }
+      if (!String(record.postOpDestination || '').trim() || !String(record.postOpPlan || '').trim()) {
+        throw new ValidationError('Before completing a procedure, record the post-operative destination and plan');
+      }
+    }
     if (data.scheduledDate !== undefined && data.scheduledDate !== null) {
       const scheduledDate = new Date(data.scheduledDate);
       if (Number.isNaN(scheduledDate.getTime())) throw new ValidationError('Procedure scheduled date must be valid');
