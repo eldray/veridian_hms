@@ -1612,6 +1612,20 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           } else if (field.value !== undefined && typeof field.value !== 'string' && typeof field.value !== 'number') {
             throw new ValidationError(`Protocol field ${field.label} must contain text or a number`);
           }
+          const hasFieldValue = field.value !== undefined && String(field.value).trim() !== '';
+          if (hasFieldValue && field.type === 'number' && !Number.isFinite(Number(field.value))) {
+            throw new ValidationError(`Protocol field ${field.label} must contain a valid number`);
+          }
+          if (hasFieldValue && field.type === 'date') {
+            const dateValue = String(field.value);
+            const parsedDate = new Date(`${dateValue}T00:00:00.000Z`);
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue) || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== dateValue) {
+              throw new ValidationError(`Protocol field ${field.label} must contain a valid date in YYYY-MM-DD format`);
+            }
+          }
+          if (hasFieldValue && field.type === 'time' && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(String(field.value))) {
+            throw new ValidationError(`Protocol field ${field.label} must contain a valid time in HH:MM format`);
+          }
           if (typeof field.value === 'string' && field.value.length > 10000) {
             throw new ValidationError(`Protocol field ${field.label} exceeds the maximum supported length`);
           }
