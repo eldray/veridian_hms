@@ -909,6 +909,8 @@ export const seedCoreData = async (force: boolean = false) => {
     const stockItemMap = new Map();
     // Patient prices per drugCode, taken from each item's own selling/insurance prices in the JSON files
     const stockPriceMap = new Map<string, { cashPrice: number; nhisPrice: number; insurancePrice: number }>();
+    // Keep NHIS reference rows separate from inventory pricing so payer rules can be reviewed independently.
+    const nhisReferenceByDrugCode = new Map<string, any>();
 
     for (const file of stockFiles) {
       const items = readJSON(file);
@@ -939,6 +941,9 @@ export const seedCoreData = async (force: boolean = false) => {
             update: stockData,
           });
           stockItemMap.set(item.drugCode, stockItem);
+          if (file === 'nhismedicines.json') {
+            nhisReferenceByDrugCode.set(item.drugCode, item);
+          }
 
           // cash = sellingPrice, insurance = insurancePrice. In the NHIS list and medications2.json the
           // insurancePrice equals unitPrice, and that is the real NHIA tariff, so it is also the NHIS price.
@@ -966,6 +971,65 @@ export const seedCoreData = async (force: boolean = false) => {
       console.log(`✅ Completed ${file} - ${items.length} items processed`);
     }
     console.log(`✅ TOTAL: ${totalStockProcessed} stock items configured`);
+
+    // ── STEP 12a: Payer-specific NHIS medicine rules ──────────
+    // The NHIS JSON does not currently provide prescribing levels or authorization requirements.
+    // Store those fields as null (unknown) instead of defaulting them to "not required".
+    // Re-running the seed updates source/tariff metadata but preserves manually configured rules
+    // whenever the JSON does not explicitly supply those fields.
+    const nhisProvider = await prisma.insuranceProvider.findFirst({
+      where: { type: InsuranceType.nhis, isActive: true },
+      orderBy: { name: 'asc' },
+      select: { id: true },
+    });
+
+    if (!nhisProvider) {
+      console.warn('⚠️ No active NHIS insurance provider found; skipping NHIS medicine payer rules.');
+    } else {
+      let nhisRulesSeeded = 0;
+      for (const [drugCode, reference] of nhisReferenceByDrugCode) {
+        const stockItem = stockItemMap.get(drugCode);
+        if (!stockItem) continue;
+
+        const rawTariff = Number(reference.insurancePrice ?? reference.unitPrice ?? 0);
+        const tariffPrice = Number.isFinite(rawTariff) && rawTariff > 0 ? rawTariff : null;
+        const suppliedAuth = typeof reference.nhisRequiresAuth === 'boolean'
+          ? reference.nhisRequiresAuth
+          : undefined;
+        const suppliedLevel = typeof reference.prescribingLevel === 'string' && reference.prescribingLevel.trim()
+          ? reference.prescribingLevel.trim()
+          : undefined;
+
+        await prisma.stockItemPayerRule.upsert({
+          where: {
+            stockItemId_insuranceProviderId: {
+              stockItemId: stockItem.id,
+              insuranceProviderId: nhisProvider.id,
+            },
+          },
+          create: {
+            stockItemId: stockItem.id,
+            insuranceProviderId: nhisProvider.id,
+            isCovered: true,
+            authorizationRequired: suppliedAuth ?? null,
+            prescribingLevel: suppliedLevel ?? null,
+            tariffPrice,
+            sourceFile: 'backend/src/data/nhismedicines.json',
+            sourceVersion: typeof reference.sourceVersion === 'string' ? reference.sourceVersion : null,
+          },
+          update: {
+            isCovered: true,
+            ...(suppliedAuth !== undefined ? { authorizationRequired: suppliedAuth } : {}),
+            ...(suppliedLevel !== undefined ? { prescribingLevel: suppliedLevel } : {}),
+            ...(tariffPrice !== null ? { tariffPrice } : {}),
+            sourceFile: 'backend/src/data/nhismedicines.json',
+            ...(typeof reference.sourceVersion === 'string' ? { sourceVersion: reference.sourceVersion } : {}),
+          },
+        });
+        nhisRulesSeeded++;
+      }
+      console.log(`✅ ${nhisRulesSeeded} NHIS medicine payer rules configured; unknown authorization/prescribing rules remain unset`);
+    }
 
     // ── STEP 12b: Opening stock, placed by DEPARTMENT ─────────
     // Default: every item is split between the Pharmacy (dispensing stock) and the Main Store (warehouse).

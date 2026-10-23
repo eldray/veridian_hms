@@ -391,6 +391,7 @@ model InsuranceProvider {
   Patient                 Patient[]
   InsurancePlan           InsurancePlan[]
   PreAuthorisationRequest PreAuthorisationRequest[]
+  medicinePayerRules      StockItemPayerRule[]
   CorporateAccount        CorporateAccount[]
   claimBatches            ClaimBatch[]
 
@@ -1721,6 +1722,34 @@ model StockItem {
   StockBatch       StockBatch[]
   stockBalances    StockItemDepartmentBalance[]
   transferItems    StockTransferItem[]
+  payerRules       StockItemPayerRule[]
+}
+
+// Payer-specific medicine coverage, tariff and prescribing/authorization rules.
+// Null means the rule is not yet verified/configured; it must not be interpreted as "not required".
+model StockItemPayerRule {
+  id                    String             @id @default(cuid())
+  stockItemId           String
+  insuranceProviderId   String
+  isCovered             Boolean?
+  authorizationRequired Boolean?
+  prescribingLevel      String?
+  tariffPrice           Decimal?           @db.Decimal(15, 2)
+  sourceFile            String?
+  sourceVersion         String?
+  effectiveFrom         DateTime?
+  effectiveTo           DateTime?
+  notes                 String?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  stockItem         StockItem         @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  insuranceProvider InsuranceProvider @relation(fields: [insuranceProviderId], references: [id], onDelete: Cascade)
+
+  @@unique([stockItemId, insuranceProviderId])
+  @@index([insuranceProviderId, isCovered])
+  @@index([stockItemId, authorizationRequired])
+  @@map("stock_item_payer_rules")
 }
 
 // Canonical on-hand balance by department. A null departmentId represents legacy/unassigned stock.
