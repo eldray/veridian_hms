@@ -121,11 +121,12 @@ describe('admission, bed and nursing record consistency', () => {
       admission: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'admission-1', attendanceId: 'attendance-1', dischargeDate: null, dailyNotes: [],
-          attendance: { id: 'attendance-1', bedId: 'bed-1' },
+          attendance: { id: 'attendance-1', bedId: 'bed-1', wardId: 'ward-1', status: 'admitted' },
         }),
-        update: vi.fn().mockResolvedValue({ id: 'admission-1' }),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 'admission-1' }),
       },
-      attendance: { update: vi.fn(), findFirst: vi.fn().mockResolvedValue(null) },
+      attendance: { updateMany: vi.fn().mockResolvedValue({ count: 1 }), findFirst: vi.fn().mockResolvedValue(null) },
       bed: { findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }), update: vi.fn() },
       ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
     };
@@ -134,7 +135,14 @@ describe('admission, bed and nursing record consistency', () => {
 
     await repository.updateAdmission('admission-1', { dischargeDate: '2026-10-22T10:00:00.000Z', dischargeStatus: 'home' }, 'admin-1');
 
-    expect(tx.attendance.update).toHaveBeenCalledWith({ where: { id: 'attendance-1' }, data: { status: 'discharged', bedId: null } });
+    expect(tx.attendance.updateMany).toHaveBeenCalledWith({
+      where: { id: 'attendance-1', status: 'admitted' },
+      data: { status: 'discharged', bedId: null, updatedById: 'admin-1' },
+    });
+    expect(tx.admission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'admission-1', dischargeDate: null },
+      data: expect.objectContaining({ dischargeStatus: 'home', dischargeDate: new Date('2026-10-22T10:00:00.000Z') }),
+    }));
     expect(tx.bed.update).toHaveBeenCalledWith({ where: { id: 'bed-1' }, data: { isOccupied: false } });
     expect(tx.ward.updateMany).toHaveBeenCalledWith({ where: { id: 'ward-1', occupiedBeds: { gt: 0 } }, data: { occupiedBeds: { decrement: 1 } } });
   });
