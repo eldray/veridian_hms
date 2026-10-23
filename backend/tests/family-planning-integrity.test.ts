@@ -53,11 +53,23 @@ describe('family-planning encounter integrity', () => {
     expect(prisma.familyPlanningService.update).not.toHaveBeenCalled();
   });
 
-  it('allows a valid service linked to the same active patient attendance', async () => {
-    const { repository, create } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
-    await repository.createFPService(validInput);
+  it('marks the first dated family-planning service as a new acceptor even if the UI checkbox is false', async () => {
+    const { repository, create, prisma } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    await repository.createFPService({ ...validInput, isNewAcceptor: false });
+    expect(prisma.familyPlanningService.count).toHaveBeenCalledWith({
+      where: { patientId: 'patient-1', serviceDate: { lte: new Date(validInput.serviceDate) } },
+    });
     expect(create).toHaveBeenCalledWith(expect.objectContaining({
-      data: expect.objectContaining({ patientId: 'patient-1', attendanceId: 'attendance-1', methodCategory: 'modern_short_acting' }),
+      data: expect.objectContaining({ patientId: 'patient-1', attendanceId: 'attendance-1', methodCategory: 'modern_short_acting', isNewAcceptor: true }),
+    }));
+  });
+
+  it('marks an additional same-day or prior-history service as continuing, not a new acceptor', async () => {
+    const { repository, create, prisma } = makeRepository({ id: 'attendance-1', patientId: 'patient-1', status: 'completed' });
+    prisma.familyPlanningService.count.mockResolvedValue(1);
+    await repository.createFPService({ ...validInput, isNewAcceptor: true });
+    expect(create).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ isNewAcceptor: false }),
     }));
   });
 });
