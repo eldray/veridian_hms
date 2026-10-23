@@ -4,6 +4,7 @@ import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
 import { calculateNHISMedicineAllocation } from '../../utils/pricing';
+import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 export class BillingService extends BaseService {
   private repository: BillingRepository;
@@ -82,7 +83,31 @@ export class BillingService extends BaseService {
           rule.isCovered === true &&
           rule.authorizationRequired != null &&
           validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase());
-        const covered = policyConfigured && inEffectiveWindow;
+
+        // Do not allocate a medicine to NHIS when its rule requires pre-authorisation
+        // but no current approval explicitly covers this stock item/service and quantity.
+        let hasRequiredAuthorization = rule?.authorizationRequired !== true;
+        if (rule?.authorizationRequired === true && data.insuranceProviderId) {
+          const approvals = await this.prisma.preAuthorisationRequest.findMany({
+            where: {
+              attendanceId: attendance.id,
+              patientId: data.patientId,
+              insuranceProviderId: data.insuranceProviderId,
+              status: { in: ['approved', 'partially_approved'] },
+              authNumber: { not: null },
+              authExpiry: { gt: serviceDate },
+            },
+            select: { authNumber: true, approvedServices: true },
+          });
+          hasRequiredAuthorization = approvals.some((approval) =>
+            Boolean(approval.authNumber) && approvedServicesCoverPrescription(approval.approvedServices, {
+              stockItemId: service.stockItemId!,
+              serviceCatalogId: item.serviceId,
+            }, Number(item.quantity)),
+          );
+        }
+
+        const covered = policyConfigured && inEffectiveWindow && hasRequiredAuthorization;
         const allocation = calculateNHISMedicineAllocation({
           cashPrice,
           nhisTariff: Number(rule?.tariffPrice ?? (Number(currentPrice.nhisPrice) > 0 ? currentPrice.nhisPrice : cashPrice)),
