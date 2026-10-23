@@ -1774,6 +1774,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const field of ['notes', 'complications', 'outcome', 'anesthesiaNotes', 'intraOperativeNotes', 'postOperativeNotes', 'assistantId', 'scheduledDate', 'duration', 'bloodLoss', 'clinicalRecord']) {
       if (data[field] !== undefined) updateData[field] = data[field];
     }
+    const allowedProcedureOutcomes = ['successful', 'successful_minor', 'successful_major', 'unsuccessful', 'aborted'];
+    if (data.outcome !== undefined && data.outcome !== null && !allowedProcedureOutcomes.includes(String(data.outcome))) {
+      throw new ValidationError('Unsupported theatre procedure outcome');
+    }
+    if (status === 'completed' && !allowedProcedureOutcomes.includes(String(data.outcome || ''))) {
+      throw new ValidationError('Select and document the theatre procedure outcome before completing the record');
+    }
     if (data.clinicalRecord !== undefined) {
       const record = data.clinicalRecord;
       if (!record || typeof record !== 'object' || Array.isArray(record)) {
