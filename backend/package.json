@@ -5,7 +5,9 @@
   "main": "src/server.ts",
   "type": "module",
   "scripts": {
+    "prestart": "prisma generate --schema=prisma/schema.prisma",
     "start": "node --loader ts-node/esm src/server.ts",
+    "predev": "prisma generate --schema=prisma/schema.prisma",
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "build:watch": "tsc --watch",
@@ -26,7 +28,9 @@
     "test:integration": "vitest run tests/integration",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write \"src/**/*.ts\"",
-    "bundle": "node scripts/bundle.mjs dist-bundle"
+    "bundle": "node scripts/bundle.mjs dist-bundle",
+    "postinstall": "prisma generate --schema=prisma/schema.prisma",
+    "prebuild": "prisma generate --schema=prisma/schema.prisma"
   },
   "keywords": [
     "hospital",
