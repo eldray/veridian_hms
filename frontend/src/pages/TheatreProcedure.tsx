@@ -863,6 +863,18 @@ export default function TheatreProcedure() {
                       <div>
                         <h3 className="text-sm font-bold text-[var(--text-primary)]">Pre-operative safety & team</h3>
                         <p className="text-xs text-[var(--text-secondary)] mt-1">Complete and document safety checks before marking the procedure complete. Record emergency consent exceptions explicitly.</p>
+                        <div className={`mt-3 rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+                          <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>Known allergy record — verify directly with the patient</p>
+                          {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
+                            <ul className="mt-1 list-disc pl-5 text-xs text-red-800">
+                              {patient.allergies.map((allergy: any, index: number) => (
+                                <li key={allergy.id || index}>{allergy.allergen}{allergy.reaction ? ` — reaction: ${allergy.reaction}` : ''}{allergy.severity ? ` (${allergy.severity})` : ''}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-xs text-amber-800">No allergy entries are available on this patient record. Confirm and document the patient’s allergy status rather than assuming there are no allergies.</p>
+                          )}
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                         {[
@@ -1023,18 +1035,6 @@ export default function TheatreProcedure() {
                           onChange={(e) => setBloodLoss(e.target.value ? Number(e.target.value) : '')}
                           placeholder="e.g., 150"
                           className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Anesthesia Notes
-                        </label>
-                        <textarea
-                          value={anesthesiaNotes}
-                          onChange={(e) => setAnesthesiaNotes(e.target.value)}
-                          rows={6}
-                          placeholder="Additional notes about blood loss…"
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                         />
                       </div>
                     </NoteTile>
