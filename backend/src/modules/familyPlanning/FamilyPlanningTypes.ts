@@ -16,9 +16,9 @@ export interface CreateFPServiceInput {
   isPostpartum?: boolean;
   isPostAbortion?: boolean;
   postpartumWeeks?: number;
-  postpartumDeliveryRecordId?: string;
-  postnatalRecordId?: string;
-  postAbortionRecordId?: string;
+  postpartumDeliveryRecordId?: string | null;
+  postnatalRecordId?: string | null;
+  postAbortionRecordId?: string | null;
   cypFactor?: number;
   notes?: string;
   providedById: string;
