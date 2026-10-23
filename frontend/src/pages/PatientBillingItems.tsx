@@ -1120,6 +1120,14 @@ export default function PatientBillingItems() {
                               </div>
                             )}
 
+                          {/* Make legacy zero-value bills visible as needing review instead of implying they have itemised charges. */}
+                          {Object.entries(groupedItems).length === 0 && Number(selectedBill.totalAmount || 0) === 0 && (
+                            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                              <p className="font-semibold">No itemised charges recorded</p>
+                              <p className="mt-1">This zero-value bill has no active line items. Review the attendance and clinical records before taking any billing action.</p>
+                            </div>
+                          )}
+
                           {/* Grouped categories */}
                           {Object.entries(groupedItems).map(([category, items]) => {
                             const unpaidItems = items.filter(
