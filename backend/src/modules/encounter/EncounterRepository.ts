@@ -8,6 +8,7 @@ import { getCounterService } from '../../services/CounterService';
 import { MarService } from '../nursing/NursingService';
 import { NotFoundError, ConflictError, ValidationError, UnauthorizedError } from '../../utils/errors';
 import { validateNHISPrescribingLevel } from './NHISPrescribingRules';
+import { approvedServicesCoverPrescription } from './NHISPreAuthorisation';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 import { releaseBedForAttendance } from '../bed/bedOccupancy';
 
@@ -1040,9 +1041,39 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         hasDoctorAtFacility,
       });
 
-      // authorizationRequired is intentionally not treated as false when null.
-      // Prior-authorisation matching belongs in claim/pre-authorisation validation;
-      // this reference currently leaves that value unknown for all 551 medicines.
+      // Unknown authorisation metadata is not permission. When the payer rule explicitly
+      // requires authorisation, require an active approval for this same attendance/payer
+      // and explicit approval of this medicine or its medication service.
+      if (payerRule.authorizationRequired === true) {
+        const approvedRequests = await this.prisma.preAuthorisationRequest.findMany({
+          where: {
+            attendanceId: encounterId,
+            patientId: (await this.prisma.attendance.findUnique({
+              where: { id: encounterId },
+              select: { patientId: true },
+            }))?.patientId,
+            insuranceProviderId: payer.id,
+            status: { in: ['approved', 'partially_approved'] },
+            authNumber: { not: null },
+            authExpiry: { gt: now },
+          },
+          select: { approvedServices: true },
+        });
+
+        const hasMatchingApproval = approvedRequests.some((request) =>
+          approvedServicesCoverPrescription(request.approvedServices, {
+            stockItemId: stockItem.id,
+            serviceCatalogId: data.serviceCatalogId,
+          }),
+        );
+
+        if (!hasMatchingApproval) {
+          throw new ValidationError(
+            'This NHIS medicine requires prior authorisation. No current approval explicitly covering this medicine or medication service was found for this attendance.',
+          );
+        }
+      }
+      // authorizationRequired === null remains unknown; it is never coerced to false.
     }
 
     if (!data.serviceCatalogId) throw new ValidationError('A medication service is required');
