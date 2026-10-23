@@ -1207,7 +1207,14 @@ export default function MedicalEntries() {
     const status = currentAttendance?.status;
     const admissionType = currentAttendance?.admissionType;
 
-    if (status === 'discharged' || status === 'completed') return null;
+    if (status === 'discharged' || status === 'completed') {
+      return (
+        <button type="button" onClick={handleReferPatient}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
+          <ArrowRight className="w-3.5 h-3.5" /> Refer
+        </button>
+      );
+    }
 
     // Detention/Observation patient
     if (category === 'ipd' && admissionType === 'detention_observation') {
