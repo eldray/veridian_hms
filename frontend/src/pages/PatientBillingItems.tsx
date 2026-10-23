@@ -141,6 +141,7 @@ export default function PatientBillingItems() {
 
   // Guard so loadData only runs once per patientId
   const loadedForPatientRef = useRef<string | null>(null);
+  const autoOpenedBillRef = useRef<string | null>(null);
 
   // ===== Helpers =====
   const formatCurrency = useCallback(
@@ -272,6 +273,17 @@ export default function PatientBillingItems() {
     loadedForPatientRef.current = patientId;
     loadData();
   }, [patientId, loadData]);
+
+  // When opened from the main Billing list, open the exact bill the user selected.
+  // The patient history remains visible, but its selected visit/bill details are loaded separately.
+  useEffect(() => {
+    const requestedBillId = new URLSearchParams(window.location.search).get('billId');
+    if (!dataLoaded || !requestedBillId || autoOpenedBillRef.current === requestedBillId) return;
+    if (!patientBills.some((bill) => bill.id === requestedBillId)) return;
+    autoOpenedBillRef.current = requestedBillId;
+    setExpandedBillId(requestedBillId);
+    void handleViewBillDetails(requestedBillId);
+  }, [dataLoaded, patientBills, handleViewBillDetails]);
 
   const handleRefresh = useCallback(() => {
     loadedForPatientRef.current = null;
@@ -1042,6 +1054,12 @@ export default function PatientBillingItems() {
                               <Calendar className="w-3 h-3" />
                               {formatDate(bill.billDate || bill.createdAt)}
                             </span>
+                            {bill.Attendance?.attendanceNumber && (
+                              <span className="flex items-center gap-1" title="Visit / attendance">
+                                <ClipboardList className="w-3 h-3" />
+                                Visit {bill.Attendance.attendanceNumber}
+                              </span>
+                            )}
                             <span className="flex items-center gap-1">
                               <CreditCard className="w-3 h-3" />
                               {getPaymentModeLabel(bill.paymentMode)}
@@ -1093,7 +1111,7 @@ export default function PatientBillingItems() {
                         <div className="flex justify-center py-12">
                           <div className="w-8 h-8 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
                         </div>
-                      ) : selectedBill ? (
+                      ) : selectedBill?.id === bill.id ? (
                         <div className="p-4">
                           {/* Add Service Button */}
                           {canMakePayment &&
