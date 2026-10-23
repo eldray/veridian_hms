@@ -1035,6 +1035,40 @@ describe('investigation and procedure status integrity', () => {
     });
   });
 
+  it('rejects negative estimated blood loss before writing a theatre update', async () => {
+    const procedureFindUnique = vi.fn();
+    const procedureUpdateMany = vi.fn();
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
+    } as any);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: -1 }, 'staff-1'))
+      .rejects.toThrow(/estimated blood loss must be a valid non-negative number/i);
+
+    expect(procedureFindUnique).not.toHaveBeenCalled();
+    expect(procedureUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it('preserves a documented zero estimated blood loss', async () => {
+    const procedureUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
+    const procedureFindUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'procedure-1', attendanceId: 'attendance-1', status: 'scheduled' })
+      .mockResolvedValueOnce({ id: 'procedure-1', status: 'in_progress', bloodLoss: 0 });
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'staff-1', isActive: true }) },
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'pending' }) },
+      procedure: { findUnique: procedureFindUnique, updateMany: procedureUpdateMany },
+    } as any);
+
+    await repository.updateProcedureStatus('procedure-1', 'in_progress', { bloodLoss: 0 }, 'staff-1');
+
+    expect(procedureUpdateMany).toHaveBeenCalledWith({
+      where: { id: 'procedure-1', status: 'scheduled' },
+      data: { bloodLoss: 0, status: 'in_progress', performedById: 'staff-1' },
+    });
+  });
+
   it('rejects unsupported laboratory statuses before writing', async () => {
     const labUpdate = vi.fn();
     const repository = new EncounterRepository({
