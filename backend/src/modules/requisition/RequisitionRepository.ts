@@ -10,6 +10,15 @@ import {
 } from './RequisitionTypes';
 import { decreaseDepartmentStockBalance, increaseDepartmentStockBalance } from '../stockItem/StockItemRepository';
 
+// Batch expiry is a calendar date: stock remains usable through the end of its
+// recorded expiry day. Compare against UTC midnight, matching dispensing and
+// transfer workflows, rather than the current instant.
+const startOfCurrentUtcDay = (value: Date = new Date()): Date => {
+  const day = new Date(value);
+  day.setUTCHours(0, 0, 0, 0);
+  return day;
+};
+
 export class RequisitionRepository {
   private prisma: PrismaClient;
 
@@ -422,7 +431,7 @@ export class RequisitionRepository {
         stockItemId: { in: stockItemIds },
         isActive: true,
         quantity: { gt: 0 },
-        expiryDate: { gt: new Date() }
+        expiryDate: { gte: startOfCurrentUtcDay() }
       },
       _sum: { quantity: true }
     });
@@ -445,7 +454,7 @@ export class RequisitionRepository {
     }
     if (inStockOnly) {
       where.StockBatch = {
-        some: { departmentId: supplierDepartmentId, isActive: true, quantity: { gt: 0 }, expiryDate: { gt: new Date() } }
+        some: { departmentId: supplierDepartmentId, isActive: true, quantity: { gt: 0 }, expiryDate: { gte: startOfCurrentUtcDay() } }
       };
     }
 
@@ -583,7 +592,7 @@ export class RequisitionRepository {
         const batches = batchCount > 0 ? await tx.stockBatch.findMany({
           where: {
             stockItemId: ri.stockItemId, departmentId: supplierId, wardId: null, isActive: true,
-            quantity: { gt: 0 }, expiryDate: { gt: new Date() }
+            quantity: { gt: 0 }, expiryDate: { gte: startOfCurrentUtcDay() }
           },
           orderBy: { expiryDate: 'asc' } // FEFO
         }) : [];
@@ -596,7 +605,7 @@ export class RequisitionRepository {
           const dec = await tx.stockBatch.updateMany({
             where: {
               id: batch.id, departmentId: supplierId, wardId: null, isActive: true,
-              expiryDate: { gt: new Date() }, quantity: { gte: move }
+              expiryDate: { gte: startOfCurrentUtcDay() }, quantity: { gte: move }
             },
             data: { quantity: { decrement: move } }
           });
