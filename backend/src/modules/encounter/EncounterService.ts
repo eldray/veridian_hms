@@ -183,13 +183,15 @@ export class EncounterService extends BaseService {
       if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
         throw new ConflictError('A closed encounter cannot be admitted; create or reopen the appropriate encounter first');
       }
-      if (encounter.Admission) {
-        // Repeated submissions return the existing admission and never reserve the bed twice.
+      if (encounter.Admission && encounter.Admission.status !== 'cancelled') {
+        // Repeated submissions return an active admission and never reserve the bed twice.
         return tx.admission.findUnique({
           where: { id: encounter.Admission.id },
           include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
         });
       }
+      // A cancelled admission may be reactivated only through this admission workflow.
+      // Its cancellation audit entry remains in dailyNotes for traceability.
 
       // Prefer explicit bed/ward selections, but preserve compatibility with callers that
       // already assigned a bed to the attendance before creating the admission.
@@ -260,6 +262,24 @@ export class EncounterService extends BaseService {
         throw new ConflictError('The encounter changed while admission was being processed. Refresh and try again.');
       }
 
+      if (encounter.Admission?.status === 'cancelled') {
+        return tx.admission.update({
+          where: { id: encounter.Admission.id },
+          data: {
+            status: 'active',
+            cancelledAt: null,
+            cancelledById: null,
+            cancellationReason: null,
+            dischargeDate: null,
+            dischargeStatus: null,
+            admissionType: (data.admissionType as any) || encounter.Admission.admissionType,
+            admissionSource: (data.admissionSource as any) || encounter.Admission.admissionSource,
+            admissionDate,
+          },
+          include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
+        });
+      }
+
       return tx.admission.create({
         data: {
           attendanceId: data.attendanceId,
@@ -267,6 +287,7 @@ export class EncounterService extends BaseService {
           admissionType: (data.admissionType as any) || 'emergency',
           admissionSource: (data.admissionSource as any) || 'home',
           admissionDate,
+          status: 'active',
         },
         include: { attendance: { include: { Patient: true, Bed: true, Ward: true } } },
       });
@@ -723,7 +744,7 @@ export class EncounterService extends BaseService {
   }
   async getAdmissionsByPatientId(patientId: string, filters: any) { return this.repository.getAdmissionsByPatientId(patientId, filters); }
   async updateAdmission(id: string, data: any, userId?: string) { return this.repository.updateAdmission(id, data, userId); }
-  async deleteAdmission(id: string) { return this.repository.deleteAdmission(id); }
+  async deleteAdmission(id: string, userId: string, reason: string) { return this.repository.deleteAdmission(id, userId, reason); }
   async addDailyNotes(id: string, data: AddDailyNoteDTO, userId: string) { return this.repository.addDailyNotes(id, data, userId); }
   async getBedOccupancy() { return this.repository.getBedOccupancy(); }
    async getDaycasePatients(filters: any) {

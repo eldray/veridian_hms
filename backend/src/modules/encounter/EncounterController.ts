@@ -400,8 +400,8 @@ export class EncounterController extends BaseController {
   });
 
   deleteAdmission = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    await this.service.deleteAdmission(req.params.id);
-    return this.ok(res, null, 'Admission deleted');
+    const result = await this.service.deleteAdmission(req.params.id, req.user!.id, req.body?.reason);
+    return this.ok(res, result, 'Admission cancelled; clinical history retained');
   });
 
   convertDetentionToIPD = this.asyncHandler(async (req: AuthRequest, res: Response) => {

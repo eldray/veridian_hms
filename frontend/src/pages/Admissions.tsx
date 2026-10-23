@@ -136,7 +136,18 @@ const AdmissionTypeBadge: React.FC<{ type: string }> = ({ type }) => {
   );
 };
 
-const StatusBadge: React.FC<{ isDischarged: boolean }> = ({ isDischarged }) => {
+const StatusBadge: React.FC<{ isDischarged: boolean; isCancelled?: boolean }> = ({ isDischarged, isCancelled = false }) => {
+  if (isCancelled) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border"
+        style={{ background: 'var(--bg-main)', color: 'var(--text-tertiary)', borderColor: 'var(--border-color)' }}
+      >
+        <X className="w-2.5 h-2.5" />
+        CANCELLED
+      </span>
+    );
+  }
   if (isDischarged) {
     return (
       <span
@@ -182,6 +193,9 @@ export default function Admissions() {
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [selectedAdmission, setSelectedAdmission] = useState<any>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [showCancelAdmissionModal, setShowCancelAdmissionModal] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
+  const [isCancellingAdmission, setIsCancellingAdmission] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [showConvertModal, setShowConvertModal] = useState(false);
   const [selectedDaycase, setSelectedDaycase] = useState<any>(null);
@@ -201,6 +215,7 @@ export default function Admissions() {
     getAdmissions,
     convertDaycaseToIPD,
     dischargePatient,
+    deleteAdmission,
     getDetentionPatients,
     getFormalIPDPatients,
   } = useAdmissionStore();
@@ -213,6 +228,7 @@ export default function Admissions() {
   }, [viewMode]);
 
   const canDischarge = hasRole(['admin', 'doctor']);
+  const canCancelAdmission = hasRole(['admin', 'super_admin']);
   const canConvert = hasRole(['admin', 'doctor']);
 
   // ── Date range (memoized so live refresh sees fresh closures) ───────────
@@ -351,7 +367,7 @@ export default function Admissions() {
       isDaySurgery: false,
       isDetention: false,
       isVirtual: false,
-      status: adm.dischargeDate ? 'discharged' : 'admitted',
+      status: adm.status === 'cancelled' ? 'cancelled' : (adm.dischargeDate ? 'discharged' : 'admitted'),
       displayType: 'formal_ipd',
     }));
     const detentionList = detention.map((adm) => ({
@@ -359,7 +375,7 @@ export default function Admissions() {
       isDaySurgery: false,
       isDetention: true,
       isVirtual: false,
-      status: adm.dischargeDate ? 'discharged' : 'admitted',
+      status: adm.status === 'cancelled' ? 'cancelled' : (adm.dischargeDate ? 'discharged' : 'admitted'),
       displayType: 'detention',
     }));
     const daySurgery = virtualDaycaseAdmissions;
@@ -412,11 +428,12 @@ export default function Admissions() {
         if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
       }
 
+      const isCancelled = admission.status === 'cancelled';
       const isDischarged =
         admission.dischargeDate !== null || admission.attendance?.status === 'discharged';
 
-      if (activeTab === 'active' && isDischarged) return false;
-      if (activeTab === 'discharged' && !isDischarged) return false;
+      if (activeTab === 'active' && (isDischarged || isCancelled)) return false;
+      if (activeTab === 'discharged' && (!isDischarged || isCancelled)) return false;
 
       if (searchQuery) {
         const patient =
@@ -507,6 +524,32 @@ export default function Admissions() {
   const handleDischargePatient = (admission: any) => {
     setSelectedAdmission(admission);
     setShowDischargeModal(true);
+  };
+
+  const handleCancelAdmission = (admission: any) => {
+    setSelectedAdmission(admission);
+    setCancellationReason('');
+    setShowCancelAdmissionModal(true);
+  };
+
+  const confirmCancelAdmission = async () => {
+    if (!selectedAdmission || !cancellationReason.trim()) {
+      error('Cancellation Reason Required', 'Enter why this admission was created in error.');
+      return;
+    }
+    setIsCancellingAdmission(true);
+    try {
+      await deleteAdmission(selectedAdmission.id, cancellationReason.trim());
+      success('Admission Cancelled', 'The admission history was retained and the patient visit returned to OPD.');
+      await loadData();
+      setShowCancelAdmissionModal(false);
+      setSelectedAdmission(null);
+      setCancellationReason('');
+    } catch (err: any) {
+      error('Cancellation Failed', err?.response?.data?.message || err?.message || 'Unable to cancel admission');
+    } finally {
+      setIsCancellingAdmission(false);
+    }
   };
 
   const confirmDischarge = async () => {
@@ -1007,7 +1050,7 @@ export default function Admissions() {
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <StatusBadge isDischarged={isDischarged} />
+                          <StatusBadge isDischarged={isDischarged} isCancelled={admission.status === 'cancelled'} />
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-1">
@@ -1064,6 +1107,25 @@ export default function Admissions() {
                                 }}
                               >
                                 <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {!isDischarged && admission.status !== 'cancelled' && !admission.isVirtual && canCancelAdmission && (
+                              <button
+                                onClick={() => handleCancelAdmission(admission)}
+                                aria-label="Cancel admission entered in error"
+                                title="Cancel Admission (entered in error)"
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: 'var(--text-tertiary)' }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = 'var(--icon-red-text)';
+                                  e.currentTarget.style.background = 'var(--icon-red-bg)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = 'var(--text-tertiary)';
+                                  e.currentTarget.style.background = 'transparent';
+                                }}
+                              >
+                                <X className="w-3.5 h-3.5" />
                               </button>
                             )}
                             {!isDischarged && canDischarge && (
@@ -1376,6 +1438,42 @@ export default function Admissions() {
             </div>
           )}
         </>
+      )}
+
+      {/* ═══════════ Admission Cancellation Modal ═══════════ */}
+      {showCancelAdmissionModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-admission-title">
+          <div className="w-full max-w-lg rounded-2xl border shadow-2xl" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+            <div className="p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="rounded-xl p-2" style={{ background: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' }}><X className="w-5 h-5" /></div>
+                <div>
+                  <h2 id="cancel-admission-title" className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>Cancel Admission</h2>
+                  <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>Use only when the admission was entered in error and inpatient care has not begun. The record will be retained for audit.</p>
+                </div>
+              </div>
+              <label htmlFor="admission-cancellation-reason" className="block text-sm font-semibold mb-1.5" style={{ color: 'var(--text-primary)' }}>Reason for cancellation</label>
+              <textarea
+                id="admission-cancellation-reason"
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                rows={3}
+                maxLength={2000}
+                placeholder="Explain why this admission was entered in error…"
+                className="w-full rounded-lg border px-3 py-2 text-sm resize-y"
+                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                disabled={isCancellingAdmission}
+              />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Billing or inpatient-care records will block cancellation; use discharge or the approved correction workflow instead.</p>
+            </div>
+            <div className="flex justify-end gap-2 px-6 py-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+              <button onClick={() => { setShowCancelAdmissionModal(false); setSelectedAdmission(null); setCancellationReason(''); }} disabled={isCancellingAdmission} className="px-4 py-2 rounded-lg border text-sm font-medium" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>Keep Admission</button>
+              <button onClick={confirmCancelAdmission} disabled={isCancellingAdmission || cancellationReason.trim().length < 5} className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-50" style={{ background: 'var(--icon-red-text)' }}>
+                {isCancellingAdmission ? 'Cancelling…' : 'Confirm Cancellation'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ═══════════ Convert Modal ═══════════ */}

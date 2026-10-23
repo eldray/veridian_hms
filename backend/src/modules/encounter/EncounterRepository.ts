@@ -1909,7 +1909,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
     return {
       ...a,
-      status: a.dischargeDate ? 'discharged' : 'active',
+      status: a.status === 'cancelled' ? 'cancelled' : (a.dischargeDate ? 'discharged' : 'active'),
       patient, ward, bed,
       // Flattened fields used by the detention / observation list
       attendanceNumber: att?.attendanceNumber,
@@ -1933,8 +1933,8 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   private buildAdmissionWhere(filters: any) {
     const where: any = {};
 
-    if (filters.status === 'active') where.dischargeDate = null;
-    else if (filters.status === 'discharged') where.dischargeDate = { not: null };
+    if (filters.status === 'active') { where.status = 'active'; where.dischargeDate = null; }
+    else if (filters.status === 'discharged') { where.status = { not: 'cancelled' }; where.dischargeDate = { not: null }; }
 
     if (filters.admissionType) where.admissionType = filters.admissionType;
     else if (this.isTrue(filters.excludeDetention)) where.admissionType = { not: 'detention_observation' };
@@ -1978,6 +1978,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async countReadyForDecision(hours = 24) {
     return this.prisma.admission.count({
       where: {
+        status: 'active',
         dischargeDate: null,
         admissionType: 'detention_observation',
         admissionDate: { lte: new Date(Date.now() - hours * 3_600_000) }
@@ -2109,21 +2110,101 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
   }
 
-  async deleteAdmission(id: string) {
+  /**
+   * Cancel an admission that was entered in error before inpatient care began.
+   * Keep the row and a cancellation audit note; never hard-delete clinical history.
+   */
+  async deleteAdmission(id: string, userId?: string, reason?: string) {
+    const cancellationReason = typeof reason === 'string' ? reason.trim() : '';
+    if (cancellationReason.length < 5) {
+      throw new ValidationError('A cancellation reason of at least 5 characters is required');
+    }
+
     return this.prisma.$transaction(async (tx) => {
       const existing = await tx.admission.findUnique({
         where: { id },
-        include: { _count: { select: { bills: true } } }
+        include: {
+          attendance: {
+            select: {
+              id: true, bedId: true, wardId: true, status: true, encounterCategory: true,
+              _count: {
+                select: {
+                  nursingNotes: true, nursingTasks: true, WardChargeRecord: true,
+                  deliveryRecords: true, proformaInvoices: true,
+                },
+              },
+            },
+          },
+          _count: {
+            select: {
+              bills: true, nursingNotes: true, nursingTasks: true,
+              deliveryRecords: true, proformaInvoices: true,
+            },
+          },
+        },
       });
       if (!existing) throw new NotFoundError('Admission', id);
-      if (existing._count.bills > 0) {
-        throw new ConflictError('This admission already has bills and cannot be deleted. Discharge it instead.');
+      if (existing.status === 'cancelled') {
+        throw new ConflictError('This admission has already been cancelled');
+      }
+      if (existing.dischargeDate || ['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(existing.attendance.status)) {
+        throw new ConflictError('A discharged or closed admission cannot be cancelled. Preserve its recorded outcome.');
+      }
+      if (existing._count.bills > 0 || existing._count.nursingNotes > 0 || existing._count.nursingTasks > 0 ||
+          existing._count.deliveryRecords > 0 || existing._count.proformaInvoices > 0 ||
+          existing.attendance._count.nursingNotes > 0 || existing.attendance._count.nursingTasks > 0 ||
+          existing.attendance._count.WardChargeRecord > 0 || existing.attendance._count.deliveryRecords > 0 ||
+          existing.attendance._count.proformaInvoices > 0) {
+        throw new ConflictError('This admission has related billing or inpatient-care records. Do not cancel it; use the appropriate discharge or approved correction workflow.');
+      }
+      if (!['pending', 'admitted'].includes(existing.attendance.status)) {
+        throw new ConflictError(`Admission cannot be cancelled from attendance status "${existing.attendance.status}"`);
       }
 
-      await tx.admission.delete({ where: { id } });
-      // The visit goes back to pending so it can be re-admitted or closed normally
-      await tx.attendance.updateMany({ where: { id: existing.attendanceId, status: 'admitted' }, data: { status: 'pending' } });
-      return { id };
+      // Claim the attendance transition conditionally so a concurrent discharge or
+      // bed move causes the whole cancellation transaction to roll back.
+      const attendanceTransition = await tx.attendance.updateMany({
+        where: {
+          id: existing.attendanceId,
+          status: existing.attendance.status,
+          bedId: existing.attendance.bedId,
+        },
+        data: {
+          status: 'pending',
+          encounterCategory: 'opd',
+          bedId: null,
+          wardId: null,
+          ...(userId ? { updatedById: userId } : {}),
+        },
+      });
+      if (attendanceTransition.count !== 1) {
+        throw new ConflictError('The attendance changed while cancellation was being saved. Refresh and try again.');
+      }
+
+      const notes = Array.isArray(existing.dailyNotes) ? [...(existing.dailyNotes as any[])] : [];
+      notes.push({
+        id: `admission-cancelled-${id}-${Date.now()}`,
+        noteType: 'admission_cancelled',
+        reason: cancellationReason,
+        recordedBy: userId || null,
+        recordedAt: new Date().toISOString(),
+      });
+      const cancelled = await tx.admission.updateMany({
+        where: { id, status: 'active', dischargeDate: null },
+        data: {
+          status: 'cancelled',
+          cancelledAt: new Date(),
+          cancelledById: userId || null,
+          cancellationReason,
+          dailyNotes: notes,
+        },
+      });
+      if (cancelled.count !== 1) {
+        throw new ConflictError('The admission changed while cancellation was being saved. Refresh and try again.');
+      }
+
+      await releaseBedForAttendance(tx, { id: existing.attendanceId, bedId: existing.attendance.bedId });
+      return { id, status: 'cancelled', attendanceStatus: 'pending', encounterCategory: 'opd' };
     });
   }
 

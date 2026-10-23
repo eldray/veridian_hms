@@ -4,6 +4,98 @@ import { EncounterService } from '../src/modules/encounter/EncounterService';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
 
+
+describe('auditable admission cancellation', () => {
+  const makeTx = (overrides: any = {}) => {
+    const attendance = {
+      id: 'attendance-1', bedId: 'bed-1', wardId: 'ward-1', status: 'admitted',
+      encounterCategory: 'ipd',
+      _count: { nursingNotes: 0, nursingTasks: 0, WardChargeRecord: 0, deliveryRecords: 0, proformaInvoices: 0 },
+    };
+    const admission = {
+      id: 'admission-1', attendanceId: 'attendance-1', status: 'active', dischargeDate: null,
+      dailyNotes: [], attendance,
+      _count: { bills: 0, nursingNotes: 0, nursingTasks: 0, deliveryRecords: 0, proformaInvoices: 0 },
+      ...(overrides.admission || {}),
+    };
+    const tx: any = {
+      admission: {
+        findUnique: vi.fn().mockResolvedValue(admission),
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      attendance: {
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        findFirst: vi.fn().mockResolvedValue(null),
+      },
+      bed: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'bed-1', wardId: 'ward-1', isOccupied: true }),
+        update: vi.fn().mockResolvedValue({ id: 'bed-1', isOccupied: false }),
+      },
+      ward: { updateMany: vi.fn().mockResolvedValue({ count: 1 }) },
+    };
+    Object.assign(tx, overrides.tx || {});
+    return { tx, admission };
+  };
+
+  it('cancels without deleting the admission, returns the active visit to OPD, and releases its bed atomically', async () => {
+    const { tx } = makeTx();
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Admission entered in error'))
+      .resolves.toEqual({
+        id: 'admission-1', status: 'cancelled', attendanceStatus: 'pending', encounterCategory: 'opd',
+      });
+
+    expect(tx.admission.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'admission-1', status: 'active', dischargeDate: null },
+      data: expect.objectContaining({
+        status: 'cancelled', cancelledById: 'admin-1', cancellationReason: 'Admission entered in error',
+        dailyNotes: [expect.objectContaining({ noteType: 'admission_cancelled', recordedBy: 'admin-1' })],
+      }),
+    }));
+    expect(tx.attendance.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'attendance-1', status: 'admitted', bedId: 'bed-1' },
+      data: expect.objectContaining({
+        status: 'pending', encounterCategory: 'opd', bedId: null, wardId: null, updatedById: 'admin-1',
+      }),
+    }));
+    expect(tx.admission.findUnique).not.toHaveBeenCalledWith(expect.objectContaining({ delete: expect.anything() }));
+    expect(tx.bed.update).toHaveBeenCalledWith({ where: { id: 'bed-1' }, data: { isOccupied: false } });
+    expect(tx.ward.updateMany).toHaveBeenCalled();
+  });
+
+  it('requires a meaningful cancellation reason before database access', async () => {
+    const transaction = vi.fn();
+    const repository = new EncounterRepository({ $transaction: transaction } as any);
+    await expect(repository.deleteAdmission('admission-1', 'admin-1', '  '))
+      .rejects.toThrow(/cancellation reason/i);
+    expect(transaction).not.toHaveBeenCalled();
+  });
+
+  it('blocks cancellation when inpatient nursing records already exist', async () => {
+    const { tx } = makeTx({ admission: {
+      _count: { bills: 0, nursingNotes: 1, nursingTasks: 0, deliveryRecords: 0, proformaInvoices: 0 },
+    } });
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+
+    await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Entered in error'))
+      .rejects.toThrow(/related billing or inpatient-care records/i);
+    expect(tx.attendance.updateMany).not.toHaveBeenCalled();
+    expect(tx.admission.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite a concurrent attendance transition', async () => {
+    const { tx } = makeTx();
+    tx.attendance.updateMany.mockResolvedValue({ count: 0 });
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+
+    await expect(repository.deleteAdmission('admission-1', 'admin-1', 'Entered in error'))
+      .rejects.toThrow(/attendance changed while cancellation/i);
+    expect(tx.admission.updateMany).not.toHaveBeenCalled();
+  });
+});
+
 describe('admission, bed and nursing record consistency', () => {
   it('does not create an encounter against an occupied bed', async () => {
     const tx: any = {
