@@ -347,9 +347,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       });
       if (!attendance) throw new Error('Encounter not found');
 
-      // Bill.attendanceId is @unique — only one bill per encounter.
-      const existing = await tx.bill.findUnique({ where: { attendanceId: encounterId } });
-      if (existing) throw new Error('A bill already exists for this encounter');
+      // One bill per attendance. Existing bills are incrementally synchronized below.
+      const existingBill = await tx.bill.findUnique({ where: { attendanceId: encounterId } });
 
       const paymentMode: PaymentMode = attendance.paymentMode;
 
@@ -375,7 +374,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const lineItemsData: any[] = [];
 
-      const pushItem = (catalog: any, fallbackName: string, fallbackType: ServiceType, qty: number) => {
+      const pushItem = (catalog: any, fallbackName: string, fallbackType: ServiceType, qty: number, sourceKey: string) => {
         const quantity = qty && qty > 0 ? qty : 1;
         const { unitPrice, lineTotal } = priceFor(catalog, quantity);
         const serviceType: ServiceType = (catalog?.serviceType as ServiceType) || fallbackType;
@@ -392,6 +391,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const patientPayableAmount = payerCoversLine ? 0 : lineTotal;
         lineItemsData.push({
           serviceCatalogId: catalog?.id ?? null,
+          sourceKey,
           description,
           serviceType,
           quantity,
@@ -406,19 +406,19 @@ export class BillRepository extends BaseRepository<any, any, any> {
       };
 
       for (const sr of attendance.ServiceRendered || []) {
-        pushItem(sr.ServiceCatalog, 'Service', 'miscellaneous', sr.quantity);
+        pushItem(sr.ServiceCatalog, 'Service', 'miscellaneous', sr.quantity, `service-rendered:${sr.id}`);
       }
       for (const lt of attendance.LabTest || []) {
-        pushItem(lt.ServiceCatalog, lt.LabTestTemplate?.name || 'Lab Test', 'lab_test', 1);
+        pushItem(lt.ServiceCatalog, lt.LabTestTemplate?.name || 'Lab Test', 'lab_test', 1, `lab-test:${lt.id}`);
       }
       for (const sc of attendance.Scan || []) {
-        pushItem(sc.ServiceCatalog, sc.scanType || 'Scan', 'scan', 1);
+        pushItem(sc.ServiceCatalog, sc.scanType || 'Scan', 'scan', 1, `scan:${sc.id}`);
       }
       for (const pr of attendance.Procedure || []) {
-        pushItem(pr.ServiceCatalog, 'Procedure', 'procedure', 1);
+        pushItem(pr.ServiceCatalog, 'Procedure', 'procedure', 1, `procedure:${pr.id}`);
       }
       for (const med of attendance.Medication || []) {
-        pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity);
+        pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity, `medication:${med.id}`);
       }
 
       // Ward charges are already priced and recorded per attendance/day by the ward workflow.
@@ -442,6 +442,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
         lineItemsData.push({
           serviceCatalogId: null,
+          sourceKey: `ward-charge:${charge.id}`,
           description,
           serviceType: 'ward',
           quantity: 1,
@@ -456,43 +457,69 @@ export class BillRepository extends BaseRepository<any, any, any> {
         wardChargeLinks.push({ id: charge.id, description });
       }
 
-      const totalAmount = lineItemsData.reduce((sum, i) => sum + i.lineTotal, 0);
-      const insuranceCovered = lineItemsData.reduce((sum, i) => sum + i.insuranceCoveredAmount, 0);
-      const patientPayable = lineItemsData.reduce((sum, i) => sum + i.patientPayableAmount, 0);
+      // Legacy bills created before source tracking cannot be safely reconciled by matching
+      // descriptions alone (two identical tests or medicines can be legitimate separate items).
+      // Fail closed instead of silently adding duplicate charges to those bills.
+      const existingLines = existingBill
+        ? await tx.billLineItem.findMany({
+            where: { billId: existingBill.id, isVoided: false },
+            select: { id: true, sourceKey: true }
+          })
+        : [];
+      if (existingBill && existingLines.some((line) => !line.sourceKey)) {
+        throw new Error(
+          'This attendance has a legacy bill without source links. Review/reconcile the existing bill before synchronizing new charges.'
+        );
+      }
 
-      const bill = await tx.bill.create({
-        data: {
-          patientId: attendance.patientId,
-          attendanceId: attendance.id,
-          paymentMode,
-          billNumber: getCounterService().getBillNumberFromAttendance(attendance.attendanceNumber),
-          status: 'pending',
-          subtotal: totalAmount,
-          totalAmount,
-          patientPayable,
-          balance: patientPayable,
-          paidAmount: 0,
-          insuranceCovered,
-          waiverAmount: 0,
-          discount: 0,
-          taxAmount: 0,
-          createdById: createdBy,
-          billDate: new Date(),
-          insuranceProviderId: attendance.insuranceProviderId ?? undefined,
-          corporateAccountId: attendance.corporateAccountId ?? undefined,
-          BillLineItem: lineItemsData.length > 0 ? { create: lineItemsData } : undefined
-        },
-        include: {
-          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
-          Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
-          BillLineItem: { include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } }
+      const existingSourceKeys = new Set(existingLines.map((line) => line.sourceKey).filter(Boolean));
+      const pendingItems = lineItemsData.filter((item) => !existingSourceKeys.has(item.sourceKey));
+
+      let bill: any;
+      if (!existingBill) {
+        const totalAmount = lineItemsData.reduce((sum, item) => sum + item.lineTotal, 0);
+        const insuranceCovered = lineItemsData.reduce((sum, item) => sum + item.insuranceCoveredAmount, 0);
+        const patientPayable = lineItemsData.reduce((sum, item) => sum + item.patientPayableAmount, 0);
+        bill = await tx.bill.create({
+          data: {
+            patientId: attendance.patientId,
+            attendanceId: attendance.id,
+            paymentMode,
+            billNumber: getCounterService().getBillNumberFromAttendance(attendance.attendanceNumber),
+            status: patientPayable <= 0 ? 'paid' : 'pending',
+            subtotal: totalAmount,
+            totalAmount,
+            patientPayable,
+            balance: patientPayable,
+            paidAmount: 0,
+            insuranceCovered,
+            waiverAmount: 0,
+            discount: 0,
+            taxAmount: 0,
+            createdById: createdBy,
+            billDate: new Date(),
+            insuranceProviderId: attendance.insuranceProviderId ?? undefined,
+            corporateAccountId: attendance.corporateAccountId ?? undefined,
+            BillLineItem: lineItemsData.length > 0 ? { create: lineItemsData } : undefined
+          }
+        });
+      } else {
+        // Add only source records not already billed. The database unique constraint protects
+        // concurrent retries from creating a duplicate line for the same source record.
+        if (pendingItems.length > 0) {
+          await tx.billLineItem.createMany({
+            data: pendingItems.map((item) => ({ ...item, billId: existingBill.id })),
+            skipDuplicates: true
+          });
         }
-      });
+        bill = existingBill;
+      }
 
-      // Link ward-day records to their bill lines so a refresh/retry cannot bill them twice.
+      // Resolve source links for ward charges after inserts; this also repairs an interrupted
+      // earlier sync where the line exists but the ward record was not yet marked billed.
       for (const link of wardChargeLinks) {
         const line = await tx.billLineItem.findFirst({
-          where: { billId: bill.id, description: link.description, isVoided: false },
+          where: { billId: bill.id, sourceKey: `ward-charge:${link.id}`, isVoided: false },
           select: { id: true }
         });
         if (line) {
@@ -503,9 +530,45 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       }
 
-      await tx.attendance.update({ where: { id: attendance.id }, data: { totalBill: totalAmount, outstandingBalance: patientPayable } });
+      const activeLines = await tx.billLineItem.findMany({
+        where: { billId: bill.id, isVoided: false },
+        select: { lineTotal: true, patientPayableAmount: true, insuranceCoveredAmount: true }
+      });
+      const totalAmount = activeLines.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
+      const insuranceCovered = activeLines.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
+      const grossPatientLiability = activeLines.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const waiverAmount = toNumber(existingBill?.waiverAmount);
+      const patientPayable = Math.max(0, grossPatientLiability - waiverAmount);
+      const paidAmount = toNumber(existingBill?.paidAmount);
+      const balance = Math.max(0, patientPayable - paidAmount);
+      const status = balance <= 0 ? 'paid' : paidAmount > 0 ? 'partial' : 'pending';
 
-      return bill;
+      const updatedBill = await tx.bill.update({
+        where: { id: bill.id },
+        data: {
+          subtotal: totalAmount,
+          totalAmount,
+          insuranceCovered,
+          patientPayable,
+          balance,
+          status
+        },
+        include: {
+          Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+          Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
+          BillLineItem: {
+            where: { isVoided: false },
+            include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } }
+          }
+        }
+      });
+
+      await tx.attendance.update({
+        where: { id: attendance.id },
+        data: { totalBill: totalAmount, outstandingBalance: balance }
+      });
+
+      return updatedBill;
     });
   }
 }
