@@ -413,8 +413,17 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // Include only unbilled records and link them to the generated bill lines below.
       const wardChargeLinks: Array<{ id: string; description: string }> = [];
       for (const charge of attendance.WardChargeRecord || []) {
-        const lineTotal = toNumber(charge.dailyRate);
-        if (lineTotal <= 0) continue;
+        // Use the payer-specific rate snapshot, not dailyRate blindly: dailyRate is
+        // historical/display data and may not be the rate applicable to this payer.
+        const wardPrice = {
+          cashPrice: charge.cashPrice,
+          nhisPrice: charge.nhisPrice,
+          insurancePrice: charge.insurancePrice,
+          corporatePrice: charge.corporatePrice
+        };
+        const unitPrice = resolveUnitPrice(wardPrice, paymentMode);
+        if (unitPrice <= 0) continue;
+        const lineTotal = unitPrice;
         const serviceDate = new Date(charge.chargeDate).toISOString().slice(0, 10);
         const description = `Ward accommodation (${charge.wardId}) - ${serviceDate}`;
         const insurerCovers = (paymentMode === 'nhis' && toNumber(charge.nhisPrice) > 0) ||
@@ -424,7 +433,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
           description,
           serviceType: 'ward',
           quantity: 1,
-          unitPrice: lineTotal,
+          unitPrice,
           pricingBasis: paymentMode,
           lineTotal,
           insuranceCoveredAmount: insurerCovers ? lineTotal : 0,
