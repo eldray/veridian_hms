@@ -264,6 +264,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: parsedBill,
         isLoading: false
       });
+      return payload;
     } catch (error: unknown) {
       console.error('❌ Failed to create bill:', error);
       set({ isLoading: false });
