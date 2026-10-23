@@ -51,6 +51,8 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.get('/admissions/patient/:patientId', admissionReaders, controller.getAdmissionsByPatient);
   router.get('/admissions/:id', admissionReaders, controller.getAdmissionById);
   router.put('/admissions/:id', requireRole(['admin', 'super_admin', 'doctor']), controller.updateAdmission);
+  router.post('/admissions/:id/cancel', requireRole(['admin', 'super_admin']), controller.deleteAdmission);
+  // Backward-compatible endpoint; this now performs an audited cancellation, never a hard delete.
   router.delete('/admissions/:id', requireRole(['admin', 'super_admin']), controller.deleteAdmission);
   router.post(
     '/admissions/:id/notes',
