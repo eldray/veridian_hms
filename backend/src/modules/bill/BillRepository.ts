@@ -466,7 +466,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
             select: { id: true, sourceKey: true }
           })
         : [];
-      if (existingBill && existingLines.length > 0 && existingLines.every((line) => !line.sourceKey)) {
+      if (existingBill && existingLines.some((line) => !line.sourceKey)) {
         throw new Error(
           'This attendance has a legacy bill without source links. Review/reconcile the existing bill before synchronizing new charges.'
         );
