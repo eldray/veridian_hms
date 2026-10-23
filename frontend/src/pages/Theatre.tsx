@@ -170,7 +170,7 @@ export default function TheatreWaitingList() {
           gender: patient.patient?.gender
         },
         attendanceId: patient.attendanceId,
-        procedureId: patient.id,
+        procedureId: patient.procedureIds?.[0] || null,
         procedure: patient
       }
     });
