@@ -1128,7 +1128,8 @@ export default function ServiceCatalogTab() {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">NHIS coverage status *</label>
                           <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                            <option value="unverified">Select coverage status…</option>\n                            <option value="covered">Covered by NHIS</option>
+                            <option value="unverified">Select coverage status…</option>
+                            <option value="covered">Covered by NHIS</option>
                             <option value="not_covered">Not covered — patient pays cash price</option>
                           </select>
                         </div>
@@ -1141,7 +1142,8 @@ export default function ServiceCatalogTab() {
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">Prior authorization *</label>
                           <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
-                            <option value="unverified">Select requirement…</option>\n                            <option value="yes">Required</option>
+                            <option value="unverified">Select requirement…</option>
+                            <option value="yes">Required</option>
                             <option value="no">Not required</option>
                           </select>
                         </div>
