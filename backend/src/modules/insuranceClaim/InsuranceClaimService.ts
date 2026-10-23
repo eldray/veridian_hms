@@ -778,7 +778,7 @@ async updateDraftHeader(claimId: string, data: any, userId: string) {
  * Items are renumbered 1..n in the order received. The claim header total is not changed here.
  */
 async replaceClaimItems(claimId: string, items: any[], userId: string) {
-  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } } } });
+  const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId }, include: { InsuranceProvider: { select: { id: true, type: true } }, Attendance: { select: { id: true, patientId: true, Medication: { where: { status: 'dispensed' }, include: { StockItem: { select: { id: true, drugCode: true, name: true } }, ServiceCatalog: { select: { id: true, code: true } } } } } } } });
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.status !== 'draft') throw new Error('Only draft claims can be edited');
 
@@ -842,6 +842,21 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
     const medRows = rows.filter(r => r.itemCategory === 'medicine');
     let medicinesTotal = 0;
     const policyDate = new Date();
+    const attendance = claim.Attendance;
+    const dispensedMedicines = attendance?.Medication ?? [];
+    const authorisations = attendance && claim.insuranceProviderId
+      ? await this.prisma.preAuthorisationRequest.findMany({
+          where: {
+            attendanceId: attendance.id,
+            patientId: attendance.patientId,
+            insuranceProviderId: claim.insuranceProviderId,
+            status: { in: ['approved', 'partially_approved'] },
+            authNumber: { not: null },
+            authExpiry: { gt: policyDate },
+          },
+          select: { authNumber: true, approvedServices: true },
+        })
+      : [];
     for (const row of medRows) {
       const catalog = await this.prisma.serviceCatalog.findFirst({
         where: { OR: [{ code: row.code }, { StockItem: { drugCode: row.code } }] },
@@ -874,6 +889,24 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
           !['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) ||
           (rule.effectiveFrom && rule.effectiveFrom > policyDate) || (rule.effectiveTo && rule.effectiveTo < policyDate)) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
+      }
+      const matchingDispensedMedicine = dispensedMedicines.find((med: any) =>
+        med.StockItem?.id === catalog.StockItem?.id ||
+        (!!row.code && (med.StockItem?.drugCode === row.code || med.ServiceCatalog?.code === row.code)),
+      );
+      if (!matchingDispensedMedicine) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" does not match a medicine dispensed for this attendance. Select a valid dispensed medicine before saving the claim.`);
+      }
+      if (rule.authorizationRequired === true) {
+        const approval = authorisations.find((candidate: any) =>
+          approvedServicesCoverPrescription(candidate.approvedServices, {
+            stockItemId: catalog.StockItem.id,
+            serviceCatalogId: matchingDispensedMedicine.serviceCatalogId ?? '',
+          }),
+        );
+        if (!approval?.authNumber) {
+          throw new ValidationError(`NHIS claim medicine "${row.description}" requires a current, explicit pre-authorisation. The claim item cannot be saved without it.`);
+        }
       }
       let allocation;
       try {
