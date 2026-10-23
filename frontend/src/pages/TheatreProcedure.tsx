@@ -383,7 +383,8 @@ export default function TheatreProcedure() {
       allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
       asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
       scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
-      instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+      instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '',
+      specimens: '', specimenLabelled: false,
       postOpDestination: '', postOpPlan: '', handoverNotes: '',
     });
   };
