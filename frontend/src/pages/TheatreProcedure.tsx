@@ -204,6 +204,16 @@ export default function TheatreProcedure() {
   const [hasComplications, setHasComplications] = useState(false);
   const [anesthesiaType, setAnesthesiaType] = useState('general');
   const [outcome, setOutcome] = useState('');
+  const [clinicalRecord, setClinicalRecord] = useState<any>({
+    indication: '', preOpDiagnosis: '', operativeSite: '',
+    identityConfirmed: false, procedureAndSiteConfirmed: false, siteMarked: false,
+    consentConfirmed: false, consentStatus: '', consentNotes: '',
+    allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
+    asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
+    scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
+    instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+    postOpDestination: '', postOpPlan: '', handoverNotes: '',
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Schedule modal state
@@ -333,6 +343,17 @@ export default function TheatreProcedure() {
       setComplications(selectedProcedure.complications || '');
       setHasComplications(!!selectedProcedure.complications);
       setOutcome(selectedProcedure.outcome || '');
+      setClinicalRecord({
+        indication: '', preOpDiagnosis: '', operativeSite: '',
+        identityConfirmed: false, procedureAndSiteConfirmed: false, siteMarked: false,
+        consentConfirmed: false, consentStatus: '', consentNotes: '',
+        allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
+        asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
+        scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
+        instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+        postOpDestination: '', postOpPlan: '', handoverNotes: '',
+        ...(selectedProcedure.clinicalRecord || {}),
+      });
       if (selectedProcedure.anesthesiaNotes) {
         const n = selectedProcedure.anesthesiaNotes.toLowerCase();
         ['general', 'spinal', 'epidural', 'local', 'sedation', 'regional'].forEach(t => {
@@ -354,6 +375,16 @@ export default function TheatreProcedure() {
     setHasComplications(false);
     setAnesthesiaType('general');
     setOutcome('');
+    setClinicalRecord({
+      indication: '', preOpDiagnosis: '', operativeSite: '',
+      identityConfirmed: false, procedureAndSiteConfirmed: false, siteMarked: false,
+      consentConfirmed: false, consentStatus: '', consentNotes: '',
+      allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
+      asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
+      scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
+      instrumentCountsCorrect: false, specimens: '', specimenLabelled: false,
+      postOpDestination: '', postOpPlan: '', handoverNotes: '',
+    });
   };
 
   const filteredTemplates = procedureTemplates.filter(t =>
@@ -443,6 +474,7 @@ export default function TheatreProcedure() {
         bloodLoss: bloodLoss ? Number(bloodLoss) : null,
         complications: hasComplications ? complications : null,
         outcome: outcome || null,
+        clinicalRecord: { ...clinicalRecord, anesthesiaType },
         performedById: user?.id || '',
         performedAt: new Date().toISOString(),
       });
@@ -806,6 +838,87 @@ export default function TheatreProcedure() {
 
                   {/* Note grid */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Structured peri-operative record: the narrative tiles below remain available for detail. */}
+                    <section className="col-span-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-4">
+                      <div>
+                        <h3 className="text-sm font-bold text-[var(--text-primary)]">Pre-operative safety & team</h3>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">Complete and document safety checks before marking the procedure complete. Record emergency consent exceptions explicitly.</p>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {[
+                          ['indication', 'Indication / reason for procedure'],
+                          ['preOpDiagnosis', 'Pre-operative diagnosis'],
+                          ['operativeSite', 'Operative site / laterality'],
+                          ['asaClass', 'ASA physical status (if assessed)'],
+                          ['surgeonName', 'Surgeon / lead operator'],
+                          ['assistantName', 'Assistant'],
+                          ['anaesthetistName', 'Anaesthetist / anaesthesia provider'],
+                          ['scrubNurseName', 'Scrub nurse'],
+                          ['circulatingNurseName', 'Circulating nurse'],
+                        ].map(([key, label]) => (
+                          <label key={key} className="block text-xs font-semibold text-[var(--text-primary)]">
+                            {label}
+                            <input
+                              value={clinicalRecord[key] || ''}
+                              onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, [key]: e.target.value }))}
+                              className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal"
+                              maxLength={500}
+                            />
+                          </label>
+                        ))}
+                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                          Consent status
+                          <select
+                            value={clinicalRecord.consentStatus || ''}
+                            onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, consentStatus: e.target.value, consentConfirmed: e.target.value === 'consented' }))}
+                            className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal"
+                          >
+                            <option value="">Select consent status</option>
+                            <option value="consented">Informed consent obtained</option>
+                            <option value="emergency_exception">Emergency exception (must explain below)</option>
+                            <option value="not_applicable">Not applicable (explain below)</option>
+                          </select>
+                        </label>
+                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                          Consent / exception details
+                          <input value={clinicalRecord.consentNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, consentNotes: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
+                        </label>
+                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
+                          Allergy review notes
+                          <input value={clinicalRecord.allergyNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, allergyNotes: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
+                        </label>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {[
+                          ['identityConfirmed', 'Patient identity confirmed using identifiers'],
+                          ['procedureAndSiteConfirmed', 'Planned procedure and site confirmed (time-out)'],
+                          ['siteMarked', 'Site marked where applicable'],
+                          ['allergyStatusReviewed', 'Allergy status reviewed'],
+                          ['preOpAssessmentCompleted', 'Pre-operative assessment reviewed'],
+                        ].map(([key, label]) => (
+                          <label key={key} className="flex items-start gap-2 rounded-lg border border-[var(--border-color)] p-3 text-xs text-[var(--text-primary)]">
+                            <input type="checkbox" checked={clinicalRecord[key] === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, [key]: e.target.checked }))} className="mt-0.5" />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="border-t border-[var(--border-color)] pt-4">
+                        <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3">Intra-operative safety & handover</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Incision / procedure start time<input type="time" value={clinicalRecord.incisonTime || clinicalRecord.incisionTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, incisionTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Closure / procedure end time<input type="time" value={clinicalRecord.closureTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, closureTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Specimens / pathology requests<textarea value={clinicalRecord.specimens || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimens: e.target.value }))} rows={2} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Post-operative destination<textarea value={clinicalRecord.postOpDestination || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, postOpDestination: e.target.value }))} rows={2} placeholder="Recovery, ward, HDU/ICU, referral…" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)] md:col-span-2">Post-operative plan / monitoring / analgesia / escalation criteria<textarea value={clinicalRecord.postOpPlan || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, postOpPlan: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)] md:col-span-2">Handover notes<textarea value={clinicalRecord.handoverNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, handoverNotes: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
+                        </div>
+                        <div className="flex flex-wrap gap-3 mt-3">
+                          <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.instrumentCountsCorrect === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountsCorrect: e.target.checked }))} />Instrument, swab and needle counts correct (or discrepancy documented)</label>
+                          <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.specimenLabelled === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimenLabelled: e.target.checked }))} />Specimen correctly labelled, if applicable</label>
+                        </div>
+                      </div>
+                    </section>
+
                     {/* Anesthesia */}
                     <NoteTile
                       tileKey="anesthesia"
