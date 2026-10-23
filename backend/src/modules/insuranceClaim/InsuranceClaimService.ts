@@ -906,11 +906,11 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       );
       const dispensedQuantity = matchingDispensedMedicines.reduce((sum: number, med: any) => sum + Number(med.quantity ?? 0), 0);
       const rowQuantity = Number(row.quantity);
-      const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem.id) ?? 0;
+      const alreadyClaimedQuantity = claimedQuantityByStockItem.get(catalog.StockItem?.id ?? '') ?? 0;
       if (!Number.isFinite(rowQuantity) || rowQuantity <= 0 || alreadyClaimedQuantity + rowQuantity > dispensedQuantity) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${dispensedQuantity - alreadyClaimedQuantity} remaining).`);
       }
-      claimedQuantityByStockItem.set(catalog.StockItem.id, alreadyClaimedQuantity + rowQuantity);
+      claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
       if (rule.authorizationRequired === true) {
         const approval = authorisations.find((candidate: any) =>
           approvedServicesCoverPrescription(candidate.approvedServices, {
