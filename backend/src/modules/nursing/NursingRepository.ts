@@ -1,6 +1,7 @@
 // src/modules/nursing/NursingRepository.ts
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { ConflictError, NotFoundError } from '../../utils/errors';
 import {
   MarFilters,
   NursingNoteFilters,
@@ -111,8 +112,20 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     userId: string,
     data: { administeredAt?: Date; site?: string; notes?: string },
   ) {
-    return this.prisma.medicationDose.update({
-      where: { id: doseId },
+    // Conditional write closes the gap between the service's pre-check and this
+    // mutation: two MAR sessions cannot both record the same dose, and closed
+    // encounters/cancelled prescriptions cannot pass the final database filter.
+    const result = await this.prisma.medicationDose.updateMany({
+      where: {
+        id: doseId,
+        status: { in: ['scheduled', 'due', 'late'] },
+        medication: {
+          is: {
+            status: { not: 'cancelled' },
+            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+          },
+        },
+      },
       data: {
         status: 'administered',
         administeredAt: data.administeredAt ?? new Date(),
@@ -120,6 +133,14 @@ export class NursingRepository extends BaseRepository<any, any, any> {
         site: data.site ?? undefined,
         notes: data.notes ?? undefined,
       },
+    });
+    if (result.count !== 1) {
+      const existing = await this.prisma.medicationDose.findUnique({ where: { id: doseId }, select: { id: true } });
+      if (!existing) throw new NotFoundError('Medication dose', doseId);
+      throw new ConflictError('This dose is no longer awaiting administration or its encounter/prescription is closed');
+    }
+    return this.prisma.medicationDose.findUniqueOrThrow({
+      where: { id: doseId },
       include: this.doseInclude(),
     });
   }
@@ -129,14 +150,33 @@ export class NursingRepository extends BaseRepository<any, any, any> {
     userId: string,
     data: { status: DoseStatus; reason?: string; notes?: string },
   ) {
-    return this.prisma.medicationDose.update({
-      where: { id: doseId },
+    // A variance is still a clinical action; apply the same closed-encounter and
+    // cancelled-prescription guard at the point of write.
+    const result = await this.prisma.medicationDose.updateMany({
+      where: {
+        id: doseId,
+        status: { in: ['scheduled', 'due', 'late', 'missed', 'refused', 'held'] },
+        medication: {
+          is: {
+            status: { not: 'cancelled' },
+            Attendance: { is: { status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] } } },
+          },
+        },
+      },
       data: {
         status: data.status,
         varianceReason: data.reason ?? null,
         notes: data.notes ?? undefined,
         administeredById: userId,
       },
+    });
+    if (result.count !== 1) {
+      const existing = await this.prisma.medicationDose.findUnique({ where: { id: doseId }, select: { id: true } });
+      if (!existing) throw new NotFoundError('Medication dose', doseId);
+      throw new ConflictError('This dose is no longer eligible for a variance or its encounter/prescription is closed');
+    }
+    return this.prisma.medicationDose.findUniqueOrThrow({
+      where: { id: doseId },
       include: this.doseInclude(),
     });
   }

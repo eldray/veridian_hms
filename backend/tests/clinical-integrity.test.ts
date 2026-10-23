@@ -3,7 +3,59 @@ import { EncounterRepository, resolvePatientClassification } from '../src/module
 import { EncounterService } from '../src/modules/encounter/EncounterService';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
+import { NursingRepository } from '../src/modules/nursing/NursingRepository';
 
+
+
+describe('atomic MAR dose writes', () => {
+  it('claims only an eligible dose for administration and rejects a lost race', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1' });
+    const prisma: any = { medicationDose: { updateMany, findUnique } };
+    const repository = new NursingRepository(prisma);
+
+    await expect(repository.administerDose('dose-1', 'nurse-1', {}))
+      .rejects.toThrow(/no longer awaiting administration/i);
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        id: 'dose-1',
+        status: { in: ['scheduled', 'due', 'late'] },
+        medication: expect.objectContaining({
+          is: expect.objectContaining({
+            status: { not: 'cancelled' },
+            Attendance: expect.objectContaining({
+              is: expect.objectContaining({
+                status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] },
+              }),
+            }),
+          }),
+        }),
+      }),
+    }));
+  });
+
+  it('does not record a medication variance after the encounter has closed', async () => {
+    const updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    const findUnique = vi.fn().mockResolvedValue({ id: 'dose-1' });
+    const repository = new NursingRepository({ medicationDose: { updateMany, findUnique } } as any);
+
+    await expect(repository.recordDoseVariance('dose-1', 'nurse-1', { status: 'refused', reason: 'Patient refused' }))
+      .rejects.toThrow(/encounter\/prescription is closed/i);
+    expect(updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        medication: expect.objectContaining({
+          is: expect.objectContaining({
+            Attendance: expect.objectContaining({
+              is: expect.objectContaining({
+                status: { notIn: ['discharged', 'referred', 'absconded', 'completed', 'cancelled'] },
+              }),
+            }),
+          }),
+        }),
+      }),
+    }));
+  });
+});
 
 describe('auditable admission cancellation', () => {
   const makeTx = (overrides: any = {}) => {
