@@ -4,6 +4,7 @@ import { EncounterService } from '../src/modules/encounter/EncounterService';
 import { AntenatalRepository } from '../src/modules/antenatal/AntenatalRepository';
 import { NursingService } from '../src/modules/nursing/NursingService';
 import { NursingRepository } from '../src/modules/nursing/NursingRepository';
+import { buildWardChargeAdmissionWhere } from '../src/cron/wardChargeCron';
 
 
 
@@ -1981,5 +1982,24 @@ describe('theatre procedure safety documentation', () => {
         bloodLoss: 100,
       }),
     }));
+  });
+});
+
+
+describe('ward charge admission date eligibility', () => {
+  it('charges only admissions active on the requested date and excludes cancelled/non-admitted stays', () => {
+    const start = new Date('2026-10-23T00:00:00.000Z');
+    const end = new Date('2026-10-23T23:59:59.999Z');
+
+    expect(buildWardChargeAdmissionWhere(start, end)).toEqual({
+      status: 'active',
+      cancelledAt: null,
+      admissionDate: { lte: end },
+      OR: [
+        { dischargeDate: null },
+        { dischargeDate: { gte: start } },
+      ],
+      attendance: { status: 'admitted' },
+    });
   });
 });
