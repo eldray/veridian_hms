@@ -1,6 +1,7 @@
 import { ValidationError } from '../../utils/errors';
 
 export type NHISFacilityType =
+  | 'CHPS'
   | 'Tertiary'
   | 'Secondary'
   | 'Primary'
@@ -59,9 +60,27 @@ export function validateNHISPrescribingLevel(context: NHISPrescribingContext): v
     );
   }
 
+  if (level === 'A' && facilityType !== 'CHPS') {
+    throw new ValidationError(
+      'This medicine is restricted to NHIS level A facilities (CHPS).',
+    );
+  }
+
+  if (level === 'B1' && (facilityType !== 'Health_Center' || context.hasDoctorAtFacility !== false)) {
+    throw new ValidationError(
+      'This medicine requires a Health Centre without a doctor (NHIS level B1). Verify the facility type and active doctor roster.',
+    );
+  }
+
   if (level === 'B2' && facilityType === 'Health_Center' && context.hasDoctorAtFacility !== true) {
     throw new ValidationError(
       'This medicine requires a Health Centre with a doctor (NHIS level B2); the facility has no active doctor configured.',
+    );
+  }
+
+  if (level === 'B2' && facilityType !== 'Health_Center') {
+    throw new ValidationError(
+      'This medicine is restricted to NHIS level B2 Health Centres.',
     );
   }
 
