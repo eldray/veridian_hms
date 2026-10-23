@@ -2009,6 +2009,19 @@ describe('theatre procedure safety documentation', () => {
     expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
   });
 
+  it('rejects invalid time values in hospital-specific theatre fields', async () => {
+    const prisma = makeProcedurePrisma();
+    const repository = new EncounterRepository(prisma);
+
+    await expect(repository.updateProcedureStatus('procedure-1', 'in_progress', {
+      clinicalRecord: {
+        customProtocolFields: [{ id: 'time', label: 'Start time', type: 'time', value: '27:61', required: false }],
+      },
+    }, 'nurse-1')).rejects.toThrow(/start time must contain a valid time/i);
+
+    expect(prisma.procedure.updateMany).not.toHaveBeenCalled();
+  });
+
   it('persists the structured theatre record when all mandatory checks are documented', async () => {
     const prisma = makeProcedurePrisma();
     const repository = new EncounterRepository(prisma);
