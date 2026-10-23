@@ -1875,9 +1875,12 @@ export const updateAdmission = (id: string, data: {
 }) =>
   api.put(`/encounters/admissions/${id}`, data).then(r => r.data?.data || r.data);
 
-// DELETE admission (only if not discharged)
-export const deleteAdmission = (id: string) =>
-  api.delete(`/encounters/admissions/${id}`).then(r => r.data);
+// Cancel an admission entered in error. The backend retains the record and audit history.
+export const cancelAdmission = (id: string, reason: string) =>
+  api.post(`/encounters/admissions/${id}/cancel`, { reason }).then(r => r.data);
+
+// Backward-compatible store/API name; this now performs audited cancellation, never hard deletion.
+export const deleteAdmission = (id: string, reason: string) => cancelAdmission(id, reason);
 
 // DISCHARGE from encounter (works for IPD, Daycase, and Detention)
 export const dischargeFromEncounter = (encounterId: string, data?: {
