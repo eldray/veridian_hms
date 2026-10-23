@@ -369,7 +369,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const description = catalog ? `${catalog.name} (${catalog.code})` : fallbackName;
         // A covered payer tariff is the insurer's liability, not a patient charge.
         // Uncovered / missing-tariff services fall back to cash through resolveUnitPrice.
-        const payerCoversLine = !!catalog && !!catalog.pricing?.[0] &&
+        const payerCoversLine = (paymentMode === 'nhis' || paymentMode === 'private_insurance') &&
+          !!catalog && !!catalog.pricing?.[0] &&
           isPayerCovered(catalog.pricing[0], paymentMode, {
             isNHISCovered: catalog.isNHISCovered,
             isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted
