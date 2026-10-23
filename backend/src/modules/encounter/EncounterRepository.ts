@@ -1516,6 +1516,20 @@ async addScan(encounterId: string, data: any, userId: string) {
 async addProcedure(encounterId: string, data: any, userId: string) {
   const actorId = await this.requireActorId(userId);
   await this.requireOpenEncounter(encounterId);
+
+  // Validate scheduling inputs before looking up templates or writing a procedure.
+  let scheduledDate: Date | null = null;
+  if (data.scheduledDate) {
+    scheduledDate = data.scheduledDate instanceof Date ? data.scheduledDate : new Date(data.scheduledDate);
+    if (Number.isNaN(scheduledDate.getTime())) {
+      throw new ValidationError('Procedure scheduled date must be valid');
+    }
+  }
+  if (data.duration !== undefined && data.duration !== null &&
+      (!Number.isInteger(Number(data.duration)) || Number(data.duration) < 1 || Number(data.duration) > 1440)) {
+    throw new ValidationError('Procedure duration must be between 1 and 1440 minutes');
+  }
+
   let templateId: string | undefined;
   const serviceCatalogId = data.serviceCatalogId as string | undefined;
 
@@ -1546,7 +1560,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       templateId: template.id,
       serviceCatalogId: serviceCatalogId ?? null,
       status: 'scheduled',
-      scheduledDate: data.scheduledDate ? new Date(data.scheduledDate) : null,
+      scheduledDate,
       notes: data.notes ?? null,
       duration: data.duration ?? null,
       createdById: actorId,
