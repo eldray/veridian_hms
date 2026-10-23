@@ -1,4 +1,4 @@
-/** Shared bed release logic for encounter terminal transitions and admission updates. */
+/** Shared bed occupancy lifecycle logic used by admission and encounter workflows. */
 export const releaseBedForAttendance = async (
   tx: any,
   attendance: { id: string; bedId?: string | null },

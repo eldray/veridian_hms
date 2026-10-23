@@ -4,7 +4,7 @@ import { EncounterRepository } from './EncounterRepository';
 import { getCounterService } from '../../services/CounterService';
 import { cached } from '../../utils/ttlCache';
 import { ValidationError, NotFoundError, ConflictError } from '../../utils/errors';
-import { releaseBedForAttendance } from './bedOccupancy';
+import { releaseBedForAttendance } from '../bed/bedOccupancy';
 
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
