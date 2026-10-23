@@ -48,6 +48,7 @@ describe('clinical order concurrent-update guards', () => {
         instrumentCountsStatus: 'correct',
         postOpDestination: 'Recovery room',
         postOpPlan: 'Monitor and escalate deterioration',
+        handoverNotes: 'Recovery nurse received patient and post-operative plan',
       },
     }, 'staff-1'))
       .rejects.toThrow(/closed encounter/i);
@@ -118,6 +119,7 @@ describe('clinical order concurrent-update guards', () => {
         instrumentCountsStatus: 'correct',
         postOpDestination: 'Recovery room',
         postOpPlan: 'Monitor and escalate deterioration',
+        handoverNotes: 'Recovery nurse received patient and post-operative plan',
       },
     }, 'staff-1'))
       .rejects.toThrow(/procedure status changed/i);
