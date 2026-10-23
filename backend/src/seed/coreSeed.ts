@@ -997,6 +997,8 @@ export const seedCoreData = async (force: boolean = false) => {
           ? reference.nhisRequiresAuth
           : undefined;
         const allowedPrescribingLevels = new Set(['A', 'M', 'B1', 'B2', 'C', 'D', 'SM']);
+        const rawEffectiveFrom = typeof reference.effectiveFrom === 'string' ? new Date(reference.effectiveFrom) : null;
+        const effectiveFrom = rawEffectiveFrom && Number.isFinite(rawEffectiveFrom.getTime()) ? rawEffectiveFrom : undefined;
         const rawLevel = typeof reference.prescribingLevel === 'string' ? reference.prescribingLevel.trim().toUpperCase() : '';
         const suppliedLevel = allowedPrescribingLevels.has(rawLevel) ? rawLevel : undefined;
         if (rawLevel && !suppliedLevel) {
@@ -1019,6 +1021,7 @@ export const seedCoreData = async (force: boolean = false) => {
             tariffPrice,
             sourceFile: 'backend/src/data/nhismedicines.json',
             sourceVersion: typeof reference.sourceVersion === 'string' ? reference.sourceVersion : null,
+            effectiveFrom: effectiveFrom ?? null,
           },
           update: {
             isCovered: true,
@@ -1027,6 +1030,7 @@ export const seedCoreData = async (force: boolean = false) => {
             ...(tariffPrice !== null ? { tariffPrice } : {}),
             sourceFile: 'backend/src/data/nhismedicines.json',
             ...(typeof reference.sourceVersion === 'string' ? { sourceVersion: reference.sourceVersion } : {}),
+            ...(effectiveFrom ? { effectiveFrom } : {}),
           },
         });
         nhisRulesSeeded++;
