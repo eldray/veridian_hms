@@ -40,10 +40,21 @@ export class AuthController {
 
   private login = async (req: Request, res: Response) => {
     try {
-      const result = await this.authService.login(req.body);
+      const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+      const password = typeof req.body?.password === 'string' ? req.body.password : '';
+
+      if (!username || !password) {
+        res.status(400).json({ success: false, message: 'Username and password are required' });
+        return;
+      }
+
+      const result = await this.authService.login({ username, password });
       res.status(result.success ? 200 : 401).json(result);
     } catch (error) {
-      res.status(500).json({ success: false, message: 'Login failed' });
+      // Keep internal details in the backend console only. Without this log,
+      // Prisma/configuration errors are masked as an unexplained HTTP 500.
+      console.error('[AUTH] Login failed:', error);
+      res.status(500).json({ success: false, message: 'Login failed. Check the backend logs for the underlying error.' });
     }
   };
 
