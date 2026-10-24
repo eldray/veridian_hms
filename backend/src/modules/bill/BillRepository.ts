@@ -366,7 +366,25 @@ export class BillRepository extends BaseRepository<any, any, any> {
   // ✅ Generates a Bill from an attendance's billable items (ServiceRendered, LabTest, Scan, Procedure, Medication).
   async generateFromEncounter(encounterId: string, createdBy: string) {
     return this.prisma.$transaction(async (tx) => {
-      const activePricing = { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' as const } } };
+      const attendanceDate = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        select: { dateTime: true }
+      });
+      if (!attendanceDate) throw new Error('Encounter not found');
+      // Bill from the tariff effective when this encounter occurred, not a future
+      // or expired tariff that happens to be marked active today.
+      const serviceDate = attendanceDate.dateTime;
+      const activePricing = {
+        pricing: {
+          where: {
+            isActive: true,
+            effectiveDate: { lte: serviceDate },
+            OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }]
+          },
+          take: 1,
+          orderBy: { effectiveDate: 'desc' as const }
+        }
+      };
       const attendance = await tx.attendance.findUnique({
         where: { id: encounterId },
         include: {
