@@ -185,6 +185,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
     } catch (error: any) {
       if (idempotencyKey && error?.code === 'P2002') {
         const priorPayment = await this.prisma.payment.findUnique({ where: { idempotencyKey } });
+        if (priorPayment && priorPayment.billId !== billId) {
+          throw new ValidationError('Payment request key has already been used for another bill.');
+        }
         if (priorPayment?.billId === billId) {
           const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
           const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
