@@ -163,7 +163,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
               select: { id: true }
             })
           : null;
-        if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
+        if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
         const bill = await tx.bill.findUnique({ where: { id: billId } });
         if (!bill) throw new Error('Bill not found');
         const amount = Math.round(Number(paymentData.amount) * 100) / 100;
