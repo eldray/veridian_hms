@@ -1662,7 +1662,12 @@ const getBillsPage = (filters?: any) => {
 // limit > 100 walks all pages (backend maximum is 100 per request)
 export const getBills = async (filters?: any) => {
   if (!wantsMoreThanOnePage(filters)) return getBillsPage(filters);
-  return fetchAllPages<any>(getBillsPage, filters, { maxItems: Number(filters.limit) });
+  const items = await fetchAllPages<any>(getBillsPage, filters, { maxItems: Number(filters.limit) });
+  // fetchAllPages returns a plain array; attach a consistent pagination shape for stores.
+  return Object.assign(items, {
+    pagination: { page: 1, limit: items.length, total: items.length, pages: 1, totalPages: 1 },
+    total: items.length,
+  });
 };
 
 export const getBill = (id: string) => {
