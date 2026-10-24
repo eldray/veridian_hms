@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import { EncounterController } from './EncounterController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 import { uploadScanImages, handleUploadError } from '../../middleware/uploadMiddleware';
+import prismaClient from '../../core/database/prisma.client';
+import { WardChargeService } from '../../cron/wardChargeCron';
 
 export function createEncounterRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -72,6 +74,33 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.post('/:id/refer', requireRole(['admin', 'super_admin', 'doctor']), controller.referEncounter);
   router.post('/:id/abscond', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.abscondEncounter);
   router.post('/:id/complete', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.completeEncounter);
+
+  // WARD CHARGES
+  router.get('/:id/ward-charges', async (req, res, next) => {
+    try {
+      const records = await prismaClient.wardChargeRecord.findMany({
+        where: { attendanceId: req.params.id },
+        include: { ward: true, billLineItem: true },
+        orderBy: { chargeDate: 'desc' },
+      });
+      return res.json({ success: true, data: records });
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  router.post('/ward-charges/generate', requireRole(['admin', 'super_admin', 'accounts']), async (req, res, next) => {
+    try {
+      const chargeDate = req.body?.date ? new Date(req.body.date) : new Date();
+      if (Number.isNaN(chargeDate.getTime())) {
+        return res.status(400).json({ success: false, message: 'date must be a valid date' });
+      }
+      const result = await WardChargeService.generateDailyWardCharges(chargeDate);
+      return res.json({ success: true, data: result, message: 'Daily ward charges generated' });
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   // BED OCCUPANCY
   router.get('/bed-occupancy', controller.getBedOccupancy);
