@@ -87,7 +87,7 @@ export const getRevenueReport = async (params: ReportFilter) => {
 // ============================================
 
 export const getFamilyPlanningReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/family-planning', { params });
+  const response = await api.get('/ghs-reports/family-planning', { params });
   return response.data;
 };
 
@@ -101,27 +101,27 @@ export const getDemographicReport = async (params: ReportFilter) => {
 // ============================================
 
 export const getLabReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/lab', { params });
+  const response = await api.get('/clinical-reports/lab', { params });
   return response.data;
 };
 
 export const getScanReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/scans', { params });
+  const response = await api.get('/clinical-reports/scan', { params });
   return response.data;
 };
 
 export const getProcedureReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/procedures', { params });
+  const response = await api.get('/clinical-reports/procedure', { params });
   return response.data;
 };
 
 export const getMedicationReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/medications', { params });
+  const response = await api.get('/clinical-reports/medication', { params });
   return response.data;
 };
 
 export const getVitalsReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/vitals', { params });
+  const response = await api.get('/clinical-reports/vitals', { params });
   return response.data;
 };
 
