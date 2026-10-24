@@ -115,24 +115,35 @@ export class MomoPaymentService {
       return { intent: this.publicIntent(existing), reused: true };
     }
 
-    if (bill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
-    if (amount > money(bill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
-
     const providerReference = randomUUID();
     let intent;
     try {
-      intent = await this.prisma.momoPaymentIntent.create({
-        data: {
-          billId: bill.id,
-          amount,
-          currency: process.env.MOMO_CURRENCY || 'GHS',
-          payerPhone,
-          providerReference,
-          idempotencyKey: input.idempotencyKey,
-          paymentIdempotencyKey: randomUUID(),
-          initiatedById: input.userId,
-          status: 'initiating'
-        }
+      // Lock the bill row while checking balance and creating the pending intent.
+      // Billing payment repositories acquire the same lock before posting collections.
+      intent = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${input.billId} FOR UPDATE`;
+        const lockedBill = await tx.bill.findUnique({ where: { id: input.billId } });
+        if (!lockedBill) throw Object.assign(new Error('Bill not found.'), { statusCode: 404 });
+        if (lockedBill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
+        if (amount > money(lockedBill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
+        const pending = await tx.momoPaymentIntent.findFirst({
+          where: { billId: input.billId, status: { in: ['initiating', 'pending'] } },
+          select: { id: true }
+        });
+        if (pending) throw Object.assign(new Error('Another Mobile Money payment is already pending for this bill. Verify or resolve it before starting a new attempt.'), { statusCode: 409 });
+        return tx.momoPaymentIntent.create({
+          data: {
+            billId: lockedBill.id,
+            amount,
+            currency: process.env.MOMO_CURRENCY || 'GHS',
+            payerPhone,
+            providerReference,
+            idempotencyKey: input.idempotencyKey,
+            paymentIdempotencyKey: randomUUID(),
+            initiatedById: input.userId,
+            status: 'initiating'
+          }
+        });
       });
     } catch (error: any) {
       if (error?.code === 'P2002') {
