@@ -122,7 +122,12 @@ export class MomoPaymentService {
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = await this.prisma.momoPaymentIntent.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
-        if (raced) return { intent: raced, reused: true };
+        if (raced) {
+          if (raced.billId !== input.billId || money(raced.amount) !== amount || raced.payerPhone !== payerPhone) {
+            throw Object.assign(new Error('This payment attempt key was already used with different payment details.'), { statusCode: 409 });
+          }
+          return { intent: raced, reused: true };
+        }
       }
       throw error;
     }
