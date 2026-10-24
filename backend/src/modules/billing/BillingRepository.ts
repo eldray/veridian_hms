@@ -298,24 +298,36 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
       if (waiver.status !== 'approved') throw new Error('Only approved waivers can be applied');
+      if (waiver.appliedAt) throw new Error('This waiver has already been applied');
       if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
 
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals
-      const newWaiverAmount = toNumber(bill.waiverAmount) + toNumber(waiver.amountApproved);
-      const newPatientPayable = toNumber(bill.patientPayable) - toNumber(waiver.amountApproved);
-      const newBalance = newPatientPayable - toNumber(bill.paidAmount);
+      const amount = toNumber(waiver.amountApproved);
+      const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
+      if (!Number.isFinite(amount) || amount <= 0 || amount > remainingPatientLiability) {
+        throw new Error('Approved waiver exceeds the remaining patient liability');
+      }
+      // Claim the waiver atomically so concurrent requests cannot apply it twice.
+      const claimed = await tx.patientWaiver.updateMany({
+        where: { id: waiverId, status: 'approved', appliedAt: null },
+        data: { appliedAt: new Date() }
+      });
+      if (claimed.count !== 1) throw new Error('This waiver has already been applied');
+
+      const newWaiverAmount = toNumber(bill.waiverAmount) + amount;
+      const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - amount);
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updated = await tx.bill.update({
         where: { id: billId },
-        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : bill.status },
+        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') },
         include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
 
       if (updated.attendanceId) {
-        await tx.attendance.update({ where: { id: updated.attendanceId }, data: { outstandingBalance: { decrement: toNumber(waiver.amountApproved) } } });
+        await tx.attendance.update({ where: { id: updated.attendanceId }, data: { outstandingBalance: newBalance } });
       }
 
       return updated;
