@@ -12,11 +12,26 @@ const billService = new BillService(prisma);
 // ✅ Kept your exact validation arrays
 export const createBillValidation = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
+  body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one line item is required'),
   body('items.*.serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for each item'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  body('items.*.unitPrice').isFloat({ min: 0 }).withMessage('Unit price must be non-negative'),
-  body('paymentMode').optional().isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Invalid payment mode')
+  body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('Unit price must be non-negative'),
+  body('paymentMode').optional().isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Invalid payment mode'),
+  body('insuranceProviderId').optional().isString(),
+  body('corporateAccountId').optional().isString(),
+  body('insuranceProviderId').custom((value, { req }) => {
+    if (['nhis', 'private_insurance'].includes(req.body.paymentMode) && !value) {
+      throw new Error('Insurance Provider ID is required for insured bills');
+    }
+    return true;
+  }),
+  body('corporateAccountId').custom((value, { req }) => {
+    if (req.body.paymentMode === 'corporate' && !value) {
+      throw new Error('Corporate Account ID is required for corporate bills');
+    }
+    return true;
+  })
 ];
 
 export const updateBillValidation = [
