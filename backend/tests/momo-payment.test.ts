@@ -332,4 +332,22 @@ describe('MomoPaymentService', () => {
       }),
     }));
   });
+
+  it('refreshes a revoked cached access token once after HTTP 401', async () => {
+    const { service, addPayment } = setup();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'old-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('unauthorized', { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'fresh-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(providerResponse('PENDING'));
+    globalThis.fetch = fetchMock as any;
+
+    const result = await service.getStatus(baseIntent.id, 'cashier-1', 'cashier');
+
+    expect(result.status).toBe('pending');
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[1][1].headers.Authorization).toBe('Bearer old-token');
+    expect(fetchMock.mock.calls[3][1].headers.Authorization).toBe('Bearer fresh-token');
+    expect(addPayment).not.toHaveBeenCalled();
+  });
 });
