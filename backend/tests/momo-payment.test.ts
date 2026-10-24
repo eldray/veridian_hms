@@ -192,6 +192,29 @@ describe('MomoPaymentService', () => {
     }));
   });
 
+  it('does not let a stale pending poll overwrite a concurrently completed payment', async () => {
+    const { service, prisma, addPayment } = setup();
+    prisma.momoPaymentIntent.findUnique
+      .mockReset()
+      .mockResolvedValueOnce({ ...baseIntent, status: 'pending' })
+      // Another poll completed the payment before this poll persisted its stale response.
+      .mockResolvedValueOnce({ ...baseIntent, status: 'successful', paymentId: 'payment-1' });
+    prisma.momoPaymentIntent.updateMany = vi.fn().mockResolvedValue({ count: 0 });
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(providerResponse('PENDING')) as any;
+
+    const result = await service.getStatus(baseIntent.id, 'cashier-1', 'cashier');
+
+    expect(prisma.momoPaymentIntent.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: baseIntent.id, status: { in: ['initiating', 'pending'] } },
+      data: expect.objectContaining({ status: 'pending', providerStatus: 'PENDING' }),
+    }));
+    expect(result.status).toBe('successful');
+    expect(result.paymentId).toBe('payment-1');
+    expect(addPayment).not.toHaveBeenCalled();
+  });
+
   it('records payment through the existing billing service only after provider success', async () => {
     const { service, prisma, addPayment } = setup();
     globalThis.fetch = vi.fn()
