@@ -166,7 +166,20 @@ export class ProformaInvoiceService extends BaseService {
     if (existing.convertedToBillId) throw new Error('This proforma invoice has already been converted to a bill');
 
     return this.prisma.$transaction(async (tx) => {
-      const billNumber = getCounterService().nextBillNumber(); // ✅ FIXED: No more Math.random()
+      // Atomically reserve conversion so two concurrent requests cannot create two bills.
+      const reservation = await tx.proformaInvoice.updateMany({
+        where: {
+          id,
+          status: { in: ['APPROVED', 'SENT'] },
+          convertedToBillId: null,
+        },
+        data: { status: 'CONVERTED' },
+      });
+      if (reservation.count !== 1) {
+        throw new Error('This proforma invoice has already been converted or is no longer eligible. Refresh and check its current status.');
+      }
+
+      const billNumber = getCounterService().nextBillNumber();
       
       const insuranceCovered = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoverage), 0);
       const patientPayable = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.patientResponsibility), 0) - toNumber(existing.discount);

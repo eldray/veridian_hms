@@ -11,6 +11,30 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     super(prisma, 'bill');
   }
 
+  private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
+    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    if (typeof tx.bill.aggregate !== 'function') {
+      // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
+      if (fallback && tx.attendance?.update) {
+        await tx.attendance.update({ where: { id: attendanceId }, data: {
+          totalBill: toNumber(fallback.totalAmount),
+          paidAmount: toNumber(fallback.paidAmount),
+          outstandingBalance: toNumber(fallback.balance)
+        }});
+      }
+      return;
+    }
+    const totals = await tx.bill.aggregate({
+      where: { attendanceId, status: { not: 'cancelled' } },
+      _sum: { totalAmount: true, paidAmount: true, balance: true }
+    });
+    await tx.attendance.update({ where: { id: attendanceId }, data: {
+      totalBill: toNumber(totals._sum.totalAmount),
+      paidAmount: toNumber(totals._sum.paidAmount),
+      outstandingBalance: toNumber(totals._sum.balance)
+    }});
+  }
+
   async findAll(filters: BillFilters) {
     const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
@@ -95,73 +119,126 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       }
   
       const lineItems = await tx.billLineItem.findMany({ where: { billId: bill.id, isVoided: false } });
-  
-      // ✅ FIXED: Safely parse Prisma Decimals to numbers for JS math
-      const totalAmount = lineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
-      let patientPayable = totalAmount;
-      let insuranceCovered = 0;
 
-      if ((data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') && data.insuranceProviderId) {
-        const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
-        if (provider) {
-          const coverageRate = toNumber(provider.coveragePercentage) / 100;
-          // NHIS medicine lines carry explicit payer-rule allocations; other lines keep existing percentage coverage.
-          insuranceCovered = lineItems.reduce((sum, line) => {
-            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.insuranceCoveredAmount);
-            return sum + toNumber(line.lineTotal) * coverageRate;
-          }, 0);
-          patientPayable = lineItems.reduce((sum, line) => {
-            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.patientPayableAmount);
-            return sum + toNumber(line.lineTotal) * (1 - coverageRate);
-          }, 0);
-        }
-      } else if (data.paymentMode === 'corporate' && data.corporateAccountId) {
+      const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const totalAmount = money(lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      // The service layer records payer allocation per line. Trust those explicit
+      // allocations instead of applying a blanket provider coverage percentage to
+      // uncovered/exempted services that were correctly priced at the cash tariff.
+      let patientPayable = money(lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0));
+      let insuranceCovered = money(lineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+
+      if (data.paymentMode === 'corporate' && data.corporateAccountId) {
         const corporate = await tx.corporateAccount.findUnique({ where: { id: data.corporateAccountId } });
         if (corporate) {
           patientPayable = 0;
-          const corporateCovered = totalAmount;
-          await tx.corporateAccount.update({ where: { id: data.corporateAccountId }, data: { currentBalance: { increment: corporateCovered } } });
+          insuranceCovered = 0;
+          await tx.corporateAccount.update({ where: { id: data.corporateAccountId }, data: { currentBalance: { increment: totalAmount } } });
         }
       }
   
-      return tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: { totalAmount, patientPayable, balance: patientPayable, subtotal: totalAmount, insuranceCovered, waiverAmount: 0 },
         include: { Patient: true, Attendance: true, BillLineItem: true, CorporateAccount: true }
       });
+      if (updatedBill.attendanceId) {
+        await this.syncAttendanceFinancials(tx, updatedBill.attendanceId, updatedBill);
+      }
+      return updatedBill;
     });
   }
 
   async addPayment(id: string, paymentData: any) {
-    return this.prisma.$transaction(async (tx) => {
-      const bill = await tx.bill.findUnique({ where: { id } });
-      if (!bill) throw new Error('Bill not found');
-
-      // ✅ FIXED: Safely parse Decimals
-      const paymentAmount = toNumber(paymentData.amount);
-      const newPaidAmount = toNumber(bill.paidAmount) + paymentAmount;
-      const newBalance = toNumber(bill.patientPayable) - newPaidAmount;
-
-      let newStatus: BillStatus = bill.status;
-      if (newBalance <= 0) newStatus = 'paid';
-      else if (newPaidAmount > 0 && newPaidAmount < toNumber(bill.patientPayable)) newStatus = 'partial';
-
-      const updatedBill = await tx.bill.update({
-        where: { id },
-        data: { paidAmount: newPaidAmount, balance: newBalance, status: newStatus, updatedAt: new Date() },
-        include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } }, Attendance: { select: { attendanceNumber: true, attendanceType: true } }, CorporateAccount: true }
+    const idempotencyKey = paymentData.idempotencyKey;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const lockedBillId = id;
+        // Match MoMo initiation's row lock so pending-intent checks cannot race a collection.
+        if (typeof tx.$queryRaw === 'function') {
+          await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${lockedBillId} FOR UPDATE`;
+        }
+        if (idempotencyKey) {
+          const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
+          if (priorPayment) {
+            if (priorPayment.billId !== id) throw new Error('Payment request key has already been used for another bill.');
+            const requestedAmount = Math.round(toNumber(paymentData.amount) * 100) / 100;
+            const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+            const requestedReference = paymentData.reference || null;
+            const priorReference = priorPayment.reference || null;
+            if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+              throw new Error('Payment idempotency key was already used with different payment details.');
+            }
+            const priorBill = await tx.bill.findUnique({ where: { id } });
+            return { bill: priorBill, payment: priorPayment, duplicate: true };
+          }
+        }
+        if (paymentData.internalMomoIntentId) {
+          const confirmedIntent = tx.momoPaymentIntent?.findFirst
+            ? await tx.momoPaymentIntent.findFirst({
+                where: {
+                  id: paymentData.internalMomoIntentId,
+                  billId: lockedBillId,
+                  status: { in: ['initiating', 'pending'] }
+                },
+                select: { id: true }
+              })
+            : null;
+          if (!confirmedIntent) throw Object.assign(new Error('The confirmed Mobile Money intent is no longer valid for this bill.'), { statusCode: 409 });
+        } else {
+          const pendingMomo = tx.momoPaymentIntent?.findFirst
+            ? await tx.momoPaymentIntent.findFirst({
+                where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
+                select: { id: true }
+              })
+            : null;
+          if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
+        }
+        const bill = await tx.bill.findUnique({ where: { id } });
+        if (!bill) throw new Error('Bill not found');
+        const amount = Math.round(toNumber(paymentData.amount) * 100) / 100;
+        if (!Number.isFinite(amount) || amount <= 0) throw new Error('Payment amount must be greater than zero.');
+        const changed = await tx.bill.updateMany({
+          where: { id, balance: { gte: amount }, status: { not: 'cancelled' } },
+          data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
+        });
+        if (changed.count !== 1) {
+          const latest = await tx.bill.findUnique({ where: { id }, select: { balance: true, status: true } });
+          throw new Error(latest?.status === 'cancelled' ? 'Cannot accept payment against a cancelled bill.' : `Payment exceeds the patient's outstanding balance (${Math.max(0, toNumber(latest?.balance)).toFixed(2)}). Refresh the bill and try again.`);
+        }
+        const current = await tx.bill.findUnique({ where: { id } });
+        if (!current) throw new Error('Bill not found');
+        const newBalance = Math.max(0, toNumber(current.balance));
+        const updatedBill = await tx.bill.update({
+          where: { id }, data: { status: newBalance <= 0 ? 'paid' : 'partial', updatedAt: new Date() },
+          include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true, contact: true } }, Attendance: { select: { attendanceNumber: true, attendanceType: true } }, CorporateAccount: true }
+        });
+        const payment = await tx.payment.create({
+          data: { billId: id, amount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || null, idempotencyKey, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
+        });
+        if (current.attendanceId) await this.syncAttendanceFinancials(tx, current.attendanceId, { ...current, balance: newBalance });
+        return { bill: updatedBill, payment, duplicate: false };
       });
-
-      const payment = await tx.payment.create({
-        data: { billId: id, amount: paymentAmount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || `PAY-${Date.now()}`, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
-      });
-
-      if (bill.attendanceId) {
-        await tx.attendance.update({ where: { id: bill.attendanceId }, data: { outstandingBalance: newBalance } });
+    } catch (error: any) {
+      if (idempotencyKey && error?.code === 'P2002') {
+        const priorPayment = await this.prisma.payment.findUnique({ where: { idempotencyKey } });
+        if (priorPayment && priorPayment.billId !== id) {
+          throw new Error('Payment request key has already been used for another bill.');
+        }
+        if (priorPayment?.billId === id) {
+          const requestedAmount = Math.round(toNumber(paymentData.amount) * 100) / 100;
+          const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+          const requestedReference = paymentData.reference || null;
+          const priorReference = priorPayment.reference || null;
+          if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+            throw new Error('Payment idempotency key was already used with different payment details.');
+          }
+          const priorBill = await this.prisma.bill.findUnique({ where: { id } });
+          if (priorBill) return { bill: priorBill, payment: priorPayment, duplicate: true };
+        }
       }
-
-      return { bill: updatedBill, payment };
-    });
+      throw error;
+    }
   }
 
   async findCollections(dateFrom: Date, dateTo: Date) {
@@ -275,13 +352,38 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const updatedLineItem = await tx.billLineItem.update({ where: { id: lineItemId }, data: { isVoided: true, voidedAt: new Date(), voidedById: userId, voidReason: reason } });
 
       const activeLineItems = await tx.billLineItem.findMany({ where: { billId: lineItem.billId, isVoided: false } });
-      
-      // ✅ FIXED: Safely parse Decimals
-      const newTotal = activeLineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
-      const newPatientPayable = activeLineItems.reduce((sum, i) => sum + toNumber(i.patientPayableAmount), 0);
-      const newBalance = newPatientPayable - toNumber(lineItem.bill.paidAmount);
+      const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const newTotal = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      const grossPatientLiability = money(activeLineItems.reduce((sum, item) => {
+        const explicitPatient = toNumber(item.patientPayableAmount);
+        const explicitInsurance = toNumber(item.insuranceCoveredAmount);
+        // Older cash bills predate line-level payer allocation and have zero defaults.
+        // Their line total remains patient liability; do not silently erase it on void.
+        const legacyCashLiability = item.pricingBasis === 'cash' && explicitPatient === 0 && explicitInsurance === 0
+          ? toNumber(item.lineTotal)
+          : explicitPatient;
+        return sum + legacyCashLiability;
+      }, 0));
+      const newInsuranceCovered = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+      const currentBill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      if (!currentBill) throw new Error('Bill not found');
+      const newPatientPayable = Math.max(0, money(grossPatientLiability - toNumber(currentBill.waiverAmount)));
+      const newBalance = Math.max(0, money(newPatientPayable - toNumber(currentBill.paidAmount)));
+      const newStatus: BillStatus = newBalance <= 0 ? 'paid' : (toNumber(currentBill.paidAmount) > 0 ? 'partial' : 'pending');
 
-      await tx.bill.update({ where: { id: lineItem.billId }, data: { totalAmount: newTotal, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : lineItem.bill.status } });
+      await tx.bill.update({
+        where: { id: lineItem.billId },
+        data: {
+          subtotal: newTotal,
+          totalAmount: newTotal,
+          insuranceCovered: newInsuranceCovered,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newStatus,
+          updatedAt: new Date()
+        }
+      });
+      if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, totalAmount: newTotal, balance: newBalance });
 
       return updatedLineItem;
     });
@@ -292,41 +394,56 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
       if (waiver.status !== 'approved') throw new Error('Only approved waivers can be applied');
+      if (waiver.appliedAt) throw new Error('This waiver has already been applied');
       if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
 
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // ✅ FIXED: Safely parse Decimals
-      const newWaiverAmount = toNumber(bill.waiverAmount) + toNumber(waiver.amountApproved);
-      const newPatientPayable = toNumber(bill.patientPayable) - toNumber(waiver.amountApproved);
-      const newBalance = newPatientPayable - toNumber(bill.paidAmount);
+      const amount = toNumber(waiver.amountApproved);
+      const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
+      if (!Number.isFinite(amount) || amount <= 0 || amount > remainingPatientLiability) {
+        throw new Error('Approved waiver exceeds the remaining patient liability');
+      }
+      // Claim the waiver atomically so concurrent requests cannot apply it twice.
+      const claimed = await tx.patientWaiver.updateMany({
+        where: { id: waiverId, status: 'approved', appliedAt: null },
+        data: { appliedAt: new Date() }
+      });
+      if (claimed.count !== 1) throw new Error('This waiver has already been applied');
+
+      const newWaiverAmount = toNumber(bill.waiverAmount) + amount;
+      const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - amount);
+      const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updated = await tx.bill.update({
         where: { id: billId },
-        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : bill.status },
+        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') },
         include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
 
-      if (updated.attendanceId) {
-        await tx.attendance.update({ where: { id: updated.attendanceId }, data: { outstandingBalance: { decrement: toNumber(waiver.amountApproved) } } });
-      }
+      if (updated.attendanceId) await this.syncAttendanceFinancials(tx, updated.attendanceId, { ...updated, balance: newBalance });
 
       return updated;
     });
   }
 
   // ✅ FIXED: Historical Pricing Logic
-  async getServicePrice(serviceCatalogId: string, paymentMode: string, corporateAccountId?: string): Promise<number> {
+  async getServicePrice(serviceCatalogId: string, paymentMode: string, corporateAccountId?: string, serviceDate?: Date): Promise<number> {
+    const pricingWhere: any = { isActive: true };
+    if (serviceDate) {
+      pricingWhere.effectiveDate = { lte: serviceDate };
+      pricingWhere.OR = [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }];
+    }
     const service = await this.prisma.serviceCatalog.findUnique({
       where: { id: serviceCatalogId },
-      // ✅ Only fetch the currently active pricing record
-      include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } }
+      // Use the tariff effective when care was delivered, not a future/current tariff.
+      include: { pricing: { where: pricingWhere, take: 1, orderBy: { effectiveDate: 'desc' } } }
     });
 
     // ✅ pricing is now an array, get the first element
     const price = service?.pricing?.[0]; 
-    if (!price) return 100; // Default fallback
+    if (!price) throw new Error(`No active pricing is configured for service ${serviceCatalogId} on ${serviceDate ? serviceDate.toISOString().slice(0, 10) : 'the selected service date'}.`);
 
     // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
     let corporateDiscountPercent = 0;

@@ -40,7 +40,7 @@ export const createBillRoutes = () => {
   router.delete('/:id', requireRole(['admin']), billController.deleteBill);
 
   // POST /api/bills/:id/payment - Add payment to a bill
-  router.post('/:id/payment', addPaymentValidation, billController.addPaymentToBill);
+  router.post('/:id/payment', requireRole(['admin', 'accounts', 'records']), addPaymentValidation, billController.addPaymentToBill);
 
   // POST /api/bills/line-items/:lineItemId/void - Void a bill line item (Admin/Accounts only)
   router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), voidLineItemValidation, billController.voidBillLineItem);

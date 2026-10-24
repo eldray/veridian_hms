@@ -8,7 +8,7 @@ describe('NHIS claim pre-authorisation XML', () => {
     const xml = builder.buildSingleClaimXml({
       claimNumber: 'NHIS-TEST-1',
       preAuthNumber: 'AUTH-001,AUTH-002,AUTH-001',
-      items: [],
+      items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
       Patient: {},
       Attendance: {},
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -22,7 +22,7 @@ describe('NHIS claim pre-authorisation XML', () => {
     const xml = builder.buildSingleClaimXml({
       claimNumber: 'NHIS-TEST-2',
       preAuthNumber: 'AUTH<&001',
-      items: [],
+      items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
       Patient: {},
       Attendance: {},
       createdAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -35,7 +35,7 @@ describe('NHIS claim pre-authorisation XML', () => {
     const xml = builder.buildSingleClaimXml({
       claimNumber: 'NHIS-TEST-3',
       preAuthNumber: null,
-      items: [],
+      items: [{ itemCategory: 'service', code: 'TEST', description: 'Test service', quantity: 1, unitPrice: 1, lineTotal: 1 }],
       Patient: {},
       Attendance: {},
       createdAt: new Date('2026-01-01T00:00:00.000Z'),

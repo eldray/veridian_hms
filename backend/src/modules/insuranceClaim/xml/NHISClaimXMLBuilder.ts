@@ -23,7 +23,14 @@ import { Prisma } from '@prisma/client';
 export class NHISClaimXMLBuilder {
   buildBatchXml(batch: any, hospital: any): string {
     const facilityCode = hospital?.nhisFacilityCode ?? '';
-    const claims = (batch.claims ?? []).filter((c: any) => c && c.items);
+    const claims = batch.claims ?? [];
+    if (!claims.length) {
+      throw new Error('Cannot generate NHIS XML for an empty claim batch.');
+    }
+    const claimWithoutItems = claims.find((claim: any) => !Array.isArray(claim?.items) || claim.items.length === 0);
+    if (claimWithoutItems) {
+      throw new Error(`Claim ${claimWithoutItems.claimNumber ?? claimWithoutItems.id ?? 'unknown'} has no itemized lines; NHIS XML generation was stopped to prevent silent omission.`);
+    }
 
     const claimsXml = claims
       .map((claim: any) => this.buildClaimXml(claim, hospital))
@@ -40,6 +47,9 @@ export class NHISClaimXMLBuilder {
 
 
     buildSingleClaimXml(claim: any, hospital: any): string {
+    if (!Array.isArray(claim?.items) || claim.items.length === 0) {
+      throw new Error(`Claim ${claim?.claimNumber ?? claim?.id ?? 'unknown'} has no itemized lines; NHIS XML generation was stopped.`);
+    }
     const claimXml = this.buildClaimXml(claim, hospital);
     return [
       '<?xml version="1.0" encoding="UTF-8"?>',

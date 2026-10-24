@@ -995,6 +995,7 @@ model Bill {
   BillLineItem                BillLineItem[]
   PatientWaiver               PatientWaiver[]
   ProformaInvoice             ProformaInvoice?
+  momoPaymentIntents             MomoPaymentIntent[]
 
   @@index([attendanceId])
   @@index([billDate])
@@ -1052,6 +1053,7 @@ model PatientWaiver {
   amountRequested Decimal      @db.Decimal(15, 2)
   amountApproved  Decimal      @default(0) @db.Decimal(15, 2)
   status          WaiverStatus @default(pending)
+  appliedAt       DateTime?
   requestedById   String
   approvedById    String?
   approvedAt      DateTime?
@@ -1076,6 +1078,7 @@ model Payment {
   amount          Decimal       @db.Decimal(15, 2)
   paymentMethod   PaymentMethod
   reference       String?
+  idempotencyKey  String?       @unique
   transactionDate DateTime      @default(now())
   receivedById    String
   notes           String?
@@ -1092,6 +1095,34 @@ model Payment {
 
   @@index([billId])
   @@index([transactionDate])
+}
+
+
+model MomoPaymentIntent {
+  id                     String   @id @default(cuid())
+  billId                 String
+  amount                 Decimal  @db.Decimal(15, 2)
+  currency               String   @default("GHS")
+  payerPhone             String
+  providerReference      String   @unique
+  idempotencyKey         String   @unique
+  paymentIdempotencyKey  String   @unique
+  status                 String   @default("pending")
+  providerStatus         String?
+  providerTransactionId  String?
+  paymentId              String?
+  initiatedById          String
+  lastCheckedAt          DateTime?
+  completedAt            DateTime?
+  failureReason          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict)
+
+  @@index([billId, status])
+  @@index([initiatedById, createdAt])
+  @@map("momo_payment_intents")
 }
 
 // ============================================================
@@ -1145,6 +1176,7 @@ model InsuranceClaim {
   finalizedBy                           User?             @relation("Claim_finalizedBy", fields: [finalizedById], references: [id])
 
   items InsuranceClaimItem[]
+  trackingEvents InsuranceClaimTrackingEvent[]
 
   batch   ClaimBatch? @relation(fields: [batchId], references: [id])
   batchId String?     @map("batch_id")
@@ -1157,6 +1189,30 @@ model InsuranceClaim {
   @@index([corporateAccountId, status])
   @@index([insuranceProviderId, status])
   @@index([finalizedAt])
+}
+
+model InsuranceClaimTrackingEvent {
+  id               String   @id @default(cuid())
+  claimId          String
+  eventType        String
+  status           String?
+  submissionDate   DateTime?
+  payerReference   String?
+  amount           Decimal? @db.Decimal(15, 2)
+  paymentReference String?
+  paymentMethod    String?
+  notes            String?  @db.Text
+  recordedById     String
+  createdAt        DateTime @default(now())
+
+  claim      InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  recordedBy User           @relation("ClaimTrackingEvent_recordedBy", fields: [recordedById], references: [id])
+
+  @@unique([claimId, paymentReference])
+  @@index([claimId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([status])
+  @@map("insurance_claim_tracking_events")
 }
 
 model ClaimBatch {
@@ -2163,6 +2219,7 @@ model User {
   Bill_Bill_updatedByIdToUser                     Bill[]                    @relation("Bill_updatedByIdToUser")
   InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_createdByIdToUser")
   InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_updatedByIdToUser")
+  claimTrackingEvents InsuranceClaimTrackingEvent[] @relation("ClaimTrackingEvent_recordedBy")
   Invoice                                         Invoice[]
   LabTest_LabTest_createdByIdToUser               LabTest[]                 @relation("LabTest_createdByIdToUser")
   LabTest_LabTest_performedByIdToUser             LabTest[]                 @relation("LabTest_performedByIdToUser")

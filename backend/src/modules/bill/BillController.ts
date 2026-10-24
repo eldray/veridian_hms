@@ -12,16 +12,29 @@ const billService = new BillService(prisma);
 // ✅ Kept your exact validation arrays
 export const createBillValidation = [
   body('patientId').notEmpty().withMessage('Patient ID is required'),
+  body('attendanceId').notEmpty().withMessage('Attendance ID is required'),
   body('items').isArray({ min: 1 }).withMessage('At least one line item is required'),
   body('items.*.serviceCatalogId').notEmpty().withMessage('Service catalog ID is required for each item'),
   body('items.*.quantity').isInt({ min: 1 }).withMessage('Quantity must be at least 1'),
-  body('items.*.unitPrice').isFloat({ min: 0 }).withMessage('Unit price must be non-negative'),
-  body('paymentMode').optional().isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Invalid payment mode')
+  body('items.*.unitPrice').optional().isFloat({ min: 0 }).withMessage('Unit price must be non-negative'),
+  body('paymentMode').optional().isIn(['cash', 'nhis', 'private_insurance', 'corporate']).withMessage('Invalid payment mode'),
+  body('insuranceProviderId').optional().isString(),
+  body('corporateAccountId').optional().isString(),
+  body('insuranceProviderId').custom((value, { req }) => {
+    if (['nhis', 'private_insurance'].includes(req.body.paymentMode) && !value) {
+      throw new Error('Insurance Provider ID is required for insured bills');
+    }
+    return true;
+  }),
+  body('corporateAccountId').custom((value, { req }) => {
+    if (req.body.paymentMode === 'corporate' && !value) {
+      throw new Error('Corporate Account ID is required for corporate bills');
+    }
+    return true;
+  })
 ];
 
 export const updateBillValidation = [
-  body('totalAmount').optional().isFloat({ min: 0 }).withMessage('Total amount must be non-negative'),
-  body('status').optional().isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Invalid status'),
   body('notes').optional().isString()
 ];
 
@@ -29,7 +42,8 @@ export const addPaymentValidation = [
   body('amount').isFloat({ min: 0.01 }).withMessage('Payment amount must be greater than 0'),
   body('paymentMethod').isIn(['cash', 'mobile_money', 'card', 'bank_transfer', 'cheque']).withMessage('Invalid payment method'), // ✅ Fixed to paymentMethod
   body('reference').optional().isString(),
-  body('notes').optional().isString()
+  body('notes').optional().isString(),
+  body('idempotencyKey').optional().isUUID().withMessage('A valid payment idempotency key is required')
 ];
 
 export const voidLineItemValidation = [
@@ -67,6 +81,7 @@ export class BillController extends BaseController {
       return this.ok(res, bill, 'Bill retrieved successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      if (error.message?.includes('payment history cannot be deleted')) return this.conflict(res, error.message);
       throw error;
     }
   });
@@ -94,6 +109,7 @@ export class BillController extends BaseController {
         return this.ok(res, bill, 'Bill updated successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error.message?.startsWith('Cannot directly edit bill financial field')) return this.badRequest(res, error.message);
         throw error;
       }
     })
@@ -105,6 +121,7 @@ export class BillController extends BaseController {
       return this.ok(res, null, 'Bill deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      if (error.message?.includes('payment history cannot be deleted')) return this.conflict(res, error.message);
       throw error;
     }
   });
@@ -121,6 +138,13 @@ export class BillController extends BaseController {
         return this.ok(res, result, 'Payment added successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        // Payment validation/race failures are expected client conflicts, not server crashes.
+        if (/exceeds the patient's outstanding balance|cancelled bill|payment is still pending|confirmed Mobile Money intent|already been used for another bill|already been used with different payment details|fully paid bill/i.test(error.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        if (/payment amount must be greater than zero/i.test(error.message || '')) {
+          return this.badRequest(res, error.message);
+        }
         throw error;
       }
     })

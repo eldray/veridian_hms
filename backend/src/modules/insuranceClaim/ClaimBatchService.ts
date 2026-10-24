@@ -62,7 +62,7 @@ export class ClaimBatchService extends BaseService {
       throw new ValidationError('periodYear is out of range');
     }
 
-    const insuranceProviderId = input.insuranceProviderId ?? null;
+    let insuranceProviderId = input.insuranceProviderId ?? null;
     const corporateAccountId = input.corporateAccountId ?? null;
 
     // Provider / corporate scope validation
@@ -74,6 +74,21 @@ export class ClaimBatchService extends BaseService {
         throw new ValidationError(
           'corporateAccountId or insuranceProviderId is required for corporate batches',
         );
+      }
+      if (corporateAccountId) {
+        const account = await this.prisma.corporateAccount.findUnique({
+          where: { id: corporateAccountId },
+          select: { id: true, isActive: true, insuranceProviderId: true, companyName: true },
+        });
+        if (!account) throw new NotFoundError('Corporate account', corporateAccountId);
+        if (!account.isActive) throw new ValidationError('Corporate account is inactive');
+        if (!account.insuranceProviderId) {
+          throw new ValidationError('Configure an insurance provider on this corporate account before generating a claim batch');
+        }
+        if (insuranceProviderId && insuranceProviderId !== account.insuranceProviderId) {
+          throw new ValidationError('The selected insurance provider does not match this corporate account');
+        }
+        insuranceProviderId = account.insuranceProviderId;
       }
     }
     if (insuranceType === 'nhis') {

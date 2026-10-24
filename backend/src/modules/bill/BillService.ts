@@ -1,14 +1,19 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillRepository } from './BillRepository';
+import { BillingService } from '../billing/BillingService';
 import { BillWithRelations, CreateBillInput, UpdateBillInput, BillFilter, AddPaymentInput } from './BillTypes';
 
 export class BillService extends BaseService {
   private billRepository: BillRepository;
+  private billingService: BillingService;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     super('BillService'); // ✅ Extends BaseService for standardized logging
+    this.prisma = prisma;
     this.billRepository = new BillRepository(prisma);
+    this.billingService = new BillingService(prisma);
   }
 
   async getAllBills(filters: BillFilter, page: number = 1, limit: number = 50) {
@@ -29,24 +34,45 @@ export class BillService extends BaseService {
 
     for (const item of data.items) {
       if (item.quantity <= 0) throw new Error('Quantity must be greater than 0');
-      if (item.unitPrice < 0) throw new Error('Unit price cannot be negative');
+      if (item.unitPrice !== undefined && item.unitPrice < 0) throw new Error('Unit price cannot be negative');
     }
 
-    return this.billRepository.create(data, createdBy);
+    // Both bill-creation endpoints must use the same server-side tariff and payer rules.
+    // Never trust a price supplied by the browser for cash, NHIS, or private insurance.
+    return this.billingService.createBill({
+      patientId: data.patientId,
+      attendanceId: data.attendanceId!,
+      paymentMode: data.paymentMode ?? 'cash',
+      insuranceProviderId: data.insuranceProviderId,
+      corporateAccountId: data.corporateAccountId,
+      items: data.items.map((item) => ({
+        serviceId: item.serviceCatalogId,
+        quantity: item.quantity
+      }))
+    }, createdBy);
   }
 
   async updateBill(id: string, data: UpdateBillInput) {
     this.logInfo('Updating bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
-    if (data.totalAmount !== undefined && data.totalAmount < 0) throw new Error('Total amount cannot be negative');
-    return this.billRepository.update(id, data);
+    // Financial totals and status are derived from line items, payments, waivers and cancellations.
+    // They must not be overwritten through the general-purpose bill update endpoint.
+    const unsafeFields = ['totalAmount', 'paidAmount', 'status', 'balance', 'patientPayable', 'insuranceCovered', 'waiverAmount', 'discount'];
+    const attemptedFinancialEdit = unsafeFields.find((field) => Object.prototype.hasOwnProperty.call(data as object, field));
+    if (attemptedFinancialEdit) {
+      throw new Error(`Cannot directly edit bill financial field "${attemptedFinancialEdit}". Use the appropriate billing workflow.`);
+    }
+    return this.billRepository.update(id, { notes: data.notes });
   }
 
   async deleteBill(id: string) {
     this.logInfo('Deleting bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
+    if ((existing.Payment?.length ?? 0) > 0 || ['paid', 'partial'].includes(existing.status)) {
+      throw new Error('A bill with payment history cannot be deleted. Preserve the audit trail and use the approved cancellation or adjustment workflow.');
+    }
     return this.billRepository.delete(id);
   }
 
@@ -55,7 +81,21 @@ export class BillService extends BaseService {
     const bill = await this.billRepository.findById(billId);
     if (!bill) throw new Error('Bill not found');
     if (paymentData.amount <= 0) throw new Error('Payment amount must be greater than 0');
-    if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
+    // Ordinary payment entry must never bypass an unresolved provider intent
+    // merely by selecting "mobile_money" as the manual payment method. Confirmed
+    // provider collections use BillingService.addConfirmedMomoPayment instead.
+    const momoIntentModel = (this.prisma as any).momoPaymentIntent;
+    const pendingMomo = momoIntentModel?.findFirst
+      ? await momoIntentModel.findFirst({
+          where: { billId, status: { in: ['initiating', 'pending'] } },
+          select: { id: true }
+        })
+      : null;
+    if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
+    // Resolve idempotent retries in the repository before rejecting a now-paid bill.
+    if (!paymentData.idempotencyKey && bill.status === 'paid') {
+      throw new Error('Cannot add payment to a fully paid bill');
+    }
     return this.billRepository.addPayment(billId, paymentData, receivedById);
   }
 

@@ -82,6 +82,37 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  /**
+   * Historical claims without item rows are surfaced for controlled reconciliation.
+   * This is read-only: it deliberately never reconstructs or changes submitted claim history.
+   */
+  async findClaimsMissingItems(filters: { insuranceType?: string; status?: string; page?: number; limit?: number } = {}) {
+    const page = Math.max(1, Number(filters.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 25));
+    const where: any = { items: { none: {} } };
+    if (filters.status) where.status = filters.status;
+    if (filters.insuranceType) where.InsuranceProvider = { type: filters.insuranceType };
+
+    const [data, total] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          InsuranceProvider: { select: { id: true, name: true, type: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true } },
+          Bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+          _count: { select: { items: true } },
+        },
+        orderBy: { createdAt: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.insuranceClaim.count({ where }),
+    ]);
+
+    return { data, page, limit, total, pages: Math.ceil(total / limit) };
+  }
+
   // ==========================================
   // BATCH QUERIES
   // ==========================================
@@ -204,10 +235,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     if (insuranceType === 'nhis') where.InsuranceProvider = { type: 'nhis' };
     if (insuranceType === 'private') where.InsuranceProvider = { type: 'private' };
     if (insuranceType === 'corporate') {
-      where.OR = [
-        { InsuranceProvider: { type: 'corporate' } },
-        ...(corporateAccountId ? [{ corporateAccountId }] : []),
-      ];
+      if (corporateAccountId) where.corporateAccountId = corporateAccountId;
+      else where.InsuranceProvider = { type: 'corporate' };
     }
 
     return this.prisma.insuranceClaim.findMany({

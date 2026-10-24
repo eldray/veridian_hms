@@ -24,6 +24,7 @@ export interface AddPaymentDTO {
   paymentMethod: PaymentMethod;
   reference?: string;
   notes?: string;
+  idempotencyKey?: string;
 }
 
 export interface UpdateBillStatusDTO {

@@ -27,10 +27,23 @@ export class InsuranceClaimService extends BaseService {
   private async findExistingClaim(tx: Prisma.TransactionClient, attendanceId: string, type: 'nhis' | 'private' | 'corporate') {
     const existing = await tx.insuranceClaim.findUnique({
       where: { attendanceId },
-      include: { InsuranceProvider: { select: { type: true } } }
+      include: {
+        InsuranceProvider: { select: { type: true } },
+        items: { select: { id: true } },
+      }
     });
     if (!existing) return null;
-    if (existing.InsuranceProvider?.type === type) return existing;
+    if (existing.InsuranceProvider?.type === type) {
+      // Do not report a historical empty claim as a successful idempotent retry.
+      // It needs a controlled repair so submitted/paid claim history is never
+      // silently overwritten from today's billing data.
+      if (!existing.items?.length) {
+        throw new ValidationError(
+          `Existing ${type} claim ${existing.claimNumber} has no itemized lines. It requires claims-audit review before it can be regenerated or submitted.`
+        );
+      }
+      return existing;
+    }
     throw new ValidationError(
       `This attendance already has a ${existing.InsuranceProvider?.type ?? 'different'} claim (${existing.claimNumber}), so a ${type} claim cannot be generated for it.`
     );
@@ -52,7 +65,7 @@ export class InsuranceClaimService extends BaseService {
     let targetType = insuranceType;
 
     return this.prisma.$transaction(async (tx) => {
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true, Attendance: { select: { dateTime: true } } } });
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true, Attendance: { select: { dateTime: true } }, items: { select: { id: true } } } });
       if (claims.length !== claimIds.length) throw new Error('One or more claims not found');
       if (!targetType && claims.length > 0) targetType = claims[0].InsuranceProvider?.type;
       if (!targetType) throw new Error('Insurance type must be specified or determinable');
@@ -65,6 +78,7 @@ export class InsuranceClaimService extends BaseService {
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
+        if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be batched. Repair the draft claim or resolve it through the claims audit workflow.`);
         if (c.InsuranceProvider?.type !== targetType) throw new Error(`Claim ${c.claimNumber} type mismatch`);
         if (c.batchId) throw new Error(`Claim ${c.claimNumber} already batched`);
         if (c.insuranceProviderId !== providerId) throw new Error('A claim batch cannot contain multiple insurance providers');
@@ -109,11 +123,12 @@ export class InsuranceClaimService extends BaseService {
       if (!existing) throw new Error('Batch not found');
       if (existing.status !== 'generated') throw new Error('Claims can only be added to generated, unfinalized batches');
 
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true } });
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true, items: { select: { id: true } } } });
       if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
+        if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be added to a batch. Repair the draft claim or resolve it through the claims audit workflow.`);
         if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
       }
 
@@ -159,9 +174,11 @@ export class InsuranceClaimService extends BaseService {
   async generateBatchXML(batchId: string) {
     const batch = await this.prisma.claimBatch.findUnique({
       where: { id: batchId },
-      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: true }
+      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true, items: { select: { id: true } } } }, createdBy: true }
     });
     if (!batch || !batch.claims.length) throw new Error('Batch not found or empty');
+    const claimWithoutItems = batch.claims.find((claim: any) => !claim.items?.length);
+    if (claimWithoutItems) throw new ValidationError(`Claim ${claimWithoutItems.claimNumber} has no itemized lines. The batch XML cannot be generated until the claim is repaired.`);
 
     const facilityCode = process.env.NHIS_FACILITY_CODE || 'FAC001';
     
@@ -308,19 +325,34 @@ ${claimsXml}
   }
 
   async finalizeClaim(claimId: string, userId: string) {
-    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      include: { items: { select: { id: true } } },
+    });
     if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
+    if (!claim.items.length) {
+      throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
+    }
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'finalized', finalizedAt: new Date(), finalizedById: userId, updatedById: userId } });
   }
 
   async updateClaimStatus(claimId: string, status: string, notes: string | undefined, userId: string) {
     const valid = ['draft', 'finalized'];
     if (!valid.includes(status)) throw new Error('Invalid status');
+    if (status === 'finalized') {
+      const claim = await this.prisma.insuranceClaim.findUnique({
+        where: { id: claimId },
+        include: { items: { select: { id: true } } },
+      });
+      if (!claim) throw new NotFoundError('Claim', claimId);
+      if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
+      if (!claim.items.length) {
+        throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
+      }
+    }
     const toUpdate: any = { status, updatedById: userId, updatedAt: new Date() };
     if (status === 'finalized') { toUpdate.finalizedAt = new Date(); toUpdate.finalizedById = userId; }
-    
-    
     if (notes) toUpdate.notes = notes;
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
@@ -397,6 +429,7 @@ ${claimsXml}
       }
       const claimValidationDate = servicePolicyDate;
       let nhisMedicineClaimTotal = 0;
+      const nhisMedicineItems: any[] = [];
       for (const med of att.Medication) {
         const stockItem = med.StockItem;
         if (!stockItem) {
@@ -518,7 +551,21 @@ ${claimsXml}
         if (!Number.isFinite(quantity) || quantity <= 0) {
           throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
         }
-        nhisMedicineClaimTotal += Math.round(allocation.nhisCoveredAmount * quantity * 100) / 100;
+        const coveredUnitAmount = Math.round(allocation.nhisCoveredAmount * 100) / 100;
+        const coveredLineAmount = Math.round(coveredUnitAmount * quantity * 100) / 100;
+        nhisMedicineClaimTotal += coveredLineAmount;
+        nhisMedicineItems.push({
+          itemCategory: 'medicine',
+          itemType: 'medication',
+          code: stockItem.drugCode || med.ServiceCatalog?.code || 'NHIS-MEDICINE',
+          description: med.name || stockItem.name,
+          quantity,
+          unitPrice: coveredUnitAmount,
+          lineTotal: coveredLineAmount,
+          serviceDate: att.dateTime,
+          medicationId: med.id,
+          serviceCatalogId: med.ServiceCatalog?.id || null
+        });
       }
 
       const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
@@ -568,8 +615,29 @@ ${claimsXml}
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
           typeOfService, serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
           mdcCode: tariff.gdrgCode.match(/^[A-Z]+/)?.[0] || 'MEDI', typeOfAttendance: typeOfAtt, datesOfService,
-          notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`
-        }
+          notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`,
+          items: {
+            create: [
+              {
+                itemNumber: 1,
+                itemCategory: 'gdrg',
+                itemType: 'GDRG',
+                code: tariff.gdrgCode,
+                description: `NHIS G-DRG tariff ${tariff.gdrgCode}`,
+                quantity: 1,
+                unitPrice: tariff.nhiaTariff,
+                lineTotal: tariff.nhiaTariff,
+                serviceDate: servicePolicyDate,
+                gdrgTariffId: tariff.id
+              },
+              ...nhisMedicineItems.map((item, index) => ({
+                ...item,
+                itemNumber: index + 2
+              }))
+            ]
+          }
+        },
+        include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
 
       return { claim, gdrgDetails: tariff, isExisting: false };
@@ -617,19 +685,66 @@ ${claimsXml}
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
 
-      // nextPrivateClaimNumber() already returns "PRIV-<n>" - do not prefix it again
+      // A private-insurance claim represents the insurer's liability, not the
+      // whole bill. Patient co-payments remain on the bill but must not be claimed
+      // again from the insurer.
+      const billItems = (att.Bill?.BillLineItem ?? []).filter(
+        (item: any) => !item.isVoided && toNumber(item.insuranceCoveredAmount) > 0,
+      );
+      if (!att.Bill?.id || billItems.length === 0) {
+        throw new ValidationError('A private insurance claim requires at least one active bill line with a positive insurer-covered amount. Check the payer tariff, coverage and patient co-payment allocation.');
+      }
+
+      const insurerClaimAmount = Math.round(
+        billItems.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoveredAmount), 0) * 100,
+      ) / 100;
+      if (!Number.isFinite(insurerClaimAmount) || insurerClaimAmount <= 0) {
+        throw new ValidationError('The private-insurance claim amount must be greater than zero.');
+      }
+
       const claimNumber = getCounterService().nextPrivateClaimNumber();
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
-          totalClaimAmount: att.Bill?.totalAmount || 0, status: 'draft', createdById: userId,
+          claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
+          totalClaimAmount: insurerClaimAmount, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
-          notes: 'Private insurance claim - itemized billing'
-        }
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          notes: 'Private insurance claim - itemized billing',
+          items: {
+            create: billItems.map((item: any, index: number) => {
+              const serviceType = String(item.serviceType || 'miscellaneous').toLowerCase();
+              const itemCategory = serviceType === 'lab_test' || serviceType === 'scan'
+                ? 'investigation'
+                : serviceType === 'medication'
+                  ? 'medicine'
+                  : serviceType === 'procedure'
+                    ? 'procedure'
+                    : 'service';
+              return {
+                itemNumber: index + 1,
+                itemCategory,
+                itemType: serviceType,
+                code: item.serviceCatalog?.code || serviceType.toUpperCase(),
+                description: item.description,
+                quantity: item.quantity,
+                // Store the insurer's share as the claim line amount so claim totals
+                // reconcile to totalClaimAmount; the patient's co-pay is not claimed.
+                unitPrice: item.quantity > 0
+                  ? Math.round((toNumber(item.insuranceCoveredAmount) / item.quantity) * 100) / 100
+                  : 0,
+                lineTotal: toNumber(item.insuranceCoveredAmount),
+                serviceDate: att.dateTime,
+                billLineItemId: item.id,
+                serviceCatalogId: item.serviceCatalogId || null
+              };
+            })
+          }
+        },
+        include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
 
       return { claim, isExisting: false };
@@ -697,22 +812,59 @@ ${claimsXml}
         );
       }
       const providerId = att.insuranceProviderId || corp.insuranceProviderId;
+      if (!corp.insuranceProviderId) {
+        throw new ValidationError(`Configure an insurance provider on corporate account "${corp.companyName}" before generating claims.`);
+      }
       if (!providerId) throw new ValidationError(`No insurance provider is set on attendance ${att.attendanceNumber} or on corporate account "${corp.companyName}".`);
+      if (providerId !== corp.insuranceProviderId) {
+        throw new ValidationError(`The insurance provider selected for attendance ${att.attendanceNumber} does not match corporate account "${corp.companyName}".`);
+      }
 
-      // nextCorporateClaimNumber() already returns "CORP-<n>" - do not prefix it again
+      // Build claim items from the bill's active, auditable line items.
+      const billItems = (att.Bill?.BillLineItem ?? []).filter((item: any) => !item.isVoided);
+      if (!att.Bill?.id || billItems.length === 0) {
+        throw new ValidationError('A corporate claim requires a bill with at least one active bill line item.');
+      }
+
       const claimNumber = getCounterService().nextCorporateClaimNumber();
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: providerId, corporateAccountId: att.corporateAccountId,
-          totalClaimAmount: claimAmt, status: 'finalized', createdById: userId,
+          claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: providerId, corporateAccountId: att.corporateAccountId,
+          totalClaimAmount: claimAmt, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
           medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
-          notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Itemized billing.`
-        }
+          notes: `Corporate claim - Employee ID: ${att.corporateEmployeeId || 'N/A'}. Itemized billing.`,
+          items: {
+            create: billItems.map((item: any, index: number) => {
+              const serviceType = String(item.serviceType || 'miscellaneous').toLowerCase();
+              const itemCategory = serviceType === 'lab_test' || serviceType === 'scan'
+                ? 'investigation'
+                : serviceType === 'medication'
+                  ? 'medicine'
+                  : serviceType === 'procedure'
+                    ? 'procedure'
+                    : 'service';
+              return {
+                itemNumber: index + 1,
+                itemCategory,
+                itemType: serviceType,
+                code: item.serviceCatalog?.code || serviceType.toUpperCase(),
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                lineTotal: item.lineTotal,
+                serviceDate: att.dateTime,
+                billLineItemId: item.id,
+                serviceCatalogId: item.serviceCatalogId || null
+              };
+            })
+          }
+        },
+        include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
 
       return { claim, isExisting: false, creditInfo: { currentBalance: currentBal, projectedBalance: projected, limit } };
@@ -783,6 +935,19 @@ async listClaims(filters: {
     total: r.pagination.total,
     pagination: r.pagination,
   }));
+}
+
+/** Read-only report for historical claims that have no itemized rows. */
+async listClaimsMissingItems(filters: { insuranceType?: string; status?: string; page?: number; limit?: number } = {}) {
+  const allowedTypes = new Set(['nhis', 'private', 'corporate']);
+  if (filters.insuranceType && !allowedTypes.has(filters.insuranceType)) {
+    throw new ValidationError('insuranceType must be nhis, private, or corporate');
+  }
+  const allowedStatuses = new Set(['draft', 'finalized']);
+  if (filters.status && !allowedStatuses.has(filters.status)) {
+    throw new ValidationError('status must be draft or finalized');
+  }
+  return this.repo.findClaimsMissingItems(filters);
 }
 
 /** Controller calls: service.getClaim(id) */

@@ -653,6 +653,7 @@ export interface Payment {
   amount: number;
   paymentMethod: PaymentMethod;
   reference?: string;
+  idempotencyKey?: string;
   transactionDate: string;
   receivedById: string;
   notes?: string;

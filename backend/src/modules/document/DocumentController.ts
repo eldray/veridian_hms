@@ -22,12 +22,17 @@ export class DocumentController {
         });
       }
 
-      const result = await this.documentService.generateReceipt(billId, req.user.id);
+      const paymentId = typeof req.query.paymentId === 'string' ? req.query.paymentId : undefined;
+      const result = await this.documentService.generateReceipt(billId, req.user.id, paymentId);
 
       if (!result.success) {
-        return res.status(500).json({
+        const message = result.error || 'Failed to generate receipt';
+        // Invalid bill/payment references are client-visible not-found cases;
+        // missing templates and generation failures remain server-side errors.
+        const status = /^(Bill not found|Payment not found)/i.test(message) ? 404 : 500;
+        return res.status(status).json({
           success: false,
-          message: result.error
+          message
         });
       }
 

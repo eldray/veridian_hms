@@ -63,12 +63,12 @@ interface BillingState {
   // Core Bills
   getBills: (filters?: BillFilters) => Promise<void>;
   getBill: (id: string) => Promise<void>;
-  createBill: (data: Partial<Bill>) => Promise<void>;
+  createBill: (data: Partial<Bill>) => Promise<Bill>;
   updateBill: (id: string, data: Partial<Bill>) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
   
   // Payment functions
-  addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<void>;
+  addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<any>;
   generateBillFromAttendance: (attendanceId: string) => Promise<Bill>;
   generateBillReport: (billId: string) => Promise<BillingBreakdown>;
   getBillingBreakdown: (billId: string) => Promise<BillingBreakdown>;
@@ -264,6 +264,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: parsedBill,
         isLoading: false
       });
+      return parsedBill;
     } catch (error: unknown) {
       console.error('❌ Failed to create bill:', error);
       set({ isLoading: false });
@@ -320,18 +321,17 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   addPaymentToBill: async (billId: string, paymentData: Partial<Payment>) => {
     set({ isLoading: true });
     try {
-      const updatedBill = await apiAddPaymentToBill(billId, paymentData);
-      const parsedBill = parseBillAmounts(updatedBill);
-      
-      const bills = get().bills.map(bill => 
-        bill.id === billId ? parsedBill : bill
-      );
-      
-      set({ 
+      const response = await apiAddPaymentToBill(billId, paymentData);
+      const payload = response?.data ?? response;
+      const billPayload = payload?.bill ?? payload?.data?.bill ?? payload;
+      const parsedBill = parseBillAmounts(billPayload);
+      const bills = get().bills.map(bill => bill.id === billId ? parsedBill : bill);
+      set({
         bills,
         currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
-        isLoading: false 
+        isLoading: false
       });
+      return payload;
     } catch (error: unknown) {
       console.error('❌ Failed to add payment:', error);
       set({ isLoading: false });

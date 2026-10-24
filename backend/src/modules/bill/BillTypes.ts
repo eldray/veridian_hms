@@ -30,6 +30,8 @@ export interface CreateBillInput {
   patientId: string;
   attendanceId?: string;
   paymentMode?: PaymentMode;
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
   items: {
     serviceCatalogId: string;
     quantity: number;
@@ -39,9 +41,8 @@ export interface CreateBillInput {
 }
 
 export interface UpdateBillInput {
-  totalAmount?: number;
-  paidAmount?: number;
-  status?: BillStatus;
+  // General bill editing is intentionally limited to non-financial notes.
+  // Totals, status and balances are derived from auditable billing workflows.
   notes?: string;
 }
 
@@ -51,6 +52,7 @@ export interface AddPaymentInput {
   paymentMethod: PaymentMethod; // ✅ Fixed from paymentMode
   reference?: string;           // ✅ Fixed from referenceNumber
   notes?: string;
+  idempotencyKey?: string;
 }
 
 export interface BillFilter {

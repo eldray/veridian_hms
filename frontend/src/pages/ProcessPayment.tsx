@@ -1,5 +1,5 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
-import { useState, FormEvent, useEffect } from 'react'; 
+import { useState, FormEvent, useEffect, useRef } from 'react'; 
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
@@ -23,7 +23,26 @@ import {
 } from 'lucide-react';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
+import { generateReceipt, downloadDocument } from '../api';
+import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
+
+const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
+
+const getOrCreatePaymentAttemptKey = (billId: string) => {
+  try {
+    const storageKey = paymentAttemptStorageKey(billId);
+    const existingKey = sessionStorage.getItem(storageKey);
+    if (existingKey) return existingKey;
+    const newKey = crypto.randomUUID();
+    sessionStorage.setItem(storageKey, newKey);
+    return newKey;
+  } catch {
+    // Storage may be unavailable in restricted browser contexts; in-memory
+    // idempotency still protects retries while this page remains mounted.
+    return crypto.randomUUID();
+  }
+};
 
 export default function ProcessPayment() {
   const navigate = useNavigate();
@@ -36,9 +55,17 @@ export default function ProcessPayment() {
   const [amount, setAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
+  const [momoPhone, setMomoPhone] = useState('');
   const [billingBreakdown, setBillingBreakdown] = useState<any>(null);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showSendReceipt, setShowSendReceipt] = useState(false);
+  const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
+
+  useEffect(() => {
+    if (!billId) return;
+    paymentAttemptKey.current = getOrCreatePaymentAttemptKey(billId);
+  }, [billId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -75,6 +102,7 @@ export default function ProcessPayment() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
+    if (isSubmittingPayment) return;
     if (!bill || !user) {
       toastError('Missing data', 'Bill or user information not available');
       return;
@@ -88,23 +116,99 @@ export default function ProcessPayment() {
       toastError('Overpayment', 'Payment amount cannot exceed outstanding balance');
       return;
     }
+    if (paymentMethod === 'mobile_money' && !momoPhone.trim()) {
+      toastError('Mobile number required', 'Enter the Ghana mobile number that should receive the payment prompt.');
+      return;
+    }
 
     try {
-      await addPaymentToBill(bill.id, {
-        amount,
-        paymentMethod,
-        reference: reference || undefined,
-        transactionDate: new Date().toISOString(),
-        receivedById: user.id,
-      });
+      setIsSubmittingPayment(true);
+      let paymentResult: any;
+      if (paymentMethod === 'mobile_money') {
+        const intent = await initiateMomoPayment({
+          billId: bill.id,
+          amount,
+          payerPhone: momoPhone.trim(),
+          idempotencyKey: paymentAttemptKey.current,
+        });
+        success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
+        let finalStatus = intent;
+        for (let attempt = 0; attempt < 24; attempt++) {
+          if (finalStatus.status === 'successful' || finalStatus.status === 'failed') break;
+          await new Promise(resolve => window.setTimeout(resolve, 5000));
+          finalStatus = await checkMomoPaymentStatus(intent.id);
+        }
+        if (finalStatus.status === 'failed') {
+          paymentAttemptKey.current = crypto.randomUUID();
+          try { if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current); } catch { /* optional storage */ }
+          throw new Error(finalStatus.failureReason || 'The mobile money transaction failed or was declined.');
+        }
+        if (finalStatus.status !== 'successful') {
+          throw new Error('The MoMo request is still pending. Check the payer’s phone and wait for approval, then retry the status check before taking another payment.');
+        }
+        if (!finalStatus.paymentId) {
+          throw new Error('MoMo confirmed success, but the HMS payment reference is not available yet. Do not collect payment again; ask accounts to verify the transaction.');
+        }
+        paymentResult = { payment: { id: finalStatus.paymentId } };
+      } else {
+        paymentResult = await addPaymentToBill(bill.id, {
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          transactionDate: new Date().toISOString(),
+          receivedById: user.id,
+          idempotencyKey: paymentAttemptKey.current,
+        });
+      }
 
+      // Rotate only after the server confirms success. If the response is lost,
+      // a reload/retry still uses the same key and cannot post the payment twice.
+      paymentAttemptKey.current = crypto.randomUUID();
+      try {
+        if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current);
+      } catch {
+        // The in-memory key remains usable if session storage is unavailable.
+      }
       success(
         'Payment recorded', 
-        `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
+        `${formatCurrency(amount)} received via ${paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod.replace('_', ' ')}`
       );
+      // Receipt generation is deliberately separate from payment posting: a receipt-template
+      // failure must never make a successfully committed payment look unsuccessful.
+      const recordedPayment = paymentResult?.payment ?? paymentResult?.data?.payment;
+      if (recordedPayment?.id) {
+        try {
+          const receiptResult: any = await generateReceipt(bill.id, recordedPayment.id);
+          const documentId = receiptResult?.data?.documentId ?? receiptResult?.documentId;
+          if (documentId) {
+            const fileBlob = await downloadDocument(documentId);
+            const blobUrl = URL.createObjectURL(fileBlob);
+            const link = document.createElement('a');
+            link.href = blobUrl;
+            link.download = `receipt_${bill.billNumber || bill.id}_${recordedPayment.id}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(blobUrl);
+          } else {
+            toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the receipt document could not be prepared. Please ask an authorised accounts user to generate the payment receipt.');
+          }
+        } catch (receiptError: any) {
+          toastError('Payment recorded; receipt unavailable', receiptError?.message || 'The payment was saved, but the receipt could not be generated.');
+        }
+      } else {
+        toastError('Payment recorded; receipt unavailable', 'The payment was saved, but no payment reference was returned to generate its receipt.');
+      }
       navigate('/dashboard/billing');
     } catch (error: any) {
-      toastError('Payment failed', error.message || 'Failed to process payment');
+      const message = error.message || 'Failed to process payment';
+      if (paymentMethod === 'mobile_money' && /pending|status|verify|outcome is unknown|not confirmed/i.test(message)) {
+        toastError('Mobile Money status not confirmed', `${message} Do not collect a second payment until this attempt is verified.`);
+      } else {
+        toastError('Payment failed', message);
+      }
+    } finally {
+      setIsSubmittingPayment(false);
     }
   };
 
@@ -371,8 +475,28 @@ export default function ProcessPayment() {
               </div>
             </div>
 
+            {/* Mobile Money payer number: the backend initiates a real collection request. */}
+            {paymentMethod === 'mobile_money' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mobile Money Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  required
+                  placeholder="024 123 4567"
+                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                />
+                <p className="text-xs text-gray-600 mt-2">A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success.</p>
+              </div>
+            )}
+
             {/* Reference */}
-            {(paymentMethod === 'card' || paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
+            {(paymentMethod === 'card' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Reference Number <span className="text-red-500">*</span>
@@ -392,11 +516,11 @@ export default function ProcessPayment() {
             <div className="flex flex-col gap-3 pt-5 border-t border-gray-200">
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || isSubmittingPayment}
                 className="flex items-center justify-center gap-2.5 px-7 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
-                {isLoading ? 'Processing...' : 'Process Payment'}
+                {isLoading || isSubmittingPayment ? 'Processing...' : 'Process Payment'}
               </button>
               <button
                 type="button"

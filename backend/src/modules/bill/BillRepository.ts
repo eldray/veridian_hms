@@ -13,6 +13,30 @@ export class BillRepository extends BaseRepository<any, any, any> {
     super(prisma, 'bill');
   }
 
+  private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
+    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    if (typeof tx.bill.aggregate !== 'function') {
+      // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
+      if (fallback && tx.attendance?.update) {
+        await tx.attendance.update({ where: { id: attendanceId }, data: {
+          totalBill: toNumber(fallback.totalAmount),
+          paidAmount: toNumber(fallback.paidAmount),
+          outstandingBalance: toNumber(fallback.balance)
+        }});
+      }
+      return;
+    }
+    const totals = await tx.bill.aggregate({
+      where: { attendanceId, status: { not: 'cancelled' } },
+      _sum: { totalAmount: true, paidAmount: true, balance: true }
+    });
+    await tx.attendance.update({ where: { id: attendanceId }, data: {
+      totalBill: toNumber(totals._sum.totalAmount),
+      paidAmount: toNumber(totals._sum.paidAmount),
+      outstandingBalance: toNumber(totals._sum.balance)
+    }});
+  }
+
   async findAll(filters: BillFilter) {
     const { patientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 1000 } = filters;
     const where: any = {};
@@ -90,11 +114,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Prisma Decimals to numbers for JS math
       const totalAmount = bill.BillLineItem.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
 
-      return tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: { totalAmount, patientPayable: totalAmount, balance: totalAmount },
         include: { BillLineItem: true, Patient: true }
       });
+      await this.syncAttendanceFinancials(tx, attendanceId, updatedBill);
+      return updatedBill;
     });
   }
 
@@ -107,53 +133,87 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const bill = await tx.bill.findUnique({ where: { id: billId } });
-      if (!bill) throw new Error('Bill not found');
-
-      // Use the persisted outstanding balance as the guard, then decrement it atomically.
-      // This prevents two concurrent cashiers from both collecting against the same stale balance.
-      const amount = toNumber(paymentData.amount);
-      const currentBalance = Math.max(0, toNumber(bill.balance));
-      if (amount > currentBalance) {
-        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${currentBalance.toFixed(2)})`);
-      }
-
-      const balanceUpdate = await tx.bill.updateMany({
-        where: { id: billId, balance: { gte: amount } },
-        data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
-      });
-      if (balanceUpdate.count !== 1) {
-        const latestBill = await tx.bill.findUnique({ where: { id: billId }, select: { balance: true } });
-        const latestBalance = Math.max(0, toNumber(latestBill?.balance));
-        throw new ValidationError(`Payment exceeds the patient's outstanding balance (${latestBalance.toFixed(2)}). Refresh the bill and try again.`);
-      }
-
-      const currentBill = await tx.bill.findUnique({ where: { id: billId } });
-      if (!currentBill) throw new Error('Bill not found');
-      const newBalance = Math.max(0, toNumber(currentBill.balance));
-      const newStatus: BillStatus = newBalance <= 0 ? 'paid' : 'partial';
-      const updatedBill = await tx.bill.update({
-        where: { id: billId },
-        data: { status: newStatus }
-      });
-      const payment = await tx.payment.create({
-        data: {
-          billId, amount,
-          paymentMethod: paymentData.paymentMethod as PaymentMethod,
-          reference: paymentData.reference,
-          notes: paymentData.notes,
-          receivedById,
-          transactionDate: new Date()
+    const idempotencyKey = paymentData.idempotencyKey;
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const lockedBillId = billId;
+        // Match MoMo initiation's row lock so pending-intent checks cannot race a collection.
+        if (typeof tx.$queryRaw === 'function') {
+          await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${lockedBillId} FOR UPDATE`;
         }
+        if (idempotencyKey) {
+          const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
+          if (priorPayment) {
+            if (priorPayment.billId !== billId) throw new ValidationError('Payment request key has already been used for another bill.');
+            const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
+            const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+            const requestedReference = paymentData.reference || null;
+            const priorReference = priorPayment.reference || null;
+            if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+              throw new ValidationError('Payment idempotency key was already used with different payment details.');
+            }
+            const priorBill = await tx.bill.findUnique({ where: { id: billId } });
+            if (!priorBill) throw new Error('Bill not found');
+            return { bill: priorBill, payment: priorPayment, duplicate: true };
+          }
+        }
+        const pendingMomo = tx.momoPaymentIntent?.findFirst
+          ? await tx.momoPaymentIntent.findFirst({
+              where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
+              select: { id: true }
+            })
+          : null;
+        if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
+        const bill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!bill) throw new Error('Bill not found');
+        const amount = Math.round(Number(paymentData.amount) * 100) / 100;
+        if (!Number.isFinite(amount) || amount <= 0) throw new ValidationError('Payment amount must be greater than zero.');
+
+        const balanceUpdate = await tx.bill.updateMany({
+          where: { id: billId, balance: { gte: amount }, status: { not: 'cancelled' } },
+          data: { paidAmount: { increment: amount }, balance: { decrement: amount } }
+        });
+        if (balanceUpdate.count !== 1) {
+          const latestBill = await tx.bill.findUnique({ where: { id: billId }, select: { balance: true, status: true } });
+          const latestBalance = Math.max(0, toNumber(latestBill?.balance));
+          throw new ValidationError(latestBill?.status === 'cancelled'
+            ? 'Cannot accept payment against a cancelled bill.'
+            : `Payment exceeds the patient's outstanding balance (${latestBalance.toFixed(2)}). Refresh the bill and try again.`);
+        }
+        const currentBill = await tx.bill.findUnique({ where: { id: billId } });
+        if (!currentBill) throw new Error('Bill not found');
+        const newBalance = Math.max(0, toNumber(currentBill.balance));
+        const updatedBill = await tx.bill.update({ where: { id: billId }, data: { status: newBalance <= 0 ? 'paid' : 'partial' } });
+        const payment = await tx.payment.create({
+          data: {
+            billId, amount, paymentMethod: paymentData.paymentMethod as PaymentMethod,
+            reference: paymentData.reference || null, idempotencyKey, notes: paymentData.notes,
+            receivedById, transactionDate: new Date()
+          }
+        });
+        if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, balance: newBalance });
+        return { bill: updatedBill, payment, duplicate: false };
       });
-
-      if (currentBill.attendanceId) {
-        await tx.attendance.update({ where: { id: currentBill.attendanceId }, data: { outstandingBalance: newBalance } });
+    } catch (error: any) {
+      if (idempotencyKey && error?.code === 'P2002') {
+        const priorPayment = await this.prisma.payment.findUnique({ where: { idempotencyKey } });
+        if (priorPayment && priorPayment.billId !== billId) {
+          throw new ValidationError('Payment request key has already been used for another bill.');
+        }
+        if (priorPayment?.billId === billId) {
+          const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
+          const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+          const requestedReference = paymentData.reference || null;
+          const priorReference = priorPayment.reference || null;
+          if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+            throw new ValidationError('Payment idempotency key was already used with different payment details.');
+          }
+          const priorBill = await this.prisma.bill.findUnique({ where: { id: billId } });
+          if (priorBill) return { bill: priorBill, payment: priorPayment, duplicate: true };
+        }
       }
-
-      return { bill: updatedBill, payment };
-    });
+      throw error;
+    }
   }
 
   async voidLineItem(lineItemId: string, userId: string, reason: string) {
@@ -171,7 +231,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       // ✅ FIXED: Safely parse Decimals
       const newTotal = activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
-      const grossPatientLiability = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const grossPatientLiability = activeLineItems.reduce((sum, item) => {
+        const explicitPatient = toNumber(item.patientPayableAmount);
+        const explicitInsurance = toNumber(item.insuranceCoveredAmount);
+        // Older cash bills predate line-level payer allocation and have zero defaults.
+        const legacyCashLiability = item.pricingBasis === 'cash' && explicitPatient === 0 && explicitInsurance === 0
+          ? toNumber(item.lineTotal)
+          : explicitPatient;
+        return sum + legacyCashLiability;
+      }, 0);
       const newInsuranceCovered = activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
       const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
       // patientPayable already reflects approved waivers; recompute it from active lines
@@ -191,12 +259,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      if (bill?.attendanceId) {
-        await tx.attendance.update({
-          where: { id: bill.attendanceId },
-          data: { totalBill: newTotal, outstandingBalance: newBalance }
-        });
-      }
+      if (bill?.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, totalAmount: newTotal, balance: newBalance });
 
       return { lineItem: updatedLineItem, billId: lineItem.billId };
     });
@@ -241,30 +304,34 @@ export class BillRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
-      if (waiver.status !== 'approved') throw new Error('Only approved waivers can be applied');
-      if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
+      if (waiver.status !== 'approved') throw new ValidationError('Only approved waivers can be applied');
+      if (waiver.appliedAt) throw new ValidationError('This waiver has already been applied');
+      if (waiver.billId !== billId) throw new ValidationError('Waiver does not belong to this bill');
 
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // Approved waivers may reduce only the remaining patient liability.
       const waiverAmount = toNumber(waiver.amountApproved);
       const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
-      if (waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
+      if (!Number.isFinite(waiverAmount) || waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
         throw new ValidationError('Approved waiver exceeds the remaining patient liability');
       }
+      const claimed = await tx.patientWaiver.updateMany({
+        where: { id: waiverId, status: 'approved', appliedAt: null },
+        data: { appliedAt: new Date() }
+      });
+      if (claimed.count !== 1) throw new ValidationError('This waiver has already been applied');
+
       const newWaiverAmount = toNumber(bill.waiverAmount) + waiverAmount;
       const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - waiverAmount);
       const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updatedBill = await tx.bill.update({
         where: { id: billId },
-        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : bill.status }
+        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') }
       });
 
-      if (bill.attendanceId) {
-        await tx.attendance.update({ where: { id: bill.attendanceId }, data: { outstandingBalance: newBalance } });
-      }
+      if (bill.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, balance: newBalance });
 
       return updatedBill;
     });
@@ -345,7 +412,25 @@ export class BillRepository extends BaseRepository<any, any, any> {
   // ✅ Generates a Bill from an attendance's billable items (ServiceRendered, LabTest, Scan, Procedure, Medication).
   async generateFromEncounter(encounterId: string, createdBy: string) {
     return this.prisma.$transaction(async (tx) => {
-      const activePricing = { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' as const } } };
+      const attendanceDate = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        select: { dateTime: true }
+      });
+      if (!attendanceDate) throw new Error('Encounter not found');
+      // Bill from the tariff effective when this encounter occurred, not a future
+      // or expired tariff that happens to be marked active today.
+      const serviceDate = attendanceDate.dateTime;
+      const activePricing = {
+        pricing: {
+          where: {
+            isActive: true,
+            effectiveDate: { lte: serviceDate },
+            OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }]
+          },
+          take: 1,
+          orderBy: { effectiveDate: 'desc' as const }
+        }
+      };
       const attendance = await tx.attendance.findUnique({
         where: { id: encounterId },
         include: {
@@ -580,10 +665,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      await tx.attendance.update({
-        where: { id: attendance.id },
-        data: { totalBill: totalAmount, outstandingBalance: balance }
-      });
+      await this.syncAttendanceFinancials(tx, attendance.id, { ...updatedBill, balance });
 
       return updatedBill;
     });
