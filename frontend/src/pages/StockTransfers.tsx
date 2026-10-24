@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { createStockTransfer, getDepartments, getStockItems, getStockTransfers, updateStockTransferStatus } from '../api';
+import { createStockTransfer, fetchAllPages, getDepartments, getStockItems, getStockTransfers, updateStockTransferStatus } from '../api';
 
 type TransferItem = {
   id?: string;
@@ -95,8 +95,8 @@ export default function StockTransfers() {
     try {
       const [transferResponse, departmentResponse, stockResponse] = await Promise.all([
         getStockTransfers({ limit: 1000 }),
-        getDepartments({ limit: 1000 }),
-        getStockItems({ limit: 1000, isActive: true }),
+        fetchAllPages<any>(getDepartments, { limit: 1000 }, { maxItems: 1000 }),
+        fetchAllPages<any>(getStockItems, { limit: 1000, isActive: true }, { maxItems: 1000 }),
       ]);
       setTransfers(asArray(transferResponse) as Transfer[]);
       setDepartments(asArray(departmentResponse).map((d: any) => ({
