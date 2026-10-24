@@ -103,7 +103,7 @@ export default function InsuranceClaimsTracking() {
 
   return (
     <div className="p-4 md:p-6 space-y-5">
-      <InsuranceSectionTabs active="claims" />
+      <InsuranceSectionTabs active="tracking" />
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Insurance Claims Tracking</h1>
