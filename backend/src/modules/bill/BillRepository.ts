@@ -178,7 +178,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       // ✅ FIXED: Safely parse Decimals
       const newTotal = activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
-      const grossPatientLiability = activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0);
+      const grossPatientLiability = activeLineItems.reduce((sum, item) => {
+        const explicitPatient = toNumber(item.patientPayableAmount);
+        const explicitInsurance = toNumber(item.insuranceCoveredAmount);
+        // Older cash bills predate line-level payer allocation and have zero defaults.
+        const legacyCashLiability = item.pricingBasis === 'cash' && explicitPatient === 0 && explicitInsurance === 0
+          ? toNumber(item.lineTotal)
+          : explicitPatient;
+        return sum + legacyCashLiability;
+      }, 0);
       const newInsuranceCovered = activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0);
       const bill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
       // patientPayable already reflects approved waivers; recompute it from active lines
