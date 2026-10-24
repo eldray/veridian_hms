@@ -73,7 +73,7 @@ describe('MomoPaymentService', () => {
     } as any;
     const service = new MomoPaymentService(prisma);
     const addPayment = vi.fn().mockResolvedValue({ payment: { id: 'payment-1' } });
-    (service as any).billing.addPaymentToBill = addPayment;
+    (service as any).billing.addConfirmedMomoPayment = addPayment;
     return { prisma, service, addPayment };
   }
 
