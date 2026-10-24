@@ -5,7 +5,7 @@ import type {
   GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
   Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
   StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
-  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
+  Appointment, Notification, HospitalInfo, ServiceType, ClaimStatus,
   Seniority  // ✅ ADD THIS
 } from '../types';
 
@@ -2635,25 +2635,6 @@ export const calculateServiceCost = (data: any) =>
   api.post('/services/calculate-cost', data).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// CONSULTATION TYPES
-// ──────────────────────────────────────────────
-
-export const getConsultationTypes = (filters?: any) =>
-  api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
-
-export const getConsultationType = (id: string) =>
-  api.get(`/consultation-types/${id}`).then(r => r.data);
-
-export const createConsultationType = (data: any) =>
-  api.post('/consultation-types', data).then(r => r.data);
-
-export const updateConsultationType = (id: string, data: any) =>
-  api.put(`/consultation-types/${id}`, data).then(r => r.data);
-
-export const deleteConsultationType = (id: string) =>
-  api.delete(`/consultation-types/${id}`).then(r => r.data);
-
-// ──────────────────────────────────────────────
 // DEPARTMENT
 // ──────────────────────────────────────────────
 
@@ -3925,9 +3906,6 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
   getWaiversByBill, getWaiversByPatient, getWaiverStatistics, deleteWaiver, applyWaiverToBill,
 
-  // Ward Charges
-  getWardCharges, generateDailyWardCharges,
-
   // Admissions
   getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
   addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
@@ -3972,9 +3950,6 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getServiceCatalog, getServiceCatalogItem, createServiceCatalogItem, updateServiceCatalogItem, deleteServiceCatalogItem,
   getServiceMetadata, getNHISReadinessReport, getServiceByNHISCode, getServicesByCategory,
   checkServiceCoverage, calculateServiceCost,
-
-  // Consultation Types
-  getConsultationTypes, getConsultationType, createConsultationType, updateConsultationType, deleteConsultationType,
 
   // Departments
   getDepartments, getDepartment, createDepartment, updateDepartment, deleteDepartment,
