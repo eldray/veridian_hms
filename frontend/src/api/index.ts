@@ -1094,6 +1094,20 @@ export const getCorporateClaims = (filters?: any) =>
 // CLAIM SUMMARY (replaces getFinalizedClaimsTotal)
 // ──────────────────────────────────────────────
 
+export const getInsuranceClaimsTracking = (filters?: { page?: number; limit?: number; search?: string; insuranceType?: string }) =>
+  api.get('/insurance-claims/tracking', { params: filters }).then(r => r.data);
+
+export const recordInsuranceClaimTrackingEvent = (claimId: string, data: {
+  eventType: 'submission' | 'adjudication' | 'payment';
+  status?: string;
+  submissionDate?: string;
+  payerReference?: string;
+  amount?: number;
+  paymentReference?: string;
+  paymentMethod?: string;
+  notes?: string;
+}) => api.post(`/insurance-claims/${claimId}/tracking-events`, data).then(r => r.data);
+
 export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate') =>
   api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => r.data);
 
@@ -3898,7 +3912,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getCorporateClaims, getInsuranceClaim, getClaimByEncounterId,
   generateNHISClaim, generatePrivateInsuranceClaim, generateCorporateClaim,
   updateInsuranceClaim, updateClaimDraft, finalizeClaim,
-  getClaimsSummary, downloadClaimXml, generateClaimPrint, generateClaimXML,
+  getClaimsSummary, getInsuranceClaimsTracking, recordInsuranceClaimTrackingEvent, downloadClaimXml, generateClaimPrint, generateClaimXML,
 
   // Claim Batches
   generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
