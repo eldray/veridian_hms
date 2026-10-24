@@ -208,10 +208,13 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
       if (response && response.success === true) {
         billsArray = response.data || [];
-        paginationData = response.pagination || null;
+        paginationData = response.pagination || response.meta || null;
       } 
       else if (Array.isArray(response)) {
         billsArray = response;
+        // api/index.ts normalizes list endpoints to arrays and attaches server paging
+        // metadata non-enumerably; read it before the array is stored in Zustand.
+        paginationData = (response as any).pagination || null;
       }
       else if (response && Array.isArray(response.data)) {
         billsArray = response.data;
