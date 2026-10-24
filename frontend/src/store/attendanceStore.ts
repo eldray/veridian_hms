@@ -22,6 +22,7 @@ import {
   removeProcedureFromEncounter as apiRemoveProcedure,
   addMedicationToEncounter as apiAddMedication,
   updateMedicationStatus as apiUpdateMedicationStatus,
+  dispenseMedication as apiDispenseMedication,
   removeMedicationFromEncounter as apiRemoveMedication,
   addScanToEncounter as apiAddScan,
   updateScanStatus as apiUpdateScanStatus,
@@ -152,6 +153,7 @@ interface AttendanceState {
     instructions?: string 
   }) => Promise<void>;
   updateMedicationStatus: (attendanceId: string, medicationId: string, data: any) => Promise<void>;
+  dispenseMedication: (attendanceId: string, medicationId: string, data: { quantity: number; batchNumber?: string; expiryDate?: string }) => Promise<any>;
   removeMedication: (attendanceId: string, medicationId: string) => Promise<void>;
   
   // Scan operations
@@ -699,6 +701,36 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       console.error('Error updating medication status:', error);
       set({
         error: error.response?.data?.message || error.message || 'Failed to update medication status',
+        isLoading: false
+      });
+      throw error;
+    }
+  },
+
+  dispenseMedication: async (attendanceId, medicationId, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiDispenseMedication(attendanceId, medicationId, data);
+      const updatedMedication = response?.data?.data || response?.data || response;
+      if (!updatedMedication || updatedMedication.id !== medicationId) {
+        throw new Error('Medication dispense response was invalid; refresh and verify the stock transaction');
+      }
+      set({ isLoading: false, error: null });
+      // Dispensing is already committed by the backend. A failed follow-up refresh
+      // must not be reported as a failed dispense or encourage a second attempt.
+      let refreshedAttendance: any = null;
+      try {
+        refreshedAttendance = await get().refreshAttendance(attendanceId);
+      } catch (refreshError) {
+        console.warn('Medication was dispensed; attendance refresh will be retried separately', refreshError);
+      }
+      const medicationFromAttendance = (refreshedAttendance as any)?.Medication?.find(
+        (medication: any) => medication.id === medicationId
+      );
+      return medicationFromAttendance || updatedMedication;
+    } catch (error: any) {
+      set({
+        error: error.response?.data?.message || error.message || 'Failed to dispense medication',
         isLoading: false
       });
       throw error;

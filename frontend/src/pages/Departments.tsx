@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import api from '../api/api';
+import { getAllUsers } from '../api';
 import AsyncSelect from 'react-select/async';
 import {
   Plus, Search, Building, Users, Edit, Trash2, RefreshCw,
@@ -146,8 +146,8 @@ const { user, hasRole } = useAuthStore();
   const loadAllUsers = async () => {
     setLoadingUsers(true);
     try {
-      const res = await api.get('/users');
-      setAllUsers(res.data?.data || res.data || []);
+      const users = await getAllUsers();
+      setAllUsers(Array.isArray(users) ? users : []);
     } catch { error('Load Failed', 'Could not load users'); }
     finally { setLoadingUsers(false); }
   };

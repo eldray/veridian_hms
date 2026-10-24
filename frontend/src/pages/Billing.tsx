@@ -9,8 +9,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
-import { getBillingCollections } from '../api';
-import api from '../api/api';
+import { getBillingCollections, getBillingInvoice } from '../api';
 import {
   Search, RefreshCw, FileText, DollarSign, CreditCard, Eye,
   ChevronLeft, ChevronRight, Receipt, TrendingUp,
@@ -406,7 +405,7 @@ export default function Billing() {
 const handlePrintStatement = async (billId: string) => {
   try {
     // Fetch the full bill with line items
-    const fullBill: any = await api.get(`/billing/invoices/${billId}`).then(r => r.data?.data || r.data);
+    const fullBill: any = await getBillingInvoice(billId);
     if (!fullBill) {
       toastError('Error', 'Bill not found');
       return;
