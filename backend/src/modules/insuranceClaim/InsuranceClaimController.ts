@@ -82,6 +82,22 @@ export class InsuranceClaimController extends BaseController {
     return this.paginated(res, result.data, { page: result.page, limit: result.limit, total: result.total }, 'Corporate claims retrieved');
   });
 
+  listClaimsMissingItems = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.listClaimsMissingItems({
+      insuranceType: req.query.insuranceType as string | undefined,
+      status: req.query.status as string | undefined,
+      page,
+      limit,
+    });
+    return this.paginated(
+      res,
+      result.data,
+      { page: result.page, limit: result.limit, total: result.total },
+      'Claims missing itemized lines retrieved for audit',
+    );
+  });
+
   getClaim = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const claim = await this.service.getClaim(req.params.id);
     return this.ok(res, claim, 'Claim retrieved');
