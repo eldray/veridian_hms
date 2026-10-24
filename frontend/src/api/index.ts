@@ -2734,7 +2734,7 @@ export const getNotifications = (filters?: any) =>
   api.get('/notifications', { params: filters }).then(r => r.data);
 
 export const getNotification = (id: string) =>
-  api.get(`/notifications/${id}`).then(r => r.data);
+  api.get(`/notifications/${id}`).then(r => r.data?.data || r.data);
 
 export const markNotificationAsRead = (id: string) =>
   api.patch(`/notifications/${id}/read`).then(r => r.data);
