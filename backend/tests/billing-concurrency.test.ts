@@ -478,3 +478,66 @@ describe('pending MoMo intent cannot be bypassed with a manual mobile-money meth
     expect(tx.payment.create).not.toHaveBeenCalled();
   });
 });
+
+
+describe('confirmed MoMo intent validation in the billing repository', () => {
+  it('records a provider-confirmed payment only for its exact pending intent', async () => {
+    const intentLookup = vi.fn().mockResolvedValue({ id: 'momo-intent-1' });
+    const billFindUnique = vi.fn()
+      .mockResolvedValueOnce({ id: 'bill-1', balance: 100, paidAmount: 0, attendanceId: null, status: 'pending' })
+      .mockResolvedValueOnce({ id: 'bill-1', balance: 75, paidAmount: 25, attendanceId: null, status: 'partial' });
+    const paymentCreate = vi.fn().mockResolvedValue({ id: 'payment-momo-1', amount: 25 });
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      momoPaymentIntent: { findFirst: intentLookup },
+      payment: { findUnique: vi.fn().mockResolvedValue(null), create: paymentCreate },
+      bill: {
+        findUnique: billFindUnique,
+        updateMany: vi.fn().mockResolvedValue({ count: 1 }),
+        update: vi.fn().mockResolvedValue({ id: 'bill-1', balance: 75, status: 'partial' }),
+      },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    const result = await repository.addPayment('bill-1', {
+      amount: 25,
+      paymentMethod: 'mobile_money',
+      reference: 'MTN-MOMO:provider-ref',
+      idempotencyKey: 'momo-payment-key',
+      userId: 'cashier-1',
+      internalMomoIntentId: 'momo-intent-1',
+    });
+
+    expect(intentLookup).toHaveBeenCalledWith({
+      where: { id: 'momo-intent-1', billId: 'bill-1', status: { in: ['initiating', 'pending'] } },
+      select: { id: true },
+    });
+    expect(result.payment.id).toBe('payment-momo-1');
+  });
+
+  it('rejects an internal MoMo posting if the specified intent is not pending for that bill', async () => {
+    const intentLookup = vi.fn().mockResolvedValue(null);
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      momoPaymentIntent: { findFirst: intentLookup },
+      payment: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn() },
+      bill: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    await expect(repository.addPayment('bill-1', {
+      amount: 25,
+      paymentMethod: 'mobile_money',
+      idempotencyKey: 'momo-payment-key',
+      userId: 'cashier-1',
+      internalMomoIntentId: 'wrong-or-terminal-intent',
+    })).rejects.toThrow(/confirmed Mobile Money intent is no longer valid/i);
+
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+});
