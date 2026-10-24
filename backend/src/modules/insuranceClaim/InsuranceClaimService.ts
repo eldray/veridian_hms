@@ -397,6 +397,7 @@ ${claimsXml}
       }
       const claimValidationDate = servicePolicyDate;
       let nhisMedicineClaimTotal = 0;
+      const nhisMedicineItems: any[] = [];
       for (const med of att.Medication) {
         const stockItem = med.StockItem;
         if (!stockItem) {
@@ -518,7 +519,21 @@ ${claimsXml}
         if (!Number.isFinite(quantity) || quantity <= 0) {
           throw new ValidationError(`NHIS claim cannot price ${med.name ?? stockItem.name}: dispensed quantity is missing or invalid.`);
         }
-        nhisMedicineClaimTotal += Math.round(allocation.nhisCoveredAmount * quantity * 100) / 100;
+        const coveredUnitAmount = Math.round(allocation.nhisCoveredAmount * 100) / 100;
+        const coveredLineAmount = Math.round(coveredUnitAmount * quantity * 100) / 100;
+        nhisMedicineClaimTotal += coveredLineAmount;
+        nhisMedicineItems.push({
+          itemCategory: 'medicine',
+          itemType: 'medication',
+          code: stockItem.drugCode || med.ServiceCatalog?.code || 'NHIS-MEDICINE',
+          description: med.name || stockItem.name,
+          quantity,
+          unitPrice: coveredUnitAmount,
+          lineTotal: coveredLineAmount,
+          serviceDate: att.dateTime,
+          medicationId: med.id,
+          serviceCatalogId: med.ServiceCatalog?.id || null
+        });
       }
 
       const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
@@ -568,8 +583,29 @@ ${claimsXml}
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
           typeOfService, serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
           mdcCode: tariff.gdrgCode.match(/^[A-Z]+/)?.[0] || 'MEDI', typeOfAttendance: typeOfAtt, datesOfService,
-          notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`
-        }
+          notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`,
+          items: {
+            create: [
+              {
+                itemNumber: 1,
+                itemCategory: 'gdrg',
+                itemType: 'GDRG',
+                code: tariff.gdrgCode,
+                description: `NHIS G-DRG tariff ${tariff.gdrgCode}`,
+                quantity: 1,
+                unitPrice: tariff.nhiaTariff,
+                lineTotal: tariff.nhiaTariff,
+                serviceDate: servicePolicyDate,
+                gdrgTariffId: tariff.id
+              },
+              ...nhisMedicineItems.map((item, index) => ({
+                ...item,
+                itemNumber: index + 2
+              }))
+            ]
+          }
+        },
+        include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
 
       return { claim, gdrgDetails: tariff, isExisting: false };
