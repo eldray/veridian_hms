@@ -1176,6 +1176,7 @@ model InsuranceClaim {
   finalizedBy                           User?             @relation("Claim_finalizedBy", fields: [finalizedById], references: [id])
 
   items InsuranceClaimItem[]
+  trackingEvents InsuranceClaimTrackingEvent[]
 
   batch   ClaimBatch? @relation(fields: [batchId], references: [id])
   batchId String?     @map("batch_id")
@@ -1188,6 +1189,29 @@ model InsuranceClaim {
   @@index([corporateAccountId, status])
   @@index([insuranceProviderId, status])
   @@index([finalizedAt])
+}
+
+model InsuranceClaimTrackingEvent {
+  id               String   @id @default(cuid())
+  claimId          String
+  eventType        String
+  status           String?
+  submissionDate   DateTime?
+  payerReference   String?
+  amount           Decimal? @db.Decimal(15, 2)
+  paymentReference String?  @unique
+  paymentMethod    String?
+  notes            String?  @db.Text
+  recordedById     String
+  createdAt        DateTime @default(now())
+
+  claim      InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  recordedBy User           @relation("ClaimTrackingEvent_recordedBy", fields: [recordedById], references: [id])
+
+  @@index([claimId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([status])
+  @@map("insurance_claim_tracking_events")
 }
 
 model ClaimBatch {
@@ -2194,6 +2218,7 @@ model User {
   Bill_Bill_updatedByIdToUser                     Bill[]                    @relation("Bill_updatedByIdToUser")
   InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_createdByIdToUser")
   InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_updatedByIdToUser")
+  claimTrackingEvents InsuranceClaimTrackingEvent[] @relation("ClaimTrackingEvent_recordedBy")
   Invoice                                         Invoice[]
   LabTest_LabTest_createdByIdToUser               LabTest[]                 @relation("LabTest_createdByIdToUser")
   LabTest_LabTest_performedByIdToUser             LabTest[]                 @relation("LabTest_performedByIdToUser")
