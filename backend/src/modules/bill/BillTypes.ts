@@ -41,9 +41,8 @@ export interface CreateBillInput {
 }
 
 export interface UpdateBillInput {
-  totalAmount?: number;
-  paidAmount?: number;
-  status?: BillStatus;
+  // General bill editing is intentionally limited to non-financial notes.
+  // Totals, status and balances are derived from auditable billing workflows.
   notes?: string;
 }
 
