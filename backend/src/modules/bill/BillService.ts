@@ -1,14 +1,17 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { BillRepository } from './BillRepository';
+import { BillingService } from '../billing/BillingService';
 import { BillWithRelations, CreateBillInput, UpdateBillInput, BillFilter, AddPaymentInput } from './BillTypes';
 
 export class BillService extends BaseService {
   private billRepository: BillRepository;
+  private billingService: BillingService;
 
   constructor(prisma: PrismaClient) {
     super('BillService'); // ✅ Extends BaseService for standardized logging
     this.billRepository = new BillRepository(prisma);
+    this.billingService = new BillingService(prisma);
   }
 
   async getAllBills(filters: BillFilter, page: number = 1, limit: number = 50) {
@@ -29,10 +32,22 @@ export class BillService extends BaseService {
 
     for (const item of data.items) {
       if (item.quantity <= 0) throw new Error('Quantity must be greater than 0');
-      if (item.unitPrice < 0) throw new Error('Unit price cannot be negative');
+      if (item.unitPrice !== undefined && item.unitPrice < 0) throw new Error('Unit price cannot be negative');
     }
 
-    return this.billRepository.create(data, createdBy);
+    // Both bill-creation endpoints must use the same server-side tariff and payer rules.
+    // Never trust a price supplied by the browser for cash, NHIS, or private insurance.
+    return this.billingService.createBill({
+      patientId: data.patientId,
+      attendanceId: data.attendanceId!,
+      paymentMode: data.paymentMode ?? 'cash',
+      insuranceProviderId: data.insuranceProviderId,
+      corporateAccountId: data.corporateAccountId,
+      items: data.items.map((item) => ({
+        serviceId: item.serviceCatalogId,
+        quantity: item.quantity
+      }))
+    }, createdBy);
   }
 
   async updateBill(id: string, data: UpdateBillInput) {
