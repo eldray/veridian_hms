@@ -26,6 +26,9 @@ export function createDiagnosisRoutes(prisma: PrismaClient): Router {  // ✅ Ac
   // GET /api/diagnoses/morbidity-group/:morbidityGroup - Get diagnoses by morbidity group
   router.get('/morbidity-group/:morbidityGroup', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getByMorbidityGroup);
 
+  // Bulk update is explicit and admin-only; keep it before dynamic ID routes.
+  router.post('/bulk-update', requireRole(['admin']), controller.bulkUpdate);
+
   // GET /api/diagnoses/:id - Get diagnosis by ID
   router.get('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'records']), controller.getById);
 
