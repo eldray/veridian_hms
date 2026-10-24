@@ -220,4 +220,70 @@ describe('MomoPaymentService', () => {
     expect(result.status).toBe('successful');
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it('marks a definite provider 4xx rejection as failed', async () => {
+    const createdIntent = {
+      ...baseIntent,
+      id: 'rejected-intent',
+      status: 'initiating',
+      providerStatus: null,
+      idempotencyKey: 'rejected-request-key',
+      providerReference: 'rejected-provider-reference',
+    };
+    const prisma = {
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-1',
+          billNumber: 'BILL-1001',
+          balance: 100,
+          status: 'pending',
+        }),
+      },
+      momoPaymentIntent: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(createdIntent),
+        update: vi.fn(async ({ data }: any) => ({ ...createdIntent, ...data })),
+      },
+    } as any;
+    const service = new MomoPaymentService(prisma);
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('invalid payer details', { status: 400 })) as any;
+
+    await expect(service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'rejected-request-key',
+      userId: 'cashier-1',
+    })).rejects.toThrow(/rejected the payment request/i);
+
+    expect(prisma.momoPaymentIntent.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'rejected-intent' },
+      data: expect.objectContaining({
+        status: 'failed',
+        providerStatus: 'INITIATION_FAILED',
+      }),
+    }));
+  });
+
+  it('does not record a bill payment when MTN reports FAILED', async () => {
+    const { service, prisma, addPayment } = setup();
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(providerResponse('FAILED', {
+        financialTransactionId: 'mtn-failed-txn',
+        reason: { code: 'PAYER_NOT_FOUND', message: 'Payer account not found' },
+      })) as any;
+
+    const result = await service.getStatus(baseIntent.id, 'cashier-1', 'cashier');
+
+    expect(result.status).toBe('failed');
+    expect(result.failureReason).toBe('Payer account not found');
+    expect(addPayment).not.toHaveBeenCalled();
+    expect(prisma.momoPaymentIntent.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: baseIntent.id },
+      data: expect.objectContaining({ status: 'failed', providerStatus: 'FAILED' }),
+    }));
+  });
 });
