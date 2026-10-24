@@ -617,19 +617,50 @@ ${claimsXml}
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
 
-      // nextPrivateClaimNumber() already returns "PRIV-<n>" - do not prefix it again
+      const billItems = (att.Bill?.BillLineItem ?? []).filter((item: any) => !item.isVoided);
+      if (!att.Bill?.id || billItems.length === 0) {
+        throw new ValidationError('A private insurance claim requires a bill with at least one active bill line item.');
+      }
+
       const claimNumber = getCounterService().nextPrivateClaimNumber();
       const claim = await tx.insuranceClaim.create({
         data: {
-          claimNumber, billId: att.Bill?.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
-          totalClaimAmount: att.Bill?.totalAmount || 0, status: 'draft', createdById: userId,
+          claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
+          totalClaimAmount: att.Bill.totalAmount, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
           scanCodes: safeMap(att.Scan, s => s.ServiceCatalog?.code),
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.code),
-          notes: 'Private insurance claim - itemized billing'
-        }
+          medicationCodes: safeMap(att.Medication, m => m.StockItem?.drugCode || m.ServiceCatalog?.code),
+          notes: 'Private insurance claim - itemized billing',
+          items: {
+            create: billItems.map((item: any, index: number) => {
+              const serviceType = String(item.serviceType || 'miscellaneous').toLowerCase();
+              const itemCategory = serviceType === 'lab_test' || serviceType === 'scan'
+                ? 'investigation'
+                : serviceType === 'medication'
+                  ? 'medicine'
+                  : serviceType === 'procedure'
+                    ? 'procedure'
+                    : 'service';
+              return {
+                itemNumber: index + 1,
+                itemCategory,
+                itemType: serviceType,
+                code: item.serviceCatalog?.code || serviceType.toUpperCase(),
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                lineTotal: item.lineTotal,
+                serviceDate: att.dateTime,
+                billLineItemId: item.id,
+                serviceCatalogId: item.serviceCatalogId || null
+              };
+            })
+          }
+        },
+        include: { items: { orderBy: { itemNumber: 'asc' } } }
       });
 
       return { claim, isExisting: false };
