@@ -253,6 +253,12 @@ export class MomoPaymentService {
           idempotencyKey: intent.paymentIdempotencyKey
         }, intent.initiatedById, intent.id);
         const payment = result?.payment ?? result?.data?.payment ?? result?.Payment;
+        // Never mark the intent terminal-successful unless the billing workflow
+        // returns the persisted HMS payment ID. Otherwise the intent must remain
+        // unresolved so manual collection stays blocked while accounts reconcile it.
+        if (!payment?.id) {
+          throw Object.assign(new Error('MTN confirmed payment, but the HMS payment record could not be verified. Retry reconciliation; do not collect again.'), { statusCode: 502 });
+        }
         intent = await this.prisma.momoPaymentIntent.update({
           where: { id: intent.id },
           data: {
