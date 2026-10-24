@@ -527,7 +527,7 @@ export const register = (userData: {
   licenseNumber?: string;
   specialization?: string;
   departmentId?: string;
-}) => api.post('/auth/register', userData).then(r => unwrapApiResponse(r.data);
+}) => api.post('/auth/register', userData).then(r => unwrapApiResponse(r.data));
 
 
 export const verifyToken = () =>
@@ -549,7 +549,7 @@ export const updateProfile = (data: any) =>
   api.put('/auth/profile', data).then(r => r.data.user || r.data);
 
 export const changePassword = (currentPassword: string, newPassword: string) =>
-  api.post('/auth/change-password', { currentPassword, newPassword }).then(r => unwrapApiResponse(r.data);
+  api.post('/auth/change-password', { currentPassword, newPassword }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // SETTINGS (Admin only)
@@ -559,13 +559,13 @@ export const getHospitalDetails = () =>
   api.get('/settings/hospital').then(r => r.data);
 
 export const updateHospitalDetails = (data: any) =>
-  api.put('/settings/hospital', data).then(r => unwrapApiResponse(r.data);
+  api.put('/settings/hospital', data).then(r => unwrapApiResponse(r.data));
 
 export const getSystemSettings = () =>
   api.get('/settings').then(r => r.data);
 
 export const updateSystemSettings = (data: any) =>
-  api.put('/settings', data).then(r => unwrapApiResponse(r.data);
+  api.put('/settings', data).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -579,13 +579,13 @@ export const getHospital = (id: string) =>
   api.get(`/hospital/${id}`).then(r => r.data);
 
 export const createHospital = (data: any) =>
-  api.post('/hospital', data).then(r => unwrapApiResponse(r.data);
+  api.post('/hospital', data).then(r => unwrapApiResponse(r.data));
 
 export const updateHospital = (id: string, data: any) =>
-  api.put(`/hospital/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/hospital/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteHospital = (id: string) =>
-  api.delete(`/hospital/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/hospital/${id}`).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -598,7 +598,7 @@ export const getHospitalNHISSettings = () =>
 
 // Hospital NHIS Settings - UPDATE current hospital's NHIS config
 export const updateHospitalNHISSettings = (data: any) =>
-  api.put('/hospital/nhis/settings', data).then(r => unwrapApiResponse(r.data);
+  api.put('/hospital/nhis/settings', data).then(r => unwrapApiResponse(r.data));
 
 // NHIS API Status - Check if NHIS API is configured and active
 export const getNHISApiStatus = () =>
@@ -606,7 +606,7 @@ export const getNHISApiStatus = () =>
 
 // NHIS API Configuration - Update API connection settings
 export const updateNHISApiConfig = (data: any) =>
-  api.put('/settings/nhis/config', data).then(r => unwrapApiResponse(r.data);
+  api.put('/settings/nhis/config', data).then(r => unwrapApiResponse(r.data));
 
 // Test NHIS API Connection
 export const testNHISConnection = () =>
@@ -614,15 +614,15 @@ export const testNHISConnection = () =>
 
 // Verify Single NHIS Eligibility
 export const verifyNHISEligibility = (policyNumber: string) =>
-  api.post('/settings/nhis/verify-eligibility', { policyNumber }).then(r => unwrapApiResponse(r.data);
+  api.post('/settings/nhis/verify-eligibility', { policyNumber }).then(r => unwrapApiResponse(r.data));
 
 // Bulk Verify NHIS Eligibility
 export const bulkVerifyNHISEligibility = (policyNumbers: string[]) =>
-  api.post('/settings/nhis/bulk-verify-eligibility', { policyNumbers }).then(r => unwrapApiResponse(r.data);
+  api.post('/settings/nhis/bulk-verify-eligibility', { policyNumbers }).then(r => unwrapApiResponse(r.data));
 
 // Generate NHIS CCC (Claim Check Code)
 export const generateCCC = (data: { policyNumber: string; encounterId: string; totalAmount: number }) =>
-  api.post('/settings/nhis/generate-ccc', data).then(r => unwrapApiResponse(r.data);
+  api.post('/settings/nhis/generate-ccc', data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // USER MANAGEMENT (Separate module - NOT in settings)
@@ -663,7 +663,7 @@ export const updateUserProfile = (data: any) =>
 export const changeUserPassword = (
   _userId: string | undefined,
   data: { currentPassword: string; newPassword: string },
-) => api.post(`/auth/change-password`, data).then(r => unwrapApiResponse(r.data);
+) => api.post(`/auth/change-password`, data).then(r => unwrapApiResponse(r.data));
 
 export const getCurrentUserPermissions = () =>
   api.get('/users/permissions').then(r => r.data);
@@ -685,7 +685,7 @@ export const updateShift = (shiftId: string, data: any) =>
   api.put(`/users/shifts/${shiftId}`, data).then(r => r.data?.data || r.data);
 
 export const deleteShift = (shiftId: string) =>
-  api.delete(`/users/shifts/${shiftId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/users/shifts/${shiftId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // LEAVE MANAGEMENT (via User module)
@@ -704,7 +704,7 @@ export const updateLeave = (leaveId: string, data: { status?: 'pending' | 'appro
   api.put(`/users/leaves/${leaveId}`, data).then(r => r.data?.data || r.data);
 
 export const deleteLeave = (leaveId: string) =>
-  api.delete(`/users/leaves/${leaveId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/users/leaves/${leaveId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // LEAVE APPROVAL HELPERS
@@ -830,7 +830,7 @@ export const unverifyDocument = (documentId: string) =>
   api.post(`/users/documents/${documentId}/unverify`).then(r => r.data?.data || r.data);
 
 export const deleteDocument = (documentId: string) =>
-  api.delete(`/users/documents/${documentId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/users/documents/${documentId}`).then(r => unwrapApiResponse(r.data));
 // ──────────────────────────────────────────────
 // GDRG TARIFFS
 // ──────────────────────────────────────────────
@@ -990,13 +990,13 @@ export const getInsuranceProvider = (id: string) =>
   api.get(`/insurance-providers/${id}`).then(r => r.data);
 
 export const createInsuranceProvider = (data: any) =>
-  api.post('/insurance-providers', data).then(r => unwrapApiResponse(r.data);
+  api.post('/insurance-providers', data).then(r => unwrapApiResponse(r.data));
 
 export const updateInsuranceProvider = (id: string, data: any) =>
-  api.put(`/insurance-providers/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/insurance-providers/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteInsuranceProvider = (id: string) =>
-  api.delete(`/insurance-providers/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/insurance-providers/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // CORPORATE ACCOUNTS (UNIFIED - NO DUPLICATES)
@@ -1016,31 +1016,31 @@ export const getCorporateAccount = (id: string) =>
   api.get(`/corporate/${id}`).then(r => r.data);
 
 export const createCorporateAccount = (data: any) =>
-  api.post('/corporate', data).then(r => unwrapApiResponse(r.data);
+  api.post('/corporate', data).then(r => unwrapApiResponse(r.data));
 
 export const updateCorporateAccount = (id: string, data: any) =>
-  api.put(`/corporate/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/corporate/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deactivateCorporateAccount = (id: string) =>
-  api.delete(`/corporate/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/corporate/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateEmployees = (accountId: string) =>
   api.get(`/corporate/${accountId}/employees`).then(r => r.data);
 
 export const addCorporateEmployee = (accountId: string, data: any) =>
-  api.post(`/corporate/${accountId}/employees`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/corporate/${accountId}/employees`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateCorporateEmployee = (id: string, data: any) =>
-  api.put(`/corporate/employees/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/corporate/employees/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeCorporateEmployee = (id: string) =>
-  api.delete(`/corporate/employees/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/corporate/employees/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateStatistics = () =>
   api.get('/corporate/statistics').then(r => r.data);
 
 export const generateCorporateMonthlyBill = (accountId: string, data: any) =>
-  api.post(`/corporate/${accountId}/bills`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/corporate/${accountId}/bills`, data).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateMonthlyBills = (accountId: string, filters?: any) =>
   api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
@@ -1059,15 +1059,15 @@ export const getClaimByEncounterId = (encounterId: string) =>
   api.get(`/insurance-claims/attendance/${encounterId}`).then(r => r.data);
 
 export const updateClaimDraft = (claimId: string, data: any) =>
-  api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => unwrapApiResponse(r.data);
+  api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => unwrapApiResponse(r.data));
 export const replaceClaimItems = (claimId: string, items: any[]) =>
-  api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => unwrapApiResponse(r.data);
+  api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => unwrapApiResponse(r.data));
 
 // Alias — same endpoint as updateClaimDraft (drafts only)
 export const updateInsuranceClaim = updateClaimDraft;
 
 export const finalizeClaim = (claimId: string) =>
-  api.patch(`/insurance-claims/${claimId}/finalize`).then(r => unwrapApiResponse(r.data);
+  api.patch(`/insurance-claims/${claimId}/finalize`).then(r => unwrapApiResponse(r.data));
 
 // ❌ REMOVED: updateClaimStatus, getFinalizedClaimsTotal
 //    The backend no longer has those endpoints (claim lifecycle = draft → finalized).
@@ -1077,19 +1077,19 @@ export const finalizeClaim = (claimId: string) =>
 // ──────────────────────────────────────────────
 
 export const generateNHISClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => unwrapApiResponse(r.data);
+  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getNHISClaims = (filters?: any) =>
   api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
 
 export const generatePrivateInsuranceClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => unwrapApiResponse(r.data);
+  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getPrivateInsuranceClaims = (filters?: any) =>
   api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
 
 export const generateCorporateClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/corporate/generate', { attendanceId }).then(r => unwrapApiResponse(r.data);
+  api.post('/insurance-claims/corporate/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateClaims = (filters?: any) =>
   api.get('/insurance-claims/corporate', { params: filters }).then(r => r.data);
@@ -1142,7 +1142,7 @@ export interface GenerateClaimBatchInput {
 }
 
 export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
-  api.post('/insurance-claims/batches/generate', data).then(r => unwrapApiResponse(r.data);
+  api.post('/insurance-claims/batches/generate', data).then(r => unwrapApiResponse(r.data));
 
 export const getClaimBatches = (filters?: any) =>
   api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
@@ -1151,10 +1151,10 @@ export const getClaimBatch = (id: string) =>
   api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
 
 export const finalizeClaimBatch = (batchId: string) =>
-  api.patch(`/insurance-claims/batches/${batchId}/finalize`).then(r => unwrapApiResponse(r.data);
+  api.patch(`/insurance-claims/batches/${batchId}/finalize`).then(r => unwrapApiResponse(r.data));
 
 export const deleteClaimBatch = (batchId: string) =>
-  api.delete(`/insurance-claims/batches/${batchId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/insurance-claims/batches/${batchId}`).then(r => unwrapApiResponse(r.data));
 
 /** NHIS only — opens a new tab → browser downloads the batch XML. */
 export const downloadBatchXml = (batchId: string) => {
@@ -1220,7 +1220,7 @@ export const createPatient = (data: any) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => unwrapApiResponse(r.data));
   } else {
-    return api.post('/patients', processedData).then(r => unwrapApiResponse(r.data);
+    return api.post('/patients', processedData).then(r => unwrapApiResponse(r.data));
   }
 };
 
@@ -1234,20 +1234,20 @@ export const updatePatient = (id: string, data: any) => {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => unwrapApiResponse(r.data));
   } else {
-    return api.put(`/patients/${id}`, processedData).then(r => unwrapApiResponse(r.data);
+    return api.put(`/patients/${id}`, processedData).then(r => unwrapApiResponse(r.data));
   }
 };
 
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
   api.post(`/patients/${patientId}/upload-image`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => unwrapApiResponse(r.data);
+  }).then(r => unwrapApiResponse(r.data));
 
 export const uploadPatientImageBase64 = (patientId: string, base64Image: string) =>
-  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image }).then(r => unwrapApiResponse(r.data);
+  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image }).then(r => unwrapApiResponse(r.data));
 
 export const deletePatient = (id: string) =>
-  api.delete(`/patients/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/patients/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // ENCOUNTERS (ATTENDANCES)
@@ -1314,7 +1314,7 @@ export const deleteEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.delete(`/encounters/${id}`).then(r => unwrapApiResponse(r.data);
+  return api.delete(`/encounters/${id}`).then(r => unwrapApiResponse(r.data));
 };
 
 export const updateEncounterStatus = (id: string, data: any) => {
@@ -1382,30 +1382,30 @@ export const getWorklistSummary = () =>
 
 
 export const addDiagnosisToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: string) =>
-  api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => unwrapApiResponse(r.data));
 
 // Lab Test Operations
 export const addLabTestToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateLabTestInEncounter = (_attendanceId: string, labTestId: string, data: any) =>
-  api.put(`/encounters/lab-tests/${labTestId}/status`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/encounters/lab-tests/${labTestId}/status`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeLabTestFromEncounter = (encounterId: string, labTestId: string) =>
-  api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => unwrapApiResponse(r.data));
 
 // Procedure Operations
 export const addProcedureToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/procedures`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/procedures`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateProcedureStatus = (_attendanceId: string, procedureId: string, data: any) =>
-  api.put(`/encounters/procedures/${procedureId}/status`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/encounters/procedures/${procedureId}/status`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeProcedureFromEncounter = (encounterId: string, procedureId: string) =>
-  api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => unwrapApiResponse(r.data));
 
 // Medication Operations
 export const addMedicationToEncounter = async (encounterId: string, data: {
@@ -1540,7 +1540,7 @@ export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 // Bed Assignment
 export const assignBedToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => unwrapApiResponse(r.data));
 
 // Vitals
 export const addVitalsToEncounter = async (encounterId: string, data: any) => {
@@ -1596,10 +1596,10 @@ export const deleteVitals = async (vitalsId: string) => {
 
 // Progress Notes
 export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) =>
-  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => unwrapApiResponse(r.data));
 
 // Billing Operations
 export const getBillingBreakdown = (encounterId: string) =>
@@ -1623,7 +1623,7 @@ export const validateNHISClaim = (encounterId: string) =>
   api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
 
 export const generateNHISClaimFromEncounter = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => unwrapApiResponse(r.data);
+  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
@@ -1670,28 +1670,28 @@ export const getBill = (id: string) => {
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => unwrapApiResponse(r.data);
+  api.post('/bills', data).then(r => unwrapApiResponse(r.data));
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/bills/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteBill = (id: string) =>
-  api.delete(`/bills/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/bills/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const addPaymentToBill = (billId: string, data: any) =>
-  api.post(`/bills/${billId}/payment`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/bills/${billId}/payment`, data).then(r => unwrapApiResponse(r.data));
 
 export const generateBillFromEncounter = (encounterId: string) =>
-  api.post(`/bills/generate/${encounterId}`).then(r => unwrapApiResponse(r.data);
+  api.post(`/bills/generate/${encounterId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateBillReport = (billId: string) =>
-  api.get(`/bills/${billId}/report`).then(r => unwrapApiResponse(r.data);
+  api.get(`/bills/${billId}/report`).then(r => unwrapApiResponse(r.data));
 
 export const getBillingBreakdownForBill = (billId: string) =>
   api.get(`/bills/${billId}/breakdown`).then(r => r.data);
 
 export const updateBillStatus = (billId: string, data: any) =>
-  api.put(`/bills/${billId}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/bills/${billId}`, data).then(r => unwrapApiResponse(r.data));
 
 export const getBillStatistics = () =>
   api.get('/bills/statistics').then(r => r.data);
@@ -1701,7 +1701,7 @@ export const getBillLineItems = (billId: string) =>
   api.get(`/bills/${billId}/line-items`).then(r => r.data);
 
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
-  api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // WAIVERS
@@ -1714,7 +1714,7 @@ export const createWaiverRequest = (data: {
   reason: string;
   amountRequested: number;
   supportingDocs?: string[];
-}) => api.post('/waivers', data).then(r => unwrapApiResponse(r.data);
+}) => api.post('/waivers', data).then(r => unwrapApiResponse(r.data));
 
 export const getWaivers = (filters?: {
   status?: string;
@@ -1737,16 +1737,16 @@ export const updateWaiverStatus = (id: string, data: {
 }) => {
   // The backend exposes /approve and /reject (there is no /status route)
   const status = String(data.status).toLowerCase();
-  if (status === 'approved') return api.post(`/waivers/${id}/approve`, { amountApproved: data.amountApproved }).then(r => unwrapApiResponse(r.data);
-  if (status === 'rejected') return api.post(`/waivers/${id}/reject`, { rejectionReason: data.rejectionReason }).then(r => unwrapApiResponse(r.data);
-  return api.put(`/waivers/${id}`, data).then(r => unwrapApiResponse(r.data);
+  if (status === 'approved') return api.post(`/waivers/${id}/approve`, { amountApproved: data.amountApproved }).then(r => unwrapApiResponse(r.data));
+  if (status === 'rejected') return api.post(`/waivers/${id}/reject`, { rejectionReason: data.rejectionReason }).then(r => unwrapApiResponse(r.data));
+  return api.put(`/waivers/${id}`, data).then(r => unwrapApiResponse(r.data));
 };
 
 export const approveWaiver = (id: string, amountApproved?: number) =>
-  api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => unwrapApiResponse(r.data);
+  api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => unwrapApiResponse(r.data));
 
 export const rejectWaiver = (id: string, rejectionReason?: string) =>
-  api.post(`/waivers/${id}/reject`, { rejectionReason }).then(r => unwrapApiResponse(r.data);
+  api.post(`/waivers/${id}/reject`, { rejectionReason }).then(r => unwrapApiResponse(r.data));
 
 export const getWaiversByBill = (billId: string) =>
   api.get(`/waivers/bill/${billId}`).then(r => r.data);
@@ -1758,10 +1758,10 @@ export const getWaiverStatistics = (filters?: { startDate?: string; endDate?: st
   api.get('/waivers/statistics', { params: filters }).then(r => r.data);
 
 export const deleteWaiver = (id: string) =>
-  api.delete(`/waivers/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/waivers/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const applyWaiverToBill = (billId: string, waiverId: string) =>
-  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => unwrapApiResponse(r.data);
+  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -1886,7 +1886,7 @@ export const updateAdmission = (id: string, data: {
 
 // Cancel an admission entered in error. The backend retains the record and audit history.
 export const cancelAdmission = (id: string, reason: string) =>
-  api.post(`/encounters/admissions/${id}/cancel`, { reason }).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/admissions/${id}/cancel`, { reason }).then(r => unwrapApiResponse(r.data));
 
 // Backward-compatible store/API name; this now performs audited cancellation, never hard deletion.
 export const deleteAdmission = (id: string, reason: string) => cancelAdmission(id, reason);
@@ -1912,7 +1912,7 @@ export const getDaycasePatients = (filters?: {
 export const convertDaycaseToIPD = (encounterId: string, data?: {
   admissionType?: 'emergency' | 'elective' | 'transfer';
 }) =>
-  api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => unwrapApiResponse(r.data));
 
 // Add daily notes to admission
 export const addDailyNotesToAdmission = (admissionId: string, data: {
@@ -1999,7 +1999,7 @@ export const convertDetentionToIPD = (encounterId: string, data: {
   clinicalNotes?: string;
   decisionReason?: string;
 }) =>
-  api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -2010,7 +2010,7 @@ export const getWardCharges = (encounterId: string, params?: any) =>
   api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => r.data);
 
 export const generateDailyWardCharges = (date?: string) =>
-  api.post('/admissions/ward-charges/generate', { date }).then(r => unwrapApiResponse(r.data);
+  api.post('/admissions/ward-charges/generate', { date }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // WARDS & BEDS
@@ -2023,13 +2023,13 @@ export const getWard = (id: string) =>
   api.get(`/wards/${id}`).then(r => r.data);
 
 export const createWard = (data: any) =>
-  api.post('/wards', data).then(r => unwrapApiResponse(r.data);
+  api.post('/wards', data).then(r => unwrapApiResponse(r.data));
 
 export const updateWard = (id: string, data: any) =>
-  api.put(`/wards/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/wards/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteWard = (id: string) =>
-  api.delete(`/wards/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/wards/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getAvailableBeds = () =>
   api.get('/wards/available-beds').then(r => r.data);
@@ -2041,13 +2041,13 @@ export const getBed = (id: string) =>
   api.get(`/beds/${id}`).then(r => r.data);
 
 export const createBed = (data: any) =>
-  api.post('/beds', data).then(r => unwrapApiResponse(r.data);
+  api.post('/beds', data).then(r => unwrapApiResponse(r.data));
 
 export const updateBed = (id: string, data: any) =>
-  api.put(`/beds/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/beds/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteBed = (id: string) =>
-  api.delete(`/beds/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/beds/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // PURCHASE INVOICES (Supplier invoices - renamed)
@@ -2060,13 +2060,13 @@ export const getPurchaseInvoice = (id: string) =>
   api.get(`/purchase-invoices/${id}`).then(r => r.data);
 
 export const createPurchaseInvoice = (data: any) =>
-  api.post('/purchase-invoices', data).then(r => unwrapApiResponse(r.data);
+  api.post('/purchase-invoices', data).then(r => unwrapApiResponse(r.data));
 
 export const updatePurchaseInvoice = (id: string, data: any) =>
-  api.put(`/purchase-invoices/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/purchase-invoices/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deletePurchaseInvoice = (id: string) =>
-  api.delete(`/purchase-invoices/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/purchase-invoices/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // STOCK MANAGEMENT
@@ -2079,13 +2079,13 @@ export const getStockItem = (id: string) =>
   api.get(`/stock-items/${id}`).then(r => r.data);
 
 export const createStockItem = (data: any) =>
-  api.post('/stock-items', data).then(r => unwrapApiResponse(r.data);
+  api.post('/stock-items', data).then(r => unwrapApiResponse(r.data));
 
 export const updateStockItem = (id: string, data: any) =>
-  api.put(`/stock-items/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/stock-items/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteStockItem = (id: string) =>
-  api.delete(`/stock-items/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/stock-items/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getLowStockItems = () =>
   api.get('/stock-items/low-stock').then(r => r.data);
@@ -2094,10 +2094,10 @@ export const getStockCategories = () =>
   api.get('/stock-items/categories').then(r => r.data);
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
-  api.post(`/stock-items/${id}/update-stock`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/stock-items/${id}/update-stock`, data).then(r => unwrapApiResponse(r.data));
 
 export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
-  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => unwrapApiResponse(r.data));
 
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) =>
   api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
@@ -2132,10 +2132,10 @@ export const getStockTransaction = (id: string) =>
   api.get(`/stock-transactions/${id}`).then(r => r.data);
 
 export const createStockTransaction = (data: any) =>
-  api.post('/stock-transactions', data).then(r => unwrapApiResponse(r.data);
+  api.post('/stock-transactions', data).then(r => unwrapApiResponse(r.data));
 
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) =>
-  api.put(`/stock-transactions/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/stock-transactions/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const getStockMovementReport = (filters?: any) =>
   api.get('/stock-transactions/reports/movement-summary', { params: filters }).then(r => r.data);
@@ -2176,16 +2176,16 @@ export const getRequisition = (id: string) =>
   api.get(`/requisitions/${id}`).then(r => r.data);
 
 export const createRequisition = (data: any) =>
-  api.post('/requisitions', data).then(r => unwrapApiResponse(r.data);
+  api.post('/requisitions', data).then(r => unwrapApiResponse(r.data));
 
 export const updateRequisition = (id: string, data: any) =>
-  api.put(`/requisitions/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/requisitions/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteRequisition = (id: string) =>
-  api.delete(`/requisitions/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/requisitions/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) =>
-  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => unwrapApiResponse(r.data);
+  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => unwrapApiResponse(r.data));
 
 export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
 export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
@@ -2193,7 +2193,7 @@ export const fulfillRequisition = (id: string, data?: any) => updateRequisitionS
 export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) =>
-  api.post(`/requisitions/${id}/approve-items`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/requisitions/${id}/approve-items`, data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // REFERRALS
@@ -2332,13 +2332,13 @@ export const getDiagnosis = (id: string) =>
   api.get(`/diagnoses/${id}`).then(r => r.data);
 
 export const createDiagnosis = (data: any) =>
-  api.post('/diagnoses', data).then(r => unwrapApiResponse(r.data);
+  api.post('/diagnoses', data).then(r => unwrapApiResponse(r.data));
 
 export const updateDiagnosis = (id: string, data: any) =>
-  api.put(`/diagnoses/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/diagnoses/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteDiagnosis = (id: string) =>
-  api.delete(`/diagnoses/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/diagnoses/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const searchDiagnoses = async (query: string) => {
   const pageSize = 100;
@@ -2390,7 +2390,7 @@ export const getDiagnosisStats = () =>
   api.get('/diagnoses/stats').then(r => r.data);
 
 export const bulkUpdateDiagnoses = (data: any) =>
-  api.post('/diagnoses/bulk-update', data).then(r => unwrapApiResponse(r.data);
+  api.post('/diagnoses/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // ============================================
 // LAB TEST TEMPLATES
@@ -2423,13 +2423,13 @@ export const getLabTestTemplate = (id: string) =>
 
 
 export const createLabTestTemplate = (data: any) =>
-  api.post('/lab-tests', data).then(r => unwrapApiResponse(r.data);
+  api.post('/lab-tests', data).then(r => unwrapApiResponse(r.data));
 
 export const updateLabTestTemplate = (id: string, data: any) =>
-  api.put(`/lab-tests/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/lab-tests/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteLabTestTemplate = (id: string) =>
-  api.delete(`/lab-tests/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/lab-tests/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getLabTestCategories = () =>
   api.get('/lab-tests/categories').then(r => r.data);
@@ -2441,7 +2441,7 @@ export const getSpecimenTypes = () =>
   api.get('/lab-tests/specimen-types').then(r => r.data);
 
 export const bulkUpdateLabTestTemplates = (data: any) =>
-  api.post('/lab-tests/bulk-update', data).then(r => unwrapApiResponse(r.data);
+  api.post('/lab-tests/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 
 // Procedure Templates
@@ -2461,13 +2461,13 @@ export const getProcedureTemplate = (id: string) =>
   api.get(`/procedures/templates/${id}`).then(r => r.data);
 
 export const createProcedureTemplate = (data: any) =>
-  api.post('/procedures/templates', data).then(r => unwrapApiResponse(r.data);
+  api.post('/procedures/templates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateProcedureTemplate = (id: string, data: any) =>
-  api.put(`/procedures/templates/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/procedures/templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteProcedureTemplate = (id: string) =>
-  api.delete(`/procedures/templates/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/procedures/templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getProcedureCategories = () =>
   api.get('/procedures/categories').then(r => r.data);
@@ -2476,7 +2476,7 @@ export const getProcedureDepartments = () =>
   api.get('/procedures/departments').then(r => r.data);
 
 export const bulkUpdateProcedureTemplates = (data: any) =>
-  api.post('/procedures/templates/bulk-update', data).then(r => unwrapApiResponse(r.data);
+  api.post('/procedures/templates/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // Scan Templates
 export const getScanTemplates = (filters?: any) =>
@@ -2495,13 +2495,13 @@ export const getScanTemplate = (id: string) =>
   api.get(`/scan-templates/${id}`).then(r => r.data);
 
 export const createScanTemplate = (data: any) =>
-  api.post('/scan-templates', data).then(r => unwrapApiResponse(r.data);
+  api.post('/scan-templates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateScanTemplate = (id: string, data: any) =>
-  api.put(`/scan-templates/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/scan-templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteScanTemplate = (id: string) =>
-  api.delete(`/scan-templates/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/scan-templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getScanCategories = () =>
   api.get('/scan-templates/meta/categories').then(r => r.data);
@@ -2513,7 +2513,7 @@ export const getScanTypes = () =>
   api.get('/scan-templates/meta/scan-types').then(r => r.data);
 
 export const bulkUpdateScanTemplates = (data: any) =>
-  api.post('/scan-templates/bulk-update', data).then(r => unwrapApiResponse(r.data);
+  api.post('/scan-templates/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // SERVICE CATALOG
@@ -2614,7 +2614,7 @@ export const deleteServiceCatalogItem = (id: string) => {
     return Promise.reject(new Error('Valid Service ID is required for deletion'));
   }
   console.log('Deleting service with ID:', id);
-  return api.delete(`/services/${id}`).then(r => unwrapApiResponse(r.data);
+  return api.delete(`/services/${id}`).then(r => unwrapApiResponse(r.data));
 };
 
 export const getServiceMetadata = () =>
@@ -2646,13 +2646,13 @@ export const getConsultationType = (id: string) =>
   api.get(`/consultation-types/${id}`).then(r => r.data);
 
 export const createConsultationType = (data: any) =>
-  api.post('/consultation-types', data).then(r => unwrapApiResponse(r.data);
+  api.post('/consultation-types', data).then(r => unwrapApiResponse(r.data));
 
 export const updateConsultationType = (id: string, data: any) =>
-  api.put(`/consultation-types/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/consultation-types/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteConsultationType = (id: string) =>
-  api.delete(`/consultation-types/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/consultation-types/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DEPARTMENT
@@ -2671,7 +2671,7 @@ export const updateDepartment = (id: string, data: any) =>
   api.put(`/departments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteDepartment = (id: string) =>
-  api.delete(`/departments/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/departments/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getDepartmentStats = (id: string) =>
   api.get(`/departments/${id}/stats`).then(r => r.data?.data || r.data);
@@ -2693,7 +2693,7 @@ export const removeUserFromDepartment = (departmentId: string, userId: string) =
   api.delete(`/departments/${departmentId}/users/${userId}`).then(r => r.data?.data || r.data);
 
 export const bulkUpdateDepartments = (data: any) =>
-  api.put('/departments/bulk/update', data).then(r => unwrapApiResponse(r.data);
+  api.put('/departments/bulk/update', data).then(r => unwrapApiResponse(r.data));
 
 export const getEligibleDepartmentHeads = () =>
   api.get('/departments/eligible-heads').then(r => r.data);
@@ -2720,7 +2720,7 @@ export const updateAppointment = (id: string, data: any) =>
   api.put(`/appointments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteAppointment = (id: string) =>
-  api.delete(`/appointments/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/appointments/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const updateAppointmentStatus = (id: string, status: string) =>
   api.put(`/appointments/${id}`, { status }).then(r => r.data?.data || r.data);
@@ -2745,7 +2745,7 @@ export const getAvailableClinicians = (roles?: string[]) =>
 
 // ✅ New: Convert appointment to attendance
 export const convertToAttendance = (appointmentId: string, paymentData: any) =>
-  api.post(`/appointments/${appointmentId}/convert-to-attendance`, paymentData).then(r => unwrapApiResponse(r.data);
+  api.post(`/appointments/${appointmentId}/convert-to-attendance`, paymentData).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // NOTIFICATIONS
@@ -2773,13 +2773,13 @@ export const getNotification = (id: string) =>
   api.get(`/notifications/${id}`).then(r => r.data);
 
 export const markNotificationAsRead = (id: string) =>
-  api.patch(`/notifications/${id}/read`).then(r => unwrapApiResponse(r.data);
+  api.patch(`/notifications/${id}/read`).then(r => unwrapApiResponse(r.data));
 
 export const markAllNotificationsAsRead = () =>
-  api.patch('/notifications/mark-all-read').then(r => unwrapApiResponse(r.data);
+  api.patch('/notifications/mark-all-read').then(r => unwrapApiResponse(r.data));
 
 export const deleteNotification = (id: string) =>
-  api.delete(`/notifications/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/notifications/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getNotificationStats = () =>
   api.get('/notifications/stats').then(r => r.data);
@@ -2824,7 +2824,7 @@ export const sendUserMessage = (data: {
   message: string;
   priority?: string;
   actionUrl?: string;
-}) => api.post('/notifications/message', data).then(r => unwrapApiResponse(r.data);
+}) => api.post('/notifications/message', data).then(r => unwrapApiResponse(r.data));
 
 export const sendBulkUserMessages = (data: {
   userIds: string[];
@@ -2832,7 +2832,7 @@ export const sendBulkUserMessages = (data: {
   message: string;
   priority?: string;
   actionUrl?: string;
-}) => api.post('/notifications/message/bulk', data).then(r => unwrapApiResponse(r.data);
+}) => api.post('/notifications/message/bulk', data).then(r => unwrapApiResponse(r.data));
 
 export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
 
@@ -2860,7 +2860,7 @@ export const getUsersByDepartment = (departmentId: string) =>
   api.get(`/departments/${departmentId}/users`).then(r => r.data);
 
 export const updateUserDepartment = (userId: string, departmentId: string) =>
-  api.put(`/users/${userId}`, { departmentId }).then(r => unwrapApiResponse(r.data);
+  api.put(`/users/${userId}`, { departmentId }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DASHBOARD STATISTICS
@@ -2973,22 +2973,22 @@ export const getBackupStats = async () => {
 // ──────────────────────────────────────────────
 
 export const generateReceipt = (billId: string, paymentId?: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`, undefined, { params: paymentId ? { paymentId } : undefined }).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`, undefined, { params: paymentId ? { paymentId } : undefined }).then(r => unwrapApiResponse(r.data));
 
 export const generateBillStatement = (billId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateReferralLetter = (referralId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateDischargeSummary = (admissionId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateLabResult = (labTestId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => unwrapApiResponse(r.data));
 
 export const generatePrescription = (encounterId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => unwrapApiResponse(r.data));
 
 export const getDocumentsByEntity = (entityType: string, entityId: string) =>
   api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data);
@@ -2999,22 +2999,22 @@ export const downloadDocument = (documentId: string) =>
     headers: {
       Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
     },
-  }).then(r => unwrapApiResponse(r.data);
+  }).then(r => unwrapApiResponse(r.data));
 
 export const reprintDocument = (documentId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => unwrapApiResponse(r.data);
+  api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => unwrapApiResponse(r.data));
 
 export const getTemplates = () =>
   api.get<{ success: boolean; data: DocumentTemplate[] }>(`/documents/templates`).then(r => r.data);
 
 export const createTemplate = (data: any) =>
-  api.post<{ success: boolean; data: DocumentTemplate }>(`/documents/templates`, data).then(r => unwrapApiResponse(r.data);
+  api.post<{ success: boolean; data: DocumentTemplate }>(`/documents/templates`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateTemplate = (id: string, data: any) =>
-  api.put<{ success: boolean; data: DocumentTemplate }>(`/documents/templates/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put<{ success: boolean; data: DocumentTemplate }>(`/documents/templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteTemplate = (id: string) =>
-  api.delete(`/documents/templates/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/documents/templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // UPLOAD SYSTEM (Static file serving)
@@ -3761,25 +3761,25 @@ export const getEstimate = (id: string) =>
   api.get(`/estimates/${id}`).then(r => r.data);
 
 export const createEstimate = (data: any) =>
-  api.post('/estimates', data).then(r => unwrapApiResponse(r.data);
+  api.post('/estimates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateEstimate = (id: string, data: any) =>
-  api.put(`/estimates/${id}`, data).then(r => unwrapApiResponse(r.data);
+  api.put(`/estimates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteEstimate = (id: string) =>
-  api.delete(`/estimates/${id}`).then(r => unwrapApiResponse(r.data);
+  api.delete(`/estimates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const sendEstimate = (id: string) =>
-  api.post(`/estimates/${id}/send`).then(r => unwrapApiResponse(r.data);
+  api.post(`/estimates/${id}/send`).then(r => unwrapApiResponse(r.data));
 
 export const acceptEstimate = (id: string) =>
-  api.post(`/estimates/${id}/accept`).then(r => unwrapApiResponse(r.data);
+  api.post(`/estimates/${id}/accept`).then(r => unwrapApiResponse(r.data));
 
 export const rejectEstimate = (id: string, reason?: string) =>
-  api.post(`/estimates/${id}/reject`, { reason }).then(r => unwrapApiResponse(r.data);
+  api.post(`/estimates/${id}/reject`, { reason }).then(r => unwrapApiResponse(r.data));
 
 export const convertEstimateToBill = (id: string, data: { paymentMode: string; notes?: string }) =>
-  api.post(`/estimates/${id}/convert`, data).then(r => unwrapApiResponse(r.data);
+  api.post(`/estimates/${id}/convert`, data).then(r => unwrapApiResponse(r.data));
 
 export const getEstimateStatistics = (filters?: { fromDate?: string; toDate?: string }) =>
   api.get('/estimates/statistics', { params: filters }).then(r => r.data);
@@ -3798,10 +3798,10 @@ export const getEstimatesByCorporateAccount = (accountId: string) =>
 // ──────────────────────────────────────────────
 
 export const sendSMS = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
-  api.post('/communications/sms', data).then(r => unwrapApiResponse(r.data);
+  api.post('/communications/sms', data).then(r => unwrapApiResponse(r.data));
 
 export const sendWhatsApp = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
-  api.post('/communications/whatsapp', data).then(r => unwrapApiResponse(r.data);
+  api.post('/communications/whatsapp', data).then(r => unwrapApiResponse(r.data));
 
 // Unified helper: routes to the correct endpoint by channel
 export const sendMessage = (channel: 'sms' | 'whatsapp', data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
@@ -3817,10 +3817,10 @@ export const getCommunicationTemplates = (type?: string) =>
   api.get('/communications/templates', { params: { type } }).then(r => r.data);
 
 export const createCommunicationTemplate = (data: any) =>
-  api.post('/communications/templates', data).then(r => unwrapApiResponse(r.data);
+  api.post('/communications/templates', data).then(r => unwrapApiResponse(r.data));
 
 export const sendAppointmentReminderSMS = (appointmentId: string) =>
-  api.post(`/communications/send/appointment/${appointmentId}`).then(r => unwrapApiResponse(r.data);
+  api.post(`/communications/send/appointment/${appointmentId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DEFAULT EXPORT
