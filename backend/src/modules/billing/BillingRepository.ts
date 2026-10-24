@@ -337,7 +337,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
 
     // ✅ pricing is now an array, get the first element
     const price = service?.pricing?.[0]; 
-    if (!price) return 100; // Default fallback
+    if (!price) throw new Error(`No active pricing is configured for service ${serviceCatalogId} on ${serviceDate ? serviceDate.toISOString().slice(0, 10) : 'the selected service date'}.`);
 
     // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
     let corporateDiscountPercent = 0;
