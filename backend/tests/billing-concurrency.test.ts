@@ -121,6 +121,8 @@ describe('billing payment concurrency guards', () => {
 
 
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
+import { BillService } from '../src/modules/bill/BillService';
+import { BillingService } from '../src/modules/billing/BillingService';
 
 describe('legacy billing-module payment safeguards', () => {
   it('returns the existing payment for an idempotent retry without changing balances', async () => {
@@ -199,5 +201,48 @@ describe('legacy billing-module payment safeguards', () => {
       userId: 'cashier-1',
     })).rejects.toThrow(/cancelled bill/i);
     expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('service-level idempotent retry handling', () => {
+  it('does not reject a retry just because the first request fully paid the bill', async () => {
+    const findBill = vi.spyOn(BillRepository.prototype, 'findById')
+      .mockResolvedValue({ id: 'bill-paid', status: 'paid', balance: 0 } as any);
+    const addPayment = vi.spyOn(BillRepository.prototype, 'addPayment')
+      .mockResolvedValue({ bill: { id: 'bill-paid', status: 'paid', balance: 0 }, payment: { id: 'payment-original' }, duplicate: true } as any);
+    try {
+      const service = new BillService({} as any);
+      const result = await service.addPayment('bill-paid', {
+        amount: 100,
+        paymentMethod: 'cash' as any,
+        idempotencyKey: 'same-request-key',
+      }, 'cashier-1');
+      expect(result.payment.id).toBe('payment-original');
+      expect(addPayment).toHaveBeenCalledOnce();
+    } finally {
+      findBill.mockRestore();
+      addPayment.mockRestore();
+    }
+  });
+
+  it('does not reject a billing-module retry just because the first request fully paid the bill', async () => {
+    const findBill = vi.spyOn(BillingRepository.prototype, 'findById')
+      .mockResolvedValue({ id: 'bill-paid', status: 'paid', balance: 0 } as any);
+    const addPayment = vi.spyOn(BillingRepository.prototype, 'addPayment')
+      .mockResolvedValue({ bill: { id: 'bill-paid', status: 'paid', balance: 0 }, payment: { id: 'payment-original' }, duplicate: true } as any);
+    try {
+      const service = new BillingService({} as any);
+      const result = await service.addPaymentToBill('bill-paid', {
+        amount: 100,
+        paymentMethod: 'cash' as any,
+        idempotencyKey: 'same-request-key',
+      } as any, 'cashier-1');
+      expect(result.payment.id).toBe('payment-original');
+      expect(addPayment).toHaveBeenCalledOnce();
+    } finally {
+      findBill.mockRestore();
+      addPayment.mockRestore();
+    }
   });
 });
