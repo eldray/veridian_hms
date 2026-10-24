@@ -84,7 +84,7 @@ export class ProformaInvoiceController extends BaseController {
       const result = await this.proformaInvoiceService.convertToBill(req.params.id, req.body, req.user!.id);
       return this.created(res, result, 'Proforma invoice converted to bill');
     } catch (e: any) {
-      if (e.message.includes('not found') || e.message.includes('Only approved') || e.message.includes('already been converted')) return this.badRequest(res, e.message);
+      if (e.message.includes('not found') || e.message.includes('Only approved') || e.message.includes('already been converted') || e.message.includes('no longer eligible')) return this.badRequest(res, e.message);
       throw e;
     }
   });
