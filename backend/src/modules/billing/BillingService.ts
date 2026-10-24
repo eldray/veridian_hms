@@ -223,7 +223,7 @@ export class BillingService extends BaseService {
             select: { id: true }
           })
         : null;
-      if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
+      if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
     }
     // A retry may arrive after the first request fully paid the bill. Let the
     // repository resolve an existing idempotency key before stale-balance checks.
