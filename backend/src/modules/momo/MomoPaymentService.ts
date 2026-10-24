@@ -100,7 +100,7 @@ export class MomoPaymentService {
       if (existing.billId !== input.billId || money(existing.amount) !== amount || existing.payerPhone !== payerPhone) {
         throw Object.assign(new Error('This payment attempt key was already used with different payment details.'), { statusCode: 409 });
       }
-      return { intent: existing, reused: true };
+      return { intent: this.publicIntent(existing), reused: true };
     }
 
     const providerReference = randomUUID();
@@ -126,7 +126,7 @@ export class MomoPaymentService {
           if (raced.billId !== input.billId || money(raced.amount) !== amount || raced.payerPhone !== payerPhone) {
             throw Object.assign(new Error('This payment attempt key was already used with different payment details.'), { statusCode: 409 });
           }
-          return { intent: raced, reused: true };
+          return { intent: this.publicIntent(raced), reused: true };
         }
       }
       throw error;
@@ -154,7 +154,7 @@ export class MomoPaymentService {
         where: { id: intent.id },
         data: { status: 'pending', providerStatus: 'PENDING' }
       });
-      return { intent: updated, reused: false };
+      return { intent: this.publicIntent(updated), reused: false };
     } catch (error: any) {
       // Only a definite provider/configuration rejection is marked failed.
       // A network interruption may occur after MTN accepted the request, so retain
