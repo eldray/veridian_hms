@@ -984,6 +984,9 @@ export const createInsuranceProvider = (data: any) =>
 export const updateInsuranceProvider = (id: string, data: any) =>
   api.put(`/insurance-providers/${id}`, data).then(r => r.data);
 
+export const toggleInsuranceProviderStatus = (id: string) =>
+  api.patch(`/insurance-providers/${id}/toggle-status`).then(r => r.data);
+
 export const deleteInsuranceProvider = (id: string) =>
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
@@ -3894,7 +3897,7 @@ uploadUserDocument, updateDocument, verifyDocument, unverifyDocument, deleteDocu
 getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem,
 
   // Settings
-  getHospitalDetails, updateHospitalDetails, getSystemSettings, updateSystemSettings,
+  getHospitalDetails, updateHospitalDetails,
 
   // NHIS SETTINGS
   getHospitalNHISSettings, updateHospitalNHISSettings,
@@ -3910,7 +3913,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   linkProcedureToGDRG, unlinkProcedureFromGDRG, getProceduresByGDRG, getGDRGByProcedure,
 
   // Insurance
-  getInsuranceProviders, getInsuranceProvider, createInsuranceProvider, updateInsuranceProvider, deleteInsuranceProvider,
+  getInsuranceProviders, getInsuranceProvider, createInsuranceProvider, updateInsuranceProvider, toggleInsuranceProviderStatus, deleteInsuranceProvider,
 
   // Insurance Claims
   getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getCorporateClaims, getInsuranceClaim, getClaimByEncounterId,
@@ -3942,10 +3945,9 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
   addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
-  addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
+  addServiceToEncounter, removeServiceFromEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
-  addProgressNoteToEncounter, removeProgressNoteFromEncounter,
-  getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
+  getBillingBreakdown, calculateEncounterBill, getEncounterStats,
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
@@ -4003,7 +4005,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Medical Services
   getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,
-  getMorbidityGroups, getDiagnosesByMorbidityGroup, getDiagnosisStats, bulkUpdateDiagnoses,
+  getMorbidityGroups, getDiagnosesByMorbidityGroup, getDiagnosisStats,
   getLabTestTemplates, getLabTestTemplate, createLabTestTemplate, updateLabTestTemplate, deleteLabTestTemplate,
   getLabTestCategories, getLabTestSubCategories, getSpecimenTypes, bulkUpdateLabTestTemplates,
   getProcedureTemplates, getProcedureTemplate, createProcedureTemplate, updateProcedureTemplate, deleteProcedureTemplate,
@@ -4036,7 +4038,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getUsersByDepartment, updateUserDepartment,
 
   // Dashboard
-  getDashboardStats, getAppointmentCalendar,
+  getDashboardStats,
 
   // Backup
   createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup, getBackupStats,
@@ -4053,7 +4055,6 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport, exportReportToCSV,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
-  getClinicalReports,
 
   // NHIS Reports
   getNhisExpiryReport, getNhisClaimsSummary, getNhisExpiringSoon,
@@ -4101,8 +4102,8 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
 
   // Communications
-  sendSMS, getCommunicationChannels, getCommunicationLogs, getCommunicationTemplates,
-  createCommunicationTemplate, sendAppointmentReminderSMS,
+  sendSMS, getCommunicationLogs, getCommunicationTemplates,
+  createCommunicationTemplate,
 
   // Family Planning
   getFPServices, getFPServiceById, createFPService, updateFPService, deleteFPService,
