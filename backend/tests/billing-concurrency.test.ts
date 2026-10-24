@@ -357,3 +357,42 @@ describe('bill financial record integrity', () => {
   });
 });
 
+
+
+describe('attendance visit-level financial summaries', () => {
+  it('aggregates every active bill on an attendance instead of copying one bill balance', async () => {
+    const attendanceUpdate = vi.fn();
+    const tx: any = {
+      bill: { aggregate: vi.fn().mockResolvedValue({ _sum: {
+        totalAmount: 240, paidAmount: 90, balance: 150
+      }}) },
+      attendance: { update: attendanceUpdate }
+    };
+    const repository = new BillRepository({} as any);
+    await (repository as any).syncAttendanceFinancials(tx, 'attendance-multiple-bills');
+    expect(tx.bill.aggregate).toHaveBeenCalledWith({
+      where: { attendanceId: 'attendance-multiple-bills', status: { not: 'cancelled' } },
+      _sum: { totalAmount: true, paidAmount: true, balance: true }
+    });
+    expect(attendanceUpdate).toHaveBeenCalledWith({
+      where: { id: 'attendance-multiple-bills' },
+      data: { totalBill: 240, paidAmount: 90, outstandingBalance: 150 }
+    });
+  });
+
+  it('uses the same visit-level aggregation in the legacy billing repository', async () => {
+    const attendanceUpdate = vi.fn();
+    const tx: any = {
+      bill: { aggregate: vi.fn().mockResolvedValue({ _sum: {
+        totalAmount: 240, paidAmount: 90, balance: 150
+      }}) },
+      attendance: { update: attendanceUpdate }
+    };
+    const repository = new BillingRepository({} as any);
+    await (repository as any).syncAttendanceFinancials(tx, 'attendance-multiple-bills');
+    expect(attendanceUpdate).toHaveBeenCalledWith({
+      where: { id: 'attendance-multiple-bills' },
+      data: { totalBill: 240, paidAmount: 90, outstandingBalance: 150 }
+    });
+  });
+});
