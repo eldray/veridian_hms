@@ -25,7 +25,7 @@ All endpoints below require the HMS JWT:
 - `POST /api/momo/payments` — body: `{ billId, amount, payerPhone, idempotencyKey }`; submits a RequestToPay and returns a local intent ID.
 - `GET /api/momo/payments/:id` — checks provider status; when status is `SUCCESSFUL`, posts the payment through the existing idempotent billing workflow.
 
-The frontend polls status for up to two minutes. If it is still pending, staff must verify the transaction before taking another payment. The backend also blocks manual non-MoMo payments while an intent is pending. A failed intent can be retried with a new idempotency key.
+The frontend polls status for up to two minutes. If it is still pending, staff must verify the transaction before taking another payment. The backend serializes bill-level payment initiation and posting with a PostgreSQL bill-row lock. It blocks every ordinary/manual payment method—including manually selected Mobile Money—while an intent is pending or its initiation outcome is uncertain. Only the internal provider-confirmed posting path can settle the matching pending intent. A failed intent can be retried with a new idempotency key. Payment posting endpoints are restricted to admin, accounts, and records roles.
 
 ## Before going live
 
@@ -33,5 +33,5 @@ The frontend polls status for up to two minutes. If it is still pending, staff m
 2. Confirm the target environment name and base URL with MTN for Ghana; do not rely on a generic sandbox value in production.
 3. Apply Prisma migrations and redeploy the backend.
 4. Test successful approval, customer decline, timeout, network interruption, duplicate submit, and status-check retry in sandbox.
-5. The current implementation uses authenticated status polling; callback handling is not enabled yet.
+5. The current implementation uses authenticated status polling; callback handling is not enabled yet. An unresolved/uncertain intent must be reconciled against MTN before staff accept another payment for that bill.
 6. Run a small controlled live payment and reconcile the MTN transaction ID against the HMS payment record before enabling it for routine collections.
