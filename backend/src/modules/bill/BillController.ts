@@ -121,6 +121,7 @@ export class BillController extends BaseController {
       return this.ok(res, null, 'Bill deleted successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      if (error.message?.includes('payment history cannot be deleted')) return this.conflict(res, error.message);
       throw error;
     }
   });
