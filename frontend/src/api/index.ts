@@ -1537,10 +1537,6 @@ export const getEncounterConsumableUses = async (encounterId: string) => {
 export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 
-// Bed Assignment
-export const assignBedToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
-
 // Vitals
 export const addVitalsToEncounter = async (encounterId: string, data: any) => {
   const response = await api.post(`/encounters/${encounterId}/vitals`, data);
@@ -1593,19 +1589,14 @@ export const deleteVitals = async (vitalsId: string) => {
   return response.data;
 };
 
-// Progress Notes
-export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
-
-export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) =>
-  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
-
 // Billing Operations
-export const getBillingBreakdown = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => r.data);
+// Billing breakdown is bill-scoped; the encounter-scoped endpoint is not mounted.
+export const getBillingBreakdown = (billId: string) =>
+  api.get(`/bills/${billId}/breakdown`).then(r => r.data);
 
+// Synchronize billable clinical source records through the mounted billing endpoint.
 export const calculateEncounterBill = async (encounterId: string) => {
-  const response = await api.post(`/encounters/${encounterId}/calculate-bill`);
+  const response = await api.post(`/bills/generate/${encounterId}`);
   return response.data;
 };
 
@@ -1616,13 +1607,6 @@ export const getEncounterStats = async (filters?: any) => {
   const response = await api.get(`/encounters/stats${params.toString() ? `?${params}` : ''}`);
   return response.data;
 };
-
-// NHIS Claim Validation
-export const validateNHISClaim = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
-
-export const generateNHISClaimFromEncounter = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
@@ -3884,10 +3868,9 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
   addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
-  addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
+  addServiceToEncounter, removeServiceFromEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
-  addProgressNoteToEncounter, removeProgressNoteFromEncounter,
-  getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
+  getBillingBreakdown, calculateEncounterBill, getEncounterStats,
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
