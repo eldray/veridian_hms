@@ -37,6 +37,7 @@ export function createNotificationRoutes(prisma: PrismaClient): Router {
   // ==========================================
   // DYNAMIC ID ROUTES
   // ==========================================
+  router.get('/:id', controller.getNotification);
   router.get('/', controller.getUserNotifications);
   router.patch('/:id/read', controller.markNotificationAsRead);
   router.delete('/:id', controller.deleteNotification);
