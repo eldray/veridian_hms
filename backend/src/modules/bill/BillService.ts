@@ -7,9 +7,11 @@ import { BillWithRelations, CreateBillInput, UpdateBillInput, BillFilter, AddPay
 export class BillService extends BaseService {
   private billRepository: BillRepository;
   private billingService: BillingService;
+  private prisma: PrismaClient;
 
   constructor(prisma: PrismaClient) {
     super('BillService'); // ✅ Extends BaseService for standardized logging
+    this.prisma = prisma;
     this.billRepository = new BillRepository(prisma);
     this.billingService = new BillingService(prisma);
   }
@@ -79,6 +81,13 @@ export class BillService extends BaseService {
     const bill = await this.billRepository.findById(billId);
     if (!bill) throw new Error('Bill not found');
     if (paymentData.amount <= 0) throw new Error('Payment amount must be greater than 0');
+    if (paymentData.paymentMethod !== 'mobile_money') {
+      const pendingMomo = await this.prisma.momoPaymentIntent.findFirst({
+        where: { billId, status: { in: ['initiating', 'pending'] } },
+        select: { id: true }
+      });
+      if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
+    }
     // Resolve idempotent retries in the repository before rejecting a now-paid bill.
     if (!paymentData.idempotencyKey && bill.status === 'paid') {
       throw new Error('Cannot add payment to a fully paid bill');
