@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { protect, requireRole } from '../../middleware/authMiddleware';
+import { protect, requireRole, AuthRequest } from '../../middleware/authMiddleware';
 
 const READ_ROLES = ['admin', 'super_admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'] as const;
 const WRITE_ROLES = ['admin', 'super_admin', 'accounts'] as const;
@@ -58,7 +58,7 @@ export function createConsultationTypeRoutes(prisma: PrismaClient): Router {
     } catch (error) { next(error); }
   });
 
-  router.get('/:id', requireRole(READ_ROLES), async (req, res, next) => {
+  router.get('/:id', requireRole([...READ_ROLES]), async (req, res, next) => {
     try {
       const data = await prisma.consultationType.findUnique({ where: { id: req.params.id } });
       if (!data) return res.status(404).json({ success: false, message: 'Consultation type not found' });
@@ -86,7 +86,7 @@ export function createConsultationTypeRoutes(prisma: PrismaClient): Router {
     }
   });
 
-  router.put('/:id', requireRole(WRITE_ROLES), async (req: AuthRequest, res, next) => {
+  router.put('/:id', requireRole([...WRITE_ROLES]), async (req: AuthRequest, res, next) => {
     try {
       const input = cleanInput(req.body || {});
       const validation = validateInput(input, true);
@@ -110,7 +110,7 @@ export function createConsultationTypeRoutes(prisma: PrismaClient): Router {
     }
   });
 
-  router.delete('/:id', requireRole(WRITE_ROLES), async (req, res, next) => {
+  router.delete('/:id', requireRole([...WRITE_ROLES]), async (req, res, next) => {
     try {
       const existing = await prisma.consultationType.findUnique({
         where: { id: req.params.id },
