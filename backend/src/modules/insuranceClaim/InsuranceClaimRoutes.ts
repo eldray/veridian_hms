@@ -17,6 +17,8 @@ export const createInsuranceClaimRoutes = () => {
   router.use('/batches', createClaimBatchRoutes());
 
   router.get('/summary', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaimsSummary);
+  // Read-only audit endpoint; only authorised claims/accounts staff can inspect legacy gaps.
+  router.get('/audit/missing-items', requireRole(['admin', 'accounts']), insuranceClaimController.listClaimsMissingItems);
 
   router.post('/nhis/generate', requireRole(['admin', 'accounts']), validate(GenerateClaimSchema), insuranceClaimController.generateNHISClaim);
   router.get('/nhis', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listNHISClaims);
