@@ -982,6 +982,9 @@ export const createInsuranceProvider = (data: any) =>
 export const updateInsuranceProvider = (id: string, data: any) =>
   api.put(`/insurance-providers/${id}`, data).then(r => r.data);
 
+export const toggleInsuranceProviderStatus = (id: string) =>
+  api.patch(`/insurance-providers/${id}/toggle-status`).then(r => r.data);
+
 export const deleteInsuranceProvider = (id: string) =>
   api.delete(`/insurance-providers/${id}`).then(r => r.data);
 
