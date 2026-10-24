@@ -212,6 +212,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       } 
       else if (Array.isArray(response)) {
         billsArray = response;
+        paginationData = (response as any).pagination || null;
       }
       else if (response && Array.isArray(response.data)) {
         billsArray = response.data;
