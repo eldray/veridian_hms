@@ -557,6 +557,10 @@ export const getHospitalDetails = () =>
 export const updateHospitalDetails = (data: any) =>
   api.put('/settings/hospital', data).then(r => r.data);
 
+// ──────────────────────────────────────────────
+// HOSPITAL INFO
+// ──────────────────────────────────────────────
+
 export const getSystemSettings = () =>
   api.get('/settings').then(r => r.data);
 
@@ -1221,31 +1225,34 @@ export const getPatients = async (filters?: any) => {
 };
 
 export const createPatient = (data: any) => {
-  const processedData = { ...data };
-  if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
+  // FormData must be sent intact: spreading it into an object drops its entries.
+  // Let Axios set the multipart boundary automatically.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.post('/patients', data).then(r => r.data);
+  }
+
+  const processedData = { ...(data || {}) };
+  if (typeof processedData.dateOfBirth === 'string' && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.post('/patients', processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.post('/patients', processedData).then(r => r.data);
-  }
+  return api.post('/patients', processedData).then(r => r.data);
 };
 
 export const updatePatient = (id: string, data: any) => {
-  const processedData = { ...data };
-  if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
+  if (!id || id === 'undefined' || id === 'null') {
+    return Promise.reject(new Error('Valid Patient ID is required'));
+  }
+
+  // Preserve multipart payloads so uploaded fields/files reach the backend.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.put(`/patients/${id}`, data).then(r => r.data);
+  }
+
+  const processedData = { ...(data || {}) };
+  if (typeof processedData.dateOfBirth === 'string' && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.put(`/patients/${id}`, processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.put(`/patients/${id}`, processedData).then(r => r.data);
-  }
+  return api.put(`/patients/${id}`, processedData).then(r => r.data);
 };
 
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
@@ -1450,14 +1457,14 @@ export const updateMedicationStatus = async (
 export const dispenseMedication = async (
   encounterId: string,
   medicationId: string,
-  data: { quantity: number; dispensedById?: string; batchNumber?: string }
+  data: { quantity: number; batchNumber?: string; expiryDate?: string }
 ) => {
-  const response = await api.patch(`/encounters/${encounterId}/medications/${medicationId}`, {
-    status: 'dispensed',
+  // Dispensing has its own pharmacist-authorized route; the backend derives
+  // the dispensing user and records the stock transaction atomically.
+  const response = await api.put(`/encounters/${encounterId}/medications/${medicationId}/dispense`, {
     quantity: data.quantity,
-    dispensedById: data.dispensedById,
     batchNumber: data.batchNumber,
-    dispensedAt: new Date().toISOString()
+    expiryDate: data.expiryDate
   });
   return response.data;
 };
@@ -1548,7 +1555,7 @@ export const getEncounterConsumableUses = async (encounterId: string) => {
 export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 
-// Bed Assignment
+// Vitals
 export const assignBedToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
 
@@ -1604,7 +1611,8 @@ export const deleteVitals = async (vitalsId: string) => {
   return response.data;
 };
 
-// Progress Notes
+// Billing Operations
+// Billing breakdown is bill-scoped; the encounter-scoped endpoint is not mounted.
 export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
   api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
 
@@ -1612,11 +1620,13 @@ export const removeProgressNoteFromEncounter = (encounterId: string, noteId: str
   api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
 
 // Billing Operations
-export const getBillingBreakdown = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => r.data);
+export const getBillingBreakdown = (billId: string) =>
+  api.get(`/bills/${billId}/breakdown`).then(r => r.data?.data || r.data);
+
+// Synchronize billable clinical source records through the mounted billing endpoint.
 
 export const calculateEncounterBill = async (encounterId: string) => {
-  const response = await api.post(`/encounters/${encounterId}/calculate-bill`);
+  const response = await api.post(`/bills/generate/${encounterId}`);
   return response.data;
 };
 
@@ -1628,7 +1638,35 @@ export const getEncounterStats = async (filters?: any) => {
   return response.data;
 };
 
-// NHIS Claim Validation
+// ──────────────────────────────────────────────
+// BILLS & PAYMENTS
+// ──────────────────────────────────────────────
+
+const getBillsPage = (filters?: any) => {
+  // ✅ Add cache-busting timestamp to prevent 304 responses
+  const params = {
+    ...filters,
+    _t: Date.now()  // Forces fresh request every time
+  };
+
+  return api.get('/bills', { params }).then(r => {
+    console.log('📊 API Bills Response:', r.data);
+    console.log('📊 Response Headers:', r.headers);
+
+    if (Array.isArray(r.data)) {
+      return r.data;
+    } else if (r.data && Array.isArray(r.data.data)) {
+      return r.data.data;
+    } else if (r.data && Array.isArray(r.data.bills)) {
+      return r.data.bills;
+    } else {
+      console.warn('Unexpected bills API structure:', r.data);
+      return [];
+    }
+  });
+};
+
+// limit > 100 walks all pages (backend maximum is 100 per request)
 export const validateNHISClaim = (encounterId: string) =>
   api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
 
@@ -1680,10 +1718,10 @@ export const getBill = (id: string) => {
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => r.data);
+  api.post('/bills', data).then(r => r.data?.data || r.data);
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => r.data);
+  api.put(`/bills/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteBill = (id: string) =>
   api.delete(`/bills/${id}`).then(r => r.data);
@@ -1695,20 +1733,20 @@ export const generateBillFromEncounter = (encounterId: string) =>
   api.post(`/bills/generate/${encounterId}`).then(r => r.data);
 
 export const generateBillReport = (billId: string) =>
-  api.get(`/bills/${billId}/report`).then(r => r.data);
+  api.get(`/bills/${billId}/report`).then(r => r.data?.data || r.data);
 
 export const getBillingBreakdownForBill = (billId: string) =>
-  api.get(`/bills/${billId}/breakdown`).then(r => r.data);
+  api.get(`/bills/${billId}/breakdown`).then(r => r.data?.data || r.data);
 
 export const updateBillStatus = (billId: string, data: any) =>
-  api.put(`/bills/${billId}`, data).then(r => r.data);
+  api.put(`/billing/invoices/${billId}`, data).then(r => r.data?.data || r.data);
 
-export const getBillStatistics = () =>
-  api.get('/bills/statistics').then(r => r.data);
+export const getBillStatistics = (filters?: any) =>
+  api.get('/bills/statistics', { params: filters }).then(r => r.data?.data || r.data);
 
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>
-  api.get(`/bills/${billId}/line-items`).then(r => r.data);
+  api.get(`/bills/${billId}/line-items`).then(r => r.data?.data || r.data);
 
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
   api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
@@ -1771,7 +1809,7 @@ export const deleteWaiver = (id: string) =>
   api.delete(`/waivers/${id}`).then(r => r.data);
 
 export const applyWaiverToBill = (billId: string, waiverId: string) =>
-  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
+  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data?.data || r.data);
 
 
 // ──────────────────────────────────────────────
@@ -2016,7 +2054,7 @@ export const convertDetentionToIPD = (encounterId: string, data: {
 
 
 // ──────────────────────────────────────────────
-// WARD CHARGES
+// WARDS & BEDS
 // ──────────────────────────────────────────────
 
 export const getWardCharges = (encounterId: string, params?: any) =>
@@ -2047,8 +2085,24 @@ export const deleteWard = (id: string) =>
 export const getAvailableBeds = () =>
   api.get('/wards/available-beds').then(r => r.data);
 
-export const getBeds = (filters?: any) =>
-  api.get('/beds', { params: filters }).then(r => handleResponse<Bed>(r.data));
+const getBedsPage = (filters?: any) =>
+  api.get('/beds', { params: filters }).then(r => {
+    const rows = handleResponse<Bed>(r.data);
+    return Object.assign(rows, { pagination: readPagination(r.data) });
+  });
+
+// Default reads feed ward/admission pickers and need all beds; explicit paging
+// remains available for screens that intentionally request one page.
+
+export const getBeds = async (filters?: any) => {
+  if (filters?.page || filters?.limit) return getBedsPage(filters);
+  const rows = await fetchAllPages<Bed>(getBedsPage, filters || {}, {
+    pageSize: 50, maxItems: 5000, concurrency: 2,
+  });
+  return Object.assign(rows, {
+    pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
+  });
+};
 
 export const getBed = (id: string) =>
   api.get(`/beds/${id}`).then(r => r.data);
@@ -2070,13 +2124,13 @@ export const getPurchaseInvoices = (filters?: any) =>
   api.get('/purchase-invoices', { params: filters }).then(r => handleResponse<PurchaseInvoice>(r.data));
 
 export const getPurchaseInvoice = (id: string) =>
-  api.get(`/purchase-invoices/${id}`).then(r => r.data);
+  api.get(`/purchase-invoices/${id}`).then(r => r.data?.data || r.data);
 
 export const createPurchaseInvoice = (data: any) =>
-  api.post('/purchase-invoices', data).then(r => r.data);
+  api.post('/purchase-invoices', data).then(r => r.data?.data || r.data);
 
 export const updatePurchaseInvoice = (id: string, data: any) =>
-  api.put(`/purchase-invoices/${id}`, data).then(r => r.data);
+  api.put(`/purchase-invoices/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deletePurchaseInvoice = (id: string) =>
   api.delete(`/purchase-invoices/${id}`).then(r => r.data);
@@ -2089,13 +2143,13 @@ export const getStockItems = (filters?: any) =>
   api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
 
 export const getStockItem = (id: string) =>
-  api.get(`/stock-items/${id}`).then(r => r.data);
+  api.get(`/stock-items/${id}`).then(r => r.data?.data || r.data);
 
 export const createStockItem = (data: any) =>
-  api.post('/stock-items', data).then(r => r.data);
+  api.post('/stock-items', data).then(r => r.data?.data || r.data);
 
 export const updateStockItem = (id: string, data: any) =>
-  api.put(`/stock-items/${id}`, data).then(r => r.data);
+  api.put(`/stock-items/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteStockItem = (id: string) =>
   api.delete(`/stock-items/${id}`).then(r => r.data);
@@ -2107,7 +2161,7 @@ export const getStockCategories = () =>
   api.get('/stock-items/categories').then(r => r.data);
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
-  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
+  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data?.data || r.data);
 
 export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
   api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
@@ -2142,13 +2196,13 @@ export const getStockTransactions = (filters?: any) =>
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
 
 export const getStockTransaction = (id: string) =>
-  api.get(`/stock-transactions/${id}`).then(r => r.data);
+  api.get(`/stock-transactions/${id}`).then(r => r.data?.data || r.data);
 
 export const createStockTransaction = (data: any) =>
-  api.post('/stock-transactions', data).then(r => r.data);
+  api.post('/stock-transactions', data).then(r => r.data?.data || r.data);
 
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) =>
-  api.put(`/stock-transactions/${id}`, data).then(r => r.data);
+  api.put(`/stock-transactions/${id}`, data).then(r => r.data?.data || r.data);
 
 export const getStockMovementReport = (filters?: any) =>
   api.get('/stock-transactions/reports/movement-summary', { params: filters }).then(r => r.data);
@@ -2156,9 +2210,9 @@ export const getStockMovementReport = (filters?: any) =>
 export const getLowStockAlerts = () =>
   api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
 
-/** Stock transfers use their own workflow endpoints; list calls honour the backend's 100-row page cap. */
-const getStockTransfersPage = (filters?: any) =>
-  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
+// ──────────────────────────────────────────────
+// REQUISITIONS
+// ──────────────────────────────────────────────
 
 export const getStockTransfers = async (filters?: { page?: number; limit?: number; status?: string }) => {
   if (!wantsMoreThanOnePage(filters)) return getStockTransfersPage(filters);
@@ -2210,19 +2264,19 @@ export const lookupRequisitionStock = (params: {
   api.get('/requisitions/stock-lookup', { params }).then(r => (r.data?.data ?? r.data) as RequisitionStockLookupItem[]);
 
 export const getRequisition = (id: string) =>
-  api.get(`/requisitions/${id}`).then(r => r.data);
+  api.get(`/requisitions/${id}`).then(r => r.data?.data || r.data);
 
 export const createRequisition = (data: any) =>
-  api.post('/requisitions', data).then(r => r.data);
+  api.post('/requisitions', data).then(r => r.data?.data || r.data);
 
 export const updateRequisition = (id: string, data: any) =>
-  api.put(`/requisitions/${id}`, data).then(r => r.data);
+  api.put(`/requisitions/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteRequisition = (id: string) =>
   api.delete(`/requisitions/${id}`).then(r => r.data);
 
 export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) =>
-  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data?.data || r.data);
 
 export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
 export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
@@ -2230,7 +2284,7 @@ export const fulfillRequisition = (id: string, data?: any) => updateRequisitionS
 export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) =>
-  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
+  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data?.data || r.data);
 
 // ──────────────────────────────────────────────
 // REFERRALS
@@ -2366,13 +2420,13 @@ export const getDiagnoses = (filters?: any) =>
   });
 
 export const getDiagnosis = (id: string) =>
-  api.get(`/diagnoses/${id}`).then(r => r.data);
+  api.get(`/diagnoses/${id}`).then(r => r.data?.data || r.data);
 
 export const createDiagnosis = (data: any) =>
-  api.post('/diagnoses', data).then(r => r.data);
+  api.post('/diagnoses', data).then(r => r.data?.data || r.data);
 
 export const updateDiagnosis = (id: string, data: any) =>
-  api.put(`/diagnoses/${id}`, data).then(r => r.data);
+  api.put(`/diagnoses/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteDiagnosis = (id: string) =>
   api.delete(`/diagnoses/${id}`).then(r => r.data);
@@ -2426,6 +2480,12 @@ export const getDiagnosesByMorbidityGroup = (morbidityGroup: string) =>
 export const getDiagnosisStats = () =>
   api.get('/diagnoses/stats').then(r => r.data);
 
+// ============================================
+// LAB TEST TEMPLATES
+// ============================================
+
+// ✅ Fix: Use '/lab-tests' (with hyphen) to match backend
+
 export const bulkUpdateDiagnoses = (data: any) =>
   api.post('/diagnoses/bulk-update', data).then(r => r.data);
 
@@ -2456,14 +2516,14 @@ export const getLabTestTemplates = (filters?: any) =>
   });
 
 export const getLabTestTemplate = (id: string) =>
-  api.get(`/lab-tests/${id}`).then(r => r.data);
+  api.get(`/lab-tests/${id}`).then(r => r.data?.data || r.data);
 
 
 export const createLabTestTemplate = (data: any) =>
-  api.post('/lab-tests', data).then(r => r.data);
+  api.post('/lab-tests', data).then(r => r.data?.data || r.data);
 
 export const updateLabTestTemplate = (id: string, data: any) =>
-  api.put(`/lab-tests/${id}`, data).then(r => r.data);
+  api.put(`/lab-tests/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteLabTestTemplate = (id: string) =>
   api.delete(`/lab-tests/${id}`).then(r => r.data);
@@ -2495,13 +2555,13 @@ export const getProcedureTemplates = (filters?: any) =>
   });
 
 export const getProcedureTemplate = (id: string) =>
-  api.get(`/procedures/templates/${id}`).then(r => r.data);
+  api.get(`/procedures/templates/${id}`).then(r => r.data?.data || r.data);
 
 export const createProcedureTemplate = (data: any) =>
-  api.post('/procedures/templates', data).then(r => r.data);
+  api.post('/procedures/templates', data).then(r => r.data?.data || r.data);
 
 export const updateProcedureTemplate = (id: string, data: any) =>
-  api.put(`/procedures/templates/${id}`, data).then(r => r.data);
+  api.put(`/procedures/templates/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteProcedureTemplate = (id: string) =>
   api.delete(`/procedures/templates/${id}`).then(r => r.data);
@@ -2529,13 +2589,13 @@ export const getScanTemplates = (filters?: any) =>
   });
 
 export const getScanTemplate = (id: string) =>
-  api.get(`/scan-templates/${id}`).then(r => r.data);
+  api.get(`/scan-templates/${id}`).then(r => r.data?.data || r.data);
 
 export const createScanTemplate = (data: any) =>
-  api.post('/scan-templates', data).then(r => r.data);
+  api.post('/scan-templates', data).then(r => r.data?.data || r.data);
 
 export const updateScanTemplate = (id: string, data: any) =>
-  api.put(`/scan-templates/${id}`, data).then(r => r.data);
+  api.put(`/scan-templates/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteScanTemplate = (id: string) =>
   api.delete(`/scan-templates/${id}`).then(r => r.data);
@@ -2616,7 +2676,8 @@ export const getServiceCatalogItem = (id: string) => {
     return Promise.reject(new Error('Valid Service ID is required'));
   }
   return api.get(`/services/${id}`).then(r => {
-    const service = r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
@@ -2626,7 +2687,8 @@ export const createServiceCatalogItem = (data: any) => {
     return Promise.reject(new Error('Service name and code are required'));
   }
   return api.post('/services', data).then(r => {
-    const service = r.data.service || r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
@@ -2640,7 +2702,8 @@ export const updateServiceCatalogItem = (id: string, data: any) => {
     return Promise.reject(new Error('Update data is required'));
   }
   return api.put(`/services/${id}`, data).then(r => {
-    const service = r.data.service || r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
@@ -2673,8 +2736,17 @@ export const calculateServiceCost = (data: any) =>
   api.post('/services/calculate-cost', data).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// CONSULTATION TYPES
+// DEPARTMENT
 // ──────────────────────────────────────────────
+
+const getDepartmentsPage = (filters?: any) =>
+  api.get('/departments', { params: filters }).then(r => {
+    const rows = Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [];
+    return Object.assign(rows, { pagination: readPagination(r.data) });
+  });
+
+// The backend defaults to 50 departments per page. Load all pages for reference
+// lists unless a caller explicitly requests a page or limit.
 
 export const getConsultationTypes = (filters?: any) =>
   api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
@@ -2695,8 +2767,15 @@ export const deleteConsultationType = (id: string) =>
 // DEPARTMENT
 // ──────────────────────────────────────────────
 
-export const getDepartments = (filters?: any) =>
-  api.get('/departments', { params: filters }).then(r => r.data?.data || r.data);
+export const getDepartments = async (filters?: any) => {
+  if (filters?.page || filters?.limit) return getDepartmentsPage(filters);
+  const rows = await fetchAllPages<any>(getDepartmentsPage, filters || {}, {
+    pageSize: 50, maxItems: 5000, concurrency: 2,
+  });
+  return Object.assign(rows, {
+    pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
+  });
+};
 
 export const getDepartment = (id: string) =>
   api.get(`/departments/${id}`).then(r => r.data?.data || r.data);
@@ -2807,7 +2886,7 @@ export const getNotifications = (filters?: any) =>
   api.get('/notifications', { params: filters }).then(r => r.data);
 
 export const getNotification = (id: string) =>
-  api.get(`/notifications/${id}`).then(r => r.data);
+  api.get(`/notifications/${id}`).then(r => r.data?.data || r.data);
 
 export const markNotificationAsRead = (id: string) =>
   api.patch(`/notifications/${id}/read`).then(r => r.data);
@@ -2909,6 +2988,10 @@ export const getDashboardStats = (params?: {
   period?: 'today' | 'week' | 'month';
 }) =>
   api.get('/dashboard/stats', { params }).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// BACKUP SYSTEM - CORRECTED ENDPOINTS
+// ──────────────────────────────────────────────
 
 export const getAppointmentCalendar = (month: string, year: string) =>
   api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
@@ -3240,6 +3323,12 @@ export const getVitalsReport = async (params: ReportFilter) => {
   const response = await api.get('/clinical-reports/vitals', { params });
   return response.data;
 };
+
+// ──────────────────────────────────────────────
+// EXPORT  (→ POST /reports/export)
+// ──────────────────────────────────────────────
+
+// Used by Reports.tsx handleExport — sends already-fetched report data to the server
 
 export const getClinicalReports = async (filters?: any) => {
   const response = await api.get('/clinical-reports', { params: filters });
@@ -3855,6 +3944,10 @@ export const getCommunicationTemplates = (type?: string) =>
 
 export const createCommunicationTemplate = (data: any) =>
   api.post('/communications/templates', data).then(r => r.data);
+
+// ──────────────────────────────────────────────
+// DEFAULT EXPORT
+// ──────────────────────────────────────────────
 
 export const sendAppointmentReminderSMS = (appointmentId: string) =>
   api.post(`/communications/send/appointment/${appointmentId}`).then(r => r.data);
