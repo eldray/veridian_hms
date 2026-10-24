@@ -431,6 +431,11 @@ const extractListItems = <T>(response: any): T[] => {
  * read `response.pagination.total`; without it they believed the first page was everything and
  * lists stopped at the server's page size (100).
  */
+// Normalize BaseController success envelopes at the API boundary. Callers receive the
+// resource/result, not a wrapper whose shape differs between modules.
+const unwrapApiResponse = (payload: any): any =>
+  payload?.success === true && payload.data !== undefined ? payload.data : payload;
+
 const handleResponse = <T>(response: any): T[] => {
   const items = extractListItems<T>(response);
   const meta = readPagination(response);
@@ -510,7 +515,7 @@ export const getSeniorityLabel = (seniority: Seniority): string => {
 // ──────────────────────────────────────────────
 
 export const login = (username: string, password: string) =>
-  api.post('/auth/login', { username, password }).then(r => r.data);
+  api.post('/auth/login', { username, password }).then(r => unwrapApiResponse(r.data));
 
 export const register = (userData: {
   username: string;
@@ -523,20 +528,20 @@ export const register = (userData: {
   licenseNumber?: string;
   specialization?: string;
   departmentId?: string;
-}) => api.post('/auth/register', userData).then(r => r.data);
+}) => api.post('/auth/register', userData).then(r => unwrapApiResponse(r.data));
 
 
 export const verifyToken = () =>
   api.get('/auth/profile').then(r => r.data.user || r.data);
 
 export const logout = () =>
-  api.post('/auth/logout').then(r => r.data);
+  api.post('/auth/logout').then(r => unwrapApiResponse(r.data));
 
 export const getUsers = () =>
   api.get('/auth/users').then(r => handleResponse<User>(r.data.users || r.data));
 
 export const getUserStats = () =>
-  api.get('/auth/users/stats').then(r => r.data);
+  api.get('/auth/users/stats').then(r => unwrapApiResponse(r.data));
 
 export const getProfile = () =>
   api.get('/auth/profile').then(r => r.data.user || r.data);
@@ -545,23 +550,23 @@ export const updateProfile = (data: any) =>
   api.put('/auth/profile', data).then(r => r.data.user || r.data);
 
 export const changePassword = (currentPassword: string, newPassword: string) =>
-  api.post('/auth/change-password', { currentPassword, newPassword }).then(r => r.data);
+  api.post('/auth/change-password', { currentPassword, newPassword }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // SETTINGS (Admin only)
 // ──────────────────────────────────────────────
 
 export const getHospitalDetails = () =>
-  api.get('/settings/hospital').then(r => r.data);
+  api.get('/settings/hospital').then(r => unwrapApiResponse(r.data));
 
 export const updateHospitalDetails = (data: any) =>
-  api.put('/settings/hospital', data).then(r => r.data);
+  api.put('/settings/hospital', data).then(r => unwrapApiResponse(r.data));
 
 export const getSystemSettings = () =>
-  api.get('/settings').then(r => r.data);
+  api.get('/settings').then(r => unwrapApiResponse(r.data));
 
 export const updateSystemSettings = (data: any) =>
-  api.put('/settings', data).then(r => r.data);
+  api.put('/settings', data).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -572,16 +577,16 @@ export const getHospitals = () =>
   api.get('/hospital').then(r => handleResponse<HospitalInfo>(r.data));
 
 export const getHospital = (id: string) =>
-  api.get(`/hospital/${id}`).then(r => r.data);
+  api.get(`/hospital/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createHospital = (data: any) =>
-  api.post('/hospital', data).then(r => r.data);
+  api.post('/hospital', data).then(r => unwrapApiResponse(r.data));
 
 export const updateHospital = (id: string, data: any) =>
-  api.put(`/hospital/${id}`, data).then(r => r.data);
+  api.put(`/hospital/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteHospital = (id: string) =>
-  api.delete(`/hospital/${id}`).then(r => r.data);
+  api.delete(`/hospital/${id}`).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -590,35 +595,35 @@ export const deleteHospital = (id: string) =>
 
 // Hospital NHIS Settings - GET current hospital's NHIS config
 export const getHospitalNHISSettings = () =>
-  api.get('/hospital/nhis/settings').then(r => r.data);
+  api.get('/hospital/nhis/settings').then(r => unwrapApiResponse(r.data));
 
 // Hospital NHIS Settings - UPDATE current hospital's NHIS config
 export const updateHospitalNHISSettings = (data: any) =>
-  api.put('/hospital/nhis/settings', data).then(r => r.data);
+  api.put('/hospital/nhis/settings', data).then(r => unwrapApiResponse(r.data));
 
 // NHIS API Status - Check if NHIS API is configured and active
 export const getNHISApiStatus = () =>
-  api.get('/settings/nhis/status').then(r => r.data);
+  api.get('/settings/nhis/status').then(r => unwrapApiResponse(r.data));
 
 // NHIS API Configuration - Update API connection settings
 export const updateNHISApiConfig = (data: any) =>
-  api.put('/settings/nhis/config', data).then(r => r.data);
+  api.put('/settings/nhis/config', data).then(r => unwrapApiResponse(r.data));
 
 // Test NHIS API Connection
 export const testNHISConnection = () =>
-  api.post('/settings/nhis/test-connection').then(r => r.data);
+  api.post('/settings/nhis/test-connection').then(r => unwrapApiResponse(r.data));
 
 // Verify Single NHIS Eligibility
 export const verifyNHISEligibility = (policyNumber: string) =>
-  api.post('/settings/nhis/verify-eligibility', { policyNumber }).then(r => r.data);
+  api.post('/settings/nhis/verify-eligibility', { policyNumber }).then(r => unwrapApiResponse(r.data));
 
 // Bulk Verify NHIS Eligibility
 export const bulkVerifyNHISEligibility = (policyNumbers: string[]) =>
-  api.post('/settings/nhis/bulk-verify-eligibility', { policyNumbers }).then(r => r.data);
+  api.post('/settings/nhis/bulk-verify-eligibility', { policyNumbers }).then(r => unwrapApiResponse(r.data));
 
 // Generate NHIS CCC (Claim Check Code)
 export const generateCCC = (data: { policyNumber: string; encounterId: string; totalAmount: number }) =>
-  api.post('/settings/nhis/generate-ccc', data).then(r => r.data);
+  api.post('/settings/nhis/generate-ccc', data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // USER MANAGEMENT (Separate module - NOT in settings)
@@ -626,7 +631,7 @@ export const generateCCC = (data: { policyNumber: string; encounterId: string; t
 // api/index.ts - Keep register for public registration (if needed)
 // But create a separate adminCreateUser for admin user creation
 export const adminCreateUser = (userData: any) =>
-  api.post('/users', userData).then(r => r.data);  // Admin only endpoint
+  api.post('/users', userData).then(r => unwrapApiResponse(r.data));  // Admin only endpoint
 
 export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
   api.get('/users', { params: filters }).then(r => {
@@ -659,10 +664,10 @@ export const updateUserProfile = (data: any) =>
 export const changeUserPassword = (
   _userId: string | undefined,
   data: { currentPassword: string; newPassword: string },
-) => api.post(`/auth/change-password`, data).then(r => r.data);
+) => api.post(`/auth/change-password`, data).then(r => unwrapApiResponse(r.data));
 
 export const getCurrentUserPermissions = () =>
-  api.get('/users/permissions').then(r => r.data);
+  api.get('/users/permissions').then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // SHIFT MANAGEMENT (via User module)
@@ -681,7 +686,7 @@ export const updateShift = (shiftId: string, data: any) =>
   api.put(`/users/shifts/${shiftId}`, data).then(r => r.data?.data || r.data);
 
 export const deleteShift = (shiftId: string) =>
-  api.delete(`/users/shifts/${shiftId}`).then(r => r.data);
+  api.delete(`/users/shifts/${shiftId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // LEAVE MANAGEMENT (via User module)
@@ -700,7 +705,7 @@ export const updateLeave = (leaveId: string, data: { status?: 'pending' | 'appro
   api.put(`/users/leaves/${leaveId}`, data).then(r => r.data?.data || r.data);
 
 export const deleteLeave = (leaveId: string) =>
-  api.delete(`/users/leaves/${leaveId}`).then(r => r.data);
+  api.delete(`/users/leaves/${leaveId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // LEAVE APPROVAL HELPERS
@@ -826,7 +831,7 @@ export const unverifyDocument = (documentId: string) =>
   api.post(`/users/documents/${documentId}/unverify`).then(r => r.data?.data || r.data);
 
 export const deleteDocument = (documentId: string) =>
-  api.delete(`/users/documents/${documentId}`).then(r => r.data);
+  api.delete(`/users/documents/${documentId}`).then(r => unwrapApiResponse(r.data));
 // ──────────────────────────────────────────────
 // GDRG TARIFFS
 // ──────────────────────────────────────────────
@@ -983,16 +988,16 @@ export const getInsuranceProviders = () =>
   });
 
 export const getInsuranceProvider = (id: string) =>
-  api.get(`/insurance-providers/${id}`).then(r => r.data);
+  api.get(`/insurance-providers/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createInsuranceProvider = (data: any) =>
-  api.post('/insurance-providers', data).then(r => r.data);
+  api.post('/insurance-providers', data).then(r => unwrapApiResponse(r.data));
 
 export const updateInsuranceProvider = (id: string, data: any) =>
-  api.put(`/insurance-providers/${id}`, data).then(r => r.data);
+  api.put(`/insurance-providers/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteInsuranceProvider = (id: string) =>
-  api.delete(`/insurance-providers/${id}`).then(r => r.data);
+  api.delete(`/insurance-providers/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // CORPORATE ACCOUNTS (UNIFIED - NO DUPLICATES)
@@ -1009,61 +1014,61 @@ export const getCorporateAccounts = (filters?: any) =>
     : getCorporateAccountsPage(filters);
 
 export const getCorporateAccount = (id: string) =>
-  api.get(`/corporate/${id}`).then(r => r.data);
+  api.get(`/corporate/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createCorporateAccount = (data: any) =>
-  api.post('/corporate', data).then(r => r.data);
+  api.post('/corporate', data).then(r => unwrapApiResponse(r.data));
 
 export const updateCorporateAccount = (id: string, data: any) =>
-  api.put(`/corporate/${id}`, data).then(r => r.data);
+  api.put(`/corporate/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deactivateCorporateAccount = (id: string) =>
-  api.delete(`/corporate/${id}`).then(r => r.data);
+  api.delete(`/corporate/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateEmployees = (accountId: string) =>
-  api.get(`/corporate/${accountId}/employees`).then(r => r.data);
+  api.get(`/corporate/${accountId}/employees`).then(r => unwrapApiResponse(r.data));
 
 export const addCorporateEmployee = (accountId: string, data: any) =>
-  api.post(`/corporate/${accountId}/employees`, data).then(r => r.data);
+  api.post(`/corporate/${accountId}/employees`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateCorporateEmployee = (id: string, data: any) =>
-  api.put(`/corporate/employees/${id}`, data).then(r => r.data);
+  api.put(`/corporate/employees/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeCorporateEmployee = (id: string) =>
-  api.delete(`/corporate/employees/${id}`).then(r => r.data);
+  api.delete(`/corporate/employees/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateStatistics = () =>
-  api.get('/corporate/statistics').then(r => r.data);
+  api.get('/corporate/statistics').then(r => unwrapApiResponse(r.data));
 
 export const generateCorporateMonthlyBill = (accountId: string, data: any) =>
-  api.post(`/corporate/${accountId}/bills`, data).then(r => r.data);
+  api.post(`/corporate/${accountId}/bills`, data).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateMonthlyBills = (accountId: string, filters?: any) =>
-  api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
+  api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // INSURANCE CLAIMS — GENERAL
 // ──────────────────────────────────────────────
 
 export const getInsuranceClaims = (filters?: any) =>
-  api.get('/insurance-claims', { params: filters }).then(r => r.data);
+  api.get('/insurance-claims', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getInsuranceClaim = (id: string) =>
-  api.get(`/insurance-claims/${id}`).then(r => r.data);
+  api.get(`/insurance-claims/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getClaimByEncounterId = (encounterId: string) =>
-  api.get(`/insurance-claims/attendance/${encounterId}`).then(r => r.data);
+  api.get(`/insurance-claims/attendance/${encounterId}`).then(r => unwrapApiResponse(r.data));
 
 export const updateClaimDraft = (claimId: string, data: any) =>
-  api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => r.data);
+  api.patch(`/insurance-claims/${claimId}/draft`, data).then(r => unwrapApiResponse(r.data));
 export const replaceClaimItems = (claimId: string, items: any[]) =>
-  api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => r.data);
+  api.put(`/insurance-claims/${claimId}/items`, { items }).then(r => unwrapApiResponse(r.data));
 
 // Alias — same endpoint as updateClaimDraft (drafts only)
 export const updateInsuranceClaim = updateClaimDraft;
 
 export const finalizeClaim = (claimId: string) =>
-  api.patch(`/insurance-claims/${claimId}/finalize`).then(r => r.data);
+  api.patch(`/insurance-claims/${claimId}/finalize`).then(r => unwrapApiResponse(r.data));
 
 // ❌ REMOVED: updateClaimStatus, getFinalizedClaimsTotal
 //    The backend no longer has those endpoints (claim lifecycle = draft → finalized).
@@ -1073,29 +1078,29 @@ export const finalizeClaim = (claimId: string) =>
 // ──────────────────────────────────────────────
 
 export const generateNHISClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => r.data);
+  api.post('/insurance-claims/nhis/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getNHISClaims = (filters?: any) =>
-  api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
+  api.get('/insurance-claims/nhis', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const generatePrivateInsuranceClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
+  api.post('/insurance-claims/private/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getPrivateInsuranceClaims = (filters?: any) =>
-  api.get('/insurance-claims/private', { params: filters }).then(r => r.data);
+  api.get('/insurance-claims/private', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const generateCorporateClaim = (attendanceId: string) =>
-  api.post('/insurance-claims/corporate/generate', { attendanceId }).then(r => r.data);
+  api.post('/insurance-claims/corporate/generate', { attendanceId }).then(r => unwrapApiResponse(r.data));
 
 export const getCorporateClaims = (filters?: any) =>
-  api.get('/insurance-claims/corporate', { params: filters }).then(r => r.data);
+  api.get('/insurance-claims/corporate', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // CLAIM SUMMARY (replaces getFinalizedClaimsTotal)
 // ──────────────────────────────────────────────
 
 export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate') =>
-  api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => r.data);
+  api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // CLAIM XML + PRINT (single claim — open in new tab)
@@ -1138,19 +1143,19 @@ export interface GenerateClaimBatchInput {
 }
 
 export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
-  api.post('/insurance-claims/batches/generate', data).then(r => r.data);
+  api.post('/insurance-claims/batches/generate', data).then(r => unwrapApiResponse(r.data));
 
 export const getClaimBatches = (filters?: any) =>
-  api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
+  api.get('/insurance-claims/batches', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getClaimBatch = (id: string) =>
-  api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
+  api.get(`/insurance-claims/batches/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const finalizeClaimBatch = (batchId: string) =>
-  api.patch(`/insurance-claims/batches/${batchId}/finalize`).then(r => r.data);
+  api.patch(`/insurance-claims/batches/${batchId}/finalize`).then(r => unwrapApiResponse(r.data));
 
 export const deleteClaimBatch = (batchId: string) =>
-  api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
+  api.delete(`/insurance-claims/batches/${batchId}`).then(r => unwrapApiResponse(r.data));
 
 /** NHIS only — opens a new tab → browser downloads the batch XML. */
 export const downloadBatchXml = (batchId: string) => {
@@ -1215,9 +1220,9 @@ export const createPatient = (data: any) => {
     // FormData is not enumerable; spreading it produces an empty object and drops every field/file.
     return api.post('/patients', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
+    }).then(r => unwrapApiResponse(r.data));
   } else {
-    return api.post('/patients', processedData).then(r => r.data);
+    return api.post('/patients', processedData).then(r => unwrapApiResponse(r.data));
   }
 };
 
@@ -1230,22 +1235,22 @@ export const updatePatient = (id: string, data: any) => {
     // Preserve the original multipart fields and file entries instead of sending an empty spread object.
     return api.put(`/patients/${id}`, data, {
       headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
+    }).then(r => unwrapApiResponse(r.data));
   } else {
-    return api.put(`/patients/${id}`, processedData).then(r => r.data);
+    return api.put(`/patients/${id}`, processedData).then(r => unwrapApiResponse(r.data));
   }
 };
 
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
   api.post(`/patients/${patientId}/upload-image`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-  }).then(r => r.data);
+  }).then(r => unwrapApiResponse(r.data));
 
 export const uploadPatientImageBase64 = (patientId: string, base64Image: string) =>
-  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image }).then(r => r.data);
+  api.post(`/patients/${patientId}/upload-image-base64`, { image: base64Image }).then(r => unwrapApiResponse(r.data));
 
 export const deletePatient = (id: string) =>
-  api.delete(`/patients/${id}`).then(r => r.data);
+  api.delete(`/patients/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // ENCOUNTERS (ATTENDANCES)
@@ -1316,7 +1321,7 @@ export const deleteEncounter = (id: string) => {
   if (!id || id === 'undefined' || id === 'null') {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
-  return api.delete(`/encounters/${id}`).then(r => r.data);
+  return api.delete(`/encounters/${id}`).then(r => unwrapApiResponse(r.data));
 };
 
 export const updateEncounterStatus = (id: string, data: any) => {
@@ -1359,55 +1364,55 @@ export const completeEncounter = (encounterId: string) =>
 // ============================================
 
 export const getVitalsWorklist = () =>
-  api.get('/encounters/worklist/vitals').then(r => r.data);
+  api.get('/encounters/worklist/vitals').then(r => unwrapApiResponse(r.data));
 
 export const getMedicalWorklist = () =>
-  api.get('/encounters/worklist/medical').then(r => r.data);
+  api.get('/encounters/worklist/medical').then(r => unwrapApiResponse(r.data));
 
 export const getLabWorklist = () =>
-  api.get('/encounters/worklist/lab').then(r => r.data);
+  api.get('/encounters/worklist/lab').then(r => unwrapApiResponse(r.data));
 
 export const getPharmacyWorklist = () =>
-  api.get('/encounters/worklist/pharmacy').then(r => r.data);
+  api.get('/encounters/worklist/pharmacy').then(r => unwrapApiResponse(r.data));
 
 export const getScansWorklist = () =>
-  api.get('/encounters/worklist/scans').then(r => r.data);
+  api.get('/encounters/worklist/scans').then(r => unwrapApiResponse(r.data));
 
 export const getTheatreWorklist = () =>
-  api.get('/encounters/worklist/procedures').then(r => r.data);
+  api.get('/encounters/worklist/procedures').then(r => unwrapApiResponse(r.data));
 
 export const getMaternalWorklist = () =>
-  api.get('/encounters/worklist/maternal').then(r => r.data);
+  api.get('/encounters/worklist/maternal').then(r => unwrapApiResponse(r.data));
 
 export const getWorklistSummary = () =>
-  api.get('/encounters/worklist/summary').then(r => r.data);
+  api.get('/encounters/worklist/summary').then(r => unwrapApiResponse(r.data));
 
 
 export const addDiagnosisToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/diagnosis`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeDiagnosisFromEncounter = (encounterId: string, diagnosisId: string) =>
-  api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => r.data);
+  api.delete(`/encounters/${encounterId}/diagnosis/${diagnosisId}`).then(r => unwrapApiResponse(r.data));
 
 // Lab Test Operations
 export const addLabTestToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/lab-tests`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateLabTestInEncounter = (_attendanceId: string, labTestId: string, data: any) =>
-  api.put(`/encounters/lab-tests/${labTestId}/status`, data).then(r => r.data);
+  api.put(`/encounters/lab-tests/${labTestId}/status`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeLabTestFromEncounter = (encounterId: string, labTestId: string) =>
-  api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => r.data);
+  api.delete(`/encounters/${encounterId}/lab-tests/${labTestId}`).then(r => unwrapApiResponse(r.data));
 
 // Procedure Operations
 export const addProcedureToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/procedures`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/procedures`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateProcedureStatus = (_attendanceId: string, procedureId: string, data: any) =>
-  api.put(`/encounters/procedures/${procedureId}/status`, data).then(r => r.data);
+  api.put(`/encounters/procedures/${procedureId}/status`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeProcedureFromEncounter = (encounterId: string, procedureId: string) =>
-  api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => r.data);
+  api.delete(`/encounters/${encounterId}/procedures/${procedureId}`).then(r => unwrapApiResponse(r.data));
 
 // Medication Operations
 export const addMedicationToEncounter = async (encounterId: string, data: {
@@ -1542,7 +1547,7 @@ export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 // Bed Assignment
 export const assignBedToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => unwrapApiResponse(r.data));
 
 // Vitals
 export const addVitalsToEncounter = async (encounterId: string, data: any) => {
@@ -1598,14 +1603,14 @@ export const deleteVitals = async (vitalsId: string) => {
 
 // Progress Notes
 export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => unwrapApiResponse(r.data));
 
 export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) =>
-  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
+  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => unwrapApiResponse(r.data));
 
 // Billing Operations
 export const getBillingBreakdown = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => r.data);
+  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => unwrapApiResponse(r.data));
 
 export const calculateEncounterBill = async (encounterId: string) => {
   const response = await api.post(`/encounters/${encounterId}/calculate-bill`);
@@ -1622,10 +1627,10 @@ export const getEncounterStats = async (filters?: any) => {
 
 // NHIS Claim Validation
 export const validateNHISClaim = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
+  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => unwrapApiResponse(r.data));
 
 export const generateNHISClaimFromEncounter = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => r.data);
+  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
@@ -1672,38 +1677,38 @@ export const getBill = (id: string) => {
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => r.data);
+  api.post('/bills', data).then(r => unwrapApiResponse(r.data));
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => r.data);
+  api.put(`/bills/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteBill = (id: string) =>
-  api.delete(`/bills/${id}`).then(r => r.data);
+  api.delete(`/bills/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const addPaymentToBill = (billId: string, data: any) =>
-  api.post(`/bills/${billId}/payment`, data).then(r => r.data);
+  api.post(`/bills/${billId}/payment`, data).then(r => unwrapApiResponse(r.data));
 
 export const generateBillFromEncounter = (encounterId: string) =>
-  api.post(`/bills/generate/${encounterId}`).then(r => r.data);
+  api.post(`/bills/generate/${encounterId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateBillReport = (billId: string) =>
-  api.get(`/bills/${billId}/report`).then(r => r.data);
+  api.get(`/bills/${billId}/report`).then(r => unwrapApiResponse(r.data));
 
 export const getBillingBreakdownForBill = (billId: string) =>
-  api.get(`/bills/${billId}/breakdown`).then(r => r.data);
+  api.get(`/bills/${billId}/breakdown`).then(r => unwrapApiResponse(r.data));
 
 export const updateBillStatus = (billId: string, data: any) =>
-  api.put(`/bills/${billId}`, data).then(r => r.data);
+  api.put(`/bills/${billId}`, data).then(r => unwrapApiResponse(r.data));
 
 export const getBillStatistics = () =>
-  api.get('/bills/statistics').then(r => r.data);
+  api.get('/bills/statistics').then(r => unwrapApiResponse(r.data));
 
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>
-  api.get(`/bills/${billId}/line-items`).then(r => r.data);
+  api.get(`/bills/${billId}/line-items`).then(r => unwrapApiResponse(r.data));
 
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
-  api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
+  api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // WAIVERS
@@ -1716,7 +1721,7 @@ export const createWaiverRequest = (data: {
   reason: string;
   amountRequested: number;
   supportingDocs?: string[];
-}) => api.post('/waivers', data).then(r => r.data);
+}) => api.post('/waivers', data).then(r => unwrapApiResponse(r.data));
 
 export const getWaivers = (filters?: {
   status?: string;
@@ -1727,10 +1732,10 @@ export const getWaivers = (filters?: {
   dateTo?: string;
   page?: number;
   limit?: number;
-}) => api.get('/waivers', { params: filters }).then(r => r.data);
+}) => api.get('/waivers', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getWaiverById = (id: string) =>
-  api.get(`/waivers/${id}`).then(r => r.data);
+  api.get(`/waivers/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const updateWaiverStatus = (id: string, data: {
   status: string;
@@ -1739,31 +1744,31 @@ export const updateWaiverStatus = (id: string, data: {
 }) => {
   // The backend exposes /approve and /reject (there is no /status route)
   const status = String(data.status).toLowerCase();
-  if (status === 'approved') return api.post(`/waivers/${id}/approve`, { amountApproved: data.amountApproved }).then(r => r.data);
-  if (status === 'rejected') return api.post(`/waivers/${id}/reject`, { rejectionReason: data.rejectionReason }).then(r => r.data);
-  return api.put(`/waivers/${id}`, data).then(r => r.data);
+  if (status === 'approved') return api.post(`/waivers/${id}/approve`, { amountApproved: data.amountApproved }).then(r => unwrapApiResponse(r.data));
+  if (status === 'rejected') return api.post(`/waivers/${id}/reject`, { rejectionReason: data.rejectionReason }).then(r => unwrapApiResponse(r.data));
+  return api.put(`/waivers/${id}`, data).then(r => unwrapApiResponse(r.data));
 };
 
 export const approveWaiver = (id: string, amountApproved?: number) =>
-  api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => r.data);
+  api.post(`/waivers/${id}/approve`, { amountApproved }).then(r => unwrapApiResponse(r.data));
 
 export const rejectWaiver = (id: string, rejectionReason?: string) =>
-  api.post(`/waivers/${id}/reject`, { rejectionReason }).then(r => r.data);
+  api.post(`/waivers/${id}/reject`, { rejectionReason }).then(r => unwrapApiResponse(r.data));
 
 export const getWaiversByBill = (billId: string) =>
-  api.get(`/waivers/bill/${billId}`).then(r => r.data);
+  api.get(`/waivers/bill/${billId}`).then(r => unwrapApiResponse(r.data));
 
 export const getWaiversByPatient = (patientId: string, filters?: { page?: number; limit?: number }) =>
-  api.get(`/waivers/patient/${patientId}`, { params: filters }).then(r => r.data);
+  api.get(`/waivers/patient/${patientId}`, { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getWaiverStatistics = (filters?: { startDate?: string; endDate?: string }) =>
-  api.get('/waivers/statistics', { params: filters }).then(r => r.data);
+  api.get('/waivers/statistics', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const deleteWaiver = (id: string) =>
-  api.delete(`/waivers/${id}`).then(r => r.data);
+  api.delete(`/waivers/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const applyWaiverToBill = (billId: string, waiverId: string) =>
-  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
+  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -1888,7 +1893,7 @@ export const updateAdmission = (id: string, data: {
 
 // Cancel an admission entered in error. The backend retains the record and audit history.
 export const cancelAdmission = (id: string, reason: string) =>
-  api.post(`/encounters/admissions/${id}/cancel`, { reason }).then(r => r.data);
+  api.post(`/encounters/admissions/${id}/cancel`, { reason }).then(r => unwrapApiResponse(r.data));
 
 // Backward-compatible store/API name; this now performs audited cancellation, never hard deletion.
 export const deleteAdmission = (id: string, reason: string) => cancelAdmission(id, reason);
@@ -1899,7 +1904,7 @@ export const dischargeFromEncounter = (encounterId: string, data?: {
   dischargeStatus?: 'home' | 'transfer' | 'expired' | 'against_medical_advice';
   dischargeSummary?: string;
 }) =>
-  api.post(`/encounters/${encounterId}/discharge`, data || {}).then(r => r.data);
+  api.post(`/encounters/${encounterId}/discharge`, data || {}).then(r => unwrapApiResponse(r.data));
 
 // GET daycase/observation patients (day surgery only)
 export const getDaycasePatients = (filters?: {
@@ -1914,7 +1919,7 @@ export const getDaycasePatients = (filters?: {
 export const convertDaycaseToIPD = (encounterId: string, data?: {
   admissionType?: 'emergency' | 'elective' | 'transfer';
 }) =>
-  api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => r.data);
+  api.post(`/encounters/${encounterId}/convert-to-ipd`, data || {}).then(r => unwrapApiResponse(r.data));
 
 // Add daily notes to admission
 export const addDailyNotesToAdmission = (admissionId: string, data: {
@@ -2001,7 +2006,7 @@ export const convertDetentionToIPD = (encounterId: string, data: {
   clinicalNotes?: string;
   decisionReason?: string;
 }) =>
-  api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => r.data);
+  api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => unwrapApiResponse(r.data));
 
 
 // ──────────────────────────────────────────────
@@ -2009,10 +2014,10 @@ export const convertDetentionToIPD = (encounterId: string, data: {
 // ──────────────────────────────────────────────
 
 export const getWardCharges = (encounterId: string, params?: any) =>
-  api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => r.data);
+  api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => unwrapApiResponse(r.data));
 
 export const generateDailyWardCharges = (date?: string) =>
-  api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
+  api.post('/admissions/ward-charges/generate', { date }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // WARDS & BEDS
@@ -2022,34 +2027,34 @@ export const getWards = (filters?: any) =>
   api.get('/wards', { params: filters }).then(r => handleResponse<Ward>(r.data));
 
 export const getWard = (id: string) =>
-  api.get(`/wards/${id}`).then(r => r.data);
+  api.get(`/wards/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createWard = (data: any) =>
-  api.post('/wards', data).then(r => r.data);
+  api.post('/wards', data).then(r => unwrapApiResponse(r.data));
 
 export const updateWard = (id: string, data: any) =>
-  api.put(`/wards/${id}`, data).then(r => r.data);
+  api.put(`/wards/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteWard = (id: string) =>
-  api.delete(`/wards/${id}`).then(r => r.data);
+  api.delete(`/wards/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getAvailableBeds = () =>
-  api.get('/wards/available-beds').then(r => r.data);
+  api.get('/wards/available-beds').then(r => unwrapApiResponse(r.data));
 
 export const getBeds = (filters?: any) =>
   api.get('/beds', { params: filters }).then(r => handleResponse<Bed>(r.data));
 
 export const getBed = (id: string) =>
-  api.get(`/beds/${id}`).then(r => r.data);
+  api.get(`/beds/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createBed = (data: any) =>
-  api.post('/beds', data).then(r => r.data);
+  api.post('/beds', data).then(r => unwrapApiResponse(r.data));
 
 export const updateBed = (id: string, data: any) =>
-  api.put(`/beds/${id}`, data).then(r => r.data);
+  api.put(`/beds/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteBed = (id: string) =>
-  api.delete(`/beds/${id}`).then(r => r.data);
+  api.delete(`/beds/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // PURCHASE INVOICES (Supplier invoices - renamed)
@@ -2059,16 +2064,16 @@ export const getPurchaseInvoices = (filters?: any) =>
   api.get('/purchase-invoices', { params: filters }).then(r => handleResponse<PurchaseInvoice>(r.data));
 
 export const getPurchaseInvoice = (id: string) =>
-  api.get(`/purchase-invoices/${id}`).then(r => r.data);
+  api.get(`/purchase-invoices/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createPurchaseInvoice = (data: any) =>
-  api.post('/purchase-invoices', data).then(r => r.data);
+  api.post('/purchase-invoices', data).then(r => unwrapApiResponse(r.data));
 
 export const updatePurchaseInvoice = (id: string, data: any) =>
-  api.put(`/purchase-invoices/${id}`, data).then(r => r.data);
+  api.put(`/purchase-invoices/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deletePurchaseInvoice = (id: string) =>
-  api.delete(`/purchase-invoices/${id}`).then(r => r.data);
+  api.delete(`/purchase-invoices/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // STOCK MANAGEMENT
@@ -2078,50 +2083,50 @@ export const getStockItems = (filters?: any) =>
   api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
 
 export const getStockItem = (id: string) =>
-  api.get(`/stock-items/${id}`).then(r => r.data);
+  api.get(`/stock-items/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createStockItem = (data: any) =>
-  api.post('/stock-items', data).then(r => r.data);
+  api.post('/stock-items', data).then(r => unwrapApiResponse(r.data));
 
 export const updateStockItem = (id: string, data: any) =>
-  api.put(`/stock-items/${id}`, data).then(r => r.data);
+  api.put(`/stock-items/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteStockItem = (id: string) =>
-  api.delete(`/stock-items/${id}`).then(r => r.data);
+  api.delete(`/stock-items/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getLowStockItems = () =>
-  api.get('/stock-items/low-stock').then(r => r.data);
+  api.get('/stock-items/low-stock').then(r => unwrapApiResponse(r.data));
 
 export const getStockCategories = () =>
-  api.get('/stock-items/categories').then(r => r.data);
+  api.get('/stock-items/categories').then(r => unwrapApiResponse(r.data));
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
-  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
+  api.post(`/stock-items/${id}/update-stock`, data).then(r => unwrapApiResponse(r.data));
 
 export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
-  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
+  api.post(`/stock-items/${id}/allocate-stock`, data).then(r => unwrapApiResponse(r.data));
 
 export const getStockItemTransactionHistory = (stockItemId: string, filters?: { page?: number; limit?: number }) =>
-  api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => r.data);
+  api.get(`/stock-items/${stockItemId}/transactions`, { params: filters }).then(r => unwrapApiResponse(r.data));
 
 // Stock Reports
 export const getStockValueSummary = () =>
-  api.get('/stock-items/reports/value-summary').then(r => r.data);
+  api.get('/stock-items/reports/value-summary').then(r => unwrapApiResponse(r.data));
 
 export const getExpiryReport = (days?: number) =>
-  api.get('/stock-items/reports/expiry', { params: { days } }).then(r => r.data);
+  api.get('/stock-items/reports/expiry', { params: { days } }).then(r => unwrapApiResponse(r.data));
 
 export const getMovementSummary = (startDate?: string, endDate?: string) =>
-  api.get('/stock-items/reports/movement-summary', { params: { startDate, endDate } }).then(r => r.data);
+  api.get('/stock-items/reports/movement-summary', { params: { startDate, endDate } }).then(r => unwrapApiResponse(r.data));
 
 export const getUsageReport = (period?: string, limit?: number) =>
-  api.get('/stock-items/reports/usage', { params: { period, limit } }).then(r => r.data);
+  api.get('/stock-items/reports/usage', { params: { period, limit } }).then(r => unwrapApiResponse(r.data));
 
 export const getSupplierReport = () =>
-  api.get('/stock-items/reports/supplier').then(r => r.data);
+  api.get('/stock-items/reports/supplier').then(r => unwrapApiResponse(r.data));
 
 export const getRequisitionSummary = (startDate?: string, endDate?: string) =>
-  api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => r.data);
+  api.get('/stock-items/reports/requisition-summary', { params: { startDate, endDate } }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // STOCK TRANSACTIONS
@@ -2131,19 +2136,19 @@ export const getStockTransactions = (filters?: any) =>
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
 
 export const getStockTransaction = (id: string) =>
-  api.get(`/stock-transactions/${id}`).then(r => r.data);
+  api.get(`/stock-transactions/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createStockTransaction = (data: any) =>
-  api.post('/stock-transactions', data).then(r => r.data);
+  api.post('/stock-transactions', data).then(r => unwrapApiResponse(r.data));
 
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) =>
-  api.put(`/stock-transactions/${id}`, data).then(r => r.data);
+  api.put(`/stock-transactions/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const getStockMovementReport = (filters?: any) =>
-  api.get('/stock-transactions/reports/movement-summary', { params: filters }).then(r => r.data);
+  api.get('/stock-transactions/reports/movement-summary', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getLowStockAlerts = () =>
-  api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
+  api.get('/stock-transactions/alerts/low-stock').then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // REQUISITIONS
@@ -2175,19 +2180,19 @@ export const lookupRequisitionStock = (params: {
   api.get('/requisitions/stock-lookup', { params }).then(r => (r.data?.data ?? r.data) as RequisitionStockLookupItem[]);
 
 export const getRequisition = (id: string) =>
-  api.get(`/requisitions/${id}`).then(r => r.data);
+  api.get(`/requisitions/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createRequisition = (data: any) =>
-  api.post('/requisitions', data).then(r => r.data);
+  api.post('/requisitions', data).then(r => unwrapApiResponse(r.data));
 
 export const updateRequisition = (id: string, data: any) =>
-  api.put(`/requisitions/${id}`, data).then(r => r.data);
+  api.put(`/requisitions/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteRequisition = (id: string) =>
-  api.delete(`/requisitions/${id}`).then(r => r.data);
+  api.delete(`/requisitions/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) =>
-  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => unwrapApiResponse(r.data));
 
 export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
 export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
@@ -2195,7 +2200,7 @@ export const fulfillRequisition = (id: string, data?: any) => updateRequisitionS
 export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) =>
-  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
+  api.post(`/requisitions/${id}/approve-items`, data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // REFERRALS
@@ -2331,16 +2336,16 @@ export const getDiagnoses = (filters?: any) =>
   });
 
 export const getDiagnosis = (id: string) =>
-  api.get(`/diagnoses/${id}`).then(r => r.data);
+  api.get(`/diagnoses/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createDiagnosis = (data: any) =>
-  api.post('/diagnoses', data).then(r => r.data);
+  api.post('/diagnoses', data).then(r => unwrapApiResponse(r.data));
 
 export const updateDiagnosis = (id: string, data: any) =>
-  api.put(`/diagnoses/${id}`, data).then(r => r.data);
+  api.put(`/diagnoses/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteDiagnosis = (id: string) =>
-  api.delete(`/diagnoses/${id}`).then(r => r.data);
+  api.delete(`/diagnoses/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const searchDiagnoses = async (query: string) => {
   const pageSize = 100;
@@ -2383,16 +2388,16 @@ export const searchDiagnoses = async (query: string) => {
 };
 
 export const getMorbidityGroups = () =>
-  api.get('/diagnoses/morbidity-groups').then(r => r.data);
+  api.get('/diagnoses/morbidity-groups').then(r => unwrapApiResponse(r.data));
 
 export const getDiagnosesByMorbidityGroup = (morbidityGroup: string) =>
-  api.get(`/diagnoses/morbidity-group/${morbidityGroup}`).then(r => r.data);
+  api.get(`/diagnoses/morbidity-group/${morbidityGroup}`).then(r => unwrapApiResponse(r.data));
 
 export const getDiagnosisStats = () =>
-  api.get('/diagnoses/stats').then(r => r.data);
+  api.get('/diagnoses/stats').then(r => unwrapApiResponse(r.data));
 
 export const bulkUpdateDiagnoses = (data: any) =>
-  api.post('/diagnoses/bulk-update', data).then(r => r.data);
+  api.post('/diagnoses/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // ============================================
 // LAB TEST TEMPLATES
@@ -2421,29 +2426,29 @@ export const getLabTestTemplates = (filters?: any) =>
   });
 
 export const getLabTestTemplate = (id: string) =>
-  api.get(`/lab-tests/${id}`).then(r => r.data);
+  api.get(`/lab-tests/${id}`).then(r => unwrapApiResponse(r.data));
 
 
 export const createLabTestTemplate = (data: any) =>
-  api.post('/lab-tests', data).then(r => r.data);
+  api.post('/lab-tests', data).then(r => unwrapApiResponse(r.data));
 
 export const updateLabTestTemplate = (id: string, data: any) =>
-  api.put(`/lab-tests/${id}`, data).then(r => r.data);
+  api.put(`/lab-tests/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteLabTestTemplate = (id: string) =>
-  api.delete(`/lab-tests/${id}`).then(r => r.data);
+  api.delete(`/lab-tests/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getLabTestCategories = () =>
-  api.get('/lab-tests/categories').then(r => r.data);
+  api.get('/lab-tests/categories').then(r => unwrapApiResponse(r.data));
 
 export const getLabTestSubCategories = () =>
-  api.get('/lab-tests/sub-categories').then(r => r.data);
+  api.get('/lab-tests/sub-categories').then(r => unwrapApiResponse(r.data));
 
 export const getSpecimenTypes = () =>
-  api.get('/lab-tests/specimen-types').then(r => r.data);
+  api.get('/lab-tests/specimen-types').then(r => unwrapApiResponse(r.data));
 
 export const bulkUpdateLabTestTemplates = (data: any) =>
-  api.post('/lab-tests/bulk-update', data).then(r => r.data);
+  api.post('/lab-tests/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 
 // Procedure Templates
@@ -2460,25 +2465,25 @@ export const getProcedureTemplates = (filters?: any) =>
   });
 
 export const getProcedureTemplate = (id: string) =>
-  api.get(`/procedures/templates/${id}`).then(r => r.data);
+  api.get(`/procedures/templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createProcedureTemplate = (data: any) =>
-  api.post('/procedures/templates', data).then(r => r.data);
+  api.post('/procedures/templates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateProcedureTemplate = (id: string, data: any) =>
-  api.put(`/procedures/templates/${id}`, data).then(r => r.data);
+  api.put(`/procedures/templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteProcedureTemplate = (id: string) =>
-  api.delete(`/procedures/templates/${id}`).then(r => r.data);
+  api.delete(`/procedures/templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getProcedureCategories = () =>
-  api.get('/procedures/categories').then(r => r.data);
+  api.get('/procedures/categories').then(r => unwrapApiResponse(r.data));
 
 export const getProcedureDepartments = () =>
-  api.get('/procedures/departments').then(r => r.data);
+  api.get('/procedures/departments').then(r => unwrapApiResponse(r.data));
 
 export const bulkUpdateProcedureTemplates = (data: any) =>
-  api.post('/procedures/templates/bulk-update', data).then(r => r.data);
+  api.post('/procedures/templates/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // Scan Templates
 export const getScanTemplates = (filters?: any) =>
@@ -2494,28 +2499,28 @@ export const getScanTemplates = (filters?: any) =>
   });
 
 export const getScanTemplate = (id: string) =>
-  api.get(`/scan-templates/${id}`).then(r => r.data);
+  api.get(`/scan-templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createScanTemplate = (data: any) =>
-  api.post('/scan-templates', data).then(r => r.data);
+  api.post('/scan-templates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateScanTemplate = (id: string, data: any) =>
-  api.put(`/scan-templates/${id}`, data).then(r => r.data);
+  api.put(`/scan-templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteScanTemplate = (id: string) =>
-  api.delete(`/scan-templates/${id}`).then(r => r.data);
+  api.delete(`/scan-templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getScanCategories = () =>
-  api.get('/scan-templates/meta/categories').then(r => r.data);
+  api.get('/scan-templates/meta/categories').then(r => unwrapApiResponse(r.data));
 
 export const getScanBodyParts = () =>
-  api.get('/scan-templates/meta/body-parts').then(r => r.data);
+  api.get('/scan-templates/meta/body-parts').then(r => unwrapApiResponse(r.data));
 
 export const getScanTypes = () =>
-  api.get('/scan-templates/meta/scan-types').then(r => r.data);
+  api.get('/scan-templates/meta/scan-types').then(r => unwrapApiResponse(r.data));
 
 export const bulkUpdateScanTemplates = (data: any) =>
-  api.post('/scan-templates/bulk-update', data).then(r => r.data);
+  api.post('/scan-templates/bulk-update', data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // SERVICE CATALOG
@@ -2616,26 +2621,26 @@ export const deleteServiceCatalogItem = (id: string) => {
     return Promise.reject(new Error('Valid Service ID is required for deletion'));
   }
   console.log('Deleting service with ID:', id);
-  return api.delete(`/services/${id}`).then(r => r.data);
+  return api.delete(`/services/${id}`).then(r => unwrapApiResponse(r.data));
 };
 
 export const getServiceMetadata = () =>
-  api.get('/services/metadata').then(r => r.data);
+  api.get('/services/metadata').then(r => unwrapApiResponse(r.data));
 
 export const getNHISReadinessReport = () =>
-  api.get('/services/nhis-readiness').then(r => r.data);
+  api.get('/services/nhis-readiness').then(r => unwrapApiResponse(r.data));
 
 export const getServiceByNHISCode = (nhisCode: string) =>
-  api.get(`/services/nhis/${nhisCode}`).then(r => r.data);
+  api.get(`/services/nhis/${nhisCode}`).then(r => unwrapApiResponse(r.data));
 
 export const getServicesByCategory = (category: string) =>
-  api.get(`/services/category/${category}`).then(r => r.data);
+  api.get(`/services/category/${category}`).then(r => unwrapApiResponse(r.data));
 
 export const checkServiceCoverage = (data: any) =>
-  api.post('/services/check-coverage', data).then(r => r.data);
+  api.post('/services/check-coverage', data).then(r => unwrapApiResponse(r.data));
 
 export const calculateServiceCost = (data: any) =>
-  api.post('/services/calculate-cost', data).then(r => r.data);
+  api.post('/services/calculate-cost', data).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // CONSULTATION TYPES
@@ -2645,16 +2650,16 @@ export const getConsultationTypes = (filters?: any) =>
   api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
 
 export const getConsultationType = (id: string) =>
-  api.get(`/consultation-types/${id}`).then(r => r.data);
+  api.get(`/consultation-types/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createConsultationType = (data: any) =>
-  api.post('/consultation-types', data).then(r => r.data);
+  api.post('/consultation-types', data).then(r => unwrapApiResponse(r.data));
 
 export const updateConsultationType = (id: string, data: any) =>
-  api.put(`/consultation-types/${id}`, data).then(r => r.data);
+  api.put(`/consultation-types/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteConsultationType = (id: string) =>
-  api.delete(`/consultation-types/${id}`).then(r => r.data);
+  api.delete(`/consultation-types/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DEPARTMENT
@@ -2673,7 +2678,7 @@ export const updateDepartment = (id: string, data: any) =>
   api.put(`/departments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteDepartment = (id: string) =>
-  api.delete(`/departments/${id}`).then(r => r.data);
+  api.delete(`/departments/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getDepartmentStats = (id: string) =>
   api.get(`/departments/${id}/stats`).then(r => r.data?.data || r.data);
@@ -2695,10 +2700,10 @@ export const removeUserFromDepartment = (departmentId: string, userId: string) =
   api.delete(`/departments/${departmentId}/users/${userId}`).then(r => r.data?.data || r.data);
 
 export const bulkUpdateDepartments = (data: any) =>
-  api.put('/departments/bulk/update', data).then(r => r.data);
+  api.put('/departments/bulk/update', data).then(r => unwrapApiResponse(r.data));
 
 export const getEligibleDepartmentHeads = () =>
-  api.get('/departments/eligible-heads').then(r => r.data);
+  api.get('/departments/eligible-heads').then(r => unwrapApiResponse(r.data));
 // ──────────────────────────────────────────────
 // APPOINTMENTS
 // ──────────────────────────────────────────────
@@ -2722,7 +2727,7 @@ export const updateAppointment = (id: string, data: any) =>
   api.put(`/appointments/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteAppointment = (id: string) =>
-  api.delete(`/appointments/${id}`).then(r => r.data);
+  api.delete(`/appointments/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const updateAppointmentStatus = (id: string, status: string) =>
   api.put(`/appointments/${id}`, { status }).then(r => r.data?.data || r.data);
@@ -2731,23 +2736,23 @@ export const checkInAppointment = (id: string) =>
   api.put(`/appointments/${id}`, { status: 'checked_in' }).then(r => r.data?.data || r.data);
 
 export const getAppointmentStatistics = (filters?: any) =>
-  api.get('/appointments/stats', { params: filters }).then(r => r.data);
+  api.get('/appointments/stats', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 // ✅ Updated: clinician schedule (was getDoctorSchedule)
 export const getClinicianSchedule = (clinicianId: string, date?: string) =>
-  api.get('/appointments/schedule', { params: { clinicianId, date } }).then(r => r.data);
+  api.get('/appointments/schedule', { params: { clinicianId, date } }).then(r => unwrapApiResponse(r.data));
 
 // ✅ Updated: available slots for clinician
 export const getAvailableSlots = (clinicianId: string, date: string) =>
-  api.get('/appointments/available-slots', { params: { clinicianId, date } }).then(r => r.data);
+  api.get('/appointments/available-slots', { params: { clinicianId, date } }).then(r => unwrapApiResponse(r.data));
 
 // ✅ New: Get available clinicians (doctors, nurses, midwives)
 export const getAvailableClinicians = (roles?: string[]) =>
-  api.get('/appointments/clinicians', { params: { roles: roles?.join(',') } }).then(r => r.data);
+  api.get('/appointments/clinicians', { params: { roles: roles?.join(',') } }).then(r => unwrapApiResponse(r.data));
 
 // ✅ New: Convert appointment to attendance
 export const convertToAttendance = (appointmentId: string, paymentData: any) =>
-  api.post(`/appointments/${appointmentId}/convert-to-attendance`, paymentData).then(r => r.data);
+  api.post(`/appointments/${appointmentId}/convert-to-attendance`, paymentData).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // NOTIFICATIONS
@@ -2769,25 +2774,25 @@ export const createNotification = async (data: {
 };
 
 export const getNotifications = (filters?: any) =>
-  api.get('/notifications', { params: filters }).then(r => r.data);
+  api.get('/notifications', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getNotification = (id: string) =>
-  api.get(`/notifications/${id}`).then(r => r.data);
+  api.get(`/notifications/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const markNotificationAsRead = (id: string) =>
-  api.patch(`/notifications/${id}/read`).then(r => r.data);
+  api.patch(`/notifications/${id}/read`).then(r => unwrapApiResponse(r.data));
 
 export const markAllNotificationsAsRead = () =>
-  api.patch('/notifications/mark-all-read').then(r => r.data);
+  api.patch('/notifications/mark-all-read').then(r => unwrapApiResponse(r.data));
 
 export const deleteNotification = (id: string) =>
-  api.delete(`/notifications/${id}`).then(r => r.data);
+  api.delete(`/notifications/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const getNotificationStats = () =>
-  api.get('/notifications/stats').then(r => r.data);
+  api.get('/notifications/stats').then(r => unwrapApiResponse(r.data));
 
 export const getUnreadCount = () =>
-  api.get('/notifications/unread-count').then(r => r.data);
+  api.get('/notifications/unread-count').then(r => unwrapApiResponse(r.data));
 
 // Admin Notifications
 export const sendBulkNotification = async (data: {
@@ -2826,7 +2831,7 @@ export const sendUserMessage = (data: {
   message: string;
   priority?: string;
   actionUrl?: string;
-}) => api.post('/notifications/message', data).then(r => r.data);
+}) => api.post('/notifications/message', data).then(r => unwrapApiResponse(r.data));
 
 export const sendBulkUserMessages = (data: {
   userIds: string[];
@@ -2834,9 +2839,9 @@ export const sendBulkUserMessages = (data: {
   message: string;
   priority?: string;
   actionUrl?: string;
-}) => api.post('/notifications/message/bulk', data).then(r => r.data);
+}) => api.post('/notifications/message/bulk', data).then(r => unwrapApiResponse(r.data));
 
-export const getConversations = () => api.get('/notifications/conversations').then(r => r.data);
+export const getConversations = () => api.get('/notifications/conversations').then(r => unwrapApiResponse(r.data));
 
 // System Triggers
 export const triggerLowStockCheck = async () => {
@@ -2859,10 +2864,10 @@ export const cleanupOldNotifications = async (daysToKeep: number = 30) => {
 // ──────────────────────────────────────────────
 
 export const getUsersByDepartment = (departmentId: string) =>
-  api.get(`/departments/${departmentId}/users`).then(r => r.data);
+  api.get(`/departments/${departmentId}/users`).then(r => unwrapApiResponse(r.data));
 
 export const updateUserDepartment = (userId: string, departmentId: string) =>
-  api.put(`/users/${userId}`, { departmentId }).then(r => r.data);
+  api.put(`/users/${userId}`, { departmentId }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DASHBOARD STATISTICS
@@ -2873,10 +2878,10 @@ export const getDashboardStats = (params?: {
   endDate?: string;
   period?: 'today' | 'week' | 'month';
 }) =>
-  api.get('/dashboard/stats', { params }).then(r => r.data);
+  api.get('/dashboard/stats', { params }).then(r => unwrapApiResponse(r.data));
 
 export const getAppointmentCalendar = (month: string, year: string) =>
-  api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
+  api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // BACKUP SYSTEM - CORRECTED ENDPOINTS
@@ -2975,25 +2980,25 @@ export const getBackupStats = async () => {
 // ──────────────────────────────────────────────
 
 export const generateReceipt = (billId: string, paymentId?: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`, undefined, { params: paymentId ? { paymentId } : undefined }).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/receipt/${billId}`, undefined, { params: paymentId ? { paymentId } : undefined }).then(r => unwrapApiResponse(r.data));
 
 export const generateBillStatement = (billId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/statement/${billId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateReferralLetter = (referralId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateDischargeSummary = (admissionId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => unwrapApiResponse(r.data));
 
 export const generateLabResult = (labTestId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => unwrapApiResponse(r.data));
 
 export const generatePrescription = (encounterId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => unwrapApiResponse(r.data));
 
 export const getDocumentsByEntity = (entityType: string, entityId: string) =>
-  api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => r.data);
+  api.get<{ success: boolean; data: GeneratedDocument[] }>(`/documents/entity/${entityType}/${entityId}`).then(r => unwrapApiResponse(r.data));
 
 export const downloadDocument = (documentId: string) =>
   api.get(`/documents/${documentId}/download`, {
@@ -3001,22 +3006,22 @@ export const downloadDocument = (documentId: string) =>
     headers: {
       Authorization: `Bearer ${localStorage.getItem('auth_token') || ''}`,
     },
-  }).then(r => r.data);
+  }).then(r => unwrapApiResponse(r.data));
 
 export const reprintDocument = (documentId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => r.data);
+  api.post<DocumentGenerationResponse>(`/documents/reprint/${documentId}`).then(r => unwrapApiResponse(r.data));
 
 export const getTemplates = () =>
-  api.get<{ success: boolean; data: DocumentTemplate[] }>(`/documents/templates`).then(r => r.data);
+  api.get<{ success: boolean; data: DocumentTemplate[] }>(`/documents/templates`).then(r => unwrapApiResponse(r.data));
 
 export const createTemplate = (data: any) =>
-  api.post<{ success: boolean; data: DocumentTemplate }>(`/documents/templates`, data).then(r => r.data);
+  api.post<{ success: boolean; data: DocumentTemplate }>(`/documents/templates`, data).then(r => unwrapApiResponse(r.data));
 
 export const updateTemplate = (id: string, data: any) =>
-  api.put<{ success: boolean; data: DocumentTemplate }>(`/documents/templates/${id}`, data).then(r => r.data);
+  api.put<{ success: boolean; data: DocumentTemplate }>(`/documents/templates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteTemplate = (id: string) =>
-  api.delete(`/documents/templates/${id}`).then(r => r.data);
+  api.delete(`/documents/templates/${id}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // UPLOAD SYSTEM (Static file serving)
@@ -3757,72 +3762,72 @@ export const getPostnatalStatistics = async (filters?: { startDate?: string; end
 // ──────────────────────────────────────────────
 
 export const getEstimates = (filters?: any) =>
-  api.get('/estimates', { params: filters }).then(r => r.data);
+  api.get('/estimates', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getEstimate = (id: string) =>
-  api.get(`/estimates/${id}`).then(r => r.data);
+  api.get(`/estimates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const createEstimate = (data: any) =>
-  api.post('/estimates', data).then(r => r.data);
+  api.post('/estimates', data).then(r => unwrapApiResponse(r.data));
 
 export const updateEstimate = (id: string, data: any) =>
-  api.put(`/estimates/${id}`, data).then(r => r.data);
+  api.put(`/estimates/${id}`, data).then(r => unwrapApiResponse(r.data));
 
 export const deleteEstimate = (id: string) =>
-  api.delete(`/estimates/${id}`).then(r => r.data);
+  api.delete(`/estimates/${id}`).then(r => unwrapApiResponse(r.data));
 
 export const sendEstimate = (id: string) =>
-  api.post(`/estimates/${id}/send`).then(r => r.data);
+  api.post(`/estimates/${id}/send`).then(r => unwrapApiResponse(r.data));
 
 export const acceptEstimate = (id: string) =>
-  api.post(`/estimates/${id}/accept`).then(r => r.data);
+  api.post(`/estimates/${id}/accept`).then(r => unwrapApiResponse(r.data));
 
 export const rejectEstimate = (id: string, reason?: string) =>
-  api.post(`/estimates/${id}/reject`, { reason }).then(r => r.data);
+  api.post(`/estimates/${id}/reject`, { reason }).then(r => unwrapApiResponse(r.data));
 
 export const convertEstimateToBill = (id: string, data: { paymentMode: string; notes?: string }) =>
-  api.post(`/estimates/${id}/convert`, data).then(r => r.data);
+  api.post(`/estimates/${id}/convert`, data).then(r => unwrapApiResponse(r.data));
 
 export const getEstimateStatistics = (filters?: { fromDate?: string; toDate?: string }) =>
-  api.get('/estimates/statistics', { params: filters }).then(r => r.data);
+  api.get('/estimates/statistics', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getExpiringEstimates = (days?: number) =>
-  api.get('/estimates/expiring', { params: { days } }).then(r => r.data);
+  api.get('/estimates/expiring', { params: { days } }).then(r => unwrapApiResponse(r.data));
 
 export const getEstimatesByPatient = (patientId: string) =>
-  api.get(`/estimates/patient/${patientId}`).then(r => r.data);
+  api.get(`/estimates/patient/${patientId}`).then(r => unwrapApiResponse(r.data));
 
 export const getEstimatesByCorporateAccount = (accountId: string) =>
-  api.get(`/estimates/corporate/${accountId}`).then(r => r.data);
+  api.get(`/estimates/corporate/${accountId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // COMMUNICATIONS (SMS/WhatsApp)
 // ──────────────────────────────────────────────
 
 export const sendSMS = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
-  api.post('/communications/sms', data).then(r => r.data);
+  api.post('/communications/sms', data).then(r => unwrapApiResponse(r.data));
 
 export const sendWhatsApp = (data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
-  api.post('/communications/whatsapp', data).then(r => r.data);
+  api.post('/communications/whatsapp', data).then(r => unwrapApiResponse(r.data));
 
 // Unified helper: routes to the correct endpoint by channel
 export const sendMessage = (channel: 'sms' | 'whatsapp', data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
   channel === 'whatsapp' ? sendWhatsApp(data) : sendSMS(data);
 
 export const getCommunicationChannels = () =>
-  api.get('/communications/channels').then(r => r.data);
+  api.get('/communications/channels').then(r => unwrapApiResponse(r.data));
 
 export const getCommunicationLogs = (filters?: { channelId?: string; status?: string; startDate?: string; endDate?: string }) =>
-  api.get('/communications/history', { params: filters }).then(r => r.data);
+  api.get('/communications/history', { params: filters }).then(r => unwrapApiResponse(r.data));
 
 export const getCommunicationTemplates = (type?: string) =>
-  api.get('/communications/templates', { params: { type } }).then(r => r.data);
+  api.get('/communications/templates', { params: { type } }).then(r => unwrapApiResponse(r.data));
 
 export const createCommunicationTemplate = (data: any) =>
-  api.post('/communications/templates', data).then(r => r.data);
+  api.post('/communications/templates', data).then(r => unwrapApiResponse(r.data));
 
 export const sendAppointmentReminderSMS = (appointmentId: string) =>
-  api.post(`/communications/send/appointment/${appointmentId}`).then(r => r.data);
+  api.post(`/communications/send/appointment/${appointmentId}`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // DEFAULT EXPORT
