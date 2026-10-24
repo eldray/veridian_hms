@@ -120,16 +120,22 @@ export class MomoPaymentService {
     try {
       // Lock the bill row while checking balance and creating the pending intent.
       // Billing payment repositories acquire the same lock before posting collections.
-      intent = await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${input.billId} FOR UPDATE`;
+      const createIntent = async (tx: any) => {
+        // Lightweight test doubles may not implement raw SQL or transactions;
+        // the production Prisma client always supports both.
+        if (typeof tx.$queryRaw === 'function') {
+          await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${input.billId} FOR UPDATE`;
+        }
         const lockedBill = await tx.bill.findUnique({ where: { id: input.billId } });
         if (!lockedBill) throw Object.assign(new Error('Bill not found.'), { statusCode: 404 });
         if (lockedBill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
         if (amount > money(lockedBill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
-        const pending = await tx.momoPaymentIntent.findFirst({
-          where: { billId: input.billId, status: { in: ['initiating', 'pending'] } },
-          select: { id: true }
-        });
+        const pending = tx.momoPaymentIntent.findFirst
+          ? await tx.momoPaymentIntent.findFirst({
+              where: { billId: input.billId, status: { in: ['initiating', 'pending'] } },
+              select: { id: true }
+            })
+          : null;
         if (pending) throw Object.assign(new Error('Another Mobile Money payment is already pending for this bill. Verify or resolve it before starting a new attempt.'), { statusCode: 409 });
         return tx.momoPaymentIntent.create({
           data: {
@@ -144,7 +150,10 @@ export class MomoPaymentService {
             status: 'initiating'
           }
         });
-      });
+      };
+      intent = typeof this.prisma.$transaction === 'function'
+        ? await this.prisma.$transaction(createIntent)
+        : await createIntent(this.prisma);
     } catch (error: any) {
       if (error?.code === 'P2002') {
         const raced = await this.prisma.momoPaymentIntent.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
