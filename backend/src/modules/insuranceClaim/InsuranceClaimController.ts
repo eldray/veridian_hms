@@ -264,6 +264,15 @@ export class InsuranceClaimController extends BaseController {
     if (eventType === 'submission' && !String(payerReference || '').trim()) {
       return this.badRequest(res, 'Enter the payer submission/reference number where available');
     }
+    if (eventType === 'adjudication') {
+      const allowedStatuses = ['acknowledged', 'under_review', 'queried', 'approved', 'partially_approved', 'rejected'];
+      if (!allowedStatuses.includes(String(status || '').trim().toLowerCase())) {
+        return this.badRequest(res, 'Choose a valid payer adjudication status');
+      }
+    }
+    if (eventType === 'submission' && submissionDate && Number.isNaN(new Date(submissionDate).getTime())) {
+      return this.badRequest(res, 'Submission date is invalid');
+    }
     const event = await prisma.insuranceClaimTrackingEvent.create({
       data: {
         claimId: claim.id, eventType,
