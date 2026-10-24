@@ -532,11 +532,8 @@ export const verifyToken = () =>
 export const logout = () =>
   api.post('/auth/logout').then(r => r.data);
 
-export const getUsers = () =>
-  api.get('/auth/users').then(r => handleResponse<User>(r.data.users || r.data));
-
-export const getUserStats = () =>
-  api.get('/auth/users/stats').then(r => r.data);
+export const getUsers = (filters?: { page?: number; limit?: number; role?: string; departmentId?: string; isActive?: boolean; search?: string }) =>
+  api.get('/users', { params: filters }).then(r => handleResponse<User>(r.data));
 
 export const getProfile = () =>
   api.get('/auth/profile').then(r => r.data.user || r.data);
