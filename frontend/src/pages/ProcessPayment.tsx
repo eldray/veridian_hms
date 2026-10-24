@@ -26,6 +26,23 @@ import SendDocumentModal from '../components/SendDocumentModal';
 import { generateReceipt, downloadDocument } from '../api';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
+const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
+
+const getOrCreatePaymentAttemptKey = (billId: string) => {
+  try {
+    const storageKey = paymentAttemptStorageKey(billId);
+    const existingKey = sessionStorage.getItem(storageKey);
+    if (existingKey) return existingKey;
+    const newKey = crypto.randomUUID();
+    sessionStorage.setItem(storageKey, newKey);
+    return newKey;
+  } catch {
+    // Storage may be unavailable in restricted browser contexts; in-memory
+    // idempotency still protects retries while this page remains mounted.
+    return crypto.randomUUID();
+  }
+};
+
 export default function ProcessPayment() {
   const navigate = useNavigate();
   const { billId } = useParams<{ billId: string }>();
@@ -41,7 +58,12 @@ export default function ProcessPayment() {
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showSendReceipt, setShowSendReceipt] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
-  const paymentAttemptKey = useRef(crypto.randomUUID());
+  const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
+
+  useEffect(() => {
+    if (!billId) return;
+    paymentAttemptKey.current = getOrCreatePaymentAttemptKey(billId);
+  }, [billId]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -104,7 +126,14 @@ export default function ProcessPayment() {
         idempotencyKey: paymentAttemptKey.current,
       });
 
+      // Rotate only after the server confirms success. If the response is lost,
+      // a reload/retry still uses the same key and cannot post the payment twice.
       paymentAttemptKey.current = crypto.randomUUID();
+      try {
+        if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current);
+      } catch {
+        // The in-memory key remains usable if session storage is unavailable.
+      }
       success(
         'Payment recorded', 
         `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
