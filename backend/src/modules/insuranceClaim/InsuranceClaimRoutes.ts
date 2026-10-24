@@ -16,6 +16,9 @@ export const createInsuranceClaimRoutes = () => {
 
   router.use('/batches', createClaimBatchRoutes());
 
+  router.get('/tracking', requireRole(['admin', 'accounts']), insuranceClaimController.listTrackingClaims);
+  router.post('/:claimId/tracking-events', requireRole(['admin', 'accounts']), insuranceClaimController.recordTrackingEvent);
+
   router.get('/summary', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaimsSummary);
   // Read-only audit endpoint; only authorised claims/accounts staff can inspect legacy gaps.
   router.get('/audit/missing-items', requireRole(['admin', 'accounts']), insuranceClaimController.listClaimsMissingItems);
