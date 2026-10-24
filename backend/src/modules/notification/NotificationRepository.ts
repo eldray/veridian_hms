@@ -41,6 +41,7 @@ export class NotificationRepository extends BaseRepository<any, any, any> {
   }
 
 
+  async getStats(userId: string) {
     const [total, unread, byType, byPriority] = await Promise.all([
       this.count({ userId }), 
       this.count({ userId, isRead: false }),
