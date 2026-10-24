@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/services/CounterService', () => ({
+  getCounterService: () => ({ nextPrivateClaimNumber: () => 'PRV-TEST-001' }),
+}));
+
 import { InsuranceClaimService } from '../src/modules/insuranceClaim/InsuranceClaimService';
 
 describe('private insurance claim liability reconciliation', () => {
