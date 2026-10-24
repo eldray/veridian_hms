@@ -193,7 +193,7 @@ describe('MomoPaymentService', () => {
       paymentMethod: 'mobile_money',
       reference: 'MTN-MOMO:provider-reference-1',
       idempotencyKey: 'payment-key-1',
-    }), 'cashier-1');
+    }), 'cashier-1', baseIntent.id);
     expect(result.status).toBe('successful');
     expect(result.paymentId).toBe('payment-1');
     expect(result.providerTransactionId).toBe('mtn-txn-123');
