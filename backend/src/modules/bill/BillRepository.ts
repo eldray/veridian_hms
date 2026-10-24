@@ -248,25 +248,31 @@ export class BillRepository extends BaseRepository<any, any, any> {
     return this.prisma.$transaction(async (tx) => {
       const waiver = await tx.patientWaiver.findUnique({ where: { id: waiverId }, include: { bill: true } });
       if (!waiver) throw new Error('Waiver not found');
-      if (waiver.status !== 'approved') throw new Error('Only approved waivers can be applied');
-      if (waiver.billId !== billId) throw new Error('Waiver does not belong to this bill');
+      if (waiver.status !== 'approved') throw new ValidationError('Only approved waivers can be applied');
+      if (waiver.appliedAt) throw new ValidationError('This waiver has already been applied');
+      if (waiver.billId !== billId) throw new ValidationError('Waiver does not belong to this bill');
 
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
-      // Approved waivers may reduce only the remaining patient liability.
       const waiverAmount = toNumber(waiver.amountApproved);
       const remainingPatientLiability = Math.max(0, toNumber(bill.patientPayable) - toNumber(bill.paidAmount));
-      if (waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
+      if (!Number.isFinite(waiverAmount) || waiverAmount <= 0 || waiverAmount > remainingPatientLiability) {
         throw new ValidationError('Approved waiver exceeds the remaining patient liability');
       }
+      const claimed = await tx.patientWaiver.updateMany({
+        where: { id: waiverId, status: 'approved', appliedAt: null },
+        data: { appliedAt: new Date() }
+      });
+      if (claimed.count !== 1) throw new ValidationError('This waiver has already been applied');
+
       const newWaiverAmount = toNumber(bill.waiverAmount) + waiverAmount;
       const newPatientPayable = Math.max(0, toNumber(bill.patientPayable) - waiverAmount);
       const newBalance = Math.max(0, newPatientPayable - toNumber(bill.paidAmount));
 
       const updatedBill = await tx.bill.update({
         where: { id: billId },
-        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : bill.status }
+        data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') }
       });
 
       if (bill.attendanceId) {
