@@ -36,6 +36,7 @@ import { createProcedureRoutes } from './procedure/ProcedureRoutes';
 
 // Billing & Financial
 import { createBillRoutes } from './bill/BillRoutes';
+import { createMomoPaymentRoutes } from './momo/MomoPaymentRoutes';
 import { createBillingRoutes } from './billing/BillingRoutes';
 import { createProformaInvoiceRoutes } from './proformaInvoice/ProformaInvoiceRoutes';
 import { createWaiverRoutes } from './waiver/WaiverRoutes';
@@ -168,6 +169,8 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   console.log('✅ Bill routes mounted at /bills (individual patient bills)');
   
   app.use('/billing', createBillingRoutes(prisma));
+  app.use('/momo', createMomoPaymentRoutes(prisma));
+  console.log('✅ MTN MoMo payment endpoints mounted at /momo');
   console.log('✅ Billing routes mounted at /billing (billing operations & statistics)');
   
   app.use('/estimates', createProformaInvoiceRoutes(prisma));
