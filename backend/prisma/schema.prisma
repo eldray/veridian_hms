@@ -1096,6 +1096,34 @@ model Payment {
   @@index([transactionDate])
 }
 
+
+model MomoPaymentIntent {
+  id                     String   @id @default(cuid())
+  billId                 String
+  amount                 Decimal  @db.Decimal(15, 2)
+  currency               String   @default("GHS")
+  payerPhone             String
+  providerReference      String   @unique
+  idempotencyKey         String   @unique
+  paymentIdempotencyKey  String   @unique
+  status                 String   @default("pending")
+  providerStatus         String?
+  providerTransactionId  String?
+  paymentId              String?
+  initiatedById          String
+  lastCheckedAt          DateTime?
+  completedAt            DateTime?
+  failureReason          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict)
+
+  @@index([billId, status])
+  @@index([initiatedById, createdAt])
+  @@map("momo_payment_intents")
+}
+
 // ============================================================
 // INSURANCE CLAIM & SUBMISSION (FIXED: JSON Arrays, NHIS Edge Cases)
 // ============================================================
