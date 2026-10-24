@@ -24,4 +24,4 @@ CREATE UNIQUE INDEX "momo_payment_intents_idempotencyKey_key" ON "momo_payment_i
 CREATE UNIQUE INDEX "momo_payment_intents_paymentIdempotencyKey_key" ON "momo_payment_intents"("paymentIdempotencyKey");
 CREATE INDEX "momo_payment_intents_billId_status_idx" ON "momo_payment_intents"("billId", "status");
 CREATE INDEX "momo_payment_intents_initiatedById_createdAt_idx" ON "momo_payment_intents"("initiatedById", "createdAt");
-ALTER TABLE "momo_payment_intents" ADD CONSTRAINT "momo_payment_intents_billId_fkey" FOREIGN KEY ("billId") REFERENCES "bills"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "momo_payment_intents" ADD CONSTRAINT "momo_payment_intents_billId_fkey" FOREIGN KEY ("billId") REFERENCES "Bill"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
