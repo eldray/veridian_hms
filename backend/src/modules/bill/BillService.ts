@@ -82,10 +82,13 @@ export class BillService extends BaseService {
     if (!bill) throw new Error('Bill not found');
     if (paymentData.amount <= 0) throw new Error('Payment amount must be greater than 0');
     if (paymentData.paymentMethod !== 'mobile_money') {
-      const pendingMomo = await this.prisma.momoPaymentIntent.findFirst({
-        where: { billId, status: { in: ['initiating', 'pending'] } },
-        select: { id: true }
-      });
+      const momoIntentModel = (this.prisma as any).momoPaymentIntent;
+      const pendingMomo = momoIntentModel?.findFirst
+        ? await momoIntentModel.findFirst({
+            where: { billId, status: { in: ['initiating', 'pending'] } },
+            select: { id: true }
+          })
+        : null;
       if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
     }
     // Resolve idempotent retries in the repository before rejecting a now-paid bill.
