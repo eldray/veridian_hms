@@ -1590,21 +1590,7 @@ export const deleteVitals = async (vitalsId: string) => {
   return response.data;
 };
 
-// Progress Notes
-export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
 
-export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) =>
-  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
-
-// Billing Operations
-export const getBillingBreakdown = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/billing-breakdown`).then(r => r.data);
-
-export const calculateEncounterBill = async (encounterId: string) => {
-  const response = await api.post(`/encounters/${encounterId}/calculate-bill`);
-  return response.data;
-};
 
 export const getEncounterStats = async (filters?: any) => {
   const params = new URLSearchParams();
@@ -1614,14 +1600,6 @@ export const getEncounterStats = async (filters?: any) => {
   return response.data;
 };
 
-// NHIS Claim Validation
-export const validateNHISClaim = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
-
-export const generateNHISClaimFromEncounter = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => r.data);
-
-// ──────────────────────────────────────────────
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
 
@@ -1997,16 +1975,6 @@ export const convertDetentionToIPD = (encounterId: string, data: {
 }) =>
   api.post(`/encounters/${encounterId}/convert-detention-to-ipd`, data).then(r => r.data);
 
-
-// ──────────────────────────────────────────────
-// WARD CHARGES
-// ──────────────────────────────────────────────
-
-export const getWardCharges = (encounterId: string, params?: any) =>
-  api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => r.data);
-
-export const generateDailyWardCharges = (date?: string) =>
-  api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // WARDS & BEDS
