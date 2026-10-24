@@ -11,6 +11,7 @@ import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import { addServiceToEncounter } from '../api';
 import {
   ArrowLeft, Receipt, DollarSign, CreditCard, Eye, Printer,
   ChevronLeft, ChevronRight, FileText, User, Calendar,
@@ -516,23 +517,12 @@ export default function PatientBillingItems() {
   }, [selectedItems.size, selectedItemsTotal, toastError]);
 
   // ===== Add services =====
-  const addServiceToAttendance = useCallback(async (attendanceId: string, data: any) => {
-    const token =
-      localStorage.getItem('auth_token') ||
-      localStorage.getItem('token') ||
-      localStorage.getItem('accessToken');
-
-    const response = await fetch(`/api/attendances/${attendanceId}/services`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify(data),
-    });
-    if (!response.ok) throw new Error('Failed to add service');
-    return response.json();
-  }, []);
+  // Keep service additions on the shared API client so auth, base URL, and route
+  // contracts stay aligned with the encounter module.
+  const addServiceToAttendance = useCallback(
+    (attendanceId: string, data: any) => addServiceToEncounter(attendanceId, data),
+    [],
+  );
 
   const handleAddServices = useCallback(async () => {
     if (!selectedBill || selectedServices.size === 0 || !selectedBill.Attendance?.id)
