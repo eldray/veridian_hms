@@ -532,11 +532,9 @@ export const verifyToken = () =>
 export const logout = () =>
   api.post('/auth/logout').then(r => r.data);
 
+// User management is mounted at /users; /auth only owns authentication/profile flows.
 export const getUsers = () =>
-  api.get('/auth/users').then(r => handleResponse<User>(r.data.users || r.data));
-
-export const getUserStats = () =>
-  api.get('/auth/users/stats').then(r => r.data);
+  api.get('/users').then(r => handleResponse<User>(r.data));
 
 export const getProfile = () =>
   api.get('/auth/profile').then(r => r.data.user || r.data);
@@ -1288,14 +1286,14 @@ export const getEncounter = (id: string) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.get(`/encounters/${id}`).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
 export const createEncounter = (data: any) =>
   api.post('/encounters', data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 
@@ -1304,7 +1302,7 @@ export const updateEncounter = (id: string, data: any) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.put(`/encounters/${id}`, data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
@@ -1624,33 +1622,52 @@ export const getEncounterStats = async (filters?: any) => {
 // ──────────────────────────────────────────────
 
 const getBillsPage = (filters?: any) => {
-  // ✅ Add cache-busting timestamp to prevent 304 responses
-  const params = {
-    ...filters,
-    _t: Date.now()  // Forces fresh request every time
-  };
+  // Cache-bust list reads while preserving the server's pagination contract.
+  const params = { ...filters, _t: Date.now() };
 
   return api.get('/bills', { params }).then(r => {
-    console.log('📊 API Bills Response:', r.data);
-    console.log('📊 Response Headers:', r.headers);
-
-    if (Array.isArray(r.data)) {
-      return r.data;
-    } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills;
-    } else {
-      console.warn('Unexpected bills API structure:', r.data);
-      return [];
+    const body = r.data;
+    // BaseController.paginated returns { success, data: Bill[], meta: { page, limit, total, totalPages } }.
+    const bills: any[] = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.bills)
+          ? body.bills
+          : Array.isArray(body?.data?.data)
+            ? body.data.data
+            : [];
+    const pagination = readPagination(body);
+    if (pagination) {
+      Object.defineProperty(bills, 'pagination', {
+        value: { ...pagination, totalPages: pagination.pages },
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(bills, 'total', {
+        value: pagination.total,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
     }
+    if (!Array.isArray(body) && !Array.isArray(body?.data) && !Array.isArray(body?.bills) && !Array.isArray(body?.data?.data)) {
+      console.warn('Unexpected bills API structure:', body);
+    }
+    return bills;
   });
 };
 
 // limit > 100 walks all pages (backend maximum is 100 per request)
 export const getBills = async (filters?: any) => {
   if (!wantsMoreThanOnePage(filters)) return getBillsPage(filters);
-  return fetchAllPages<any>(getBillsPage, filters, { maxItems: Number(filters.limit) });
+  const items = await fetchAllPages<any>(getBillsPage, filters, { maxItems: Number(filters.limit) });
+  // fetchAllPages returns a plain array; attach a consistent pagination shape for stores.
+  return Object.assign(items, {
+    pagination: { page: 1, limit: items.length, total: items.length, pages: 1, totalPages: 1 },
+    total: items.length,
+  });
 };
 
 export const getBill = (id: string) => {
@@ -2664,6 +2681,12 @@ export const getNHISReadinessReport = () =>
 export const getServiceByNHISCode = (nhisCode: string) =>
   api.get(`/services/nhis/${nhisCode}`).then(r => r.data);
 
+export const getServiceNHISMedicinePolicy = (serviceId: string) =>
+  api.get(`/services/${serviceId}/nhis-medicine-policy`).then(r => r.data?.data ?? r.data);
+
+export const updateServiceNHISMedicinePolicy = (serviceId: string, data: any) =>
+  api.put(`/services/${serviceId}/nhis-medicine-policy`, data).then(r => r.data?.data ?? r.data);
+
 export const getServicesByCategory = (category: string) =>
   api.get(`/services/category/${category}`).then(r => r.data);
 
@@ -2690,16 +2713,16 @@ export const getConsultationTypes = (filters?: any) =>
   api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
 
 export const getConsultationType = (id: string) =>
-  api.get(`/consultation-types/${id}`).then(r => r.data);
+  api.get(`/consultation-types/${id}`).then(r => r.data?.data || r.data);
 
 export const createConsultationType = (data: any) =>
-  api.post('/consultation-types', data).then(r => r.data);
+  api.post('/consultation-types', data).then(r => r.data?.data || r.data);
 
 export const updateConsultationType = (id: string, data: any) =>
-  api.put(`/consultation-types/${id}`, data).then(r => r.data);
+  api.put(`/consultation-types/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteConsultationType = (id: string) =>
-  api.delete(`/consultation-types/${id}`).then(r => r.data);
+  api.delete(`/consultation-types/${id}`).then(r => r.data?.data || r.data);
 
 // ──────────────────────────────────────────────
 // DEPARTMENT
@@ -3869,7 +3892,7 @@ export const createCommunicationTemplate = (data: any) =>
 
 export default {
   // Auth
-  login, register, verifyToken, logout, getUsers, getUserStats, getProfile, updateProfile, changePassword,
+  login, register, verifyToken, logout, getUsers, getProfile, updateProfile, changePassword,
 
   // Add new helpers
   hasMinSeniority,

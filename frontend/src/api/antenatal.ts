@@ -112,7 +112,7 @@ export const getAntenatalBookings = async (filters?: { page?: number; limit?: nu
 // Get active booking by PATIENT ID - uses plural 'bookings' + '/patient/'
 export const getActiveBookingByPatient = async (patientId: string) => {
   // ✅ Fixed: 'bookings' (plural) not 'booking' (singular)
-  const response = await api.get(`/antenatal/patient/${patientId}`);
+  const response = await api.get(`/antenatal/patient/${patientId}/active`);
   return response.data?.data || response.data;
 };
 
@@ -135,7 +135,7 @@ export const closeAntenatalBooking = async (bookingId: string, data: { deliveryD
 };
 
 export const getANCStatistics = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/statistics', { params: filters });
+  const response = await api.get('/antenatal/stats/anc', { params: filters });
   return response.data?.data || response.data;
 };
 
@@ -144,7 +144,7 @@ export const getANCStatistics = async (filters?: { startDate?: string; endDate?:
 // ============================================
 
 export const getANCVisitsByBooking = async (bookingId: string) => {
-  const response = await api.get(`/antenatal/${bookingId}/visits`);
+  const response = await api.get(`/antenatal/bookings/${bookingId}/visits`);
   return response.data?.data || response.data;
 };
 
@@ -198,7 +198,7 @@ export const deleteDelivery = async (id: string) => {
 };
 
 export const getDeliveryStats = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/deliveries/statistics', { params: filters });
+  const response = await api.get('/antenatal/stats/delivery', { params: filters });
   return response.data;
 };
 
@@ -235,7 +235,7 @@ export const deletePostnatal = async (id: string) => {
 };
 
 export const getPostnatalStats = async (filters?: { startDate?: string; endDate?: string }) => {
-  const response = await api.get('/antenatal/postnatal/stats', { params: filters });
+  const response = await api.get('/antenatal/stats/postnatal', { params: filters });
   return response.data;
 };
 

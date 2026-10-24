@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
-import api from '../../api/api';
+import { getServiceNHISMedicinePolicy, updateServiceNHISMedicinePolicy } from '../../api';
 import {
   Plus, Search, ClipboardList, Edit, Trash2, RefreshCw,
   DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope,
@@ -234,8 +234,7 @@ export default function ServiceCatalogTab() {
   const loadNHISMedicinePolicy = async (serviceId: string) => {
     setNhisPolicyLoading(true);
     try {
-      const response = await api.get(`/service-catalog/${serviceId}/nhis-medicine-policy`);
-      const result = response.data?.data || response.data;
+      const result = await getServiceNHISMedicinePolicy(serviceId);
       const rule = result?.rule;
       setNhisPayerName(result?.payer?.name || 'NHIS');
       setNhisPolicyConfigured(Boolean(result?.configured));
@@ -267,7 +266,7 @@ export default function ServiceCatalogTab() {
     if (!editingItem?.id || !editingItem?.StockItem?.id) return;
     setNhisPolicySaving(true);
     try {
-      await api.put(`/service-catalog/${editingItem.id}/nhis-medicine-policy`, {
+      await updateServiceNHISMedicinePolicy(editingItem.id, {
         ...nhisPolicy,
         copaymentAmount: nhisPolicy.copaymentAmount === '' ? null : Number(nhisPolicy.copaymentAmount),
         copaymentPercentage: nhisPolicy.copaymentPercentage === '' ? null : Number(nhisPolicy.copaymentPercentage),

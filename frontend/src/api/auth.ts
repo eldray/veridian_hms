@@ -83,7 +83,3 @@ export const getUsers = async () => {
 export const forgotPassword = (username: string) =>
   api.post('/auth/forgot-password', { username }).then((r) => r.data);
 
-export const getUserStats = async () => {
-  const response = await api.get('/auth/users/stats');
-  return response.data;
-};

@@ -19,37 +19,37 @@ export interface ReportFilter {
 // ============================================
 
 export const getGHSOPDReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/opd', { params });
+  const response = await api.get('/ghs-reports/opd', { params });
   return response.data;
 };
 
 export const getGHSIPDReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/ipd', { params });
+  const response = await api.get('/ghs-reports/ipd', { params });
   return response.data;
 };
 
 export const getGHSIDSRReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/idsr', { params });
+  const response = await api.get('/ghs-reports/idsr', { params });
   return response.data;
 };
 
 export const getGHSMalariaReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/malaria', { params });
+  const response = await api.get('/ghs-reports/malaria', { params });
   return response.data;
 };
 
 export const getGHSFormAReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/form-a', { params });
+  const response = await api.get('/ghs-reports/form-a', { params });
   return response.data;
 };
 
 export const getMorbidityMortalityReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/ghs/morbidity-mortality', { params });
+  const response = await api.get('/ghs-reports/morbidity-mortality', { params });
   return response.data;
 };
 
 export const getTopDiagnoses = async (params: ReportFilter, limit: number = 10) => {
-  const response = await api.get('/reports/ghs/top-diagnoses', { params: { ...params, limit } });
+  const response = await api.get('/ghs-reports/top-diagnoses', { params: { ...params, limit } });
   return response.data;
 };
 
@@ -87,7 +87,7 @@ export const getRevenueReport = async (params: ReportFilter) => {
 // ============================================
 
 export const getFamilyPlanningReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/family-planning', { params });
+  const response = await api.get('/ghs-reports/family-planning', { params });
   return response.data;
 };
 
@@ -101,27 +101,27 @@ export const getDemographicReport = async (params: ReportFilter) => {
 // ============================================
 
 export const getLabReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/lab', { params });
+  const response = await api.get('/clinical-reports/lab', { params });
   return response.data;
 };
 
 export const getScanReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/scans', { params });
+  const response = await api.get('/clinical-reports/scan', { params });
   return response.data;
 };
 
 export const getProcedureReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/procedures', { params });
+  const response = await api.get('/clinical-reports/procedure', { params });
   return response.data;
 };
 
 export const getMedicationReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/medications', { params });
+  const response = await api.get('/clinical-reports/medication', { params });
   return response.data;
 };
 
 export const getVitalsReport = async (params: ReportFilter) => {
-  const response = await api.get('/reports/vitals', { params });
+  const response = await api.get('/clinical-reports/vitals', { params });
   return response.data;
 };
 
@@ -130,17 +130,17 @@ export const getVitalsReport = async (params: ReportFilter) => {
 // ============================================
 
 export const getReportSubmissions = async (filters?: { reportType?: string; year?: number; month?: number }) => {
-  const response = await api.get('/reports/ghs/submissions', { params: filters });
+  const response = await api.get('/ghs-reports/submissions', { params: filters });
   return response.data;
 };
 
 export const getReportById = async (id: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${id}`);
+  const response = await api.get(`/ghs-reports/submissions/${id}`);
   return response.data;
 };
 
 export const exportReportToCSV = async (id: string) => {
-  const response = await api.get(`/reports/ghs/submissions/${id}/export`, { responseType: 'blob' });
+  const response = await api.get(`/ghs-reports/submissions/${id}/export`, { responseType: 'blob' });
   return response.data;
 };
 
