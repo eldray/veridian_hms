@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, Banknote, CheckCircle2, Clock3, FileCheck2, Loader2,
   Plus, RefreshCw, Search, Send, ShieldCheck, X,
@@ -173,7 +173,7 @@ export default function InsuranceClaimsTracking() {
   );
 }
 
-function SummaryCard({ label, value, icon }: { label: string; value: string; icon: React.ReactNode }) {
+function SummaryCard({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return <div className="rounded-xl border border-gray-200 bg-white p-4"><div className="flex items-center justify-between text-gray-500"><span className="text-sm">{label}</span>{icon}</div><div className="mt-2 text-xl font-bold text-gray-900">{value}</div></div>;
 }
 function Field({ label, value, onChange, type = 'text', placeholder }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
