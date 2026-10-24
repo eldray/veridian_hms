@@ -3866,7 +3866,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addDiagnosisToEncounter, removeDiagnosisFromEncounter,
   addLabTestToEncounter, updateLabTestInEncounter, removeLabTestFromEncounter,
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
-  addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
+  addMedicationToEncounter, updateMedicationStatus, dispenseMedication, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
   addServiceToEncounter, removeServiceFromEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
