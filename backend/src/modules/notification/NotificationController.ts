@@ -26,6 +26,14 @@ export class NotificationController extends BaseController {
     return this.ok(res, result, 'Notifications retrieved successfully');
   });
 
+  getNotification = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    if (!userId) return this.unauthorized(res, 'User authentication required');
+    const notification = await this.notificationService.getNotification(req.params.id, userId);
+    if (!notification) return this.notFound(res, 'Notification');
+    return this.ok(res, notification, 'Notification retrieved successfully');
+  });
+
   getNotificationStats = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.id;
     if (!userId) return this.unauthorized(res, 'User authentication required');
