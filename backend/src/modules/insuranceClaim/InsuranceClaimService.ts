@@ -937,6 +937,15 @@ async listClaims(filters: {
   }));
 }
 
+/** Read-only report for historical claims that have no itemized rows. */
+async listClaimsMissingItems(filters: { insuranceType?: string; status?: string; page?: number; limit?: number } = {}) {
+  const allowedTypes = new Set(['nhis', 'private', 'corporate']);
+  if (filters.insuranceType && !allowedTypes.has(filters.insuranceType)) {
+    throw new ValidationError('insuranceType must be nhis, private, or corporate');
+  }
+  return this.repo.findClaimsMissingItems(filters);
+}
+
 /** Controller calls: service.getClaim(id) */
 async getClaim(id: string) {
   return this.getInsuranceClaim(id);
