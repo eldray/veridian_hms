@@ -3,7 +3,7 @@ import {
   AlertCircle, Banknote, Clock3, FileCheck2, Loader2,
   Plus, RefreshCw, Search, Send, ShieldCheck, X,
 } from 'lucide-react';
-import api from '../api/api';
+import { getInsuranceClaimsTracking, recordInsuranceClaimTrackingEvent } from '../api';
 import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
 import { useToast } from '../store/toastStore';
 
@@ -44,10 +44,10 @@ export default function InsuranceClaimsTracking() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.get('/insurance-claims/tracking', {
+      const response = await getInsuranceClaimsTracking({
         params: { limit: 100, search: search.trim() || undefined, insuranceType: type === 'all' ? undefined : type },
       });
-      const payload = response.data?.data;
+      const payload = response?.data?.data ?? response?.data;
       setClaims(Array.isArray(payload) ? payload : payload?.data || []);
     } catch (err: any) {
       toastError('Could not load claims tracking', err?.response?.data?.message || err?.message || 'Please try again.');
@@ -92,7 +92,7 @@ export default function InsuranceClaimsTracking() {
       if (eventType === 'submission') Object.assign(body, { payerReference: payerReference.trim(), submissionDate });
       if (eventType === 'adjudication') Object.assign(body, { status, payerReference: payerReference.trim() || undefined });
       if (eventType === 'payment') Object.assign(body, { amount: Number(amount), paymentReference: paymentReference.trim(), paymentMethod, payerReference: payerReference.trim() || undefined });
-      await api.post(`/insurance-claims/${selected.id}/tracking-events`, body);
+      await recordInsuranceClaimTrackingEvent(selected.id, body);
       success('Claim tracking updated', eventType === 'payment' ? 'Remittance recorded.' : 'Tracking event recorded.');
       setSelected(null);
       await load();
