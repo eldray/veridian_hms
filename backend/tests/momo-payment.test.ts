@@ -118,6 +118,52 @@ describe('MomoPaymentService', () => {
     expect(result.intent.id).toBe(baseIntent.id);
   });
 
+  it('keeps a 5xx initiation outcome reconcilable instead of marking it failed', async () => {
+    const createdIntent = {
+      ...baseIntent,
+      id: 'new-intent',
+      status: 'initiating',
+      providerStatus: null,
+      idempotencyKey: 'new-request-key',
+      providerReference: 'new-provider-reference',
+    };
+    const prisma = {
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-1',
+          billNumber: 'BILL-1001',
+          balance: 100,
+          status: 'pending',
+        }),
+      },
+      momoPaymentIntent: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(createdIntent),
+        update: vi.fn(async ({ data }: any) => ({ ...createdIntent, ...data })),
+      },
+    } as any;
+    const service = new MomoPaymentService(prisma);
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(new Response('temporary provider error', { status: 503 })) as any;
+
+    await expect(service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'new-request-key',
+      userId: 'cashier-1',
+    })).rejects.toThrow(/could not confirm the outcome/i);
+
+    expect(prisma.momoPaymentIntent.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'new-intent' },
+      data: expect.objectContaining({
+        status: 'initiating',
+        providerStatus: 'INITIATION_UNCONFIRMED',
+      }),
+    }));
+  });
+
   it('does not post a bill payment while MTN reports pending', async () => {
     const { service, prisma, addPayment } = setup();
     globalThis.fetch = vi.fn()
