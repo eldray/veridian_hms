@@ -283,7 +283,16 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const activeLineItems = await tx.billLineItem.findMany({ where: { billId: lineItem.billId, isVoided: false } });
       const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
       const newTotal = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
-      const grossPatientLiability = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0));
+      const grossPatientLiability = money(activeLineItems.reduce((sum, item) => {
+        const explicitPatient = toNumber(item.patientPayableAmount);
+        const explicitInsurance = toNumber(item.insuranceCoveredAmount);
+        // Older cash bills predate line-level payer allocation and have zero defaults.
+        // Their line total remains patient liability; do not silently erase it on void.
+        const legacyCashLiability = item.pricingBasis === 'cash' && explicitPatient === 0 && explicitInsurance === 0
+          ? toNumber(item.lineTotal)
+          : explicitPatient;
+        return sum + legacyCashLiability;
+      }, 0));
       const newInsuranceCovered = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
       const currentBill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
       if (!currentBill) throw new Error('Bill not found');
