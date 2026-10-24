@@ -1045,6 +1045,13 @@ export const generateCorporateMonthlyBill = (accountId: string, data: any) =>
 export const getCorporateMonthlyBills = (accountId: string, filters?: any) =>
   api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
 
+// Claim submission and insurer-remittance tracking.
+export const getInsuranceClaimsTracking = (filters?: any) =>
+  api.get('/insurance-claims/tracking', { params: filters }).then(r => handleResponse<any>(r.data));
+
+export const recordInsuranceClaimTrackingEvent = (claimId: string, data: any) =>
+  api.post(`/insurance-claims/${claimId}/tracking-events`, data).then(r => unwrapApiResponse(r.data));
+
 // ──────────────────────────────────────────────
 // INSURANCE CLAIMS — GENERAL
 // ──────────────────────────────────────────────
@@ -2067,6 +2074,27 @@ export const updatePurchaseInvoice = (id: string, data: any) =>
 
 export const deletePurchaseInvoice = (id: string) =>
   api.delete(`/purchase-invoices/${id}`).then(r => unwrapApiResponse(r.data));
+
+// Stock transfers — one shared API contract for the transfer page.
+const getStockTransfersPage = (filters?: any) =>
+  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
+
+export const getStockTransfers = (filters?: any) =>
+  wantsMoreThanOnePage(filters)
+    ? fetchAllPages<any>(getStockTransfersPage, filters, { maxItems: Number(filters.limit) })
+    : getStockTransfersPage(filters);
+
+export const createStockTransfer = (data: any) =>
+  api.post('/stock-transfers', data).then(r => unwrapApiResponse(r.data));
+
+export const approveStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/approve`).then(r => unwrapApiResponse(r.data));
+
+export const dispatchStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/dispatch`).then(r => unwrapApiResponse(r.data));
+
+export const receiveStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/receive`).then(r => unwrapApiResponse(r.data));
 
 // ──────────────────────────────────────────────
 // STOCK MANAGEMENT
