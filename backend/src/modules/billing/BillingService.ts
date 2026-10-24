@@ -3,7 +3,7 @@ import { BaseService } from '../../shared/base/BaseService';
 import { BillingRepository } from './BillingRepository';
 import { CreateBillDTO, AddPaymentDTO, UpdateBillStatusDTO, BillFilters } from './BillingTypes';
 import { getCounterService } from '../../services/CounterService';
-import { calculateNHISMedicineAllocation, resolveConfiguredNHISTariff } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 export class BillingService extends BaseService {
@@ -50,16 +50,46 @@ export class BillingService extends BaseService {
       // ✅ FIXED: Fetch actual service details instead of hardcoding 'consultation'
       const service = await this.prisma.serviceCatalog.findUnique({
         where: { id: item.serviceId },
-        select: { name: true, code: true, serviceType: true, stockItemId: true }
+        select: {
+          name: true, code: true, serviceType: true, stockItemId: true,
+          isNHISCovered: true, isPrivateInsuranceExempted: true,
+          pricing: {
+            where: {
+              isActive: true,
+              effectiveDate: { lte: serviceDate },
+              OR: [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }]
+            },
+            take: 1,
+            orderBy: { effectiveDate: 'desc' }
+          }
+        }
       });
 
       if (!service) throw new Error(`Service catalog item not found for ID: ${item.serviceId}`);
 
-      let price = await this.repository.getServicePrice(item.serviceId, data.paymentMode, data.corporateAccountId);
+      let price = await this.repository.getServicePrice(item.serviceId, data.paymentMode, data.corporateAccountId, serviceDate);
       let lineTotal = item.quantity * price;
       let insuranceCoveredAmount = 0;
       let patientPayableAmount = lineTotal;
       let sourceKey: string | undefined;
+
+      // Only allocate insurer coverage when the service has an applicable payer tariff
+      // and is configured as covered. A cash fallback must remain fully patient-payable.
+      if (data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') {
+        const provider = data.insuranceProviderId
+          ? await this.prisma.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId }, select: { coveragePercentage: true } })
+          : null;
+        const pricingRow = service.pricing?.[0];
+        const payerCovered = !!pricingRow && isPayerCovered(pricingRow, data.paymentMode, {
+          isNHISCovered: service.isNHISCovered,
+          isPrivateInsuranceExempted: service.isPrivateInsuranceExempted
+        });
+        if (payerCovered && provider) {
+          const coverageRate = Math.min(100, Math.max(0, Number(provider.coveragePercentage) || 0)) / 100;
+          insuranceCoveredAmount = Math.round(lineTotal * coverageRate * 100) / 100;
+          patientPayableAmount = Math.round((lineTotal - insuranceCoveredAmount) * 100) / 100;
+        }
+      }
 
       // Medicine-specific NHIS rules override the generic service-level price only when
       // this service is linked to a stock item. Missing/unverified rules default to cash.
