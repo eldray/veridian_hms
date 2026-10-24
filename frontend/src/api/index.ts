@@ -1207,31 +1207,32 @@ export const getPatients = async (filters?: any) => {
 };
 
 export const createPatient = (data: any) => {
+  // FormData is not enumerable: spreading it produces an empty object and silently
+  // discards every submitted field. Pass multipart payloads through unchanged.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.post('/patients', data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(r => r.data);
+  }
   const processedData = { ...data };
   if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.post('/patients', processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.post('/patients', processedData).then(r => r.data);
-  }
+  return api.post('/patients', processedData).then(r => r.data);
 };
 
 export const updatePatient = (id: string, data: any) => {
+  // Preserve multipart fields; object-spreading FormData loses its entries.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.put(`/patients/${id}`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(r => r.data);
+  }
   const processedData = { ...data };
   if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.put(`/patients/${id}`, processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.put(`/patients/${id}`, processedData).then(r => r.data);
-  }
+  return api.put(`/patients/${id}`, processedData).then(r => r.data);
 };
 
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
@@ -1633,19 +1634,37 @@ const getBillsPage = (filters?: any) => {
   };
 
   return api.get('/bills', { params }).then(r => {
-    console.log('📊 API Bills Response:', r.data);
-    console.log('📊 Response Headers:', r.headers);
-
-    if (Array.isArray(r.data)) {
-      return r.data;
-    } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills;
-    } else {
-      console.warn('Unexpected bills API structure:', r.data);
-      return [];
+    const body = r.data;
+    // BaseController.paginated returns { success, data: Bill[], meta: PaginationMeta }.
+    // Preserve the paging metadata on the array because billingStore reads response.pagination.
+    const bills: any[] = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.bills)
+          ? body.bills
+          : Array.isArray(body?.data?.data)
+            ? body.data.data
+            : [];
+    const pagination = readPagination(body);
+    if (pagination) {
+      Object.defineProperty(bills, 'pagination', {
+        value: { ...pagination, totalPages: pagination.pages },
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(bills, 'total', {
+        value: pagination.total,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
     }
+    if (!bills.length && !Array.isArray(body?.data) && !Array.isArray(body?.bills) && !Array.isArray(body)) {
+      console.warn('Unexpected bills API structure:', body);
+    }
+    return bills;
   });
 };
 
