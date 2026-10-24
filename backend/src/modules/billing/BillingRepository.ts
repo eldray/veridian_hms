@@ -323,11 +323,16 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   // ✅ FIXED: Historical Pricing Logic
-  async getServicePrice(serviceCatalogId: string, paymentMode: string, corporateAccountId?: string): Promise<number> {
+  async getServicePrice(serviceCatalogId: string, paymentMode: string, corporateAccountId?: string, serviceDate?: Date): Promise<number> {
+    const pricingWhere: any = { isActive: true };
+    if (serviceDate) {
+      pricingWhere.effectiveDate = { lte: serviceDate };
+      pricingWhere.OR = [{ expiryDate: null }, { expiryDate: { gt: serviceDate } }];
+    }
     const service = await this.prisma.serviceCatalog.findUnique({
       where: { id: serviceCatalogId },
-      // ✅ Only fetch the currently active pricing record
-      include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } }
+      // Use the tariff effective when care was delivered, not a future/current tariff.
+      include: { pricing: { where: pricingWhere, take: 1, orderBy: { effectiveDate: 'desc' } } }
     });
 
     // ✅ pricing is now an array, get the first element
