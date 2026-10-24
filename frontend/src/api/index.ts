@@ -2290,13 +2290,13 @@ export const getDiagnoses = (filters?: any) =>
   });
 
 export const getDiagnosis = (id: string) =>
-  api.get(`/diagnoses/${id}`).then(r => r.data);
+  api.get(`/diagnoses/${id}`).then(r => r.data?.data || r.data);
 
 export const createDiagnosis = (data: any) =>
-  api.post('/diagnoses', data).then(r => r.data);
+  api.post('/diagnoses', data).then(r => r.data?.data || r.data);
 
 export const updateDiagnosis = (id: string, data: any) =>
-  api.put(`/diagnoses/${id}`, data).then(r => r.data);
+  api.put(`/diagnoses/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteDiagnosis = (id: string) =>
   api.delete(`/diagnoses/${id}`).then(r => r.data);
@@ -2377,14 +2377,14 @@ export const getLabTestTemplates = (filters?: any) =>
   });
 
 export const getLabTestTemplate = (id: string) =>
-  api.get(`/lab-tests/${id}`).then(r => r.data);
+  api.get(`/lab-tests/${id}`).then(r => r.data?.data || r.data);
 
 
 export const createLabTestTemplate = (data: any) =>
-  api.post('/lab-tests', data).then(r => r.data);
+  api.post('/lab-tests', data).then(r => r.data?.data || r.data);
 
 export const updateLabTestTemplate = (id: string, data: any) =>
-  api.put(`/lab-tests/${id}`, data).then(r => r.data);
+  api.put(`/lab-tests/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteLabTestTemplate = (id: string) =>
   api.delete(`/lab-tests/${id}`).then(r => r.data);
@@ -2416,13 +2416,13 @@ export const getProcedureTemplates = (filters?: any) =>
   });
 
 export const getProcedureTemplate = (id: string) =>
-  api.get(`/procedures/templates/${id}`).then(r => r.data);
+  api.get(`/procedures/templates/${id}`).then(r => r.data?.data || r.data);
 
 export const createProcedureTemplate = (data: any) =>
-  api.post('/procedures/templates', data).then(r => r.data);
+  api.post('/procedures/templates', data).then(r => r.data?.data || r.data);
 
 export const updateProcedureTemplate = (id: string, data: any) =>
-  api.put(`/procedures/templates/${id}`, data).then(r => r.data);
+  api.put(`/procedures/templates/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteProcedureTemplate = (id: string) =>
   api.delete(`/procedures/templates/${id}`).then(r => r.data);
@@ -2450,13 +2450,13 @@ export const getScanTemplates = (filters?: any) =>
   });
 
 export const getScanTemplate = (id: string) =>
-  api.get(`/scan-templates/${id}`).then(r => r.data);
+  api.get(`/scan-templates/${id}`).then(r => r.data?.data || r.data);
 
 export const createScanTemplate = (data: any) =>
-  api.post('/scan-templates', data).then(r => r.data);
+  api.post('/scan-templates', data).then(r => r.data?.data || r.data);
 
 export const updateScanTemplate = (id: string, data: any) =>
-  api.put(`/scan-templates/${id}`, data).then(r => r.data);
+  api.put(`/scan-templates/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteScanTemplate = (id: string) =>
   api.delete(`/scan-templates/${id}`).then(r => r.data);
@@ -2537,7 +2537,8 @@ export const getServiceCatalogItem = (id: string) => {
     return Promise.reject(new Error('Valid Service ID is required'));
   }
   return api.get(`/services/${id}`).then(r => {
-    const service = r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
@@ -2547,7 +2548,8 @@ export const createServiceCatalogItem = (data: any) => {
     return Promise.reject(new Error('Service name and code are required'));
   }
   return api.post('/services', data).then(r => {
-    const service = r.data.service || r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
@@ -2561,7 +2563,8 @@ export const updateServiceCatalogItem = (id: string, data: any) => {
     return Promise.reject(new Error('Update data is required'));
   }
   return api.put(`/services/${id}`, data).then(r => {
-    const service = r.data.service || r.data;
+    const payload = r.data?.data || r.data;
+    const service = payload.service || payload;
     return { ...service, _id: service.id || service._id };
   });
 };
