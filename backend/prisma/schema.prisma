@@ -995,6 +995,7 @@ model Bill {
   BillLineItem                BillLineItem[]
   PatientWaiver               PatientWaiver[]
   ProformaInvoice             ProformaInvoice?
+  momoPaymentIntents             MomoPaymentIntent[]
 
   @@index([attendanceId])
   @@index([billDate])
