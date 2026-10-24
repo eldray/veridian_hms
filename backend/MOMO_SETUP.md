@@ -25,7 +25,7 @@ All endpoints below require the HMS JWT:
 - `POST /api/momo/payments` — body: `{ billId, amount, payerPhone, idempotencyKey }`; submits a RequestToPay and returns a local intent ID.
 - `GET /api/momo/payments/:id` — checks provider status; when status is `SUCCESSFUL`, posts the payment through the existing idempotent billing workflow.
 
-The frontend polls status for up to two minutes. If it is still pending, staff must verify the transaction before taking another payment. The backend serializes bill-level payment initiation and posting with a PostgreSQL bill-row lock. It blocks every ordinary/manual payment method—including manually selected Mobile Money—while an intent is pending or its initiation outcome is uncertain. Only the internal provider-confirmed posting path can settle the matching pending intent. A failed intent can be retried with a new idempotency key. Payment posting endpoints are restricted to admin, accounts, and records roles.
+The frontend polls status for up to two minutes. If it is still pending, staff must verify the transaction before taking another payment. The backend serializes bill-level payment initiation and posting with a PostgreSQL bill-row lock. It blocks every ordinary/manual payment method—including manually selected Mobile Money—while an intent is pending or its initiation outcome is uncertain. Only the internal provider-confirmed posting path can settle the matching pending intent. A failed intent can be retried with a new idempotency key. Both MoMo initiation and ordinary payment-posting endpoints are restricted to admin, accounts, and records roles. Status checks are available to the initiating staff member and admin/accounts staff.
 
 ## Before going live
 
