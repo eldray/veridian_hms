@@ -1585,7 +1585,7 @@ export const deleteVitals = async (vitalsId: string) => {
 // Billing Operations
 // Billing breakdown is bill-scoped; the encounter-scoped endpoint is not mounted.
 export const getBillingBreakdown = (billId: string) =>
-  api.get(`/bills/${billId}/breakdown`).then(r => r.data);
+  api.get(`/bills/${billId}/breakdown`).then(r => r.data?.data || r.data);
 
 // Synchronize billable clinical source records through the mounted billing endpoint.
 export const calculateEncounterBill = async (encounterId: string) => {
@@ -1661,20 +1661,20 @@ export const generateBillFromEncounter = (encounterId: string) =>
   api.post(`/bills/generate/${encounterId}`).then(r => r.data);
 
 export const generateBillReport = (billId: string) =>
-  api.get(`/bills/${billId}/report`).then(r => r.data);
+  api.get(`/bills/${billId}/report`).then(r => r.data?.data || r.data);
 
 export const getBillingBreakdownForBill = (billId: string) =>
-  api.get(`/bills/${billId}/breakdown`).then(r => r.data);
+  api.get(`/bills/${billId}/breakdown`).then(r => r.data?.data || r.data);
 
 export const updateBillStatus = (billId: string, data: any) =>
   api.put(`/billing/invoices/${billId}`, data).then(r => r.data?.data || r.data);
 
 export const getBillStatistics = () =>
-  api.get('/bills/statistics').then(r => r.data);
+  api.get('/bills/statistics').then(r => r.data?.data || r.data);
 
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>
-  api.get(`/bills/${billId}/line-items`).then(r => r.data);
+  api.get(`/bills/${billId}/line-items`).then(r => r.data?.data || r.data);
 
 export const voidBillLineItem = (lineItemId: string, data: { reason: string }) =>
   api.post(`/bills/line-items/${lineItemId}/void`, data).then(r => r.data);
