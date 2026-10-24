@@ -13,8 +13,6 @@ MOMO_API_USER=
 MOMO_API_KEY=
 MOMO_TARGET_ENVIRONMENT=sandbox
 MOMO_CURRENCY=GHS
-# Optional; the callback host must be registered with MTN before enabling it.
-# MOMO_CALLBACK_URL=https://your-public-domain.example/api/momo/callback
 ```
 
 For MTN's newer credential format, use `MOMO_USER_ID` and `MOMO_CREDENTIAL_TOKEN` instead of `MOMO_API_USER` and `MOMO_API_KEY`. Set `MOMO_BASE_URL` and `MOMO_TARGET_ENVIRONMENT` to the values issued for the facility's actual MTN onboarding. Do not assume production credentials/base URLs are interchangeable with sandbox credentials.
@@ -35,5 +33,5 @@ The frontend polls status for up to two minutes. If it is still pending, staff m
 2. Confirm the target environment name and base URL with MTN for Ghana; do not rely on a generic sandbox value in production.
 3. Apply Prisma migrations and redeploy the backend.
 4. Test successful approval, customer decline, timeout, network interruption, duplicate submit, and status-check retry in sandbox.
-5. Register and verify a callback host with MTN if callbacks are configured. Status polling remains the source used by the current implementation.
+5. The current implementation uses authenticated status polling; callback handling is not enabled yet.
 6. Run a small controlled live payment and reconcile the MTN transaction ID against the HMS payment record before enabling it for routine collections.
