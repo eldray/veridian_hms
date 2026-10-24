@@ -320,7 +320,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       if (currentBill.attendanceId) {
         await tx.attendance.update({
           where: { id: currentBill.attendanceId },
-          data: { totalBill: newTotal, paidAmount: toNumber(bill?.paidAmount || 0), outstandingBalance: newBalance }
+          data: { totalBill: newTotal, paidAmount: toNumber(currentBill.paidAmount), outstandingBalance: newBalance }
         });
       }
 
