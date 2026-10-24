@@ -716,9 +716,13 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         throw new Error('Medication dispense response was invalid; refresh and verify the stock transaction');
       }
       set({ isLoading: false, error: null });
-      const refreshedAttendance = await get().refreshAttendance(attendanceId);
-      if (!refreshedAttendance) {
-        throw new Error('Medication was dispensed, but the visit could not be refreshed. Verify the stock transaction before retrying.');
+      // Dispensing is already committed by the backend. A failed follow-up refresh
+      // must not be reported as a failed dispense or encourage a second attempt.
+      let refreshedAttendance: any = null;
+      try {
+        refreshedAttendance = await get().refreshAttendance(attendanceId);
+      } catch (refreshError) {
+        console.warn('Medication was dispensed; attendance refresh will be retried separately', refreshError);
       }
       const medicationFromAttendance = (refreshedAttendance as any)?.Medication?.find(
         (medication: any) => medication.id === medicationId
