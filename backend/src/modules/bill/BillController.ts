@@ -138,6 +138,13 @@ export class BillController extends BaseController {
         return this.ok(res, result, 'Payment added successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        // Payment validation/race failures are expected client conflicts, not server crashes.
+        if (/exceeds the patient's outstanding balance|cancelled bill|already been used for another bill|fully paid bill/i.test(error.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        if (/payment amount must be greater than zero/i.test(error.message || '')) {
+          return this.badRequest(res, error.message);
+        }
         throw error;
       }
     })
