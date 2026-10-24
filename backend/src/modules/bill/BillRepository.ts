@@ -140,6 +140,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
           const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
           if (priorPayment) {
             if (priorPayment.billId !== billId) throw new ValidationError('Payment request key has already been used for another bill.');
+            const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
+            const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+            const requestedReference = paymentData.reference || null;
+            const priorReference = priorPayment.reference || null;
+            if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+              throw new ValidationError('Payment idempotency key was already used with different payment details.');
+            }
             const priorBill = await tx.bill.findUnique({ where: { id: billId } });
             if (!priorBill) throw new Error('Bill not found');
             return { bill: priorBill, payment: priorPayment, duplicate: true };
