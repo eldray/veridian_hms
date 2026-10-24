@@ -153,6 +153,9 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     const idempotencyKey = paymentData.idempotencyKey;
     try {
       return await this.prisma.$transaction(async (tx) => {
+        const lockedBillId = id;
+        // Match MoMo initiation's row lock so pending-intent checks cannot race a collection.
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${lockedBillId} FOR UPDATE`;
         if (idempotencyKey) {
           const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
           if (priorPayment) {
@@ -167,6 +170,13 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             const priorBill = await tx.bill.findUnique({ where: { id } });
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
+        }
+        if (paymentData.paymentMethod !== 'mobile_money') {
+          const pendingMomo = await tx.momoPaymentIntent.findFirst({
+            where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
+            select: { id: true }
+          });
+          if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
         }
         const bill = await tx.bill.findUnique({ where: { id } });
         if (!bill) throw new Error('Bill not found');
