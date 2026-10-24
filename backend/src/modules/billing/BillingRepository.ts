@@ -173,7 +173,19 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
         }
-        if (paymentData.paymentMethod !== 'mobile_money') {
+        if (paymentData.internalMomoIntentId) {
+          const confirmedIntent = tx.momoPaymentIntent?.findFirst
+            ? await tx.momoPaymentIntent.findFirst({
+                where: {
+                  id: paymentData.internalMomoIntentId,
+                  billId: lockedBillId,
+                  status: { in: ['initiating', 'pending'] }
+                },
+                select: { id: true }
+              })
+            : null;
+          if (!confirmedIntent) throw new Error('The confirmed Mobile Money intent is no longer valid for this bill.');
+        } else {
           const pendingMomo = tx.momoPaymentIntent?.findFirst
             ? await tx.momoPaymentIntent.findFirst({
                 where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
