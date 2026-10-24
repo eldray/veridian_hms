@@ -36,6 +36,12 @@ export class DiagnosisService extends BaseService {
   }
 
   // ✅ REMOVED manual this.prisma.diagnosis.findUnique check (which was crashing).
+  async bulkUpdateDiagnoses(ids: string[], data: UpdateDiagnosisDTO) {
+    if (!Array.isArray(ids) || ids.length === 0) throw new Error('At least one diagnosis ID is required');
+    if (ids.some(id => typeof id !== 'string' || !id.trim())) throw new Error('Every diagnosis ID must be a non-empty string');
+    return this.repository.bulkUpdate(ids, data);
+  }
+
   async deleteDiagnosis(id: string) {
     const hasRelated = await this.repository.hasRelatedRecords(id);
     if (hasRelated) {
