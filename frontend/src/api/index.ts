@@ -2360,9 +2360,6 @@ export const getDiagnosesByMorbidityGroup = (morbidityGroup: string) =>
 export const getDiagnosisStats = () =>
   api.get('/diagnoses/stats').then(r => r.data);
 
-export const bulkUpdateDiagnoses = (data: any) =>
-  api.post('/diagnoses/bulk-update', data).then(r => r.data);
-
 // ============================================
 // LAB TEST TEMPLATES
 // ============================================
@@ -3897,7 +3894,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Medical Services
   getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,
-  getMorbidityGroups, getDiagnosesByMorbidityGroup, getDiagnosisStats, bulkUpdateDiagnoses,
+  getMorbidityGroups, getDiagnosesByMorbidityGroup, getDiagnosisStats,
   getLabTestTemplates, getLabTestTemplate, createLabTestTemplate, updateLabTestTemplate, deleteLabTestTemplate,
   getLabTestCategories, getLabTestSubCategories, getSpecimenTypes, bulkUpdateLabTestTemplates,
   getProcedureTemplates, getProcedureTemplate, createProcedureTemplate, updateProcedureTemplate, deleteProcedureTemplate,
