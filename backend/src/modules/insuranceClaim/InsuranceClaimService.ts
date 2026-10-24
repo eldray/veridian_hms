@@ -27,10 +27,23 @@ export class InsuranceClaimService extends BaseService {
   private async findExistingClaim(tx: Prisma.TransactionClient, attendanceId: string, type: 'nhis' | 'private' | 'corporate') {
     const existing = await tx.insuranceClaim.findUnique({
       where: { attendanceId },
-      include: { InsuranceProvider: { select: { type: true } } }
+      include: {
+        InsuranceProvider: { select: { type: true } },
+        items: { select: { id: true } },
+      }
     });
     if (!existing) return null;
-    if (existing.InsuranceProvider?.type === type) return existing;
+    if (existing.InsuranceProvider?.type === type) {
+      // Do not report a historical empty claim as a successful idempotent retry.
+      // It needs a controlled repair so submitted/paid claim history is never
+      // silently overwritten from today's billing data.
+      if (!existing.items?.length) {
+        throw new ValidationError(
+          `Existing ${type} claim ${existing.claimNumber} has no itemized lines. It requires claims-audit review before it can be regenerated or submitted.`
+        );
+      }
+      return existing;
+    }
     throw new ValidationError(
       `This attendance already has a ${existing.InsuranceProvider?.type ?? 'different'} claim (${existing.claimNumber}), so a ${type} claim cannot be generated for it.`
     );
