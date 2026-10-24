@@ -1600,6 +1600,19 @@ export const getEncounterStats = async (filters?: any) => {
   return response.data;
 };
 
+// Legacy compatibility for clinical pages that request a billing refresh.
+// This is deliberately read-only: generating a bill here could create duplicates.
+// Bill creation remains an explicit billing workflow at POST /bills/generate/:encounterId.
+export const calculateEncounterBill = async (encounterId: string) => {
+  const response = await api.get('/bills', { params: { attendanceId: encounterId, page: 1, limit: 1 } });
+  const body = response.data;
+  if (Array.isArray(body?.data)) return body.data[0] ?? null;
+  if (Array.isArray(body?.data?.data)) return body.data.data[0] ?? null;
+  if (Array.isArray(body?.bills)) return body.bills[0] ?? null;
+  if (Array.isArray(body)) return body[0] ?? null;
+  return null;
+};
+
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
 
@@ -3870,8 +3883,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
   addServiceToEncounter, removeServiceFromEncounter, assignBedToEncounter,
   addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
-  addProgressNoteToEncounter, removeProgressNoteFromEncounter,
-  getBillingBreakdown, calculateEncounterBill, getEncounterStats, validateNHISClaim, generateNHISClaimFromEncounter,
+  calculateEncounterBill, getEncounterStats,
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
