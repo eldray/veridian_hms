@@ -58,6 +58,19 @@ export class DiagnosisRepository extends BaseRepository<any, CreateDiagnosisDTO,
     };
   }
 
+  async bulkUpdate(ids: string[], data: UpdateDiagnosisDTO) {
+    const uniqueIds = [...new Set(ids)];
+    if (uniqueIds.length === 0) throw new Error('At least one diagnosis ID is required');
+    if (uniqueIds.length > 1 && data.icdCode !== undefined) {
+      throw new Error('ICD code can only be changed for one diagnosis at a time');
+    }
+    const updateData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    ) as UpdateDiagnosisDTO;
+    if (Object.keys(updateData).length === 0) throw new Error('At least one diagnosis field must be provided');
+    return this.getModel().updateMany({ where: { id: { in: uniqueIds } }, data: updateData });
+  }
+
   async findByIdWithRelations(id: string) {
     return this.getModel().findUnique({
       where: { id },
