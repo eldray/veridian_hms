@@ -9,7 +9,6 @@ import {
   deleteDiagnosis as apiDeleteDiagnosis,
   searchDiagnoses as apiSearchDiagnoses,
   getDiagnosisStats as apiGetDiagnosisStats,
-  bulkUpdateDiagnoses as apiBulkUpdateDiagnoses,
 
   getLabTestTemplates as apiGetLabTestTemplates,
   getLabTestTemplate as apiGetLabTestTemplate,
@@ -130,7 +129,6 @@ interface MedicalServicesState {
   deleteDiagnosis: (id: string) => Promise<void>;
   searchDiagnoses: (query: string) => Promise<Diagnosis[]>;
   getDiagnosisStats: () => Promise<void>;
-  bulkUpdateDiagnoses: (data: any) => Promise<void>;
 
   // Lab Test Template actions
   getLabTestTemplates: (filters?: any) => Promise<void>;
@@ -381,18 +379,6 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     try {
       const stats = await apiGetDiagnosisStats();
       set({ diagnosisStats: stats, isLoading: false });
-    } catch (error: unknown) {
-      set({ isLoading: false });
-      throw error;
-    }
-  },
-
-  bulkUpdateDiagnoses: async (data: any) => {
-    set({ isLoading: true });
-    try {
-      await apiBulkUpdateDiagnoses(data);
-      await get().getDiagnoses();
-      set({ isLoading: false });
     } catch (error: unknown) {
       set({ isLoading: false });
       throw error;
