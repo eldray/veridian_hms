@@ -1439,14 +1439,14 @@ export const updateMedicationStatus = async (
 export const dispenseMedication = async (
   encounterId: string,
   medicationId: string,
-  data: { quantity: number; dispensedById?: string; batchNumber?: string }
+  data: { quantity: number; batchNumber?: string; expiryDate?: string }
 ) => {
-  const response = await api.patch(`/encounters/${encounterId}/medications/${medicationId}`, {
-    status: 'dispensed',
+  // Dispensing has its own pharmacist-authorized route; the backend derives
+  // the dispensing user and records the stock transaction atomically.
+  const response = await api.put(`/encounters/${encounterId}/medications/${medicationId}/dispense`, {
     quantity: data.quantity,
-    dispensedById: data.dispensedById,
     batchNumber: data.batchNumber,
-    dispensedAt: new Date().toISOString()
+    expiryDate: data.expiryDate
   });
   return response.data;
 };
