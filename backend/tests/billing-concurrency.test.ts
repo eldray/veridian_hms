@@ -311,3 +311,49 @@ describe('voided charge balance reconciliation', () => {
     });
   });
 });
+
+describe('bill financial record integrity', () => {
+  it('rejects direct edits to derived financial fields', async () => {
+    const findBill = vi.spyOn(BillRepository.prototype, 'findById')
+      .mockResolvedValue({ id: 'bill-1', status: 'pending', Payment: [] } as any);
+    const update = vi.spyOn(BillRepository.prototype, 'update').mockResolvedValue({ id: 'bill-1' } as any);
+    try {
+      const service = new BillService({} as any);
+      await expect(service.updateBill('bill-1', { totalAmount: 1 } as any))
+        .rejects.toThrow(/cannot directly edit bill financial field/i);
+      expect(update).not.toHaveBeenCalled();
+    } finally {
+      findBill.mockRestore();
+      update.mockRestore();
+    }
+  });
+
+  it('preserves bills that have payment history instead of deleting the audit trail', async () => {
+    const findBill = vi.spyOn(BillRepository.prototype, 'findById')
+      .mockResolvedValue({ id: 'bill-1', status: 'partial', Payment: [{ id: 'payment-1' }] } as any);
+    const remove = vi.spyOn(BillRepository.prototype, 'delete').mockResolvedValue({ id: 'bill-1' } as any);
+    try {
+      const service = new BillService({} as any);
+      await expect(service.deleteBill('bill-1')).rejects.toThrow(/payment history cannot be deleted/i);
+      expect(remove).not.toHaveBeenCalled();
+    } finally {
+      findBill.mockRestore();
+      remove.mockRestore();
+    }
+  });
+
+  it('still allows a notes-only update', async () => {
+    const findBill = vi.spyOn(BillRepository.prototype, 'findById')
+      .mockResolvedValue({ id: 'bill-1', status: 'pending', Payment: [] } as any);
+    const update = vi.spyOn(BillRepository.prototype, 'update').mockResolvedValue({ id: 'bill-1', notes: 'Reviewed' } as any);
+    try {
+      const service = new BillService({} as any);
+      await service.updateBill('bill-1', { notes: 'Reviewed' });
+      expect(update).toHaveBeenCalledWith('bill-1', { notes: 'Reviewed' });
+    } finally {
+      findBill.mockRestore();
+      update.mockRestore();
+    }
+  });
+});
+
