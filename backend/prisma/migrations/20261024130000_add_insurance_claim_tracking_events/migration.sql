@@ -15,8 +15,8 @@ CREATE TABLE "insurance_claim_tracking_events" (
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "insurance_claim_tracking_events_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "insurance_claim_tracking_events_paymentReference_key"
-  ON "insurance_claim_tracking_events"("paymentReference");
+CREATE UNIQUE INDEX "insurance_claim_tracking_events_claimId_paymentReference_key"
+  ON "insurance_claim_tracking_events"("claimId", "paymentReference");
 CREATE INDEX "insurance_claim_tracking_events_claimId_createdAt_idx"
   ON "insurance_claim_tracking_events"("claimId", "createdAt");
 CREATE INDEX "insurance_claim_tracking_events_eventType_createdAt_idx"
