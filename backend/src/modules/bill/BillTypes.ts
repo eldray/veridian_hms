@@ -1,4 +1,4 @@
-import { Bill, BillLineItem, BillStatus, PaymentMode, PaymentMethod } from '@prisma/client';
+import { Bill, BillLineItem, PaymentMode, PaymentMethod } from '@prisma/client';
 
 // ✅ FIXED: Aligned with actual Prisma schema field names
 export interface BillWithRelations extends Bill {
