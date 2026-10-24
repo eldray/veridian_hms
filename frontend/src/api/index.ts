@@ -1207,31 +1207,34 @@ export const getPatients = async (filters?: any) => {
 };
 
 export const createPatient = (data: any) => {
-  const processedData = { ...data };
-  if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
+  // FormData must be sent intact: spreading it into an object drops its entries.
+  // Let Axios set the multipart boundary automatically.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.post('/patients', data).then(r => r.data);
+  }
+
+  const processedData = { ...(data || {}) };
+  if (typeof processedData.dateOfBirth === 'string' && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.post('/patients', processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.post('/patients', processedData).then(r => r.data);
-  }
+  return api.post('/patients', processedData).then(r => r.data);
 };
 
 export const updatePatient = (id: string, data: any) => {
-  const processedData = { ...data };
-  if (processedData.dateOfBirth && processedData.dateOfBirth.includes('T')) {
+  if (!id || id === 'undefined' || id === 'null') {
+    return Promise.reject(new Error('Valid Patient ID is required'));
+  }
+
+  // Preserve multipart payloads so uploaded fields/files reach the backend.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.put(`/patients/${id}`, data).then(r => r.data);
+  }
+
+  const processedData = { ...(data || {}) };
+  if (typeof processedData.dateOfBirth === 'string' && processedData.dateOfBirth.includes('T')) {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
-  if (data instanceof FormData) {
-    return api.put(`/patients/${id}`, processedData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    }).then(r => r.data);
-  } else {
-    return api.put(`/patients/${id}`, processedData).then(r => r.data);
-  }
+  return api.put(`/patients/${id}`, processedData).then(r => r.data);
 };
 
 export const uploadPatientImage = (patientId: string, formData: FormData) =>
