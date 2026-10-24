@@ -557,13 +557,6 @@ export const getHospitalDetails = () =>
 export const updateHospitalDetails = (data: any) =>
   api.put('/settings/hospital', data).then(r => r.data);
 
-export const getSystemSettings = () =>
-  api.get('/settings').then(r => r.data);
-
-export const updateSystemSettings = (data: any) =>
-  api.put('/settings', data).then(r => r.data);
-
-
 // ──────────────────────────────────────────────
 // HOSPITAL INFO
 // ──────────────────────────────────────────────
@@ -2227,11 +2220,6 @@ export const updateReferralStatus = async (id: string, status: string, outcomeNo
   return response.data;
 };
 
-export const updateReferral = async (id: string, data: any) => {
-  const response = await api.put(`/referrals/${id}`, data);
-  return response.data;
-};
-
 export const deleteReferral = async (id: string) => {
   const response = await api.delete(`/referrals/${id}`);
   return response.data;
@@ -2837,9 +2825,6 @@ export const getDashboardStats = (params?: {
 }) =>
   api.get('/dashboard/stats', { params }).then(r => r.data);
 
-export const getAppointmentCalendar = (month: string, year: string) =>
-  api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
-
 // ──────────────────────────────────────────────
 // BACKUP SYSTEM - CORRECTED ENDPOINTS
 // ──────────────────────────────────────────────
@@ -3166,11 +3151,6 @@ export const getMedicationReport = async (params: ReportFilter) => {
 export const getVitalsReport = async (params: ReportFilter) => {
   const response = await api.get('/clinical-reports/vitals', { params });
   return response.data;
-};
-
-export const getClinicalReports = async (filters?: any) => {
-  const response = await api.get('/clinical-reports', { params: filters });
-  return response.data.data || response.data;
 };
 
 // ──────────────────────────────────────────────
@@ -3771,9 +3751,6 @@ export const sendWhatsApp = (data: { recipient: string; message: string; metadat
 export const sendMessage = (channel: 'sms' | 'whatsapp', data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
   channel === 'whatsapp' ? sendWhatsApp(data) : sendSMS(data);
 
-export const getCommunicationChannels = () =>
-  api.get('/communications/channels').then(r => r.data);
-
 export const getCommunicationLogs = (filters?: { channelId?: string; status?: string; startDate?: string; endDate?: string }) =>
   api.get('/communications/history', { params: filters }).then(r => r.data);
 
@@ -3782,9 +3759,6 @@ export const getCommunicationTemplates = (type?: string) =>
 
 export const createCommunicationTemplate = (data: any) =>
   api.post('/communications/templates', data).then(r => r.data);
-
-export const sendAppointmentReminderSMS = (appointmentId: string) =>
-  api.post(`/communications/send/appointment/${appointmentId}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // DEFAULT EXPORT
@@ -3820,7 +3794,7 @@ uploadUserDocument, updateDocument, verifyDocument, unverifyDocument, deleteDocu
 getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem,
 
   // Settings
-  getHospitalDetails, updateHospitalDetails, getSystemSettings, updateSystemSettings,
+  getHospitalDetails, updateHospitalDetails,
 
   // NHIS SETTINGS
   getHospitalNHISSettings, updateHospitalNHISSettings,
@@ -3919,7 +3893,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Referrals
   getReferrals, getReferralById, createOutgoingReferral, createIncomingReferral, updateReferralStatus,
-  updateReferral, deleteReferral, getReferralsByPatient, getReferralStats,
+  deleteReferral, getReferralsByPatient, getReferralStats,
 
   // Medical Services
   getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,
@@ -3953,7 +3927,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getUsersByDepartment, updateUserDepartment,
 
   // Dashboard
-  getDashboardStats, getAppointmentCalendar,
+  getDashboardStats,
 
   // Backup
   createBackup, restoreBackup, getBackupList, downloadBackup, deleteBackup, getBackupStats,
@@ -3970,7 +3944,6 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
   getRevenueReport, getDemographicReport, exportReport, exportReportToCSV,
   getLabReport, getScanReport, getProcedureReport, getMedicationReport, getVitalsReport,
-  getClinicalReports,
 
   // NHIS Reports
   getNhisExpiryReport, getNhisClaimsSummary, getNhisExpiringSoon,
@@ -4018,8 +3991,8 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
 
   // Communications
-  sendSMS, getCommunicationChannels, getCommunicationLogs, getCommunicationTemplates,
-  createCommunicationTemplate, sendAppointmentReminderSMS,
+  sendSMS, getCommunicationLogs, getCommunicationTemplates,
+  createCommunicationTemplate,
 
   // Family Planning
   getFPServices, getFPServiceById, createFPService, updateFPService, deleteFPService,
