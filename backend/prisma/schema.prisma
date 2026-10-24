@@ -1199,7 +1199,7 @@ model InsuranceClaimTrackingEvent {
   submissionDate   DateTime?
   payerReference   String?
   amount           Decimal? @db.Decimal(15, 2)
-  paymentReference String?  @unique
+  paymentReference String?
   paymentMethod    String?
   notes            String?  @db.Text
   recordedById     String
@@ -1208,6 +1208,7 @@ model InsuranceClaimTrackingEvent {
   claim      InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
   recordedBy User           @relation("ClaimTrackingEvent_recordedBy", fields: [recordedById], references: [id])
 
+  @@unique([claimId, paymentReference])
   @@index([claimId, createdAt])
   @@index([eventType, createdAt])
   @@index([status])
