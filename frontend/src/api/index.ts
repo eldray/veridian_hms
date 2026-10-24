@@ -561,17 +561,6 @@ export const updateHospitalDetails = (data: any) =>
 // HOSPITAL INFO
 // ──────────────────────────────────────────────
 
-export const getSystemSettings = () =>
-  api.get('/settings').then(r => r.data);
-
-export const updateSystemSettings = (data: any) =>
-  api.put('/settings', data).then(r => r.data);
-
-
-// ──────────────────────────────────────────────
-// HOSPITAL INFO
-// ──────────────────────────────────────────────
-
 export const getHospitals = () =>
   api.get('/hospital').then(r => handleResponse<HospitalInfo>(r.data));
 
@@ -1556,10 +1545,6 @@ export const getEncounterConsumableUse = getEncounterConsumableUses;
 
 
 // Vitals
-export const assignBedToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/assign-bed`, data).then(r => r.data);
-
-// Vitals
 export const addVitalsToEncounter = async (encounterId: string, data: any) => {
   const response = await api.post(`/encounters/${encounterId}/vitals`, data);
   return response.data;
@@ -1613,13 +1598,6 @@ export const deleteVitals = async (vitalsId: string) => {
 
 // Billing Operations
 // Billing breakdown is bill-scoped; the encounter-scoped endpoint is not mounted.
-export const addProgressNoteToEncounter = (encounterId: string, data: any) =>
-  api.post(`/encounters/${encounterId}/progress-notes`, data).then(r => r.data);
-
-export const removeProgressNoteFromEncounter = (encounterId: string, noteId: string) =>
-  api.delete(`/encounters/${encounterId}/progress-notes/${noteId}`).then(r => r.data);
-
-// Billing Operations
 export const getBillingBreakdown = (billId: string) =>
   api.get(`/bills/${billId}/breakdown`).then(r => r.data?.data || r.data);
 
@@ -1637,41 +1615,6 @@ export const getEncounterStats = async (filters?: any) => {
   const response = await api.get(`/encounters/stats${params.toString() ? `?${params}` : ''}`);
   return response.data;
 };
-
-// ──────────────────────────────────────────────
-// BILLS & PAYMENTS
-// ──────────────────────────────────────────────
-
-const getBillsPage = (filters?: any) => {
-  // ✅ Add cache-busting timestamp to prevent 304 responses
-  const params = {
-    ...filters,
-    _t: Date.now()  // Forces fresh request every time
-  };
-
-  return api.get('/bills', { params }).then(r => {
-    console.log('📊 API Bills Response:', r.data);
-    console.log('📊 Response Headers:', r.headers);
-
-    if (Array.isArray(r.data)) {
-      return r.data;
-    } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills;
-    } else {
-      console.warn('Unexpected bills API structure:', r.data);
-      return [];
-    }
-  });
-};
-
-// limit > 100 walks all pages (backend maximum is 100 per request)
-export const validateNHISClaim = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/validate`).then(r => r.data);
-
-export const generateNHISClaimFromEncounter = (encounterId: string) =>
-  api.get(`/encounters/${encounterId}/nhis/generate-claim-data`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // BILLS & PAYMENTS
@@ -2486,14 +2429,6 @@ export const getDiagnosisStats = () =>
 
 // ✅ Fix: Use '/lab-tests' (with hyphen) to match backend
 
-export const bulkUpdateDiagnoses = (data: any) =>
-  api.post('/diagnoses/bulk-update', data).then(r => r.data);
-
-// ============================================
-// LAB TEST TEMPLATES
-// ============================================
-
-// ✅ Fix: Use '/lab-tests' (with hyphen) to match backend
 export const getLabTestTemplates = (filters?: any) =>
   api.get('/lab-tests', { params: filters }).then(r => {
     const responseData = r.data;
@@ -2993,13 +2928,6 @@ export const getDashboardStats = (params?: {
 // BACKUP SYSTEM - CORRECTED ENDPOINTS
 // ──────────────────────────────────────────────
 
-export const getAppointmentCalendar = (month: string, year: string) =>
-  api.get('/dashboard/appointment-calendar', { params: { month, year } }).then(r => r.data);
-
-// ──────────────────────────────────────────────
-// BACKUP SYSTEM - CORRECTED ENDPOINTS
-// ──────────────────────────────────────────────
-
 export const createBackup = async () => {
   const response = await api.post('/backup');
   return response.data;
@@ -3330,16 +3258,6 @@ export const getVitalsReport = async (params: ReportFilter) => {
 
 // Used by Reports.tsx handleExport — sends already-fetched report data to the server
 
-export const getClinicalReports = async (filters?: any) => {
-  const response = await api.get('/clinical-reports', { params: filters });
-  return response.data.data || response.data;
-};
-
-// ──────────────────────────────────────────────
-// EXPORT  (→ POST /reports/export)
-// ──────────────────────────────────────────────
-
-// Used by Reports.tsx handleExport — sends already-fetched report data to the server
 export const exportReport = async (data: {
   reportType: string;
   format: string;
@@ -3933,9 +3851,6 @@ export const sendWhatsApp = (data: { recipient: string; message: string; metadat
 export const sendMessage = (channel: 'sms' | 'whatsapp', data: { recipient: string; message: string; metadata?: Record<string, any> }) =>
   channel === 'whatsapp' ? sendWhatsApp(data) : sendSMS(data);
 
-export const getCommunicationChannels = () =>
-  api.get('/communications/channels').then(r => r.data);
-
 export const getCommunicationLogs = (filters?: { channelId?: string; status?: string; startDate?: string; endDate?: string }) =>
   api.get('/communications/history', { params: filters }).then(r => r.data);
 
@@ -3944,13 +3859,6 @@ export const getCommunicationTemplates = (type?: string) =>
 
 export const createCommunicationTemplate = (data: any) =>
   api.post('/communications/templates', data).then(r => r.data);
-
-// ──────────────────────────────────────────────
-// DEFAULT EXPORT
-// ──────────────────────────────────────────────
-
-export const sendAppointmentReminderSMS = (appointmentId: string) =>
-  api.post(`/communications/send/appointment/${appointmentId}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // DEFAULT EXPORT
