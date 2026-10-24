@@ -319,6 +319,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
       if (waiver.appliedAt) throw new ValidationError('This waiver has already been applied');
       if (waiver.billId !== billId) throw new ValidationError('Waiver does not belong to this bill');
 
+      // Serialize waiver applications for a bill so concurrent approvals cannot
+      // overwrite one another's updated waiver total or patient balance.
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${billId} FOR UPDATE`;
+      }
       const bill = await tx.bill.findUnique({ where: { id: billId } });
       if (!bill) throw new Error('Bill not found');
 
