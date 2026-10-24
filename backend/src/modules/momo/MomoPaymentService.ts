@@ -131,7 +131,7 @@ export class MomoPaymentService {
       const cfg = this.config();
       const response = await this.providerRequest('/collection/v1_0/requesttopay', {
         method: 'POST',
-        headers: { 'X-Reference-Id': providerReference, ...(process.env.MOMO_CALLBACK_URL ? { 'X-Callback-Url': process.env.MOMO_CALLBACK_URL } : {}) },
+        headers: { 'X-Reference-Id': providerReference },
         body: JSON.stringify({
           amount: amount.toFixed(2),
           currency: cfg.currency,
@@ -151,9 +151,17 @@ export class MomoPaymentService {
       });
       return { intent: updated, reused: false };
     } catch (error: any) {
+      // Only a definite provider/configuration rejection is marked failed.
+      // A network interruption may occur after MTN accepted the request, so retain
+      // the intent as initiating and reconcile it through the status endpoint.
+      const definiteFailure = Boolean(error?.statusCode);
       await this.prisma.momoPaymentIntent.update({
         where: { id: intent.id },
-        data: { status: 'failed', providerStatus: 'INITIATION_FAILED', failureReason: String(error?.message || 'MoMo initiation failed').slice(0, 500) }
+        data: {
+          status: definiteFailure ? 'failed' : 'initiating',
+          providerStatus: definiteFailure ? 'INITIATION_FAILED' : 'INITIATION_UNCONFIRMED',
+          failureReason: String(error?.message || 'MoMo initiation outcome is unknown').slice(0, 500)
+        }
       });
       throw error;
     }
