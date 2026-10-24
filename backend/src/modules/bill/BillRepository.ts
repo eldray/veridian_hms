@@ -245,7 +245,18 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // patientPayable already reflects approved waivers; recompute it from active lines
       // so voiding a line cannot accidentally restore liability that was previously waived.
       const newPatientPayable = Math.max(0, grossPatientLiability - toNumber(bill?.waiverAmount || 0));
-      const newBalance = Math.max(0, newPatientPayable - toNumber(bill?.paidAmount || 0));
+      const recordedPayments = toNumber(bill?.paidAmount || 0);
+
+      // Voiding a charge must not silently turn a legitimate collection into an
+      // overpayment. Refund/credit handling needs its own auditable workflow.
+      if (recordedPayments > newPatientPayable) {
+        throw Object.assign(
+          new Error('This line item cannot be voided because recorded payments would exceed the revised patient liability. Process an approved refund or credit adjustment first.'),
+          { statusCode: 409 },
+        );
+      }
+
+      const newBalance = Math.max(0, newPatientPayable - recordedPayments);
 
       await tx.bill.update({
         where: { id: lineItem.billId },
