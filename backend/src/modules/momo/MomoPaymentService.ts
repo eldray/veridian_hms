@@ -272,21 +272,38 @@ export class MomoPaymentService {
           }
         });
       } else if (providerStatus === 'FAILED') {
-        intent = await this.prisma.momoPaymentIntent.update({
-          where: { id: intent.id },
-          data: {
-            status: 'failed',
-            providerStatus,
-            providerTransactionId: providerData.financialTransactionId || null,
-            lastCheckedAt: now,
-            failureReason: providerData.reason?.message || providerData.reason?.code || 'The mobile money provider marked this payment as failed.'
-          }
-        });
+        const data = {
+          status: 'failed',
+          providerStatus,
+          providerTransactionId: providerData.financialTransactionId || null,
+          lastCheckedAt: now,
+          failureReason: providerData.reason?.message || providerData.reason?.code || 'The mobile money provider marked this payment as failed.'
+        };
+        // A slower status poll must not overwrite a terminal state written by a
+        // concurrent poll. Production uses a conditional update; the fallback
+        // keeps lightweight legacy test doubles compatible.
+        if (typeof this.prisma.momoPaymentIntent.updateMany === 'function') {
+          await this.prisma.momoPaymentIntent.updateMany({
+            where: { id: intent.id, status: { in: ['initiating', 'pending'] } },
+            data
+          });
+          intent = await this.prisma.momoPaymentIntent.findUnique({ where: { id: intent.id } }) || intent;
+        } else {
+          intent = await this.prisma.momoPaymentIntent.update({ where: { id: intent.id }, data });
+        }
       } else {
-        intent = await this.prisma.momoPaymentIntent.update({
-          where: { id: intent.id },
-          data: { status: 'pending', providerStatus, lastCheckedAt: now }
-        });
+        const data = { status: 'pending', providerStatus, lastCheckedAt: now };
+        // Do not let a delayed PENDING response reopen an intent already settled
+        // by another concurrent status check.
+        if (typeof this.prisma.momoPaymentIntent.updateMany === 'function') {
+          await this.prisma.momoPaymentIntent.updateMany({
+            where: { id: intent.id, status: { in: ['initiating', 'pending'] } },
+            data
+          });
+          intent = await this.prisma.momoPaymentIntent.findUnique({ where: { id: intent.id } }) || intent;
+        } else {
+          intent = await this.prisma.momoPaymentIntent.update({ where: { id: intent.id }, data });
+        }
       }
       return this.publicIntent(intent);
     } catch (error: any) {
