@@ -28,6 +28,7 @@ import { createBedRoutes } from './bed/BedRoutes';
 import { createNursingRoutes } from './nursing/NursingRoutes';
 // Service Catalog & Pricing
 import { createServiceCatalogRoutes } from './serviceCatalog/ServiceCatalogRoutes';
+import { createConsultationTypeRoutes } from './consultationType/ConsultationTypeRoutes';
 import { createDiagnosisRoutes } from './diagnosis/DiagnosisRoutes';
 import { createGDRGRoutes } from './gdrg/GDRGRoutes';
 import { createLabTestRoutes } from './labTest/LabTestRoutes';
@@ -138,6 +139,9 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   app.use('/services', createServiceCatalogRoutes());
   console.log('✅ Service Catalog routes mounted at /services');
+
+  app.use('/consultation-types', createConsultationTypeRoutes(prisma));
+  console.log('✅ Consultation Type routes mounted at /consultation-types');
   
   app.use('/departments', createDepartmentRoutes(prisma));
   console.log('✅ Department routes mounted at /departments');
