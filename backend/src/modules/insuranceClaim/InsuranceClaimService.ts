@@ -672,16 +672,28 @@ ${claimsXml}
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
 
-      const billItems = (att.Bill?.BillLineItem ?? []).filter((item: any) => !item.isVoided);
+      // A private-insurance claim represents the insurer's liability, not the
+      // whole bill. Patient co-payments remain on the bill but must not be claimed
+      // again from the insurer.
+      const billItems = (att.Bill?.BillLineItem ?? []).filter(
+        (item: any) => !item.isVoided && toNumber(item.insuranceCoveredAmount) > 0,
+      );
       if (!att.Bill?.id || billItems.length === 0) {
-        throw new ValidationError('A private insurance claim requires a bill with at least one active bill line item.');
+        throw new ValidationError('A private insurance claim requires at least one active bill line with a positive insurer-covered amount. Check the payer tariff, coverage and patient co-payment allocation.');
+      }
+
+      const insurerClaimAmount = Math.round(
+        billItems.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoveredAmount), 0) * 100,
+      ) / 100;
+      if (!Number.isFinite(insurerClaimAmount) || insurerClaimAmount <= 0) {
+        throw new ValidationError('The private-insurance claim amount must be greater than zero.');
       }
 
       const claimNumber = getCounterService().nextPrivateClaimNumber();
       const claim = await tx.insuranceClaim.create({
         data: {
           claimNumber, billId: att.Bill.id, patientId: att.patientId, attendanceId: att.id, insuranceProviderId: att.insuranceProviderId!,
-          totalClaimAmount: att.Bill.totalAmount, status: 'draft', createdById: userId,
+          totalClaimAmount: insurerClaimAmount, status: 'draft', createdById: userId,
           diagnosisCodes: safeMap(att.AttendanceDiagnosis, d => d.Diagnosis?.icdCode),
           procedureCodes: safeMap(att.Procedure, p => p.ServiceCatalog?.code),
           labTestCodes: safeMap(att.LabTest, l => l.ServiceCatalog?.code),
@@ -706,8 +718,12 @@ ${claimsXml}
                 code: item.serviceCatalog?.code || serviceType.toUpperCase(),
                 description: item.description,
                 quantity: item.quantity,
-                unitPrice: item.unitPrice,
-                lineTotal: item.lineTotal,
+                // Store the insurer's share as the claim line amount so claim totals
+                // reconcile to totalClaimAmount; the patient's co-pay is not claimed.
+                unitPrice: item.quantity > 0
+                  ? Math.round((toNumber(item.insuranceCoveredAmount) / item.quantity) * 100) / 100
+                  : 0,
+                lineTotal: toNumber(item.insuranceCoveredAmount),
                 serviceDate: att.dateTime,
                 billLineItemId: item.id,
                 serviceCatalogId: item.serviceCatalogId || null
