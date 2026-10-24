@@ -2139,6 +2139,30 @@ export const getStockMovementReport = (filters?: any) =>
 export const getLowStockAlerts = () =>
   api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
 
+/** Stock transfers use their own workflow endpoints; list calls honour the backend's 100-row page cap. */
+const getStockTransfersPage = (filters?: any) =>
+  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
+
+export const getStockTransfers = async (filters?: { page?: number; limit?: number; status?: string }) => {
+  if (!wantsMoreThanOnePage(filters)) return getStockTransfersPage(filters);
+  return fetchAllPages<any>(getStockTransfersPage, filters, { maxItems: Number(filters!.limit), concurrency: 2 });
+};
+
+export const getStockTransfer = (id: string) =>
+  api.get(`/stock-transfers/${id}`).then(r => r.data?.data ?? r.data);
+
+export const createStockTransfer = (data: any) =>
+  api.post('/stock-transfers', data).then(r => r.data?.data ?? r.data);
+
+export const approveStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/approve`).then(r => r.data?.data ?? r.data);
+
+export const dispatchStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/dispatch`).then(r => r.data?.data ?? r.data);
+
+export const receiveStockTransfer = (id: string) =>
+  api.patch(`/stock-transfers/${id}/receive`).then(r => r.data?.data ?? r.data);
+
 // ──────────────────────────────────────────────
 // REQUISITIONS
 // ──────────────────────────────────────────────
@@ -3945,6 +3969,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport, getSupplierReport, getRequisitionSummary,
   getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction,
   getStockMovementReport, getLowStockAlerts,
+  getStockTransfers, getStockTransfer, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer,
 
   // Purchase Invoices
   getPurchaseInvoices, getPurchaseInvoice, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice,
