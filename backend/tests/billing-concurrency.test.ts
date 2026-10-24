@@ -277,3 +277,37 @@ describe('waiver application safeguards', () => {
     expect(tx.bill.update).not.toHaveBeenCalled();
   });
 });
+
+
+describe('voided charge balance reconciliation', () => {
+  it('does not leave a negative balance or stale attendance balance in the legacy billing path', async () => {
+    const tx: any = {
+      billLineItem: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'line-void', billId: 'bill-legacy', isVoided: false,
+          bill: { id: 'bill-legacy', paidAmount: 70, waiverAmount: 0, attendanceId: 'attendance-legacy' },
+        }),
+        update: vi.fn().mockResolvedValue({ id: 'line-void', isVoided: true }),
+        findMany: vi.fn().mockResolvedValue([{ lineTotal: 50, patientPayableAmount: 50, insuranceCoveredAmount: 0 }]),
+      },
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'bill-legacy', paidAmount: 70, waiverAmount: 0, attendanceId: 'attendance-legacy' }),
+        update: vi.fn().mockResolvedValue({ id: 'bill-legacy', balance: 0, status: 'paid' }),
+      },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    await repository.voidLineItem('line-void', 'admin-1', 'Incorrect charge');
+
+    expect(tx.bill.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'bill-legacy' },
+      data: expect.objectContaining({ balance: 0, patientPayable: 50, status: 'paid' }),
+    }));
+    expect(tx.attendance.update).toHaveBeenCalledWith({
+      where: { id: 'attendance-legacy' },
+      data: { totalBill: 50, outstandingBalance: 0 },
+    });
+  });
+});
