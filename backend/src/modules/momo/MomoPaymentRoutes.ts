@@ -1,6 +1,6 @@
 import { Router, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { protect } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { MomoPaymentService } from './MomoPaymentService';
 
@@ -13,7 +13,7 @@ export function createMomoPaymentRoutes(prisma: PrismaClient): Router {
     res.json({ success: true, data: service.getReadiness() });
   });
 
-  router.post('/payments', async (req: AuthRequest, res: Response) => {
+  router.post('/payments', requireRole(['admin', 'accounts', 'records']), async (req: AuthRequest, res: Response) => {
     try {
       if (!req.user?.id) return res.status(401).json({ success: false, message: 'Authentication required.' });
       const { billId, amount, payerPhone, idempotencyKey } = req.body || {};
