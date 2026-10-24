@@ -240,6 +240,19 @@ export class BillingService extends BaseService {
     this.logInfo('Updating bill status', { billId: id, status: data.status });
     const bill = await this.repository.findById(id);
     if (!bill) throw new Error('Bill not found');
+
+    // Payment-derived statuses must never be set manually: doing so can mark an
+    // outstanding bill as paid/partial without a corresponding payment record.
+    if (data.status === 'paid' || data.status === 'partial') {
+      throw new Error('Cannot set a bill to paid or partial directly. Record the payment so status and balance are calculated together.');
+    }
+
+    // Preserve the audit trail. Bills with payment history must use an approved
+    // adjustment/refund workflow rather than being cancelled by a status toggle.
+    if (data.status === 'cancelled' && ((Number(bill.paidAmount) || 0) > 0 || (bill.Payment?.length ?? 0) > 0)) {
+      throw new Error('Cannot cancel a bill with recorded payments. Use the approved adjustment workflow to preserve the payment audit trail.');
+    }
+
     return this.repository.updateStatus(id, data.status, userId);
   }
 
