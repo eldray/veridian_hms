@@ -20,9 +20,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.get('/nhis/:nhisNumber', controller.getPatientByNHIS);
   router.get('/:id/corporate-summary', controller.getPatientCorporateSummary);
   router.get('/:id', controller.getPatientById);
-  router.post('/', controller.createPatient);
+  router.post('/', uploadPatientPhoto, controller.createPatient);
   router.post('/generate-ccc', controller.generateCCC);
-  router.put('/:id', controller.updatePatient);
+  router.put('/:id', uploadPatientPhoto, controller.updatePatient);
   router.post('/:id/upload-image', uploadPatientPhoto, controller.uploadImage);
   router.post('/:id/upload-image-base64', controller.uploadImageBase64);
   router.delete('/:id', controller.deletePatient);
