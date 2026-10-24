@@ -1286,7 +1286,7 @@ export const getEncounter = (id: string) => {
 
 export const createEncounter = (data: any) =>
   api.post('/encounters', data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.success && r.data?.data !== undefined ? r.data.data : r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 
