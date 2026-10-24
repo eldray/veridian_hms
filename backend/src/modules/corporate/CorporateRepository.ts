@@ -379,7 +379,25 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
       grandDiscount += discountAmount;
       grandTotal += totalAmount;
 
-      // ✅ FIXED: Create proforma invoice with correct patientId AND corporateAccountId
+      // Make monthly generation safely repeatable. Existing versions of this workflow
+      // stored the billing period at the end of the notes; reuse that patient's
+      // invoice on a retry instead of issuing a duplicate for the same period.
+      const periodSuffix = ` - ${month}/${year}`;
+      const existingPeriodInvoice = await this.prisma.proformaInvoice.findFirst({
+        where: {
+          corporateAccountId: accountId,
+          patientId: patient.id,
+          notes: { endsWith: periodSuffix }
+        },
+        orderBy: { createdAt: 'asc' }
+      });
+      if (existingPeriodInvoice) {
+        proformaInvoices.push(existingPeriodInvoice);
+        allEncounters.push(...patientEncounters);
+        continue;
+      }
+
+      // Create one proforma invoice per patient for the selected corporate billing period.
       const counterService = getCounterService();
       const refNumber = `CORP-${year}-${String(month).padStart(2, '0')}-${counterService.nextProformaNumber()}`;
 
