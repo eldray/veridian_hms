@@ -75,7 +75,7 @@ export class ClaimBatchService extends BaseService {
           'corporateAccountId or insuranceProviderId is required for corporate batches',
         );
       }
-      if (corporateAccountId && !insuranceProviderId) {
+      if (corporateAccountId) {
         const account = await this.prisma.corporateAccount.findUnique({
           where: { id: corporateAccountId },
           select: { id: true, isActive: true, insuranceProviderId: true, companyName: true },
@@ -84,6 +84,9 @@ export class ClaimBatchService extends BaseService {
         if (!account.isActive) throw new ValidationError('Corporate account is inactive');
         if (!account.insuranceProviderId) {
           throw new ValidationError('Configure an insurance provider on this corporate account before generating a claim batch');
+        }
+        if (insuranceProviderId && insuranceProviderId !== account.insuranceProviderId) {
+          throw new ValidationError('The selected insurance provider does not match this corporate account');
         }
         insuranceProviderId = account.insuranceProviderId;
       }
