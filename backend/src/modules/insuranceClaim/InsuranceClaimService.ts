@@ -764,7 +764,13 @@ ${claimsXml}
         );
       }
       const providerId = att.insuranceProviderId || corp.insuranceProviderId;
+      if (!corp.insuranceProviderId) {
+        throw new ValidationError(`Configure an insurance provider on corporate account "${corp.companyName}" before generating claims.`);
+      }
       if (!providerId) throw new ValidationError(`No insurance provider is set on attendance ${att.attendanceNumber} or on corporate account "${corp.companyName}".`);
+      if (providerId !== corp.insuranceProviderId) {
+        throw new ValidationError(`The insurance provider selected for attendance ${att.attendanceNumber} does not match corporate account "${corp.companyName}".`);
+      }
 
       // Build claim items from the bill's active, auditable line items.
       const billItems = (att.Bill?.BillLineItem ?? []).filter((item: any) => !item.isVoided);
