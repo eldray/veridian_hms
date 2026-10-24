@@ -240,12 +240,12 @@ export class MomoPaymentService {
       if (providerStatus === 'SUCCESSFUL') {
         // Billing's existing idempotent payment workflow is the only path that records
         // collections and updates balances; a request being accepted is not proof of payment.
-        const result: any = await this.billing.addPaymentToBill(intent.billId, {
+        const result: any = await this.billing.addConfirmedMomoPayment(intent.billId, {
           amount: money(intent.amount),
           paymentMethod: 'mobile_money',
           reference: `MTN-MOMO:${intent.providerReference}`,
           idempotencyKey: intent.paymentIdempotencyKey
-        }, intent.initiatedById);
+        }, intent.initiatedById, intent.id);
         const payment = result?.payment ?? result?.data?.payment ?? result?.Payment;
         intent = await this.prisma.momoPaymentIntent.update({
           where: { id: intent.id },
