@@ -34,7 +34,7 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   router.put('/invoices/:id', requireRole(['admin', 'accounts']), controller.updateStatus);
 
   // Add payment to bill
-  router.post('/invoices/:id/pay', controller.addPayment);
+  router.post('/invoices/:id/pay', requireRole(['admin', 'accounts', 'records']), controller.addPayment);
 
   // Get bill line items
   router.get('/invoices/:id/items', controller.getLineItems.bind(controller));
