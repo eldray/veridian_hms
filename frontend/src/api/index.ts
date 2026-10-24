@@ -628,17 +628,13 @@ export const generateCCC = (data: { policyNumber: string; encounterId: string; t
 export const adminCreateUser = (userData: any) =>
   api.post('/users', userData).then(r => r.data);  // Admin only endpoint
 
+const getAllUsersPage = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
+  api.get('/users', { params: filters }).then(r => handleResponse<User>(r.data));
+
 export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
-  api.get('/users', { params: filters }).then(r => {
-    const response = r.data;
-    if (response?.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response)) {
-      return response;
-    }
-    return [];
-  });
+  wantsMoreThanOnePage(filters)
+    ? fetchAllPages<User>(getAllUsersPage, filters, { maxItems: Number(filters?.limit) })
+    : getAllUsersPage(filters);
 
 export const getUserById = (userId: string) =>
   api.get(`/users/${userId}`).then(r => r.data?.data || r.data);
@@ -1096,6 +1092,28 @@ export const getCorporateClaims = (filters?: any) =>
 
 export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate') =>
   api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => r.data);
+
+/** Unified finalized-claim remittance tracker for NHIS, private and corporate payers. */
+export const getInsuranceClaimsTracking = (filters?: {
+  search?: string;
+  insuranceType?: 'nhis' | 'private' | 'corporate';
+  page?: number;
+  limit?: number;
+}) => api.get('/insurance-claims/tracking', { params: filters }).then(r => r.data);
+
+export const recordInsuranceClaimTrackingEvent = (
+  claimId: string,
+  data: {
+    eventType: 'submission' | 'adjudication' | 'payment' | 'note';
+    status?: string;
+    submissionDate?: string;
+    payerReference?: string;
+    amount?: number;
+    paymentReference?: string;
+    paymentMethod?: string;
+    notes?: string;
+  },
+) => api.post(`/insurance-claims/${claimId}/tracking-events`, data).then(r => r.data);
 
 // ──────────────────────────────────────────────
 // CLAIM XML + PRINT (single claim — open in new tab)
@@ -2120,6 +2138,27 @@ export const getRequisitionSummary = (startDate?: string, endDate?: string) =>
 // ──────────────────────────────────────────────
 // STOCK TRANSACTIONS
 // ──────────────────────────────────────────────
+
+// Stock transfers use the same normalized paginated response contract as other list APIs.
+const getStockTransfersPage = (filters?: any) =>
+  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
+
+export const getStockTransfers = (filters?: any) =>
+  wantsMoreThanOnePage(filters)
+    ? fetchAllPages<any>(getStockTransfersPage, filters, { maxItems: Number(filters.limit) })
+    : getStockTransfersPage(filters);
+
+export const createStockTransfer = (data: {
+  originId: string;
+  destinationId: string;
+  items: Array<{ stockItemId: string; quantityRequested: number }>;
+  notes?: string;
+}) => api.post('/stock-transfers', data).then(r => r.data);
+
+export const updateStockTransferStatus = (
+  id: string,
+  action: 'approve' | 'dispatch' | 'receive',
+) => api.patch(`/stock-transfers/${id}/${action}`).then(r => r.data);
 
 export const getStockTransactions = (filters?: any) =>
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
