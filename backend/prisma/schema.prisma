@@ -1052,6 +1052,7 @@ model PatientWaiver {
   amountRequested Decimal      @db.Decimal(15, 2)
   amountApproved  Decimal      @default(0) @db.Decimal(15, 2)
   status          WaiverStatus @default(pending)
+  appliedAt       DateTime?
   requestedById   String
   approvedById    String?
   approvedAt      DateTime?
