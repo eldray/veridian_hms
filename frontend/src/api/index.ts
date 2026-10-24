@@ -1814,6 +1814,9 @@ export interface BillingCollectionsReport {
   payments: BillingCollectionPayment[];
 }
 
+export const getBillingInvoice = (billId: string) =>
+  api.get(`/billing/invoices/${billId}`).then(r => r.data?.data ?? r.data);
+
 export const getBillingCollections = async (params?: {
   dateFrom?: string;
   dateTo?: string;
@@ -3945,6 +3948,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Bills
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
+  getBillingInvoice,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
   getBillLineItems, voidBillLineItem, getBillingCollections,
 
