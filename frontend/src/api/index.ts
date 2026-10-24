@@ -1646,10 +1646,10 @@ export const getBill = (id: string) => {
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => r.data);
+  api.post('/bills', data).then(r => r.data?.data || r.data);
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => r.data);
+  api.put(`/bills/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteBill = (id: string) =>
   api.delete(`/bills/${id}`).then(r => r.data);
@@ -1667,7 +1667,7 @@ export const getBillingBreakdownForBill = (billId: string) =>
   api.get(`/bills/${billId}/breakdown`).then(r => r.data);
 
 export const updateBillStatus = (billId: string, data: any) =>
-  api.put(`/bills/${billId}`, data).then(r => r.data);
+  api.put(`/billing/invoices/${billId}`, data).then(r => r.data?.data || r.data);
 
 export const getBillStatistics = () =>
   api.get('/bills/statistics').then(r => r.data);
