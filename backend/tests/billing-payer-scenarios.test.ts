@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { isPayerCovered, resolveUnitPrice } from '../src/utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveUnitPrice } from '../src/utils/pricing';
 import { BillingRepository } from '../src/modules/billing/BillingRepository';
 
 describe('visit billing payer scenarios', () => {
@@ -64,5 +64,58 @@ describe('payer liability aggregation', () => {
     expect(persistedAmounts.insuranceCovered).toBe(52);
     expect(persistedAmounts.patientPayable).toBe(113);
     expect(persistedAmounts.balance).toBe(113);
+  });
+});
+
+
+describe('NHIS medicine payer allocation rules', () => {
+  it('makes an uncovered medicine fully patient-payable at cash price', () => {
+    expect(calculateNHISMedicineAllocation({
+      cashPrice: 120,
+      nhisTariff: 75,
+      covered: false,
+    })).toEqual({
+      cashPrice: 120,
+      nhisCoveredAmount: 0,
+      patientPayableAmount: 120,
+      copaymentAmount: 0,
+    });
+  });
+
+  it('allocates a covered medicine tariff between insurer and configured fixed co-payment', () => {
+    expect(calculateNHISMedicineAllocation({
+      cashPrice: 120,
+      nhisTariff: 75,
+      covered: true,
+      copaymentMode: 'fixed_amount',
+      copaymentAmount: 10,
+    })).toEqual({
+      cashPrice: 120,
+      nhisCoveredAmount: 65,
+      patientPayableAmount: 10,
+      copaymentAmount: 10,
+    });
+  });
+
+  it('uses the cash-price difference only when that co-payment policy is explicitly selected', () => {
+    expect(calculateNHISMedicineAllocation({
+      cashPrice: 120,
+      nhisTariff: 75,
+      covered: true,
+      copaymentMode: 'cash_price_difference',
+    })).toEqual({
+      cashPrice: 120,
+      nhisCoveredAmount: 75,
+      patientPayableAmount: 45,
+      copaymentAmount: 45,
+    });
+  });
+
+  it('fails closed when a covered medicine has no positive NHIS tariff', () => {
+    expect(() => calculateNHISMedicineAllocation({
+      cashPrice: 120,
+      nhisTariff: 0,
+      covered: true,
+    })).toThrow(/positive configured NHIS tariff/i);
   });
 });
