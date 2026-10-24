@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import api from '../api/api';
+import { createStockTransfer, getDepartments, getStockItems, getStockTransfers, updateStockTransferStatus } from '../api';
 
 type TransferItem = {
   id?: string;
@@ -94,15 +94,15 @@ export default function StockTransfers() {
     setLoading(true);
     try {
       const [transferResponse, departmentResponse, stockResponse] = await Promise.all([
-        api.get('/stock-transfers', { params: { limit: 1000 } }),
-        api.get('/departments'),
-        api.get('/stock-items', { params: { limit: 1000, isActive: true } }),
+        getStockTransfers({ limit: 1000 }),
+        getDepartments({ limit: 1000 }),
+        getStockItems({ limit: 1000, isActive: true }),
       ]);
-      setTransfers(asArray(transferResponse.data) as Transfer[]);
-      setDepartments(asArray(departmentResponse.data).map((d: any) => ({
+      setTransfers(asArray(transferResponse) as Transfer[]);
+      setDepartments(asArray(departmentResponse).map((d: any) => ({
         id: d.id, name: d.name || d.departmentName || 'Unnamed department',
       })).filter((d: Option) => d.id));
-      setStockItems(asArray(stockResponse.data).map((s: any) => ({
+      setStockItems(asArray(stockResponse).map((s: any) => ({
         id: s.id, name: s.name || 'Unnamed item', drugCode: s.drugCode,
         unitOfMeasure: s.unitOfMeasure,
       })).filter((s: Option) => s.id));
@@ -137,7 +137,7 @@ export default function StockTransfers() {
     const label = action === 'approve' ? 'approve' : action === 'dispatch' ? 'dispatch' : 'confirm receipt for';
     if (!window.confirm(`Are you sure you want to ${label} transfer ${transfer.transferNumber || ''}?`)) return;
     try {
-      await api.patch(`/stock-transfers/${transfer.id}/${action}`);
+      await updateStockTransferStatus(transfer.id, action);
       success('Transfer updated', `Transfer ${transfer.transferNumber || ''} was updated.`);
       await loadData();
     } catch (error: any) {
@@ -165,7 +165,7 @@ export default function StockTransfers() {
     }
     setSaving(true);
     try {
-      await api.post('/stock-transfers', { originId, destinationId, items, notes: notes.trim() || undefined });
+      await createStockTransfer({ originId, destinationId, items, notes: notes.trim() || undefined });
       success('Transfer requested', 'The transfer request has been recorded.');
       setShowRequestForm(false);
       setNotes('');
