@@ -58,6 +58,14 @@ describe('MomoPaymentService', () => {
 
   function setup(intent = { ...baseIntent }) {
     const prisma = {
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-1',
+          billNumber: 'BILL-1001',
+          balance: 100,
+          status: 'pending',
+        }),
+      },
       momoPaymentIntent: {
         findUnique: vi.fn().mockResolvedValue(intent),
         update: vi.fn(async ({ data }: any) => ({ ...intent, ...data })),
@@ -68,6 +76,26 @@ describe('MomoPaymentService', () => {
     (service as any).billing.addPaymentToBill = addPayment;
     return { prisma, service, addPayment };
   }
+
+  it('does not expose internal idempotency keys or provider reference when reusing an attempt', async () => {
+    const { service } = setup();
+
+    const result = await service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'request-key-1',
+      userId: 'cashier-1',
+    });
+
+    expect(result.reused).toBe(true);
+    expect(result.intent.id).toBe(baseIntent.id);
+    expect(result.intent.status).toBe('pending');
+    expect(result.intent).not.toHaveProperty('idempotencyKey');
+    expect(result.intent).not.toHaveProperty('paymentIdempotencyKey');
+    expect(result.intent).not.toHaveProperty('providerReference');
+    expect(result.intent).not.toHaveProperty('initiatedById');
+  });
 
   it('does not post a bill payment while MTN reports pending', async () => {
     const { service, prisma, addPayment } = setup();
