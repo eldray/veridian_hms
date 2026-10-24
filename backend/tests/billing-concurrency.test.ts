@@ -63,7 +63,7 @@ describe('billing payment concurrency guards', () => {
 
 
   it('returns the original payment when the same idempotency key is retried', async () => {
-    const priorPayment = { id: 'payment-existing', billId: 'bill-1', amount: 25, idempotencyKey: 'retry-key' };
+    const priorPayment = { id: 'payment-existing', billId: 'bill-1', amount: 25, paymentMethod: 'cash', reference: null, idempotencyKey: 'retry-key' };
     const tx: any = {
       payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
       bill: { findUnique: vi.fn().mockResolvedValue({ id: 'bill-1', balance: 75 }) },
@@ -126,7 +126,7 @@ import { BillingService } from '../src/modules/billing/BillingService';
 
 describe('legacy billing-module payment safeguards', () => {
   it('returns the existing payment for an idempotent retry without changing balances', async () => {
-    const existingPayment = { id: 'payment-legacy', billId: 'bill-legacy', amount: 20, idempotencyKey: 'retry-key' };
+    const existingPayment = { id: 'payment-legacy', billId: 'bill-legacy', amount: 20, paymentMethod: 'cash', reference: null, idempotencyKey: 'retry-key' };
     const tx: any = {
       payment: { findUnique: vi.fn().mockResolvedValue(existingPayment), create: vi.fn() },
       bill: { findUnique: vi.fn().mockResolvedValue({ id: 'bill-legacy', balance: 80 }), updateMany: vi.fn(), update: vi.fn() },
