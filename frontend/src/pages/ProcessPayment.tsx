@@ -201,7 +201,12 @@ export default function ProcessPayment() {
       }
       navigate('/dashboard/billing');
     } catch (error: any) {
-      toastError('Payment failed', error.message || 'Failed to process payment');
+      const message = error.message || 'Failed to process payment';
+      if (paymentMethod === 'mobile_money' && /pending|status|verify|outcome is unknown|not confirmed/i.test(message)) {
+        toastError('Mobile Money status not confirmed', `${message} Do not collect a second payment until this attempt is verified.`);
+      } else {
+        toastError('Payment failed', message);
+      }
     } finally {
       setIsSubmittingPayment(false);
     }
