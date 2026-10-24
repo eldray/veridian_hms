@@ -98,8 +98,16 @@ export class BillingController extends BaseController {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-      const bill = await this.service.updateBillStatus(req.params.id, req.body, req.user!.id);
-      return this.ok(res, bill, 'Bill status updated successfully');
+      try {
+        const bill = await this.service.updateBillStatus(req.params.id, req.body, req.user!.id);
+        return this.ok(res, bill, 'Bill status updated successfully');
+      } catch (error: any) {
+        if (error?.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error?.statusCode === 409 || /cannot set a bill to paid or partial directly|cannot change the status of a bill with recorded payments|cannot cancel a bill with recorded payments/i.test(error?.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        throw error;
+      }
     })
   ];
 
