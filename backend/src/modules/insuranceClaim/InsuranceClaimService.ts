@@ -52,7 +52,7 @@ export class InsuranceClaimService extends BaseService {
     let targetType = insuranceType;
 
     return this.prisma.$transaction(async (tx) => {
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true, Attendance: { select: { dateTime: true } } } });
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds } }, include: { InsuranceProvider: true, Attendance: { select: { dateTime: true } }, items: { select: { id: true } } } });
       if (claims.length !== claimIds.length) throw new Error('One or more claims not found');
       if (!targetType && claims.length > 0) targetType = claims[0].InsuranceProvider?.type;
       if (!targetType) throw new Error('Insurance type must be specified or determinable');
@@ -65,6 +65,7 @@ export class InsuranceClaimService extends BaseService {
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
+        if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be batched. Repair the draft claim or resolve it through the claims audit workflow.`);
         if (c.InsuranceProvider?.type !== targetType) throw new Error(`Claim ${c.claimNumber} type mismatch`);
         if (c.batchId) throw new Error(`Claim ${c.claimNumber} already batched`);
         if (c.insuranceProviderId !== providerId) throw new Error('A claim batch cannot contain multiple insurance providers');
@@ -109,11 +110,12 @@ export class InsuranceClaimService extends BaseService {
       if (!existing) throw new Error('Batch not found');
       if (existing.status !== 'generated') throw new Error('Claims can only be added to generated, unfinalized batches');
 
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true } });
+      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true, items: { select: { id: true } } } });
       if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
+        if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be added to a batch. Repair the draft claim or resolve it through the claims audit workflow.`);
         if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
       }
 
@@ -159,9 +161,11 @@ export class InsuranceClaimService extends BaseService {
   async generateBatchXML(batchId: string) {
     const batch = await this.prisma.claimBatch.findUnique({
       where: { id: batchId },
-      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: true }
+      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true, items: { select: { id: true } } } }, createdBy: true }
     });
     if (!batch || !batch.claims.length) throw new Error('Batch not found or empty');
+    const claimWithoutItems = batch.claims.find((claim: any) => !claim.items?.length);
+    if (claimWithoutItems) throw new ValidationError(`Claim ${claimWithoutItems.claimNumber} has no itemized lines. The batch XML cannot be generated until the claim is repaired.`);
 
     const facilityCode = process.env.NHIS_FACILITY_CODE || 'FAC001';
     
