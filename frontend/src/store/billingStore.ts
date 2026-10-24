@@ -63,7 +63,7 @@ interface BillingState {
   // Core Bills
   getBills: (filters?: BillFilters) => Promise<void>;
   getBill: (id: string) => Promise<void>;
-  createBill: (data: Partial<Bill>) => Promise<void>;
+  createBill: (data: Partial<Bill>) => Promise<Bill>;
   updateBill: (id: string, data: Partial<Bill>) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
   
