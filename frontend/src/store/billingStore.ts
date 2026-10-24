@@ -68,7 +68,7 @@ interface BillingState {
   deleteBill: (id: string) => Promise<void>;
   
   // Payment functions
-  addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<void>;
+  addPaymentToBill: (billId: string, paymentData: Partial<Payment>) => Promise<any>;
   generateBillFromAttendance: (attendanceId: string) => Promise<Bill>;
   generateBillReport: (billId: string) => Promise<BillingBreakdown>;
   getBillingBreakdown: (billId: string) => Promise<BillingBreakdown>;
@@ -264,7 +264,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: parsedBill,
         isLoading: false
       });
-      return payload;
+      return parsedBill;
     } catch (error: unknown) {
       console.error('❌ Failed to create bill:', error);
       set({ isLoading: false });
@@ -331,6 +331,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
         currentBill: get().currentBill?.id === billId ? parsedBill : get().currentBill,
         isLoading: false
       });
+      return payload;
     } catch (error: unknown) {
       console.error('❌ Failed to add payment:', error);
       set({ isLoading: false });
