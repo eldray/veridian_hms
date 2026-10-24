@@ -215,6 +215,22 @@ describe('MomoPaymentService', () => {
     }));
   });
 
+  it('does not mark provider success terminal when the HMS payment record is missing', async () => {
+    const { service, prisma, addPayment } = setup();
+    addPayment.mockResolvedValueOnce({ payment: null });
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockResolvedValueOnce(providerResponse('SUCCESSFUL', { financialTransactionId: 'mtn-txn-123' })) as any;
+
+    await expect(service.getStatus(baseIntent.id, 'cashier-1', 'cashier'))
+      .rejects.toMatchObject({ statusCode: 502 });
+
+    expect(prisma.momoPaymentIntent.update).not.toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: baseIntent.id },
+      data: expect.objectContaining({ status: 'successful' }),
+    }));
+  });
+
   it('does not let another ordinary staff user inspect an intent', async () => {
     const { service } = setup();
 
