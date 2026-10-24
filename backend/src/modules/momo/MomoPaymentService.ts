@@ -92,9 +92,9 @@ export class MomoPaymentService {
     const payerPhone = this.normalizePhone(input.payerPhone);
     const bill = await this.prisma.bill.findUnique({ where: { id: input.billId } });
     if (!bill) throw Object.assign(new Error('Bill not found.'), { statusCode: 404 });
-    if (bill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
-    if (amount > money(bill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
 
+    // Resolve retries before validating the current balance: the original request may
+    // already have completed and reduced the balance, but must still be recoverable.
     const existing = await this.prisma.momoPaymentIntent.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     if (existing) {
       if (existing.billId !== input.billId || money(existing.amount) !== amount || existing.payerPhone !== payerPhone) {
@@ -102,6 +102,9 @@ export class MomoPaymentService {
       }
       return { intent: this.publicIntent(existing), reused: true };
     }
+
+    if (bill.status === 'cancelled') throw Object.assign(new Error('Cannot pay a cancelled bill.'), { statusCode: 409 });
+    if (amount > money(bill.balance)) throw Object.assign(new Error('Payment amount exceeds the outstanding balance.'), { statusCode: 409 });
 
     const providerReference = randomUUID();
     let intent;
