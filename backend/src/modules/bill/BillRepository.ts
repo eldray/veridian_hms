@@ -13,6 +13,30 @@ export class BillRepository extends BaseRepository<any, any, any> {
     super(prisma, 'bill');
   }
 
+  private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
+    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    if (typeof tx.bill.aggregate !== 'function') {
+      // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
+      if (fallback && tx.attendance?.update) {
+        await tx.attendance.update({ where: { id: attendanceId }, data: {
+          totalBill: toNumber(fallback.totalAmount),
+          paidAmount: toNumber(fallback.paidAmount),
+          outstandingBalance: toNumber(fallback.balance)
+        }});
+      }
+      return;
+    }
+    const totals = await tx.bill.aggregate({
+      where: { attendanceId, status: { not: 'cancelled' } },
+      _sum: { totalAmount: true, paidAmount: true, balance: true }
+    });
+    await tx.attendance.update({ where: { id: attendanceId }, data: {
+      totalBill: toNumber(totals._sum.totalAmount),
+      paidAmount: toNumber(totals._sum.paidAmount),
+      outstandingBalance: toNumber(totals._sum.balance)
+    }});
+  }
+
   async findAll(filters: BillFilter) {
     const { patientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 1000 } = filters;
     const where: any = {};
@@ -90,11 +114,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
       // ✅ FIXED: Safely parse Prisma Decimals to numbers for JS math
       const totalAmount = bill.BillLineItem.reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
 
-      return tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: { totalAmount, patientPayable: totalAmount, balance: totalAmount },
         include: { BillLineItem: true, Patient: true }
       });
+      await this.syncAttendanceFinancials(tx, attendanceId, updatedBill);
+      return updatedBill;
     });
   }
 
@@ -146,12 +172,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
             receivedById, transactionDate: new Date()
           }
         });
-        if (currentBill.attendanceId) {
-          await tx.attendance.update({
-            where: { id: currentBill.attendanceId },
-            data: { totalBill: toNumber(currentBill.totalAmount), paidAmount: toNumber(currentBill.paidAmount), outstandingBalance: newBalance }
-          });
-        }
+        if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, balance: newBalance });
         return { bill: updatedBill, payment, duplicate: false };
       });
     } catch (error: any) {
@@ -209,12 +230,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      if (bill?.attendanceId) {
-        await tx.attendance.update({
-          where: { id: bill.attendanceId },
-          data: { totalBill: newTotal, paidAmount: toNumber(bill?.paidAmount || 0), outstandingBalance: newBalance }
-        });
-      }
+      if (bill?.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, totalAmount: newTotal, balance: newBalance });
 
       return { lineItem: updatedLineItem, billId: lineItem.billId };
     });
@@ -286,12 +302,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         data: { waiverAmount: newWaiverAmount, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : (toNumber(bill.paidAmount) > 0 ? 'partial' : 'pending') }
       });
 
-      if (bill.attendanceId) {
-        await tx.attendance.update({
-          where: { id: bill.attendanceId },
-          data: { totalBill: toNumber(bill.totalAmount), paidAmount: toNumber(bill.paidAmount), outstandingBalance: newBalance }
-        });
-      }
+      if (bill.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, balance: newBalance });
 
       return updatedBill;
     });
@@ -625,10 +636,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
-      await tx.attendance.update({
-        where: { id: attendance.id },
-        data: { totalBill: totalAmount, paidAmount: toNumber(updatedBill.paidAmount), outstandingBalance: balance }
-      });
+      await this.syncAttendanceFinancials(tx, attendance.id, { ...updatedBill, balance });
 
       return updatedBill;
     });
