@@ -1275,14 +1275,17 @@ export const getEncounter = (id: string) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.get(`/encounters/${id}`).then(r => {
-    const attendance = r.data;
+    // EncounterController uses BaseController.ok(): { success, data, message }.
+    // Unwrap that envelope before adding the legacy _id alias used by older screens.
+    const attendance = r.data?.success && r.data?.data !== undefined ? r.data.data : r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
 export const createEncounter = (data: any) =>
   api.post('/encounters', data).then(r => {
-    const attendance = r.data;
+    // EncounterController uses BaseController.created(): { success, data, message }.
+    const attendance = r.data?.success && r.data?.data !== undefined ? r.data.data : r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 
@@ -1291,7 +1294,8 @@ export const updateEncounter = (id: string, data: any) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.put(`/encounters/${id}`, data).then(r => {
-    const attendance = r.data;
+    // EncounterController uses BaseController.ok(): { success, data, message }.
+    const attendance = r.data?.success && r.data?.data !== undefined ? r.data.data : r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
