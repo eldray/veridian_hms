@@ -746,8 +746,8 @@ export const generateReceiptHTML = (
         </div>
         <div class="summary-row">
           <span class="label" style="font-size: 18px; font-weight: 700;">Outstanding Balance</span>
-          <span class="value ${(billBalance - paymentAmount) <= 0 ? 'balance zero' : 'balance'}">
-            GHS ${formatCurrency(Math.max(0, billBalance - paymentAmount))}
+          <span class="value ${billBalance <= 0 ? 'balance zero' : 'balance'}">
+            GHS ${formatCurrency(Math.max(0, billBalance))}
           </span>
         </div>
       </div>
