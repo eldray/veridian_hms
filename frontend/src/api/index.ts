@@ -532,11 +532,9 @@ export const verifyToken = () =>
 export const logout = () =>
   api.post('/auth/logout').then(r => r.data);
 
+// User management is mounted at /users; /auth only owns authentication/profile flows.
 export const getUsers = () =>
-  api.get('/auth/users').then(r => handleResponse<User>(r.data.users || r.data));
-
-export const getUserStats = () =>
-  api.get('/auth/users/stats').then(r => r.data);
+  api.get('/users').then(r => handleResponse<User>(r.data));
 
 export const getProfile = () =>
   api.get('/auth/profile').then(r => r.data.user || r.data);
@@ -3883,7 +3881,7 @@ export const createCommunicationTemplate = (data: any) =>
 
 export default {
   // Auth
-  login, register, verifyToken, logout, getUsers, getUserStats, getProfile, updateProfile, changePassword,
+  login, register, verifyToken, logout, getUsers, getProfile, updateProfile, changePassword,
 
   // Add new helpers
   hasMinSeniority,
