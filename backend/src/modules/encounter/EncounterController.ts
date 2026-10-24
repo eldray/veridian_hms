@@ -169,6 +169,12 @@ export class EncounterController extends BaseController {
 
   updateMedication = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { encounterId, medicationId } = req.params;
+    // Stock dispensing must use the dedicated PUT /dispense route, which is
+    // restricted to pharmacy/admin roles. Do not let the broader clinical
+    // status-update route bypass that permission boundary.
+    if (req.body?.status === 'dispensed') {
+      return this.badRequest(res, 'Use the dedicated medication dispense endpoint to dispense stock');
+    }
     const user = req.user!;
     const medication = await this.service.updateMedication(encounterId, medicationId, req.body, user.id);
     return this.ok(res, medication, 'Medication updated successfully');
