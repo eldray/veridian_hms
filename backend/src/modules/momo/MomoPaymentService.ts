@@ -109,6 +109,9 @@ export class MomoPaymentService {
     // already have completed and reduced the balance, but must still be recoverable.
     const existing = await this.prisma.momoPaymentIntent.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
     if (existing) {
+      if (existing.initiatedById !== input.userId) {
+        throw Object.assign(new Error('This payment attempt key belongs to another staff member.'), { statusCode: 403 });
+      }
       if (existing.billId !== input.billId || money(existing.amount) !== amount || existing.payerPhone !== payerPhone) {
         throw Object.assign(new Error('This payment attempt key was already used with different payment details.'), { statusCode: 409 });
       }
