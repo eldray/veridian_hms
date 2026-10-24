@@ -31,7 +31,7 @@ export class DocumentService {
     // a .txt file while returning a .pdf path, causing receipt downloads to fail.
     const lines = content
       .trim()
-      .split(/\\r?\\n/)
+      .split(/\r?\n/)
       .map((line) => line.trim())
       .flatMap((line) => (line ? pdf.splitTextToSize(line, maxWidth) : ['']));
 
