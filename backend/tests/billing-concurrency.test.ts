@@ -30,7 +30,7 @@ describe('billing payment concurrency guards', () => {
     expect(result.payment.id).toBe('payment-1');
     expect(attendanceUpdate).toHaveBeenCalledWith({
       where: { id: 'attendance-1' },
-      data: { outstandingBalance: 0 },
+      data: { totalBill: 100, paidAmount: 100, outstandingBalance: 0 },
     });
   });
 
@@ -115,7 +115,7 @@ describe('billing payment concurrency guards', () => {
     expect(result.payment.amount).toBe(30);
     expect(attendanceUpdate).toHaveBeenCalledWith({
       where: { id: 'attendance-1' },
-      data: { outstandingBalance: 70 },
+      data: { totalBill: 100, paidAmount: 30, outstandingBalance: 70 },
     });
   });
 
@@ -179,7 +179,7 @@ describe('legacy billing-module payment safeguards', () => {
     expect(result.payment.amount).toBe(30);
     expect(tx.attendance.update).toHaveBeenCalledWith({
       where: { id: 'attendance-legacy' },
-      data: { outstandingBalance: 70 },
+      data: { totalBill: 100, paidAmount: 30, outstandingBalance: 70 },
     });
   });
 
