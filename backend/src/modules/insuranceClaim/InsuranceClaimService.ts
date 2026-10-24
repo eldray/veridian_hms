@@ -943,6 +943,10 @@ async listClaimsMissingItems(filters: { insuranceType?: string; status?: string;
   if (filters.insuranceType && !allowedTypes.has(filters.insuranceType)) {
     throw new ValidationError('insuranceType must be nhis, private, or corporate');
   }
+  const allowedStatuses = new Set(['draft', 'finalized']);
+  if (filters.status && !allowedStatuses.has(filters.status)) {
+    throw new ValidationError('status must be draft or finalized');
+  }
   return this.repo.findClaimsMissingItems(filters);
 }
 
