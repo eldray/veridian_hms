@@ -204,8 +204,12 @@ export class InsuranceClaimController extends BaseController {
       return { ...claim, tracking: {
         totalPaid: paid,
         outstanding: Math.max(0, Number(claim.totalClaimAmount) - paid),
-        latestStatus: [...claim.trackingEvents].reverse().find((event: any) => event.eventType === 'adjudication')?.status
-          || (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted'),
+        latestStatus: paid >= Number(claim.totalClaimAmount) && paid > 0
+          ? 'paid'
+          : paid > 0
+            ? 'partially_paid'
+            : ([...claim.trackingEvents].reverse().find((event: any) => event.eventType === 'adjudication')?.status
+              || (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted')),
       }};
     });
     return this.paginated(res, data, { page, limit, total }, 'Finalized claims tracking retrieved');
