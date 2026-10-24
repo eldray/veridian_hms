@@ -2681,6 +2681,12 @@ export const getNHISReadinessReport = () =>
 export const getServiceByNHISCode = (nhisCode: string) =>
   api.get(`/services/nhis/${nhisCode}`).then(r => r.data);
 
+export const getServiceNHISMedicinePolicy = (serviceId: string) =>
+  api.get(`/services/${serviceId}/nhis-medicine-policy`).then(r => r.data?.data ?? r.data);
+
+export const updateServiceNHISMedicinePolicy = (serviceId: string, data: any) =>
+  api.put(`/services/${serviceId}/nhis-medicine-policy`, data).then(r => r.data?.data ?? r.data);
+
 export const getServicesByCategory = (category: string) =>
   api.get(`/services/category/${category}`).then(r => r.data);
 
