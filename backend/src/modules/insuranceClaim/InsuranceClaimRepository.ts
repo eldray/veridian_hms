@@ -204,10 +204,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     if (insuranceType === 'nhis') where.InsuranceProvider = { type: 'nhis' };
     if (insuranceType === 'private') where.InsuranceProvider = { type: 'private' };
     if (insuranceType === 'corporate') {
-      where.OR = [
-        { InsuranceProvider: { type: 'corporate' } },
-        ...(corporateAccountId ? [{ corporateAccountId }] : []),
-      ];
+      if (corporateAccountId) where.corporateAccountId = corporateAccountId;
+      else where.InsuranceProvider = { type: 'corporate' };
     }
 
     return this.prisma.insuranceClaim.findMany({
