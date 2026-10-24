@@ -89,8 +89,16 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await getAntenatalRecordByEncounter(encounterId);
-      const record = response.data || response;
-      set({ currentRecord: record, isLoading: false });
+      // The endpoint returns { booking, visits } inside the API response envelope.
+      // Keep currentRecord as the booking itself so callers can use record.id consistently.
+      const payload = response?.data ?? response;
+      const record = payload?.booking ?? payload?.data?.booking ?? payload;
+      const visits = payload?.visits ?? payload?.data?.visits;
+      set({
+        currentRecord: record,
+        ...(Array.isArray(visits) ? { currentVisits: visits } : {}),
+        isLoading: false,
+      });
       return record;
     } catch (error: unknown) {
       if ((error as any).response?.status === 404) {
