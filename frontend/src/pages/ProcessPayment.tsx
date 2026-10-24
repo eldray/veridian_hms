@@ -133,9 +133,9 @@ export default function ProcessPayment() {
         });
         success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
         let finalStatus = intent;
-        for (let attempt = 0; attempt < 40; attempt++) {
+        for (let attempt = 0; attempt < 24; attempt++) {
           if (finalStatus.status === 'successful' || finalStatus.status === 'failed') break;
-          await new Promise(resolve => window.setTimeout(resolve, 3000));
+          await new Promise(resolve => window.setTimeout(resolve, 5000));
           finalStatus = await checkMomoPaymentStatus(intent.id);
         }
         if (finalStatus.status === 'failed') {
