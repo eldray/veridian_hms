@@ -286,4 +286,50 @@ describe('MomoPaymentService', () => {
       data: expect.objectContaining({ status: 'failed', providerStatus: 'FAILED' }),
     }));
   });
+
+  it('keeps a network-interrupted initiation reconcilable', async () => {
+    const createdIntent = {
+      ...baseIntent,
+      id: 'network-interrupted-intent',
+      status: 'initiating',
+      providerStatus: null,
+      idempotencyKey: 'network-request-key',
+      providerReference: 'network-provider-reference',
+    };
+    const prisma = {
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-1',
+          billNumber: 'BILL-1001',
+          balance: 100,
+          status: 'pending',
+        }),
+      },
+      momoPaymentIntent: {
+        findUnique: vi.fn().mockResolvedValue(null),
+        create: vi.fn().mockResolvedValue(createdIntent),
+        update: vi.fn(async ({ data }: any) => ({ ...createdIntent, ...data })),
+      },
+    } as any;
+    const service = new MomoPaymentService(prisma);
+    globalThis.fetch = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ access_token: 'test-token', expires_in: 3600 }), { status: 200 }))
+      .mockRejectedValueOnce(new TypeError('fetch failed')) as any;
+
+    await expect(service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'network-request-key',
+      userId: 'cashier-1',
+    })).rejects.toThrow(/fetch failed/i);
+
+    expect(prisma.momoPaymentIntent.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'network-interrupted-intent' },
+      data: expect.objectContaining({
+        status: 'initiating',
+        providerStatus: 'INITIATION_UNCONFIRMED',
+      }),
+    }));
+  });
 });
