@@ -75,8 +75,16 @@ export class BillingController extends BaseController {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
 
-      const result = await this.service.addPaymentToBill(req.params.id, req.body, req.user!.id);
-      return this.ok(res, result, 'Payment added successfully');
+      try {
+        const result = await this.service.addPaymentToBill(req.params.id, req.body, req.user!.id);
+        return this.ok(res, result, 'Payment added successfully');
+      } catch (error: any) {
+        if (error?.statusCode === 404 || error?.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error?.statusCode === 409 || /payment is still pending|exceeds the patient's outstanding balance|cancelled bill|idempotency key.*different payment details|already been used for another bill|fully paid bill/i.test(error?.message || '')) {
+          return this.conflict(res, error.message);
+        }
+        throw error;
+      }
     })
   ];
 
