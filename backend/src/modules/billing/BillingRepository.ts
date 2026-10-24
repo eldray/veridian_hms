@@ -155,7 +155,12 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         const payment = await tx.payment.create({
           data: { billId: id, amount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || null, idempotencyKey, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
         });
-        if (current.attendanceId) await tx.attendance.update({ where: { id: current.attendanceId }, data: { outstandingBalance: newBalance } });
+        if (current.attendanceId) {
+          await tx.attendance.update({
+            where: { id: current.attendanceId },
+            data: { totalBill: toNumber(current.totalAmount), paidAmount: toNumber(current.paidAmount), outstandingBalance: newBalance }
+          });
+        }
         return { bill: updatedBill, payment, duplicate: false };
       });
     } catch (error: any) {
@@ -315,7 +320,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       if (currentBill.attendanceId) {
         await tx.attendance.update({
           where: { id: currentBill.attendanceId },
-          data: { totalBill: newTotal, outstandingBalance: newBalance }
+          data: { totalBill: newTotal, paidAmount: toNumber(bill?.paidAmount || 0), outstandingBalance: newBalance }
         });
       }
 
@@ -357,7 +362,10 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       });
 
       if (updated.attendanceId) {
-        await tx.attendance.update({ where: { id: updated.attendanceId }, data: { outstandingBalance: newBalance } });
+        await tx.attendance.update({
+          where: { id: updated.attendanceId },
+          data: { totalBill: toNumber(updated.totalAmount), paidAmount: toNumber(updated.paidAmount), outstandingBalance: newBalance }
+        });
       }
 
       return updated;
