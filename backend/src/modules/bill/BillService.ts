@@ -54,14 +54,23 @@ export class BillService extends BaseService {
     this.logInfo('Updating bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
-    if (data.totalAmount !== undefined && data.totalAmount < 0) throw new Error('Total amount cannot be negative');
-    return this.billRepository.update(id, data);
+    // Financial totals and status are derived from line items, payments, waivers and cancellations.
+    // They must not be overwritten through the general-purpose bill update endpoint.
+    const unsafeFields = ['totalAmount', 'paidAmount', 'status', 'balance', 'patientPayable', 'insuranceCovered', 'waiverAmount', 'discount'];
+    const attemptedFinancialEdit = unsafeFields.find((field) => Object.prototype.hasOwnProperty.call(data as object, field));
+    if (attemptedFinancialEdit) {
+      throw new Error(`Cannot directly edit bill financial field "${attemptedFinancialEdit}". Use the appropriate billing workflow.`);
+    }
+    return this.billRepository.update(id, { notes: data.notes });
   }
 
   async deleteBill(id: string) {
     this.logInfo('Deleting bill', { id });
     const existing = await this.billRepository.findById(id);
     if (!existing) throw new Error('Bill not found');
+    if ((existing.Payment?.length ?? 0) > 0 || ['paid', 'partial'].includes(existing.status)) {
+      throw new Error('A bill with payment history cannot be deleted. Preserve the audit trail and use the approved cancellation or adjustment workflow.');
+    }
     return this.billRepository.delete(id);
   }
 
