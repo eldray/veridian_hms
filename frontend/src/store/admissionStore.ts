@@ -512,9 +512,14 @@ getAdmissions: async (filters = {}, options = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetDetentionPatients(filters);
-      const transformed = Array.isArray(response.data) 
-        ? response.data.map(transformDetentionPatient) 
-        : [];
+      const rows = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+      const transformed = rows.map(transformDetentionPatient);
       
       set({ 
         detentionPatients: transformed, 
@@ -538,9 +543,14 @@ getAdmissions: async (filters = {}, options = {}) => {
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetFormalIPDPatients(filters);
-      const transformed = Array.isArray(response.data) 
-        ? response.data.map(transformAdmission) 
-        : [];
+      const rows = Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+            ? response
+            : [];
+      const transformed = rows.map(transformAdmission);
       
       set({ formalIPDPatients: transformed, isLoading: false });
       console.log(`📊 Loaded ${transformed.length} formal IPD patients`);
