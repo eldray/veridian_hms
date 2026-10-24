@@ -2000,8 +2000,23 @@ export const deleteWard = (id: string) =>
 export const getAvailableBeds = () =>
   api.get('/wards/available-beds').then(r => r.data);
 
-export const getBeds = (filters?: any) =>
-  api.get('/beds', { params: filters }).then(r => handleResponse<Bed>(r.data));
+const getBedsPage = (filters?: any) =>
+  api.get('/beds', { params: filters }).then(r => {
+    const rows = handleResponse<Bed>(r.data);
+    return Object.assign(rows, { pagination: readPagination(r.data) });
+  });
+
+// Default reads feed ward/admission pickers and need all beds; explicit paging
+// remains available for screens that intentionally request one page.
+export const getBeds = async (filters?: any) => {
+  if (filters?.page || filters?.limit) return getBedsPage(filters);
+  const rows = await fetchAllPages<Bed>(getBedsPage, filters || {}, {
+    pageSize: 50, maxItems: 5000, concurrency: 2,
+  });
+  return Object.assign(rows, {
+    pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
+  });
+};
 
 export const getBed = (id: string) =>
   api.get(`/beds/${id}`).then(r => r.data);
@@ -2600,8 +2615,23 @@ export const calculateServiceCost = (data: any) =>
 // DEPARTMENT
 // ──────────────────────────────────────────────
 
-export const getDepartments = (filters?: any) =>
-  api.get('/departments', { params: filters }).then(r => r.data?.data || r.data);
+const getDepartmentsPage = (filters?: any) =>
+  api.get('/departments', { params: filters }).then(r => {
+    const rows = Array.isArray(r.data?.data) ? r.data.data : Array.isArray(r.data) ? r.data : [];
+    return Object.assign(rows, { pagination: readPagination(r.data) });
+  });
+
+// The backend defaults to 50 departments per page. Load all pages for reference
+// lists unless a caller explicitly requests a page or limit.
+export const getDepartments = async (filters?: any) => {
+  if (filters?.page || filters?.limit) return getDepartmentsPage(filters);
+  const rows = await fetchAllPages<any>(getDepartmentsPage, filters || {}, {
+    pageSize: 50, maxItems: 5000, concurrency: 2,
+  });
+  return Object.assign(rows, {
+    pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
+  });
+};
 
 export const getDepartment = (id: string) =>
   api.get(`/departments/${id}`).then(r => r.data?.data || r.data);
