@@ -64,18 +64,30 @@ export class MomoPaymentService {
 
   private async providerRequest(path: string, init: RequestInit = {}) {
     const cfg = this.config();
-    const token = await this.accessToken();
-    const response = await fetch(`${cfg.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Ocp-Apim-Subscription-Key': cfg.subscriptionKey,
-        'X-Target-Environment': cfg.targetEnvironment,
-        'Content-Type': 'application/json',
-        ...(init.headers || {})
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const token = await this.accessToken();
+      const response = await fetch(`${cfg.baseUrl}${path}`, {
+        ...init,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Ocp-Apim-Subscription-Key': cfg.subscriptionKey,
+          'X-Target-Environment': cfg.targetEnvironment,
+          'Content-Type': 'application/json',
+          ...(init.headers || {})
+        }
+      });
+
+      // A cached token may be revoked before its advertised expiry. A 401 means
+      // the request was not authorised, so refresh once and retry the same request.
+      // Do not retry other statuses: in particular, ambiguous POST outcomes must
+      // remain reconcilable rather than risking duplicate provider requests.
+      if (response.status === 401 && attempt === 0) {
+        this.tokenCache = null;
+        continue;
       }
-    });
-    return response;
+      return response;
+    }
+    throw Object.assign(new Error('MoMo authentication failed after refreshing the access token.'), { statusCode: 502 });
   }
 
   private normalizePhone(phone: string) {
