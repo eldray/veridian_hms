@@ -95,32 +95,21 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       }
   
       const lineItems = await tx.billLineItem.findMany({ where: { billId: bill.id, isVoided: false } });
-  
-      // ✅ FIXED: Safely parse Prisma Decimals to numbers for JS math
-      const totalAmount = lineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
-      let patientPayable = totalAmount;
-      let insuranceCovered = 0;
 
-      if ((data.paymentMode === 'nhis' || data.paymentMode === 'private_insurance') && data.insuranceProviderId) {
-        const provider = await tx.insuranceProvider.findUnique({ where: { id: data.insuranceProviderId } });
-        if (provider) {
-          const coverageRate = toNumber(provider.coveragePercentage) / 100;
-          // NHIS medicine lines carry explicit payer-rule allocations; other lines keep existing percentage coverage.
-          insuranceCovered = lineItems.reduce((sum, line) => {
-            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.insuranceCoveredAmount);
-            return sum + toNumber(line.lineTotal) * coverageRate;
-          }, 0);
-          patientPayable = lineItems.reduce((sum, line) => {
-            if (data.paymentMode === 'nhis' && line.sourceKey === 'nhis-medicine-payer-rule') return sum + toNumber(line.patientPayableAmount);
-            return sum + toNumber(line.lineTotal) * (1 - coverageRate);
-          }, 0);
-        }
-      } else if (data.paymentMode === 'corporate' && data.corporateAccountId) {
+      const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const totalAmount = money(lineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      // The service layer records payer allocation per line. Trust those explicit
+      // allocations instead of applying a blanket provider coverage percentage to
+      // uncovered/exempted services that were correctly priced at the cash tariff.
+      let patientPayable = money(lineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0));
+      let insuranceCovered = money(lineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+
+      if (data.paymentMode === 'corporate' && data.corporateAccountId) {
         const corporate = await tx.corporateAccount.findUnique({ where: { id: data.corporateAccountId } });
         if (corporate) {
           patientPayable = 0;
-          const corporateCovered = totalAmount;
-          await tx.corporateAccount.update({ where: { id: data.corporateAccountId }, data: { currentBalance: { increment: corporateCovered } } });
+          insuranceCovered = 0;
+          await tx.corporateAccount.update({ where: { id: data.corporateAccountId }, data: { currentBalance: { increment: totalAmount } } });
         }
       }
   
