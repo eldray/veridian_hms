@@ -71,12 +71,12 @@ export const changePassword = async (
 };
 
 export const getUsers = async () => {
-  const response = await api.get('/auth/users');
-  return (
-    response.data?.data?.users ||
-    response.data?.users ||
-    response.data
-  );
+  const response = await api.get('/users');
+  const payload = response.data;
+  if (Array.isArray(payload?.data?.data)) return payload.data.data;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload)) return payload;
+  return [];
 };
 
 // ✅ NEW: forgot-password

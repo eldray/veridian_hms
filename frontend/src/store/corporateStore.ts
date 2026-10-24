@@ -137,6 +137,7 @@ export const useCorporateStore = create<CorporateState>((set, get) => ({
         pagination = response.pagination;
       } else if (Array.isArray(response)) {
         accounts = response;
+        pagination = (response as any).pagination || null;
       } else if (response?.accounts && Array.isArray(response.accounts)) {
         accounts = response.accounts;
         pagination = response.pagination;

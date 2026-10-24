@@ -255,8 +255,9 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allDiagnoses = [...firstResponse];
-        totalCount = allDiagnoses.length;
-        totalPages = 1;
+        totalCount = firstMeta.total || allDiagnoses.length;
+        totalPages = firstMeta.totalPages || 1;
+        currentPage = firstMeta.page;
       } else if (firstResponse?.diagnoses && Array.isArray(firstResponse.diagnoses)) {
         allDiagnoses = [...firstResponse.diagnoses];
         totalCount = firstResponse.total || allDiagnoses.length;
@@ -424,8 +425,9 @@ getLabTestTemplates: async (filters = {}) => {
       currentPage = firstMeta.page;
     } else if (Array.isArray(firstResponse)) {
       allLabTests = [...firstResponse as any[]];
-      totalCount = allLabTests.length;
-      totalPages = 1;
+      totalCount = firstMeta.total || allLabTests.length;
+      totalPages = firstMeta.totalPages || 1;
+      currentPage = firstMeta.page;
     }
 
     if (currentPage < totalPages) {
@@ -587,8 +589,9 @@ getLabTestTemplates: async (filters = {}) => {
         currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allProcedures = [...firstResponse];
-        totalCount = allProcedures.length;
-        totalPages = 1;
+        totalCount = firstMeta.total || allProcedures.length;
+        totalPages = firstMeta.totalPages || 1;
+        currentPage = firstMeta.page;
       }
 
       if (currentPage < totalPages) {
@@ -749,8 +752,9 @@ getLabTestTemplates: async (filters = {}) => {
         currentPage = firstMeta.page;
       } else if (Array.isArray(firstResponse)) {
         allScans = [...firstResponse];
-        totalCount = allScans.length;
-        totalPages = 1;
+        totalCount = firstMeta.total || allScans.length;
+        totalPages = firstMeta.totalPages || 1;
+        currentPage = firstMeta.page;
       }
 
       if (currentPage < totalPages) {
