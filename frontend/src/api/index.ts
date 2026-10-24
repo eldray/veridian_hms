@@ -1295,7 +1295,7 @@ export const updateEncounter = (id: string, data: any) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.put(`/encounters/${id}`, data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.success && r.data?.data !== undefined ? r.data.data : r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
