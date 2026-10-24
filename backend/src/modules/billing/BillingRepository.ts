@@ -281,13 +281,34 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const updatedLineItem = await tx.billLineItem.update({ where: { id: lineItemId }, data: { isVoided: true, voidedAt: new Date(), voidedById: userId, voidReason: reason } });
 
       const activeLineItems = await tx.billLineItem.findMany({ where: { billId: lineItem.billId, isVoided: false } });
-      
-      // ✅ FIXED: Safely parse Decimals
-      const newTotal = activeLineItems.reduce((sum, i) => sum + toNumber(i.lineTotal), 0);
-      const newPatientPayable = activeLineItems.reduce((sum, i) => sum + toNumber(i.patientPayableAmount), 0);
-      const newBalance = newPatientPayable - toNumber(lineItem.bill.paidAmount);
+      const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const newTotal = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.lineTotal), 0));
+      const grossPatientLiability = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.patientPayableAmount), 0));
+      const newInsuranceCovered = money(activeLineItems.reduce((sum, item) => sum + toNumber(item.insuranceCoveredAmount), 0));
+      const currentBill = await tx.bill.findUnique({ where: { id: lineItem.billId } });
+      if (!currentBill) throw new Error('Bill not found');
+      const newPatientPayable = Math.max(0, money(grossPatientLiability - toNumber(currentBill.waiverAmount)));
+      const newBalance = Math.max(0, money(newPatientPayable - toNumber(currentBill.paidAmount)));
+      const newStatus: BillStatus = newBalance <= 0 ? 'paid' : (toNumber(currentBill.paidAmount) > 0 ? 'partial' : 'pending');
 
-      await tx.bill.update({ where: { id: lineItem.billId }, data: { totalAmount: newTotal, patientPayable: newPatientPayable, balance: newBalance, status: newBalance <= 0 ? 'paid' : lineItem.bill.status } });
+      await tx.bill.update({
+        where: { id: lineItem.billId },
+        data: {
+          subtotal: newTotal,
+          totalAmount: newTotal,
+          insuranceCovered: newInsuranceCovered,
+          patientPayable: newPatientPayable,
+          balance: newBalance,
+          status: newStatus,
+          updatedAt: new Date()
+        }
+      });
+      if (currentBill.attendanceId) {
+        await tx.attendance.update({
+          where: { id: currentBill.attendanceId },
+          data: { totalBill: newTotal, outstandingBalance: newBalance }
+        });
+      }
 
       return updatedLineItem;
     });
