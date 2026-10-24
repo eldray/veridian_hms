@@ -5,7 +5,7 @@ describe('billing payment concurrency guards', () => {
   it('uses an atomic balance condition before recording a payment', async () => {
     const billFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'bill-1', balance: 100, paidAmount: 0, patientPayable: 100, attendanceId: 'attendance-1' })
-      .mockResolvedValueOnce({ id: 'bill-1', balance: 0, paidAmount: 100, patientPayable: 100, attendanceId: 'attendance-1' });
+      .mockResolvedValueOnce({ id: 'bill-1', totalAmount: 100, balance: 0, paidAmount: 100, patientPayable: 100, attendanceId: 'attendance-1' });
     const billUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const billUpdate = vi.fn().mockResolvedValue({ id: 'bill-1', balance: 0, status: 'paid' });
     const paymentCreate = vi.fn().mockResolvedValue({ id: 'payment-1', amount: 100 });
@@ -92,7 +92,7 @@ describe('billing payment concurrency guards', () => {
   it('records a partial payment and keeps the exact remaining balance', async () => {
     const billFindUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'bill-1', balance: 100, paidAmount: 0, patientPayable: 100, attendanceId: 'attendance-1' })
-      .mockResolvedValueOnce({ id: 'bill-1', balance: 70, paidAmount: 30, patientPayable: 100, attendanceId: 'attendance-1' });
+      .mockResolvedValueOnce({ id: 'bill-1', totalAmount: 100, balance: 70, paidAmount: 30, patientPayable: 100, attendanceId: 'attendance-1' });
     const billUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const billUpdate = vi.fn().mockResolvedValue({ id: 'bill-1', balance: 70, status: 'partial' });
     const paymentCreate = vi.fn().mockResolvedValue({ id: 'payment-partial', amount: 30 });
@@ -155,7 +155,7 @@ describe('legacy billing-module payment safeguards', () => {
   it('keeps the outstanding balance after a partial payment in the legacy billing module', async () => {
     const findUnique = vi.fn()
       .mockResolvedValueOnce({ id: 'bill-legacy', balance: 100, paidAmount: 0, attendanceId: 'attendance-legacy', status: 'pending' })
-      .mockResolvedValueOnce({ id: 'bill-legacy', balance: 70, paidAmount: 30, attendanceId: 'attendance-legacy', status: 'pending' });
+      .mockResolvedValueOnce({ id: 'bill-legacy', totalAmount: 100, balance: 70, paidAmount: 30, attendanceId: 'attendance-legacy', status: 'pending' });
     const tx: any = {
       payment: { create: vi.fn().mockResolvedValue({ id: 'payment-legacy-partial', amount: 30 }) },
       bill: {
@@ -307,7 +307,7 @@ describe('voided charge balance reconciliation', () => {
     }));
     expect(tx.attendance.update).toHaveBeenCalledWith({
       where: { id: 'attendance-legacy' },
-      data: { totalBill: 50, outstandingBalance: 0 },
+      data: { totalBill: 50, paidAmount: 70, outstandingBalance: 0 },
     });
   });
 });
