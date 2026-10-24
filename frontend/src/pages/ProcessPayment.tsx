@@ -24,6 +24,7 @@ import {
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
 import { generateReceipt, downloadDocument } from '../api';
+import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
 const paymentAttemptStorageKey = (billId: string) => `veridian:payment-attempt:${billId}`;
@@ -54,6 +55,7 @@ export default function ProcessPayment() {
   const [amount, setAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [reference, setReference] = useState('');
+  const [momoPhone, setMomoPhone] = useState('');
   const [billingBreakdown, setBillingBreakdown] = useState<any>(null);
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [showSendReceipt, setShowSendReceipt] = useState(false);
@@ -114,17 +116,50 @@ export default function ProcessPayment() {
       toastError('Overpayment', 'Payment amount cannot exceed outstanding balance');
       return;
     }
+    if (paymentMethod === 'mobile_money' && !momoPhone.trim()) {
+      toastError('Mobile number required', 'Enter the Ghana mobile number that should receive the payment prompt.');
+      return;
+    }
 
     try {
       setIsSubmittingPayment(true);
-      const paymentResult = await addPaymentToBill(bill.id, {
-        amount,
-        paymentMethod,
-        reference: reference || undefined,
-        transactionDate: new Date().toISOString(),
-        receivedById: user.id,
-        idempotencyKey: paymentAttemptKey.current,
-      });
+      let paymentResult: any;
+      if (paymentMethod === 'mobile_money') {
+        const intent = await initiateMomoPayment({
+          billId: bill.id,
+          amount,
+          payerPhone: momoPhone.trim(),
+          idempotencyKey: paymentAttemptKey.current,
+        });
+        success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
+        let finalStatus = intent;
+        for (let attempt = 0; attempt < 40; attempt++) {
+          if (finalStatus.status === 'successful' || finalStatus.status === 'failed') break;
+          await new Promise(resolve => window.setTimeout(resolve, 3000));
+          finalStatus = await checkMomoPaymentStatus(intent.id);
+        }
+        if (finalStatus.status === 'failed') {
+          paymentAttemptKey.current = crypto.randomUUID();
+          try { if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current); } catch { /* optional storage */ }
+          throw new Error(finalStatus.failureReason || 'The mobile money transaction failed or was declined.');
+        }
+        if (finalStatus.status !== 'successful') {
+          throw new Error('The MoMo request is still pending. Check the payer’s phone and wait for approval, then retry the status check before taking another payment.');
+        }
+        if (!finalStatus.paymentId) {
+          throw new Error('MoMo confirmed success, but the HMS payment reference is not available yet. Do not collect payment again; ask accounts to verify the transaction.');
+        }
+        paymentResult = { payment: { id: finalStatus.paymentId } };
+      } else {
+        paymentResult = await addPaymentToBill(bill.id, {
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          transactionDate: new Date().toISOString(),
+          receivedById: user.id,
+          idempotencyKey: paymentAttemptKey.current,
+        });
+      }
 
       // Rotate only after the server confirms success. If the response is lost,
       // a reload/retry still uses the same key and cannot post the payment twice.
@@ -136,7 +171,7 @@ export default function ProcessPayment() {
       }
       success(
         'Payment recorded', 
-        `${formatCurrency(amount)} received via ${paymentMethod.replace('_', ' ')}`
+        `${formatCurrency(amount)} received via ${paymentMethod === 'mobile_money' ? 'Mobile Money' : paymentMethod.replace('_', ' ')}`
       );
       // Receipt generation is deliberately separate from payment posting: a receipt-template
       // failure must never make a successfully committed payment look unsuccessful.
@@ -435,8 +470,28 @@ export default function ProcessPayment() {
               </div>
             </div>
 
+            {/* Mobile Money payer number: the backend initiates a real collection request. */}
+            {paymentMethod === 'mobile_money' && (
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Mobile Money Number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  value={momoPhone}
+                  onChange={(e) => setMomoPhone(e.target.value)}
+                  required
+                  placeholder="024 123 4567"
+                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                />
+                <p className="text-xs text-gray-600 mt-2">A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success.</p>
+              </div>
+            )}
+
             {/* Reference */}
-            {(paymentMethod === 'card' || paymentMethod === 'mobile_money' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
+            {(paymentMethod === 'card' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-2">
                   Reference Number <span className="text-red-500">*</span>
