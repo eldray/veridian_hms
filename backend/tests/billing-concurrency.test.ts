@@ -396,3 +396,57 @@ describe('attendance visit-level financial summaries', () => {
     });
   });
 });
+
+describe('idempotency key payload consistency', () => {
+  it('rejects reuse of a payment key with a different amount in the primary billing repository', async () => {
+    const priorPayment = {
+      id: 'payment-existing',
+      billId: 'bill-1',
+      amount: 25,
+      paymentMethod: 'cash',
+      reference: null,
+      idempotencyKey: 'retry-key',
+    };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    await expect(repository.addPayment('bill-1', {
+      amount: 30,
+      paymentMethod: 'cash' as any,
+      idempotencyKey: 'retry-key',
+    }, 'cashier-1')).rejects.toThrow(/different payment details/i);
+
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects reuse of a payment key with a different amount in the legacy billing repository', async () => {
+    const priorPayment = {
+      id: 'payment-legacy',
+      billId: 'bill-legacy',
+      amount: 25,
+      paymentMethod: 'cash',
+      reference: null,
+      idempotencyKey: 'retry-key',
+    };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    await expect(repository.addPayment('bill-legacy', {
+      amount: 30,
+      paymentMethod: 'cash',
+      idempotencyKey: 'retry-key',
+    })).rejects.toThrow(/different payment details/i);
+
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.findUnique).not.toHaveBeenCalled();
+  });
+});
