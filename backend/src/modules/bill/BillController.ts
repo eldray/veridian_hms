@@ -35,8 +35,6 @@ export const createBillValidation = [
 ];
 
 export const updateBillValidation = [
-  body('totalAmount').optional().isFloat({ min: 0 }).withMessage('Total amount must be non-negative'),
-  body('status').optional().isIn(['draft', 'pending', 'partial', 'paid', 'cancelled']).withMessage('Invalid status'),
   body('notes').optional().isString()
 ];
 
@@ -83,6 +81,7 @@ export class BillController extends BaseController {
       return this.ok(res, bill, 'Bill retrieved successfully');
     } catch (error: any) {
       if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+      if (error.message?.includes('payment history cannot be deleted')) return this.conflict(res, error.message);
       throw error;
     }
   });
@@ -110,6 +109,7 @@ export class BillController extends BaseController {
         return this.ok(res, bill, 'Bill updated successfully');
       } catch (error: any) {
         if (error.message === 'Bill not found') return this.notFound(res, 'Bill');
+        if (error.message?.startsWith('Cannot directly edit bill financial field')) return this.badRequest(res, error.message);
         throw error;
       }
     })
