@@ -1957,16 +1957,6 @@ export const convertDetentionToIPD = (encounterId: string, data: {
 
 
 // ──────────────────────────────────────────────
-// WARD CHARGES
-// ──────────────────────────────────────────────
-
-export const getWardCharges = (encounterId: string, params?: any) =>
-  api.get(`/encounters/${encounterId}/ward-charges`, { params }).then(r => r.data);
-
-export const generateDailyWardCharges = (date?: string) =>
-  api.post('/admissions/ward-charges/generate', { date }).then(r => r.data);
-
-// ──────────────────────────────────────────────
 // WARDS & BEDS
 // ──────────────────────────────────────────────
 
