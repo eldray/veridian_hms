@@ -198,10 +198,24 @@ export class BillingService extends BaseService {
   }
 
   async addPaymentToBill(id: string, data: AddPaymentDTO, userId: string) {
+    return this.recordPaymentToBill(id, data, userId);
+  }
+
+  /**
+   * Internal-only entry point used after MTN confirms a collection.
+   * It requires the exact pending intent ID; ordinary payment routes cannot
+   * bypass the pending-intent guard by choosing mobile_money as their method.
+   */
+  async addConfirmedMomoPayment(id: string, data: AddPaymentDTO, userId: string, momoIntentId: string) {
+    if (!momoIntentId) throw new Error('A verified Mobile Money intent is required.');
+    return this.recordPaymentToBill(id, data, userId, momoIntentId);
+  }
+
+  private async recordPaymentToBill(id: string, data: AddPaymentDTO, userId: string, momoIntentId?: string) {
     this.logInfo('Adding payment to bill', { billId: id, amount: data.amount });
     const bill = await this.repository.findById(id);
     if (!bill) throw new Error('Bill not found');
-    if (data.paymentMethod !== 'mobile_money') {
+    if (!momoIntentId) {
       const momoIntentModel = (this.prisma as any).momoPaymentIntent;
       const pendingMomo = momoIntentModel?.findFirst
         ? await momoIntentModel.findFirst({
@@ -213,14 +227,13 @@ export class BillingService extends BaseService {
     }
     // A retry may arrive after the first request fully paid the bill. Let the
     // repository resolve an existing idempotency key before stale-balance checks.
-    // New payment attempts still receive the normal paid/overpayment validation.
     if (!data.idempotencyKey) {
       if (bill.status === 'paid') throw new Error('Cannot add payment to a fully paid bill');
       const balance = Number(bill.balance);
       if (data.amount > balance) throw new Error(`Payment amount (${data.amount}) exceeds bill balance (${balance})`);
     }
 
-    return this.repository.addPayment(id, { ...data, userId });
+    return this.repository.addPayment(id, { ...data, userId, ...(momoIntentId ? { internalMomoIntentId: momoIntentId } : {}) });
   }
 
   async updateBillStatus(id: string, data: UpdateBillStatusDTO, userId: string) {
