@@ -30,6 +30,8 @@ export interface CreateBillInput {
   patientId: string;
   attendanceId?: string;
   paymentMode?: PaymentMode;
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
   items: {
     serviceCatalogId: string;
     quantity: number;
