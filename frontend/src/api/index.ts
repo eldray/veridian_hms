@@ -1286,14 +1286,14 @@ export const getEncounter = (id: string) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.get(`/encounters/${id}`).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
 
 export const createEncounter = (data: any) =>
   api.post('/encounters', data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 
@@ -1302,7 +1302,7 @@ export const updateEncounter = (id: string, data: any) => {
     return Promise.reject(new Error('Valid Encounter ID is required'));
   }
   return api.put(`/encounters/${id}`, data).then(r => {
-    const attendance = r.data;
+    const attendance = r.data?.data || r.data;
     return { ...attendance, _id: attendance.id || attendance._id };
   });
 };
@@ -2707,16 +2707,16 @@ export const getConsultationTypes = (filters?: any) =>
   api.get('/consultation-types', { params: filters }).then(r => handleResponse<ConsultationType>(r.data));
 
 export const getConsultationType = (id: string) =>
-  api.get(`/consultation-types/${id}`).then(r => r.data);
+  api.get(`/consultation-types/${id}`).then(r => r.data?.data || r.data);
 
 export const createConsultationType = (data: any) =>
-  api.post('/consultation-types', data).then(r => r.data);
+  api.post('/consultation-types', data).then(r => r.data?.data || r.data);
 
 export const updateConsultationType = (id: string, data: any) =>
-  api.put(`/consultation-types/${id}`, data).then(r => r.data);
+  api.put(`/consultation-types/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteConsultationType = (id: string) =>
-  api.delete(`/consultation-types/${id}`).then(r => r.data);
+  api.delete(`/consultation-types/${id}`).then(r => r.data?.data || r.data);
 
 // ──────────────────────────────────────────────
 // DEPARTMENT
