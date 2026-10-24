@@ -3474,7 +3474,7 @@ export const getAntenatalRecordById = async (recordId: string) => {
 // Register new antenatal booking (first visit)
 export const registerAntenatalBooking = async (data: {
   patientId: string;
-  attendanceId?: string;
+  attendanceId: string;
   gravida: number;
   para: number;
   lmp: string;
