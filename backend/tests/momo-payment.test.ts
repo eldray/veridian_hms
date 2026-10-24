@@ -97,6 +97,18 @@ describe('MomoPaymentService', () => {
     expect(result.intent).not.toHaveProperty('initiatedById');
   });
 
+  it('does not let another staff member recover an attempt by reusing its idempotency key', async () => {
+    const { service } = setup();
+
+    await expect(service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'request-key-1',
+      userId: 'another-cashier',
+    })).rejects.toMatchObject({ statusCode: 403 });
+  });
+
   it('returns an existing idempotent attempt even after its payment changed the bill balance', async () => {
     const { service, prisma } = setup();
     prisma.bill.findUnique.mockResolvedValue({
