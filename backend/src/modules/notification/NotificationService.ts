@@ -29,6 +29,10 @@ export class NotificationService extends BaseService {
     });
   }
 
+  async getNotification(notificationId: string, userId: string) {
+    return this.repo.findByIdForUser(notificationId, userId);
+  }
+
   async getNotificationStats(userId: string) { return this.repo.getStats(userId); }
   async getUnreadCount(userId: string) { return this.repo.getUnreadCount(userId); }
   
