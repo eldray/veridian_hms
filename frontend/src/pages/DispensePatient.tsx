@@ -182,7 +182,7 @@ export default function DispensePatient() {
     isOpen: false, medication: null, stockItem: null,
   });
 
-  const { attendances, getAttendances, updateMedicationStatus, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
+  const { attendances, getAttendances, dispenseMedication, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
   const { patients, loadPatients } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
@@ -275,13 +275,10 @@ export default function DispensePatient() {
     if (!attendanceId || !medication) return;
     setDispensingId(medication.id);
     try {
-      await updateMedicationStatus(attendanceId, medication.id, {
-        status: 'dispensed',
-        dispensedAt: new Date().toISOString(),
-        dispensedById: user?.id,
+      await dispenseMedication(attendanceId, medication.id, {
         quantity,
-        dispensedUnitCost: toNum(stockItem?.costPrice, toNum(medication.unitCost, 0)),
-        batchNumber: stockItem?.batchNumber || null,
+        batchNumber: stockItem?.batchNumber || undefined,
+        expiryDate: stockItem?.expiryDate ? new Date(stockItem.expiryDate).toISOString() : undefined,
       });
     } catch (err: any) {
       toastError('Dispense failed', err.response?.data?.message || err.message);
@@ -326,13 +323,10 @@ export default function DispensePatient() {
         setDispensingId(m.id);
         try {
           const stock = getStockFor(m);
-          await updateMedicationStatus(attendance.id, m.id, {
-            status: 'dispensed',
-            dispensedAt: new Date().toISOString(),
-            dispensedById: user?.id,
+          await dispenseMedication(attendance.id, m.id, {
             quantity: toNum(m.quantity, 1),
-            dispensedUnitCost: toNum(stock?.costPrice, toNum(m.unitCost, 0)),
-            batchNumber: stock?.batchNumber || null,
+            batchNumber: stock?.batchNumber || undefined,
+            expiryDate: stock?.expiryDate ? new Date(stock.expiryDate).toISOString() : undefined,
           });
           okCount++;
         } catch (err: any) {
