@@ -629,16 +629,7 @@ export const adminCreateUser = (userData: any) =>
   api.post('/users', userData).then(r => r.data);  // Admin only endpoint
 
 export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
-  api.get('/users', { params: filters }).then(r => {
-    const response = r.data;
-    if (response?.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response)) {
-      return response;
-    }
-    return [];
-  });
+  api.get('/users', { params: filters }).then(r => handleResponse<User>(r.data));
 
 export const getUserById = (userId: string) =>
   api.get(`/users/${userId}`).then(r => r.data?.data || r.data);
@@ -1626,27 +1617,12 @@ export const generateNHISClaimFromEncounter = (encounterId: string) =>
 // ──────────────────────────────────────────────
 
 const getBillsPage = (filters?: any) => {
-  // ✅ Add cache-busting timestamp to prevent 304 responses
-  const params = {
-    ...filters,
-    _t: Date.now()  // Forces fresh request every time
-  };
-
-  return api.get('/bills', { params }).then(r => {
-    console.log('📊 API Bills Response:', r.data);
-    console.log('📊 Response Headers:', r.headers);
-
-    if (Array.isArray(r.data)) {
-      return r.data;
-    } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills;
-    } else {
-      console.warn('Unexpected bills API structure:', r.data);
-      return [];
-    }
-  });
+  // The backend uses BaseController.paginated:
+  // { success, data: { data: Bill[], meta: { page, limit, total, totalPages } } }.
+  // Use the shared response normalizer so list consumers receive an array while
+  // pagination metadata remains attached for fetchAllPages and store pagination.
+  const params = { ...filters, _t: Date.now() };
+  return api.get('/bills', { params }).then(r => handleResponse<Bill>(r.data));
 };
 
 // limit > 100 walks all pages (backend maximum is 100 per request)
@@ -1821,26 +1797,8 @@ const getAdmissionsPage = (filters?: {
   page?: number;
   limit?: number;
 }) =>
-  api.get('/encounters/admissions', { params: filters }).then(r => {
-    console.log('🔍 getAdmissions API response:', r.data);
-
-    // Handle various response structures
-    if (r.data?.success && r.data?.data) {
-      return r.data.data;
-    }
-    if (r.data?.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    }
-    if (Array.isArray(r.data)) {
-      return r.data;
-    }
-    if (r.data?.admissions && Array.isArray(r.data.admissions)) {
-      return r.data.admissions;
-    }
-
-    console.warn('Unexpected getAdmissions response structure:', r.data);
-    return [];
-  });
+  api.get('/encounters/admissions', { params: filters })
+    .then(r => handleResponse<Admission>(r.data));
 
 // limit > 100 walks all pages (backend maximum is 100 per request)
 export const getAdmissions = async (filters?: {
