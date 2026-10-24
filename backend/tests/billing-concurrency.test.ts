@@ -450,3 +450,31 @@ describe('idempotency key payload consistency', () => {
     expect(tx.bill.findUnique).not.toHaveBeenCalled();
   });
 });
+
+
+describe('pending MoMo intent cannot be bypassed with a manual mobile-money method', () => {
+  it('blocks manual mobile-money collection when a pending intent exists', async () => {
+    const pendingIntent = { id: 'momo-pending-1' };
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      momoPaymentIntent: { findFirst: vi.fn().mockResolvedValue(pendingIntent) },
+      payment: { findUnique: vi.fn().mockResolvedValue(null), create: vi.fn() },
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'bill-1', balance: 100, paidAmount: 0, attendanceId: null, status: 'pending' }),
+        updateMany: vi.fn(),
+        update: vi.fn(),
+      },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    await expect(repository.addPayment('bill-1', {
+      amount: 25,
+      paymentMethod: 'mobile_money' as any,
+    }, 'cashier-1')).rejects.toThrow(/Mobile Money payment is still pending/i);
+
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+});
