@@ -254,6 +254,9 @@ export class BillController extends BaseController {
         return this.ok(res, result, 'Waiver applied successfully');
       } catch (error: any) {
         if (error.message === 'Waiver not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
+        if (/only approved waivers can be applied|already been applied|does not belong to this bill|exceeds the remaining patient liability/i.test(error?.message || '')) {
+          return this.conflict(res, error.message);
+        }
         throw error;
       }
     })
