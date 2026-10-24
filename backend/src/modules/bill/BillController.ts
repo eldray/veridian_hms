@@ -164,6 +164,9 @@ export class BillController extends BaseController {
         return this.ok(res, { voidedItem: result, updatedBill }, 'Bill line item voided successfully');
       } catch (error: any) {
         if (error.message === 'Line item not found' || error.message === 'Bill not found') return this.notFound(res, error.message);
+        if (error?.statusCode === 409 || /recorded payments would exceed the revised patient liability/i.test(error?.message || '')) {
+          return this.conflict(res, error.message);
+        }
         throw error;
       }
     })
