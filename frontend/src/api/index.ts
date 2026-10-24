@@ -2023,13 +2023,13 @@ export const getPurchaseInvoices = (filters?: any) =>
   api.get('/purchase-invoices', { params: filters }).then(r => handleResponse<PurchaseInvoice>(r.data));
 
 export const getPurchaseInvoice = (id: string) =>
-  api.get(`/purchase-invoices/${id}`).then(r => r.data);
+  api.get(`/purchase-invoices/${id}`).then(r => r.data?.data || r.data);
 
 export const createPurchaseInvoice = (data: any) =>
-  api.post('/purchase-invoices', data).then(r => r.data);
+  api.post('/purchase-invoices', data).then(r => r.data?.data || r.data);
 
 export const updatePurchaseInvoice = (id: string, data: any) =>
-  api.put(`/purchase-invoices/${id}`, data).then(r => r.data);
+  api.put(`/purchase-invoices/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deletePurchaseInvoice = (id: string) =>
   api.delete(`/purchase-invoices/${id}`).then(r => r.data);
@@ -2042,13 +2042,13 @@ export const getStockItems = (filters?: any) =>
   api.get('/stock-items', { params: filters }).then(r => handleResponse<StockItem>(r.data));
 
 export const getStockItem = (id: string) =>
-  api.get(`/stock-items/${id}`).then(r => r.data);
+  api.get(`/stock-items/${id}`).then(r => r.data?.data || r.data);
 
 export const createStockItem = (data: any) =>
-  api.post('/stock-items', data).then(r => r.data);
+  api.post('/stock-items', data).then(r => r.data?.data || r.data);
 
 export const updateStockItem = (id: string, data: any) =>
-  api.put(`/stock-items/${id}`, data).then(r => r.data);
+  api.put(`/stock-items/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteStockItem = (id: string) =>
   api.delete(`/stock-items/${id}`).then(r => r.data);
@@ -2060,7 +2060,7 @@ export const getStockCategories = () =>
   api.get('/stock-items/categories').then(r => r.data);
 
 export const updateStockLevel = (id: string, data: { quantity: number; transactionType: string; reference?: string; notes?: string }) =>
-  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data);
+  api.post(`/stock-items/${id}/update-stock`, data).then(r => r.data?.data || r.data);
 
 export const allocateStockToDepartment = (id: string, data: { quantity: number; departmentId: string }) =>
   api.post(`/stock-items/${id}/allocate-stock`, data).then(r => r.data);
@@ -2095,13 +2095,13 @@ export const getStockTransactions = (filters?: any) =>
   api.get('/stock-transactions', { params: filters }).then(r => handleResponse<StockTransaction>(r.data));
 
 export const getStockTransaction = (id: string) =>
-  api.get(`/stock-transactions/${id}`).then(r => r.data);
+  api.get(`/stock-transactions/${id}`).then(r => r.data?.data || r.data);
 
 export const createStockTransaction = (data: any) =>
-  api.post('/stock-transactions', data).then(r => r.data);
+  api.post('/stock-transactions', data).then(r => r.data?.data || r.data);
 
 export const updateStockTransaction = (id: string, data: { notes?: string; reference?: string }) =>
-  api.put(`/stock-transactions/${id}`, data).then(r => r.data);
+  api.put(`/stock-transactions/${id}`, data).then(r => r.data?.data || r.data);
 
 export const getStockMovementReport = (filters?: any) =>
   api.get('/stock-transactions/reports/movement-summary', { params: filters }).then(r => r.data);
@@ -2139,19 +2139,19 @@ export const lookupRequisitionStock = (params: {
   api.get('/requisitions/stock-lookup', { params }).then(r => (r.data?.data ?? r.data) as RequisitionStockLookupItem[]);
 
 export const getRequisition = (id: string) =>
-  api.get(`/requisitions/${id}`).then(r => r.data);
+  api.get(`/requisitions/${id}`).then(r => r.data?.data || r.data);
 
 export const createRequisition = (data: any) =>
-  api.post('/requisitions', data).then(r => r.data);
+  api.post('/requisitions', data).then(r => r.data?.data || r.data);
 
 export const updateRequisition = (id: string, data: any) =>
-  api.put(`/requisitions/${id}`, data).then(r => r.data);
+  api.put(`/requisitions/${id}`, data).then(r => r.data?.data || r.data);
 
 export const deleteRequisition = (id: string) =>
   api.delete(`/requisitions/${id}`).then(r => r.data);
 
 export const updateRequisitionStatus = (id: string, status: string, additionalData?: any) =>
-  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data);
+  api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data?.data || r.data);
 
 export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
 export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
@@ -2159,7 +2159,7 @@ export const fulfillRequisition = (id: string, data?: any) => updateRequisitionS
 export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
 export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) =>
-  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data);
+  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data?.data || r.data);
 
 // ──────────────────────────────────────────────
 // REFERRALS
