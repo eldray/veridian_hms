@@ -32,6 +32,7 @@ import {
   getInsuranceProvider as apiGetInsuranceProvider,
   createInsuranceProvider as apiCreateInsuranceProvider,
   updateInsuranceProvider as apiUpdateInsuranceProvider,
+  toggleInsuranceProviderStatus as apiToggleInsuranceProviderStatus,
   deleteInsuranceProvider as apiDeleteInsuranceProvider,
 } from '../api';
 import type { InsuranceProvider, InsuranceClaim, ClaimBatch, Pagination } from '../types';
@@ -129,6 +130,7 @@ interface InsuranceState {
   getInsuranceProvider: (id: string) => Promise<void>;
   createInsuranceProvider: (data: any) => Promise<void>;
   updateInsuranceProvider: (id: string, data: any) => Promise<void>;
+  toggleInsuranceProviderStatus: (id: string) => Promise<void>;
   deleteInsuranceProvider: (id: string) => Promise<void>;
 
   // Utilities
@@ -687,6 +689,24 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
           state.currentProvider?.id === id
             ? { ...state.currentProvider, ...provider }
             : state.currentProvider,
+        isLoading: false,
+      }));
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  toggleInsuranceProviderStatus: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiToggleInsuranceProviderStatus(id);
+      const provider = res?.data ?? res;
+      set((state) => ({
+        providers: state.providers.map((item) => item.id === id ? { ...item, ...provider } : item),
+        currentProvider: state.currentProvider?.id === id
+          ? { ...state.currentProvider, ...provider }
+          : state.currentProvider,
         isLoading: false,
       }));
     } catch (e: any) {
