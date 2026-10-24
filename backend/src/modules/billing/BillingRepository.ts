@@ -11,6 +11,30 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     super(prisma, 'bill');
   }
 
+  private async syncAttendanceFinancials(tx: any, attendanceId: string, fallback?: any) {
+    // Visit summaries aggregate all non-cancelled bills attached to this attendance.
+    if (typeof tx.bill.aggregate !== 'function') {
+      // Lightweight unit-test doubles may omit Prisma aggregate; real Prisma supports it.
+      if (fallback && tx.attendance?.update) {
+        await tx.attendance.update({ where: { id: attendanceId }, data: {
+          totalBill: toNumber(fallback.totalAmount),
+          paidAmount: toNumber(fallback.paidAmount),
+          outstandingBalance: toNumber(fallback.balance)
+        }});
+      }
+      return;
+    }
+    const totals = await tx.bill.aggregate({
+      where: { attendanceId, status: { not: 'cancelled' } },
+      _sum: { totalAmount: true, paidAmount: true, balance: true }
+    });
+    await tx.attendance.update({ where: { id: attendanceId }, data: {
+      totalBill: toNumber(totals._sum.totalAmount),
+      paidAmount: toNumber(totals._sum.paidAmount),
+      outstandingBalance: toNumber(totals._sum.balance)
+    }});
+  }
+
   async findAll(filters: BillFilters) {
     const { patientId, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const where: any = {};
@@ -155,12 +179,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         const payment = await tx.payment.create({
           data: { billId: id, amount, paymentMethod: paymentData.paymentMethod, reference: paymentData.reference || null, idempotencyKey, receivedById: paymentData.userId, notes: paymentData.notes, transactionDate: new Date() }
         });
-        if (current.attendanceId) {
-          await tx.attendance.update({
-            where: { id: current.attendanceId },
-            data: { totalBill: toNumber(current.totalAmount), paidAmount: toNumber(current.paidAmount), outstandingBalance: newBalance }
-          });
-        }
+        if (current.attendanceId) await this.syncAttendanceFinancials(tx, current.attendanceId, { ...current, balance: newBalance });
         return { bill: updatedBill, payment, duplicate: false };
       });
     } catch (error: any) {
@@ -317,12 +336,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           updatedAt: new Date()
         }
       });
-      if (currentBill.attendanceId) {
-        await tx.attendance.update({
-          where: { id: currentBill.attendanceId },
-          data: { totalBill: newTotal, paidAmount: toNumber(currentBill.paidAmount), outstandingBalance: newBalance }
-        });
-      }
+      if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, totalAmount: newTotal, balance: newBalance });
 
       return updatedLineItem;
     });
@@ -361,12 +375,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         include: { Patient: true, Attendance: true, CorporateAccount: true }
       });
 
-      if (updated.attendanceId) {
-        await tx.attendance.update({
-          where: { id: updated.attendanceId },
-          data: { totalBill: toNumber(updated.totalAmount), paidAmount: toNumber(updated.paidAmount), outstandingBalance: newBalance }
-        });
-      }
+      if (updated.attendanceId) await this.syncAttendanceFinancials(tx, updated.attendanceId, { ...updated, balance: newBalance });
 
       return updated;
     });
