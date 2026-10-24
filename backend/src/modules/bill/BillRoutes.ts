@@ -31,7 +31,7 @@ export const createBillRoutes = () => {
   router.get('/:id/report', billController.getBillReport);
 
   // POST /api/bills - Create a new bill
-  router.post('/', createBillValidation, billController.createBill);
+  router.post('/', requireRole(['admin', 'accounts']), createBillValidation, billController.createBill);
 
   // PUT /api/bills/:id - Update a bill (Admin/Accounts only)
   router.put('/:id', requireRole(['admin', 'accounts']), updateBillValidation, billController.updateBill);
