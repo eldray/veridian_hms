@@ -1212,7 +1212,8 @@ export const createPatient = (data: any) => {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
   if (data instanceof FormData) {
-    return api.post('/patients', processedData, {
+    // FormData is not enumerable; spreading it produces an empty object and drops every field/file.
+    return api.post('/patients', data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);
   } else {
@@ -1226,7 +1227,8 @@ export const updatePatient = (id: string, data: any) => {
     processedData.dateOfBirth = processedData.dateOfBirth.split('T')[0];
   }
   if (data instanceof FormData) {
-    return api.put(`/patients/${id}`, processedData, {
+    // Preserve the original multipart fields and file entries instead of sending an empty spread object.
+    return api.put(`/patients/${id}`, data, {
       headers: { 'Content-Type': 'multipart/form-data' }
     }).then(r => r.data);
   } else {
