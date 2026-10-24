@@ -87,6 +87,31 @@ export class DiagnosisController extends BaseController {
     })
   ];
 
+  bulkUpdate = [
+    body('diagnosisIds').isArray({ min: 1, max: 500 }).withMessage('Diagnosis IDs must be an array of 1 to 500 IDs'),
+    body('diagnosisIds.*').isString().trim().notEmpty().withMessage('Each diagnosis ID must be a non-empty string'),
+    body('name').optional().isString().trim().notEmpty(),
+    body('icdCode').optional().isString().trim().notEmpty().toUpperCase(),
+    body('morbidityGroup').optional().isString().trim().notEmpty(),
+    body('description').optional({ nullable: true }).isString(),
+    body('requiresAuthorization').optional().isBoolean(),
+    body('isChronic').optional().isBoolean(),
+    body('isNHISCovered').optional().isBoolean(),
+    body('tariffCode').optional().isString(),
+    body('isActive').optional().isBoolean(),
+    this.asyncHandler(async (req: AuthRequest, res: Response) => {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
+      try {
+        const { diagnosisIds, ...updateData } = req.body;
+        const result = await this.service.bulkUpdateDiagnoses(diagnosisIds, updateData);
+        return this.ok(res, { updatedCount: result.count }, 'Diagnoses updated successfully');
+      } catch (e: any) {
+        return this.error(res, e);
+      }
+    })
+  ];
+
   delete = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     try {
       await this.service.deleteDiagnosis(req.params.id);
