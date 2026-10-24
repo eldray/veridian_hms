@@ -98,8 +98,8 @@ export interface RequisitionItem {
 
 export interface AntenatalBookingData {
   patientId: string;
-  encounterId: string;
-  lmp?: string;
+  attendanceId: string;
+  lmp: string;
   gravida: number;
   para: number;
   bookingWeight?: number;
