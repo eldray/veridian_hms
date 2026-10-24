@@ -151,7 +151,18 @@ export class MomoPaymentService {
       });
       if (response.status !== 202 && !response.ok) {
         const details = await response.text().catch(() => '');
-        throw Object.assign(new Error(`MoMo rejected the payment request (HTTP ${response.status}). ${details.slice(0, 180)}`), { statusCode: 502 });
+        // A 5xx, timeout, rate-limit or conflict response may arrive after the
+        // provider has accepted the request. Keep it reconcilable instead of
+        // marking it failed and encouraging a duplicate payment attempt.
+        const outcomeUnknown = response.status >= 500 || [408, 409, 429].includes(response.status);
+        throw Object.assign(
+          new Error(`MoMo ${outcomeUnknown ? 'could not confirm the outcome of' : 'rejected'} the payment request (HTTP ${response.status}). ${details.slice(0, 180)}`),
+          {
+            statusCode: 502,
+            providerOutcomeUnknown: outcomeUnknown,
+            definiteFailure: !outcomeUnknown
+          }
+        );
       }
       const updated = await this.prisma.momoPaymentIntent.update({
         where: { id: intent.id },
@@ -162,7 +173,8 @@ export class MomoPaymentService {
       // Only a definite provider/configuration rejection is marked failed.
       // A network interruption may occur after MTN accepted the request, so retain
       // the intent as initiating and reconcile it through the status endpoint.
-      const definiteFailure = Boolean(error?.statusCode);
+      const definiteFailure = error?.definiteFailure === true ||
+        (Boolean(error?.statusCode) && error?.providerOutcomeUnknown !== true);
       await this.prisma.momoPaymentIntent.update({
         where: { id: intent.id },
         data: {
