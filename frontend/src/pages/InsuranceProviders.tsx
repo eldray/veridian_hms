@@ -43,6 +43,7 @@ export default function InsuranceProviders() {
     getInsuranceProviders,
     createInsuranceProvider,
     updateInsuranceProvider,
+    toggleInsuranceProviderStatus,
     deleteInsuranceProvider,
     isLoading: insuranceLoading
   } = useInsuranceStore();
@@ -268,7 +269,7 @@ export default function InsuranceProviders() {
           await updateCorporateAccount(provider.id, { isActive: true });
         }
       } else {
-        await updateInsuranceProvider(provider.id, { isActive: newStatus });
+        await toggleInsuranceProviderStatus(provider.id);
       }
       success('Status Updated', `${provider.name} has been ${action}d`);
       await loadData();
