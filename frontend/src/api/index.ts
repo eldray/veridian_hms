@@ -3902,9 +3902,6 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
   getWaiversByBill, getWaiversByPatient, getWaiverStatistics, deleteWaiver, applyWaiverToBill,
 
-  // Ward Charges
-  getWardCharges, generateDailyWardCharges,
-
   // Admissions
   getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
   addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
