@@ -33,7 +33,14 @@ export class NotificationRepository extends BaseRepository<any, any, any> {
     };
   }
 
-  async getStats(userId: string) {
+  async findByIdForUser(id: string, userId: string) {
+    return this.getModel().findFirst({
+      where: { id, userId },
+      include: { sender: { select: { id: true, fullName: true, role: true } } },
+    });
+  }
+
+
     const [total, unread, byType, byPriority] = await Promise.all([
       this.count({ userId }), 
       this.count({ userId, isRead: false }),
