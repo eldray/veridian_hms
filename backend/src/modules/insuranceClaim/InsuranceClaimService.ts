@@ -308,19 +308,34 @@ ${claimsXml}
   }
 
   async finalizeClaim(claimId: string, userId: string) {
-    const claim = await this.prisma.insuranceClaim.findUnique({ where: { id: claimId } });
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      include: { items: { select: { id: true } } },
+    });
     if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
+    if (!claim.items.length) {
+      throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
+    }
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'finalized', finalizedAt: new Date(), finalizedById: userId, updatedById: userId } });
   }
 
   async updateClaimStatus(claimId: string, status: string, notes: string | undefined, userId: string) {
     const valid = ['draft', 'finalized'];
     if (!valid.includes(status)) throw new Error('Invalid status');
+    if (status === 'finalized') {
+      const claim = await this.prisma.insuranceClaim.findUnique({
+        where: { id: claimId },
+        include: { items: { select: { id: true } } },
+      });
+      if (!claim) throw new NotFoundError('Claim', claimId);
+      if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
+      if (!claim.items.length) {
+        throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
+      }
+    }
     const toUpdate: any = { status, updatedById: userId, updatedAt: new Date() };
     if (status === 'finalized') { toUpdate.finalizedAt = new Date(); toUpdate.finalizedById = userId; }
-    
-    
     if (notes) toUpdate.notes = notes;
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
