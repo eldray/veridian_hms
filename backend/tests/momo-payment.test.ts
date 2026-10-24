@@ -97,6 +97,27 @@ describe('MomoPaymentService', () => {
     expect(result.intent).not.toHaveProperty('initiatedById');
   });
 
+  it('returns an existing idempotent attempt even after its payment changed the bill balance', async () => {
+    const { service, prisma } = setup();
+    prisma.bill.findUnique.mockResolvedValue({
+      id: 'bill-1',
+      billNumber: 'BILL-1001',
+      balance: 0,
+      status: 'paid',
+    });
+
+    const result = await service.initiate({
+      billId: 'bill-1',
+      amount: 25,
+      payerPhone: '0241234567',
+      idempotencyKey: 'request-key-1',
+      userId: 'cashier-1',
+    });
+
+    expect(result.reused).toBe(true);
+    expect(result.intent.id).toBe(baseIntent.id);
+  });
+
   it('does not post a bill payment while MTN reports pending', async () => {
     const { service, prisma, addPayment } = setup();
     globalThis.fetch = vi.fn()
