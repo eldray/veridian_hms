@@ -168,6 +168,111 @@ export class InsuranceClaimController extends BaseController {
     return res.send(html);
   });
 
+  listTrackingClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
+    const where: any = { status: 'finalized' };
+    if (req.query.insuranceType) {
+      where.InsuranceProvider = { type: String(req.query.insuranceType) };
+    }
+    if (req.query.search) {
+      const search = String(req.query.search).trim();
+      if (search) where.OR = [
+        { claimNumber: { contains: search, mode: 'insensitive' } },
+        { Patient: { folderNumber: { contains: search, mode: 'insensitive' } } },
+        { Patient: { surname: { contains: search, mode: 'insensitive' } } },
+        { InsuranceProvider: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+    const [claims, total] = await Promise.all([
+      prisma.insuranceClaim.findMany({
+        where, skip: (page - 1) * limit, take: limit,
+        orderBy: { finalizedAt: 'desc' },
+        include: {
+          InsuranceProvider: { select: { id: true, name: true, type: true } },
+          Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { attendanceNumber: true, dateTime: true } },
+          trackingEvents: { orderBy: { createdAt: 'asc' } },
+        },
+      }),
+      prisma.insuranceClaim.count({ where }),
+    ]);
+    const data = claims.map((claim: any) => {
+      const paid = claim.trackingEvents
+        .filter((event: any) => event.eventType === 'payment')
+        .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
+      return { ...claim, tracking: {
+        totalPaid: paid,
+        outstanding: Math.max(0, Number(claim.totalClaimAmount) - paid),
+        latestStatus: [...claim.trackingEvents].reverse().find((event: any) => event.eventType === 'adjudication')?.status
+          || (claim.trackingEvents.some((event: any) => event.eventType === 'submission') ? 'submitted' : 'not_submitted'),
+      }};
+    });
+    return this.paginated(res, data, { page, limit, total }, 'Finalized claims tracking retrieved');
+  });
+
+  recordTrackingEvent = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { eventType, status, submissionDate, payerReference, amount, paymentReference, paymentMethod, notes } = req.body || {};
+    const allowedTypes = ['submission', 'adjudication', 'payment', 'note'];
+    if (!allowedTypes.includes(eventType)) return this.badRequest(res, 'Invalid tracking event type');
+    const claim = await prisma.insuranceClaim.findUnique({
+      where: { id: req.params.claimId },
+      select: { id: true, claimNumber: true, status: true, totalClaimAmount: true },
+    });
+    if (!claim) return this.notFound(res, 'Insurance claim');
+    if (claim.status !== 'finalized') return this.badRequest(res, 'Only finalized claims can be tracked for submission or remittance');
+
+    if (eventType === 'payment') {
+      const numericAmount = Number(amount);
+      if (!Number.isFinite(numericAmount) || numericAmount <= 0) return this.badRequest(res, 'Payment amount must be greater than zero');
+      if (!String(paymentReference || '').trim()) return this.badRequest(res, 'A payer remittance/payment reference is required to prevent duplicate entries');
+      try {
+        const event = await prisma.$transaction(async (tx: any) => {
+          await tx.$queryRaw`SELECT "id" FROM "InsuranceClaim" WHERE "id" = ${claim.id} FOR UPDATE`;
+          const existing = await tx.insuranceClaimTrackingEvent.findMany({
+            where: { claimId: claim.id, eventType: 'payment' }, select: { amount: true },
+          });
+          const paid = existing.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+          if (paid + numericAmount > Number(claim.totalClaimAmount) + 0.005) {
+            throw new Error('Payment exceeds the remaining claim amount. Check the remittance and existing allocations.');
+          }
+          return tx.insuranceClaimTrackingEvent.create({
+            data: {
+              claimId: claim.id, eventType, amount: numericAmount,
+              paymentReference: String(paymentReference).trim(),
+              paymentMethod: paymentMethod ? String(paymentMethod).trim() : null,
+              payerReference: payerReference ? String(payerReference).trim() : null,
+              notes: notes ? String(notes).trim() : null,
+              recordedById: req.user!.id,
+            },
+          });
+        });
+        return this.created(res, event, 'Claim payment recorded');
+      } catch (error: any) {
+        if (error?.code === 'P2002' || /unique constraint/i.test(String(error?.message))) {
+          return this.conflict(res, 'This payment reference has already been recorded');
+        }
+        if (String(error?.message || '').includes('exceeds the remaining')) return this.badRequest(res, error.message);
+        throw error;
+      }
+    }
+
+    if (eventType === 'submission' && !String(payerReference || '').trim()) {
+      return this.badRequest(res, 'Enter the payer submission/reference number where available');
+    }
+    const event = await prisma.insuranceClaimTrackingEvent.create({
+      data: {
+        claimId: claim.id, eventType,
+        status: status ? String(status).trim().toLowerCase() : null,
+        submissionDate: submissionDate ? new Date(submissionDate) : (eventType === 'submission' ? new Date() : null),
+        payerReference: payerReference ? String(payerReference).trim() : null,
+        notes: notes ? String(notes).trim() : null,
+        recordedById: req.user!.id,
+      },
+    });
+    return this.created(res, event, 'Claim tracking event recorded');
+  });
+
   getClaimsSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const summary = await this.service.getClaimsSummary({ insuranceType: req.query.insuranceType as any });
     return this.ok(res, summary, 'Claims summary retrieved');
