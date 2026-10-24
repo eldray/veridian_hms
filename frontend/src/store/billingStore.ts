@@ -96,7 +96,8 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     try {
       const response = await apiGetBillLineItems(billId);
       set({ isLoading: false });
-      return response.data || response;
+      // The API returns { bill, lineItems, summary }; this store action promises the rows.
+      return Array.isArray(response) ? response : (response?.lineItems || []);
     } catch (error) {
       set({ isLoading: false });
       throw error;
