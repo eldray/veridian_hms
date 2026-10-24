@@ -47,6 +47,7 @@ import Settings from './pages/Settings';
 import StockManagement from './pages/StockManagement';
 import InsuranceProviders from './pages/InsuranceProviders';
 import InsuranceClaims from './pages/InsuranceClaims';
+import InsuranceClaimsTracking from './pages/InsuranceClaimsTracking';
 import EditInsuranceClaim from './pages/EditInsuranceClaim';
 import VitalsEntry from './pages/VitalsEntry';
 import EditNHISClaim from './pages/insurance-claims/EditNHISClaim';
@@ -175,6 +176,7 @@ const routeMap: Record<string, string> = {
   '/dashboard/billing':                              'billing',
   '/dashboard/insurance-providers':                  'insurance_providers',
   '/dashboard/insurance-claims':                     'insurance_claims',
+  '/dashboard/insurance-claims/tracking':            'insurance_claims',
   '/dashboard/insurance-claims/batches':             'insurance_claims',
   '/dashboard/inventory':                            'inventory',
   '/dashboard/pharmacy':                             'pharmacy',
@@ -442,6 +444,7 @@ function App() {
           <Route path="billing"                     element={<ProtectedRoute><Billing /></ProtectedRoute>} />
           <Route path="insurance-providers"         element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />
           <Route path="insurance-claims"            element={<ProtectedRoute><InsuranceClaims /></ProtectedRoute>} />
+          <Route path="insurance-claims/tracking" element={<ProtectedRoute><InsuranceClaimsTracking /></ProtectedRoute>} />
           <Route path="insurance-claims/:id/edit"   element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
           <Route path="insurance-claims/nhis/:id/edit"      element={<ProtectedRoute><EditNHISClaim /></ProtectedRoute>} />
           <Route path="insurance-claims/private/:id/edit"   element={<ProtectedRoute><EditPrivateClaim /></ProtectedRoute>} />
