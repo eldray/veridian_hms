@@ -184,7 +184,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
                 select: { id: true }
               })
             : null;
-          if (!confirmedIntent) throw new Error('The confirmed Mobile Money intent is no longer valid for this bill.');
+          if (!confirmedIntent) throw Object.assign(new Error('The confirmed Mobile Money intent is no longer valid for this bill.'), { statusCode: 409 });
         } else {
           const pendingMomo = tx.momoPaymentIntent?.findFirst
             ? await tx.momoPaymentIntent.findFirst({
@@ -192,7 +192,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
                 select: { id: true }
               })
             : null;
-          if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
+          if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
         }
         const bill = await tx.bill.findUnique({ where: { id } });
         if (!bill) throw new Error('Bill not found');
