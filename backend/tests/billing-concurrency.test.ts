@@ -246,3 +246,34 @@ describe('service-level idempotent retry handling', () => {
     }
   });
 });
+
+
+describe('waiver application safeguards', () => {
+  it('rejects reapplying an already-applied waiver in the primary billing path', async () => {
+    const tx: any = {
+      patientWaiver: { findUnique: vi.fn().mockResolvedValue({
+        id: 'waiver-applied', billId: 'bill-1', status: 'approved', appliedAt: new Date(), amountApproved: 20,
+      }) },
+      bill: { findUnique: vi.fn(), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+    await expect(repository.applyWaiver('bill-1', 'waiver-applied')).rejects.toThrow(/already been applied/i);
+    expect(tx.bill.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects reapplying an already-applied waiver in the legacy billing path', async () => {
+    const tx: any = {
+      patientWaiver: { findUnique: vi.fn().mockResolvedValue({
+        id: 'waiver-applied', billId: 'bill-legacy', status: 'approved', appliedAt: new Date(), amountApproved: 20,
+      }) },
+      bill: { findUnique: vi.fn(), update: vi.fn() },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+    await expect(repository.applyWaiver('bill-legacy', 'waiver-applied')).rejects.toThrow(/already been applied/i);
+    expect(tx.bill.update).not.toHaveBeenCalled();
+  });
+});
