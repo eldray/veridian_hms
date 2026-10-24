@@ -1624,26 +1624,40 @@ export const getEncounterStats = async (filters?: any) => {
 // ──────────────────────────────────────────────
 
 const getBillsPage = (filters?: any) => {
-  // ✅ Add cache-busting timestamp to prevent 304 responses
-  const params = {
-    ...filters,
-    _t: Date.now()  // Forces fresh request every time
-  };
+  // Cache-bust list reads while preserving the server's pagination contract.
+  const params = { ...filters, _t: Date.now() };
 
   return api.get('/bills', { params }).then(r => {
-    console.log('📊 API Bills Response:', r.data);
-    console.log('📊 Response Headers:', r.headers);
-
-    if (Array.isArray(r.data)) {
-      return r.data;
-    } else if (r.data && Array.isArray(r.data.data)) {
-      return r.data.data;
-    } else if (r.data && Array.isArray(r.data.bills)) {
-      return r.data.bills;
-    } else {
-      console.warn('Unexpected bills API structure:', r.data);
-      return [];
+    const body = r.data;
+    // BaseController.paginated returns { success, data: Bill[], meta: { page, limit, total, totalPages } }.
+    const bills: any[] = Array.isArray(body)
+      ? body
+      : Array.isArray(body?.data)
+        ? body.data
+        : Array.isArray(body?.bills)
+          ? body.bills
+          : Array.isArray(body?.data?.data)
+            ? body.data.data
+            : [];
+    const pagination = readPagination(body);
+    if (pagination) {
+      Object.defineProperty(bills, 'pagination', {
+        value: { ...pagination, totalPages: pagination.pages },
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(bills, 'total', {
+        value: pagination.total,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
     }
+    if (!Array.isArray(body) && !Array.isArray(body?.data) && !Array.isArray(body?.bills) && !Array.isArray(body?.data?.data)) {
+      console.warn('Unexpected bills API structure:', body);
+    }
+    return bills;
   });
 };
 
