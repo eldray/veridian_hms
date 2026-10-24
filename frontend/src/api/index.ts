@@ -1669,8 +1669,8 @@ export const getBillingBreakdownForBill = (billId: string) =>
 export const updateBillStatus = (billId: string, data: any) =>
   api.put(`/billing/invoices/${billId}`, data).then(r => r.data?.data || r.data);
 
-export const getBillStatistics = () =>
-  api.get('/bills/statistics').then(r => r.data?.data || r.data);
+export const getBillStatistics = (filters?: any) =>
+  api.get('/bills/statistics', { params: filters }).then(r => r.data?.data || r.data);
 
 // Bill Line Items
 export const getBillLineItems = (billId: string) =>
@@ -1737,7 +1737,7 @@ export const deleteWaiver = (id: string) =>
   api.delete(`/waivers/${id}`).then(r => r.data);
 
 export const applyWaiverToBill = (billId: string, waiverId: string) =>
-  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data);
+  api.post(`/bills/${billId}/apply-waiver`, { waiverId }).then(r => r.data?.data || r.data);
 
 
 // ──────────────────────────────────────────────
