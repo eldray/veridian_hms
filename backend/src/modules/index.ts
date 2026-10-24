@@ -44,6 +44,7 @@ import { createWaiverRoutes } from './waiver/WaiverRoutes';
 // Insurance & Claims
 import { createInsuranceProviderRoutes } from './insuranceProvider/InsuranceProviderRoutes';
 import { createInsuranceClaimRoutes } from './insuranceClaim/InsuranceClaimRoutes';
+import { createClaimBatchRoutes } from './insuranceClaim/ClaimBatchRouter';
 import { createCorporateRoutes } from './corporate/CorporateRoutes';
 
 // Inventory & Pharmacy
@@ -185,6 +186,11 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   app.use('/insurance-providers', createInsuranceProviderRoutes(prisma));
   console.log('✅ Insurance Provider routes mounted at /insurance-providers');
   
+  // Mount the more-specific batch router before /insurance-claims, whose /:id
+  // route would otherwise capture paths such as /insurance-claims/batches.
+  app.use('/insurance-claims/batches', createClaimBatchRoutes());
+  console.log('✅ Insurance Claim Batch routes mounted at /insurance-claims/batches');
+
   app.use('/insurance-claims', createInsuranceClaimRoutes());
   console.log('✅ Insurance Claim routes mounted at /insurance-claims');
   
