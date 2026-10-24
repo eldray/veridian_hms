@@ -157,15 +157,13 @@ export class BillRepository extends BaseRepository<any, any, any> {
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
         }
-        if (paymentData.paymentMethod !== 'mobile_money') {
-          const pendingMomo = tx.momoPaymentIntent?.findFirst
-            ? await tx.momoPaymentIntent.findFirst({
-                where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
-                select: { id: true }
-              })
-            : null;
-          if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
-        }
+        const pendingMomo = tx.momoPaymentIntent?.findFirst
+          ? await tx.momoPaymentIntent.findFirst({
+              where: { billId: lockedBillId, status: { in: ['initiating', 'pending'] } },
+              select: { id: true }
+            })
+          : null;
+        if (pendingMomo) throw new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.');
         const bill = await tx.bill.findUnique({ where: { id: billId } });
         if (!bill) throw new Error('Bill not found');
         const amount = Math.round(Number(paymentData.amount) * 100) / 100;
