@@ -244,13 +244,20 @@ export class BillingService extends BaseService {
     // Payment-derived statuses must never be set manually: doing so can mark an
     // outstanding bill as paid/partial without a corresponding payment record.
     if (data.status === 'paid' || data.status === 'partial') {
-      throw new Error('Cannot set a bill to paid or partial directly. Record the payment so status and balance are calculated together.');
+      throw Object.assign(
+        new Error('Cannot set a bill to paid or partial directly. Record the payment so status and balance are calculated together.'),
+        { statusCode: 409 },
+      );
     }
 
-    // Preserve the audit trail. Bills with payment history must use an approved
-    // adjustment/refund workflow rather than being cancelled by a status toggle.
-    if (data.status === 'cancelled' && ((Number(bill.paidAmount) || 0) > 0 || (bill.Payment?.length ?? 0) > 0)) {
-      throw new Error('Cannot cancel a bill with recorded payments. Use the approved adjustment workflow to preserve the payment audit trail.');
+    const hasPaymentHistory = (Number(bill.paidAmount) || 0) > 0 || (bill.Payment?.length ?? 0) > 0;
+    // Once money has been recorded, do not let a status toggle erase the financial
+    // state by moving a paid/partial bill back to draft or pending, or cancelling it.
+    if (hasPaymentHistory && data.status !== bill.status) {
+      throw Object.assign(
+        new Error('Cannot change the status of a bill with recorded payments. Use the approved adjustment/refund workflow to preserve the payment audit trail.'),
+        { statusCode: 409 },
+      );
     }
 
     return this.repository.updateStatus(id, data.status, userId);
