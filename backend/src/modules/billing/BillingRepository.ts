@@ -137,11 +137,15 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         }
       }
   
-      return tx.bill.update({
+      const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: { totalAmount, patientPayable, balance: patientPayable, subtotal: totalAmount, insuranceCovered, waiverAmount: 0 },
         include: { Patient: true, Attendance: true, BillLineItem: true, CorporateAccount: true }
       });
+      if (updatedBill.attendanceId) {
+        await this.syncAttendanceFinancials(tx, updatedBill.attendanceId, updatedBill);
+      }
+      return updatedBill;
     });
   }
 
