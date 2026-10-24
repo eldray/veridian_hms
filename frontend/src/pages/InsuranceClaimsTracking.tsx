@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  AlertCircle, Banknote, CheckCircle2, Clock3, FileCheck2, Loader2,
+  AlertCircle, Banknote, Clock3, FileCheck2, Loader2,
   Plus, RefreshCw, Search, Send, ShieldCheck, X,
 } from 'lucide-react';
 import api from '../api/api';
@@ -8,7 +8,7 @@ import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
 import { useToast } from '../store/toastStore';
 
 type TrackingEvent = {
-  id: string; eventType: 'submission' | 'adjudication' | 'payment' | 'note';
+  id: string; eventType: 'submission' | 'adjudication' | 'payment';
   status?: string | null; submissionDate?: string | null; payerReference?: string | null;
   amount?: number | string | null; paymentReference?: string | null; paymentMethod?: string | null;
   notes?: string | null; createdAt: string;
@@ -31,7 +31,7 @@ export default function InsuranceClaimsTracking() {
   const [search, setSearch] = useState('');
   const [type, setType] = useState('all');
   const [selected, setSelected] = useState<ClaimRow | null>(null);
-  const [eventType, setEventType] = useState<'submission' | 'adjudication' | 'payment' | 'note'>('submission');
+  const [eventType, setEventType] = useState<'submission' | 'adjudication' | 'payment'>('submission');
   const [status, setStatus] = useState('submitted');
   const [payerReference, setPayerReference] = useState('');
   const [paymentReference, setPaymentReference] = useState('');
@@ -60,9 +60,8 @@ export default function InsuranceClaimsTracking() {
     acc.claimed += Number(claim.totalClaimAmount || 0);
     acc.paid += Number(claim.tracking?.totalPaid || 0);
     acc.outstanding += Number(claim.tracking?.outstanding ?? claim.totalClaimAmount ?? 0);
-    if (claim.tracking?.latestStatus === 'not_submitted') acc.notSubmitted += 1;
     return acc;
-  }, { claimed: 0, paid: 0, outstanding: 0, notSubmitted: 0 }), [claims]);
+  }, { claimed: 0, paid: 0, outstanding: 0 }), [claims]);
 
   const openRecord = (claim: ClaimRow) => {
     setSelected(claim);
@@ -115,11 +114,10 @@ export default function InsuranceClaimsTracking() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <SummaryCard label="Finalized claims" value={String(claims.length)} icon={<FileCheck2 size={20} />} />
-        <SummaryCard label="Total claim value" value={money(totals.claimed)} icon={<ShieldCheck size={20} />} />
-        <SummaryCard label="Payments recorded" value={money(totals.paid)} icon={<Banknote size={20} />} />
-        <SummaryCard label="Outstanding balance" value={money(totals.outstanding)} icon={<Clock3 size={20} />} />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <SummaryCard label="Total claimed" value={money(totals.claimed)} icon={<FileCheck2 size={20} />} />
+        <SummaryCard label="Payments received" value={money(totals.paid)} icon={<Banknote size={20} />} />
+        <SummaryCard label="Still outstanding" value={money(totals.outstanding)} icon={<Clock3 size={20} />} />
       </div>
 
       <div className="flex flex-col md:flex-row gap-3">
@@ -158,7 +156,7 @@ export default function InsuranceClaimsTracking() {
           <div className="p-5">
             <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg bg-gray-50 p-3 text-sm"><div><div className="text-xs text-gray-500">Claimed</div><strong>{money(selected.totalClaimAmount)}</strong></div><div><div className="text-xs text-gray-500">Paid</div><strong className="text-emerald-700">{money(selected.tracking?.totalPaid)}</strong></div><div><div className="text-xs text-gray-500">Outstanding</div><strong>{money(selected.tracking?.outstanding)}</strong></div></div>
             <form onSubmit={submitEvent} className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700">Activity type<select value={eventType} onChange={e => setEventType(e.target.value as any)} className="mt-1 w-full rounded-lg border px-3 py-2.5"><option value="submission">Submission to payer</option><option value="adjudication">Payer decision / status update</option><option value="payment">Payment / remittance received</option><option value="note">Follow-up note</option></select></label>
+              <label className="block text-sm font-medium text-gray-700">Activity type<select value={eventType} onChange={e => setEventType(e.target.value as any)} className="mt-1 w-full rounded-lg border px-3 py-2.5"><option value="submission">Record submission</option><option value="adjudication">Update payer decision</option><option value="payment">Record payment</option></select></label>
               {eventType === 'submission' && <><Field label="Payer / submission reference *" value={payerReference} onChange={setPayerReference} placeholder="Batch or portal reference" /><Field label="Submission date" value={submissionDate} onChange={setSubmissionDate} type="date" /></>}
               {eventType === 'adjudication' && <><label className="block text-sm font-medium text-gray-700">Payer decision<select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2.5"><option value="acknowledged">Acknowledged</option><option value="under_review">Under review</option><option value="queried">Queried / needs correction</option><option value="approved">Approved</option><option value="partially_approved">Partially approved</option><option value="rejected">Rejected</option></select></label><Field label="Payer reference (optional)" value={payerReference} onChange={setPayerReference} placeholder="Remittance or query reference" /></>}
               {eventType === 'payment' && <><Field label="Amount received (GHS) *" value={amount} onChange={setAmount} type="number" placeholder="0.00" /><Field label="Unique payment / remittance reference *" value={paymentReference} onChange={setPaymentReference} placeholder="Bank advice or remittance number" /><label className="block text-sm font-medium text-gray-700">Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2.5"><option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option><option value="mobile_money">Mobile money</option><option value="other">Other</option></select></label><Field label="Payer remittance reference (optional)" value={payerReference} onChange={setPayerReference} placeholder="Advice number" /></>}
