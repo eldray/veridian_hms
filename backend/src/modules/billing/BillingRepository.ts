@@ -157,6 +157,13 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
           if (priorPayment) {
             if (priorPayment.billId !== id) throw new Error('Payment request key has already been used for another bill.');
+            const requestedAmount = Math.round(toNumber(paymentData.amount) * 100) / 100;
+            const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
+            const requestedReference = paymentData.reference || null;
+            const priorReference = priorPayment.reference || null;
+            if (priorAmount !== requestedAmount || priorPayment.paymentMethod !== paymentData.paymentMethod || priorReference !== requestedReference) {
+              throw new Error('Payment idempotency key was already used with different payment details.');
+            }
             const priorBill = await tx.bill.findUnique({ where: { id } });
             return { bill: priorBill, payment: priorPayment, duplicate: true };
           }
