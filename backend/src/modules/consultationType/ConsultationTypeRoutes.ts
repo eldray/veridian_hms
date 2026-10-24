@@ -1,9 +1,9 @@
 import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { protect, requireRole, AuthRequest } from '../../middleware/authMiddleware';
+import { protect, requireRole } from '../../middleware/authMiddleware';
 
-const READ_ROLES = ['admin', 'super_admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];
-const WRITE_ROLES = ['admin', 'super_admin', 'accounts'];
+const READ_ROLES = ['admin', 'super_admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'] as const;
+const WRITE_ROLES = ['admin', 'super_admin', 'accounts'] as const;
 const ALLOWED_FIELDS = [
   'name', 'code', 'cashPrice', 'nhisPrice', 'insurancePrice',
   'isNHISCovered', 'isPrivateInsExempted', 'isActive',
@@ -40,7 +40,7 @@ export function createConsultationTypeRoutes(prisma: PrismaClient): Router {
   const router = Router();
   router.use(protect);
 
-  router.get('/', requireRole(READ_ROLES), async (req, res, next) => {
+  router.get('/', requireRole([...READ_ROLES]), async (req, res, next) => {
     try {
       const page = Math.max(1, Number(req.query.page) || 1);
       const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
@@ -66,7 +66,7 @@ export function createConsultationTypeRoutes(prisma: PrismaClient): Router {
     } catch (error) { return next(error); }
   });
 
-  router.post('/', requireRole(WRITE_ROLES), async (req, res, next) => {
+  router.post('/', requireRole([...WRITE_ROLES]), async (req, res, next) => {
     try {
       const input = cleanInput(req.body || {});
       const validation = validateInput(input);
