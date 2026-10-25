@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { billController, createBillValidation, updateBillValidation, addPaymentValidation, voidLineItemValidation, applyWaiverValidation } from './BillController';
+import { billController, createBillValidation, updateBillValidation } from './BillController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export const createBillRoutes = () => {
@@ -40,13 +40,13 @@ export const createBillRoutes = () => {
   router.delete('/:id', requireRole(['admin']), billController.deleteBill);
 
   // POST /api/bills/:id/payment - Add payment to a bill
-  router.post('/:id/payment', requireRole(['admin', 'accounts', 'records']), addPaymentValidation, billController.addPaymentToBill);
+  router.post('/:id/payment', requireRole(['admin', 'accounts', 'records']), billController.addPaymentToBill);
 
   // POST /api/bills/line-items/:lineItemId/void - Void a bill line item (Admin/Accounts only)
-  router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), voidLineItemValidation, billController.voidBillLineItem);
+  router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), billController.voidBillLineItem);
 
   // POST /api/bills/:billId/apply-waiver - Apply waiver to a bill
-  router.post('/:billId/apply-waiver', requireRole(['admin', 'accounts']), applyWaiverValidation, billController.applyWaiverToBill);
+  router.post('/:billId/apply-waiver', requireRole(['admin', 'accounts']), billController.applyWaiverToBill);
 
   return router;
 };
