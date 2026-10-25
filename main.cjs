@@ -735,6 +735,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true,
       devTools: !app.isPackaged,
@@ -744,19 +745,45 @@ function createWindow() {
 
   createMenu();
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return { action: 'allow' };
+  // The renderer never needs a camera, microphone, geolocation or MIDI. Only
+  // desktop notifications and clipboard access are allowed; everything else is
+  // denied so a compromised page cannot ask the operating system for devices.
+  const ALLOWED_PERMISSIONS = new Set([
+    'notifications',
+    'clipboard-read',
+    'clipboard-sanitized-write',
+  ]);
+  const session = mainWindow.webContents.session;
+  session.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(ALLOWED_PERMISSIONS.has(permission));
   });
-  // Never let the app window navigate away to an arbitrary site
+  session.setPermissionCheckHandler((_contents, permission) => ALLOWED_PERMISSIONS.has(permission));
+
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+    }
+    // Never let a page open a second Electron window with its own preferences.
+    return { action: 'deny' };
+  });
+  // Never let the app window navigate away to an arbitrary site. Compare full
+  // origins so look-alike hosts such as 127.0.0.1:5000.example.com are rejected.
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = url.startsWith(`http://127.0.0.1:${activePort}`) || url.startsWith('http://localhost:3000') || url.startsWith('file://');
+    let origin;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      event.preventDefault();
+      return;
+    }
+    const allowed = origin === `http://127.0.0.1:${activePort}` || origin === 'http://localhost:3000';
     if (!allowed) {
       event.preventDefault();
-      if (/^https?:/.test(url)) shell.openExternal(url);
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     }
   });
 

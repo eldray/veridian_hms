@@ -34,6 +34,11 @@ semantic versioning.
   is re-checked against the live account on every request, so deactivation and
   role changes take effect immediately. Legacy files with browser-executable
   extensions such as `.html` are no longer served.
+- The Electron main window now runs with `sandbox: true`. Permission requests
+  are denied except for notifications and clipboard access, webview attachment
+  is blocked, page links never open a second Electron window, and navigation is
+  limited to the exact API/UI origins instead of any URL that starts with the
+  host string.
 
 ### Added
 
