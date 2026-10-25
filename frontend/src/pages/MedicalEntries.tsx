@@ -1651,8 +1651,20 @@ export default function MedicalEntries() {
             {/* LEFT — Main content */}
             <div className="flex-1 min-w-0 space-y-4">
 
-              {/* Clinical presentation */}
-              <div className="text-[10px] text-[var(--text-secondary)]">
+              {/* Group 1: clinical history and examination */}
+              <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                  <div className="flex items-center gap-2">
+                    <History className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    <div>
+                      <h3 className="text-xs font-bold text-[var(--text-primary)]">History & Examination</h3>
+                      <p className="text-[10px] text-[var(--text-tertiary)]">Presenting complaints, history, review of systems, examination and ODQ</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-[var(--text-tertiary)]">1 · Clinical assessment</span>
+                </div>
+                <div className="p-3">
+              <div className="text-[10px] text-[var(--text-secondary)] mb-3">
                 Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
                 {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
               </div>
@@ -1713,7 +1725,19 @@ export default function MedicalEntries() {
                   </div>
                 </div>
               </div>
+                </div>
+              </section>
 
+              {/* Group 2: allergy safety and outcome */}
+              <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                  <AlertTriangle className="w-4 h-4 text-[var(--icon-yellow-text)]" />
+                  <div>
+                    <h3 className="text-xs font-bold text-[var(--text-primary)]">Safety Review & Visit Outcome</h3>
+                    <p className="text-[10px] text-[var(--text-tertiary)]">Confirm allergy status and record the patient's condition at the end of the visit</p>
+                  </div>
+                </div>
+                <div className="p-3 space-y-3">
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5 space-y-3">
                 <div className="flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5 text-[var(--icon-yellow-text)]" /><h3 className="text-xs font-bold uppercase tracking-wider text-[var(--text-primary)]">Allergy Review</h3></div>
                 <select value={allergyReviewStatus} onChange={e => setAllergyReviewStatus(e.target.value as typeof allergyReviewStatus)} disabled={!canAddEntries || isClinicalFinalized}
@@ -1753,9 +1777,19 @@ export default function MedicalEntries() {
                 </div>
               )}
 
-              {/* The rest of the sections remain the same as your original */}
-              {/* ... (Diagnosis, Lab, Procedures, Medications, Scans sections) ... */}
+                </div>
+              </section>
 
+              {/* Group 3: diagnoses and orders */}
+              <div className="flex items-center gap-2 px-1 pt-1">
+                <div className="h-5 w-1 rounded-full bg-[var(--icon-cyan-text)]" />
+                <div>
+                  <h3 className="text-xs font-bold text-[var(--text-primary)]">Diagnoses, Investigations & Treatment Orders</h3>
+                  <p className="text-[10px] text-[var(--text-tertiary)]">Diagnoses, laboratory tests, scans, procedures, medications and consumables for this attendance</p>
+                </div>
+              </div>
+
+              {/* The existing diagnosis, lab, procedure, medication, scan and consumable panels remain in place. */}
               {/* ── INVESTIGATIONS ─────────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
