@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { billController, createBillValidation, updateBillValidation } from './BillController';
+import { billController } from './BillController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
 export const createBillRoutes = () => {
@@ -31,10 +31,10 @@ export const createBillRoutes = () => {
   router.get('/:id/report', billController.getBillReport);
 
   // POST /api/bills - Create a new bill
-  router.post('/', requireRole(['admin', 'accounts']), createBillValidation, billController.createBill);
+  router.post('/', requireRole(['admin', 'accounts']), billController.createBill);
 
   // PUT /api/bills/:id - Update a bill (Admin/Accounts only)
-  router.put('/:id', requireRole(['admin', 'accounts']), updateBillValidation, billController.updateBill);
+  router.put('/:id', requireRole(['admin', 'accounts']), billController.updateBill);
 
   // DELETE /api/bills/:id - Delete a bill (Admin only)
   router.delete('/:id', requireRole(['admin']), billController.deleteBill);
