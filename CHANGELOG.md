@@ -44,6 +44,11 @@ semantic versioning.
   is rejected with `400`, and the base64 patient-photo endpoint applies the same
   check. Upload routes now return a `400` for rejected multipart requests
   instead of falling through to a generic server error.
+- Patient allergy and medical-history endpoints validate their payloads with a
+  shared Zod middleware. Blank allergens or conditions, unknown severities and
+  malformed dates return `400`, values are trimmed, and unknown fields are
+  dropped instead of reaching Prisma. Claim-generation endpoints use the same
+  middleware.
 - The Electron main window now runs with `sandbox: true`. Permission requests
   are denied except for notifications and clipboard access, webview attachment
   is blocked, page links never open a second Electron window, and navigation is

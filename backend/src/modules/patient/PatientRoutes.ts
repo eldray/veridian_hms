@@ -5,6 +5,8 @@ import { PatientController } from './PatientController';
 // ✅ ADDED: Security Middleware
 import { protect, requirePatientManagement } from '../../middleware/authMiddleware';
 import { uploadPatientPhoto, handleUploadError } from '../../middleware/uploadMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { createAllergySchema, createMedicalHistorySchema } from './PatientSchemas';
 
 export function createPatientRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -34,9 +36,9 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   // ==========================================
   // NEW: EMR (Allergies & Histories) Routes
   // ==========================================
-  router.post('/:id/allergies', controller.addAllergy);
+  router.post('/:id/allergies', validateBody(createAllergySchema), controller.addAllergy);
   router.get('/:id/allergies', controller.getAllergies);
-  router.post('/:id/medical-history', controller.addMedicalHistory);
+  router.post('/:id/medical-history', validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
   router.get('/:id/medical-history', controller.getMedicalHistories);
 
   return router;

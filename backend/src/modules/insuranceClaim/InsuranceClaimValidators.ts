@@ -1,6 +1,5 @@
 // backend/src/modules/insuranceClaim/InsuranceClaimValidators.ts
 import { z } from 'zod';
-import { Request, Response, NextFunction } from 'express';
 
 export const GenerateClaimSchema = z.object({
   attendanceId: z.string().min(1, 'attendanceId is required'),
@@ -49,23 +48,3 @@ export const GenerateBatchSchema = z.object({
   corporateAccountId: z.string().min(1).optional(),
   description: z.string().max(500).optional(),
 });
-
-export const validate =
-  (schema: z.ZodTypeAny) =>
-  (req: Request, res: Response, next: NextFunction) => {
-    const parsed = schema.safeParse(req.body);
-    if (!parsed.success) {
-      const errors = parsed.error.issues.map((i) => ({
-        field: i.path.join('.'),
-        message: i.message,
-      }));
-      return res.status(400).json({
-        success: false,
-        status: 'fail',
-        message: 'Validation failed',
-        errors,
-      });
-    }
-    req.body = parsed.data;
-    return next();
-  };
