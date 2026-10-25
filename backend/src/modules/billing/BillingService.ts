@@ -216,14 +216,8 @@ export class BillingService extends BaseService {
     const bill = await this.repository.findById(id);
     if (!bill) throw new Error('Bill not found');
     if (!momoIntentId) {
-      const momoIntentModel = (this.prisma as any).momoPaymentIntent;
-      const pendingMomo = momoIntentModel?.findFirst
-        ? await momoIntentModel.findFirst({
-            where: { billId: id, status: { in: ['initiating', 'pending'] } },
-            select: { id: true }
-          })
-        : null;
-      if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
+      // Pending MoMo and idempotency checks run together under the bill lock in the repository.
+      // Keeping this check here would reject a legitimate retry before the existing payment is found.
     }
     // A retry may arrive after the first request fully paid the bill. Let the
     // repository resolve an existing idempotency key before stale-balance checks.
