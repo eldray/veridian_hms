@@ -146,9 +146,11 @@ export const useAppointmentStore = create<AppointmentStore>((set, get) => ({
       }));
     } catch (error: any) {
       set({ 
-        error: error.response?.data?.message || 'Failed to delete appointment', 
+        error: error.response?.data?.message || error.message || 'Failed to delete appointment', 
         isLoading: false 
       });
+      // Preserve failure semantics so pages do not show a success toast after a failed delete.
+      throw error;
     }
   },
 
