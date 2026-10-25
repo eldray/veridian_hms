@@ -3121,7 +3121,7 @@ export const deleteTemplate = (id: string) =>
   api.delete(`/documents/templates/${id}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// UPLOAD SYSTEM (Static file serving)
+// UPLOAD SYSTEM (authenticated file routes)
 // ──────────────────────────────────────────────
 
 export const servePatientImages = (filename: string) =>

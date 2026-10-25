@@ -3,11 +3,24 @@ import { BaseService } from '../../shared/base/BaseService';
 import { BackupRepository } from './BackupRepository';
 import { IBackupResult, IBackupListResponse } from './BackupTypes';
 import path from 'path';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
+import crypto from 'crypto';
 import util from 'util';
 import fs from 'fs/promises';
+import { createReadStream } from 'fs';
 
-const execPromise = util.promisify(exec);
+const execFilePromise = util.promisify(execFile);
+const PG_OPERATION_TIMEOUT_MS = 30 * 60 * 1000;
+
+function checksumFile(filePath: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const hash = crypto.createHash('sha256');
+    createReadStream(filePath)
+      .on('data', (chunk) => hash.update(chunk))
+      .on('error', reject)
+      .on('end', () => resolve(hash.digest('hex')));
+  });
+}
 
 export class BackupService extends BaseService {
   private backupRepository: BackupRepository;
@@ -42,13 +55,29 @@ export class BackupService extends BaseService {
 
       const env = { ...process.env, PGPASSWORD: password };
 
-      // ✅ FIXED: Cross-platform command resolution (works on Linux/Docker/Windows)
+      // pg_dump is invoked directly with an argument array: no shell, so a
+      // password or database name containing spaces/metacharacters is safe.
       const pgDumpCmd = process.env.PG_DUMP_PATH || 'pg_dump';
-      
-      const command = `"${pgDumpCmd}" -h ${host} -p ${port} -U ${user} -d ${dbName} -f "${filePath}" --clean --if-exists --no-owner --no-privileges --format=custom`;
-      
+      const args = [
+        '-h', host, '-p', port, '-U', user, '-d', dbName,
+        '-f', filePath, '--format=custom', '--no-owner', '--no-privileges',
+      ];
+
       this.logInfo('Running pg_dump', { dbName });
-      const { stderr } = await execPromise(command, { env });
+      let stderr = '';
+      try {
+        ({ stderr } = await execFilePromise(pgDumpCmd, args, {
+          env,
+          timeout: PG_OPERATION_TIMEOUT_MS,
+          maxBuffer: 16 * 1024 * 1024,
+        }));
+      } catch (error: any) {
+        stderr = error.stderr || '';
+        if (error.code === 'ENOENT') {
+          throw new Error('pg_dump was not found. Install the PostgreSQL client tools or set PG_DUMP_PATH.');
+        }
+        throw error;
+      }
       
       if (stderr && !stderr.includes('NOTICE') && !stderr.includes('WARNING')) {
         this.logWarn('pg_dump warnings', { stderr });
@@ -56,6 +85,9 @@ export class BackupService extends BaseService {
 
       const stats = await fs.stat(filePath);
       if (stats.size === 0) throw new Error('Backup file is empty - backup failed');
+
+      const checksum = await checksumFile(filePath);
+      await fs.writeFile(`${filePath}.sha256`, `${checksum}  ${filename}\n`, { mode: 0o600 });
 
       const result: IBackupResult = { filename, path: filePath, size: stats.size, createdAt: new Date().toISOString() };
 
@@ -83,14 +115,50 @@ export class BackupService extends BaseService {
       const stats = await fs.stat(backupFilePath);
       if (stats.size === 0) throw new Error('Backup file is empty');
 
-      const env = { ...process.env, PGPASSWORD: password };
+      // A .sha256 sidecar is written next to backups created by this service.
+      // When a dump is re-uploaded on its own there is nothing to compare; the
+      // checksum is still computed so the restore log records the exact input.
+      const checksum = await checksumFile(backupFilePath);
+      const sidecarPath = `${backupFilePath}.sha256`;
+      try {
+        const expected = (await fs.readFile(sidecarPath, 'utf8')).trim().split(/\s+/)[0];
+        if (expected && expected !== checksum) {
+          throw new Error('Backup checksum does not match the stored .sha256 file. The dump may be corrupted.');
+        }
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') throw error;
+      }
 
-      // ✅ FIXED: Cross-platform command resolution
-      const pgRestoreCmd = process.env.PG_RESTORE_PATH || 'pg_restore';
-      const command = `"${pgRestoreCmd}" -h ${host} -p ${port} -U ${user} -d ${dbName} --clean --if-exists --no-owner --no-privileges "${backupFilePath}"`;
-      
-      this.logInfo('Running pg_restore', { dbName });
-      await execPromise(command, { env });
+      const env = { ...process.env, PGPASSWORD: password };
+      const extension = path.extname(backupFilePath).toLowerCase();
+
+      this.logInfo('Running database restore', { dbName, extension, checksum });
+      try {
+        if (extension === '.sql') {
+          // Plain SQL dumps cannot be read by pg_restore.
+          const psqlCmd = process.env.PG_PSQL_PATH || 'psql';
+          await execFilePromise(psqlCmd, [
+            '-h', host, '-p', port, '-U', user, '-d', dbName,
+            '-v', 'ON_ERROR_STOP=1', '--single-transaction', '-f', backupFilePath,
+          ], { env, timeout: PG_OPERATION_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 });
+        } else {
+          const pgRestoreCmd = process.env.PG_RESTORE_PATH || 'pg_restore';
+          await execFilePromise(pgRestoreCmd, [
+            '-h', host, '-p', port, '-U', user, '-d', dbName,
+            '--clean', '--if-exists', '--no-owner', '--no-privileges',
+            '--single-transaction', '--exit-on-error', backupFilePath,
+          ], { env, timeout: PG_OPERATION_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 });
+        }
+      } catch (error: any) {
+        if (error.code === 'ENOENT') {
+          throw new Error(
+            extension === '.sql'
+              ? 'psql was not found. Install the PostgreSQL client tools or set PG_PSQL_PATH.'
+              : 'pg_restore was not found. Install the PostgreSQL client tools or set PG_RESTORE_PATH.',
+          );
+        }
+        throw error;
+      }
 
       const filename = path.basename(backupFilePath);
       await this.backupRepository.logRestoreOperation(filename, userId, true);

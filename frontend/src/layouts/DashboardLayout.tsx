@@ -1,5 +1,5 @@
 // src/layouts/DashboardLayout.tsx
-import { ReactNode, useState, useRef, useEffect, useCallback } from 'react';
+import { ReactNode, Suspense, useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -728,7 +728,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             sidebarCollapsed ? 'lg:ml-[60px]' : 'lg:ml-[220px]'
           }`}
         >
-          <div className="p-4">{children}</div>
+          <div className="p-4">
+            <Suspense
+              fallback={
+                <div
+                  className="flex flex-col items-center justify-center gap-3 py-24"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full border-2 animate-spin"
+                    style={{ borderColor: 'var(--icon-cyan-text)', borderTopColor: 'transparent' }}
+                  />
+                  <p className="text-xs">Loading…</p>
+                </div>
+              }
+            >
+              {children}
+            </Suspense>
+          </div>
         </main>
       </div>
 

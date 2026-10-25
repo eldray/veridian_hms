@@ -6,6 +6,7 @@ import { LoginRequestDTO, ChangePasswordRequestDTO, AuthenticatedRequest } from 
 
 import { protect } from '../../middleware/authMiddleware';
 import { uploadUserImage, handleUploadError } from '../../middleware/uploadMiddleware';
+import { clearFileAccessCookie, setFileAccessCookie } from '../../middleware/fileAccess';
 
 export class AuthController {
   public router: Router;
@@ -48,7 +49,10 @@ export class AuthController {
         return;
       }
 
-      const result = await this.authService.login({ username, password });
+      const result: any = await this.authService.login({ username, password });
+      if (result.success && result.data?.user?.id) {
+        setFileAccessCookie(res, result.data.user.id);
+      }
       res.status(result.success ? 200 : 401).json(result);
     } catch (error) {
       // Keep internal details in the backend console only. Without this log,
@@ -60,7 +64,10 @@ export class AuthController {
 
   private refreshToken = async (req: Request, res: Response) => {
     try {
-      const result = await this.authService.refreshToken(req.body.refreshToken);
+      const result: any = await this.authService.refreshToken(req.body.refreshToken);
+      if (result.success && result.data?.user?.id) {
+        setFileAccessCookie(res, result.data.user.id);
+      }
       res.status(result.success ? 200 : 401).json(result);
     } catch (error) {
       res.status(500).json({ success: false, message: 'Token refresh failed' });
@@ -68,6 +75,7 @@ export class AuthController {
   };
 
   private logout = async (req: AuthenticatedRequest, res: Response) => {
+    clearFileAccessCookie(res);
     try {
       const result = await this.authService.logout(req.body.refreshToken);
       res.status(200).json(result);

@@ -21,6 +21,14 @@ export class BackupRepository {
     }
   }
 
+  private resolveInBackupDir(filename: string): string {
+    const filePath = path.join(this.backupDir, filename);
+    if (!filePath.startsWith(this.backupDir + path.sep)) {
+      throw new Error('Invalid backup filename');
+    }
+    return filePath;
+  }
+
   async getBackupList(page: number = 1, limit: number = 50): Promise<{ backups: IBackupListResponse[]; total: number }> {
     try {
       const files = await fs.readdir(this.backupDir);
@@ -53,9 +61,11 @@ export class BackupRepository {
   }
 
   async deleteBackupFile(filename: string): Promise<void> {
-    const filePath = path.join(this.backupDir, filename);
+    const filePath = this.resolveInBackupDir(filename);
     await fs.access(filePath);
     await fs.unlink(filePath);
+    // Sidecar written by createBackup; without this the checksums outlive their dump.
+    await fs.unlink(`${filePath}.sha256`).catch(() => undefined);
   }
 
   async deleteUploadedFile(filePath: string): Promise<void> {
@@ -101,7 +111,7 @@ export class BackupRepository {
 
   async getBackupFilePath(filename: string): Promise<string> {
     const decodedFilename = decodeURIComponent(filename);
-    const filePath = path.join(this.backupDir, decodedFilename);
+    const filePath = this.resolveInBackupDir(decodedFilename);
     try {
       await fs.access(filePath);
       return filePath;
@@ -112,7 +122,7 @@ export class BackupRepository {
 
   async backupExists(filename: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.backupDir, decodeURIComponent(filename));
+      const filePath = this.resolveInBackupDir(decodeURIComponent(filename));
       await fs.access(filePath);
       return true;
     } catch { return false; }

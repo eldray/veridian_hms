@@ -1,5 +1,6 @@
 import { PrismaClient, LeaveStatus, ShiftType, Seniority, UserRole } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { hashRefreshToken } from '../../utils/tokenHash';
 import {
   UserFilters, UserResponse,
   ShiftFilters, ShiftResponse,
@@ -655,7 +656,14 @@ export class UserRepository extends BaseRepository<any, any, any> {
   }
 
   async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<void> {
-    await this.prisma.refreshToken.create({ data: { userId, token, expiresAt } });
+    // RefreshToken.userId is unique, so a second login for the same user must
+    // replace the previous row instead of failing on the constraint.
+    const tokenHash = hashRefreshToken(token);
+    await this.prisma.refreshToken.upsert({
+      where: { userId },
+      update: { token: tokenHash, expiresAt },
+      create: { userId, token: tokenHash, expiresAt },
+    });
   }
 
   // ==========================================

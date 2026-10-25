@@ -1,5 +1,5 @@
 // src/App.tsx — FULLY CORRECTED
-import { useEffect, useState } from 'react';
+import { lazy, useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { ToastContainer } from './components/ToastContainer';
 import {
@@ -8,76 +8,79 @@ import {
   Route,
   Navigate,
   Outlet,
+  Link,
   useLocation,
   matchPath,
 } from 'react-router-dom';
 
-// Pages
-import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
-import PatientRegistration from './pages/PatientRegistration';
-import Patients from './pages/Patients';
-import UserDetail from './pages/UserDetail';
-import Attendance from './pages/Attendance';
-import Admissions from './pages/Admissions';
-import CorporateAccounts from './pages/CorporateAccounts';
-import Billing from './pages/Billing';
-import ScansEntry from './pages/ScansEntry';
-import FamilyPlanning from './pages/FamilyPlanning';
-import Inventory from './pages/Inventory';
-import Reports from './pages/Reports';
-import Laboratory from './pages/Laboratory';
-import AdmissionDetails from './pages/AdmissionDetails';
-import DispensePatient from './pages/DispensePatient';
-import Pharmacy from './pages/Pharmacy';
-import MedicalEntries from './pages/MedicalEntries';
-import ProcessPayment from './pages/ProcessPayment';
-import Login from './pages/Login';
-import Vitals from './pages/Vitals';
-import PatientDetails from './pages/PatientDetails';
-import MedicalWaitingList from './pages/MedicalWaitingList';
-import MaternalWaitingList from './pages/MaternalWaitingList';
-import Antenatal from './pages/Antenatal';
-import AttendanceDetails from './pages/AttendanceDetails';
-import Theatre from './pages/Theatre';
-import Nursing from './pages/Nursing';
-import MedicalServicesManagement from './pages/MedicalServicesManagement';
-import UserProfile from './pages/UserProfile';
-import Settings from './pages/Settings';
-import StockManagement from './pages/StockManagement';
-import InsuranceProviders from './pages/InsuranceProviders';
-import InsuranceClaims from './pages/InsuranceClaims';
-import InsuranceClaimsTracking from './pages/InsuranceClaimsTracking';
-import EditInsuranceClaim from './pages/EditInsuranceClaim';
-import VitalsEntry from './pages/VitalsEntry';
-import EditNHISClaim from './pages/insurance-claims/EditNHISClaim';
-import EditPrivateClaim from './pages/insurance-claims/EditPrivateClaim';
-import EditCorporateClaim from './pages/insurance-claims/EditCorporateClaim';
-import ClaimBatches from './pages/ClaimBatches';
-import WardManagement from './pages/WardManagement';
-import Notifications from './pages/Notifications';
-import Appointments from './pages/Appointments';
-import LabResultEntry from './pages/LabResultEntry';
-import Departments from './pages/Departments';
-import TheatreProcedure from './pages/TheatreProcedure';
-import AuditLogs from './pages/AuditLogs';
-import Scans from './pages/Scans';
-import InvoiceManagement from './pages/InvoiceManagement';
-import RequisitionManagement from './pages/RequisitionManagement';
-import StockTransactions from './pages/StockTransactions';
-import StockTransfers from './pages/StockTransfers';
-import StockReports from './pages/StockReports';
-import PatientBillingItems from './pages/PatientBillingItems';
-import NursingPatientWorkspace from './pages/NursingPatientWorkspace';
-import Referrals from './pages/Referrals';
-import Estimates from './pages/Estimates';
-import EstimateDetails from './pages/EstimateDetails';
-import EstimateForm from './pages/EstimateForm';
-import UserManagement from './pages/UserManagement';
-import ShiftManagement from './pages/ShiftManagement';
-import LeaveManagement from './pages/LeaveManagement';
-
 import './App.css';
+
+// Shell and login stay eager: they are needed before any route chunk resolves.
+import DashboardLayout from './layouts/DashboardLayout';
+import Login from './pages/Login';
+
+// Pages are split per route so the first paint does not wait on all 60 modules.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PatientRegistration = lazy(() => import('./pages/PatientRegistration'));
+const Patients = lazy(() => import('./pages/Patients'));
+const UserDetail = lazy(() => import('./pages/UserDetail'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Admissions = lazy(() => import('./pages/Admissions'));
+const CorporateAccounts = lazy(() => import('./pages/CorporateAccounts'));
+const Billing = lazy(() => import('./pages/Billing'));
+const ScansEntry = lazy(() => import('./pages/ScansEntry'));
+const FamilyPlanning = lazy(() => import('./pages/FamilyPlanning'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Laboratory = lazy(() => import('./pages/Laboratory'));
+const AdmissionDetails = lazy(() => import('./pages/AdmissionDetails'));
+const DispensePatient = lazy(() => import('./pages/DispensePatient'));
+const Pharmacy = lazy(() => import('./pages/Pharmacy'));
+const MedicalEntries = lazy(() => import('./pages/MedicalEntries'));
+const ProcessPayment = lazy(() => import('./pages/ProcessPayment'));
+const Vitals = lazy(() => import('./pages/Vitals'));
+const PatientDetails = lazy(() => import('./pages/PatientDetails'));
+const MedicalWaitingList = lazy(() => import('./pages/MedicalWaitingList'));
+const MaternalWaitingList = lazy(() => import('./pages/MaternalWaitingList'));
+const Antenatal = lazy(() => import('./pages/Antenatal'));
+const AttendanceDetails = lazy(() => import('./pages/AttendanceDetails'));
+const Theatre = lazy(() => import('./pages/Theatre'));
+const Nursing = lazy(() => import('./pages/Nursing'));
+const MedicalServicesManagement = lazy(() => import('./pages/MedicalServicesManagement'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const StockManagement = lazy(() => import('./pages/StockManagement'));
+const InsuranceProviders = lazy(() => import('./pages/InsuranceProviders'));
+const InsuranceClaims = lazy(() => import('./pages/InsuranceClaims'));
+const InsuranceClaimsTracking = lazy(() => import('./pages/InsuranceClaimsTracking'));
+const EditInsuranceClaim = lazy(() => import('./pages/EditInsuranceClaim'));
+const VitalsEntry = lazy(() => import('./pages/VitalsEntry'));
+const EditNHISClaim = lazy(() => import('./pages/insurance-claims/EditNHISClaim'));
+const EditPrivateClaim = lazy(() => import('./pages/insurance-claims/EditPrivateClaim'));
+const EditCorporateClaim = lazy(() => import('./pages/insurance-claims/EditCorporateClaim'));
+const ClaimBatches = lazy(() => import('./pages/ClaimBatches'));
+const WardManagement = lazy(() => import('./pages/WardManagement'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Appointments = lazy(() => import('./pages/Appointments'));
+const LabResultEntry = lazy(() => import('./pages/LabResultEntry'));
+const Departments = lazy(() => import('./pages/Departments'));
+const TheatreProcedure = lazy(() => import('./pages/TheatreProcedure'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const Scans = lazy(() => import('./pages/Scans'));
+const InvoiceManagement = lazy(() => import('./pages/InvoiceManagement'));
+const RequisitionManagement = lazy(() => import('./pages/RequisitionManagement'));
+const StockTransactions = lazy(() => import('./pages/StockTransactions'));
+const StockTransfers = lazy(() => import('./pages/StockTransfers'));
+const StockReports = lazy(() => import('./pages/StockReports'));
+const PatientBillingItems = lazy(() => import('./pages/PatientBillingItems'));
+const NursingPatientWorkspace = lazy(() => import('./pages/NursingPatientWorkspace'));
+const Referrals = lazy(() => import('./pages/Referrals'));
+const Estimates = lazy(() => import('./pages/Estimates'));
+const EstimateDetails = lazy(() => import('./pages/EstimateDetails'));
+const EstimateForm = lazy(() => import('./pages/EstimateForm'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const ShiftManagement = lazy(() => import('./pages/ShiftManagement'));
+const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROLE PERMISSIONS
@@ -271,22 +274,26 @@ const hasPermission = (userRole: string, routePath: string) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTE GUARDS
 // ─────────────────────────────────────────────────────────────────────────────
-const AccessDenied = () => (
-  <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
-    <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)] max-w-md">
-      <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Denied</h2>
-      <p className="text-sm text-[var(--text-secondary)] mb-4">
-        You don't have permission to access this page.
-      </p>
-      <button
-        onClick={() => window.history.back()}
-        className="px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold"
-      >
-        Go Back
-      </button>
+const AccessDenied = () => {
+  const { user } = useAuthStore();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
+      <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)] max-w-md">
+        <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Denied</h2>
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
+          The <span className="font-semibold capitalize">{user?.role?.replace(/_/g, ' ') || 'current'}</span> role
+          doesn't have permission to open this page.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-block px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold"
+        >
+          Back to dashboard
+        </Link>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
@@ -302,18 +309,7 @@ const DashboardLayoutWrapper = () => {
   const { pathname } = useLocation();
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!hasPermission(user.role, pathname)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Restricted</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Your role doesn't have access to this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!hasPermission(user.role, pathname)) return <AccessDenied />;
   return (
     <DashboardLayout>
       <Outlet />

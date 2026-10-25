@@ -53,7 +53,22 @@ const ScanResultDisplay: React.FC<{
   canEdit: boolean;
 }> = ({ scan, printing, onPrint, onSend, onEdit, canEdit }) => {
   const [expanded, setExpanded] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const imageCount = scan.imageUrls?.length || 0;
+
+  useEffect(() => {
+    if (!previewImage) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewImage(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [previewImage]);
 
   return (
     <div className="border-b border-[var(--border-color)] last:border-b-0">
@@ -175,17 +190,16 @@ const ScanResultDisplay: React.FC<{
               </p>
               <div className="flex flex-wrap gap-2">
                 {scan.imageUrls.map((url: string, idx: number) => (
-                  <a
+                  <button
                     key={idx}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
+                    onClick={() => setPreviewImage(url)}
                     className="group relative flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 rounded-lg px-2.5 py-1.5 bg-[var(--bg-card)] transition-all"
                   >
                     <ImageIcon className="w-3 h-3" />
                     <span className="font-medium">Image {idx + 1}</span>
                     <Maximize2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -195,6 +209,32 @@ const ScanResultDisplay: React.FC<{
               <p className="text-xs text-[var(--text-tertiary)] italic">No result details recorded</p>
             </div>
           )}
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Scan image preview"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-800 hover:bg-white"
+            aria-label="Close image preview"
+            autoFocus
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Scan"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
         </div>
       )}
     </div>

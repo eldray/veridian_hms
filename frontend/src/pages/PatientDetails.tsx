@@ -369,6 +369,29 @@ export default function PatientDetails() {
     }
   };
 
+  const handlePrintDocument = async (doc: GeneratedDocument) => {
+    // Opened synchronously from the click so pop-up blockers allow it; the tab
+    // is pointed at the blob URL once the authenticated download finishes.
+    const printWindow = window.open('', '_blank');
+    try {
+      const blob = await downloadDocument(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      if (!printWindow) {
+        window.URL.revokeObjectURL(url);
+        toastError('Print Blocked', 'Allow pop-ups for this site to print documents');
+        return;
+      }
+      printWindow.opener = null;
+      printWindow.location.href = url;
+      printWindow.addEventListener('load', () => {
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+      }, { once: true });
+    } catch {
+      printWindow?.close();
+      toastError('Print Failed', 'Could not open document for printing');
+    }
+  };
+
   const getDocumentIcon = (templateType: string) => {
     switch (templateType) {
       case 'receipt': return <Receipt className="w-3.5 h-3.5" />;
@@ -1129,7 +1152,7 @@ export default function PatientDetails() {
                                   <Download className="w-3 h-3" /> Download
                                 </button>
                                 <button
-                                  onClick={() => window.open(`/documents/download/${doc.id}`, '_blank')}
+                                  onClick={() => handlePrintDocument(doc)}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--border-color)] transition-colors text-[10px] font-semibold border border-[var(--border-color)]"
                                 >
                                   <Printer className="w-3 h-3" /> Print
@@ -1270,14 +1293,6 @@ export default function PatientDetails() {
                           <span className="text-[11px] text-[var(--text-secondary)]">
                             Status: <span className="font-medium">{t.status}</span>
                           </span>
-                          {t.result && (
-                            <button
-                              className="text-[10px] text-[var(--icon-cyan-text)] hover:underline font-medium"
-                              onClick={() => window.open(`/api/documents/lab/${t.id}`)}
-                            >
-                              View Result
-                            </button>
-                          )}
                         </div>
                         {t.result && (
                           <p className="text-[11px] text-[var(--text-secondary)] mt-1">

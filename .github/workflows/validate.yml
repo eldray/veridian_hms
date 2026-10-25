@@ -55,5 +55,25 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: Type-check frontend (advisory until the existing baseline is clean)
+        run: npm run typecheck
+        continue-on-error: true
       - name: Build frontend
         run: npm run build
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        # History still contains the previously committed uploads and test.txt.
+        # Remove continue-on-error after the history purge and secret rotation
+        # described in SECURITY.md so this becomes a blocking gate.
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

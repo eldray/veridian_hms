@@ -11,15 +11,38 @@ import prisma from './core/database/prisma.client';
 // Then server.ts will add the /api prefix
 registerModules(router as unknown as Express, prisma);
 
-// Health check endpoint (mounted at root, will become /api/health after server.ts adds prefix)
-router.get('/health', (req, res) => {
+// Liveness: proves the process is up. Readiness (below) also checks the database.
+router.get('/health/live', (req, res) => {
   res.json({
     success: true,
-    message: 'Hospital Management System API is running (Modular Architecture)',
+    message: 'Hospital Management System API process is running',
     timestamp: new Date().toISOString(),
-    version: '2.0.0',
-    architecture: 'modular'
+    version: process.env.APP_VERSION || '1.0.0',
   });
+});
+
+// Readiness: the desktop shell and any reverse proxy use this to decide whether
+// the API can serve clinical traffic.
+router.get('/health', async (req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      success: true,
+      message: 'Hospital Management System API is running (Modular Architecture)',
+      timestamp: new Date().toISOString(),
+      version: process.env.APP_VERSION || '1.0.0',
+      architecture: 'modular',
+      database: 'up',
+    });
+  } catch (error) {
+    res.status(503).json({
+      success: false,
+      message: 'Database is unavailable',
+      timestamp: new Date().toISOString(),
+      version: process.env.APP_VERSION || '1.0.0',
+      database: 'down',
+    });
+  }
 });
 
 export default router;

@@ -2,7 +2,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { Request, Response, NextFunction } from 'express';
-import express from 'express';
+import { generateUploadFilename } from '../utils/uploadFilename';
 
 const createUploadsDirectories = () => {
   const directories = [
@@ -22,14 +22,10 @@ const createUploadsDirectories = () => {
 };
 createUploadsDirectories();
 
-// Helper to generate safe filenames
-const generateFilename = (prefix: string, id: string, file: Express.Multer.File) => {
-  const timestamp = Date.now();
-  const originalName = path.parse(file.originalname).name;
-  const extension = path.extname(file.originalname);
-  const safeName = originalName.replace(/[^a-zA-Z0-9]/g, '_');
-  return `${prefix}_${id}_${safeName}_${timestamp}${extension}`;
-};
+// Helper to generate safe filenames. See utils/uploadFilename for why the
+// extension is taken from the MIME type rather than the client filename.
+const generateFilename = (prefix: string, id: string, file: Express.Multer.File) =>
+  generateUploadFilename(prefix, id, file);
 
 // ✅ NEW: Storage for User Profile Images
 const userStorage = multer.diskStorage({
@@ -105,12 +101,9 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
   next(error);
 };
 
-export const getFileUrl = (filename: string, type: 'patient' | 'user' | 'scan' | 'document' = 'patient'): string => {
-  return `/api/uploads/${type}/${filename}`;
+export const getFileUrl = (
+  filename: string,
+  category: 'patients' | 'users' | 'scans' | 'documents' = 'patients',
+): string => {
+  return `/api/uploads/${category}/${filename}`;
 };
-
-// Static serving
-export const serveUserImages = express.static(path.join(process.cwd(), 'uploads', 'users'));
-export const servePatientImages = express.static(path.join(process.cwd(), 'uploads', 'patients'));
-export const serveScanImages = express.static(path.join(process.cwd(), 'uploads', 'scans'));
-export const serveDocuments = express.static(path.join(process.cwd(), 'uploads', 'documents'));

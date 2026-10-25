@@ -11,6 +11,7 @@ import {
   PayslipFilters,
 } from './UserTypes';
 import { AuditLogger } from '../audit/AuditLogger';
+import { bcryptRounds, refreshTokenExpiresAt, refreshTokenLifetime } from '../../utils/tokenConfig';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -20,7 +21,7 @@ const getJwtSecret = (): string => {
   return secret;
 };
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = bcryptRounds();
 
 /**
  * Roles that can perform "admin-like" operations: manage users, edit profiles,
@@ -291,11 +292,11 @@ export class UserService extends BaseService {
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
       getJwtSecret(),
-      { expiresIn: '7d' },
+      { expiresIn: refreshTokenLifetime() as SignOptions['expiresIn'] },
     );
 
     await this.repository.createRefreshToken(
-      userId, refreshToken, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      userId, refreshToken, refreshTokenExpiresAt(),
     );
 
     return { accessToken, refreshToken, user };

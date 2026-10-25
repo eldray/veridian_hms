@@ -11,6 +11,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "build:watch": "tsc --watch",
+    "typecheck": "tsc --noEmit",
     "seed": "tsx src/seed/seedData.ts",
     "gen:types": "tsx src/scripts/generateFrontendTypes.ts",
     "gen:meds": "tsx src/scripts/updateMedications.ts",

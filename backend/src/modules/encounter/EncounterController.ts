@@ -232,7 +232,7 @@ export class EncounterController extends BaseController {
       return this.badRequest(res, 'No images were uploaded.');
     }
 
-    // Files are served statically at /uploads/scans/<filename> (see server.ts)
+    // Served through the authenticated /uploads route in server.ts
     const imageUrls = files.map((file) => `/uploads/scans/${file.filename}`);
     return this.ok(res, { imageUrls }, 'Scan images uploaded');
   });

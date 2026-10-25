@@ -8,7 +8,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const PRISMA_SCHEMA_PATH = path.resolve(__dirname, '../../prisma/schema.prisma');
-const OUTPUT_FILE = path.resolve(__dirname, '../../frontend/src/types/backendTypes.ts');
+// __dirname is backend/src/scripts, so the repo's frontend is three levels up.
+const OUTPUT_FILE = path.resolve(__dirname, '../../../frontend/src/types/backendTypes.ts');
 
 // Map Prisma types to TypeScript types
 const prismaToTsTypeMap: Record<string, string> = {
