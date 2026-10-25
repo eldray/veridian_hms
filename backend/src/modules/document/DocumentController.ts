@@ -238,6 +238,24 @@ export class DocumentController {
     }
   };
 
+  reprintDocument = async (req: AuthRequest, res: Response) => {
+    try {
+      const { id } = req.params;
+      const result = await this.documentService.downloadDocument(id);
+      if (!result.success) {
+        return res.status(404).json({ success: false, message: result.error || 'Document not found' });
+      }
+      return res.json({
+        success: true,
+        message: 'Document is ready to reprint',
+        data: { documentId: id, filePath: result.filePath, fileName: result.fileName },
+      });
+    } catch (error: any) {
+      console.error('Error preparing document for reprint:', error);
+      return res.status(500).json({ success: false, message: error.message || 'Failed to reprint document' });
+    }
+  };
+
   getDocumentsByEntity = async (req: AuthRequest, res: Response) => {
     try {
       const { entityType, entityId } = req.params;

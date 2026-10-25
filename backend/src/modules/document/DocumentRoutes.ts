@@ -19,6 +19,9 @@ export const createDocumentRoutes = () => {
   router.post('/bill-statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
   router.post('/statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
 
+  // Reprint an existing generated document without creating a duplicate record.
+  router.post('/reprint/:id', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.reprintDocument);
+
   // Document retrieval routes
   router.get('/entity/:entityType/:entityId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.getDocumentsByEntity);
   router.get('/:id/download', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.downloadDocument);

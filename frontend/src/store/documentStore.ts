@@ -204,13 +204,11 @@ export const useDocumentStore = create<DocumentState>((set) => ({
   reprintDocument: async (documentId) => {
     set({ isLoading: true, error: null });
     try {
+      // Reprinting reuses the existing generated document; it must not insert a duplicate
+      // document record into the client store.
       const response = await reprintDocument(documentId);
-      const doc = normalizeGeneratedDocument(response, 'document', documentId);
-      set((state) => ({
-        documents: [doc, ...state.documents],
-        isLoading: false,
-      }));
-      return { success: true, message: 'Document reprinted successfully', data: { documentId: doc.id, filePath: doc.filePath } };
+      set({ isLoading: false });
+      return response;
     } catch (error: unknown) {
       const message = toErrorMessage(error);
       set({ error: message, isLoading: false });
