@@ -5,6 +5,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { PatientService } from './PatientService';
 import { CreatePatientDTO, PatientFilters, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
+import { matchesDeclaredMime } from '../../utils/fileSignature';
 
 import prisma from '../../core/database/prisma.client';
 
@@ -155,6 +156,9 @@ export class PatientController extends BaseController {
     const buffer = Buffer.from(match ? match[2] : raw, 'base64');
     if (buffer.length === 0) return res.status(400).json({ success: false, message: 'Image is empty or not valid base64' });
     if (buffer.length > 10 * 1024 * 1024) return res.status(413).json({ success: false, message: 'Image is larger than 10 MB' });
+    if (!matchesDeclaredMime(buffer, mime)) {
+      return res.status(400).json({ success: false, message: 'Image content does not match its declared type' });
+    }
 
     await this.service.getPatientById(id); // 404 if the patient does not exist
 

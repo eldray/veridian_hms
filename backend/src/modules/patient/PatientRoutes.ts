@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { PatientController } from './PatientController';
 // ✅ ADDED: Security Middleware
 import { protect, requirePatientManagement } from '../../middleware/authMiddleware';
-import { uploadPatientPhoto } from '../../middleware/uploadMiddleware';
+import { uploadPatientPhoto, handleUploadError } from '../../middleware/uploadMiddleware';
 
 export function createPatientRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -27,7 +27,7 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.post('/', parseMultipartFields, controller.createPatient);
   router.post('/generate-ccc', controller.generateCCC);
   router.put('/:id', parseMultipartFields, controller.updatePatient);
-  router.post('/:id/upload-image', uploadPatientPhoto, controller.uploadImage);
+  router.post('/:id/upload-image', uploadPatientPhoto, handleUploadError, controller.uploadImage);
   router.post('/:id/upload-image-base64', controller.uploadImageBase64);
   router.delete('/:id', controller.deletePatient);
 

@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { UserController } from './UserController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
-import { uploadSingleDocument } from '../../middleware/uploadMiddleware';
+import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
 import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
 // Role groups
@@ -90,7 +90,7 @@ export const createUserRoutes = (prisma: any): Router => {
   router.get('/:id/payslips', controller.getUserPayslips);
   router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
   router.get('/:id/documents', controller.getUserDocuments);
-  router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, controller.uploadUserDocument);
+  router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, handleUploadError, controller.uploadUserDocument);
 
   // ==========================================
   // USER UPDATE / DEACTIVATE
