@@ -581,6 +581,19 @@ describe('clinical encounter ownership', () => {
       .rejects.toThrow(/closed|open|completed/i);
     expect(deleteMany).not.toHaveBeenCalled();
   });
+
+  it('does not delete vitals recorded during a closed encounter', async () => {
+    const vitalsFindUnique = vi.fn().mockResolvedValue({ id: 'vitals-a', attendanceId: 'encounter-a' });
+    const vitalsDeleteMany = vi.fn();
+    const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'discharged' });
+    const repository = new EncounterRepository({
+      vitals: { findUnique: vitalsFindUnique, deleteMany: vitalsDeleteMany },
+      attendance: { findUnique: attendanceFindUnique },
+    } as any);
+
+    await expect(repository.deleteVitals('vitals-a')).rejects.toThrow(/closed encounter/i);
+    expect(vitalsDeleteMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('postnatal create/update validation consistency', () => {
