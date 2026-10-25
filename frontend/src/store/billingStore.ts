@@ -107,8 +107,21 @@ export const useBillingStore = create<BillingState>((set, get) => ({
   voidBillLineItem: async (lineItemId: string, reason: string) => {
     set({ isLoading: true });
     try {
-      await apiVoidBillLineItem(lineItemId, { reason });
-      set({ isLoading: false });
+      const response = await apiVoidBillLineItem(lineItemId, { reason });
+      const payload = response?.data ?? response;
+      const updatedBillPayload = payload?.updatedBill ?? payload?.data?.updatedBill;
+      if (updatedBillPayload?.id) {
+        const parsedBill = parseBillAmounts(updatedBillPayload);
+        const bills = get().bills.map(bill => bill.id === parsedBill.id ? parsedBill : bill);
+        set({
+          bills,
+          currentBill: get().currentBill?.id === parsedBill.id ? parsedBill : get().currentBill,
+          isLoading: false
+        });
+      } else {
+        // Do not pretend the local bill is current if the API response shape changes.
+        set({ isLoading: false });
+      }
     } catch (error) {
       set({ isLoading: false });
       throw error;
