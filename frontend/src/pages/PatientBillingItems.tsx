@@ -875,7 +875,7 @@ export default function PatientBillingItems() {
           selectedAttendanceId={selectedAttendanceId}
           onPatientSelect={(nextPatientId) => {
             if (nextPatientId && nextPatientId !== actualPatientId) {
-              navigate(`/dashboard/billing/patient/${nextPatientId}`);
+              navigate(`/dashboard/patients/${nextPatientId}/billing`);
               return;
             }
             setSelectedPatientId(nextPatientId);
