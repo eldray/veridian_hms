@@ -2646,15 +2646,25 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async addDailyNotes(admissionId: string, data: any, userId: string) {
-    const admission = await this.prisma.admission.findUnique({ where: { id: admissionId } });
-    if (!admission) throw new NotFoundError('Admission', admissionId);
+    return this.prisma.$transaction(async (tx) => {
+      const admission = await tx.admission.findUnique({
+        where: { id: admissionId },
+        include: { attendance: { select: { id: true, status: true } } },
+      });
+      if (!admission) throw new NotFoundError('Admission', admissionId);
 
-    const notes = Array.isArray(admission.dailyNotes) ? [...(admission.dailyNotes as any[])] : [];
-    const note = { id: `note_${Date.now()}`, ...data, recordedBy: userId, recordedAt: new Date() };
-    notes.push(note);
+      const terminalStatuses = ['discharged', 'referred', 'absconded', 'completed', 'cancelled'];
+      if (admission.dischargeDate || terminalStatuses.includes(String(admission.attendance?.status))) {
+        throw new ConflictError('Daily notes cannot be added to a closed admission');
+      }
 
-    const updated = await this.prisma.admission.update({ where: { id: admissionId }, data: { dailyNotes: notes } });
-    return { note, admission: updated };
+      const notes = Array.isArray(admission.dailyNotes) ? [...(admission.dailyNotes as any[])] : [];
+      const note = { id: `note_${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, ...data, recordedBy: userId, recordedAt: new Date() };
+      notes.push(note);
+
+      const updated = await tx.admission.update({ where: { id: admissionId }, data: { dailyNotes: notes } });
+      return { note, admission: updated };
+    }, { isolationLevel: 'Serializable' });
   }
 
   async dischargeFromEncounter(encounterId: string, data: any, userId: string) {

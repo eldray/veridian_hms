@@ -1469,6 +1469,7 @@ describe('primary diagnosis removal protection', () => {
   it('requires a replacement primary diagnosis before removing one from a multi-diagnosis encounter', async () => {
     const deleteMany = vi.fn();
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'in_progress' }) },
       attendanceDiagnosis: {
         findFirst: vi.fn().mockResolvedValue({ id: 'link-1', diagnosisType: 'primary' }),
         count: vi.fn().mockResolvedValue(1),
@@ -2492,5 +2493,51 @@ describe('encounter discharge workflow integrity', () => {
     await expect(repository.dischargeFromEncounter('attendance-1', {}, 'clinician-1'))
       .rejects.toThrow(/no admission record to discharge/i);
     expect(updateAdmission).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('daily notes on closed admissions', () => {
+  it('rejects daily notes after discharge without updating the admission', async () => {
+    const update = vi.fn();
+    const tx = {
+      admission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'admission-1',
+          dischargeDate: new Date('2026-10-24T10:00:00.000Z'),
+          dailyNotes: [],
+          attendance: { id: 'attendance-1', status: 'discharged' },
+        }),
+        update,
+      },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    await expect(repository.addDailyNotes('admission-1', { notes: 'late note' }, 'clinician-1'))
+      .rejects.toThrow(/daily notes cannot be added to a closed admission/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('appends a daily note for an open admission', async () => {
+    const update = vi.fn().mockImplementation(({ data }: any) => ({ id: 'admission-1', ...data }));
+    const tx = {
+      admission: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'admission-1', dischargeDate: null, dailyNotes: [],
+          attendance: { id: 'attendance-1', status: 'admitted' },
+        }),
+        update,
+      },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+
+    const result = await repository.addDailyNotes('admission-1', { notes: 'Patient reviewed' }, 'clinician-1');
+    expect(update).toHaveBeenCalledOnce();
+    expect(result.note.notes).toBe('Patient reviewed');
+    expect(result.admission.dailyNotes).toHaveLength(1);
   });
 });
