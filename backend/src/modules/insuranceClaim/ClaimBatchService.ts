@@ -235,21 +235,60 @@ export class ClaimBatchService extends BaseService {
   // FINALIZE
   // ==========================================
   async finalizeBatch(batchId: string, userId: string) {
-    const batch = await this.prisma.claimBatch.findUnique({
-      where: { id: batchId },
-    });
-    if (!batch) throw new NotFoundError('Claim batch', batchId);
-    if (batch.status !== 'generated') {
-      throw new ConflictError('Only generated batches can be finalized');
-    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const batch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: {
+          claims: {
+            select: {
+              id: true,
+              claimNumber: true,
+              status: true,
+              batchId: true,
+              totalClaimAmount: true,
+              items: { select: { id: true } },
+            },
+          },
+        },
+      });
+      if (!batch) throw new NotFoundError('Claim batch', batchId);
+      if (batch.status !== 'generated') {
+        throw new ConflictError('Only generated batches can be finalized');
+      }
+      if (!batch.claims.length) {
+        throw new ValidationError('An empty claim batch cannot be finalized.');
+      }
 
-    const updated = await this.prisma.claimBatch.update({
-      where: { id: batchId },
-      data: {
-        status: 'finalized',
-        finalizedAt: new Date(),
-        finalizedById: userId,
-      },
+      for (const claim of batch.claims) {
+        if (claim.status !== 'finalized') {
+          throw new ValidationError(`Claim ${claim.claimNumber} is not finalized.`);
+        }
+        if (claim.batchId !== batch.id) {
+          throw new ValidationError(`Claim ${claim.claimNumber} is not linked to this batch.`);
+        }
+        if (!claim.items.length) {
+          throw new ValidationError(`Claim ${claim.claimNumber} has no itemized lines and cannot be finalized in a batch.`);
+        }
+      }
+
+      const totalAmount = batch.claims.reduce(
+        (sum, claim) => sum.plus(claim.totalClaimAmount),
+        new Prisma.Decimal(0),
+      );
+      const result = await tx.claimBatch.updateMany({
+        where: { id: batchId, status: 'generated' },
+        data: {
+          status: 'finalized',
+          totalClaims: batch.claims.length,
+          totalAmount,
+          finalizedAt: new Date(),
+          finalizedById: userId,
+        },
+      });
+      if (result.count !== 1) {
+        throw new ConflictError('The batch status changed while it was being finalized. Refresh and try again.');
+      }
+      return tx.claimBatch.findUniqueOrThrow({ where: { id: batchId } });
     });
 
     this.logInfo('Claim batch finalized', {
