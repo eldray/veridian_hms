@@ -3,7 +3,8 @@ import { PrismaClient, BillStatus, PaymentMethod, PaymentMode, ServiceType } fro
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilter, CreateBillInput, UpdateBillInput, AddPaymentInput } from './BillTypes';
 import { getCounterService } from '../../services/CounterService';
-import { isPayerCovered, resolveUnitPrice } from '../../utils/pricing';
+import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff, resolveUnitPrice } from '../../utils/pricing';
+import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -519,15 +520,22 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const existingBill = await tx.bill.findUnique({ where: { attendanceId: encounterId } });
 
       const paymentMode: PaymentMode = attendance.paymentMode;
+      const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+      const payerProvider = (paymentMode === 'nhis' || paymentMode === 'private_insurance') && attendance.insuranceProviderId
+        ? await tx.insuranceProvider.findUnique({
+            where: { id: attendance.insuranceProviderId },
+            select: { coveragePercentage: true }
+          })
+        : null;
+      const coverageRate = Math.min(100, Math.max(0, Number(payerProvider?.coveragePercentage) || 0)) / 100;
 
-      // Corporate patients with no corporate price get their account's discount off the cash price
+      // Corporate patients with no corporate price get their account's discount off the cash price.
       let corporateDiscountPercent = 0;
       if (paymentMode === 'corporate' && attendance.corporateAccountId) {
         const account = await tx.corporateAccount.findUnique({ where: { id: attendance.corporateAccountId }, select: { discountPercentage: true } });
         corporateDiscountPercent = toNumber(account?.discountPercentage);
       }
 
-      // Same rules everywhere (utils/pricing.ts): uncovered NHIS / exempted insurance / missing corporate price fall back to cash
       const priceFor = (catalog: any, qty: number): { unitPrice: number; lineTotal: number } => {
         const price = catalog?.pricing?.[0];
         const unitPrice = price
@@ -542,21 +550,83 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const lineItemsData: any[] = [];
 
-      const pushItem = (catalog: any, fallbackName: string, fallbackType: ServiceType, qty: number, sourceKey: string) => {
+      const pushItem = async (catalog: any, fallbackName: string, fallbackType: ServiceType, qty: number, sourceKey: string) => {
         const quantity = qty && qty > 0 ? qty : 1;
-        const { unitPrice, lineTotal } = priceFor(catalog, quantity);
+        let { unitPrice, lineTotal } = priceFor(catalog, quantity);
+        let insuranceCoveredAmount = 0;
+        let patientPayableAmount = lineTotal;
         const serviceType: ServiceType = (catalog?.serviceType as ServiceType) || fallbackType;
         const description = catalog ? `${catalog.name} (${catalog.code})` : fallbackName;
-        // A covered payer tariff is the insurer's liability, not a patient charge.
-        // Uncovered / missing-tariff services fall back to cash through resolveUnitPrice.
+        const pricing = catalog?.pricing?.[0];
         const payerCoversLine = (paymentMode === 'nhis' || paymentMode === 'private_insurance') &&
-          !!catalog && !!catalog.pricing?.[0] &&
-          isPayerCovered(catalog.pricing[0], paymentMode, {
+          !!catalog && !!pricing &&
+          isPayerCovered(pricing, paymentMode, {
             isNHISCovered: catalog.isNHISCovered,
             isPrivateInsuranceExempted: catalog.isPrivateInsuranceExempted
           });
-        const insuranceCoveredAmount = payerCoversLine ? lineTotal : 0;
-        const patientPayableAmount = payerCoversLine ? 0 : lineTotal;
+
+        if (payerCoversLine && payerProvider) {
+          insuranceCoveredAmount = money(lineTotal * coverageRate);
+          patientPayableAmount = money(lineTotal - insuranceCoveredAmount);
+        }
+
+        if (paymentMode === 'nhis' && catalog?.stockItemId) {
+          const currentPrice = pricing;
+          const cashPrice = Number(currentPrice?.cashPrice);
+          if (!currentPrice || !Number.isFinite(cashPrice) || cashPrice <= 0) {
+            throw new Error(`No valid active cash price is configured for medicine: ${catalog.name} on ${serviceDate.toISOString().slice(0, 10)}`);
+          }
+          const stockItem = await tx.stockItem.findUnique({
+            where: { id: catalog.stockItemId },
+            include: { payerRules: { where: { insuranceProviderId: attendance.insuranceProviderId ?? '' }, take: 1 } }
+          });
+          const rule = stockItem?.payerRules?.[0];
+          const tariff = resolveConfiguredNHISTariff(rule?.tariffPrice, currentPrice.nhisPrice);
+          const inEffectiveWindow = !!rule &&
+            (!rule.effectiveFrom || rule.effectiveFrom <= serviceDate) &&
+            (!rule.effectiveTo || rule.effectiveTo >= serviceDate);
+          const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+          const policyConfigured = !!rule &&
+            rule.isCovered === true &&
+            rule.authorizationRequired != null &&
+            validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) &&
+            tariff !== null;
+
+          let hasRequiredAuthorization = rule?.authorizationRequired !== true;
+          if (rule?.authorizationRequired === true && attendance.insuranceProviderId) {
+            const approvals = await tx.preAuthorisationRequest.findMany({
+              where: {
+                attendanceId: attendance.id,
+                patientId: attendance.patientId,
+                insuranceProviderId: attendance.insuranceProviderId,
+                status: { in: ['approved', 'partially_approved'] },
+                authNumber: { not: null },
+                authExpiry: { gt: serviceDate },
+              },
+              select: { authNumber: true, approvedServices: true },
+            });
+            hasRequiredAuthorization = approvals.some((approval: any) =>
+              Boolean(approval.authNumber) && approvedServicesCoverPrescription(approval.approvedServices, {
+                stockItemId: catalog.stockItemId,
+                serviceCatalogId: catalog.id,
+              }, quantity),
+            );
+          }
+
+          const allocation = calculateNHISMedicineAllocation({
+            cashPrice,
+            nhisTariff: tariff ?? 0,
+            covered: policyConfigured && inEffectiveWindow && hasRequiredAuthorization,
+            copaymentMode: rule?.copaymentMode,
+            copaymentAmount: rule?.copaymentAmount == null ? null : Number(rule.copaymentAmount),
+            copaymentPercentage: rule?.copaymentPercentage ?? null,
+          });
+          insuranceCoveredAmount = money(allocation.nhisCoveredAmount * quantity);
+          patientPayableAmount = money(allocation.patientPayableAmount * quantity);
+          lineTotal = money(insuranceCoveredAmount + patientPayableAmount);
+          unitPrice = quantity > 0 ? money(lineTotal / quantity) : 0;
+        }
+
         lineItemsData.push({
           serviceCatalogId: catalog?.id ?? null,
           sourceKey,
@@ -574,19 +644,19 @@ export class BillRepository extends BaseRepository<any, any, any> {
       };
 
       for (const sr of attendance.ServiceRendered || []) {
-        pushItem(sr.ServiceCatalog, 'Service', 'miscellaneous', sr.quantity, `service-rendered:${sr.id}`);
+        await pushItem(sr.ServiceCatalog, 'Service', 'miscellaneous', sr.quantity, `service-rendered:${sr.id}`);
       }
       for (const lt of attendance.LabTest || []) {
-        pushItem(lt.ServiceCatalog, lt.LabTestTemplate?.name || 'Lab Test', 'lab_test', 1, `lab-test:${lt.id}`);
+        await pushItem(lt.ServiceCatalog, lt.LabTestTemplate?.name || 'Lab Test', 'lab_test', 1, `lab-test:${lt.id}`);
       }
       for (const sc of attendance.Scan || []) {
-        pushItem(sc.ServiceCatalog, sc.scanType || 'Scan', 'scan', 1, `scan:${sc.id}`);
+        await pushItem(sc.ServiceCatalog, sc.scanType || 'Scan', 'scan', 1, `scan:${sc.id}`);
       }
       for (const pr of attendance.Procedure || []) {
-        pushItem(pr.ServiceCatalog, 'Procedure', 'procedure', 1, `procedure:${pr.id}`);
+        await pushItem(pr.ServiceCatalog, 'Procedure', 'procedure', 1, `procedure:${pr.id}`);
       }
       for (const med of attendance.Medication || []) {
-        pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity, `medication:${med.id}`);
+        await pushItem(med.ServiceCatalog, med.name || 'Medication', 'medication', med.quantity, `medication:${med.id}`);
       }
 
       // Ward charges are already priced and recorded per attendance/day by the ward workflow.
@@ -608,6 +678,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
         const description = `Ward accommodation (${charge.wardId}) - ${serviceDate}`;
         const insurerCovers = (paymentMode === 'nhis' && toNumber(charge.nhisPrice) > 0) ||
           (paymentMode === 'private_insurance' && toNumber(charge.insurancePrice) > 0);
+        const insuranceCoveredAmount = insurerCovers && payerProvider ? money(lineTotal * coverageRate) : 0;
+        const patientPayableAmount = money(lineTotal - insuranceCoveredAmount);
         lineItemsData.push({
           serviceCatalogId: null,
           sourceKey: `ward-charge:${charge.id}`,
@@ -617,8 +689,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
           unitPrice,
           pricingBasis: paymentMode,
           lineTotal,
-          insuranceCoveredAmount: insurerCovers ? lineTotal : 0,
-          patientPayableAmount: insurerCovers ? 0 : lineTotal,
+          insuranceCoveredAmount,
+          patientPayableAmount,
           discount: 0,
           isVoided: false
         });
