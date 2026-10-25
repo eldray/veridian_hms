@@ -33,7 +33,7 @@ import {
   Hospital, User, Calendar, DollarSign, Clock, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
   Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
-  ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package,
+  ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package, Send,
 } from 'lucide-react';
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
@@ -1186,7 +1186,14 @@ export default function MedicalEntries() {
 
   // Get action buttons - modified to show the new handlers
   const handleReferPatient = () => {
-    if (!selectedPatientId || !selectedAttendanceId) return;
+    if (!selectedPatientId) {
+      toastError('Patient required', 'Select a patient before starting a referral.');
+      return;
+    }
+    if (!selectedAttendanceId) {
+      toastError('Attendance required', 'Select the patient visit you are referring from.');
+      return;
+    }
     const params = new URLSearchParams({ patientId: selectedPatientId, attendanceId: selectedAttendanceId, source: 'Medical Entries' });
     if (selectedPatient) params.set('patientName', getPatientName(selectedPatient));
     const complaints = String(presentedComplaints || currentAttendance?.complaints || '');
@@ -1199,7 +1206,7 @@ export default function MedicalEntries() {
     if (notes) params.set('notes', notes);
     if (treatmentPlan) params.set('treatment', treatmentPlan);
     params.set('reason', complaints || diagnosis || assessment || 'Clinical assessment requires referral');
-    navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()) } });
+    navigate('/dashboard/referrals', { state: { referralContext: Object.fromEntries(params.entries()), openCreateReferral: true } });
   };
 
   const getActionButtons = () => {
@@ -1211,7 +1218,7 @@ export default function MedicalEntries() {
       return (
         <button type="button" onClick={handleReferPatient}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-cyan-300 text-cyan-700 hover:bg-cyan-50 transition-all">
-          <ArrowRight className="w-3.5 h-3.5" /> Refer
+          <Send className="w-3.5 h-3.5" /> Refer patient
         </button>
       );
     }
