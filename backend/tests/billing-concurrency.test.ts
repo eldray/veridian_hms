@@ -541,3 +541,88 @@ describe('confirmed MoMo intent validation in the billing repository', () => {
     expect(tx.payment.create).not.toHaveBeenCalled();
   });
 });
+
+
+describe('bill lifecycle financial reconciliation', () => {
+  it('reverses corporate credit and attendance totals when an unpaid bill is deleted', async () => {
+    const attendanceUpdate = vi.fn();
+    const corporateUpdate = vi.fn();
+    const billDelete = vi.fn().mockResolvedValue({ id: 'bill-delete' });
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-delete',
+          attendanceId: 'attendance-delete',
+          paymentMode: 'corporate',
+          corporateAccountId: 'corporate-1',
+          totalAmount: 125,
+          status: 'pending',
+          Payment: [],
+          InsuranceClaim: [],
+          PatientWaiver: [],
+        }),
+        delete: billDelete,
+        aggregate: vi.fn().mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null, balance: null } }),
+      },
+      corporateAccount: { update: corporateUpdate },
+      attendance: { update: attendanceUpdate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillRepository(prisma);
+
+    await repository.delete('bill-delete');
+
+    expect(corporateUpdate).toHaveBeenCalledWith({
+      where: { id: 'corporate-1' },
+      data: { currentBalance: { decrement: 125 } },
+    });
+    expect(billDelete).toHaveBeenCalledWith({ where: { id: 'bill-delete' } });
+    expect(attendanceUpdate).toHaveBeenCalledWith({
+      where: { id: 'attendance-delete' },
+      data: { totalBill: 0, paidAmount: 0, outstandingBalance: 0 },
+    });
+  });
+
+  it('reverses corporate credit and attendance totals when a bill is cancelled', async () => {
+    const attendanceUpdate = vi.fn();
+    const corporateUpdate = vi.fn();
+    const tx: any = {
+      $queryRaw: vi.fn().mockResolvedValue([]),
+      bill: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'bill-cancel',
+          attendanceId: 'attendance-cancel',
+          paymentMode: 'corporate',
+          corporateAccountId: 'corporate-2',
+          totalAmount: 240,
+          status: 'pending',
+        }),
+        update: vi.fn().mockResolvedValue({
+          id: 'bill-cancel',
+          attendanceId: 'attendance-cancel',
+          status: 'cancelled',
+          totalAmount: 240,
+          paidAmount: 0,
+          balance: 240,
+        }),
+        aggregate: vi.fn().mockResolvedValue({ _sum: { totalAmount: null, paidAmount: null, balance: null } }),
+      },
+      corporateAccount: { update: corporateUpdate },
+      attendance: { update: attendanceUpdate },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = new BillingRepository(prisma);
+
+    await repository.updateStatus('bill-cancel', 'cancelled' as any, 'admin-1');
+
+    expect(corporateUpdate).toHaveBeenCalledWith({
+      where: { id: 'corporate-2' },
+      data: { currentBalance: { decrement: 240 } },
+    });
+    expect(attendanceUpdate).toHaveBeenCalledWith({
+      where: { id: 'attendance-cancel' },
+      data: { totalBill: 0, paidAmount: 0, outstandingBalance: 0 },
+    });
+  });
+});
