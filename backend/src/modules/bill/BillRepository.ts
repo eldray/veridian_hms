@@ -175,6 +175,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
         if (idempotencyKey) {
           const priorPayment = await tx.payment.findUnique({ where: { idempotencyKey } });
           if (priorPayment) {
+            if (priorPayment.isVoided) {
+              throw Object.assign(
+                new Error('This payment was already voided. Do not report this retry as a successful collection; record a new payment only after verifying the original transaction.'),
+                { statusCode: 409 },
+              );
+            }
             if (priorPayment.billId !== billId) throw new ValidationError('Payment request key has already been used for another bill.');
             const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
             const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
@@ -232,6 +238,12 @@ export class BillRepository extends BaseRepository<any, any, any> {
           throw new ValidationError('Payment request key has already been used for another bill.');
         }
         if (priorPayment?.billId === billId) {
+          if (priorPayment.isVoided) {
+            throw Object.assign(
+              new Error('This payment was already voided. Do not report this retry as a successful collection; record a new payment only after verifying the original transaction.'),
+              { statusCode: 409 },
+            );
+          }
           const requestedAmount = Math.round(Number(paymentData.amount) * 100) / 100;
           const priorAmount = Math.round(toNumber(priorPayment.amount) * 100) / 100;
           const requestedReference = paymentData.reference || null;
