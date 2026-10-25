@@ -594,6 +594,31 @@ describe('clinical encounter ownership', () => {
     await expect(repository.deleteVitals('vitals-a')).rejects.toThrow(/closed encounter/i);
     expect(vitalsDeleteMany).not.toHaveBeenCalled();
   });
+
+  it('does not add a prescription to a closed encounter', async () => {
+    const attendanceFindUnique = vi.fn().mockResolvedValue({
+      id: 'encounter-a',
+      patientId: 'patient-a',
+      paymentMode: 'cash',
+      insuranceProviderId: null,
+      status: 'completed',
+    });
+    const stockItemFindUnique = vi.fn();
+    const repository = new EncounterRepository({
+      attendance: { findUnique: attendanceFindUnique },
+      stockItem: { findUnique: stockItemFindUnique },
+    } as any);
+    vi.spyOn(repository, 'requireActorId').mockResolvedValue('user-a');
+
+    await expect(repository.addPrescription('encounter-a', {
+      stockItemId: 'medicine-a',
+      dosage: '1 tablet',
+      frequency: 'twice daily',
+      duration: '5 days',
+      quantity: 10,
+    } as any, 'user-a')).rejects.toThrow(/closed encounter/i);
+    expect(stockItemFindUnique).not.toHaveBeenCalled();
+  });
 });
 
 describe('postnatal create/update validation consistency', () => {
