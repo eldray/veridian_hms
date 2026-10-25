@@ -250,8 +250,7 @@ export default function InsuranceClaims() {
   const handleDownloadXML = async (claimId: string) => {
     try {
       setProcessingClaims((prev) => new Set(prev).add(claimId));
-      // Store method opens the XML URL in a new tab.
-      downloadClaimXml(claimId);
+      await downloadClaimXml(claimId);
       success('XML ready', 'Claim XML file is downloading');
     } catch (error: any) {
       toastError('Download failed', error?.message || 'Could not generate XML');
@@ -267,8 +266,7 @@ export default function InsuranceClaims() {
   const handlePrintClaim = async (claimId: string) => {
     try {
       setProcessingClaims((prev) => new Set(prev).add(claimId));
-      // Store method opens the print URL in a new tab.
-      printClaim(claimId);
+      await printClaim(claimId);
       success('Print ready', 'Claim data ready for printing');
     } catch (error: any) {
       toastError('Print failed', error?.message || 'Could not generate print format');

@@ -1117,23 +1117,50 @@ export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate
 // CLAIM XML + PRINT (single claim — open in new tab)
 // ──────────────────────────────────────────────
 
-const resolveApiBase = (): string => {
-  // axios instance configures a baseURL; fall back to relative
-  return (api.defaults.baseURL ?? '') as string;
+const downloadAuthenticatedFile = async (path: string, fallbackFilename: string): Promise<void> => {
+  const response = await api.get(path, { responseType: 'blob' });
+  const disposition = String(response.headers?.['content-disposition'] ?? '');
+  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
+  const blob = response.data instanceof Blob
+    ? response.data
+    : new Blob([response.data], { type: response.headers?.['content-type'] || 'application/octet-stream' });
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.style.display = 'none';
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 };
 
-/** Download a single NHIS claim as XML (opens a new tab → browser download). */
-export const downloadClaimXml = (claimId: string) => {
-  window.open(`${resolveApiBase()}/insurance-claims/${claimId}/xml`, '_blank');
+const openAuthenticatedPrintView = async (path: string): Promise<void> => {
+  // Open synchronously in the user gesture so browsers do not block the window
+  // while the authenticated request is in flight.
+  const printWindow = window.open('about:blank', '_blank');
+  if (!printWindow) throw new Error('The print window was blocked. Allow pop-ups and try again.');
+  try {
+    const response = await api.get(path, { responseType: 'text' });
+    printWindow.document.open();
+    printWindow.document.write(String(response.data ?? ''));
+    printWindow.document.close();
+  } catch (error) {
+    printWindow.close();
+    throw error;
+  }
 };
 
-/** Print a single claim (any type) — opens a print-ready HTML view. */
-export const generateClaimPrint = (claimId: string) => {
-  window.open(`${resolveApiBase()}/insurance-claims/${claimId}/print`, '_blank');
-};
+/** Download a single NHIS claim as XML using the authenticated API client. */
+export const downloadClaimXml = (claimId: string): Promise<void> =>
+  downloadAuthenticatedFile(`/insurance-claims/${claimId}/xml`, `claim-${claimId}.xml`);
+
+/** Open a print-ready claim view using the authenticated API client. */
+export const generateClaimPrint = (claimId: string): Promise<void> =>
+  openAuthenticatedPrintView(`/insurance-claims/${claimId}/print`);
 
 /** Same as generateClaimPrint — kept for backward-compat with older call sites. */
-export const generateClaimXML = (claimId: string) => downloadClaimXml(claimId);
+export const generateClaimXML = (claimId: string): Promise<void> => downloadClaimXml(claimId);
 
 
 // ──────────────────────────────────────────────
@@ -1168,15 +1195,13 @@ export const finalizeClaimBatch = (batchId: string) =>
 export const deleteClaimBatch = (batchId: string) =>
   api.delete(`/insurance-claims/batches/${batchId}`).then(r => r.data);
 
-/** NHIS only — opens a new tab → browser downloads the batch XML. */
-export const downloadBatchXml = (batchId: string) => {
-  window.open(`${resolveApiBase()}/insurance-claims/batches/${batchId}/xml`, '_blank');
-};
+/** NHIS only — download the batch XML using the authenticated API client. */
+export const downloadBatchXml = (batchId: string): Promise<void> =>
+  downloadAuthenticatedFile(`/insurance-claims/batches/${batchId}/xml`, `claim-batch-${batchId}.xml`);
 
-/** Batch summary print (any type) — opens a print-ready HTML view. */
-export const printClaimBatch = (batchId: string) => {
-  window.open(`${resolveApiBase()}/insurance-claims/batches/${batchId}/print`, '_blank');
-};
+/** Batch summary print (any type) — open the authenticated print-ready HTML view. */
+export const printClaimBatch = (batchId: string): Promise<void> =>
+  openAuthenticatedPrintView(`/insurance-claims/batches/${batchId}/print`);
 
 // ──────────────────────────────────────────────
 // Removed (backend no longer exposes them):

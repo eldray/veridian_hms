@@ -97,11 +97,11 @@ interface InsuranceState {
   replaceClaimItems: (claimId: string, items: any[]) => Promise<InsuranceClaim>;
   finalizeClaim: (claimId: string) => Promise<InsuranceClaim>;
 
-  downloadClaimXml: (claimId: string) => void;
-  printClaim: (claimId: string) => void;
+  downloadClaimXml: (claimId: string) => Promise<void>;
+  printClaim: (claimId: string) => Promise<void>;
   /** Backward-compat aliases. */
-  generateClaimXML: (claimId: string) => void;
-  generateClaimPrint: (claimId: string) => void;
+  generateClaimXML: (claimId: string) => Promise<void>;
+  generateClaimPrint: (claimId: string) => Promise<void>;
 
   getClaimsSummary: (insuranceType?: 'nhis' | 'private' | 'corporate') => Promise<void>;
   /** Legacy alias → getClaimsSummary. Accepts { type } or a bare type string. */
@@ -122,8 +122,8 @@ interface InsuranceState {
   getClaimBatch: (id: string) => Promise<ClaimBatch | null>;
   finalizeClaimBatch: (batchId: string) => Promise<ClaimBatch>;
   deleteClaimBatch: (batchId: string) => Promise<void>;
-  downloadBatchXml: (batchId: string) => void;
-  printBatch: (batchId: string) => void;
+  downloadBatchXml: (batchId: string) => Promise<void>;
+  printBatch: (batchId: string) => Promise<void>;
 
   // Providers
   getInsuranceProviders: (filters?: any) => Promise<void>;
@@ -510,20 +510,30 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  downloadClaimXml: (claimId) => {
-    apiDownloadClaimXml(claimId);
+  downloadClaimXml: async (claimId) => {
+    try {
+      await apiDownloadClaimXml(claimId);
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message || 'Could not download claim XML' });
+      throw e;
+    }
   },
 
-  printClaim: (claimId) => {
-    apiGenerateClaimPrint(claimId);
+  printClaim: async (claimId) => {
+    try {
+      await apiGenerateClaimPrint(claimId);
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message || 'Could not open claim print view' });
+      throw e;
+    }
   },
 
   // Backward-compat aliases
-  generateClaimXML: (claimId) => {
-    apiDownloadClaimXml(claimId);
+  generateClaimXML: async (claimId) => {
+    await get().downloadClaimXml(claimId);
   },
-  generateClaimPrint: (claimId) => {
-    apiGenerateClaimPrint(claimId);
+  generateClaimPrint: async (claimId) => {
+    await get().printClaim(claimId);
   },
 
   getClaimsSummary: async (insuranceType) => {
@@ -626,12 +636,22 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  downloadBatchXml: (batchId) => {
-    apiDownloadBatchXml(batchId);
+  downloadBatchXml: async (batchId) => {
+    try {
+      await apiDownloadBatchXml(batchId);
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message || 'Could not download claim batch XML' });
+      throw e;
+    }
   },
 
-  printBatch: (batchId) => {
-    apiPrintClaimBatch(batchId);
+  printBatch: async (batchId) => {
+    try {
+      await apiPrintClaimBatch(batchId);
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message || 'Could not open claim batch print view' });
+      throw e;
+    }
   },
 
   getInsuranceProviders: async (filters = {}) => {

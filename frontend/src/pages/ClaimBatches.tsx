@@ -180,13 +180,21 @@ export default function ClaimBatches() {
     }
   };
 
-  const handleDownloadXml = (id: string) => {
-    downloadBatchXml(id);
-    success('XML ready', 'Batch XML is downloading');
+  const handleDownloadXml = async (id: string) => {
+    try {
+      await downloadBatchXml(id);
+      success('XML ready', 'Batch XML is downloading');
+    } catch (e: any) {
+      toastError('Download failed', e?.response?.data?.message || e?.message || 'Could not download batch XML');
+    }
   };
 
-  const handlePrint = (id: string) => {
-    printBatch(id);
+  const handlePrint = async (id: string) => {
+    try {
+      await printBatch(id);
+    } catch (e: any) {
+      toastError('Print failed', e?.response?.data?.message || e?.message || 'Could not open batch print view');
+    }
   };
 
   const handleFinalize = async (id: string) => {
