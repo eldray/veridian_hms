@@ -692,3 +692,49 @@ describe('voided-payment idempotency and pending-intent ordering', () => {
     await assertVoidedRetryRejected(true);
   });
 });
+
+
+describe('successful idempotent retries with a pending Mobile Money intent', () => {
+  const assertRetryReturnsOriginalPayment = async (legacy: boolean) => {
+    const billId = legacy ? 'bill-legacy' : 'bill-1';
+    const priorPayment = {
+      id: 'payment-original',
+      billId,
+      amount: 25,
+      paymentMethod: 'cash',
+      reference: null,
+      idempotencyKey: 'successful-retry-key',
+      isVoided: false,
+    };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn().mockResolvedValue({ id: billId, balance: 75, status: 'partial' }), updateMany: vi.fn(), update: vi.fn() },
+      momoPaymentIntent: { findFirst: vi.fn().mockResolvedValue({ id: 'new-pending-momo' }) },
+      attendance: { update: vi.fn() },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const paymentData: any = {
+      amount: 25,
+      paymentMethod: 'cash',
+      idempotencyKey: 'successful-retry-key',
+      userId: 'cashier-1',
+    };
+    const result = legacy
+      ? await new BillingRepository(prisma).addPayment(billId, paymentData)
+      : await new BillRepository(prisma).addPayment(billId, paymentData, 'cashier-1');
+
+    expect(result.payment.id).toBe('payment-original');
+    expect(result.duplicate).toBe(true);
+    expect(tx.momoPaymentIntent.findFirst).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+  };
+
+  it('returns the original payment from the primary bill repository', async () => {
+    await assertRetryReturnsOriginalPayment(false);
+  });
+
+  it('returns the original payment from the billing-module repository', async () => {
+    await assertRetryReturnsOriginalPayment(true);
+  });
+});
