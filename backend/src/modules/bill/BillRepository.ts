@@ -144,8 +144,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       if ((bill.InsuranceClaim?.length ?? 0) > 0) {
         throw new Error('A bill linked to an insurance claim cannot be deleted. Preserve the claim audit trail and use the approved adjustment workflow.');
       }
-      if ((bill.PatientWaiver ?? []).some((waiver: any) => waiver.appliedAt)) {
-        throw new Error('A bill with an applied waiver cannot be deleted. Preserve the waiver audit trail and use the approved adjustment workflow.');
+      if ((bill.PatientWaiver?.length ?? 0) > 0) {
+        throw new Error('A bill linked to a patient waiver cannot be deleted. Preserve the waiver audit trail and use the approved adjustment workflow.');
       }
 
       // Corporate currentBalance tracks outstanding billed credit. Reverse the
