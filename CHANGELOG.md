@@ -62,3 +62,5 @@ semantic versioning.
   SIGINT/SIGTERM.
 - Pages load on demand (route-level code splitting) and render errors are caught
   by an error boundary instead of blanking the window.
+- Switching patient or clearing the worklist in medical entries asks for
+  confirmation before discarding an unsaved progress note.

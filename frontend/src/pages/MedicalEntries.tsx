@@ -799,7 +799,8 @@ export default function MedicalEntries() {
   const requestedScans = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
   const completedScans = scansList.filter(s => s.status === 'completed');
 
-  const handleClearSelection = () => {
+  const handleClearSelection = async () => {
+    if (treatmentNoteDraft.trim() && !(await confirmDialog({ title: 'Discard progress note?', message: 'The progress note you are typing has not been saved. Leave this patient record and discard it?', confirmText: 'Discard', type: 'warning' }))) return;
     setSelectedPatientId(''); setSelectedAttendanceId('');
     setPresentedComplaints(''); setHpc(''); setOdq('');
     setPhysicalExam(''); setAssessment(''); setReviewOfSystems({}); setPhysicalExamStructured({});
@@ -2302,7 +2303,8 @@ export default function MedicalEntries() {
 
       {showWorklist && (
         <WorklistPanel department="medical"
-          onSelectPatient={(patientId, item) => {
+          onSelectPatient={async (patientId, item) => {
+            if (treatmentNoteDraft.trim() && !(await confirmDialog({ title: 'Discard progress note?', message: 'The progress note you are typing has not been saved. Open another patient and discard it?', confirmText: 'Discard', type: 'warning' }))) return;
             setSelectedPatientId(patientId);
             if (item.attendanceId) setSelectedAttendanceId(item.attendanceId);
             setShowWorklist(false);
