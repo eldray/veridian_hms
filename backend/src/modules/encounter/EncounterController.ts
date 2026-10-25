@@ -373,6 +373,11 @@ export class EncounterController extends BaseController {
     return this.paginated(res, result.data, { page, limit, total: result.total }, 'Admissions retrieved');
   });
 
+  getAdmissionStats = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const stats = await this.service.getAdmissionStatistics();
+    return this.ok(res, stats, 'Admission statistics retrieved');
+  });
+
   getFormalIPDPatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const result = await this.service.getFormalIPDPatients({ ...req.query, page, limit });

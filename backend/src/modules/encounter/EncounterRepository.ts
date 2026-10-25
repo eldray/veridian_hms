@@ -2418,6 +2418,49 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     return { data: rows.map((r: any) => this.shapeAdmission(r)), total, page, limit };
   }
 
+  async getAdmissionStatistics() {
+    const activeWhere = { status: 'active', dischargeDate: null };
+    const validWhere = { status: { not: 'cancelled' } };
+    const dischargedWhere = { status: { not: 'cancelled' }, dischargeDate: { not: null } };
+
+    const [total, active, discharged, typeGroups, activeRows] = await Promise.all([
+      this.prisma.admission.count({ where: validWhere }),
+      this.prisma.admission.count({ where: activeWhere }),
+      this.prisma.admission.count({ where: dischargedWhere }),
+      this.prisma.admission.groupBy({
+        by: ['admissionType'],
+        where: validWhere,
+        _count: { _all: true },
+      }),
+      this.prisma.admission.findMany({
+        where: activeWhere,
+        select: {
+          attendance: {
+            select: {
+              Ward: { select: { wardName: true } },
+              Bed: { select: { Ward: { select: { wardName: true } } } },
+            },
+          },
+        },
+      }),
+    ]);
+
+    const byWard: Record<string, number> = {};
+    for (const admission of activeRows as any[]) {
+      const wardName = admission.attendance?.Ward?.wardName
+        || admission.attendance?.Bed?.Ward?.wardName
+        || 'Unassigned';
+      byWard[wardName] = (byWard[wardName] || 0) + 1;
+    }
+
+    const byType: Record<string, number> = {};
+    for (const group of typeGroups as any[]) {
+      byType[group.admissionType] = group._count._all;
+    }
+
+    return { total, active, discharged, byWard, byType };
+  }
+
   /** Active observation patients that have been under observation for `hours` or more. */
   async countReadyForDecision(hours = 24) {
     return this.prisma.admission.count({

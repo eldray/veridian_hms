@@ -756,6 +756,7 @@ export class EncounterService extends BaseService {
 
   // Admissions & IPD
   async getAllAdmissions(filters: any) { return this.repository.getAllAdmissions(filters); }
+  async getAdmissionStatistics() { return this.repository.getAdmissionStatistics(); }
   async getFormalIPDPatients(filters: any) { return this.repository.getAllAdmissions({ ...filters, excludeDetention: true }); }
   async getDetentionPatients(filters: any) {
     const result = await this.repository.getAllAdmissions({ ...filters, admissionType: 'detention_observation' });

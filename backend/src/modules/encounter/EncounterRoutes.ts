@@ -43,6 +43,11 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
     requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']),
     controller.getAllAdmissions,
   );
+  router.get(
+    '/admissions/stats',
+    requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']),
+    controller.getAdmissionStats,
+  );
   router.post(
     '/admissions',
     requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']),

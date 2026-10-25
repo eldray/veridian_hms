@@ -1937,7 +1937,7 @@ export const addDailyNotesToAdmission = (admissionId: string, data: {
 
 // Get admission statistics
 export const getAdmissionStats = () =>
-  api.get('/encounters/stats').then(r => r.data?.data || r.data);
+  api.get('/encounters/admissions/stats').then(r => r.data?.data || r.data);
 
 // Get admissions by patient ID (historical)
 export const getAdmissionsByPatientId = (patientId: string, filters?: {
