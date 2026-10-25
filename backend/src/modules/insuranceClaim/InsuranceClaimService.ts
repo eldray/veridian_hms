@@ -1037,7 +1037,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   // are applied to the lines as well as the header so a saved claim never has mismatched totals.
   const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
   if (claim.InsuranceProvider?.type !== 'nhis') {
-    if (claim.InsuranceProvider?.type === 'corporate') {
+    // Corporate claims are identified by their corporate account; their linked
+    // insurance provider may legitimately have type "private".
+    if (claim.corporateAccountId) {
       const rawDiscount = Number((claim.metadata as any)?.discountPercentage ?? 0);
       if (!Number.isFinite(rawDiscount) || rawDiscount < 0 || rawDiscount > 100) {
         throw new ValidationError('Corporate claim discount must be between 0 and 100 percent.');

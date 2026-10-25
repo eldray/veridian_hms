@@ -124,9 +124,11 @@ describe('claim draft item replacement reconciliation', () => {
       id: 'claim-1',
       billId: 'bill-1',
       insuranceProviderId: 'provider-1',
+      corporateAccountId: type === 'corporate' ? 'corporate-account-1' : null,
       status: 'draft',
       metadata: { discountPercentage },
-      InsuranceProvider: { type },
+      // Corporate accounts commonly use a provider whose type is "private".
+      InsuranceProvider: { type: 'private' },
       Attendance: { id: 'attendance-1', patientId: 'patient-1', dateTime: new Date('2026-10-24T10:00:00.000Z'), Admission: null, Medication: [] },
     };
     const updated = { ...claim, items: [] };
