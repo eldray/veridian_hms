@@ -10,6 +10,7 @@
  */
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
+import { appendAuditLog } from '../services/auditChain';
 
 // Already audited in detail elsewhere, or not business data
 const SKIP_TOPICS = new Set(['events', 'uploads', 'audit', 'users', 'health', 'notifications']);
@@ -97,14 +98,12 @@ export function auditWrites(prisma: PrismaClient) {
         }
 
         const operation = segments.slice(1).filter((s) => !ID_LIKE.test(s)).join('/');
-        void prisma.auditLog.create({
-          data: {
-            entityType, entityId: String(entityId), action, performedById: userId,
-            ipAddress: req.ip ?? null,
-            previousState: undefined,
-            newState: action === AuditAction.login || action === AuditAction.logout || action === AuditAction.delete ? undefined : safeBody(req.body),
-            metadata: { method: req.method, url: path, operation: operation || undefined, statusCode: res.statusCode, userAgent: req.headers['user-agent'] ?? undefined },
-          },
+        void appendAuditLog(prisma, {
+          entityType, entityId: String(entityId), action, performedById: userId,
+          ipAddress: req.ip ?? null,
+          previousState: undefined,
+          newState: action === AuditAction.login || action === AuditAction.logout || action === AuditAction.delete ? undefined : safeBody(req.body),
+          metadata: { method: req.method, url: path, operation: operation || undefined, statusCode: res.statusCode, userAgent: req.headers['user-agent'] ?? undefined },
         }).catch((err: any) => console.error('[audit] could not record', req.method, path, err?.message ?? err));
       } catch (err: any) {
         console.error('[audit] failed:', err?.message ?? err);

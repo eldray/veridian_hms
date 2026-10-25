@@ -34,6 +34,11 @@ semantic versioning.
   is re-checked against the live account on every request, so deactivation and
   role changes take effect immediately. Legacy files with browser-executable
   extensions such as `.html` are no longer served.
+- Audit entries are now hash-chained: each row commits to the previous row, so
+  edits, deletions and reordering are detectable. `GET /audit/logs/verify`
+  (admin) walks the chain and reports the first entry that no longer matches.
+  Rows written before this change have no link and are skipped until the first
+  chained entry.
 - Uploaded files are no longer served unless their leading bytes match the
   declared MIME type. A renamed HTML/executable file is deleted and the request
   is rejected with `400`, and the base64 patient-photo endpoint applies the same

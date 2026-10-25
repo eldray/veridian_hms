@@ -1,5 +1,6 @@
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { IBackupResult, IBackupListResponse } from './BackupTypes';
+import { appendAuditLog } from '../../services/auditChain';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -79,14 +80,12 @@ export class BackupRepository {
 
   async saveBackupResult(result: IBackupResult, userId: string): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          entityType: 'Backup',
-          entityId: result.filename,
-          action: 'create' as AuditAction, // ✅ Safely cast to Prisma Enum
-          performedById: userId,
-          metadata: { filename: result.filename, size: result.size, path: result.path, timestamp: result.createdAt }
-        }
+      await appendAuditLog(this.prisma, {
+        entityType: 'Backup',
+        entityId: result.filename,
+        action: 'create' as AuditAction, // ✅ Safely cast to Prisma Enum
+        performedById: userId,
+        metadata: { filename: result.filename, size: result.size, path: result.path, timestamp: result.createdAt }
       });
     } catch (error) {
       console.error('Failed to log backup to audit trail:', error);
@@ -95,14 +94,12 @@ export class BackupRepository {
 
   async logRestoreOperation(filename: string, userId: string, success: boolean, errorMessage?: string): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          entityType: 'Backup',
-          entityId: filename,
-          action: (success ? 'update' : 'create') as AuditAction,
-          performedById: userId,
-          metadata: { filename, success, errorMessage, timestamp: new Date().toISOString() }
-        }
+      await appendAuditLog(this.prisma, {
+        entityType: 'Backup',
+        entityId: filename,
+        action: (success ? 'update' : 'create') as AuditAction,
+        performedById: userId,
+        metadata: { filename, success, errorMessage, timestamp: new Date().toISOString() }
       });
     } catch (error) {
       console.error('Failed to log restore operation:', error);

@@ -86,6 +86,15 @@ export class AuditController extends BaseController {
     return this.ok(res, meta, 'Audit metadata retrieved successfully');
   });
 
+  verifyChain = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const result = await this.auditService.verifyChain();
+    return this.ok(
+      res,
+      result,
+      result.ok ? 'Audit chain is intact' : `Audit chain broke at entry ${result.brokenAtId ?? 'unknown'}`,
+    );
+  });
+
   exportLogs = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const format = (req.query.format as string) || 'json';
     const filters = {

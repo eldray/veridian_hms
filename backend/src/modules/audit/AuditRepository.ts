@@ -1,5 +1,6 @@
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { appendAuditLog, verifyAuditChain, StoredAuditRow } from '../../services/auditChain';
 import {
   AuditLogFilters,
   AuditLogExportFilters,
@@ -146,18 +147,36 @@ export class AuditRepository extends BaseRepository<any, any, any> {
   }
 
   async createAuditLog(data: CreateAuditLogInput) {
-    return this.getModel().create({
-      data: {
-        entityType: data.entityType,
-        entityId: data.entityId,
-        action: data.action,
-        performedById: data.performedById,
-        ipAddress: data.ipAddress ?? null,
-        previousState: data.previousState ?? null,
-        newState: data.newState ?? null,
-        metadata: data.metadata ?? null,
-        timestamp: new Date(),
+    return appendAuditLog(this.prisma, {
+      entityType: data.entityType,
+      entityId: data.entityId,
+      action: data.action,
+      performedById: data.performedById,
+      ipAddress: data.ipAddress ?? null,
+      previousState: data.previousState ?? null,
+      newState: data.newState ?? null,
+      metadata: data.metadata ?? null,
+      timestamp: new Date(),
+    });
+  }
+
+  async verifyChain() {
+    const rows = await this.prisma.auditLog.findMany({
+      orderBy: { id: 'asc' },
+      select: {
+        id: true,
+        entityType: true,
+        entityId: true,
+        action: true,
+        performedById: true,
+        ipAddress: true,
+        userAgent: true,
+        previousState: true,
+        newState: true,
+        metadata: true,
+        timestamp: true,
       },
     });
+    return verifyAuditChain(rows as unknown as StoredAuditRow[]);
   }
 }

@@ -18,6 +18,7 @@ export function createAuditRoutes(prisma: PrismaClient): Router {
   // ==========================================
 
   router.get('/logs/meta', auditController.getMeta);
+  router.get('/logs/verify', auditController.verifyChain);
   router.get('/logs/export', auditController.exportLogs);
   router.get('/logs/entity/:entityType/:entityId', auditController.getEntityLogs);
   router.get('/logs/user/:userId', auditController.getUserLogs);

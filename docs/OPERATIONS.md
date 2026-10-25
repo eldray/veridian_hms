@@ -107,6 +107,12 @@ off-box copy), RTO ≤ 2 hours (documented restore and verification steps).
   immediately without waiting for the cookie to expire.
 - The backend handles SIGINT/SIGTERM by stopping new connections, closing the
   HTTP server, and disconnecting Prisma.
+- Audit entries are hash-chained. `GET /api/audit/logs/verify` (admin) walks the
+  chain in insertion order and returns `{ ok, checked, brokenAtId }`. A failure
+  means a row was edited, deleted, or reordered in the database; treat it as a
+  security incident and preserve a database snapshot before investigating.
+  Entries written before chaining was introduced have no link and are skipped
+  until the first chained row.
 - Desktop logs are written to the Electron logs directory and are capped at
   5 MB with one rotated file.
 
