@@ -1467,6 +1467,7 @@ describe('consumable reversal batch location race protection', () => {
     const batchUpdate = vi.fn();
     const transactionUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'encounter-1', status: 'pending' }) },
       stockTransaction: {
         findFirst: vi.fn().mockResolvedValue(use),
         updateMany: transactionUpdateMany,
