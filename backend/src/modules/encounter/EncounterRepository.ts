@@ -968,9 +968,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     const actorId = await this.requireActorId(userId);
     const encounter = await this.prisma.attendance.findUnique({
       where: { id: encounterId },
-      select: { id: true, patientId: true, paymentMode: true, insuranceProviderId: true },
+      select: { id: true, patientId: true, paymentMode: true, insuranceProviderId: true, status: true },
     });
     if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
+      throw new ConflictError('Prescriptions cannot be added to a closed encounter');
+    }
 
     // Catch incomplete or impossible prescriptions before creating a medication
     // record or generating its medication-administration schedule.
