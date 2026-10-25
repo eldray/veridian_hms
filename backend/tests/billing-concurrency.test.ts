@@ -626,3 +626,25 @@ describe('bill lifecycle financial reconciliation', () => {
     });
   });
 });
+
+
+it('rejects a status change inside the transaction when payment history exists', async () => {
+  const billUpdate = vi.fn();
+  const tx: any = {
+    $queryRaw: vi.fn().mockResolvedValue([]),
+    payment: { findFirst: vi.fn().mockResolvedValue({ id: 'payment-existing' }) },
+    bill: {
+      findUnique: vi.fn().mockResolvedValue({
+        id: 'bill-paid-history', attendanceId: 'attendance-1',
+        paymentMode: 'cash', status: 'partial', paidAmount: 25, totalAmount: 100,
+      }),
+      update: billUpdate,
+    },
+  };
+  const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+  const repository = new BillingRepository(prisma);
+
+  await expect(repository.updateStatus('bill-paid-history', 'cancelled' as any, 'admin-1'))
+    .rejects.toThrow(/bill with recorded payments/i);
+  expect(billUpdate).not.toHaveBeenCalled();
+});
