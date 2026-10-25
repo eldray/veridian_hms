@@ -570,6 +570,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const refreshedAttendance = await get().refreshAttendance(attendanceId);
       set({ isLoading: false, error: null });
       if (!refreshedAttendance) throw new Error('Lab result was updated, but the visit could not be refreshed');
+      if (String(data?.status || '').toLowerCase() === 'completed') {
+        await get().calculateBill(attendanceId);
+      }
     } catch (error: any) {
       console.error('Error updating lab test status:', error);
       set({ error: error.message || 'Failed to update lab test status', isLoading: false });
@@ -625,6 +628,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const refreshedAttendance = await get().refreshAttendance(attendanceId);
       set({ isLoading: false, error: null });
       if (!refreshedAttendance) throw new Error('Procedure status was updated, but the visit could not be refreshed');
+      if (String(data?.status || '').toLowerCase() === 'completed') {
+        await get().calculateBill(attendanceId);
+      }
     } catch (error: any) {
       console.error('Error updating procedure status:', error);
       set({ error: error.message || 'Failed to update procedure status', isLoading: false });
@@ -696,6 +702,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const medicationFromAttendance = (refreshedAttendance as any)?.Medication?.find(
         (medication: any) => medication.id === medicationId
       );
+      if (['dispensed', 'administered'].includes(String(data?.status || '').toLowerCase())) {
+        await get().calculateBill(attendanceId);
+      }
       return medicationFromAttendance || updatedMedication;
     } catch (error: any) {
       console.error('Error updating medication status:', error);
@@ -727,6 +736,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const medicationFromAttendance = (refreshedAttendance as any)?.Medication?.find(
         (medication: any) => medication.id === medicationId
       );
+      await get().calculateBill(attendanceId);
       return medicationFromAttendance || updatedMedication;
     } catch (error: any) {
       set({
@@ -790,6 +800,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       const refreshedAttendance = await get().refreshAttendance(attendanceId);
       set({ isLoading: false, error: null });
       if (!refreshedAttendance) throw new Error('Scan result was updated, but the visit could not be refreshed');
+      if (String(data?.status || '').toLowerCase() === 'completed') {
+        await get().calculateBill(attendanceId);
+      }
     } catch (error: any) {
       console.error('Error updating scan status:', error);
       set({ error: error.message || 'Failed to update scan status', isLoading: false });
