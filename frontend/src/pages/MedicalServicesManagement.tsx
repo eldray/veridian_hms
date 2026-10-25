@@ -172,7 +172,17 @@ const getMorbidityOptionsByCategory = () => {
 };
 
 export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: MedicalServicesManagementProps) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const { hasRole } = useAuthStore();
+  const canReadTab = (tab: ActiveTab) => {
+    switch (tab) {
+      case 'diagnoses': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
+      case 'lab-tests': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts']);
+      case 'procedures': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']);
+      case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']);
+    }
+  };
+  const firstReadableTab = (['diagnoses', 'lab-tests', 'procedures', 'scans'] as ActiveTab[]).find(canReadTab) ?? 'diagnoses';
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => canReadTab(initialTab) ? initialTab : firstReadableTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -191,7 +201,6 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   });
   
   const { success, error: toastError } = useToast();
-  const { hasRole } = useAuthStore();
 
   // Keep visible actions consistent with the role guards on each backend module.
   const canWriteActiveTab =
@@ -539,18 +548,19 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     { id: 'procedures' as ActiveTab, label: 'Procedures', icon: Scissors, color: 'green', count: totalCounts.procedures },
     { id: 'scans' as ActiveTab, label: 'Scans', icon: Scan, color: 'orange', count: totalCounts.scans },
   ];
+  const visibleTabs = tabs.filter(tab => canReadTab(tab.id));
 
-    // Load all data when component mounts to populate counts
+  // Only request datasets the current role is permitted to read.
   useEffect(() => {
     const loadInitialData = async () => {
       await Promise.all([
-        getDiagnoses({ limit: 1000 }),
-        getLabTestTemplates({ limit: 1000 }),
-        getProcedureTemplates({ limit: 1000 }),
-        getScanTemplates({ limit: 1000 }),
+        ...(canReadTab('diagnoses') ? [getDiagnoses({ limit: 1000 })] : []),
+        ...(canReadTab('lab-tests') ? [getLabTestTemplates({ limit: 1000 })] : []),
+        ...(canReadTab('procedures') ? [getProcedureTemplates({ limit: 1000 })] : []),
+        ...(canReadTab('scans') ? [getScanTemplates({ limit: 1000 })] : []),
       ]);
     };
-    loadInitialData();
+    void loadInitialData();
   }, []);
 
   const filteredData = getFilteredData();
@@ -627,7 +637,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     <div className="space-y-6">
       {/* Header with Stats */}
       <div className="grid grid-cols-4 gap-3">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActiveTab = activeTab === tab.id;
           return (
