@@ -12,7 +12,7 @@ describe('claim batch finalization integrity', () => {
         claimNumber: 'NHIS-001',
         status: 'finalized',
         batchId: 'batch-1',
-        totalClaimAmount: { toString: () => '125.50' },
+        totalClaimAmount: '125.50',
         items: [{ id: 'item-1' }],
         ...claimOverrides,
       }],
