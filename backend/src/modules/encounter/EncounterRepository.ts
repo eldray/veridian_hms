@@ -915,9 +915,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
       const attendance = await tx.attendance.findUnique({
         where: { id: existingVitals.attendanceId },
-        select: { id: true, patientId: true, attendanceType: true, dateTime: true },
+        select: { id: true, patientId: true, attendanceType: true, dateTime: true, status: true },
       });
       if (!attendance) throw new NotFoundError('Encounter', existingVitals.attendanceId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(attendance.status)) {
+        throw new ConflictError('Vitals cannot be changed for a closed encounter');
+      }
       if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
         throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
       }
@@ -948,7 +951,17 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async deleteVitals(vitalsId: string) {
-    return this.prisma.vitals.delete({ where: { id: vitalsId } });
+    const existing = await this.prisma.vitals.findUnique({
+      where: { id: vitalsId },
+      select: { id: true, attendanceId: true },
+    });
+    if (!existing) throw new NotFoundError('Vitals', vitalsId);
+    await this.requireOpenEncounter(existing.attendanceId);
+    const result = await this.prisma.vitals.deleteMany({
+      where: { id: vitalsId, attendanceId: existing.attendanceId },
+    });
+    if (result.count !== 1) throw new ConflictError('Vitals changed; refresh and try again');
+    return { id: vitalsId, deleted: true };
   }
 
   async addPrescription(encounterId: string, data: AddPrescriptionDTO, userId: string) {
