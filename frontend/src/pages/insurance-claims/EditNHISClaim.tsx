@@ -817,7 +817,7 @@ export default function EditNHISClaim() {
     isLoading,
   } = useInsuranceStore();
 
-  const { getPatient, updatePatient } = usePatientStore();
+  const { updatePatient } = usePatientStore();
   const { getDiagnoses } = useMedicalServicesStore();
   const { tariffs, fetchTariffs } = useGDRGTariffStore();
 

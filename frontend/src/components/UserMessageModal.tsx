@@ -1,6 +1,6 @@
 // src/components/UserMessageModal.tsx
 import React, { useState, useEffect } from 'react';
-import { useSettingsStore } from '../store/settingsStore';
+import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useToast } from '../store/toastStore';
@@ -28,7 +28,7 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
   );
   const [isSending, setIsSending] = useState(false);
 
-  const { users, getAllUsers, isLoading: isLoadingUsers } = useSettingsStore();
+  const { users, getAllUsers, isLoading: isLoadingUsers } = useUserStore();
   const { sendBulkNotification } = useNotificationStore();
   const { user: currentUser } = useAuthStore();
   const { success, error: toastError } = useToast();

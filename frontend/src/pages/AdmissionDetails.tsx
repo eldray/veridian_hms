@@ -8,6 +8,7 @@ import { useWardStore } from '../store/wardStore';
 import {
   ArrowLeft, User, Calendar, Bed, Activity, FileText, Loader2,
   AlertCircle, Phone, IdCard, Stethoscope, Clock, MapPin,
+  CheckCircle,
   UserCircle, ClipboardList, Pill, FlaskConical, Scissors,
   Scan, Eye, Hospital, Moon, Sun, Building2, LogOut, RefreshCw,
   Hash, Info, ChevronRight, TrendingUp, Baby, Heart,

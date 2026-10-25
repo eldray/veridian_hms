@@ -31,7 +31,6 @@ import {
   getMedicalWorklist,
   getLabWorklist,
   getPatients,
-  getAntenatalRecords,
 } from './index';
 
 // ── helpers ─────────────────────────────────────
@@ -144,7 +143,7 @@ export async function fetchPharmacyExtras() {
 // ── MATERNAL ────────────────────────────────────
 
 export async function fetchMaternalExtras() {
-  const [ancRes, pncRes, delRes] = await Promise.all([
+  const [ancRes, pncRes] = await Promise.all([
     safe(() => getAntenatalStatistics({ startDate: today(), endDate: today() }), null as any),
     safe(() => getPostnatalStatistics({ startDate: today(), endDate: today() }), null as any),
     safe(() => getDeliveryStatistics({ startDate: today(), endDate: today() }), null as any),
@@ -152,7 +151,6 @@ export async function fetchMaternalExtras() {
 
   const anc = ancRes?.data ?? ancRes ?? {};
   const pnc = pncRes?.data ?? pncRes ?? {};
-  const del = delRes?.data ?? delRes ?? {};
 
   const eddThisWeek = anc?.eddThisWeek ?? anc?.upcomingDeliveries ?? 0;
 

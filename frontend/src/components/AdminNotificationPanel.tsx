@@ -7,7 +7,7 @@ import { Send, Users, Bell, AlertCircle } from 'lucide-react';
 
 export const AdminNotificationPanel: React.FC = () => {
   const { sendBulkNotification, sendRoleNotification, triggerLowStockCheck, triggerAppointmentReminders } = useNotificationStore();
-  const { users, getUsers } = useUserStore();
+  const { users } = useUserStore();
   const { success, error } = useToast();
   
   const [notificationType, setNotificationType] = useState<'bulk' | 'role'>('bulk');

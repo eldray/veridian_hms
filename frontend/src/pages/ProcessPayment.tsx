@@ -48,7 +48,7 @@ export default function ProcessPayment() {
   const navigate = useNavigate();
   const { billId } = useParams<{ billId: string }>();
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
-  const { patients, getPatients } = usePatientStore();
+  const { patients, loadPatients } = usePatientStore();
   const { user, hasRole } = useAuthStore();
   const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
   const { success, error: toastError } = useToast();
@@ -75,7 +75,7 @@ export default function ProcessPayment() {
           setIsPageLoading(true);
           await Promise.all([
             getBill(billId),
-            patients.length === 0 ? getPatients() : Promise.resolve()
+            patients.length === 0 ? loadPatients() : Promise.resolve()
           ]);
           
           // Get billing breakdown
@@ -89,7 +89,7 @@ export default function ProcessPayment() {
       }
     };
     loadData();
-  }, [billId, getBill, getPatients, patients.length, getBillingBreakdown, toastError]);
+  }, [billId, getBill, loadPatients, patients.length, getBillingBreakdown, toastError]);
 
   useEffect(() => {
     if (currentBill) {

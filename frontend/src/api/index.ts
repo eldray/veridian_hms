@@ -1,13 +1,11 @@
 // src/api/index.ts - COMPLETE CONSOLIDATED VERSION (FIXED)
 import api from './api';
-// Add Seniority to the import
 import type {
-  GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
-  Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
-  StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
-  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
-  Seniority  // ✅ ADD THIS
+  Patient, InsuranceProvider,
+  StockItem, StockTransaction, Ward, Bed, User,
+  Appointment, ConsultationType, HospitalInfo, Seniority
 } from '../types';
+import type { NewbornRecord } from '../store/deliveryStore';
 
 // ============================================
 // TYPES
@@ -1123,7 +1121,7 @@ const downloadAuthenticatedFile = async (path: string, fallbackFilename: string)
   const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
   const blob = response.data instanceof Blob
     ? response.data
-    : new Blob([response.data], { type: response.headers?.['content-type'] || 'application/octet-stream' });
+    : new Blob([response.data], { type: String(response.headers?.['content-type'] || 'application/octet-stream') });
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
@@ -2209,6 +2207,9 @@ export const getLowStockAlerts = () =>
 // ──────────────────────────────────────────────
 // REQUISITIONS
 // ──────────────────────────────────────────────
+
+const getStockTransfersPage = (filters?: { page?: number; limit?: number; status?: string }) =>
+  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
 
 export const getStockTransfers = async (filters?: { page?: number; limit?: number; status?: string }) => {
   if (!wantsMoreThanOnePage(filters)) return getStockTransfersPage(filters);
@@ -4054,7 +4055,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Referrals
   getReferrals, getReferralById, createOutgoingReferral, createIncomingReferral, updateReferralStatus,
-  updateReferral, deleteReferral, getReferralsByPatient, getReferralStats,
+  deleteReferral, getReferralsByPatient, getReferralStats,
 
   // Medical Services
   getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,

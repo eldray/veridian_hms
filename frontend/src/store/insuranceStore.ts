@@ -124,6 +124,22 @@ interface InsuranceState {
   deleteClaimBatch: (batchId: string) => Promise<void>;
   downloadBatchXml: (batchId: string) => Promise<void>;
   printBatch: (batchId: string) => Promise<void>;
+  /**
+   * Un-batched finalized claims grouped by insurance type for the current
+   * year/month. Powers the "Generate batch" form on ClaimBatches.tsx so it can
+   * show how many claims are eligible and disable the button when 0.
+   */
+  getEligibleClaimsForBatch: (params: {
+    periodYear: number;
+    periodMonth: number;
+  }) => Promise<{
+    nhis: number;
+    private: number;
+    corporate: number;
+    totalAmount: { nhis: number; private: number; corporate: number };
+  }>;
+  /** All finalized claims across types (used by batches page's "eligible" panel). */
+  getFinalizedUnbatchedClaims: () => Promise<InsuranceClaim[]>;
 
   // Providers
   getInsuranceProviders: (filters?: any) => Promise<void>;
@@ -190,27 +206,6 @@ const calculateStats = (claims: InsuranceClaim[]): ClaimStats => {
     finalizedAmount: finalized.reduce((s, c) => s + Number(c.totalClaimAmount || 0), 0),
   };
 };
-
-// Add to InsuranceState interface:
-
-/**
- * Un-batched finalized claims grouped by insurance type for the current
- * year/month. Powers the "Generate batch" form on ClaimBatches.tsx so it can
- * show how many claims are eligible and disable the button when 0.
- */
-getEligibleClaimsForBatch: (params: {
-  periodYear: number;
-  periodMonth: number;
-}) => Promise<{
-  nhis: number;
-  private: number;
-  corporate: number;
-  totalAmount: { nhis: number; private: number; corporate: number };
-}>;
-
-/** All finalized claims across types (used by batches page's "eligible" panel). */
-getFinalizedUnbatchedClaims: () => Promise<InsuranceClaim[]>;
-
 
 const extractClaims = (response: any): InsuranceClaim[] => {
   if (Array.isArray(response)) return response.map(normalizeClaim);

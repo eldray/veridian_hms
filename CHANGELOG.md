@@ -69,3 +69,8 @@ semantic versioning.
   by an error boundary instead of blanking the window.
 - Switching patient or clearing the worklist in medical entries asks for
   confirmation before discarding an unsaved progress note.
+- Stock transfers page, claim-batch eligibility, the payment page patient list,
+  the NHIS claim editor, the admin notification panel and the message recipient
+  picker now call store actions that actually exist. The missing `CheckCircle`
+  import that broke the admission status badge and a stale `updateReferral`
+  export were removed, so those screens no longer fail at runtime.
