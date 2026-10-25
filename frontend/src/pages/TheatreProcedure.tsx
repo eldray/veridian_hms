@@ -1,5 +1,6 @@
 // src/pages/TheatreProcedure.tsx — V2 with Grid Note Tiles
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -580,7 +581,7 @@ export default function TheatreProcedure() {
   };
 
   const handleCancelProcedure = async (procedureId: string) => {
-    if (!window.confirm('Cancel this procedure? This action cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Cancel procedure', message: 'Cancel this procedure? This action cannot be undone.', confirmText: 'Cancel procedure' }))) return;
     try {
       await updateProcedureStatus(selectedAttendanceId!, procedureId, { status: 'cancelled' });
       success('Procedure cancelled', 'The procedure has been cancelled');

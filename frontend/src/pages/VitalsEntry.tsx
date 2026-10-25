@@ -1,5 +1,6 @@
 // src/pages/VitalsEntry.tsx - FIXED with refresh and proper vitals display
 import { useLiveRefresh } from '../api/realtime';
+import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -380,7 +381,7 @@ export default function VitalsEntry() {
 
   const handleDeleteVitals = async (vitals: any) => {
     if (!selectedAttendanceId || !vitals.id) return;
-    if (!confirm('Are you sure you want to delete these vitals?')) return;
+    if (!(await confirmDialog({ title: 'Delete vitals', message: 'Are you sure you want to delete these vitals?', confirmText: 'Delete' }))) return;
     
     try {
       await deleteVitals(selectedAttendanceId, vitals.id);

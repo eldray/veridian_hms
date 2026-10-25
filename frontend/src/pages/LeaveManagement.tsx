@@ -1,5 +1,6 @@
 // src/pages/LeaveManagement.tsx
 import { useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useLeaveStore } from '../store/leaveStore';
 import { useUserStore } from '../store/userStore';
 import { useHospitalStore } from '../store/hospitalStore';
@@ -255,7 +256,7 @@ export default function LeaveManagement() {
 
   // ── Handlers ─────────────────────────────────
   const handleApprove = async (leave: any) => {
-    if (!window.confirm(`Approve ${leave.totalDays} day(s) of ${leave.leaveType} leave for ${leave.user?.fullName}?`)) return;
+    if (!(await confirmDialog({ title: 'Approve leave', message: `Approve ${leave.totalDays} day(s) of ${leave.leaveType} leave for ${leave.user?.fullName}?`, confirmText: 'Approve', type: 'info' }))) return;
     setActioningId(leave.id);
     try {
       await approveLeave(leave.id);
@@ -282,7 +283,7 @@ export default function LeaveManagement() {
   };
 
   const handleDelete = async (leave: any) => {
-    if (!window.confirm('Delete this leave request permanently?')) return;
+    if (!(await confirmDialog({ title: 'Delete leave request', message: 'Delete this leave request permanently?', confirmText: 'Delete' }))) return;
     try {
       await deleteLeave(leave.id);
       success('Deleted', 'Leave request removed');

@@ -1,5 +1,6 @@
 // src/pages/Appointments.tsx - FIXED with NewAttendanceModal
 import { useEffect, useState, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
 import { usePatientStore } from '../store/patientStore';
@@ -319,7 +320,7 @@ export default function Appointments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this appointment?')) {
+    if (await confirmDialog({ title: 'Delete appointment', message: 'Are you sure you want to delete this appointment?', confirmText: 'Delete' })) {
       try {
         await deleteAppointment(id);
         success('Appointment Deleted', 'Appointment deleted successfully');

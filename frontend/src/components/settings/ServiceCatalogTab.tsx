@@ -1,6 +1,7 @@
 // src/components/settings/ServiceCatalogTab.tsx - FIXED VERSION
 
 import { useEffect, useState } from 'react';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
@@ -320,7 +321,7 @@ export default function ServiceCatalogTab() {
 
   const handleDelete = async (id: string) => {
     if (!id) return;
-    if (!window.confirm('Are you sure you want to delete this service?')) return;
+    if (!(await confirmDialog({ title: 'Delete service', message: 'Are you sure you want to delete this service?', confirmText: 'Delete' }))) return;
     
     try {
       await deleteServiceCatalogItem(id);

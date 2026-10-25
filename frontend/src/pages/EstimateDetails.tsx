@@ -1,5 +1,6 @@
 // src/pages/EstimateDetails.tsx - Proforma invoice (estimate) detail + actions
 import { useEffect, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
@@ -165,7 +166,7 @@ export default function EstimateDetails() {
                 <Pencil className="w-4 h-4" /> Edit
               </button>
               <button disabled={busy} onClick={() => run(async () => {
-                if (!window.confirm('Delete this draft estimate?')) return;
+                if (!(await confirmDialog({ title: 'Delete draft estimate', message: 'Delete this draft estimate?', confirmText: 'Delete' }))) return;
                 await removeEstimate(est.id);
                 navigate('/dashboard/estimates');
               }, 'Estimate deleted')} className="flex items-center gap-2 px-4 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 text-sm disabled:opacity-50">

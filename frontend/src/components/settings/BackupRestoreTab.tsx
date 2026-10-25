@@ -1,5 +1,6 @@
 // src/components/settings/BackupRestoreTab.tsx - FIXED VERSION
 import { useState, useEffect } from 'react';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import { useToast } from '../../store/toastStore';
 import { useAuthStore } from '../../store/authStore';
 import { Download, Upload, RefreshCw, Database, Trash2, Loader, AlertCircle, CheckCircle } from 'lucide-react';
@@ -111,7 +112,7 @@ export default function BackupRestoreTab() {
       return;
     }
 
-    if (!confirm('Restoring a backup will overwrite current data. This action cannot be undone. Continue?')) return;
+    if (!(await confirmDialog({ title: 'Restore database', message: 'Restoring a backup will overwrite current data. This action cannot be undone. Continue?', confirmText: 'Restore' }))) return;
 
     setRestoring(true);
     setError(null);
@@ -130,8 +131,8 @@ export default function BackupRestoreTab() {
       await loadBackups();
       
       // Optional: Show a message that page may need refresh
-      setTimeout(() => {
-        if (confirm('Restore completed. Would you like to refresh the page?')) {
+      setTimeout(async () => {
+        if (await confirmDialog({ title: 'Restore completed', message: 'Restore completed. Would you like to refresh the page?', confirmText: 'Refresh', type: 'success' })) {
           window.location.reload();
         }
       }, 1000);

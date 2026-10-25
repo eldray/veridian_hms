@@ -1,5 +1,6 @@
 // src/pages/Departments.tsx - REDESIGNED (both pickers now searchable)
 import React, { useEffect, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -186,7 +187,7 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this department? This cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete department', message: 'Delete this department? This cannot be undone.', confirmText: 'Delete' }))) return;
     try { await deleteDepartment(id); success('Deleted', 'Department removed'); await loadData(); }
     catch { error('Delete Failed', 'Failed to delete department'); }
   };
@@ -209,7 +210,7 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleRemoveHead = async (dept: any) => {
-    if (!window.confirm(`Remove ${dept.head?.fullName} as head of ${dept.name}?`)) return;
+    if (!(await confirmDialog({ title: 'Remove department head', message: `Remove ${dept.head?.fullName} as head of ${dept.name}?`, confirmText: 'Remove' }))) return;
     try { await updateDepartment(dept.id, { headId: null }); success('Removed', 'Head removed'); await loadData(); }
     catch (err: any) { error('Failed', err.message); }
   };
@@ -246,7 +247,7 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleRemoveUser = async (userId: string, userName: string) => {
-    if (!selectedDept || !window.confirm(`Remove ${userName} from ${selectedDept.name}?`)) return;
+    if (!selectedDept || !(await confirmDialog({ title: 'Remove member', message: `Remove ${userName} from ${selectedDept.name}?`, confirmText: 'Remove' }))) return;
     setRemovingId(userId);
     try {
       await removeUserFromDepartment(selectedDept.id, userId);
@@ -771,7 +772,7 @@ const { user, hasRole } = useAuthStore();
                             {!isHead && (staff.seniority === 'SENIOR' || staff.seniority === 'PRINCIPAL') && (
                               <button
                                 onClick={async () => {
-                                  if (!window.confirm(`Make ${staff.fullName} the head of ${selectedDept.name}?`)) return;
+                                  if (!(await confirmDialog({ title: 'Assign department head', message: `Make ${staff.fullName} the head of ${selectedDept.name}?`, confirmText: 'Assign', type: 'info' }))) return;
                                   try {
                                     await assignDepartmentHead(selectedDept.id, staff.id);
                                     success('Promoted', `${staff.fullName} is now head of ${selectedDept.name}`);

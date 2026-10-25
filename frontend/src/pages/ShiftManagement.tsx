@@ -1,5 +1,6 @@
 // src/pages/ShiftManagement.tsx
 import { useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useShiftStore } from '../store/shiftStore';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
@@ -402,7 +403,7 @@ export default function ShiftManagement() {
   };
 
   const handleDelete = async (shiftId: string) => {
-    if (!window.confirm('Delete this shift?')) return;
+    if (!(await confirmDialog({ title: 'Delete shift', message: 'Delete this shift?', confirmText: 'Delete' }))) return;
     try {
       await deleteShift(shiftId);
       success('Deleted', 'Shift removed');

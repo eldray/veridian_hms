@@ -1,5 +1,6 @@
 // src/pages/UserManagement.tsx - Admin HR hub with Pagination + Full Role Coverage
 import { useState, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -389,7 +390,7 @@ export default function UserManagement() {
   };
 
   const handleRunPayroll = async () => {
-    if (!window.confirm(`Run payroll for ${payrollMonth}/${payrollYear}? This will generate or refresh payslips for every active staff member.`)) return;
+    if (!(await confirmDialog({ title: 'Run payroll', message: `Run payroll for ${payrollMonth}/${payrollYear}? This will generate or refresh payslips for every active staff member.`, confirmText: 'Run payroll', type: 'warning' }))) return;
     setPayrollRunning(true);
     try {
       const result = await runPayroll(payrollMonth, payrollYear);

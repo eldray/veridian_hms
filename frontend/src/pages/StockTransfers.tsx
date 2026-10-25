@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import {
   AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight,
   ClipboardList, Download, Eye, Filter, Package, Plus, RefreshCw, Search,
@@ -135,7 +136,7 @@ export default function StockTransfers() {
 
   const performAction = async (transfer: Transfer, action: 'approve' | 'dispatch' | 'receive') => {
     const label = action === 'approve' ? 'approve' : action === 'dispatch' ? 'dispatch' : 'confirm receipt for';
-    if (!window.confirm(`Are you sure you want to ${label} transfer ${transfer.transferNumber || ''}?`)) return;
+    if (!(await confirmDialog({ title: 'Update stock transfer', message: `Are you sure you want to ${label} transfer ${transfer.transferNumber || ''}?`, confirmText: 'Continue', type: 'warning' }))) return;
     try {
       const actions = { approve: approveStockTransfer, dispatch: dispatchStockTransfer, receive: receiveStockTransfer };
       await actions[action](transfer.id);

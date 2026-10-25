@@ -1,5 +1,6 @@
 // src/pages/RequisitionManagement.tsx - COMPLETE FIXED VERSION + REDESIGNED CREATE MODAL
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import AsyncSelect from 'react-select/async';
 import { lookupRequisitionStock, getRequisition as apiGetRequisition, type RequisitionStockLookupItem } from '../api';
 import { useStockStore } from '../store/stockStore';
@@ -263,7 +264,7 @@ export default function RequisitionManagement() {
     const short = validItems.filter(i => i.picked && i.quantityRequested > i.picked.supplierQty);
     if (short.length > 0) {
       const list = short.map(i => `• ${i.picked!.name}: asking ${i.quantityRequested}, ${supplierName} has ${i.picked!.supplierQty}`).join('\n');
-      if (!window.confirm(`${supplierName} does not currently hold enough of:\n\n${list}\n\nSubmit anyway?`)) return;
+      if (!(await confirmDialog({ title: 'Insufficient stock', message: `${supplierName} does not currently hold enough of:\n\n${list}\n\nSubmit anyway?`, confirmText: 'Submit anyway', type: 'warning' }))) return;
     }
 
     try {
@@ -308,7 +309,7 @@ export default function RequisitionManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this requisition? This action cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete requisition', message: 'Delete this requisition? This action cannot be undone.', confirmText: 'Delete' }))) return;
     try {
       await deleteRequisition(id);
       success('Deleted', 'Requisition deleted successfully');

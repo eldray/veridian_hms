@@ -1,5 +1,6 @@
 // src/pages/StockManagement.tsx - FULLY FIXED VERSION
 import { useEffect, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useStockStore } from '../store/stockStore';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
@@ -271,7 +272,7 @@ export default function StockManagement() {
 
   const handleDelete = async (id: string) => {
     if (!canDelete) return;
-    if (!window.confirm('Delete this item? This action cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete stock item', message: 'Delete this item? This action cannot be undone.', confirmText: 'Delete' }))) return;
     try {
       await deleteStockItem(id);
       success('Deleted', 'Item removed successfully');

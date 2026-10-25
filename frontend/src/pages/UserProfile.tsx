@@ -1,5 +1,6 @@
 // src/pages/UserProfile.tsx
 import { useState, useEffect } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useAuthStore } from '../store/authStore';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
@@ -156,7 +157,7 @@ export default function UserProfile() {
   };
 
   const handleCancelLeave = async (leaveId: string) => {
-    if (!window.confirm('Cancel this leave request?')) return;
+    if (!(await confirmDialog({ title: 'Cancel leave request', message: 'Cancel this leave request?', confirmText: 'Cancel request' }))) return;
     try {
       await deleteLeave(leaveId);
       success('Leave Cancelled', 'Your leave request has been cancelled');

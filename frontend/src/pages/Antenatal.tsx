@@ -1,5 +1,6 @@
 // src/pages/Antenatal.tsx — restructured
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
 import { useDeliveryStore } from '../store/deliveryStore';
@@ -636,7 +637,7 @@ useEffect(() => {
   };
 
   const handleDeleteDeliveryRecord = async (id: string) => {
-    if (!window.confirm('Delete this delivery record?')) return;
+    if (!(await confirmDialog({ title: 'Delete delivery record', message: 'Delete this delivery record?', confirmText: 'Delete' }))) return;
     try {
       await deleteDeliveryRecord(id);
       await getDeliveryRecords({ patientId: selectedPatientId });

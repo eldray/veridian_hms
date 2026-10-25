@@ -1,5 +1,6 @@
 // src/components/PayslipEditor.tsx
 import { useState, useEffect } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import {
@@ -133,7 +134,7 @@ export default function PayslipEditor({ payslipId, onClose, onSaved }: Props) {
   };
 
   const removeLine = async (lineItemId: string) => {
-    if (!window.confirm('Remove this line item?')) return;
+    if (!(await confirmDialog({ title: 'Remove line item', message: 'Remove this line item?', confirmText: 'Remove' }))) return;
     setSaving(true);
     try {
       await deletePayslipLineItem(payslipId, lineItemId);

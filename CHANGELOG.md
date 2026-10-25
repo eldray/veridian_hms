@@ -41,6 +41,10 @@ semantic versioning.
 - Unit tests for file-access tokens, cookie parsing, and upload path resolution.
 - Gitleaks configuration and a CI secret-scan job.
 - `LICENSE`, `SECURITY.md`, `CODEOWNERS`, and operations documentation.
+- A single `ConfirmDialogHost` renders every confirmation with the themed,
+  keyboard-accessible modal. All 30 native `window.confirm`/`confirm` calls now
+  use `confirmDialog(...)` with a title, action-specific button text and a
+  danger/warning/info style; multi-line messages keep their line breaks.
 
 ### Changed
 

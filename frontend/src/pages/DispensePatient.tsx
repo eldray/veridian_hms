@@ -1,5 +1,6 @@
 // src/pages/DispensePatient.tsx - REDESIGNED v3 (two-column card grid)
 import { useLiveRefresh } from '../api/realtime';
+import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -410,7 +411,7 @@ export default function DispensePatient() {
     await Promise.all([refreshConsumableUses(), getStockItems()]);
   };
   const handleDeleteConsumable = async (use: any) => {
-    if (!window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    if (!(await confirmDialog({ title: 'Delete consumable use', message: `Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`, confirmText: 'Delete' }))) return;
     try {
       await deleteEncounterConsumableUse(selectedAttendanceId, use.id);
       success('Consumable use deleted', 'The stock was restored.');

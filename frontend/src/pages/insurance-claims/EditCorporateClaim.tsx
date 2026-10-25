@@ -1,5 +1,6 @@
 // src/pages/insurance-claims/EditCorporateClaim.tsx
 import { useEffect, useState, useRef } from 'react';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
@@ -551,9 +552,12 @@ export default function EditCorporateClaim() {
 
   const handleSave = async () => {
     if (!isDraft) return;
-    if (creditWarning && !window.confirm(
-      `This claim (GHS ${finalAmount.toFixed(2)}) exceeds the available credit of GHS ${availableCredit.toFixed(2)}. Continue anyway?`
-    )) return;
+    if (creditWarning && !(await confirmDialog({
+      title: 'Credit limit exceeded',
+      message: `This claim (GHS ${finalAmount.toFixed(2)}) exceeds the available credit of GHS ${availableCredit.toFixed(2)}. Continue anyway?`,
+      confirmText: 'Continue',
+      type: 'warning',
+    }))) return;
 
     try {
       setIsSubmitting(true);
@@ -575,7 +579,7 @@ export default function EditCorporateClaim() {
 
   const handleFinalize = async () => {
     if (!isDraft) return;
-    if (creditWarning && !window.confirm(`This claim exceeds the available credit limit. Finalize anyway?`)) return;
+    if (creditWarning && !(await confirmDialog({ title: 'Credit limit exceeded', message: 'This claim exceeds the available credit limit. Finalize anyway?', confirmText: 'Finalize', type: 'warning' }))) return;
     try {
       setIsSubmitting(true);
       await handleSave();

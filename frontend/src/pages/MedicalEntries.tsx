@@ -1,5 +1,6 @@
 // src/pages/MedicalEntries.tsx - UPDATED with Daycase, Detention, IPD distinction
 import { useLiveRefresh } from '../api/realtime';
+import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
@@ -1173,7 +1174,7 @@ export default function MedicalEntries() {
   };
 
   const deleteConsumableUse = async (use: any) => {
-    if (!window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    if (!(await confirmDialog({ title: 'Delete consumable use', message: `Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`, confirmText: 'Delete' }))) return;
     try {
       await deleteEncounterConsumableUse(selectedAttendanceId, use.id);
       success('Consumable use deleted', 'The stock was restored.');

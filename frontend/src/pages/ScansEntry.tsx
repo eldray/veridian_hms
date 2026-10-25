@@ -1,5 +1,6 @@
 // src/pages/ScansEntry.tsx — Scans Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -432,7 +433,7 @@ export default function ScansEntry() {
   };
 
   const handleDeleteScan = async (scanId: string) => {
-    if (!window.confirm('Delete this scan request?')) return;
+    if (!(await confirmDialog({ title: 'Delete scan request', message: 'Delete this scan request?', confirmText: 'Delete' }))) return;
     try {
       await removeScan(selectedAttendanceId!, scanId);
       success('Deleted', 'Scan removed');
