@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import CreateEditModal from '../components/CreateEditModal';
 import { useToast } from '../store/toastStore';
+import { useAuthStore } from '../store/authStore';
 import { 
   Plus, 
   Search, 
@@ -190,6 +191,15 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   });
   
   const { success, error: toastError } = useToast();
+  const { hasRole } = useAuthStore();
+
+  // Keep visible actions consistent with the role guards on each backend module.
+  const canWriteActiveTab =
+    activeTab === 'diagnoses' ? hasRole(['admin']) :
+    activeTab === 'lab-tests' ? hasRole(['admin', 'lab_tech', 'accounts']) :
+    activeTab === 'procedures' ? hasRole(['admin', 'doctor']) :
+    hasRole(['admin']);
+  const canDeleteActiveTab = hasRole(['admin']);
   
   const {
     diagnoses,
@@ -721,13 +731,15 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
           </div>
         )}
         
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Add New
-        </button>
+        {canWriteActiveTab && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add New
+          </button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -746,7 +758,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
             <p className="text-sm text-[var(--text-secondary)] mb-4">
               {searchTerm || morbidityFilter !== 'all' ? 'Try adjusting your search or filter terms' : `Get started by creating your first ${activeTab.slice(0, -1)}`}
             </p>
-            {!searchTerm && morbidityFilter === 'all' && (
+            {canWriteActiveTab && !searchTerm && morbidityFilter === 'all' && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
@@ -805,20 +817,24 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="p-1.5 text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(item.id)}
-                            className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canWriteActiveTab && (
+                            <button
+                              onClick={() => setEditingItem(item)}
+                              className="p-1.5 text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {canDeleteActiveTab && (
+                            <button
+                              onClick={() => setDeleteConfirm(item.id)}
+                              className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       </tr>
