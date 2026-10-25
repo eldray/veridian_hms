@@ -2443,6 +2443,53 @@ describe('GHS Form A newborn outcome classification', () => {
 });
 
 
+
+describe('consumable stock changes on closed encounters', () => {
+  const closedEncounterTx = () => ({
+    attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }) },
+    user: { findUnique: vi.fn() },
+    stockTransaction: { findFirst: vi.fn(), updateMany: vi.fn(), update: vi.fn(), create: vi.fn() },
+    stockItem: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+    stockBatch: { count: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), findUnique: vi.fn() },
+  });
+
+  it('rejects recording consumable use after encounter closure before stock changes', async () => {
+    const tx = closedEncounterTx();
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+    (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
+    (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
+
+    await expect(repository.recordConsumableUse('enc-1', 'item-1', 1, undefined, 'user-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects editing consumable use after encounter closure before stock changes', async () => {
+    const tx = closedEncounterTx();
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+    (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
+    (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
+
+    await expect(repository.updateConsumableUse('enc-1', 'txn-1', 'item-1', 2, undefined, 'user-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.stockTransaction.findFirst).not.toHaveBeenCalled();
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects deleting consumable use after encounter closure before stock changes', async () => {
+    const tx = closedEncounterTx();
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+    (repository as any).requireActorId = vi.fn().mockResolvedValue('user-1');
+    (repository as any).requireEncounterId = vi.fn().mockResolvedValue('enc-1');
+
+    await expect(repository.deleteConsumableUse('enc-1', 'txn-1', 'user-1'))
+      .rejects.toThrow(/closed encounter/i);
+    expect(tx.stockTransaction.findFirst).not.toHaveBeenCalled();
+    expect(tx.stockItem.update).not.toHaveBeenCalled();
+  });
+});
+
 describe('diagnosis changes on closed encounters', () => {
   it('rejects adding a diagnosis after the encounter is closed', async () => {
     const diagnosisLookup = vi.fn();
