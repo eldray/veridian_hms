@@ -383,6 +383,9 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const lineItem = await tx.billLineItem.findUnique({ where: { id: lineItemId }, include: { bill: true } });
       if (!lineItem) throw new Error('Line item not found');
       if (lineItem.isVoided) throw new Error('Line item already voided');
+      if (lineItem.bill.status === 'cancelled') {
+        throw Object.assign(new Error('Cannot void a line item on a cancelled bill.'), { statusCode: 409 });
+      }
 
       const updatedLineItem = await tx.billLineItem.update({ where: { id: lineItemId }, data: { isVoided: true, voidedAt: new Date(), voidedById: userId, voidReason: reason } });
 
@@ -418,6 +421,18 @@ export class BillingRepository extends BaseRepository<any, any, any> {
           updatedAt: new Date()
         }
       });
+
+      // Voiding a corporate charge must reverse the same amount from account
+      // utilization that was added when the bill was created.
+      if (currentBill.paymentMode === 'corporate' && currentBill.corporateAccountId) {
+        const removedCharge = Math.max(0, toNumber(currentBill.totalAmount) - newTotal);
+        if (removedCharge > 0) {
+          await tx.corporateAccount.update({
+            where: { id: currentBill.corporateAccountId },
+            data: { currentBalance: { decrement: removedCharge } }
+          });
+        }
+      }
       if (currentBill.attendanceId) await this.syncAttendanceFinancials(tx, currentBill.attendanceId, { ...currentBill, totalAmount: newTotal, balance: newBalance });
 
       return updatedLineItem;
