@@ -2658,20 +2658,25 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async dischargeFromEncounter(encounterId: string, data: any, userId: string) {
-    return this.prisma.$transaction(async (tx) => {
-      const encounter = await tx.attendance.findUnique({ where: { id: encounterId }, include: { Admission: true } });
-      if (!encounter) throw new Error('Encounter not found');
-
-      await tx.attendance.update({ where: { id: encounterId }, data: { status: 'discharged' } });
-      
-      if (encounter.Admission) {
-        await tx.admission.update({
-          where: { id: encounter.Admission.id },
-          data: { dischargeDate: new Date(), dischargeStatus: data.dischargeStatus || 'home' }
-        });
-      }
-      return { message: 'Patient discharged successfully', dischargeDate: new Date() };
+    const encounter = await this.prisma.attendance.findUnique({
+      where: { id: encounterId },
+      select: { id: true, Admission: { select: { id: true } } },
     });
+    if (!encounter) throw new NotFoundError('Encounter', encounterId);
+    if (!encounter.Admission) {
+      throw new ConflictError('This encounter has no admission record to discharge. Use the appropriate encounter workflow.');
+    }
+
+    // Keep the discharge endpoint on the same guarded transactional path as admission
+    // updates so attendance status, admission dates, bed release, and summary notes stay in sync.
+    const dischargeDate = data.dischargeDate || new Date();
+    const admission = await this.updateAdmission(encounter.Admission.id, {
+      dischargeDate,
+      dischargeStatus: data.dischargeStatus || 'home',
+      dischargeSummary: data.dischargeSummary,
+    }, userId);
+
+    return { message: 'Patient discharged successfully', dischargeDate: admission.dischargeDate, admission };
   }
 
   async getBedOccupancy() {

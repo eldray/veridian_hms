@@ -2450,3 +2450,47 @@ describe('diagnosis changes on closed encounters', () => {
     expect(tx.attendanceDiagnosis.deleteMany).not.toHaveBeenCalled();
   });
 });
+
+
+describe('encounter discharge workflow integrity', () => {
+  it('routes discharge through the guarded admission workflow', async () => {
+    const repository = new EncounterRepository({
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: 'attendance-1', Admission: { id: 'admission-1' },
+        }),
+      },
+    } as any);
+    const updateAdmission = vi.fn().mockResolvedValue({
+      id: 'admission-1', dischargeDate: new Date('2026-10-25T10:00:00.000Z'),
+    });
+    (repository as any).updateAdmission = updateAdmission;
+
+    const result = await repository.dischargeFromEncounter('attendance-1', {
+      dischargeDate: '2026-10-25T10:00:00.000Z',
+      dischargeStatus: 'home',
+      dischargeSummary: 'Stable on discharge',
+    }, 'clinician-1');
+
+    expect(updateAdmission).toHaveBeenCalledWith('admission-1', {
+      dischargeDate: '2026-10-25T10:00:00.000Z',
+      dischargeStatus: 'home',
+      dischargeSummary: 'Stable on discharge',
+    }, 'clinician-1');
+    expect(result.dischargeDate).toEqual(new Date('2026-10-25T10:00:00.000Z'));
+  });
+
+  it('does not discharge an encounter that has no admission record', async () => {
+    const repository = new EncounterRepository({
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', Admission: null }),
+      },
+    } as any);
+    const updateAdmission = vi.fn();
+    (repository as any).updateAdmission = updateAdmission;
+
+    await expect(repository.dischargeFromEncounter('attendance-1', {}, 'clinician-1'))
+      .rejects.toThrow(/no admission record to discharge/i);
+    expect(updateAdmission).not.toHaveBeenCalled();
+  });
+});
