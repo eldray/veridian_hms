@@ -1977,16 +1977,33 @@ async addProcedure(encounterId: string, data: any, userId: string) {
 
   async addService(encounterId: string, data: any, userId: string) {
     const actorId = await this.requireActorId(userId);
-    await this.requireEncounterId(encounterId);
+    // Service rendering is a clinical write: reject closed encounters, not merely missing IDs.
+    await this.requireOpenEncounter(encounterId);
     if (!data.serviceCatalogId) throw new ValidationError('A service catalog entry is required');
-    const service = await this.prisma.serviceCatalog.findUnique({ where: { id: data.serviceCatalogId } });
+    const quantity = data.quantity === undefined ? 1 : Number(data.quantity);
+    if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+      throw new ValidationError('Service quantity must be a positive whole number');
+    }
+    const service = await this.prisma.serviceCatalog.findUnique({
+      where: { id: data.serviceCatalogId },
+      select: { id: true, isActive: true },
+    });
     if (!service) throw new NotFoundError('Service', data.serviceCatalogId);
+    if (!service.isActive) throw new ValidationError('Inactive services cannot be added to an encounter');
     return this.prisma.serviceRendered.create({
-      data: { attendanceId: encounterId, serviceItemId: data.serviceCatalogId, quantity: data.quantity || 1, date: new Date(), performedById: actorId, notes: data.notes }
+      data: {
+        attendanceId: encounterId,
+        serviceItemId: data.serviceCatalogId,
+        quantity,
+        date: new Date(),
+        performedById: actorId,
+        notes: data.notes,
+      },
     });
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
+    await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.serviceRendered.deleteMany({
       where: { id: serviceRenderedId, attendanceId: encounterId },
     });
