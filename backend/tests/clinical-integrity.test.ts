@@ -9,6 +9,33 @@ import { classifyNewbornOutcomes } from '../src/modules/ghsReport/formA';
 
 
 
+describe('medication dispensing encounter guard', () => {
+  it('does not dispense medication after the encounter has closed', async () => {
+    const tx: any = {
+      attendance: {
+        findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'discharged' }),
+      },
+      medication: {
+        findUnique: vi.fn(),
+        updateMany: vi.fn(),
+      },
+      stockItem: { updateMany: vi.fn() },
+      stockTransaction: { create: vi.fn() },
+    };
+    const repository = new EncounterRepository({
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    (repository as any).requireActorId = async () => 'user-1';
+
+    await expect(repository.updateMedication(
+      'enc-1', 'med-1', { status: 'dispensed', quantity: 1 }, 'user-1',
+    )).rejects.toThrow(/cannot be dispensed for a closed encounter/i);
+    expect(tx.medication.findUnique).not.toHaveBeenCalled();
+    expect(tx.stockItem.updateMany).not.toHaveBeenCalled();
+    expect(tx.stockTransaction.create).not.toHaveBeenCalled();
+  });
+});
+
 describe('overdue MAR dose transitions', () => {
   it('does not mark doses due for cancelled prescriptions or closed encounters', async () => {
     const updateMany = vi.fn().mockResolvedValue({ count: 0 });
