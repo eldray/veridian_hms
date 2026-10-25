@@ -172,8 +172,19 @@ export class InsuranceClaimController extends BaseController {
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 50));
     const where: any = { status: 'finalized' };
-    if (req.query.insuranceType) {
-      where.InsuranceProvider = { type: String(req.query.insuranceType) };
+    const insuranceType = req.query.insuranceType ? String(req.query.insuranceType).trim().toLowerCase() : '';
+    if (insuranceType && !['nhis', 'private', 'corporate'].includes(insuranceType)) {
+      return this.badRequest(res, 'insuranceType must be nhis, private, or corporate');
+    }
+    if (insuranceType === 'corporate') {
+      // Corporate claims may use a provider whose type is "private".
+      where.corporateAccountId = { not: null };
+    } else if (insuranceType === 'private') {
+      // Keep corporate-account claims out of the private-only tracking view.
+      where.InsuranceProvider = { type: 'private' };
+      where.corporateAccountId = null;
+    } else if (insuranceType === 'nhis') {
+      where.InsuranceProvider = { type: 'nhis' };
     }
     if (req.query.search) {
       const search = String(req.query.search).trim();
