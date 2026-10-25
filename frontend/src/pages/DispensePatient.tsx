@@ -10,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
@@ -584,6 +585,12 @@ export default function DispensePatient() {
           </div>
         </div>
       </div>
+
+      <AllergyBanner
+        patientId={patient?.id || selectedPatientId}
+        allergies={patient?.allergies}
+        allergyReviewStatus={attendance?.allergyReviewStatus}
+      />
 
       {/* ── ALERT BANNERS ───────────────────────────────────────────────── */}
       {attendance && !canDispense && (

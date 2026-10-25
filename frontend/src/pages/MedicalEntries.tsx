@@ -13,6 +13,7 @@ import { useToast } from '../store/toastStore';
 import { useWorklistStore } from '../store/worklistStore';
 import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 
 import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
@@ -1530,6 +1531,12 @@ export default function MedicalEntries() {
                 {getActionButtons()}
               </div>
             </div>
+            <AllergyBanner
+              patientId={selectedPatientId}
+              allergies={selectedPatient?.allergies}
+              allergyReviewStatus={allergyReviewStatus}
+              className="mt-3"
+            />
             {(
               (selectedPatient?.allergies?.length || 0) > 0 ||
               (selectedPatient?.medicalHistories?.length || 0) > 0 ||

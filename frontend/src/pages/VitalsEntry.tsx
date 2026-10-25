@@ -11,6 +11,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft,
@@ -530,6 +531,12 @@ export default function VitalsEntry() {
               </div>
             </div>
           </div>
+
+          <AllergyBanner
+            patientId={selectedPatientId}
+            allergies={selectedPatient?.allergies}
+            allergyReviewStatus={selectedAttendance.allergyReviewStatus}
+          />
 
           {/* Read-only warning */}
           {!canRecord && (

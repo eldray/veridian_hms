@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
@@ -779,6 +780,12 @@ export default function TheatreProcedure() {
               </div>
             </div>
           </div>
+
+          <AllergyBanner
+            patientId={patient?.id}
+            allergies={patient?.allergies}
+            allergyReviewStatus={attendance?.allergyReviewStatus}
+          />
 
           {/* Read-only warning */}
           {!canUpdateProcedure && (

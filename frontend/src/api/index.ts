@@ -1,7 +1,7 @@
 // src/api/index.ts - COMPLETE CONSOLIDATED VERSION (FIXED)
 import api from './api';
 import type {
-  Patient, InsuranceProvider,
+  Patient, PatientAllergy, InsuranceProvider,
   StockItem, StockTransaction, Ward, Bed, User,
   Appointment, ConsultationType, HospitalInfo, Seniority
 } from '../types';
@@ -1244,6 +1244,13 @@ export const getPatients = async (filters?: any) => {
     pagination: { page: 1, limit: items.length, total: items.length, pages: 1 }
   });
 };
+
+// Patient lists omit EMR relations, so clinical screens read allergies separately.
+export const getPatientAllergies = (patientId: string) =>
+  api.get(`/patients/${patientId}/allergies`).then(r => {
+    const payload = r.data?.data ?? r.data;
+    return (Array.isArray(payload) ? payload : []) as PatientAllergy[];
+  });
 
 export const createPatient = (data: any) => {
   // FormData must be sent intact: spreading it into an object drops its entries.

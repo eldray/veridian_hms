@@ -60,6 +60,11 @@ semantic versioning.
   keyboard-accessible modal. All 30 native `window.confirm`/`confirm` calls now
   use `confirmDialog(...)` with a title, action-specific button text and a
   danger/warning/info style; multi-line messages keep their line breaks.
+- Medical entries, vitals, dispensing and theatre show a shared allergy banner.
+  Recorded allergens (reaction and severity) are always listed; the banner also
+  warns when the current visit has not reviewed allergy status, records
+  allergies as present without details, or could not load the allergy list. It
+  fetches allergies by patient id because the paginated patient list omits them.
 
 ### Changed
 
