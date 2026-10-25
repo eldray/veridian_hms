@@ -651,10 +651,8 @@ it('rejects a status change inside the transaction when payment history exists',
 
 
 describe('voided-payment idempotency and pending-intent ordering', () => {
-  it.each([
-    ['primary bill repository', () => new BillRepository({} as any), 'bill-1'],
-    ['billing module repository', () => new BillingRepository({} as any), 'bill-legacy'],
-  ])('%s rejects a retry for a payment that was voided', async (_label, makeRepository, billId) => {
+  const assertVoidedRetryRejected = async (legacy: boolean) => {
+    const billId = legacy ? 'bill-legacy' : 'bill-1';
     const priorPayment = {
       id: 'payment-voided',
       billId,
@@ -670,19 +668,27 @@ describe('voided-payment idempotency and pending-intent ordering', () => {
       momoPaymentIntent: { findFirst: vi.fn().mockResolvedValue({ id: 'pending-momo' }) },
     };
     const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
-    const repository = billId === 'bill-1'
-      ? new BillRepository(prisma)
-      : new BillingRepository(prisma);
-
-    await expect(repository.addPayment(billId, {
+    const paymentData: any = {
       amount: 25,
-      paymentMethod: 'cash' as any,
+      paymentMethod: 'cash',
       idempotencyKey: 'voided-retry-key',
       userId: 'cashier-1',
-    } as any, 'cashier-1')).rejects.toThrow(/payment was already voided/i);
+    };
+    const operation = legacy
+      ? new BillingRepository(prisma).addPayment(billId, paymentData)
+      : new BillRepository(prisma).addPayment(billId, paymentData, 'cashier-1');
 
+    await expect(operation).rejects.toThrow(/payment was already voided/i);
     expect(tx.momoPaymentIntent.findFirst).not.toHaveBeenCalled();
     expect(tx.payment.create).not.toHaveBeenCalled();
     expect(tx.bill.updateMany).not.toHaveBeenCalled();
+  };
+
+  it('rejects a retry for a voided payment in the primary bill repository', async () => {
+    await assertVoidedRetryRejected(false);
+  });
+
+  it('rejects a retry for a voided payment in the billing-module repository', async () => {
+    await assertVoidedRetryRejected(true);
   });
 });
