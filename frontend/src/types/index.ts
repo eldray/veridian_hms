@@ -961,6 +961,7 @@ export interface Ward {
   wardType: string;
   totalBeds: number;
   occupiedBeds: number;
+  isActive?: boolean;
   isNHISCovered: boolean;
   nhisRequiresAuth: boolean;
   isPrivateInsExempted: boolean;
