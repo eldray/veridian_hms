@@ -570,6 +570,7 @@ export default function PatientBillingItems() {
 
       const payments = (freshBill.Payment || freshBill.payments || [])
         .filter((payment: any) => !payment.isVoided)
+        .slice()
         .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
       const latestPayment = payments[0] || null;
       if (!latestPayment) {
@@ -587,21 +588,13 @@ export default function PatientBillingItems() {
       const receiptData = {
         bill: freshBill,
         patient: freshBill.Patient,
-        payment: latestPayment
-          ? {
-              amount: latestPayment.amount,
-              paymentMethod: latestPayment.paymentMethod,
-              receiptNumber: latestPayment.reference || latestPayment.id,
-              paymentDate: latestPayment.transactionDate,
-              receivedBy: latestPayment.User?.fullName || 'System',
-            }
-          : {
-              amount: paymentAmount,
-              paymentMethod,
-              receiptNumber: paymentReference || `RCP-${Date.now()}`,
-              paymentDate: new Date().toISOString(),
-              receivedBy: 'System',
-            },
+        payment: {
+          amount: latestPayment.amount,
+          paymentMethod: latestPayment.paymentMethod,
+          receiptNumber: latestPayment.reference || latestPayment.id,
+          paymentDate: latestPayment.transactionDate,
+          receivedBy: latestPayment.User?.fullName || 'System',
+        },
         hospital: hospitalInfo,
       };
 
@@ -625,6 +618,7 @@ export default function PatientBillingItems() {
 
         const payments = ((billToReceipt as any).Payment || (billToReceipt as any).payments || [])
           .filter((payment: any) => !payment.isVoided)
+          .slice()
           .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
         const latestPayment = payments[0] || null;
         if (!latestPayment) {
