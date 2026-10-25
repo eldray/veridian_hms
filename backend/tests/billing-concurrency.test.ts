@@ -648,3 +648,41 @@ it('rejects a status change inside the transaction when payment history exists',
     .rejects.toThrow(/bill with recorded payments/i);
   expect(billUpdate).not.toHaveBeenCalled();
 });
+
+
+describe('voided-payment idempotency and pending-intent ordering', () => {
+  it.each([
+    ['primary bill repository', () => new BillRepository({} as any), 'bill-1'],
+    ['billing module repository', () => new BillingRepository({} as any), 'bill-legacy'],
+  ])('%s rejects a retry for a payment that was voided', async (_label, makeRepository, billId) => {
+    const priorPayment = {
+      id: 'payment-voided',
+      billId,
+      amount: 25,
+      paymentMethod: 'cash',
+      reference: null,
+      idempotencyKey: 'voided-retry-key',
+      isVoided: true,
+    };
+    const tx: any = {
+      payment: { findUnique: vi.fn().mockResolvedValue(priorPayment), create: vi.fn() },
+      bill: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+      momoPaymentIntent: { findFirst: vi.fn().mockResolvedValue({ id: 'pending-momo' }) },
+    };
+    const prisma: any = { $transaction: vi.fn(async (callback: any) => callback(tx)) };
+    const repository = billId === 'bill-1'
+      ? new BillRepository(prisma)
+      : new BillingRepository(prisma);
+
+    await expect(repository.addPayment(billId, {
+      amount: 25,
+      paymentMethod: 'cash' as any,
+      idempotencyKey: 'voided-retry-key',
+      userId: 'cashier-1',
+    } as any, 'cashier-1')).rejects.toThrow(/payment was already voided/i);
+
+    expect(tx.momoPaymentIntent.findFirst).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+    expect(tx.bill.updateMany).not.toHaveBeenCalled();
+  });
+});
