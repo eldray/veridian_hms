@@ -735,6 +735,7 @@ describe('clinical dispensing calendar-day expiry', () => {
     const stockBatchUpdateMany = vi.fn().mockResolvedValue({ count: 1 });
     const stockTransactionCreate = vi.fn().mockResolvedValue({ id: 'dispense-movement' });
     const tx: any = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'enc-1', status: 'pending' }) },
       medication: {
         findUnique: vi.fn().mockResolvedValue({
           id: 'med-1', attendanceId: 'enc-1', status: 'prescribed', quantity: 1,
