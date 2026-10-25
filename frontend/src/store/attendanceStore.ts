@@ -986,16 +986,14 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     if (!att || !get().canAddActivities(att)) {
       throw new Error('Cannot add service to non-pending attendance');
     }
-    
+
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiAddService(attendanceId, data);
-      set((state) => ({
-        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
-        // A late response for another visit must not replace the visit currently open.
-        currentAttendance: state.currentAttendance?.id === attendanceId ? updated : state.currentAttendance,
-        isLoading: false,
-      }));
+      // The API returns the created ServiceRendered row, not a replacement Attendance.
+      await apiAddService(attendanceId, data);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Service was added, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error adding service:', error);
@@ -1005,15 +1003,19 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
   },
 
   removeService: async (attendanceId, serviceId) => {
+    const state = get();
+    const att = state.attendances.find((a) => a.id === attendanceId)
+      || (state.currentAttendance?.id === attendanceId ? state.currentAttendance : undefined);
+    if (!att) throw new Error('Cannot remove service: attendance not found');
+    if (!get().canAddActivities(att)) throw new Error('Cannot remove service from non-pending attendance');
+
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiRemoveService(attendanceId, serviceId);
-      set((state) => ({
-        attendances: state.attendances.map((a) => (a.id === updated.id ? updated : a)),
-        // A late response for another visit must not replace the visit currently open.
-        currentAttendance: state.currentAttendance?.id === attendanceId ? updated : state.currentAttendance,
-        isLoading: false,
-      }));
+      // The API returns { id: serviceId, removed: true }, not an Attendance object.
+      await apiRemoveService(attendanceId, serviceId);
+      const refreshedAttendance = await get().refreshAttendance(attendanceId);
+      set({ isLoading: false, error: null });
+      if (!refreshedAttendance) throw new Error('Service was removed, but the visit could not be refreshed');
       await get().calculateBill(attendanceId);
     } catch (error: any) {
       console.error('Error removing service:', error);
