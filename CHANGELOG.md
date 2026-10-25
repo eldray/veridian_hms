@@ -60,6 +60,9 @@ semantic versioning.
 - `backend/.env.example`.
 - Unit tests for file-access tokens, cookie parsing, and upload path resolution.
 - Gitleaks configuration and a CI secret-scan job.
+- A PostgreSQL-backed CI job creates the schema and runs integration tests
+  against a real database, starting with concurrent audit-chain appends and
+  tamper detection.
 - `LICENSE`, `SECURITY.md`, `CODEOWNERS`, and operations documentation.
 - A single `ConfirmDialogHost` renders every confirmation with the themed,
   keyboard-accessible modal. All 30 native `window.confirm`/`confirm` calls now

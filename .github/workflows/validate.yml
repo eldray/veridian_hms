@@ -61,6 +61,45 @@ jobs:
       - name: Build frontend
         run: npm run build
 
+  database:
+    name: PostgreSQL integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: veridian_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/veridian_test
+      RUN_DB_TESTS: '1'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci
+      - name: Create the schema
+        run: npx prisma db push --force-reset --skip-generate
+      - name: Run database integration tests
+        run: npm run test:integration
+
   secret-scan:
     name: Secret scan
     runs-on: ubuntu-latest
