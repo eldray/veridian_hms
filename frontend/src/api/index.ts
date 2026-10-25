@@ -3055,11 +3055,13 @@ export const generateBillStatement = (billId: string) =>
 export const generateReferralLetter = (referralId: string) =>
   api.post<DocumentGenerationResponse>(`/documents/referral/${referralId}`).then(r => r.data);
 
-export const generateDischargeSummary = (admissionId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/discharge/${admissionId}`).then(r => r.data);
+// The document backend generates this from an encounter, then links the document to that encounter.
+export const generateDischargeSummary = (encounterId: string) =>
+  api.post<DocumentGenerationResponse>(`/documents/discharge/${encounterId}`).then(r => r.data);
 
-export const generateLabResult = (labTestId: string) =>
-  api.post<DocumentGenerationResponse>(`/documents/lab-result/${labTestId}`).then(r => r.data);
+// The backend builds the lab-result document from all lab records on the encounter.
+export const generateLabResult = (encounterId: string) =>
+  api.post<DocumentGenerationResponse>(`/documents/lab-result/${encounterId}`).then(r => r.data);
 
 export const generatePrescription = (encounterId: string) =>
   api.post<DocumentGenerationResponse>(`/documents/prescription/${encounterId}`).then(r => r.data);

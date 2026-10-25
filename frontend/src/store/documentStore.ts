@@ -56,8 +56,8 @@ interface DocumentState {
   generateReceipt: (billId: string, paymentId?: string) => Promise<DocumentGenerationResponse>;
   generateBillStatement: (billId: string) => Promise<DocumentGenerationResponse>;
   generateReferralLetter: (referralId: string) => Promise<DocumentGenerationResponse>;
-  generateDischargeSummary: (admissionId: string) => Promise<DocumentGenerationResponse>;
-  generateLabResult: (labTestId: string) => Promise<DocumentGenerationResponse>;
+  generateDischargeSummary: (encounterId: string) => Promise<DocumentGenerationResponse>;
+  generateLabResult: (encounterId: string) => Promise<DocumentGenerationResponse>;
   generatePrescription: (attendanceId: string) => Promise<DocumentGenerationResponse>;
   downloadDocument: (documentId: string) => Promise<Blob>;
   reprintDocument: (documentId: string) => Promise<DocumentGenerationResponse>;
@@ -137,11 +137,11 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     }
   },
 
-  generateDischargeSummary: async (admissionId) => {
+  generateDischargeSummary: async (encounterId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await generateDischargeSummary(admissionId);
-      const doc = normalizeGeneratedDocument(response, 'admission', admissionId);
+      const response = await generateDischargeSummary(encounterId);
+      const doc = normalizeGeneratedDocument(response, 'encounter', encounterId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
@@ -154,11 +154,11 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     }
   },
 
-  generateLabResult: async (labTestId) => {
+  generateLabResult: async (encounterId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await generateLabResult(labTestId);
-      const doc = normalizeGeneratedDocument(response, 'lab_test', labTestId);
+      const response = await generateLabResult(encounterId);
+      const doc = normalizeGeneratedDocument(response, 'encounter', encounterId);
       set((state) => ({
         documents: [doc, ...state.documents],
         isLoading: false,
