@@ -308,6 +308,7 @@ export default function ProcessPayment() {
         paymentId={(() => {
           const payments = ((bill as any).Payment || (bill as any).payments || [])
             .filter((payment: any) => !payment.isVoided)
+            .slice()
             .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
           return payments[0]?.id;
         })()}
