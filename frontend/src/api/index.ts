@@ -2331,11 +2331,6 @@ export const updateReferralStatus = async (id: string, status: string, outcomeNo
   return response.data;
 };
 
-export const updateReferral = async (id: string, data: any) => {
-  const response = await api.put(`/referrals/${id}`, data);
-  return response.data;
-};
-
 export const deleteReferral = async (id: string) => {
   const response = await api.delete(`/referrals/${id}`);
   return response.data;
