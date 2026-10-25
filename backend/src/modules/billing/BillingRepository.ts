@@ -283,6 +283,25 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       const current = await tx.bill.findUnique({ where: { id } });
       if (!current) throw new Error('Bill not found');
 
+      // Enforce financial-state invariants inside the same locked transaction;
+      // the service-level check alone can race a concurrent payment request.
+      if (status === 'paid' || status === 'partial') {
+        throw Object.assign(
+          new Error('Cannot set a bill to paid or partial directly. Record the payment so status and balance are calculated together.'),
+          { statusCode: 409 },
+        );
+      }
+      const paymentHistory = tx.payment?.findFirst
+        ? await tx.payment.findFirst({ where: { billId: id }, select: { id: true } })
+        : null;
+      const hasPaymentHistory = toNumber(current.paidAmount) > 0 || Boolean(paymentHistory);
+      if (hasPaymentHistory && current.status !== status) {
+        throw Object.assign(
+          new Error('Cannot change the status of a bill with recorded payments. Use the approved adjustment/refund workflow to preserve the payment audit trail.'),
+          { statusCode: 409 },
+        );
+      }
+
       // Corporate account balance is the outstanding billed credit. Cancellation
       // reverses the charge; restoring a cancelled bill re-applies it atomically.
       if (current.paymentMode === 'corporate' && current.corporateAccountId && current.status !== status) {
