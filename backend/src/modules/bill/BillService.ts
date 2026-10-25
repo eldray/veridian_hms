@@ -81,17 +81,8 @@ export class BillService extends BaseService {
     const bill = await this.billRepository.findById(billId);
     if (!bill) throw new Error('Bill not found');
     if (paymentData.amount <= 0) throw new Error('Payment amount must be greater than 0');
-    // Ordinary payment entry must never bypass an unresolved provider intent
-    // merely by selecting "mobile_money" as the manual payment method. Confirmed
-    // provider collections use BillingService.addConfirmedMomoPayment instead.
-    const momoIntentModel = (this.prisma as any).momoPaymentIntent;
-    const pendingMomo = momoIntentModel?.findFirst
-      ? await momoIntentModel.findFirst({
-          where: { billId, status: { in: ['initiating', 'pending'] } },
-          select: { id: true }
-        })
-      : null;
-    if (pendingMomo) throw Object.assign(new Error('A Mobile Money payment is still pending for this bill. Verify or resolve it before recording another payment.'), { statusCode: 409 });
+    // The repository checks pending provider intents and idempotency atomically under the bill lock.
+    // Do not reject a retry before the repository can return its original payment.
     // Resolve idempotent retries in the repository before rejecting a now-paid bill.
     if (!paymentData.idempotencyKey && bill.status === 'paid') {
       throw new Error('Cannot add payment to a fully paid bill');
