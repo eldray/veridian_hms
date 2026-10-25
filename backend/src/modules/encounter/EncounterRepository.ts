@@ -133,8 +133,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return encounter.id;
   }
 
-  private async requireOpenEncounter(encounterId: string) {
-    const encounter = await this.prisma.attendance.findUnique({
+  private async requireOpenEncounter(encounterId: string, db: any = this.prisma) {
+    const encounter = await db.attendance.findUnique({
       where: { id: encounterId },
       select: { id: true, status: true },
     });
@@ -2140,6 +2140,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
       const actor = await tx.user.findUnique({ where: { id: actorId }, select: { departmentId: true, role: true } });
       if (!actor?.departmentId) throw new ValidationError('Assign the user to the issuing department before recording consumable use');
       const consumed = await this.consumeConsumableStock(tx, stockItemId, quantity, actor.departmentId);
@@ -2169,6 +2170,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     }
 
     return this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
       const previous = await tx.stockTransaction.findFirst({
         where: {
           id: transactionId,
@@ -2239,6 +2241,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     await this.requireEncounterId(encounterId);
 
     return this.prisma.$transaction(async (tx) => {
+      await this.requireOpenEncounter(encounterId, tx);
       const use = await tx.stockTransaction.findFirst({
         where: {
           id: transactionId,
