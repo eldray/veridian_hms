@@ -704,7 +704,7 @@ export default function Appointments() {
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
-                          {canEditAppointment(apt) && (
+                          {hasRole(['admin']) && (
                             <button onClick={() => handleDelete(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>
