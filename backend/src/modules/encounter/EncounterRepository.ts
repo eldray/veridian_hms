@@ -346,12 +346,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       }
 
       if (key === 'status') {
-        const allowedStatuses = ['pending', 'admitted', 'discharged', 'completed', 'referred', 'absconded', 'cancelled'];
-        if (!allowedStatuses.includes(String(value))) {
-          throw new ValidationError('Invalid attendance status');
-        }
-        normalized.status = value;
-        return;
+        throw new ValidationError('Encounter status cannot be changed through the general update endpoint. Use the dedicated cancellation, admission, completion, discharge, referral or absconded workflow.');
       }
 
       if (allowedKeys.has(key)) {
