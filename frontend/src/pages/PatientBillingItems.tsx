@@ -6,6 +6,7 @@ import { useBillingStore } from '../store/billingStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
+import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
@@ -98,6 +99,8 @@ export default function PatientBillingItems() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [actualPatientId, setActualPatientId] = useState<string | null>(null);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [isResolving, setIsResolving] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false);
 
@@ -134,6 +137,8 @@ export default function PatientBillingItems() {
   const loadPatients = usePatientStore((s) => s.loadPatients);
 
   const getAttendance = useAttendanceStore((s) => s.getAttendance);
+  const attendances = useAttendanceStore((s) => s.attendances);
+  const getAttendances = useAttendanceStore((s) => s.getAttendances);
 
   const { generateReceipt } = useDocumentStore();
 
@@ -242,8 +247,27 @@ export default function PatientBillingItems() {
         setActualPatientId(resolvedId);
 
         const cacheBuster = Date.now();
-        await getBills({ patientId: resolvedId, _t: cacheBuster });
-        await getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster });
+        await Promise.all([
+          getBills({ patientId: resolvedId, _t: cacheBuster }),
+          getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster }),
+          getAttendances({ patientId: resolvedId }),
+        ]);
+
+        // Match the selected attendance to the bill clicked on the main Billing page;
+        // otherwise default to the patient's most recent visit, like Vitals and Medical Entries.
+        const freshBills = useBillingStore.getState().bills.filter((bill: any) => bill.patientId === resolvedId);
+        const requestedBillId = new URLSearchParams(window.location.search).get('billId');
+        const requestedBill = requestedBillId ? freshBills.find((bill: any) => bill.id === requestedBillId) : null;
+        const freshAttendances = useAttendanceStore.getState().attendances
+          .filter((attendance: any) => attendance.patientId === resolvedId)
+          .sort((a: any, b: any) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
+        const requestedAttendanceId = (requestedBill as any)?.attendanceId || (requestedBill as any)?.Attendance?.id;
+        setSelectedPatientId(resolvedId || '');
+        setSelectedAttendanceId(
+          requestedAttendanceId && freshAttendances.some((a: any) => a.id === requestedAttendanceId)
+            ? requestedAttendanceId
+            : (freshAttendances[0]?.id || '')
+        );
 
         setDataLoaded(true);
         console.log('✅ Billing data loaded');
@@ -260,6 +284,7 @@ export default function PatientBillingItems() {
       loadPatients,
       getAttendance,
       getBills,
+      getAttendances,
       getServiceCatalog,
       toastError,
       dataLoaded,
@@ -297,6 +322,14 @@ export default function PatientBillingItems() {
   const patientBills = useMemo(() => {
     if (!actualPatientId) return [];
     let filtered = bills.filter((b) => b.patientId === actualPatientId);
+    if (selectedAttendanceId) {
+      filtered = filtered.filter((bill: any) =>
+        String(bill.attendanceId || bill.Attendance?.id || '') === selectedAttendanceId
+      );
+    } else {
+      // Until an attendance is selected, do not mix bills from different visits.
+      filtered = [];
+    }
     if (searchQuery) {
       const lower = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -310,7 +343,7 @@ export default function PatientBillingItems() {
         new Date(b.billDate || b.createdAt).getTime() -
         new Date(a.billDate || a.createdAt).getTime()
     );
-  }, [bills, actualPatientId, searchQuery]);
+  }, [bills, actualPatientId, selectedAttendanceId, searchQuery]);
 
   const totalPages = Math.ceil(patientBills.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -321,7 +354,7 @@ export default function PatientBillingItems() {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [searchQuery, selectedAttendanceId]);
 
   // ===== Bill detail fetch =====
   const handleViewBillDetails = useCallback(
@@ -821,7 +854,7 @@ export default function PatientBillingItems() {
             View and manage all billable items for {getPatientName(patient)}
           </p>
           <p className="text-xs text-gray-400 mt-0.5">
-            {patientBills.length} bill(s) · Folder: {patient?.folderNumber}
+            {patientBills.length} bill(s) for selected visit · Folder: {patient?.folderNumber}
           </p>
         </div>
         <button
@@ -831,6 +864,42 @@ export default function PatientBillingItems() {
           <RefreshCw className="w-4 h-4" />
           Refresh
         </button>
+      </div>
+
+      {/* Patient / attendance selector — consistent with Vitals and Medical Entries */}
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+        <PatientAttendanceSelector
+          patients={patient ? [patient, ...patients.filter((p: any) => p.id !== patient.id)] : patients}
+          attendances={attendances}
+          selectedPatientId={selectedPatientId}
+          selectedAttendanceId={selectedAttendanceId}
+          onPatientSelect={(nextPatientId) => {
+            if (nextPatientId && nextPatientId !== actualPatientId) {
+              navigate(`/dashboard/billing/patient/${nextPatientId}`);
+              return;
+            }
+            setSelectedPatientId(nextPatientId);
+            setSelectedAttendanceId('');
+            if (nextPatientId) getAttendances({ patientId: nextPatientId }).catch((err: any) => toastError('Attendances unavailable', err.message));
+          }}
+          onAttendanceSelect={(attendanceId) => {
+            setSelectedAttendanceId(attendanceId);
+            setExpandedBillId(null);
+            setSelectedBill(null);
+            setSelectedItems(new Set());
+            clearCurrentBill();
+          }}
+          onClearSelection={() => {
+            setSelectedPatientId('');
+            setSelectedAttendanceId('');
+            setExpandedBillId(null);
+            setSelectedBill(null);
+            setSelectedItems(new Set());
+          }}
+        />
+        <p className="mt-2 text-xs text-gray-500">
+          Select a visit to view only its bills. Choose a previous attendance to review that visit’s charges and payments.
+        </p>
       </div>
 
       {/* Patient Info Card */}
@@ -965,12 +1034,12 @@ export default function PatientBillingItems() {
         <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 text-center">
           <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-2">
-            {searchQuery ? 'No Bills Found' : 'No Billing Records'}
+            {searchQuery ? 'No Bills Found' : !selectedAttendanceId ? 'Select an Attendance' : 'No Billing Records for This Visit'}
           </h3>
           <p className="text-gray-500 text-sm">
             {searchQuery
               ? 'No bills match your search criteria.'
-              : 'This patient has no associated bills yet.'}
+              : !selectedAttendanceId ? 'Choose the current or a previous attendance above to see its bills.' : 'This attendance has no associated bills yet.'}
           </p>
           {searchQuery && (
             <button
