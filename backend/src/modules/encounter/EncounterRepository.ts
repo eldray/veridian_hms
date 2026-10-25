@@ -2003,11 +2003,16 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   }
 
   async removeService(encounterId: string, serviceRenderedId: string) {
+    const current = await this.prisma.serviceRendered.findFirst({
+      where: { id: serviceRenderedId, attendanceId: encounterId },
+      select: { id: true },
+    });
+    if (!current) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
     await this.requireOpenEncounter(encounterId);
     const result = await this.prisma.serviceRendered.deleteMany({
       where: { id: serviceRenderedId, attendanceId: encounterId },
     });
-    if (result.count === 0) throw new NotFoundError('Service rendered in encounter', serviceRenderedId);
+    if (result.count !== 1) throw new ConflictError('Rendered service changed; refresh and try again');
     return { id: serviceRenderedId, removed: true };
   }
 
