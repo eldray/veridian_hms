@@ -9,6 +9,7 @@ import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
+const escapeXml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
 const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => (arr || []).map(mapper).filter(Boolean);
 
 export class InsuranceClaimService extends BaseService {
@@ -195,7 +196,9 @@ export class InsuranceClaimService extends BaseService {
       where: { id: batchId },
       include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true, items: { select: { id: true } } } }, createdBy: true }
     });
-    if (!batch || !batch.claims.length) throw new Error('Batch not found or empty');
+    if (!batch) throw new NotFoundError('Claim batch', batchId);
+    if (batch.insuranceType !== 'nhis') throw new ValidationError('Only NHIS claim batches can be exported as NHIS XML.');
+    if (!batch.claims.length) throw new ValidationError('An empty claim batch cannot be exported.');
     const claimWithoutItems = batch.claims.find((claim: any) => !claim.items?.length);
     if (claimWithoutItems) throw new ValidationError(`Claim ${claimWithoutItems.claimNumber} has no itemized lines. The batch XML cannot be generated until the claim is repaired.`);
 
@@ -203,23 +206,23 @@ export class InsuranceClaimService extends BaseService {
     
     // ✅ FIXED: Safely join JSON arrays for XML
     const claimsXml = batch.claims.map(c => `    <Claim>
-      <ClaimNumber>${c.claimNumber}</ClaimNumber>
-      <PatientCCC>${c.Attendance?.nhisCCC || ''}</PatientCCC>
-      <PatientName>${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}</PatientName>
+      <ClaimNumber>${escapeXml(c.claimNumber)}</ClaimNumber>
+      <PatientCCC>${escapeXml(c.Attendance?.nhisCCC || '')}</PatientCCC>
+      <PatientName>${escapeXml(`${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}`.trim())}</PatientName>
       <TotalAmount>${toNumber(c.totalClaimAmount).toFixed(2)}</TotalAmount>
-      <DiagnosisCodes>${safeArrayJoin(c.diagnosisCodes)}</DiagnosisCodes>
-      <GDRGCodes>${safeArrayJoin(c.gdrgCodes)}</GDRGCodes>
+      <DiagnosisCodes>${escapeXml(safeArrayJoin(c.diagnosisCodes))}</DiagnosisCodes>
+      <GDRGCodes>${escapeXml(safeArrayJoin(c.gdrgCodes))}</GDRGCodes>
     </Claim>`).join('\n');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <NHISBatchSubmission>
   <BatchInfo>
-    <BatchNumber>${batch.batchNumber}</BatchNumber>
+    <BatchNumber>${escapeXml(batch.batchNumber)}</BatchNumber>
     <BatchDate>${new Date(batch.periodYear, batch.periodMonth - 1, 1).toISOString()}</BatchDate>
-    <FacilityCode>${facilityCode}</FacilityCode>
+    <FacilityCode>${escapeXml(facilityCode)}</FacilityCode>
     <TotalClaims>${batch.claims.length}</TotalClaims>
     <TotalAmount>${toNumber(batch.totalAmount).toFixed(2)}</TotalAmount>
-    <GeneratedBy>${batch.createdBy.fullName || batch.createdBy.username}</GeneratedBy>
+    <GeneratedBy>${escapeXml(batch.createdBy.fullName || batch.createdBy.username)}</GeneratedBy>
     <GeneratedAt>${new Date().toISOString()}</GeneratedAt>
   </BatchInfo>
   <Claims>
@@ -227,7 +230,7 @@ ${claimsXml}
   </Claims>
 </NHISBatchSubmission>`;
 
-    await this.prisma.claimBatch.update({ where: { id: batchId }, data: { status: 'generated' } });
+    // Exporting a finalized batch is read-only; downloading must never reopen it.
     return { xml, batchNumber: batch.batchNumber };
   }
 
