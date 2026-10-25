@@ -554,15 +554,32 @@ describe('clinical encounter ownership', () => {
   });
 
   it('does not delete a rendered service through the wrong encounter URL', async () => {
-    const deleteMany = vi.fn().mockResolvedValue({ count: 0 });
-    const repository = new EncounterRepository({ serviceRendered: { deleteMany } } as any);
+    const findFirst = vi.fn().mockResolvedValue(null);
+    const deleteMany = vi.fn();
+    const repository = new EncounterRepository({ serviceRendered: { findFirst, deleteMany } } as any);
 
     await expect(repository.removeService('encounter-a', 'service-from-encounter-b'))
       .rejects.toThrow(/not found/i);
 
-    expect(deleteMany).toHaveBeenCalledWith({
+    expect(findFirst).toHaveBeenCalledWith({
       where: { id: 'service-from-encounter-b', attendanceId: 'encounter-a' },
+      select: { id: true },
     });
+    expect(deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('does not remove a rendered service from a closed encounter', async () => {
+    const findFirst = vi.fn().mockResolvedValue({ id: 'service-a' });
+    const deleteMany = vi.fn();
+    const attendanceFindUnique = vi.fn().mockResolvedValue({ id: 'encounter-a', status: 'completed' });
+    const repository = new EncounterRepository({
+      serviceRendered: { findFirst, deleteMany },
+      attendance: { findUnique: attendanceFindUnique },
+    } as any);
+
+    await expect(repository.removeService('encounter-a', 'service-a'))
+      .rejects.toThrow(/closed|open|completed/i);
+    expect(deleteMany).not.toHaveBeenCalled();
   });
 });
 
