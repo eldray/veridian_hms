@@ -2413,3 +2413,40 @@ describe('GHS Form A newborn outcome classification', () => {
     expect(result.map(x => x.died)).toEqual(['early', 'late']);
   });
 });
+
+
+describe('diagnosis changes on closed encounters', () => {
+  it('rejects adding a diagnosis after the encounter is closed', async () => {
+    const diagnosisLookup = vi.fn();
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', encounterCategory: 'opd', status: 'discharged' }) },
+      diagnosis: { findUnique: diagnosisLookup },
+      attendanceDiagnosis: { findFirst: vi.fn(), updateMany: vi.fn(), create: vi.fn() },
+    };
+    const repository = new EncounterRepository({
+      user: { findUnique: vi.fn().mockResolvedValue({ id: 'clinician-1' }) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    } as any);
+    (repository as any).requireActorId = vi.fn().mockResolvedValue('clinician-1');
+
+    await expect(repository.addDiagnosis('attendance-1', {
+      diagnosisId: 'diagnosis-1', diagnosisType: 'additional', classification: 'NEW_DIAGNOSIS',
+    } as any, 'clinician-1')).rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+    expect(diagnosisLookup).not.toHaveBeenCalled();
+    expect(tx.attendanceDiagnosis.create).not.toHaveBeenCalled();
+  });
+
+  it('rejects removing a diagnosis after the encounter is closed', async () => {
+    const diagnosisLookup = vi.fn();
+    const tx = {
+      attendance: { findUnique: vi.fn().mockResolvedValue({ id: 'attendance-1', status: 'discharged' }) },
+      attendanceDiagnosis: { findFirst: diagnosisLookup, deleteMany: vi.fn() },
+    };
+    const repository = new EncounterRepository({ $transaction: vi.fn(async (callback: any) => callback(tx)) } as any);
+
+    await expect(repository.removeDiagnosis('attendance-1', 'diagnosis-1'))
+      .rejects.toThrow(/diagnoses cannot be changed for a closed encounter/i);
+    expect(diagnosisLookup).not.toHaveBeenCalled();
+    expect(tx.attendanceDiagnosis.deleteMany).not.toHaveBeenCalled();
+  });
+});

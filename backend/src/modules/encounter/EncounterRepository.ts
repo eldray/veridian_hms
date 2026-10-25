@@ -614,9 +614,12 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     return this.prisma.$transaction(async (tx) => {
       const encounter = await tx.attendance.findUnique({
         where: { id: encounterId },
-        select: { id: true, encounterCategory: true },
+        select: { id: true, encounterCategory: true, status: true },
       });
       if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
+        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
+      }
       if (encounter.encounterCategory === 'opd' && !data.classification) {
         throw new ValidationError('HMIS diagnosis classification is required for OPD diagnoses');
       }
@@ -654,6 +657,15 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
 
   async removeDiagnosis(encounterId: string, diagnosisId: string) {
     return this.prisma.$transaction(async (tx) => {
+      const encounter = await tx.attendance.findUnique({
+        where: { id: encounterId },
+        select: { id: true, status: true },
+      });
+      if (!encounter) throw new NotFoundError('Encounter', encounterId);
+      if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(String(encounter.status))) {
+        throw new ConflictError('Diagnoses cannot be changed for a closed encounter');
+      }
+
       const existing = await tx.attendanceDiagnosis.findFirst({
         where: { attendanceId: encounterId, diagnosisId },
         select: { id: true, diagnosisType: true },
