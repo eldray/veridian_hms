@@ -21,6 +21,7 @@ interface SendDocumentModalProps {
   patient: any;
   documentType: SendDocType;
   entityId?: string; // billId for receipt; attendanceId/encounterId for prescription/lab-result
+  paymentId?: string; // required for a transaction-specific receipt
   defaultMessage?: string;
 }
 
@@ -38,6 +39,7 @@ export default function SendDocumentModal({
   patient, 
   documentType, 
   entityId, 
+  paymentId,
   defaultMessage 
 }: SendDocumentModalProps) {
   const { success, error: toastError } = useToast();
@@ -87,7 +89,8 @@ export default function SendDocumentModal({
     }
     try {
       if (documentType === 'receipt') {
-        await generateReceipt(entityId);
+        if (!paymentId) throw new Error('A recorded payment is required to generate a payment receipt.');
+        await generateReceipt(entityId, paymentId);
       } else if (documentType === 'prescription') {
         await generatePrescription(entityId);
       } else if (documentType === 'lab-result') {
@@ -101,6 +104,10 @@ export default function SendDocumentModal({
   };
 
   const handleSend = async () => {
+    if (documentType === 'receipt' && !paymentId) {
+      toastError('Payment receipt unavailable', 'Select a recorded, non-voided payment before sending its receipt.');
+      return;
+    }
     // ✅ Validate recipient
     const trimmedRecipient = recipient.trim();
     if (!trimmedRecipient) {

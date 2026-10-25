@@ -305,6 +305,12 @@ export default function ProcessPayment() {
         patient={patient}
         documentType="receipt"
         entityId={bill.id}
+        paymentId={(() => {
+          const payments = ((bill as any).Payment || (bill as any).payments || [])
+            .filter((payment: any) => !payment.isVoided)
+            .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
+          return payments[0]?.id;
+        })()}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

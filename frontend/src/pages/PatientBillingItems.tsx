@@ -568,8 +568,14 @@ export default function PatientBillingItems() {
       const freshBill: any = useBillingStore.getState().currentBill;
       if (!freshBill) return;
 
-      const payments = freshBill.Payment || freshBill.payments || [];
-      const latestPayment = payments.length > 0 ? payments[payments.length - 1] : null;
+      const payments = (freshBill.Payment || freshBill.payments || [])
+        .filter((payment: any) => !payment.isVoided)
+        .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
+      const latestPayment = payments[0] || null;
+      if (!latestPayment) {
+        toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
+        return;
+      }
 
       const hospitalInfo = {
         name: 'Veridian Hospital',
@@ -585,7 +591,7 @@ export default function PatientBillingItems() {
           ? {
               amount: latestPayment.amount,
               paymentMethod: latestPayment.paymentMethod,
-              receiptNumber: latestPayment.reference,
+              receiptNumber: latestPayment.reference || latestPayment.id,
               paymentDate: latestPayment.transactionDate,
               receivedBy: latestPayment.User?.fullName || 'System',
             }
@@ -617,8 +623,14 @@ export default function PatientBillingItems() {
           return;
         }
 
-        const payments = (billToReceipt as any).Payment || (billToReceipt as any).payments || [];
-        const latestPayment = payments.length > 0 ? payments[payments.length - 1] : null;
+        const payments = ((billToReceipt as any).Payment || (billToReceipt as any).payments || [])
+          .filter((payment: any) => !payment.isVoided)
+          .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
+        const latestPayment = payments[0] || null;
+        if (!latestPayment) {
+          toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
+          return;
+        }
 
         const hospitalInfo = {
           name: 'Veridian Hospital',
@@ -634,7 +646,7 @@ export default function PatientBillingItems() {
             ? {
                 amount: latestPayment.amount,
                 paymentMethod: latestPayment.paymentMethod,
-                receiptNumber: latestPayment.reference || `RCP-${Date.now()}`,
+                receiptNumber: latestPayment.reference || latestPayment.id,
                 paymentDate: latestPayment.transactionDate,
                 receivedBy: 'System',
               }

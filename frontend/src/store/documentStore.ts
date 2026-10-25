@@ -53,7 +53,7 @@ interface DocumentState {
   error: string | null;
 
   getDocumentsByEntity: (entityType: string, entityId: string) => Promise<GeneratedDocument[]>;
-  generateReceipt: (billId: string) => Promise<DocumentGenerationResponse>;
+  generateReceipt: (billId: string, paymentId?: string) => Promise<DocumentGenerationResponse>;
   generateBillStatement: (billId: string) => Promise<DocumentGenerationResponse>;
   generateReferralLetter: (referralId: string) => Promise<DocumentGenerationResponse>;
   generateDischargeSummary: (admissionId: string) => Promise<DocumentGenerationResponse>;
@@ -86,10 +86,10 @@ export const useDocumentStore = create<DocumentState>((set) => ({
     }
   },
 
-  generateReceipt: async (billId) => {
+  generateReceipt: async (billId, paymentId) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await generateReceipt(billId);
+      const response = await generateReceipt(billId, paymentId);
       const doc = normalizeGeneratedDocument(response, 'bill', billId);
       set((state) => ({
         documents: [doc, ...state.documents],
