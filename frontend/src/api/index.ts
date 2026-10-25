@@ -622,13 +622,21 @@ export const adminCreateUser = (userData: any) =>
 export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
   api.get('/users', { params: filters }).then(r => {
     const response = r.data;
-    if (response?.data && Array.isArray(response.data)) {
-      return response.data;
-    }
-    if (Array.isArray(response)) {
-      return response;
-    }
-    return [];
+    const users = Array.isArray(response?.data)
+      ? response.data
+      : Array.isArray(response?.data?.data)
+        ? response.data.data
+        : Array.isArray(response)
+          ? response
+          : [];
+    // Keep pagination metadata attached to the array so existing array consumers
+    // remain compatible while userStore can expose the server's real page counts.
+    const pagination = response?.meta
+      ?? response?.pagination
+      ?? response?.data?.pagination
+      ?? response?.data?.meta
+      ?? null;
+    return Object.assign(users, { pagination });
   });
 
 export const getUserById = (userId: string) =>
