@@ -97,7 +97,12 @@ app.use('/api', (req, res, next) => {
 
 // Logging. Search and filter query strings can contain patient names or MRNs,
 // so the path is logged without the query string.
-morgan.token('path', (req) => req.originalUrl.split('?')[0]);
+// @types/morgan types the token callback request as http.IncomingMessage, which
+// has no originalUrl. Express requests do carry it, so read it defensively.
+morgan.token('path', (req) => {
+  const originalUrl = (req as unknown as { originalUrl?: string }).originalUrl;
+  return (originalUrl || req.url || '').split('?')[0];
+});
 morgan.token('reqid', (req) => (req as unknown as { id?: string }).id || '-');
 app.use(morgan(':remote-addr :method :path :status :res[content-length] - :response-time ms [:reqid]'));
 
