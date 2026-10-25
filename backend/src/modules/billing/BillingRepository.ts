@@ -276,7 +276,42 @@ export class BillingRepository extends BaseRepository<any, any, any> {
   }
 
   async updateStatus(id: string, status: BillStatus, userId: string) {
-    return this.getModel().update({ where: { id }, data: { status, updatedAt: new Date(), updatedById: userId }, include: { Patient: { select: { surname: true, otherNames: true, folderNumber: true } }, Attendance: { select: { attendanceNumber: true } }, CorporateAccount: true } });
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${id} FOR UPDATE`;
+      }
+      const current = await tx.bill.findUnique({ where: { id } });
+      if (!current) throw new Error('Bill not found');
+
+      // Corporate account balance is the outstanding billed credit. Cancellation
+      // reverses the charge; restoring a cancelled bill re-applies it atomically.
+      if (current.paymentMode === 'corporate' && current.corporateAccountId && current.status !== status) {
+        const amount = toNumber(current.totalAmount);
+        if (current.status !== 'cancelled' && status === 'cancelled') {
+          await tx.corporateAccount.update({
+            where: { id: current.corporateAccountId },
+            data: { currentBalance: { decrement: amount } }
+          });
+        } else if (current.status === 'cancelled' && status !== 'cancelled') {
+          await tx.corporateAccount.update({
+            where: { id: current.corporateAccountId },
+            data: { currentBalance: { increment: amount } }
+          });
+        }
+      }
+
+      const updated = await tx.bill.update({
+        where: { id },
+        data: { status, updatedAt: new Date(), updatedById: userId },
+        include: {
+          Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+          Attendance: { select: { attendanceNumber: true } },
+          CorporateAccount: true
+        }
+      });
+      if (current.attendanceId) await this.syncAttendanceFinancials(tx, current.attendanceId, updated);
+      return updated;
+    });
   }
 
   async getStatistics(period: string) {
