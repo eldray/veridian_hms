@@ -426,6 +426,44 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
+  /**
+   * Encounters may only be hard-deleted while they are still empty pending registrations.
+   * Once clinical activity, billing, an admission, or maternal/nursing documentation exists,
+   * preserve the record and use the appropriate cancellation/discharge workflow instead.
+   */
+  async delete(id: string) {
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Attendance" WHERE "id" = ${id} FOR UPDATE`;
+      }
+
+      const current = await tx.attendance.findUnique({
+        where: { id },
+        include: {
+          _count: { select: {
+            AttendanceDiagnosis: true, LabTest: true, Medication: true, Procedure: true, Scan: true,
+            ServiceRendered: true, Vitals: true, nursingNotes: true, nursingTasks: true,
+            antenatalVisits: true, deliveryRecords: true, abortionRecords: true, postnatalRecords: true,
+            familyPlanningServices: true,
+          } },
+          Bill: { select: { id: true } },
+          Admission: { select: { id: true } },
+        },
+      });
+      if (!current) throw new NotFoundError('Encounter', id);
+      if (current.status !== 'pending') {
+        throw new ConflictError('Only an empty pending encounter can be deleted. Use the appropriate clinical workflow for active or completed visits.');
+      }
+      const counts = current._count || {};
+      const hasClinicalActivity = Object.values(counts).some((value: any) => Number(value) > 0);
+      if (hasClinicalActivity || current.Bill || current.Admission) {
+        throw new ConflictError('This encounter has clinical activity, billing, or an admission and cannot be deleted. Preserve the record and use the approved cancellation or correction workflow.');
+      }
+
+      return tx.attendance.delete({ where: { id } });
+    });
+  }
+
   async updateStatus(id: string, status: string, userId: string) {
     if (!['pending', 'cancelled'].includes(status)) {
       throw new ValidationError('Use the dedicated admission, completion, discharge, referral or absconded workflow to change an encounter to that status');
