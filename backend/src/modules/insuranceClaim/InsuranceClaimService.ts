@@ -123,16 +123,35 @@ export class InsuranceClaimService extends BaseService {
       if (!existing) throw new Error('Batch not found');
       if (existing.status !== 'generated') throw new Error('Claims can only be added to generated, unfinalized batches');
 
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true, items: { select: { id: true } } } });
+      const claims = await tx.insuranceClaim.findMany({
+        where: { id: { in: claimIds }, batchId: null },
+        include: {
+          InsuranceProvider: true,
+          Attendance: { select: { dateTime: true } },
+          items: { select: { id: true } },
+        },
+      });
       if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
         if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be added to a batch. Repair the draft claim or resolve it through the claims audit workflow.`);
-        if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
+        if (c.InsuranceProvider?.type !== existing.insuranceType) {
+          throw new Error(`Claim ${c.claimNumber} insurance type does not match this batch`);
+        }
+        if (c.insuranceProviderId !== existing.insuranceProviderId) {
+          throw new Error('A claim batch cannot contain multiple insurance providers');
+        }
+        if ((c.corporateAccountId ?? null) !== (existing.corporateAccountId ?? null)) {
+          throw new Error('A claim batch cannot contain multiple corporate accounts');
+        }
+        const serviceDate = c.Attendance.dateTime;
+        if (serviceDate.getFullYear() !== existing.periodYear || serviceDate.getMonth() + 1 !== existing.periodMonth) {
+          throw new Error('A claim batch can contain claims from only one service month');
+        }
       }
 
-      // ✅ FIXED: Decimal math
+      // Recompute the aggregate from persisted claims, avoiding cumulative rounding drift.
       const addAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
 
       await tx.claimBatch.update({
@@ -213,12 +232,22 @@ ${claimsXml}
   }
 
   async updateBatchStatus(batchId: string, status: string) {
-    const valid = ['generated', 'finalized'];
-    if (!valid.includes(status)) throw new Error('Invalid status');
-    return this.prisma.claimBatch.update({
-      where: { id: batchId },
-      data: { status: status as any, ...(status === 'finalized' ? { finalizedAt: new Date() } : {}) },
-      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+    if (status !== 'finalized') throw new ValidationError('Batch status can only move from generated to finalized; finalized batches cannot be reopened.');
+    return this.prisma.$transaction(async (tx) => {
+      const batch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: { select: { id: true, status: true, items: { select: { id: true } } } } },
+      });
+      if (!batch) throw new NotFoundError('Claim batch', batchId);
+      if (batch.status !== 'generated') throw new ValidationError('Only generated batches can be finalized.');
+      if (!batch.claims.length) throw new ValidationError('An empty claim batch cannot be finalized.');
+      const invalidClaim = batch.claims.find((claim) => claim.status !== 'finalized' || !claim.items.length);
+      if (invalidClaim) throw new ValidationError('Every claim in the batch must be finalized and contain itemized lines.');
+      return tx.claimBatch.update({
+        where: { id: batchId },
+        data: { status: 'finalized', finalizedAt: new Date() },
+        include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } },
+      });
     });
   }
 
