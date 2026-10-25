@@ -252,6 +252,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const lineItem = await tx.billLineItem.findUnique({ where: { id: lineItemId }, include: { bill: true } });
       if (!lineItem) throw new Error('Line item not found');
       if (lineItem.isVoided) throw new Error('Line item already voided');
+      if (lineItem.bill.status === 'cancelled') {
+        throw Object.assign(new Error('Cannot void a line item on a cancelled bill.'), { statusCode: 409 });
+      }
 
       const updatedLineItem = await tx.billLineItem.update({
         where: { id: lineItemId },
@@ -301,6 +304,15 @@ export class BillRepository extends BaseRepository<any, any, any> {
         }
       });
 
+      if (bill?.paymentMode === 'corporate' && bill.corporateAccountId) {
+        const removedCharge = Math.max(0, toNumber(bill.totalAmount) - newTotal);
+        if (removedCharge > 0) {
+          await tx.corporateAccount.update({
+            where: { id: bill.corporateAccountId },
+            data: { currentBalance: { decrement: removedCharge } }
+          });
+        }
+      }
       if (bill?.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId, { ...bill, totalAmount: newTotal, balance: newBalance });
 
       return { lineItem: updatedLineItem, billId: lineItem.billId };
