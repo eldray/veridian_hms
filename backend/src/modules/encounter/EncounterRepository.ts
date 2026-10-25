@@ -1213,14 +1213,18 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       // The legacy medication-status endpoint can also record an administered dose.
       // Recheck encounter state inside the write transaction so it cannot rely only
       // on the nursing service's earlier (out-of-transaction) check.
-      if (data.status === 'administered') {
+      if (data.status === 'dispensed' || data.status === 'administered') {
         const encounter = await tx.attendance.findUnique({
           where: { id: encounterId },
           select: { id: true, status: true },
         });
         if (!encounter) throw new NotFoundError('Encounter', encounterId);
         if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
-          throw new ConflictError('Medication administration is not allowed for a closed encounter');
+          throw new ConflictError(
+            data.status === 'dispensed'
+              ? 'Medication cannot be dispensed for a closed encounter'
+              : 'Medication administration is not allowed for a closed encounter',
+          );
         }
       }
 
