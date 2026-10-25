@@ -129,7 +129,38 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async delete(id: string) {
-    return this.getModel().delete({ where: { id } });
+    return this.prisma.$transaction(async (tx) => {
+      if (typeof tx.$queryRaw === 'function') {
+        await tx.$queryRaw`SELECT "id" FROM "Bill" WHERE "id" = ${id} FOR UPDATE`;
+      }
+      const bill = await tx.bill.findUnique({
+        where: { id },
+        include: { Payment: { select: { id: true } }, InsuranceClaim: { select: { id: true } }, PatientWaiver: { select: { id: true, appliedAt: true } } }
+      });
+      if (!bill) throw new Error('Bill not found');
+      if ((bill.Payment?.length ?? 0) > 0) {
+        throw new Error('A bill with payment history cannot be deleted. Preserve the audit trail and use the approved cancellation or adjustment workflow.');
+      }
+      if ((bill.InsuranceClaim?.length ?? 0) > 0) {
+        throw new Error('A bill linked to an insurance claim cannot be deleted. Preserve the claim audit trail and use the approved adjustment workflow.');
+      }
+      if ((bill.PatientWaiver ?? []).some((waiver: any) => waiver.appliedAt)) {
+        throw new Error('A bill with an applied waiver cannot be deleted. Preserve the waiver audit trail and use the approved adjustment workflow.');
+      }
+
+      // Corporate currentBalance tracks outstanding billed credit. Reverse the
+      // original charge only if it was never already reversed by cancellation.
+      if (bill.paymentMode === 'corporate' && bill.corporateAccountId && bill.status !== 'cancelled') {
+        await tx.corporateAccount.update({
+          where: { id: bill.corporateAccountId },
+          data: { currentBalance: { decrement: toNumber(bill.totalAmount) } }
+        });
+      }
+
+      const deleted = await tx.bill.delete({ where: { id } });
+      if (bill.attendanceId) await this.syncAttendanceFinancials(tx, bill.attendanceId);
+      return deleted;
+    });
   }
 
   async addPayment(billId: string, paymentData: AddPaymentInput, receivedById: string) {
