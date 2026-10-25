@@ -589,6 +589,14 @@ export default function EditCorporateClaim() {
     }
   };
 
+  const handlePrintClaim = async () => {
+    try {
+      await printClaim(id!);
+      success('Print ready', 'Claim data ready for printing');
+    } catch (err: any) {
+      toastError('Print failed', err?.response?.data?.message || err?.message || 'Could not open claim print view');
+    }
+  };
   if (isLoading && !currentClaim) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center">
@@ -738,7 +746,7 @@ export default function EditCorporateClaim() {
 
         {isFinalized ? (
           <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">
-            <button type="button" onClick={() => printClaim(id!)} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
+            <button type="button" onClick={handlePrintClaim} className="px-4 py-2 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"><Printer className="w-4 h-4" /> Print Claim</button>
             <button type="button" onClick={() => navigate('/dashboard/insurance-claims')} className="px-6 py-2 border rounded text-sm" style={{ borderColor: '#ef9a9a', color: '#e57373' }}>Close</button>
           </div>
         ) : (
