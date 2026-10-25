@@ -1,4 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../src/services/CounterService', () => ({
+  getCounterService: () => ({ getBillNumberFromAttendance: () => 'BILL-ATT-1' }),
+}));
+
 import { BillRepository } from '../src/modules/bill/BillRepository';
 
 const serviceDate = new Date('2026-10-20T10:00:00.000Z');
