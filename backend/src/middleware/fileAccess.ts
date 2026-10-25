@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import fs from 'fs';
+import prisma from '../core/database/prisma.client';
+import { canAccessUpload } from '../services/uploadAccess';
 import {
   FILE_ACCESS_COOKIE,
   FILE_ACCESS_TTL_SECONDS,
   createFileAccessToken,
+  isServableUploadFilename,
   parseCookies,
   resolveUploadPath,
   verifyFileAccessToken,
@@ -36,19 +39,51 @@ function authenticatedUserId(req: Request): string | null {
   return null;
 }
 
-export function serveUploadFile(req: Request, res: Response): void {
-  if (!authenticatedUserId(req)) {
+export async function serveUploadFile(req: Request, res: Response): Promise<void> {
+  const userId = authenticatedUserId(req);
+  if (!userId) {
     res.status(401).json({ success: false, message: 'Authentication required' });
     return;
   }
 
-  const absolutePath = resolveUploadPath(
-    String(req.params.category || ''),
-    String(req.params.filename || ''),
-  );
+  const category = String(req.params.category || '');
+  const filename = String(req.params.filename || '');
+  const absolutePath = resolveUploadPath(category, filename);
 
-  if (!absolutePath || !fs.existsSync(absolutePath)) {
+  if (!absolutePath || !isServableUploadFilename(filename) || !fs.existsSync(absolutePath)) {
     res.status(404).json({ success: false, message: 'File not found' });
+    return;
+  }
+
+  // The file access cookie lasts longer than a role change or a deactivation,
+  // so authorization is always re-checked against the current account.
+  let viewer: { id: string; role: string; isActive: boolean } | null;
+  try {
+    viewer = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, isActive: true },
+    });
+  } catch {
+    // Fail closed when the authorization lookup is unavailable.
+    res.status(503).json({ success: false, message: 'File access is temporarily unavailable' });
+    return;
+  }
+
+  if (!viewer || !viewer.isActive) {
+    res.status(401).json({ success: false, message: 'Account is inactive or no longer exists' });
+    return;
+  }
+
+  let allowed = false;
+  try {
+    allowed = await canAccessUpload(viewer, category, filename);
+  } catch {
+    res.status(503).json({ success: false, message: 'File access is temporarily unavailable' });
+    return;
+  }
+
+  if (!allowed) {
+    res.status(403).json({ success: false, message: 'Not authorized to view this file' });
     return;
   }
 

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import path from 'path';
 import {
   createFileAccessToken,
+  isServableUploadFilename,
   parseCookies,
   resolveUploadPath,
   verifyFileAccessToken,
@@ -87,6 +88,20 @@ describe('upload path resolution', () => {
       expect(resolveUploadPath(category, 'file_1.pdf')).toBe(
         path.join(uploadRoot, category, 'file_1.pdf'),
       );
+    }
+  });
+});
+
+describe('servable upload extensions', () => {
+  it('serves images, PDFs and Word documents', () => {
+    for (const name of ['photo.PNG', 'scan.jpeg', 'doc.pdf', 'cv.docx', 'letter.doc', 'anim.gif', 'x.webp']) {
+      expect(isServableUploadFilename(name)).toBe(true);
+    }
+  });
+
+  it('refuses executable and markup types', () => {
+    for (const name of ['report.html', 'payload.svg', 'script.js', 'archive.zip', 'no-extension']) {
+      expect(isServableUploadFilename(name)).toBe(false);
     }
   });
 });

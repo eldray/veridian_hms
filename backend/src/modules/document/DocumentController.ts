@@ -2,6 +2,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { DocumentService } from './DocumentService';
+import { canAccessGeneratedDocument } from '../../services/uploadAccess';
 import path from 'path';
 
 export class DocumentController {
@@ -9,6 +10,19 @@ export class DocumentController {
 
   constructor() {
     this.documentService = new DocumentService();
+  }
+
+  // Authorization mirrors the upload route: the staff who generated a document
+  // can always reopen it, otherwise the role must match the underlying record.
+  private canOpen(
+    req: AuthRequest,
+    document: { entityType?: string; generatedById?: string },
+  ): boolean {
+    if (!req.user || !document.entityType || !document.generatedById) return false;
+    return canAccessGeneratedDocument(
+      { id: req.user.userId || req.user.id, role: req.user.role },
+      { entityType: document.entityType, generatedById: document.generatedById },
+    );
   }
 
   generateReceipt = async (req: AuthRequest, res: Response) => {
@@ -245,6 +259,9 @@ export class DocumentController {
       if (!result.success) {
         return res.status(404).json({ success: false, message: result.error || 'Document not found' });
       }
+      if (!this.canOpen(req, result)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to access this document' });
+      }
       return res.json({
         success: true,
         message: 'Document is ready to reprint',
@@ -291,6 +308,9 @@ export class DocumentController {
       // Send file for download
       if (!result.filePath) {
         return res.status(404).json({ success: false, message: 'Document file path is unavailable' });
+      }
+      if (!this.canOpen(req, result)) {
+        return res.status(403).json({ success: false, message: 'Not authorized to access this document' });
       }
       const filePath = path.join(process.cwd(), result.filePath);
       return res.download(filePath, result.fileName || 'document.pdf', (err) => {

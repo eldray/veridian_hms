@@ -26,6 +26,14 @@ semantic versioning.
   carries an `X-Request-Id` that also appears in logs and error responses.
 - Uploaded files are no longer tracked in git, and `test.txt` (which contained
   credentials) has been removed from the working tree.
+- Uploaded files are served only when a database record still references them
+  and the requesting role may read that record. Patient photographs and scan
+  images are limited to clinical roles, staff documents to their owner, HR and
+  admins, and generated receipts/discharge summaries to the staff who work on
+  the underlying bill, referral, encounter or admission. The file-access cookie
+  is re-checked against the live account on every request, so deactivation and
+  role changes take effect immediately. Legacy files with browser-executable
+  extensions such as `.html` are no longer served.
 
 ### Added
 

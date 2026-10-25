@@ -13,6 +13,14 @@ export const FILE_ACCESS_TTL_SECONDS = (() => {
 
 const UPLOAD_CATEGORIES = new Set(['patients', 'users', 'scans', 'documents']);
 const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
+// Files uploaded before extensions were derived from the MIME type may carry
+// a client-chosen extension such as .html. Only browser-safe types are served.
+const SERVABLE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx']);
+
+export function isServableUploadFilename(filename: string): boolean {
+  const extension = path.extname(filename).toLowerCase();
+  return SERVABLE_EXTENSIONS.has(extension);
+}
 
 function getSecret(): string {
   const secret = process.env.JWT_SECRET;

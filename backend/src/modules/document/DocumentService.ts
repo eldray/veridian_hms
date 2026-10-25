@@ -469,7 +469,9 @@ export class DocumentService {
     return {
       success: true,
       filePath: document.filePath,
-      fileName: document.filePath.split('/').pop()
+      fileName: document.filePath.split('/').pop(),
+      entityType: document.entityType,
+      generatedById: document.generatedById,
     };
   }
 }

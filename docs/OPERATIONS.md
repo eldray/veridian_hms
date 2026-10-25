@@ -99,6 +99,12 @@ off-box copy), RTO ≤ 2 hours (documented restore and verification steps).
   instead of a screenshot containing patient data.
 - API responses are sent with `Cache-Control: no-store`. Uploaded files use a
   short private cache header instead.
+- Uploaded files are authorized against the record that references them on
+  every request, not just the file-access cookie. A file whose record was
+  deleted, and files with browser-executable extensions such as `.html`, return
+  404. A user whose role cannot read the record gets 403; the check uses the
+  current account, so deactivating a user or changing their role takes effect
+  immediately without waiting for the cookie to expire.
 - The backend handles SIGINT/SIGTERM by stopping new connections, closing the
   HTTP server, and disconnecting Prisma.
 - Desktop logs are written to the Electron logs directory and are capped at
