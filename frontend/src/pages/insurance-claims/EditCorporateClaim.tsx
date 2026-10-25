@@ -17,6 +17,7 @@ interface DiagnosisItem {
 
 interface ServiceItem {
   id?: string;
+  billLineItemId?: string | null;
   description: string;
   date: string;
   serviceCatalogId?: string;
@@ -27,6 +28,7 @@ interface ServiceItem {
 
 interface MedicineItem {
   id?: string;
+  billLineItemId?: string | null;
   description: string;
   quantity: number;
   unitPrice: number;
@@ -50,6 +52,7 @@ function buildServicesFromBill(bill: any): ServiceItem[] {
       const unitPrice = toNum(li.unitPrice);
       return {
         id: li.id,
+        billLineItemId: li.id,
         description: li.description || li.serviceCatalog?.name || 'Service',
         date: li.createdAt ? new Date(li.createdAt).toISOString().split('T')[0] : '',
         serviceCatalogId: li.serviceCatalogId || undefined,
@@ -70,6 +73,7 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
       const unitPrice = toNum(li.unitPrice);
       return {
         id: li.id,
+        billLineItemId: li.id,
         description: li.description || li.serviceCatalog?.name || 'Medication',
         quantity,
         unitPrice,
@@ -459,6 +463,7 @@ export default function EditCorporateClaim() {
     if (serviceServer.length) {
       setServices(serviceServer.map((s: any) => ({
         id: s.id,
+        billLineItemId: s.billLineItemId ?? null,
         description: s.description,
         date: s.serviceDate ? String(s.serviceDate).split('T')[0] : '',
         serviceCatalogId: s.serviceCatalogId,
@@ -475,6 +480,7 @@ export default function EditCorporateClaim() {
     if (medServer.length) {
       setMedicines(medServer.map((m: any) => ({
         id: m.id,
+        billLineItemId: m.billLineItemId ?? null,
         description: m.description,
         quantity: m.quantity,
         unitPrice: toNum(m.unitPrice),
@@ -524,6 +530,7 @@ export default function EditCorporateClaim() {
         lineTotal: s.total,
         serviceDate: s.date || null,
         serviceCatalogId: s.serviceCatalogId ?? null,
+        billLineItemId: s.billLineItemId ?? null,
       });
     }
     for (const m of medicines) {
@@ -536,6 +543,7 @@ export default function EditCorporateClaim() {
         lineTotal: m.total,
         serviceDate: m.date || null,
         medicationId: m.stockItemId ?? null,
+        billLineItemId: m.billLineItemId ?? null,
       });
     }
     return out;

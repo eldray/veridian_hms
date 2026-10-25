@@ -117,3 +117,72 @@ describe('private insurance claim liability reconciliation', () => {
     expect(tx.insuranceClaim.create).not.toHaveBeenCalled();
   });
 });
+
+describe('claim draft item replacement reconciliation', () => {
+  const makeService = (type: 'private' | 'corporate', discountPercentage = 0) => {
+    const claim = {
+      id: 'claim-1',
+      billId: 'bill-1',
+      insuranceProviderId: 'provider-1',
+      status: 'draft',
+      metadata: { discountPercentage },
+      InsuranceProvider: { type },
+      Attendance: { id: 'attendance-1', patientId: 'patient-1', dateTime: new Date('2026-10-24T10:00:00.000Z'), Admission: null, Medication: [] },
+    };
+    const updated = { ...claim, items: [] };
+    const tx: any = {
+      insuranceClaimItem: {
+        deleteMany: vi.fn().mockResolvedValue({ count: 0 }),
+        createMany: vi.fn().mockResolvedValue({ count: 1 }),
+      },
+      insuranceClaim: { update: vi.fn().mockResolvedValue(updated) },
+    };
+    const prisma: any = {
+      insuranceClaim: { findUnique: vi.fn().mockResolvedValueOnce(claim).mockResolvedValueOnce(updated) },
+      serviceCatalog: { findMany: vi.fn().mockResolvedValue([]) },
+      diagnosis: { findMany: vi.fn().mockResolvedValue([]) },
+      gDRGTariff: { findMany: vi.fn().mockResolvedValue([]) },
+      billLineItem: { findMany: vi.fn().mockResolvedValue([{ id: 'bill-line-1' }]) },
+      $transaction: vi.fn(async (callback: any) => callback(tx)),
+    };
+    return { service: new InsuranceClaimService(prisma), prisma, tx };
+  };
+
+  it('preserves a valid bill-line link and recalculates a private claim total from its items', async () => {
+    const { service, prisma, tx } = makeService('private');
+    await service.replaceClaimItems('claim-1', [{
+      itemCategory: 'service',
+      code: 'CONS',
+      description: 'Consultation',
+      quantity: 1,
+      unitPrice: 80,
+      lineTotal: 80,
+      billLineItemId: 'bill-line-1',
+    }], 'user-1');
+
+    expect(prisma.billLineItem.findMany).toHaveBeenCalledWith({
+      where: { id: { in: ['bill-line-1'] }, billId: 'bill-1', isVoided: false },
+      select: { id: true },
+    });
+    expect(tx.insuranceClaimItem.createMany.mock.calls[0][0].data[0].billLineItemId).toBe('bill-line-1');
+    expect(tx.insuranceClaim.update.mock.calls[0][0].data.totalClaimAmount).toBe(80);
+  });
+
+  it('applies a corporate discount to saved lines and the claim header total', async () => {
+    const { service, tx } = makeService('corporate', 10);
+    await service.replaceClaimItems('claim-1', [{
+      itemCategory: 'service',
+      code: 'CONS',
+      description: 'Consultation',
+      quantity: 2,
+      unitPrice: 50,
+      lineTotal: 100,
+    }], 'user-1');
+
+    expect(tx.insuranceClaimItem.createMany.mock.calls[0][0].data[0]).toMatchObject({
+      unitPrice: 45,
+      lineTotal: 90,
+    });
+    expect(tx.insuranceClaim.update.mock.calls[0][0].data.totalClaimAmount).toBe(90);
+  });
+});

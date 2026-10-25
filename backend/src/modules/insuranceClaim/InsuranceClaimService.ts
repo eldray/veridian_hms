@@ -986,6 +986,18 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   const validCatalog = new Set(catalogIds.map(r => r.id));
   const validDiagnosis = new Set(diagnosisIds.map(r => r.id));
   const validTariff = new Set(tariffIds.map(r => r.id));
+  const requestedBillLineIds = idsOf('billLineItemId');
+  const billLineRows = claim.billId && requestedBillLineIds.length
+    ? await this.prisma.billLineItem.findMany({
+        where: {
+          id: { in: requestedBillLineIds },
+          billId: claim.billId,
+          isVoided: false,
+        },
+        select: { id: true },
+      })
+    : [];
+  const validBillLineIds = new Set(billLineRows.map((row: any) => row.id));
 
   const rows = (items || []).map((it: any, idx: number) => {
     const quantity = it.quantity ?? 1;
@@ -1009,8 +1021,10 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       serviceCatalogId: it.serviceCatalogId && validCatalog.has(it.serviceCatalogId) ? it.serviceCatalogId : null,
       diagnosisId: it.diagnosisId && validDiagnosis.has(it.diagnosisId) ? it.diagnosisId : null,
       gdrgTariffId: it.gdrgTariffId && validTariff.has(it.gdrgTariffId) ? it.gdrgTariffId : null,
-      // Not sent by the forms today; left unset rather than risking an invalid foreign key.
-      billLineItemId: null,
+      // Preserve bill traceability only when the line is active and belongs to this claim's bill.
+      billLineItemId: it.billLineItemId && validBillLineIds.has(it.billLineItemId)
+        ? it.billLineItemId
+        : null,
       labTestId: null,
       scanId: null,
       procedureId: null,
@@ -1019,6 +1033,28 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
   });
 
   let totalClaimAmount: number | undefined;
+  // Non-NHIS claim totals must reconcile to the edited line items. Corporate discounts
+  // are applied to the lines as well as the header so a saved claim never has mismatched totals.
+  const money = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+  if (claim.InsuranceProvider?.type !== 'nhis') {
+    if (claim.InsuranceProvider?.type === 'corporate') {
+      const rawDiscount = Number((claim.metadata as any)?.discountPercentage ?? 0);
+      if (!Number.isFinite(rawDiscount) || rawDiscount < 0 || rawDiscount > 100) {
+        throw new ValidationError('Corporate claim discount must be between 0 and 100 percent.');
+      }
+      if (rawDiscount > 0) {
+        const factor = (100 - rawDiscount) / 100;
+        for (const row of rows) {
+          row.lineTotal = money(Number(row.lineTotal) * factor);
+          row.unitPrice = Number(row.quantity) > 0
+            ? money(row.lineTotal / Number(row.quantity))
+            : 0;
+        }
+      }
+    }
+    totalClaimAmount = money(rows.reduce((sum, row) => sum + Number(row.lineTotal || 0), 0));
+  }
+
   // Preserve validated NHIS header fields outside the validation block so the
   // transaction below can keep the claim header consistent with its line items.
   let nhisPrincipalGdrg: string | undefined;
