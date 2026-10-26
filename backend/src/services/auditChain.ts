@@ -43,7 +43,10 @@ const CHAIN_KEY = '_chain';
 const GENESIS_HASH = '0'.repeat(64);
 // Serialises chain appends across processes. Desktop installs run one backend,
 // but a second instance or an admin script must not fork the chain.
-const CHAIN_LOCK_SQL = `SELECT pg_advisory_xact_lock(hashtext('veridian_audit_chain'))`;
+// The lock function returns PostgreSQL `void`, which Prisma cannot deserialize.
+// Selecting a scalar from a subquery keeps the (volatile) lock call while
+// returning an int the client understands.
+const CHAIN_LOCK_SQL = `SELECT 1 AS locked FROM (SELECT pg_advisory_xact_lock(hashtext('veridian_audit_chain'))) AS chain_lock`;
 
 function stable(value: unknown): unknown {
   if (value === null || value === undefined) return null;
