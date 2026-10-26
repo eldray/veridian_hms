@@ -200,3 +200,19 @@ semantic versioning.
 - The nursing station asks for its inpatient board with an explicit bound (admitted
   visits and active admissions, 500 rows) instead of the unbounded 5,000-row walk that
   ran on open and again on every live event.
+- Loops that made one request per row are gone.
+  - `GET /encounters/vitals/batch?ids=…` returns every reading for up to 200 visits in
+    one query; the patient history tab used to ask once per visit, so a patient with 40
+    visits cost 40 requests each time it opened.
+  - `POST /encounters/:id/services/bulk` adds a whole selection of services in one
+    write, re-validating the encounter once and rejecting the batch if any catalog entry
+    is missing or inactive. The billing screen used to POST once per service, so a
+    failure half-way left the bill part-updated with no way to tell what was saved.
+  - Department staff assignment issues its writes together instead of one after another
+    and reports how many succeeded, and the three refreshes that follow run in parallel.
+- The mobile-money status wait is bounded: it polls every 2 s for the first 30 s, then
+  every 5 s, gives up after a minute with the existing "still pending, do not collect
+  payment again" guidance, and stops when the screen unmounts. The old fixed 24 × 5 s
+  loop held the payment button for two minutes and kept polling after the staff left.
+- The payment screen no longer downloads the patient register to print a name; the bill
+  row carries its patient, and one patient record is fetched if it does not.

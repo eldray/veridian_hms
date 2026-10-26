@@ -12,7 +12,7 @@ import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
-import { addServiceToEncounter } from '../api';
+import { addServicesToEncounter } from '../api';
 import {
   ArrowLeft, Receipt, DollarSign, CreditCard, Eye, Printer,
   ChevronLeft, ChevronRight, FileText, User, Calendar,
@@ -559,25 +559,18 @@ export default function PatientBillingItems() {
   }, [selectedItems.size, selectedItemsTotal, toastError]);
 
   // ===== Add services =====
-  // Keep service additions on the shared API client so auth, base URL, and route
-  // contracts stay aligned with the encounter module.
-  const addServiceToAttendance = useCallback(
-    (attendanceId: string, data: any) => addServiceToEncounter(attendanceId, data),
-    [],
-  );
-
+  // One bulk request for the whole selection: adding eight services used to be eight POSTs,
+  // each re-validating the encounter, and a failure half-way left the bill part-updated.
   const handleAddServices = useCallback(async () => {
     if (!selectedBill || selectedServices.size === 0 || !selectedBill.Attendance?.id)
       return;
 
     setAddingServices(true);
     try {
-      for (const serviceId of selectedServices) {
-        await addServiceToAttendance(selectedBill.Attendance.id, {
-          serviceCatalogId: serviceId,
-          quantity: 1,
-        });
-      }
+      await addServicesToEncounter(
+        selectedBill.Attendance.id,
+        [...selectedServices].map((serviceCatalogId) => ({ serviceCatalogId, quantity: 1 }))
+      );
 
       await generateBillFromAttendance(selectedBill.Attendance.id);
       await handleViewBillDetails(selectedBill.id);
@@ -594,7 +587,6 @@ export default function PatientBillingItems() {
   }, [
     selectedBill,
     selectedServices,
-    addServiceToAttendance,
     generateBillFromAttendance,
     handleViewBillDetails,
     success,

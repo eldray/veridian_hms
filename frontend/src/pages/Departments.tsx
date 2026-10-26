@@ -228,17 +228,30 @@ const { user, hasRole } = useAuthStore();
     if (!selectedDept || pickedUserIds.length === 0) return;
     setAssigningUser(true);
     try {
-      for (const userId of pickedUserIds) {
-        await assignUserToDepartment(selectedDept.id, { userId });
-      }
-      success(
-        'Added',
-        `${pickedUserIds.length} user${pickedUserIds.length === 1 ? '' : 's'} added to ${selectedDept.name}`,
+      // One round-trip per user is unavoidable (each assignment is its own write), but they
+      // no longer wait for each other, and the three refreshes that follow run together
+      // instead of one after another.
+      const results = await Promise.allSettled(
+        pickedUserIds.map((userId) => assignUserToDepartment(selectedDept.id, { userId }))
       );
+      const added = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = pickedUserIds.length - added;
+      if (added > 0) {
+        success(
+          'Added',
+          `${added} user${added === 1 ? '' : 's'} added to ${selectedDept.name}` +
+            (failed > 0 ? ` (${failed} could not be added)` : ''),
+        );
+      }
+      if (failed > 0) {
+        error('Partly failed', `${failed} user(s) were already assigned or could not be added.`);
+      }
       setPickedUserIds([]);
-      await getDepartmentUsers(selectedDept.id);
-      await getDepartments();
-      await loadAllUsers();
+      await Promise.allSettled([
+        getDepartmentUsers(selectedDept.id),
+        getDepartments(),
+        loadAllUsers(),
+      ]);
     } catch (err: any) {
       error('Failed', err.message || 'Could not add some users');
     } finally {
@@ -252,9 +265,7 @@ const { user, hasRole } = useAuthStore();
     try {
       await removeUserFromDepartment(selectedDept.id, userId);
       success('Removed', `${userName} removed`);
-      await getDepartmentUsers(selectedDept.id);
-      await getDepartments();
-      await loadAllUsers();
+      await Promise.allSettled([getDepartmentUsers(selectedDept.id), getDepartments(), loadAllUsers()]);
     } catch (err: any) { error('Failed', err.message); }
     finally { setRemovingId(null); }
   };

@@ -731,6 +731,20 @@ export class EncounterService extends BaseService {
   }
 
   async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, orderBy: { recordedAt: 'desc' } }); }
+
+  /**
+   * Every vitals reading for many encounters in ONE query. The patient history tab used to
+   * ask once per visit, so a patient with 40 visits cost 40 requests on open.
+   */
+  async getVitalsByEncounters(ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.prisma.vitals.findMany({
+      where: { attendanceId: { in: ids.slice(0, 200) } },
+      orderBy: { recordedAt: 'desc' },
+      take: 2000,
+    });
+  }
+
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
   async updateVitals(id: string, data: any) { return this.repository.updateVitals(id, data); }
   async deleteVitals(id: string) { return this.repository.deleteVitals(id); }
@@ -752,6 +766,7 @@ export class EncounterService extends BaseService {
   async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
+  async addServices(id: string, items: any[], userId: string) { return this.repository.addServices(id, items, userId); }
   async removeService(id: string, servId: string) { return this.repository.removeService(id, servId); }
 
   // Admissions & IPD

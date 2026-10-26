@@ -2034,6 +2034,52 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     });
   }
 
+  /**
+   * Add several services to one encounter in a single write. Picking a block of services
+   * used to POST once per item, so the encounter was re-validated and re-read that many
+   * times and every intermediate failure left a half-added bill.
+   */
+  async addServices(encounterId: string, items: any[], userId: string) {
+    const actorId = await this.requireActorId(userId);
+    await this.requireOpenEncounter(encounterId);
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new ValidationError('At least one service is required');
+    }
+    if (items.length > 100) throw new ValidationError('A maximum of 100 services can be added at once');
+
+    const rows: { attendanceId: string; serviceItemId: string; quantity: number; date: Date; performedById: string; notes?: string }[] = [];
+    for (const item of items) {
+      if (!item?.serviceCatalogId) throw new ValidationError('A service catalog entry is required');
+      const quantity = item.quantity === undefined ? 1 : Number(item.quantity);
+      if (!Number.isSafeInteger(quantity) || quantity <= 0) {
+        throw new ValidationError('Service quantity must be a positive whole number');
+      }
+      rows.push({
+        attendanceId: encounterId,
+        serviceItemId: item.serviceCatalogId,
+        quantity,
+        date: new Date(),
+        performedById: actorId,
+        notes: item.notes,
+      });
+    }
+
+    const catalogIds = [...new Set(rows.map((r) => r.serviceItemId))];
+    const services = await this.prisma.serviceCatalog.findMany({
+      where: { id: { in: catalogIds } },
+      select: { id: true, isActive: true },
+    });
+    const found = new Map(services.map((s) => [s.id, s]));
+    for (const id of catalogIds) {
+      const service = found.get(id);
+      if (!service) throw new NotFoundError('Service', id);
+      if (!service.isActive) throw new ValidationError('Inactive services cannot be added to an encounter');
+    }
+
+    const created = await this.prisma.serviceRendered.createMany({ data: rows });
+    return { added: created.count };
+  }
+
   async removeService(encounterId: string, serviceRenderedId: string) {
     const current = await this.prisma.serviceRendered.findFirst({
       where: { id: serviceRenderedId, attendanceId: encounterId },

@@ -48,7 +48,7 @@ export default function ProcessPayment() {
   const navigate = useNavigate();
   const { billId } = useParams<{ billId: string }>();
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { patients, currentPatient, fetchPatient } = usePatientStore();
   const { user, hasRole } = useAuthStore();
   const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
   const { success, error: toastError } = useToast();
@@ -62,6 +62,9 @@ export default function ProcessPayment() {
   const [showSendReceipt, setShowSendReceipt] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
     if (!billId) return;
@@ -73,11 +76,14 @@ export default function ProcessPayment() {
       if (billId) {
         try {
           setIsPageLoading(true);
-          await Promise.all([
-            getBill(billId),
-            patients.length === 0 ? loadPatients() : Promise.resolve()
-          ]);
-          
+          // The bill row already carries its patient, so this screen never downloads the
+          // patient register just to print a name in the header.
+          await getBill(billId);
+          const bill: any = useBillingStore.getState().currentBill;
+          if (bill && !bill.Patient?.surname && bill.patientId) {
+            await fetchPatient(bill.patientId).catch(() => undefined);
+          }
+
           // Get billing breakdown
           const breakdown = await getBillingBreakdown(billId);
           setBillingBreakdown(breakdown);
@@ -89,7 +95,7 @@ export default function ProcessPayment() {
       }
     };
     loadData();
-  }, [billId, getBill, loadPatients, patients.length, getBillingBreakdown, toastError]);
+  }, [billId, getBill, fetchPatient, getBillingBreakdown, toastError]);
 
   useEffect(() => {
     if (currentBill) {
@@ -98,7 +104,12 @@ export default function ProcessPayment() {
   }, [currentBill]);
 
   const bill = currentBill;
-  const patient = bill ? patients.find(p => p.id === bill.patientId) : null;
+  const patient = bill
+    ? ((bill as any).Patient?.surname
+        ? (bill as any).Patient
+        : patients.find(p => p.id === bill.patientId)
+          || (currentPatient?.id === bill.patientId ? currentPatient : null))
+    : null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -134,9 +145,21 @@ export default function ProcessPayment() {
         });
         success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
         let finalStatus = intent;
-        for (let attempt = 0; attempt < 24; attempt++) {
-          if (finalStatus.status === 'successful' || finalStatus.status === 'failed') break;
-          await new Promise(resolve => window.setTimeout(resolve, 5000));
+        // The payer approves on their own phone, so this waits — but with a budget, a
+        // backoff and an unmount guard. The old fixed 24 x 5 s loop kept the button busy
+        // for two minutes, even after staff navigated away from the bill.
+        const WAIT_BUDGET_MS = 60_000;
+        let waited = 0;
+        while (
+          waited < WAIT_BUDGET_MS &&
+          mountedRef.current &&
+          finalStatus.status !== 'successful' &&
+          finalStatus.status !== 'failed'
+        ) {
+          const step = waited < 30_000 ? 2_000 : 5_000;
+          await new Promise(resolve => window.setTimeout(resolve, step));
+          waited += step;
+          if (!mountedRef.current) break;
           finalStatus = await checkMomoPaymentStatus(intent.id);
         }
         if (finalStatus.status === 'failed') {

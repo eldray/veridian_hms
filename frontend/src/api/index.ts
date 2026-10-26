@@ -1542,6 +1542,15 @@ export const addServiceToEncounter = async (encounterId: string, data: any) => {
   return response.data;
 };
 
+/** Add several services to one encounter in a single request. */
+export const addServicesToEncounter = async (
+  encounterId: string,
+  items: { serviceCatalogId: string; quantity?: number; notes?: string }[]
+) => {
+  const response = await api.post(`/encounters/${encounterId}/services/bulk`, { items });
+  return response.data;
+};
+
 export const removeServiceFromEncounter = async (encounterId: string, serviceId: string) => {
   const response = await api.delete(`/encounters/${encounterId}/services/${serviceId}`);
   return response.data;
@@ -1615,6 +1624,18 @@ export const getLatestVitals = async (encounterIds: string[]): Promise<any[]> =>
   for (let i = 0; i < encounterIds.length; i += 100) {
     const chunk = encounterIds.slice(i, i + 100);
     const response = await api.get('/encounters/vitals/latest', { params: { ids: chunk.join(',') } });
+    const rows = response.data?.data ?? response.data;
+    if (Array.isArray(rows)) out.push(...rows);
+  }
+  return out;
+};
+
+/** Every recorded reading for many encounters in one request (chunks of 100 ids). */
+export const getVitalsForEncounters = async (encounterIds: string[]): Promise<any[]> => {
+  const out: any[] = [];
+  for (let i = 0; i < encounterIds.length; i += 100) {
+    const chunk = encounterIds.slice(i, i + 100);
+    const response = await api.get('/encounters/vitals/batch', { params: { ids: chunk.join(',') } });
     const rows = response.data?.data ?? response.data;
     if (Array.isArray(rows)) out.push(...rows);
   }

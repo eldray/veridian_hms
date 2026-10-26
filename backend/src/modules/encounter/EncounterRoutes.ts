@@ -25,6 +25,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // WORKLISTS (read-only — any authenticated staff)
   router.get('/vitals/latest', controller.getLatestVitals);
+  router.get('/vitals/batch', controller.getVitalsByEncounters);
   router.get('/worklist/vitals', controller.getVitalsWorklist);
   router.get('/worklist/medical', controller.getMedicalWorklist);
   router.get('/worklist/lab', controller.getLabWorklist);
@@ -181,6 +182,7 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
 
   // SERVICES RENDERED
   router.post('/:id/services', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addService);
+  router.post('/:id/services/bulk', requireRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife']), controller.addServices);
   router.delete('/:encounterId/services/:serviceRenderedId', requireRole(['admin', 'super_admin', 'doctor', 'nurse']), controller.removeService);
 
   // CONSUMABLES

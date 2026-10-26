@@ -6,6 +6,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
+import { getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
@@ -135,7 +136,7 @@ export default function PatientDetails() {
   const { success, error: toastError } = useToast();
 
   const { currentPatient, fetchPatient, deletePatient } = usePatientStore();
-  const { attendances, getAttendances, getVitalsByAttendance } = useAttendanceStore();
+  const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
 
@@ -225,26 +226,29 @@ export default function PatientDetails() {
     };
   }, [patientAttendances]);
 
+  // One batched request for every visit on this patient (the server chunks at 100 ids).
+  // This used to fire one GET per visit, so a 40-visit patient cost 40 requests every time
+  // the history was opened, and the four-GET window made the page crawl.
   const loadAllVitals = async () => {
-    const all: any[] = [];
-    await Promise.all(
-      patientAttendances.map(async att => {
-        try {
-          const v = await getVitalsByAttendance(att.id);
-          if (v?.length) {
-            all.push(...v.map((x: any) => ({
-              ...x,
-              attendanceId: att.id,
-              attendanceDate: att.dateTime || att.createdAt,
-              attendanceNumber: att.attendanceNumber,
-            })));
-          }
-        } catch (e) {
-          console.error('Vitals load error', att.id, e);
-        }
-      })
-    );
-    setVitalsList(all.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+    const byVisit = new Map<string, Attendance>(patientAttendances.map((att) => [att.id, att] as [string, Attendance]));
+    try {
+      const rows = await getVitalsForEncounters(patientAttendances.map((att) => att.id));
+      const all = (Array.isArray(rows) ? rows : [])
+        .filter((v: any) => byVisit.has(v.attendanceId))
+        .map((v: any) => {
+          const att = byVisit.get(v.attendanceId)!;
+          return {
+            ...v,
+            attendanceId: att.id,
+            attendanceDate: att.dateTime || att.createdAt,
+            attendanceNumber: att.attendanceNumber,
+          };
+        });
+      setVitalsList(all.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+    } catch (e) {
+      console.error('Vitals batch load error', e);
+      setVitalsList([]);
+    }
   };
 
   const latestVitals = vitalsList[0] || null;
