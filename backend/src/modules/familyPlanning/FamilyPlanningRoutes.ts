@@ -4,9 +4,8 @@ import { Router } from 'express';
 import { FamilyPlanningController } from './FamilyPlanningController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 
-const router = Router();
-
 export function createFamilyPlanningRoutes(prisma: any): Router {
+  const router = Router();
   const controller = new FamilyPlanningController(prisma);
 
   // ============================================
