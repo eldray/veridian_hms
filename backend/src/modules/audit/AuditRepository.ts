@@ -1,6 +1,6 @@
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
-import { appendAuditLog, verifyAuditChain, StoredAuditRow } from '../../services/auditChain';
+import { appendAuditLog, verifyAuditChainPage, AuditChainCursor, StoredAuditRow } from '../../services/auditChain';
 import {
   AuditLogFilters,
   AuditLogExportFilters,
@@ -161,22 +161,46 @@ export class AuditRepository extends BaseRepository<any, any, any> {
   }
 
   async verifyChain() {
-    const rows = await this.prisma.auditLog.findMany({
-      orderBy: { id: 'asc' },
-      select: {
-        id: true,
-        entityType: true,
-        entityId: true,
-        action: true,
-        performedById: true,
-        ipAddress: true,
-        userAgent: true,
-        previousState: true,
-        newState: true,
-        metadata: true,
-        timestamp: true,
-      },
-    });
-    return verifyAuditChain(rows as unknown as StoredAuditRow[]);
+    // The audit log grows forever; page through it so verification does not
+    // load every row into memory. Ordering by id matches append order.
+    const pageSize = 500;
+    let cursorId: string | undefined;
+    let state: AuditChainCursor | undefined;
+    let checked = 0;
+
+    for (;;) {
+      const rows = await this.prisma.auditLog.findMany({
+        take: pageSize,
+        ...(cursorId ? { cursor: { id: cursorId }, skip: 1 } : {}),
+        orderBy: { id: 'asc' },
+        select: {
+          id: true,
+          entityType: true,
+          entityId: true,
+          action: true,
+          performedById: true,
+          ipAddress: true,
+          userAgent: true,
+          previousState: true,
+          newState: true,
+          metadata: true,
+          timestamp: true,
+        },
+      });
+
+      if (rows.length === 0) break;
+
+      const result = verifyAuditChainPage(rows as unknown as StoredAuditRow[], state);
+      checked = result.checked;
+      if (!result.ok) {
+        return { ok: false, checked, brokenAtId: result.brokenAtId };
+      }
+
+      state = result.cursor;
+      cursorId = rows[rows.length - 1].id;
+      if (rows.length < pageSize) break;
+    }
+
+    return { ok: true, checked };
   }
 }

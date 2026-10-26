@@ -60,6 +60,8 @@ semantic versioning.
   Antenatal, corporate, referral, requisition, stock-usage, scan-template,
   proforma-invoice, recent-patient and user lists now clamp the page size, so a
   crafted request cannot force a full-table scan and an oversized response.
+- Audit-chain verification walks the log in pages instead of loading every row
+  into memory, so the check stays bounded as the audit table grows.
 - The Electron main window now runs with `sandbox: true`. Permission requests
   are denied except for notifications and clipboard access, webview attachment
   is blocked, page links never open a second Electron window, and navigation is

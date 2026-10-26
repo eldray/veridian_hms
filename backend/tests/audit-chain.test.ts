@@ -5,6 +5,7 @@ import {
   readChain,
   stripChain,
   verifyAuditChain,
+  verifyAuditChainPage,
   StoredAuditRow,
 } from '../src/services/auditChain';
 
@@ -99,8 +100,41 @@ describe('audit chain', () => {
     expect(verifyAuditChain([...prefix, ...suffix])).toEqual({ ok: true, checked: 4 });
   });
 
-  it('reads and strips the chain link without disturbing the content', () => {
-    const [row] = buildChain(1);
+  it('continues verification across pages without reloading the whole log', () => {
+    const rows = buildChain(5);
+    const first = verifyAuditChainPage(rows.slice(0, 2));
+    expect(first).toMatchObject({ ok: true, checked: 2 });
+
+    const second = verifyAuditChainPage(rows.slice(2), first.cursor);
+    expect(second).toMatchObject({ ok: true, checked: 5 });
+    expect(second.cursor.prev).not.toBeNull();
+  });
+
+  it('detects tampering in a later page', () => {
+    const rows = buildChain(5);
+    const first = verifyAuditChainPage(rows.slice(0, 2));
+    rows[3] = {
+      ...rows[3],
+      metadata: { ...(rows[3].metadata as Record<string, unknown>), edited: true },
+    };
+
+    const second = verifyAuditChainPage(rows.slice(2), first.cursor);
+    expect(second.ok).toBe(false);
+    expect(second.brokenAtId).toBe('row-3');
+    expect(second.checked).toBe(3);
+  });
+
+  it('skips legacy rows that end a page before chaining starts', () => {
+    const legacy: StoredAuditRow[] = [{ ...entry(0), id: 'legacy-1', metadata: { method: 'POST' } }];
+    const rows = buildChain(2);
+    const first = verifyAuditChainPage(legacy);
+    expect(first).toMatchObject({ ok: true, checked: 0 });
+
+    const second = verifyAuditChainPage(rows, first.cursor);
+    expect(second).toMatchObject({ ok: true, checked: 2 });
+  });
+
+  it('reads and strips the chain link without disturbing the content', () => {    const [row] = buildChain(1);
     expect(stripChain(row.metadata)).toEqual({ method: 'POST', url: '/patients' });
     expect(readChain(row.metadata)).toMatchObject({ prev: null });
     expect(readChain({ method: 'POST' })).toBeNull();

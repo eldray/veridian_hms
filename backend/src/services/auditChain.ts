@@ -39,6 +39,15 @@ export interface AuditChainVerification {
   brokenAtId?: string;
 }
 
+export interface AuditChainCursor {
+  prev: string | null;
+  checked: number;
+}
+
+export function createAuditChainCursor(): AuditChainCursor {
+  return { prev: null, checked: 0 };
+}
+
 const CHAIN_KEY = '_chain';
 const GENESIS_HASH = '0'.repeat(64);
 // Serialises chain appends across processes. Desktop installs run one backend,
@@ -164,23 +173,29 @@ export async function appendAuditLog(prisma: PrismaClient, entry: AuditEntryInpu
 }
 
 /**
- * Verifies rows in insertion order. Legacy rows without a chain are ignored
- * until the first chained row; after that every row must link to its
- * predecessor and its stored hash must match its content.
+ * Verifies one page of rows in insertion order, continuing from `cursor`.
+ * Rows are too numerous to load at once for large installations, so callers
+ * walk the table page by page and carry the cursor between pages.
+ *
+ * Legacy rows without a chain are ignored until the first chained row; after
+ * that every row must link to its predecessor and its stored hash must match
+ * its content.
  */
-export function verifyAuditChain(rows: StoredAuditRow[]): AuditChainVerification {
-  let prev: string | null = null;
-  let checked = 0;
+export function verifyAuditChainPage(
+  rows: StoredAuditRow[],
+  cursor: AuditChainCursor = createAuditChainCursor(),
+): AuditChainVerification & { cursor: AuditChainCursor } {
+  let { prev, checked } = cursor;
 
   for (const row of rows) {
     const chain = readChain(row.metadata);
     if (!chain) {
       if (checked === 0) continue;
-      return { ok: false, checked, brokenAtId: row.id };
+      return { ok: false, checked, brokenAtId: row.id, cursor: { prev, checked } };
     }
 
     if (chain.prev !== prev) {
-      return { ok: false, checked, brokenAtId: row.id };
+      return { ok: false, checked, brokenAtId: row.id, cursor: { prev, checked } };
     }
 
     const expected = computeAuditHash(prev, {
@@ -197,12 +212,18 @@ export function verifyAuditChain(rows: StoredAuditRow[]): AuditChainVerification
     });
 
     if (expected !== chain.hash) {
-      return { ok: false, checked, brokenAtId: row.id };
+      return { ok: false, checked, brokenAtId: row.id, cursor: { prev, checked } };
     }
 
     prev = chain.hash;
     checked += 1;
   }
 
-  return { ok: true, checked };
+  return { ok: true, checked, cursor: { prev, checked } };
+}
+
+/** Verifies a whole chain that is already in memory. */
+export function verifyAuditChain(rows: StoredAuditRow[]): AuditChainVerification {
+  const { ok, checked, brokenAtId } = verifyAuditChainPage(rows);
+  return brokenAtId ? { ok, checked, brokenAtId } : { ok, checked };
 }
