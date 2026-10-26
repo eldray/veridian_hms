@@ -37,8 +37,8 @@ import {
   getUsageReport as apiGetUsageReport,
   getSupplierReport as apiGetSupplierReport,
   getRequisitionSummary as apiGetRequisitionSummary,
-  fetchAllPages as apiFetchAllPages,
 } from '../api';
+import { invalidateCollection, streamCollection } from './streamCollection';
 
 // Helper to extract items from response
 const extractItems = (response: any, defaultField = 'data'): any[] => {
@@ -247,97 +247,43 @@ export const useStockStore = create<StockState>((set, get) => ({
 
   // ==================== STOCK ITEMS ====================
   
-// In stockStore.ts - FIXED getStockItems function
+// Stock lists are read by a dozen screens that each asked for the whole table.
+// streamCollection shares one walk between simultaneous readers, streams the pages
+// a few at a time and paints rows as they arrive instead of at the end.
+// ttlMs: 0 - stock also changes through endpoints outside this store (dispensing,
+// lab, theatre), so no cache window is acceptable: staff must never see an
+// out-of-date quantity. Concurrent duplicate requests are still collapsed.
 
 getStockItems: async (filters = {}) => {
-  set({ isLoading: true, error: null });
+  const normalize = (rows: any[]) => rows.map((item: any) => ({
+    ...item,
+    costPrice: Number(item.costPrice) || 0,
+    currentStock: Number(item.currentStock) || 0,
+    reorderLevel: Number(item.reorderLevel) || 0,
+  }));
+
+  // Only show a spinner when there is nothing to show yet; later pages stream in.
+  set({ error: null, isLoading: get().stockItems.length === 0 });
   try {
-    const allItems: StockItem[] = [];
-    let currentPage = 1;
-    const limit = 500; // Request up to 500 per page
-    let hasMore = true;
-    let totalItems = 0;
-    
-    console.log('📦 Fetching stock items with filters:', filters);
-    
-    while (hasMore) {
-      const response = await apiGetStockItems({ 
-        ...filters, 
-        page: currentPage, 
-        limit 
-      });
-      
-      console.log(`📦 Page ${currentPage} response:`, response);
-      
-      // ✅ Extract items using the helper
-      let items = extractItems(response, 'stockItems');
-      
-      // ✅ If items is not an array, try to get it from response.data
-      if (!Array.isArray(items) && response?.data) {
-        items = Array.isArray(response.data) ? response.data : [];
-      }
-      
-      // ✅ If still not an array, try response.items
-      if (!Array.isArray(items) && response?.items) {
-        items = Array.isArray(response.items) ? response.items : [];
-      }
-      
-      // ✅ Final fallback
-      if (!Array.isArray(items)) {
-        items = [];
-      }
-      
-      console.log(`📦 Page ${currentPage} - Items extracted: ${items.length}`);
-      
-      // ✅ Normalize data: convert string numbers to actual numbers
-      const normalizedItems = items.map((item: any) => ({
-        ...item,
-        costPrice: Number(item.costPrice) || 0,
-        currentStock: Number(item.currentStock) || 0,
-        reorderLevel: Number(item.reorderLevel) || 0,
-      }));
-      
-      allItems.push(...normalizedItems as StockItem[]);
-      
-      // ✅ Get total from pagination
-      totalItems = response?.pagination?.total || 
-                   response?.data?.pagination?.total || 
-                   response?.total || 
-                   items.length;
-      
-      // ✅ Check if we have more pages
-      const itemsFetched = items.length;
-      // Stop only when everything is loaded or a page comes back empty. Do NOT compare with the requested
-      // limit: the server may cap the page size below it (e.g. 100), which used to stop loading after page 1.
-      hasMore = allItems.length < totalItems && itemsFetched > 0;
-      
-      // ✅ Safety: Don't make more than 20 requests
-      if (currentPage > 100) {
-        console.warn('⚠️ Reached maximum page limit (100), stopping pagination');
-        break;
-      }
-      
-      currentPage++;
-    }
-    
-    console.log(`✅ Total stock items loaded: ${allItems.length}`);
-    
-    set({ 
-      stockItems: allItems,
-      pagination: {
-        page: 1,
-        limit: allItems.length,
-        total: allItems.length,
-        pages: 1
-      },
-      isLoading: false 
+    await streamCollection<StockItem>({
+      key: 'stockItems',
+      fetchPage: apiGetStockItems,
+      filters,
+      ttlMs: 0,
+      transform: normalize,
+      onProgress: (stockItems) => set({
+        stockItems,
+        pagination: { page: 1, limit: stockItems.length, total: stockItems.length, pages: 1 },
+        isLoading: false,
+      }),
     });
+    set({ isLoading: false });
   } catch (error: unknown) {
     console.error('❌ Failed to fetch stock items:', error);
-    set({ 
-      stockItems: [],
-      isLoading: false, 
-      error: (error as any).response?.data?.message || 'Failed to fetch stock items' 
+    set({
+      isLoading: false,
+      // Whatever streamed in stays on screen; an empty list here hid working data.
+      error: (error as any).response?.data?.message || 'Failed to fetch stock items',
     });
     throw error;
   }
@@ -369,6 +315,7 @@ getStockItems: async (filters = {}) => {
       };
       const newStockItem = await apiCreateStockItem(normalizedData);
       const { stockItems } = get();
+      invalidateCollection('stockItems');
       set({ 
         stockItems: [newStockItem, ...stockItems],
         currentStockItem: newStockItem,
@@ -390,6 +337,7 @@ getStockItems: async (filters = {}) => {
     try {
       const updatedStockItem = await apiUpdateStockItem(id, data);
       const { stockItems } = get();
+      invalidateCollection('stockItems');
       const updatedItems = stockItems.map(item => 
         item.id === id ? updatedStockItem : item
       );
@@ -414,6 +362,7 @@ getStockItems: async (filters = {}) => {
     try {
       await apiDeleteStockItem(id);
       const { stockItems, currentStockItem } = get();
+      invalidateCollection('stockItems');
       const updatedItems = stockItems.filter(item => item.id !== id);
       set({ 
         stockItems: updatedItems,
@@ -465,6 +414,8 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiAllocateStockToDepartment(id, data);
+      invalidateCollection('stockItems');
+      invalidateCollection('stockTransactions');
       await get().getStockItems();
       await get().getLowStockItems();
       set({ isLoading: false });
@@ -479,6 +430,8 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await apiUpdateStockLevel(id, data);
+      invalidateCollection('stockItems');
+      invalidateCollection('stockTransactions');
       // Refresh stock items to get updated data
       await get().getStockItems();
       // Also refresh low stock alerts
@@ -504,6 +457,9 @@ getStockItems: async (filters = {}) => {
         const result = await apiUpdateStockLevel(id, data);
         results.push(result);
       }
+      // Cached walks must not serve the pre-write lists
+      invalidateCollection('stockItems');
+      invalidateCollection('stockTransactions');
       // Refresh stock items
       await get().getStockItems();
       await get().getLowStockItems();
@@ -522,26 +478,26 @@ getStockItems: async (filters = {}) => {
   // ==================== STOCK TRANSACTIONS ====================
 
   getStockTransactions: async (filters = {}) => {
-    set({ isLoading: true, error: null });
+    // This ledger uses client-side search and pagination, so it must first
+    // collect the server-paginated rows rather than silently showing only
+    // the first default page (10 transactions).
+    // Server-side paging of this endpoint is the follow-up; for now the walk is
+    // shared, cached and streams rows into the table instead of blanking it.
+    set({ error: null, isLoading: get().transactions.length === 0 });
     try {
-      // This ledger uses client-side search and pagination, so it must first
-      // collect the server-paginated rows rather than silently showing only
-      // the first default page (10 transactions).
-      const transactions = await apiFetchAllPages<any>(
-        apiGetStockTransactions,
+      await streamCollection<StockTransaction>({
+        key: 'stockTransactions',
+        fetchPage: apiGetStockTransactions,
         filters,
-        { pageSize: 100, maxPages: 500 }
-      );
-      set({
-        transactions: transactions as StockTransaction[],
-        pagination: {
-          page: 1,
-          limit: transactions.length,
-          total: transactions.length,
-          pages: 1,
-        },
-        isLoading: false,
+        maxItems: 50_000,
+        ttlMs: 0,
+        onProgress: (transactions) => set({
+          transactions,
+          pagination: { page: 1, limit: transactions.length, total: transactions.length, pages: 1 },
+          isLoading: false,
+        }),
       });
+      set({ isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch stock transactions:', error);
       set({
@@ -572,6 +528,8 @@ getStockItems: async (filters = {}) => {
     try {
       const newTransaction = await apiCreateStockTransaction(data);
       const { transactions } = get();
+      invalidateCollection('stockTransactions');
+      invalidateCollection('stockItems');
       
       set({ 
         transactions: [newTransaction, ...transactions],
@@ -608,6 +566,7 @@ getStockItems: async (filters = {}) => {
     try {
       const updatedTransaction = await apiUpdateStockTransaction(id, data);
       const { transactions } = get();
+      invalidateCollection('stockTransactions');
       const updatedTransactions = transactions.map(transaction =>
         transaction.id === id ? updatedTransaction : transaction
       );
@@ -686,45 +645,25 @@ getStockItems: async (filters = {}) => {
   // ==================== REQUISITIONS ====================
 
   getRequisitions: async (filters = {}) => {
-    set({ isLoading: true, error: null });
+    set({ error: null, isLoading: get().requisitions.length === 0 });
     try {
-      const allRequisitions: Requisition[] = [];
-      let currentPage = 1;
-      const limit = 200;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const response = await apiGetRequisitions({ 
-          ...filters, 
-          page: currentPage, 
-          limit 
-        });
-        
-        const requisitions = extractItems(response, 'requisitions');
-        allRequisitions.push(...(requisitions as Requisition[]));
-        
-        const total = response?.pagination?.total || response?.total || requisitions.length;
-        hasMore = allRequisitions.length < total && requisitions.length > 0;
-        currentPage++;
-        
-        if (currentPage > 50) break;
-      }
-      
-      set({ 
-        requisitions: allRequisitions,
-        pagination: {
-          page: 1,
-          limit: allRequisitions.length,
-          total: allRequisitions.length,
-          pages: 1
-        },
-        isLoading: false 
+      await streamCollection<Requisition>({
+        key: 'requisitions',
+        fetchPage: apiGetRequisitions,
+        filters,
+        ttlMs: 0,
+        onProgress: (requisitions) => set({
+          requisitions,
+          pagination: { page: 1, limit: requisitions.length, total: requisitions.length, pages: 1 },
+          isLoading: false,
+        }),
       });
+      set({ isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch requisitions:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch requisitions' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to fetch requisitions'
       });
       throw error;
     }
@@ -757,6 +696,7 @@ getStockItems: async (filters = {}) => {
         requisitions: [newRequisition, ...requisitions],
         isLoading: false 
       });
+      invalidateCollection('requisitions');
       return newRequisition;
     } catch (error: unknown) {
       console.error('Failed to create requisition:', error);
@@ -778,6 +718,7 @@ getStockItems: async (filters = {}) => {
         requisitions: requisitions.map(req => req.id === id ? updatedRequisition : req),
         isLoading: false 
       });
+      invalidateCollection('requisitions');
       return updatedRequisition;
     } catch (error: unknown) {
       console.error('Failed to update requisition:', error);
@@ -798,6 +739,7 @@ getStockItems: async (filters = {}) => {
         requisitions: requisitions.filter(req => req.id !== id),
         isLoading: false 
       });
+      invalidateCollection('requisitions');
     } catch (error: unknown) {
       console.error('Failed to delete requisition:', error);
       set({ 
@@ -812,6 +754,7 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await updateRequisitionStatus(id, 'submitted');
+      invalidateCollection('requisitions');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -825,6 +768,7 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await updateRequisitionStatus(id, 'approved');
+      invalidateCollection('requisitions');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -838,6 +782,7 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await approveRequisitionItems(id, { approvedItems });
+      invalidateCollection('requisitions');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -851,6 +796,9 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await updateRequisitionStatus(id, 'fulfilled', data);
+      invalidateCollection('requisitions');
+      // Fulfilment moves stock, so the cached item list is no longer valid.
+      invalidateCollection('stockItems');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -864,6 +812,7 @@ getStockItems: async (filters = {}) => {
     set({ isLoading: true, error: null });
     try {
       const result = await updateRequisitionStatus(id, 'cancelled');
+      invalidateCollection('requisitions');
       await get().getRequisitions();
       set({ isLoading: false });
       return result;
@@ -876,46 +825,25 @@ getStockItems: async (filters = {}) => {
   // ==================== PURCHASE INVOICES (Supplier Invoices) ====================
 
   getPurchaseInvoices: async (filters = {}) => {
-    set({ isLoading: true, error: null });
+    set({ error: null, isLoading: get().purchaseInvoices.length === 0 });
     try {
-      const allInvoices: PurchaseInvoice[] = [];
-      let currentPage = 1;
-      const limit = 200;
-      let hasMore = true;
-      
-      while (hasMore) {
-        const response = await apiGetPurchaseInvoices({ 
-          ...filters, 
-          page: currentPage, 
-          limit 
-        });
-        
-        const invoices = extractItems(response, 'purchaseInvoices');
-        allInvoices.push(...(invoices as PurchaseInvoice[]));
-        
-        const total = response?.pagination?.total || response?.total || invoices.length;
-        hasMore = allInvoices.length < total && invoices.length > 0;
-        currentPage++;
-        
-        if (currentPage > 50) break;
-      }
-      
-      set({ 
-        purchaseInvoices: allInvoices || [],  // ✅ Ensure it's always an array
-        pagination: {
-          page: 1,
-          limit: allInvoices.length,
-          total: allInvoices.length,
-          pages: 1
-        },
-        isLoading: false 
+      await streamCollection<PurchaseInvoice>({
+        key: 'purchaseInvoices',
+        fetchPage: apiGetPurchaseInvoices,
+        filters,
+        ttlMs: 0,
+        onProgress: (purchaseInvoices) => set({
+          purchaseInvoices,
+          pagination: { page: 1, limit: purchaseInvoices.length, total: purchaseInvoices.length, pages: 1 },
+          isLoading: false,
+        }),
       });
+      set({ isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch purchase invoices:', error);
-      set({ 
-        purchaseInvoices: [],  // ✅ Set to empty array on error
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch purchase invoices' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to fetch purchase invoices'
       });
       throw error;
     }
@@ -949,6 +877,8 @@ getStockItems: async (filters = {}) => {
         isLoading: false 
       });
       // Refresh stock items as invoice may have added stock
+      invalidateCollection('stockItems');
+      invalidateCollection('purchaseInvoices');
       await get().getStockItems();
       await get().getLowStockItems();
       return newPurchaseInvoice;
@@ -972,6 +902,7 @@ getStockItems: async (filters = {}) => {
         purchaseInvoices: purchaseInvoices.map(inv => inv.id === id ? updatedPurchaseInvoice : inv),
         isLoading: false 
       });
+      invalidateCollection('purchaseInvoices');
       return updatedPurchaseInvoice;
     } catch (error: unknown) {
       console.error('Failed to update purchase invoice:', error);
@@ -993,6 +924,8 @@ getStockItems: async (filters = {}) => {
         isLoading: false 
       });
       // Refresh stock items as invoice deletion may reverse stock
+      invalidateCollection('stockItems');
+      invalidateCollection('purchaseInvoices');
       await get().getStockItems();
       await get().getLowStockItems();
     } catch (error: unknown) {

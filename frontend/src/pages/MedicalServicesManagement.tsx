@@ -258,91 +258,37 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     loadAllCounts();
   }, []);
 
+  /** Total rows in a list endpoint, read from the paging metadata. */
+  const readTotal = async (apiCall: (params: any) => Promise<any>): Promise<number> => {
+    const response = await apiCall({ page: 1, limit: 1 });
+    const pagination =
+      response?.data?.pagination || response?.pagination || response?.meta || response?.data?.meta;
+    const total = Number(pagination?.total);
+    if (Number.isFinite(total) && total > 0) return total;
+
+    // No usable total in the envelope: fall back to the rows the request returned.
+    if (Array.isArray(response?.data?.data)) return response.data.data.length;
+    if (Array.isArray(response?.data)) return response.data.length;
+    if (Array.isArray(response)) return response.length;
+    return 0;
+  };
+
   const loadAllCounts = async () => {
     try {
-      // Helper function to fetch all pages of data
-      const fetchAllPages = async (apiCall: (params: any) => Promise<any>, params: any = {}) => {
-        let allData: any[] = [];
-        let currentPage = 1;
-        let totalPages = 1;
-        const limit = 500;
-        
-        try {
-          // First request to get total pages
-          const firstResponse = await apiCall({ ...params, page: 1, limit });
-          
-          // Extract data and pagination
-          let dataArray: any[] = [];
-          let pagination: any = null;
-          
-          if (firstResponse?.data?.data && Array.isArray(firstResponse.data.data)) {
-            dataArray = firstResponse.data.data;
-            pagination = firstResponse.data.pagination;
-          } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-            dataArray = firstResponse.data;
-            pagination = firstResponse.pagination;
-          } else if (Array.isArray(firstResponse)) {
-            dataArray = firstResponse;
-          } else if (firstResponse?.items && Array.isArray(firstResponse.items)) {
-            dataArray = firstResponse.items;
-            pagination = firstResponse.pagination;
-          }
-          
-          allData = [...dataArray];
-          
-          if (pagination) {
-            totalPages = pagination.pages || Math.ceil(pagination.total / limit);
-            currentPage = pagination.page || 1;
-          }
-          
-          // Fetch remaining pages
-          if (currentPage < totalPages) {
-            const remainingPromises = [];
-            for (let page = currentPage + 1; page <= totalPages; page++) {
-              remainingPromises.push(apiCall({ ...params, page, limit }));
-            }
-            
-            const remainingResponses = await Promise.all(remainingPromises);
-            
-            for (const response of remainingResponses) {
-              if (response?.data?.data && Array.isArray(response.data.data)) {
-                allData = [...allData, ...response.data.data];
-              } else if (response?.data && Array.isArray(response.data)) {
-                allData = [...allData, ...response.data];
-              } else if (Array.isArray(response)) {
-                allData = [...allData, ...response];
-              } else if (response?.items && Array.isArray(response.items)) {
-                allData = [...allData, ...response.items];
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching paginated data:', error);
-        }
-        
-        return allData;
-      };
-      
-      // Fetch all data from all pages
+      // The tab badges only need totals, so ask for one row per table instead of
+      // downloading every record and counting it in the browser.
       const [allDiagnoses, allLabTests, allProcedures, allScans] = await Promise.all([
-        fetchAllPages(apiGetDiagnoses),
-        fetchAllPages(apiGetLabTestTemplates),
-        fetchAllPages(apiGetProcedureTemplates),
-        fetchAllPages(apiGetScanTemplates),
+        readTotal(apiGetDiagnoses).catch(() => 0),
+        readTotal(apiGetLabTestTemplates).catch(() => 0),
+        readTotal(apiGetProcedureTemplates).catch(() => 0),
+        readTotal(apiGetScanTemplates).catch(() => 0),
       ]);
-      
+
       setTotalCounts({
-        diagnoses: allDiagnoses.length,
-        labTests: allLabTests.length,
-        procedures: allProcedures.length,
-        scans: allScans.length,
-      });
-      
-      console.log('📊 Full counts loaded:', {
-        diagnoses: allDiagnoses.length,
-        labTests: allLabTests.length,
-        procedures: allProcedures.length,
-        scans: allScans.length,
+        diagnoses: allDiagnoses,
+        labTests: allLabTests,
+        procedures: allProcedures,
+        scans: allScans,
       });
     } catch (error) {
       console.error('Error loading counts:', error);
@@ -549,19 +495,6 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     { id: 'scans' as ActiveTab, label: 'Scans', icon: Scan, color: 'orange', count: totalCounts.scans },
   ];
   const visibleTabs = tabs.filter(tab => canReadTab(tab.id));
-
-  // Only request datasets the current role is permitted to read.
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await Promise.all([
-        ...(canReadTab('diagnoses') ? [getDiagnoses({ limit: 1000 })] : []),
-        ...(canReadTab('lab-tests') ? [getLabTestTemplates({ limit: 1000 })] : []),
-        ...(canReadTab('procedures') ? [getProcedureTemplates({ limit: 1000 })] : []),
-        ...(canReadTab('scans') ? [getScanTemplates({ limit: 1000 })] : []),
-      ]);
-    };
-    void loadInitialData();
-  }, []);
 
   const filteredData = getFilteredData();
   const isLoading = getIsLoading();

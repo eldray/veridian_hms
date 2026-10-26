@@ -136,3 +136,24 @@ semantic versioning.
   the selected patient object to the browser console. The billing store and the
   patient billing page no longer log bill payloads, bill numbers or resolved patient
   ids either; console output is limited to errors.
+- Collection loading in the renderer goes through one shared helper
+  (`frontend/src/store/streamCollection.ts`). A store action asks for a collection,
+  gets the first page written to the store immediately, and the remaining pages
+  stream in three requests at a time while the list is already usable. Simultaneous
+  readers of the same collection share one walk, a completed walk is cached for 30
+  seconds, and a superseded walk can no longer overwrite the store. This replaces
+  the serial 50-100 request `while (hasMore)` loops that saturated the four-GET
+  concurrency limit and made the inventory, requisition, invoice, stock-transaction
+  and medical-services screens appear to freeze. Stock data is deliberately cached
+  for zero seconds: dispensing, lab and theatre change quantities through endpoints
+  outside the stock store, so an out-of-date quantity must never be shown.
+- Writes in the stock and medical-services stores invalidate the cached walk, so a
+  saved item, allocation, requisition status change, purchase invoice, diagnosis,
+  template or catalog entry no longer gets hidden again by a pre-write page load.
+- Medical services management reads its tab badges from the paging metadata of one
+  row per table instead of downloading every diagnosis, lab test, procedure and scan
+  and counting them in the browser, and no longer issues a second full-table load of
+  all four tables on mount.
+- Admissions, beds and departments walk their pages four and three at a time instead
+  of one after another, and the API client no longer logs raw diagnosis, vitals,
+  admission, detention and inpatient-list responses (patient data) to the console.

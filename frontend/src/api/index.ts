@@ -362,7 +362,7 @@ async function fetchAllEnvelope(
     const resp = await fetchPage(params);
     if (!envelope) envelope = resp;
     return resp;
-  }, filters, { maxItems: options.maxItems ?? 5000, concurrency: options.concurrency ?? 1 });
+  }, filters, { maxItems: options.maxItems ?? 5000, concurrency: options.concurrency ?? 4 });
   const base = envelope ?? {};
   const inner = base?.data;
   // Shape A: { data: [...] }   Shape B: { data: { data: [...], pagination } }
@@ -1606,7 +1606,6 @@ export const getLatestVitals = async (encounterIds: string[]): Promise<any[]> =>
 export const getVitalsByEncounter = async (encounterId: string) => {
   try {
     const response = await api.get(`/encounters/${encounterId}/vitals`);
-    console.log('API getVitalsByEncounter response:', response.data);
 
     // Handle different response formats
     if (response.data?.data) {
@@ -1910,8 +1909,6 @@ const getAdmissionsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/admissions', { params: filters }).then(r => {
-    console.log('🔍 getAdmissions API response:', r.data);
-
     // Handle various response structures
     if (r.data?.success && r.data?.data) {
       return r.data.data;
@@ -2035,7 +2032,6 @@ const getDetentionPatientsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/detention', { params: filters }).then(r => {
-    console.log('🔍 getDetentionPatients API response:', r.data);
     // Return the full response with data and summary
     return r.data;
   });
@@ -2062,7 +2058,6 @@ const getFormalIPDPatientsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/formal-ipd', { params: filters }).then(r => {
-    console.log('🔍 getFormalIPDPatients API response:', r.data);
     return r.data;
   });
 
@@ -2130,7 +2125,7 @@ const getBedsPage = (filters?: any) =>
 export const getBeds = async (filters?: any) => {
   if (filters?.page || filters?.limit) return getBedsPage(filters);
   const rows = await fetchAllPages<Bed>(getBedsPage, filters || {}, {
-    pageSize: 50, maxItems: 5000, concurrency: 2,
+    pageSize: API_PAGE_SIZE, maxItems: 5000, concurrency: 3,
   });
   return Object.assign(rows, {
     pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
@@ -2394,15 +2389,12 @@ export const getReferralStats = async (params?: { startDate?: string; endDate?: 
 
 export const getDiagnoses = (filters?: any) =>
   api.get('/diagnoses', { params: filters }).then(r => {
-    console.log('🔍 Raw Diagnoses API response:', r.data);
-
     const responseData = r.data;
 
     // Handle nested response structure (similar to services)
     if (responseData?.success && responseData?.data?.data) {
       const diagnoses = responseData.data.data;
       const pagination = responseData.data.pagination;
-      console.log(`✅ Extracted ${diagnoses.length} diagnoses from nested response`);
       return {
         data: diagnoses,
         diagnoses: diagnoses,
@@ -2799,7 +2791,7 @@ export const deleteConsultationType = (id: string) =>
 export const getDepartments = async (filters?: any) => {
   if (filters?.page || filters?.limit) return getDepartmentsPage(filters);
   const rows = await fetchAllPages<any>(getDepartmentsPage, filters || {}, {
-    pageSize: 50, maxItems: 5000, concurrency: 2,
+    pageSize: API_PAGE_SIZE, maxItems: 5000, concurrency: 3,
   });
   return Object.assign(rows, {
     pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
