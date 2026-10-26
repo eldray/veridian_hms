@@ -49,6 +49,9 @@ semantic versioning.
   malformed dates return `400`, values are trimmed, and unknown fields are
   dropped instead of reaching Prisma. Claim-generation endpoints use the same
   middleware.
+- New and changed passwords must be at least 12 characters and at most 72
+  bytes (bcrypt's limit), cannot match the username or email, and cannot be a
+  common password. Existing passwords stay valid until they are next changed.
 - The Electron main window now runs with `sandbox: true`. Permission requests
   are denied except for notifications and clipboard access, webview attachment
   is blocked, page links never open a second Electron window, and navigation is

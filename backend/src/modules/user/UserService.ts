@@ -12,6 +12,7 @@ import {
 } from './UserTypes';
 import { AuditLogger } from '../audit/AuditLogger';
 import { bcryptRounds, refreshTokenExpiresAt, refreshTokenLifetime } from '../../utils/tokenConfig';
+import { passwordPolicyError } from '../../utils/passwordPolicy';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -85,6 +86,16 @@ export class UserService extends BaseService {
         err.statusCode = 409;
         throw err;
       }
+    }
+
+    const policyError = passwordPolicyError(dto.password, {
+      username: dto.username,
+      email: dto.email,
+    });
+    if (policyError) {
+      const err: any = new Error(policyError);
+      err.statusCode = 400;
+      throw err;
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);

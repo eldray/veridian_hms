@@ -8,6 +8,7 @@ import {
   AuthResponse, TokenPayload,
 } from './AuthTypes';
 import { bcryptRounds, refreshTokenExpiresAt, refreshTokenLifetime } from '../../utils/tokenConfig';
+import { passwordPolicyError } from '../../utils/passwordPolicy';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -205,6 +206,15 @@ export class AuthService {
 
     const isValid = await bcrypt.compare(data.currentPassword, user.password);
     if (!isValid) return { success: false, error: 'Current password is incorrect' };
+
+    if (data.newPassword === data.currentPassword) {
+      return { success: false, error: 'New password must be different from the current password' };
+    }
+    const policyError = passwordPolicyError(data.newPassword, {
+      username: user.username,
+      email: user.email,
+    });
+    if (policyError) return { success: false, error: policyError };
 
     const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
     await this.repository.updateUser(userId, { password: newPasswordHash });
