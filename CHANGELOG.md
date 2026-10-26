@@ -190,3 +190,13 @@ semantic versioning.
 - Full patient records are no longer written to the browser console. The patient
   store's request/response logging for search, get, create and update is gone,
   leaving only error output.
+- A live-update event can no longer stack refreshes on top of each other. Every write
+  in the hospital announces a changed topic on the shared SSE stream, and a busy
+  clinic produces one every few seconds; a screen whose refresh was still walking its
+  lists used to start a second copy as soon as the next event arrived. Each screen now
+  gets at most one refresh in flight, and a change arriving inside the 10-second gap
+  re-arms a trailing timer instead of being dropped or duplicated. A screen's refresh
+  promise is now returned to the dispatcher so it can tell when it actually finished.
+- The nursing station asks for its inpatient board with an explicit bound (admitted
+  visits and active admissions, 500 rows) instead of the unbounded 5,000-row walk that
+  ran on open and again on every live event.
