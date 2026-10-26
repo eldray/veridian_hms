@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { BaseController } from '../../shared/base/BaseController';
 import { AntenatalService } from './AntenatalService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 import { CreateAntenatalBookingInput, UpdateAntenatalBookingInput, CreateANCVisitInput, UpdateANCVisitInput, CreateDeliveryRecordInput, CreatePostnatalRecordInput } from './AntenatalTypes';
 
 export class AntenatalController extends BaseController {
@@ -90,7 +91,7 @@ export class AntenatalController extends BaseController {
 
   getAntenatalBookings = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page = 1, limit = 50, isActive = 'true', patientId } = req.query;
-    const filters: any = { page: parseInt(page as string), limit: parseInt(limit as string) };
+    const filters: any = { page: parsePage(page), limit: parsePageSize(limit, 50) };
     if (isActive === 'true') filters.isActive = true;
     else if (isActive === 'false') filters.isActive = false;
     if (patientId) filters.patientId = patientId as string;
@@ -184,7 +185,7 @@ export class AntenatalController extends BaseController {
 
   getDeliveryRecords = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { patientId, startDate, endDate, page = 1, limit = 50 } = req.query;
-    const filters: any = { page: parseInt(page as string), limit: parseInt(limit as string) };
+    const filters: any = { page: parsePage(page), limit: parsePageSize(limit, 50) };
     if (patientId) filters.patientId = patientId as string;
     if (startDate) filters.startDate = new Date(startDate as string);
     if (endDate) filters.endDate = new Date(endDate as string);
@@ -248,7 +249,7 @@ export class AntenatalController extends BaseController {
 
   getPostnatalRecords = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { patientId, page = 1, limit = 50 } = req.query;
-    const filters: any = { page: parseInt(page as string), limit: parseInt(limit as string) };
+    const filters: any = { page: parsePage(page), limit: parsePageSize(limit, 50) };
     if (patientId) filters.patientId = patientId as string;
 
     const result = await this.service.getPostnatalRecords(filters);

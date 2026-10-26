@@ -9,6 +9,7 @@ import {
   ApproveRequisitionItemsDTO
 } from './RequisitionTypes';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 
 export class RequisitionController extends BaseController {
   private service: RequisitionService;
@@ -34,8 +35,8 @@ export class RequisitionController extends BaseController {
         status: status as string | undefined,
         urgency: urgency as string | undefined,
         authenticatedUserId: userId,
-        page: page ? parseInt(page as string) : 1,
-        limit: limit ? parseInt(limit as string) : 50
+        page: parsePage(page),
+        limit: parsePageSize(limit, 50)
       };
 
       const result = await this.service.getAllRequisitions(params);
@@ -62,7 +63,7 @@ export class RequisitionController extends BaseController {
         supplierDepartmentId: supplierDepartmentId as string,
         requesterDepartmentId: scopedRequesterDepartmentId,
         q: q as string | undefined,
-        limit: limit ? parseInt(limit as string) : 25,
+        limit: parsePageSize(limit, 25),
         inStockOnly: inStockOnly === 'true'
       });
       return this.ok(res, items, 'Stock lookup');

@@ -56,6 +56,10 @@ semantic versioning.
   before dispatch. A blank recipient, an empty message with no template, an
   empty bulk recipient list and an unknown channel or template type now return
   `400` instead of reaching the provider or the database.
+- List endpoints no longer pass a caller-supplied `limit` straight to Prisma.
+  Antenatal, corporate, referral, requisition, stock-usage, scan-template,
+  proforma-invoice, recent-patient and user lists now clamp the page size, so a
+  crafted request cannot force a full-table scan and an oversized response.
 - The Electron main window now runs with `sandbox: true`. Permission requests
   are denied except for notifications and clipboard access, webview attachment
   is blocked, page links never open a second Electron window, and navigation is

@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { CorporateService } from './CorporateService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 import { 
   CreateCorporateAccountDTO, 
   UpdateCorporateAccountDTO,
@@ -128,8 +129,8 @@ export class CorporateController extends BaseController {
     const { page = 1, limit = 20 } = req.query;
     
     const result = await this.corporateService.getMonthlyBills(id, { 
-      page: parseInt(page as string), 
-      limit: parseInt(limit as string) 
+      page: parsePage(page), 
+      limit: parsePageSize(limit, 20) 
     });
     return this.paginated(res, result.data, { 
       page: result.pagination.page, 

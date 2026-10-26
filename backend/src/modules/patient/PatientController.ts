@@ -6,6 +6,7 @@ import { BaseController } from '../../shared/base/BaseController';
 import { PatientService } from './PatientService';
 import { CreatePatientDTO, PatientFilters, CreateAllergyDTO, CreateMedicalHistoryDTO } from './PatientTypes';
 import { matchesDeclaredMime } from '../../utils/fileSignature';
+import { parsePageSize } from '../../shared/pagination';
 
 import prisma from '../../core/database/prisma.client';
 
@@ -190,7 +191,7 @@ export class PatientController extends BaseController {
   });
 
   getRecentPatients = this.asyncHandler(async (req: Request, res: Response) => {
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parsePageSize(req.query.limit, 10);
     const patients = await this.service.getPatientSummaries(limit);
     return this.ok(res, patients, 'Recent patients retrieved successfully');
   });
