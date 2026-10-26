@@ -193,10 +193,16 @@ export default function VitalsEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([
-        loadPatients(),
-        getAttendances()
-      ]);
+      // The register is what the patient search box filters over, so it stays loaded.
+      const tasks: Promise<any>[] = [loadPatients()];
+      // The route normally names the patient or the visit, and autoSelectFromRoute()
+      // then asks for that patient's visits in one request. Walking every live visit in
+      // the hospital first was a duplicate 50-request job done before the screen opened.
+      const routePatientId = (location.state as any)?.patient?.id;
+      if (routePatientId) tasks.push(getAttendances({ patientId: routePatientId }));
+      else if (selectedPatientId) tasks.push(getAttendances({ patientId: selectedPatientId }));
+      else if (!id && !(location.state as any)?.attendanceId) tasks.push(getAttendances({ live: true, limit: 500 }));
+      await Promise.all(tasks);
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -208,7 +214,6 @@ export default function VitalsEntry() {
   const loadVitals = async (attendanceId: string) => {
     try {
       const vitals = await getVitalsByAttendance(attendanceId);
-      console.log('Loaded vitals:', vitals); // Debug log
       setVitalsList(vitals || []);
     } catch (err: any) {
       console.error('Error loading vitals:', err);
@@ -344,27 +349,25 @@ export default function VitalsEntry() {
     
     setIsSubmitting(true);
     try {
-      let result;
       if (editingVitals?.id) {
-        result = await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
+        await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
         success('Vitals Updated', 'Vitals updated successfully!');
       } else {
-        result = await addVitals(selectedAttendanceId, {
+        await addVitals(selectedAttendanceId, {
           ...vitalsData,
           recordedAt: new Date().toISOString(),
           recordedById: user?.id,
         });
         success('Vitals Recorded', 'Vitals recorded successfully!');
       }
-      
-      console.log('Save result:', result);
-      
+
       // IMPORTANT: Force reload vitals after save
       await loadVitals(selectedAttendanceId);
-      
-      // Also refresh the attendance to ensure UI updates
-      await getAttendances();
-      
+
+      // Only this visit's row changes when vitals are saved — refresh that one record instead
+      // of re-walking every live visit in the hospital.
+      await refreshAttendance(selectedAttendanceId);
+
       setShowVitalsModal(false);
       setEditingVitals(null);
     } catch (err: any) {

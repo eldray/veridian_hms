@@ -219,7 +219,9 @@ export default function Admissions() {
     getDetentionPatients,
     getFormalIPDPatients,
   } = useAdmissionStore();
-  const { patients, loadPatients } = usePatientStore();
+  // Admission rows arrive with their patient already attached; the register is only consulted as
+  // a last-resort name fallback, so this page never downloads it on open.
+  const { patients } = usePatientStore();
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
 
@@ -268,20 +270,17 @@ export default function Admissions() {
     try {
       setRefreshing(true);
       if (!hasLoadedOnce) setIsLoading(true);
-      const range = getDateRange();
       // Avoid starting several large paginated database queries at once.
       // This page intentionally loads these lists sequentially to prevent API/DB
       // overload and the 30-second Axios timeouts seen during initial page load.
       await getAdmissions({ limit: 2000 });
       await getDetentionPatients();
       await getFormalIPDPatients();
-      await loadPatients();
-      await getAttendances({
-        limit: 5000,
-        ...(range
-          ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
-          : {}),
-      });
+      // Only admitted encounters are needed here (the day-surgery and IPD census rows), and
+      // deliberately without the date filter: an inpatient stays on the list however long ago
+      // they were admitted. Every admission row already carries its patient, so this screen
+      // does not download the patient register.
+      await getAttendances({ status: 'admitted', limit: 500 });
     } catch (err: any) {
       error('Load Failed', err?.response?.data?.message || 'Failed to load admissions data');
     } finally {
@@ -289,26 +288,17 @@ export default function Admissions() {
       setRefreshing(false);
       setHasLoadedOnce(true);
     }
-  }, [getAdmissions, loadPatients, getAttendances, getDetentionPatients, getFormalIPDPatients, getDateRange, hasLoadedOnce, error]);
+  }, [getAdmissions, getAttendances, getDetentionPatients, getFormalIPDPatients, hasLoadedOnce, error]);
 
   // ── Live refresh ────────────────────────────────────────────────────────
   useLiveRefresh(
     ['admissions', 'encounters', 'nursing'],
     async () => {
-      const range = getDateRange();
       // Keep live refreshes from competing for database connections.
       await getAdmissions({ limit: 2000 }, { silent: true });
       await getDetentionPatients();
       await getFormalIPDPatients();
-      await getAttendances(
-        {
-          limit: 5000,
-          ...(range
-            ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() }
-            : {}),
-        },
-        { silent: true },
-      );
+      await getAttendances({ status: 'admitted', limit: 500 }, { silent: true });
     },
     !(dateFilter === 'custom' && !(customStartDate && customEndDate)),
   );

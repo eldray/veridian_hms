@@ -115,13 +115,13 @@ export default function Attendance() {
       // Only the selected date window is requested (all pages of it, 100 per request).
       // The backend caps a single request at 100 rows, so this walks the pages.
       const range = getDateRange();
-      await Promise.all([
-        getAttendances({
-          limit: 5000,
-          ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
-        }),
-        loadPatients(),
-      ]);
+      await getAttendances({
+        limit: 5000,
+        ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+      });
+      // Every visit row carries its patient, so the register is only reference data for the
+      // counters and the fallback name lookup — it arrives afterwards instead of gating the table.
+      void loadPatients().catch(() => undefined);
     } catch (e) {
       error('Refresh failed', 'Could not load attendance data.');
     } finally {

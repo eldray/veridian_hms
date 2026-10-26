@@ -364,7 +364,7 @@ export default function Referrals() {
     if (!force && hasLoaded.current) return;
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients(), getAttendances()]);
+      await Promise.all([loadPatients(), getAttendances({ live: true, limit: 500 })]);
       hasLoaded.current = true;
     } catch (err: any) {
       toastError('Load failed', err.message);
@@ -509,7 +509,12 @@ export default function Referrals() {
     }));
   }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
 
-  useEffect(() => { loadData(); }, []);
+  // The register and the live visit list are only used by the picker inside the referral form,
+  // so they load when that form opens instead of on every visit to this page.
+  useEffect(() => {
+    if (showModal) void loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showModal]);
   useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
 
   // Reset to page 1 whenever the filter set changes

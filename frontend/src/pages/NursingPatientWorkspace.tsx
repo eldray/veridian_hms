@@ -5,7 +5,6 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useAdmissionStore } from '../store/admissionStore';
-import { useStockStore } from '../store/stockStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useNursingStore } from '../store/nursingStore';
@@ -120,11 +119,11 @@ export default function NursingPatientWorkspace() {
   const [latestVitals, setLatestVitals] = useState<any>(null);
   const [administeringId, setAdministeringId] = useState<string | null>(null);
   const [busyDoseId, setBusyDoseId] = useState<string | null>(null);
+  const [activeAdmission, setActiveAdmission] = useState<any | null>(null);
 
-  const { attendances, getAttendances, updateMedicationStatus, getVitalsByAttendance, addVitals } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
-  const { admissions, getAdmissions } = useAdmissionStore();
-  const { getStockItems } = useStockStore();
+  const { currentAttendance, getAttendance, getVitalsByAttendance, addVitals } = useAttendanceStore();
+  const { currentPatient, fetchPatient } = usePatientStore();
+  const { getAdmissionsByPatientId } = useAdmissionStore();
 
   const {
     doses, dosesLoading,
@@ -134,15 +133,22 @@ export default function NursingPatientWorkspace() {
   } = useNursingStore();
 
   // ── Bootstrap ─────────────────────────────────
+  // This is a single-visit screen: the route already names the attendance, so it asks
+  // for that visit (which arrives with its patient, allergies and medication) and for
+  // that patient's admissions. It used to download every attendance, admission,
+  // patient and stock item in the hospital on mount.
   useEffect(() => {
+    if (!attendanceId) { setIsLoading(false); return; }
     (async () => {
       try {
-        await Promise.all([
-          loadPatients(),
-          getAttendances(),
-          getAdmissions(),
-          getStockItems(),
-        ]);
+        const attendance = await getAttendance(attendanceId);
+        const patientId = getEntityId(attendance?.patient) ||
+          (typeof attendance?.patientId === 'string' ? attendance.patientId : getEntityId(attendance?.patientId));
+        if (!patientId) return;
+        const admissions = await getAdmissionsByPatientId(patientId, { limit: 50 });
+        setActiveAdmission(
+          (admissions || []).find((a: any) => a.attendanceId === attendanceId && !a.dischargeDate) || null
+        );
       } catch (err: any) {
         toastError('Load failed', err?.message || 'Could not load patient data');
       } finally {
@@ -150,31 +156,37 @@ export default function NursingPatientWorkspace() {
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [attendanceId]);
 
   // ── Resolve patient ───────────────────────────
   const findPatient = useCallback((attendance: any) => {
     if (!attendance) return null;
     if (attendance.patient && typeof attendance.patient === 'object') return attendance.patient;
     if (attendance.patientId && typeof attendance.patientId === 'object') return attendance.patientId;
-    if (attendance.patientId && typeof attendance.patientId === 'string') {
-      const found = patients.find((p) => p.id === attendance.patientId);
-      if (found) return found;
-    }
     if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
     return null;
-  }, [patients]);
+  }, []);
 
   const selectedAtt = useMemo(
-    () => attendances.find((a) => getEntityId(a) === attendanceId),
-    [attendances, attendanceId],
+    () => (currentAttendance && getEntityId(currentAttendance) === attendanceId ? currentAttendance : null),
+    [currentAttendance, attendanceId],
   );
-  const selectedPatient = useMemo(() => selectedAtt ? findPatient(selectedAtt) : null, [selectedAtt, findPatient]);
-  const activeAdmission = useMemo(
-    () => admissions.find((a) => a.attendanceId === attendanceId && !a.dischargeDate),
-    [admissions, attendanceId],
-  );
+  const selectedPatient = useMemo(() => {
+    const embedded = selectedAtt ? findPatient(selectedAtt) : null;
+    if (embedded) return embedded;
+    const patientId = selectedAtt && typeof selectedAtt.patientId === 'string' ? selectedAtt.patientId : '';
+    return patientId && currentPatient?.id === patientId ? currentPatient : null;
+  }, [selectedAtt, findPatient, currentPatient]);
   const isAntenatal = selectedAtt?.attendanceType === 'antenatal';
+
+  // The visit payload normally carries the patient; when it does not, fetch that one
+  // record instead of the whole register.
+  useEffect(() => {
+    const id = selectedAtt && typeof selectedAtt.patientId === 'string' ? selectedAtt.patientId : '';
+    if (!id || selectedPatient || currentPatient?.id === id) return;
+    void fetchPatient(id).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAtt, selectedPatient?.id]);
 
   const meds = useMemo(() => selectedAtt?.Medication ?? [], [selectedAtt]);
   const administrableMeds = meds.filter((m: any) => m.status === 'dispensed' || m.status === 'administered');

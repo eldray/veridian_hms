@@ -23,8 +23,8 @@ export default function AdmissionDetails() {
     currentAdmission, getAdmission, updateAdmission, dischargePatient,
     admissions, getAdmissions, isLoading: admissionLoading, error: admissionError,
   } = useAdmissionStore();
-  const { patients, loadPatients } = usePatientStore();
-  const { getAttendance, currentAttendance, updateAttendance, attendances, getAttendances } = useAttendanceStore();
+  const { patients, currentPatient, fetchPatient } = usePatientStore();
+  const { getAttendance, currentAttendance, updateAttendance, attendances } = useAttendanceStore();
   const { getAvailableBeds, wards } = useWardStore();
   const [loading, setLoading] = useState(true);
   const [attendance, setAttendance] = useState<any>(null);
@@ -39,29 +39,32 @@ export default function AdmissionDetails() {
       if (id) {
         setLoading(true);
         try {
-          if (admissions.length === 0) await getAdmissions();
-          let admission = admissions.find(a => a.id === id);
-          if (!admission) {
-            admission = admissions.find(a => a.attendanceId === id);
-          }
-          if (!admission) {
-            try { await getAdmission(id); admission = currentAdmission; } catch {}
-          }
+          // This screen shows ONE admission, so ask for that record. It used to walk every
+          // admission in the hospital and then the whole patient register just to find the
+          // row the URL names — and the admission and visit rows already carry the patient.
+          let admission: any =
+            admissions.find(a => a.id === id) || admissions.find(a => a.attendanceId === id) || null;
+          if (!admission) admission = await getAdmission(id);
+
           if (admission) {
             setFoundAdmission(admission);
-            await loadPatients();
             if (admission.attendanceId) {
-              let att = await getAttendance(admission.attendanceId);
-              if (!att) att = attendances.find(a => a.id === admission.attendanceId);
-              setAttendance(att);
+              const att = await getAttendance(admission.attendanceId).catch(() => null);
+              setAttendance(att || attendances.find(a => a.id === admission.attendanceId) || null);
             }
           } else {
-            const att = await getAttendance(id);
+            // The route may name the visit rather than the admission. The admissions endpoint
+            // cannot filter by visit, so search the current ward census instead of every
+            // admission ever written.
+            const att = await getAttendance(id).catch(() => null);
             if (att) {
               setAttendance(att);
-              const adm = admissions.find(a => a.attendanceId === att.id);
+              let adm = admissions.find(a => a.attendanceId === att.id);
+              if (!adm) {
+                await getAdmissions({ status: 'active', limit: 500 }).catch(() => undefined);
+                adm = useAdmissionStore.getState().admissions.find(a => a.attendanceId === att.id);
+              }
               if (adm) setFoundAdmission(adm);
-              await loadPatients();
             }
           }
           await getAvailableBeds();
@@ -80,9 +83,23 @@ export default function AdmissionDetails() {
     if (attendance?.Patient) return attendance.Patient;
     const patientId = foundAdmission?.patientId || foundAdmission?.attendance?.patientId || attendance?.patientId;
     if (!patientId) return null;
-    return patients.find(p => p.id === patientId || p._id === patientId);
+    return patients.find(p => p.id === patientId || p._id === patientId)
+      || (currentPatient?.id === patientId ? currentPatient : undefined);
   };
   const patient = getPatient();
+
+  // The admission and the visit rows both carry the patient, so the register is not needed
+  // here; if neither did, ask for that one patient instead of downloading every patient.
+  const linkedPatientId = String(
+    foundAdmission?.patientId || foundAdmission?.attendance?.patientId || attendance?.patientId || ''
+  );
+  useEffect(() => {
+    if (!linkedPatientId) return;
+    if (foundAdmission?.patient || attendance?.Patient) return;
+    if (currentPatient?.id === linkedPatientId) return;
+    if (patients.some(p => p.id === linkedPatientId)) return;
+    void fetchPatient(linkedPatientId).catch(() => undefined);
+  }, [linkedPatientId, foundAdmission, attendance, currentPatient?.id, patients, fetchPatient]);
 
   const getPrimaryDiagnosis = () => {
     if (!attendance?.AttendanceDiagnosis) return null;
@@ -168,7 +185,6 @@ export default function AdmissionDetails() {
         dischargeSummary: dischargeSummary,
       });
       if (admission?.id) await getAdmission(admission.id);
-      await getAdmissions();
       setShowDischargeModal(false);
       setDischargeSummary('');
       setDischargeStatus('home');

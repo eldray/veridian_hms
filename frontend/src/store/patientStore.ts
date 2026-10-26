@@ -51,49 +51,41 @@ const addFullNameToPatient = (patient: Patient): Patient => {
 };
 
 // ✅ HELPER: Extract patient data from various API response formats
+// No payload logging here: these responses carry full patient records.
 const extractPatientData = (response: unknown): Patient => {
-  console.log('🔍 Extracting patient data from response:', JSON.stringify(response, null, 2));
-  
   let patientData: any;
-  
+
   // Try different response structures
   if (response && typeof response === 'object') {
     // Case 1: { success: true, data: { patient: {...} } }
     if ((response as any).data?.patient) {
       patientData = (response as any).data.patient;
-      console.log('✅ Found patient in response.data.patient');
     }
     // Case 2: { success: true, data: {...} } (direct patient object)
     else if ((response as any).data && (response as any).data.id) {
       patientData = (response as any).data;
-      console.log('✅ Found patient in response.data');
     }
     // Case 3: { patient: {...} }
     else if ((response as any).patient) {
       patientData = (response as any).patient;
-      console.log('✅ Found patient in response.patient');
     }
     // Case 4: Direct patient object with id
     else if ((response as any).id) {
       patientData = response;
-      console.log('✅ Response is direct patient object');
     }
     // Case 5: { success: true, data: { data: {...} } } (nested)
     else if ((response as any).data?.data?.id) {
       patientData = (response as any).data.data;
-      console.log('✅ Found patient in response.data.data');
     }
     else {
-      console.warn('⚠️ Could not extract patient data from response:', response);
       patientData = null;
     }
   }
-  
+
   if (!patientData) {
-    console.error('❌ No patient data found in response');
     throw new Error('No patient data found in response');
   }
-  
+
   return addFullNameToPatient(patientData);
 };
 
@@ -225,11 +217,9 @@ export const usePatientStore = create<PatientState>((set, get) => ({
   addPatient: async (data: FormData | any) => {
     set({ isLoading: true, error: null });
     try {
-      console.log('📝 Creating patient');
-      
       // ✅ Convert fullName to surname + otherNames if needed
       let processedData = data instanceof FormData ? data : { ...data };
-      
+
       if (!(data instanceof FormData)) {
         if (data.fullName && !data.surname) {
           const nameParts = data.fullName.trim().split(' ');
@@ -237,16 +227,12 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           processedData.otherNames = nameParts.slice(1).join(' ') || '';
           delete processedData.fullName;
         }
-        console.log('📤 Sending as JSON:', processedData);
       }
-      
+
       const response = await apiCreatePatient(processedData);
-      console.log('📡 API createPatient response:', response);
-      
+
       const newPatient = extractPatientData(response);
-      
-      console.log('✅ Patient created:', newPatient.id);
-      
+
       set((state) => ({ 
         patients: [newPatient, ...state.patients],
         isLoading: false 
@@ -278,23 +264,13 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
     set({ isLoading: true, error: null });
     try {
-      console.log('🔄 Fetching patient with ID:', id);
       const response = await apiGetPatient(id);
-      console.log('📡 API getPatient raw response:', JSON.stringify(response, null, 2));
-      
       const patientData = extractPatientData(response);
-      
+
       if (!patientData || !patientData.id) {
-        console.error('❌ Invalid patient data received:', patientData);
         throw new Error('Invalid patient data received from server');
       }
-      
-      console.log('✅ Patient fetched successfully:', {
-        id: patientData.id,
-        fullName: patientData.fullName,
-        folderNumber: patientData.folderNumber
-      });
-      
+
       set({ 
         currentPatient: patientData, 
         isLoading: false,
@@ -332,11 +308,8 @@ export const usePatientStore = create<PatientState>((set, get) => ({
       }
       
       const response = await apiUpdatePatient(id, processedData);
-      console.log('📡 API updatePatient response:', response);
-      
+
       const updatedPatient = extractPatientData(response);
-      
-      console.log('✅ Patient updated:', updatedPatient.id);
       
       set((state) => ({
         patients: state.patients.map((patient) =>

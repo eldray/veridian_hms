@@ -137,6 +137,8 @@ export default function PatientBillingItems() {
 
   const patients = usePatientStore((s) => s.patients);
   const loadPatients = usePatientStore((s) => s.loadPatients);
+  const currentPatient = usePatientStore((s) => s.currentPatient);
+  const fetchPatient = usePatientStore((s) => s.fetchPatient);
 
   const getAttendance = useAttendanceStore((s) => s.getAttendance);
   const attendances = useAttendanceStore((s) => s.attendances);
@@ -211,15 +213,14 @@ export default function PatientBillingItems() {
 
       setIsResolving(true);
       try {
-        // Ensure patients are loaded, then read fresh snapshot
-        await loadPatients();
-        const freshPatients = usePatientStore.getState().patients;
-
+        // The route parameter can name a patient OR a visit. Settle that with one targeted
+        // request instead of downloading the whole register and searching it in the browser.
         let resolvedId: string | null = patientId;
-        const patientInStore = freshPatients.find((p) => p.id === patientId);
-
-        if (!patientInStore) {
-          // Try attendance by ID
+        try {
+          const direct = await fetchPatient(patientId);
+          if (!direct?.id) resolvedId = null;
+        } catch {
+          // Not a patient id — it may be a visit id that carries the patient.
           try {
             const attendance = await getAttendance(patientId);
             if (attendance && (attendance as any).patientId) {
@@ -229,7 +230,6 @@ export default function PatientBillingItems() {
             // not an attendance ID
           }
 
-          // Try attendances list
           if (!resolvedId || resolvedId === patientId) {
             const attendanceFromList = useAttendanceStore
               .getState()
@@ -238,16 +238,22 @@ export default function PatientBillingItems() {
               resolvedId = attendanceFromList.patientId;
             }
           }
+          if (resolvedId) void fetchPatient(resolvedId).catch(() => undefined);
         }
+        if (!resolvedId) resolvedId = patientId;
 
         setActualPatientId(resolvedId);
 
         const cacheBuster = Date.now();
         await Promise.all([
           getBills({ patientId: resolvedId, _t: cacheBuster }),
-          getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster }),
           getAttendances({ patientId: resolvedId }),
         ]);
+
+        // The item picker and the patient search need reference lists, but neither is needed to
+        // show this visit's bills, so they stream in afterwards rather than blocking the page.
+        void getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster }).catch(() => undefined);
+        void loadPatients().catch(() => undefined);
 
         // Match the selected attendance to the bill clicked on the main Billing page;
         // otherwise default to the patient's most recent visit, like Vitals and Medical Entries.
@@ -277,6 +283,7 @@ export default function PatientBillingItems() {
     [
       patientId,
       loadPatients,
+      fetchPatient,
       getAttendance,
       getBills,
       getAttendances,
@@ -307,11 +314,13 @@ export default function PatientBillingItems() {
     if (!actualPatientId) return null;
     const fromStore = patients.find((p) => p.id === actualPatientId);
     if (fromStore) return fromStore;
+    // The register can still be streaming in; the single fetched record is enough meanwhile.
+    if (currentPatient?.id === actualPatientId) return currentPatient;
     const billWithPatient = bills.find(
       (b) => b.patientId === actualPatientId && (b as any).Patient?.surname
     );
     return (billWithPatient as any)?.Patient ?? null;
-  }, [patients, bills, actualPatientId]);
+  }, [patients, currentPatient, bills, actualPatientId]);
 
   // ===== Patient bills =====
   const patientBills = useMemo(() => {

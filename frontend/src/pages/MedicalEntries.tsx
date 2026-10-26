@@ -605,11 +605,13 @@ export default function MedicalEntries() {
   const { patients, loadPatients, fetchPatient, currentPatient } = usePatientStore();
   const { attendanceId } = useParams();
   const [searchParams] = useSearchParams();
-  const { createAdmission, getAdmissions, convertDetentionToIPD, getDetentionPatients, getFormalIPDPatients } = useAdmissionStore();
-  const { updateAttendance } = useAttendanceStore();
+  // Only the write helpers are needed here: this screen shows the visit it is on, and the
+  // admission registers are loaded by the pages that list them.
+  const { createAdmission, convertDetentionToIPD } = useAdmissionStore();
   const { updateBed } = useWardStore();
   const {
     attendances, currentAttendance, getAttendance, getAttendances, refreshAttendance,
+    updateAttendance,
     removeDiagnosis, removeLabTest, removeProcedure, removeMedication, removeScan,
     updateScanStatus, canAddMedicalEntries, getVitalsByAttendance, calculateBill,
   } = useAttendanceStore();
@@ -690,7 +692,10 @@ export default function MedicalEntries() {
   const loadData = async () => {
     setRefreshing(true);
     const secondaryLoads = Promise.all([
-      getAttendances(),
+      // The visit dropdown only needs the current worklist: live visits (everyone still
+      // admitted, recent check-ins), capped at 500 rows so the walk stops at five requests
+      // instead of the fifty it made when asked for every live visit in the hospital.
+      getAttendances({ live: true, limit: 500 }),
       getStockItems(),
       getDiagnoses(),
       getLabTestTemplates(),
@@ -975,8 +980,7 @@ export default function MedicalEntries() {
       });
 
       success('Day Surgery', `Patient assigned to Bed ${bedNumber} in ${wardName} for day surgery`);
-      await getAttendance(selectedAttendanceId);
-      await getAttendances();
+      await refreshAttendance(selectedAttendanceId);
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
     } catch (err: any) {
@@ -1013,11 +1017,9 @@ export default function MedicalEntries() {
       });
 
       success('Detained', `Patient placed under observation for ${detentionHours} hours in Bed ${bedNumber}, ${wardName}`);
-      await getAttendance(selectedAttendanceId);
-      await getAttendances();
-      await getDetentionPatients();
-      await getAdmissions();
-      await getFormalIPDPatients();
+      // The visit record itself is what this screen shows; the admission registers belong to the
+      // Admissions page and are re-read there, so do not walk all of them after every action.
+      await refreshAttendance(selectedAttendanceId);
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setDetentionHours(24);
@@ -1051,11 +1053,7 @@ export default function MedicalEntries() {
       });
 
       success('Admitted', `Patient admitted to Bed ${bedNumber} in ${wardName} as formal IPD`);
-      await getAttendance(selectedAttendanceId);
-      await getAttendances();
-      await getAdmissions();
-      await getDetentionPatients();
-      await getFormalIPDPatients();
+      await refreshAttendance(selectedAttendanceId);
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setAdmissionNotes('');
@@ -1096,10 +1094,7 @@ export default function MedicalEntries() {
       });
 
       success('Converted', 'Patient converted to formal IPD admission');
-      await getAttendance(selectedAttendanceId);
-      await getAdmissions();
-      await getDetentionPatients();
-      await getFormalIPDPatients();
+      await refreshAttendance(selectedAttendanceId);
     } catch (err: any) {
       toastError('Conversion Failed', err.response?.data?.message || err.message);
     }
@@ -1119,13 +1114,7 @@ export default function MedicalEntries() {
       // The backend closes the admission and releases bed/ward occupancy transactionally.
       await dischargeFromEncounter(selectedAttendanceId, { dischargeStatus: 'home' });
       success('Discharged', 'Patient discharged from observation and bed occupancy updated.');
-      await Promise.all([
-        getAttendance(selectedAttendanceId),
-        getAttendances(),
-        getDetentionPatients(),
-        getAdmissions(),
-        getFormalIPDPatients(),
-      ]);
+      await refreshAttendance(selectedAttendanceId);
     } catch (err: any) {
       toastError('Discharge Failed', err.response?.data?.message || err.message || 'The patient could not be discharged.');
     } finally {
@@ -1498,7 +1487,12 @@ export default function MedicalEntries() {
         attendances={attendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={setSelectedPatientId}
+        onPatientSelect={(pid) => {
+          setSelectedPatientId(pid);
+          // The shared list now holds recent visits rather than this patient's, so ask
+          // for theirs; one request replaces the whole live-visit walk.
+          void getAttendances({ patientId: pid }).catch(() => {});
+        }}
         onAttendanceSelect={setSelectedAttendanceId}
         onClearSelection={handleClearSelection}
       />

@@ -215,6 +215,9 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
         key: 'diagnoses',
         fetchPage: apiGetDiagnoses,
         filters,
+        // Reference catalogues answer up to 1000 rows per request; 500 keeps the
+        // whole list down to one or two calls instead of one per hundred entries.
+        pageSize: 500,
         onProgress: (diagnoses, total) => set({
           diagnoses,
           diagnosesTotalCount: total,
@@ -333,6 +336,7 @@ getLabTestTemplates: async (filters = {}) => {
       key: 'labTestTemplates',
       fetchPage: apiGetLabTestTemplates,
       filters,
+      pageSize: 500,
       onProgress: (labTestTemplates, total) => set({
         labTestTemplates,
         labTestsTotalCount: total,
@@ -466,6 +470,7 @@ getLabTestTemplates: async (filters = {}) => {
         key: 'procedureTemplates',
         fetchPage: apiGetProcedureTemplates,
         filters,
+        pageSize: 500,
         transform: (rows) => rows.map((item: any) => ({
           ...item,
           procedureCode: item.procedureCode || item.procedure_code || item.code || 'N/A',
@@ -594,6 +599,8 @@ getLabTestTemplates: async (filters = {}) => {
         key: 'scanTemplates',
         fetchPage: apiGetScanTemplates,
         filters,
+        // /scan-templates clamps a page at 500 rows.
+        pageSize: 500,
         transform: (rows) => rows.map((item: any) => ({
           ...item,
           scanCode: item.scanCode || item.scan_code || item.code || 'N/A',

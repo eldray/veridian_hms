@@ -320,28 +320,46 @@ export async function fetchAllPages<T = any>(
   const total = pageTotal(first);
   options.onPage?.(all.slice(), total);
 
-  if (firstItems.length < pageSize || all.length >= maxItems) return all.slice(0, maxItems);
+  // A short first page normally means the table is smaller than one page, but it can
+  // equally mean this endpoint caps the page size below what we asked for. Only treat
+  // it as the end when the reported total agrees; otherwise the cap becomes the page
+  // size we walk with. (Comparing rows against the requested limit is what used to
+  // stop lists at the first page.)
+  let effectivePageSize = pageSize;
+  if (firstItems.length < pageSize) {
+    if (firstItems.length === 0 || total === null || all.length >= total) return all.slice(0, maxItems);
+    effectivePageSize = firstItems.length;
+  }
+  if (all.length >= maxItems) return all.slice(0, maxItems);
 
   if (total !== null) {
     // Total known: request the remaining pages a few at a time, keeping order.
-    const totalPages = Math.min(Math.ceil(Math.min(total, maxItems) / pageSize), maxPages);
+    const totalPages = Math.min(Math.ceil(Math.min(total, maxItems) / effectivePageSize), maxPages);
     for (let start = 2; start <= totalPages; start += concurrency) {
+      const before = all.length;
       const batch: Promise<any>[] = [];
       for (let page = start; page < start + concurrency && page <= totalPages; page++) {
-        batch.push(fetchPage({ ...filters, page, limit: pageSize }));
+        batch.push(fetchPage({ ...filters, page, limit: effectivePageSize }));
       }
       const responses = await Promise.all(batch);
       for (const response of responses) add(pageItems(response));
       options.onPage?.(all.slice(), total);
+      // No new rows means this endpoint repeats itself; further pages cost requests for
+      // nothing and would re-paint the same snapshot.
+      if (all.length === before) break;
       if (all.length >= maxItems) break;
     }
   } else {
     // Total unknown: keep going until a short page comes back.
     for (let page = 2; page <= maxPages; page++) {
-      const items = pageItems(await fetchPage({ ...filters, page, limit: pageSize }));
+      const before = all.length;
+      const items = pageItems(await fetchPage({ ...filters, page, limit: effectivePageSize }));
       add(items);
       options.onPage?.(all.slice(), null);
-      if (items.length < pageSize || all.length >= maxItems) break;
+      // An endpoint that ignores `page` hands back the same rows every time; without
+      // this the walk would run to the brake instead of stopping.
+      if (all.length === before) break;
+      if (items.length < effectivePageSize || all.length >= maxItems) break;
     }
   }
 

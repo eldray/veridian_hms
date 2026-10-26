@@ -85,6 +85,9 @@ export default function InsuranceClaims() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, startDate, endDate]);
 
+  const paymentModeForTab =
+    activeTab === 'nhis' ? 'nhis' : activeTab === 'private' ? 'private_insurance' : 'corporate';
+
   const loadData = async () => {
     const filters: any = {};
     if (startDate) filters.startDate = startDate;
@@ -104,8 +107,20 @@ export default function InsuranceClaims() {
     }
 
     // 2) Attendance worklist — non-fatal.
+    // Only visits that can still become a claim on THIS tab: completed, billed through this
+    // payment mode, inside the selected window. Asking the server for that keeps the call to
+    // a couple of requests instead of walking every visit in the hospital.
     try {
-      await getAttendances();
+      const worklist: any = { status: 'completed', paymentMode: paymentModeForTab, limit: 200 };
+      worklist.dateFrom = startDate
+        ? new Date(startDate).toISOString()
+        : new Date(Date.now() - 30 * 86_400_000).toISOString();
+      if (endDate) {
+        const to = new Date(endDate);
+        to.setHours(23, 59, 59, 999);
+        worklist.dateTo = to.toISOString();
+      }
+      await getAttendances(worklist);
     } catch {
       /* non-fatal */
     }

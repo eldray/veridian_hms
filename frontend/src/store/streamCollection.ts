@@ -49,6 +49,12 @@ export interface StreamOptions<T> {
   filters?: any;
   /** Row ceiling. Defaults to the limit the caller asked for, else 10 000 rows. */
   maxItems?: number;
+  /**
+   * Rows asked for per request. The backend caps some endpoints at 100 and lets
+   * reference tables return up to 1000, so this is set where the wider page is
+   * documented: fetchAllPages falls back to whatever the server actually returned.
+   */
+  pageSize?: number;
   concurrency?: number;
   ttlMs?: number;
   /** Skip the cache and always hit the server. */
@@ -63,6 +69,7 @@ export async function streamCollection<T = any>({
   fetchPage,
   filters = {},
   maxItems,
+  pageSize = API_PAGE_SIZE,
   concurrency = DEFAULT_CONCURRENCY,
   ttlMs = DEFAULT_TTL_MS,
   force = false,
@@ -100,7 +107,7 @@ export async function streamCollection<T = any>({
   let lastKnownTotal: number | null = null;
   const run = async (): Promise<T[]> => {
     const rows = await fetchAllPages<any>(fetchPage, filters, {
-      pageSize: API_PAGE_SIZE,
+      pageSize: Math.min(pageSize, rowCeiling),
       maxItems: rowCeiling,
       concurrency,
       onPage: (itemsSoFar, total) => {

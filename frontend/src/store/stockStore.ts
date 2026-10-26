@@ -269,6 +269,9 @@ getStockItems: async (filters = {}) => {
       key: 'stockItems',
       fetchPage: apiGetStockItems,
       filters,
+      // /stock-items serves up to 1000 rows per request, so 500 fetches the formulary
+      // in one or two calls instead of one request per hundred items.
+      pageSize: 500,
       ttlMs: 0,
       transform: normalize,
       onProgress: (stockItems) => set({

@@ -184,8 +184,8 @@ export default function DispensePatient() {
     isOpen: false, medication: null, stockItem: null,
   });
 
-  const { attendances, getAttendances, dispenseMedication, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { getAttendances, dispenseMedication, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
+  const { patients: register, loadPatients, fetchPatient } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
 
@@ -197,18 +197,28 @@ export default function DispensePatient() {
   const loadData = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPatients(), getAttendances(), getStockItems()]);
-      let foundPatient = location.state?.patient;
-      if (!foundPatient && id) foundPatient = patients.find(p => p.id === id);
+      // The route names the patient, so ask for that patient's record and that
+      // patient's visits. This screen used to download the whole patient register and
+      // every live visit in the hospital before it could show one prescription list.
+      const stockItemsPromise = getStockItems();
+      // The patient picker searches the register in the browser, so it still arrives —
+      // after the prescription list, not before it.
+      void loadPatients().catch(() => undefined);
+      let foundPatient: any = (location.state as any)?.patient || null;
+      if (!foundPatient && id) foundPatient = await fetchPatient(id).catch(() => null);
+      const patientAtts = foundPatient?.id
+        ? await getAttendances({ patientId: foundPatient.id })
+        : await getAttendances({ live: true, limit: 500 });
+      await stockItemsPromise;
+      if (!foundPatient) setAllAttendances(patientAtts);
       if (foundPatient) {
         setPatient(foundPatient);
         setSelectedPatientId(foundPatient.id);
-        const patientAtts = attendances.filter(a => a.patientId === foundPatient.id);
         setAllAttendances(patientAtts);
-        const initId = location.state?.attendanceId;
+        const initId = (location.state as any)?.attendanceId;
         const pick = initId
-          ? attendances.find(a => a.id === initId)
-          : patientAtts.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
+          ? (patientAtts.find((a: any) => a.id === initId) || await getAttendance(initId).catch(() => null))
+          : [...patientAtts].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
         if (pick) {
           setSelectedAttendanceId(pick.id);
           setAttendance(pick);
@@ -294,11 +304,14 @@ export default function DispensePatient() {
     success(medication.name, `${quantity} unit(s) dispensed`);
     setDispenseModal({ isOpen: false, medication: null, stockItem: null });
     try {
-      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendanceId)]);
+      // Refresh the stock quantities and this bill, then reload only the visit that
+      // changed. Walking every live visit here used to cost ~50 requests per dispense.
+      await Promise.all([getStockItems(), calculateBill(attendanceId)]);
       const refreshedAttendance = await getAttendance(attendanceId);
       if (refreshedAttendance?.id === attendanceId) {
         setAttendance(refreshedAttendance);
         setPrescriptions((refreshedAttendance?.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
+        setAllAttendances(list => list.map(a => (a.id === attendanceId ? refreshedAttendance : a)));
       }
     } catch (err: any) {
       toastError('Dispensing saved; refresh needed', 'The medicine was dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.');
@@ -338,12 +351,13 @@ export default function DispensePatient() {
           });
         }
       }
-      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
+      await Promise.all([getStockItems(), calculateBill(attendance.id)]);
       const refreshed = await getAttendance(attendance.id);
       if (refreshed?.id === attendance.id) {
         setAttendance(refreshed);
         setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
           ['prescribed', 'dispensed'].includes(m.status)));
+        setAllAttendances(list => list.map(a => (a.id === attendance.id ? refreshed : a)));
       }
       if (failedItems.length > 0) {
         const details = failedItems
@@ -539,16 +553,22 @@ export default function DispensePatient() {
 
       {/* ── PATIENT SELECTOR ────────────────────────────────────────────── */}
       <PatientAttendanceSelector
-        patients={[patient]}
+        patients={patient ? [patient, ...register.filter((p: any) => p.id !== patient.id)] : register}
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
         onPatientSelect={pid => {
           setSelectedPatientId(pid);
-          setAllAttendances(attendances.filter(a => a.patientId === pid));
+          setAllAttendances([]);
           setSelectedAttendanceId('');
           setAttendance(null);
           setPrescriptions([]);
+          // Only the selected patient's visits are needed; the register-wide list is no
+          // longer held in the store.
+          void getAttendances({ patientId: pid })
+            .then(rows => setAllAttendances(rows || []))
+            .catch(() => setAllAttendances([]));
+          void fetchPatient(pid).then(p => setPatient(p)).catch(() => {});
         }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
@@ -1205,8 +1225,9 @@ export default function DispensePatient() {
           onClose={() => setIsPrescribeModalOpen(false)}
           onSuccess={async () => {
             setIsPrescribeModalOpen(false);
+            // loadData() re-reads this patient's visits, stock and bill below, so the
+            // live visit list must not be walked a second time here.
             await Promise.all([
-              getAttendances(),
               getAttendance(attendance?.id),
               calculateBill(attendance?.id),
             ]);

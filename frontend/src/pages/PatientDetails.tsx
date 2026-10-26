@@ -324,7 +324,7 @@ export default function PatientDetails() {
   const handleAttendanceSuccess = async () => {
     setShowAttendanceModal(false);
     try {
-      await getAttendances();
+      await getAttendances({ patientId: patient?.id || id });
       setActiveTab('attendances');
       setRefreshTrigger(p => p + 1);
       success('Check-in complete', 'New visit created');

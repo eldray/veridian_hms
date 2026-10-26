@@ -1,12 +1,11 @@
 // src/pages/EstimateForm.tsx
-import { type FormEvent, useEffect, useMemo, useState, useRef } from 'react';
+import { type FormEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check,
 } from 'lucide-react';
-import { getCorporateAccounts, getServiceCatalog } from '../api';
-import { usePatientStore } from '../store/patientStore';
+import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog } from '../api';
 import { useEstimatesStore } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
 
@@ -67,6 +66,10 @@ interface SearchableSelectProps {
   icon?: React.ReactNode;
   required?: boolean;
   className?: string;
+  // When set, the list is searched by the server as the user types, so the page can offer
+  // a whole register without downloading it. `options` is then whatever the last search returned.
+  onSearch?: (query: string) => void;
+  loading?: boolean;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -78,6 +81,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   disabled = false,
   icon,
   className = '',
+  onSearch,
+  loading = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -87,15 +92,23 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   const selected = options.find((o) => o.value === value);
 
+  // Ask the server after a short pause so typing does not queue a request per keystroke.
+  useEffect(() => {
+    if (!onSearch) return;
+    const timer = setTimeout(() => onSearch(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query, onSearch]);
+
   // Filter by query
   const filtered = useMemo(() => {
+    if (onSearch) return options; // the server already narrowed the list
     if (!query.trim()) return options;
     const q = query.toLowerCase();
     return options.filter((o) => {
       const hay = (o.searchText ?? `${o.label} ${o.sublabel ?? ''}`).toLowerCase();
       return hay.includes(q);
     });
-  }, [options, query]);
+  }, [options, query, onSearch]);
 
   // Reset query and highlighted when dropdown opens
   useEffect(() => {
@@ -195,7 +208,12 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           </div>
 
           <div className="max-h-60 overflow-y-auto py-1" style={{ scrollbarWidth: 'thin' }}>
-            {filtered.length === 0 ? (
+            {loading && (
+              <div className="px-3 py-1.5 text-center text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">
+                Searching…
+              </div>
+            )}
+            {!loading && filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-[var(--text-tertiary)]">
                 No matches
               </div>
@@ -245,8 +263,11 @@ export default function EstimateForm() {
   const { error: toastError, success } = useToast();
   const { currentEstimate, loadEstimate, createEstimate, updateEstimate } = useEstimatesStore();
 
-  // Patients come from the shared store, which loads every page (100 per request).
-  const patients = usePatientStore((state) => state.patients);
+  // The patient picker is searched on the server (25 rows per keystroke pause) instead of
+  // pulling the whole register into the shared store before the form is usable.
+  const [patientChoices, setPatientChoices] = useState<any[]>([]);
+  const [chosenPatient, setChosenPatient] = useState<any | null>(null);
+  const [patientSearching, setPatientSearching] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
   const [patientId, setPatientId] = useState('');
@@ -258,6 +279,18 @@ export default function EstimateForm() {
   const [termsAndConditions, setTermsAndConditions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const searchPatients = useCallback(async (query: string) => {
+    setPatientSearching(true);
+    try {
+      const response = await getPatients(query ? { search: query, limit: 25 } : { limit: 25 });
+      setPatientChoices(asArray(response));
+    } catch {
+      /* an empty list is enough — the user can type again */
+    } finally {
+      setPatientSearching(false);
+    }
+  }, []);
 
   // ── Load options once per id ─────────────────
   // NOTE: dependency is [id] ONLY. loadEstimate / toastError come from
@@ -271,7 +304,7 @@ export default function EstimateForm() {
         const [serviceResponse, corporateResponse] = await Promise.all([
           getServiceCatalog({ isActive: true, limit: 5000, page: 1 }),
           getCorporateAccounts({ isActive: true, limit: 1000, page: 1 }),
-          usePatientStore.getState().loadPatients(),
+          searchPatients(''),
         ]);
         setServices(asArray(serviceResponse));
         setCorporateAccounts(asArray(corporateResponse));
@@ -285,6 +318,23 @@ export default function EstimateForm() {
     loadOptions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // A patient chosen from the search list is already labelled; one restored from a saved
+  // estimate is fetched on its own so the form shows who it belongs to.
+  useEffect(() => {
+    if (!patientId) { setChosenPatient(null); return; }
+    if (chosenPatient?.id === patientId) return;
+    const inList = patientChoices.find((p: any) => p.id === patientId);
+    if (inList) { setChosenPatient(inList); return; }
+    let isCurrent = true;
+    getPatient(patientId)
+      .then((response: any) => {
+        const found = response?.patient || response?.data?.patient || response?.data || response;
+        if (isCurrent && found?.id) setChosenPatient(found);
+      })
+      .catch(() => { /* label falls back to blank */ });
+    return () => { isCurrent = false; };
+  }, [patientId, patientChoices, chosenPatient?.id]);
 
   // ── Hydrate form when editing ────────────────
   useEffect(() => {
@@ -323,16 +373,19 @@ export default function EstimateForm() {
   const total = subtotal + tax - discount;
 
   // ── Option lists ─────────────────────────────
-  const patientOptions: SearchableOption[] = useMemo(
-    () =>
-      patients.map((p) => ({
-        value: p.id,
-        label: `${p.surname || ''} ${p.otherNames || ''}`.trim() || p.folderNumber,
-        sublabel: `${p.folderNumber}${p.contact ? ` · ${p.contact}` : ''}`,
-        searchText: `${p.surname || ''} ${p.otherNames || ''} ${p.folderNumber || ''} ${p.contact || ''}`,
-      })),
-    [patients],
-  );
+  const toPatientOption = (p: any): SearchableOption => ({
+    value: p.id,
+    label: `${p.surname || ''} ${p.otherNames || ''}`.trim() || p.folderNumber || p.id,
+    sublabel: `${p.folderNumber || ''}${p.contact ? ` · ${p.contact}` : ''}`,
+  });
+
+  const patientOptions: SearchableOption[] = useMemo(() => {
+    const list = patientChoices.map(toPatientOption);
+    if (chosenPatient && !list.some((o) => o.value === chosenPatient.id)) {
+      list.unshift(toPatientOption(chosenPatient));
+    }
+    return list;
+  }, [patientChoices, chosenPatient]);
 
   const corporateOptions: SearchableOption[] = useMemo(
     () =>
@@ -470,6 +523,8 @@ export default function EstimateForm() {
             options={patientOptions}
             value={patientId}
             onChange={setPatientId}
+            onSearch={searchPatients}
+            loading={patientSearching}
             placeholder="Search patients by name, folder, or phone…"
             emptyLabel="Select patient"
             icon={<UserIcon className="w-3.5 h-3.5" />}

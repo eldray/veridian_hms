@@ -133,12 +133,12 @@ export default function AttendanceDetails() {
     getVitalsByAttendance,
   } = useAttendanceStore();
   
-  const { 
-    patients, 
-    loadPatients, 
-    isLoading: patientsLoading 
+  const {
+    patients,
+    currentPatient,
+    fetchPatient,
   } = usePatientStore();
-  
+
   const { hasRole } = useAuthStore();
   const { bills, getBills, generateBillFromAttendance, isLoading: billsLoading } = useBillingStore();
 
@@ -150,8 +150,10 @@ export default function AttendanceDetails() {
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [vitalsLoading, setVitalsLoading] = useState(false);
   const [syncingBilling, setSyncingBilling] = useState(false);
-  
-  const isLoading = attendanceLoading || patientsLoading || billsLoading;
+
+  // A patient search on another screen must not blank this one: the visit record is what
+  // the page is waiting for.
+  const isLoading = attendanceLoading || billsLoading;
 
   // ── Load data ─────────────────────────────────
   const loadData = async () => {
@@ -164,7 +166,6 @@ export default function AttendanceDetails() {
       
       await Promise.all([
         getAttendance(id),
-        loadPatients(),
         getBills({ attendanceId: id })
       ]);
       
@@ -209,14 +210,30 @@ export default function AttendanceDetails() {
       : attendance.patientId) ||
       (typeof embeddedPatient === 'object' ? embeddedPatient.id : null);
 
-    return pid ? patients.find(p => p.id === pid) : null;
+    if (!pid) return null;
+    return patients.find(p => p.id === pid)
+      || (currentPatient?.id === pid ? currentPatient : null);
   };
 
   // Get patient for current attendance
   const patient = useMemo(() => {
     if (!currentAttendance) return null;
     return findPatient(currentAttendance);
-  }, [currentAttendance, patients]);
+  }, [currentAttendance, patients, currentPatient]);
+
+  // The visit record embeds its patient, so this page does not download the register. If a
+  // visit ever arrives without one, ask for that single patient record instead.
+  const encounterPatientId = typeof currentAttendance?.patientId === 'object'
+    ? currentAttendance?.patientId?.id
+    : currentAttendance?.patientId;
+  useEffect(() => {
+    if (!encounterPatientId) return;
+    const embedded = (currentAttendance as any)?.patient ?? (currentAttendance as any)?.Patient;
+    if (embedded?.surname) return;
+    if (currentPatient?.id === encounterPatientId) return;
+    if (patients.some(p => p.id === encounterPatientId)) return;
+    void fetchPatient(encounterPatientId).catch(() => undefined);
+  }, [encounterPatientId, currentAttendance, currentPatient?.id, patients, fetchPatient]);
 
   // Get bills for this attendance
   const attendanceBills = useMemo(() => {

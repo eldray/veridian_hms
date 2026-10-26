@@ -383,7 +383,7 @@ export default function Antenatal() {
   const { postnatalRecords, getPostnatalRecords, deletePostnatalRecord } = usePostnatalStore();
 
   const { updateBed } = useWardStore();
-  const { createAdmission, getAdmissions } = useAdmissionStore();
+  const { createAdmission } = useAdmissionStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -516,12 +516,10 @@ const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescrib
   const loadData = async () => {
     setRefreshing(true);
     try {
-      // Only what the page shows first: current visits and the delivery / postnatal records
-      await Promise.all([
-        getAttendances(),
-        getDeliveryRecords(),
-        getPostnatalRecords(),
-      ]);
+      // Only the visit list, and only the current worklist (live visits, 500 rows maximum).
+      // Delivery/postnatal records are consumed filtered by the selected visit and are fetched
+      // per patient when a patient is picked, so they are not loaded for the whole hospital here.
+      await getAttendances({ live: true, limit: 500 });
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -584,6 +582,9 @@ useEffect(() => {
   getActiveAntenatalRecordByPatient(selectedPatientId).catch((err) => {
     console.error('Failed to load active antenatal record:', err);
   });
+  // The visit dropdown lists this patient's own history, so ask for it (one request)
+  // instead of expecting the shared live-worklist to still hold it.
+  getAttendances({ patientId: selectedPatientId }).catch(() => {});
   getDeliveryRecords({ patientId: selectedPatientId }).catch(() => {});
   getPostnatalRecords({ patientId: selectedPatientId }).catch(() => {});
 }, [selectedPatientId]);
@@ -778,7 +779,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for antenatal observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
     } catch (err: any) {
@@ -817,7 +817,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for delivery to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setActiveTab('delivery');
@@ -857,7 +856,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for postpartum observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setActiveTab('postnatal');

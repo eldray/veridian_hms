@@ -4,7 +4,6 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
-import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
@@ -152,8 +151,9 @@ export default function Billing() {
     isLoading: waiversLoading
   } = useWaiverStore();
 
-  const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances } = useAttendanceStore();
+  // Bills already carry the patient name; the register is only consulted for legacy rows,
+  // so this page never downloads all patients (or all visits) just to render a list.
+  const { patients } = usePatientStore();
   const { hasRole } = useAuthStore();
   const { isLoading: isDocLoading } = useDocumentStore();
 
@@ -235,9 +235,8 @@ export default function Billing() {
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
-      const [, , , , , collections] = await Promise.all([
+      const [, , , , collections] = await Promise.all([
         getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
-        loadPatients(),
         getBillStatistics(filters),
         getWaivers(filters),
         getWaiverStats(filters),
@@ -259,10 +258,6 @@ export default function Billing() {
       setCollectionsLoading(false);
     }
   };
-
-  useEffect(() => {
-    void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
-  }, [getAttendances]);
 
   useEffect(() => {
     loadData();

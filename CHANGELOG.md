@@ -157,3 +157,36 @@ semantic versioning.
 - Admissions, beds and departments walk their pages four and three at a time instead
   of one after another, and the API client no longer logs raw diagnosis, vitals,
   admission, detention and inpatient-list responses (patient data) to the console.
+- Single-record screens ask for the one record they show. Nursing patient workspace
+  opens with `GET /encounters/:id` plus that patient's admission history instead of
+  downloading every attendance, admission, patient and stock item in the hospital;
+  admission details, attendance details and patient billing resolve their patient
+  with one `GET /patients/:id` when the visit row carries no name. Mount cost on
+  those pages drops from tens of requests to one or three.
+- Post-action refreshes are per-record. Saving vitals, admitting, converting a
+  detention to a formal admission and discharging in medical entries, antenatal,
+  vitals and the admission detail screen now re-fetch only the affected visit
+  (`refreshAttendance(id)`) instead of re-walking the whole encounter or admission
+  table, so the four-GET limit is free again for the next click. The three antenatal
+  bed assignments ended with a full admission-table load whose result no part of that
+  screen ever read.
+- Worklists are filtered server-side. Insurance claims ask for completed visits of
+  the tab's payment mode within the selected date range (200 rows) rather than the
+  entire live encounter set, which also makes completed visits older than 72 hours
+  claimable; admissions, antenatal, medical entries, vitals, dispensing and the
+  attendance register ask for the narrow set they display (admitted, or the live
+  worklist capped at 500) instead of an unbounded sweep.
+- The patient register is no longer loaded just to fill a picker. The estimate form
+  searches patients as you type (25 server-matched rows) and resolves a saved
+  estimate's patient directly; billing list, admissions list and the referral form
+  either read the patient name already carried on their rows or defer the register
+  until the form is actually opened.
+- `fetchAllPages` adapts to endpoints that cap a page below the requested size (it
+  re-reads the server's own page size instead of assuming the walk finished) and
+  brakes when a page returns no new rows, so an endpoint that ignores `page` can no
+  longer burn requests forever. Streamed collections accept a `pageSize` and the
+  inventory, diagnosis, lab, procedure and scan catalogs use 500, which is what
+  those endpoints actually serve.
+- Full patient records are no longer written to the browser console. The patient
+  store's request/response logging for search, get, create and update is gone,
+  leaving only error output.
