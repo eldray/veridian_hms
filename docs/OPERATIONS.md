@@ -108,11 +108,12 @@ off-box copy), RTO ≤ 2 hours (documented restore and verification steps).
 - The backend handles SIGINT/SIGTERM by stopping new connections, closing the
   HTTP server, and disconnecting Prisma.
 - Audit entries are hash-chained. `GET /api/audit/logs/verify` (admin) walks the
-  chain in insertion order and returns `{ ok, checked, brokenAtId }`. A failure
-  means a row was edited, deleted, or reordered in the database; treat it as a
-  security incident and preserve a database snapshot before investigating.
-  Entries written before chaining was introduced have no link and are skipped
-  until the first chained row.
+  chain in insertion order and returns `{ ok, checked, brokenAtId }`. The walk
+  reads the table in batches, so its memory use stays bounded as the log grows.
+  A failure means a row was edited, deleted, or reordered in the database; treat
+  it as a security incident and preserve a database snapshot before
+  investigating. Entries written before chaining was introduced have no link and
+  are skipped until the first chained row.
 - Desktop logs are written to the Electron logs directory and are capped at
   5 MB with one rotated file.
 
@@ -124,3 +125,11 @@ off-box copy), RTO ≤ 2 hours (documented restore and verification steps).
   database beyond the migration checksums.
 - A supported multi-workstation/LAN topology is not documented yet; the current
   desktop design expects one backend process per database.
+- There is no second authentication factor. One refresh token is stored per
+  user, so users cannot see or revoke individual sessions.
+- Data is not partitioned by facility; every administrator sees the whole
+  database. Multi-facility deployments need a `facilityId` on both users and
+  records before that can be enforced.
+- `POST /api/auth/forgot-password` records a reset token but no delivery channel
+  consumes it. Until email or SMS delivery and a reset-password endpoint are
+  configured, use the admin password-change path instead.
