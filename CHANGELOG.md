@@ -52,6 +52,10 @@ semantic versioning.
 - New and changed passwords must be at least 12 characters and at most 72
   bytes (bcrypt's limit), cannot match the username or email, and cannot be a
   common password. Existing passwords stay valid until they are next changed.
+- SMS, WhatsApp, bulk-message and communication-template requests are validated
+  before dispatch. A blank recipient, an empty message with no template, an
+  empty bulk recipient list and an unknown channel or template type now return
+  `400` instead of reaching the provider or the database.
 - The Electron main window now runs with `sandbox: true`. Permission requests
   are denied except for notifications and clipboard access, webview attachment
   is blocked, page links never open a second Electron window, and navigation is

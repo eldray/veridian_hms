@@ -2,6 +2,13 @@ import { Router } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { CommunicationController } from './CommunicationController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { validateBody } from '../../middleware/validate';
+import {
+  createTemplateSchema,
+  sendBulkMessageSchema,
+  sendMessageSchema,
+  updateTemplateSchema,
+} from './CommunicationSchemas';
 
 export function createCommunicationRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -14,16 +21,16 @@ export function createCommunicationRoutes(prisma: PrismaClient): Router {
   router.get('/provider-status', controller.getProviderStatus);
 
   // SMS & WhatsApp Routes
-  router.post('/sms', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), controller.sendSMS);
-  router.post('/whatsapp', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), controller.sendWhatsApp);
+  router.post('/sms', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), validateBody(sendMessageSchema), controller.sendSMS);
+  router.post('/whatsapp', requireRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']), validateBody(sendMessageSchema), controller.sendWhatsApp);
 
   // Bulk Messaging
-  router.post('/bulk', requireRole(['admin', 'accounts']), controller.sendBulkMessage);
+  router.post('/bulk', requireRole(['admin', 'accounts']), validateBody(sendBulkMessageSchema), controller.sendBulkMessage);
 
   // Template Management
   router.get('/templates', requireRole(['admin', 'accounts']), controller.getTemplates);
-  router.post('/templates', requireRole(['admin', 'accounts']), controller.createTemplate);
-  router.put('/templates/:id', requireRole(['admin', 'accounts']), controller.updateTemplate);
+  router.post('/templates', requireRole(['admin', 'accounts']), validateBody(createTemplateSchema), controller.createTemplate);
+  router.put('/templates/:id', requireRole(['admin', 'accounts']), validateBody(updateTemplateSchema), controller.updateTemplate);
   router.delete('/templates/:id', requireRole(['admin', 'accounts']), controller.deleteTemplate);
 
   // History & Statistics
