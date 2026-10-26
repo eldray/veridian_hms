@@ -56,7 +56,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
-        Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
         Payment: true
       }
@@ -70,6 +70,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
+        InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         Payment: true
       }
     });

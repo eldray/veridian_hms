@@ -86,6 +86,16 @@ semantic versioning.
   warns when the current visit has not reviewed allergy status, records
   allergies as present without details, or could not load the allergy list. It
   fetches allergies by patient id because the paginated patient list omits them.
+- Medical entries now edits the whole clinical assessment — presenting complaints,
+  history of presenting complaint, ODQ, physical examination and both structured
+  system lists — in one modal, the same way diagnoses, labs, scans and medications
+  are added. The page and the sidebar show a read-only summary with an
+  "Edit assessment" button, and nothing reaches the database until Save Clinical.
+- The medical entries sidebar leads with a read-only "Clinical notes" block
+  (assessment plus working impression) above the physician notes and treatment plan.
+- Bill responses now carry the visit and insurer details the billing screen needs:
+  the attendance number, type and date, and the insurance provider with its
+  coverage percentage.
 
 ### Changed
 
@@ -105,3 +115,24 @@ semantic versioning.
   picker now call store actions that actually exist. The missing `CheckCircle`
   import that broke the admission status badge and a stale `updateReferral`
   export were removed, so those screens no longer fail at runtime.
+- Back buttons on the patient-facing entry screens (medical entries, vitals, lab
+  results, scans, dispensing, theatre, antenatal and patient billing) return to
+  the page the user came from. They only fall back to the module queue or billing
+  list when the screen was opened directly, so a referral from the ward no longer
+  dumps the clinician on a waiting list they never used.
+- Patient billing is read per visit again. The shared patient/attendance selector
+  drives the list, the header names the selected visit and its date, and each bill
+  chip shows the visit it belongs to. `normalizeResponse` lowercases the first
+  letter of PascalCase relation keys, so the API client now re-exposes `Attendance`,
+  `BillLineItem`, `Patient`, `Payment`, `InsuranceProvider`, `Admission` and
+  `CorporateAccount` on bill payloads; without that the visit label, line items,
+  insurance details and the miscellaneous-charge picker rendered empty.
+- The patient billing screen uses the same theme variables as the rest of the app
+  instead of a hardcoded light palette, so it stays readable in dark mode and
+  matches the billing list it opens from.
+- A billing page for a patient whose records are already loaded no longer shows
+  "Patient Not Found", which previously hid the attendance selector.
+- The shared patient/attendance selector no longer logs the loaded patient list and
+  the selected patient object to the browser console. The billing store and the
+  patient billing page no longer log bill payloads, bill numbers or resolved patient
+  ids either; console output is limited to errors.

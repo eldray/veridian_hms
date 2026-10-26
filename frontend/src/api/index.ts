@@ -1659,6 +1659,28 @@ export const getEncounterStats = async (filters?: any) => {
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
 
+// The API lowercases Prisma relation keys (Attendance → attendance), while the shared
+// Bill type and the billing screens read the relation names. Restore them here so every
+// bill consumer sees one shape; the camelCase copies are kept for screens using those.
+const BILL_RELATION_ALIASES: Record<string, string> = {
+  Attendance: 'attendance',
+  BillLineItem: 'billLineItem',
+  Patient: 'patient',
+  Payment: 'payment',
+  InsuranceProvider: 'insuranceProvider',
+  CorporateAccount: 'corporateAccount',
+  Admission: 'admission',
+};
+
+const withBillRelations = (bill: any) => {
+  if (!bill || typeof bill !== 'object') return bill;
+  const out: any = { ...bill };
+  for (const [relation, camel] of Object.entries(BILL_RELATION_ALIASES)) {
+    if (out[relation] === undefined && out[camel] !== undefined) out[relation] = out[camel];
+  }
+  return out;
+};
+
 const getBillsPage = (filters?: any) => {
   // Cache-bust list reads while preserving the server's pagination contract.
   const params = { ...filters, _t: Date.now() };
@@ -1666,7 +1688,7 @@ const getBillsPage = (filters?: any) => {
   return api.get('/bills', { params }).then(r => {
     const body = r.data;
     // BaseController.paginated returns { success, data: Bill[], meta: { page, limit, total, totalPages } }.
-    const bills: any[] = Array.isArray(body)
+    const rawBills: any[] = Array.isArray(body)
       ? body
       : Array.isArray(body?.data)
         ? body.data
@@ -1675,6 +1697,7 @@ const getBillsPage = (filters?: any) => {
           : Array.isArray(body?.data?.data)
             ? body.data.data
             : [];
+    const bills = rawBills.map(withBillRelations);
     const pagination = readPagination(body);
     if (pagination) {
       Object.defineProperty(bills, 'pagination', {
@@ -1713,16 +1736,19 @@ export const getBill = (id: string) => {
   return api.get(`/bills/${id}`, {
     params: { _t: Date.now() }
   }).then(r => {
-    console.log('📄 API Bill Response:', r.data);
-    return r.data;
+    const body = r.data;
+    if (body?.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      return { ...body, data: withBillRelations(body.data) };
+    }
+    return withBillRelations(body);
   });
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => r.data?.data || r.data);
+  api.post('/bills', data).then(r => withBillRelations(r.data?.data || r.data));
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => r.data?.data || r.data);
+  api.put(`/bills/${id}`, data).then(r => withBillRelations(r.data?.data || r.data));
 
 export const deleteBill = (id: string) =>
   api.delete(`/bills/${id}`).then(r => r.data);
@@ -1731,7 +1757,13 @@ export const addPaymentToBill = (billId: string, data: any) =>
   api.post(`/bills/${billId}/payment`, data).then(r => r.data);
 
 export const generateBillFromEncounter = (encounterId: string) =>
-  api.post(`/bills/generate/${encounterId}`).then(r => r.data);
+  api.post(`/bills/generate/${encounterId}`).then(r => {
+    const body = r.data;
+    if (body?.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      return { ...body, data: withBillRelations(body.data) };
+    }
+    return body;
+  });
 
 export const generateBillReport = (billId: string) =>
   api.get(`/bills/${billId}/report`).then(r => r.data?.data || r.data);

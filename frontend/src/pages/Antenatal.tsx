@@ -1,7 +1,7 @@
 // src/pages/Antenatal.tsx — restructured
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
 import { useDeliveryStore } from '../store/deliveryStore';
 import { usePostnatalStore } from '../store/postnatalStore';
@@ -30,7 +30,7 @@ import {
   ChevronLeft, RefreshCw, X, Stethoscope, Pill, FlaskConical, Scissors,
   Scan, FileText, Activity, AlertCircle, Plus, Trash2, Edit, User, Calendar,
   Baby, Heart, Droplet, Shield, CheckCircle, Clock, AlertTriangle, Syringe,
-  Ruler, Weight, TrendingUp, Eye, Hospital, Users, Bed, Building2, Moon, Sun,
+  Ruler, Weight, TrendingUp, Eye, Hospital, Bed, Building2, Moon, Sun,
   ClipboardList, ArrowRight, Gauge, Thermometer, Wind, Droplets,
 } from 'lucide-react';
 
@@ -360,6 +360,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
 // ═════════════════════════════════════════════════════════════════════════════
 export default function Antenatal() {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const { attendanceId: urlAttendanceId } = useParams();
   const { success, error: toastError } = useToast();
   const addToast = useToastStore(state => state.addToast);
@@ -990,10 +991,10 @@ useEffect(() => {
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/maternal-waiting-list')}
+          <button onClick={() => (routerLocation.key === 'default' ? navigate('/dashboard/maternal-waiting-list') : navigate(-1))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
-            <ChevronLeft className="w-3.5 h-3.5" /><Users className="w-3.5 h-3.5" /> Waiting List
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
           </button>
           <div className="h-5 w-px bg-[var(--border-color)]" />
           <div className="flex items-center gap-2.5">

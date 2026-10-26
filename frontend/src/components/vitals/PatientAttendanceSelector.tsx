@@ -194,11 +194,6 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
     onAttendanceSelect('');
   };
 
-  // Debug log
-  console.log('🔍 PatientAttendanceSelector - normalizedPatients:', normalizedPatients.length);
-  console.log('🔍 Selected patient:', selectedPatient);
-  console.log('🔍 Selected patient name:', selectedPatient ? getPatientFullName(selectedPatient) : 'none');
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Patient Search Box */}

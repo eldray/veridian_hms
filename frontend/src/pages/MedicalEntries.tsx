@@ -2,7 +2,7 @@
 import { useLiveRefresh } from '../api/realtime';
 import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
@@ -25,16 +25,19 @@ import { ConsumableModal } from '../components/medical-entries/modals/Consumable
 import { deleteEncounterConsumableUse, getEncounterConsumableUses, finalizeEncounterClinicalRecord, dischargeFromEncounter } from '../api';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 
-import ComplaintInput from '../components/ComplaintInput';
-import ODQInput from '../components/medical-entries/ODQInput';
+import {
+  ClinicalAssessmentModal,
+  ClinicalAssessmentSummary,
+  type ClinicalAssessmentValue,
+} from '../components/medical-entries/ClinicalAssessmentModal';
 import { useAdmissionStore } from '../store/admissionStore';
 
 import {
   ChevronLeft, RefreshCw, Stethoscope, Pill, FlaskConical, Info, Building2,
   Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
-  Hospital, User, Calendar, DollarSign, Clock, Heart, Thermometer,
+  Hospital, User, Calendar, DollarSign, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
-  Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
+  Printer, History, Eye, Edit, ClipboardList, Microscope, Image,
   ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package, Send,
 } from 'lucide-react';
 
@@ -595,6 +598,8 @@ const PhysicianNoteInput: React.FC<{
 // ═════════════════════════════════════════════════════════════════════════════
 export default function MedicalEntries() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const goBack = () => (location.key === 'default' ? navigate('/dashboard/medical-waiting-list') : navigate(-1));
   const { success, error: toastError } = useToast();
 
   const { patients, loadPatients, fetchPatient, currentPatient } = usePatientStore();
@@ -654,9 +659,27 @@ export default function MedicalEntries() {
   const [physicianNoteText, setPhysicianNoteText] = useState('');
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [modalType, setModalType] = useState<ModalType>(null);
-  const [clinicalModal, setClinicalModal] = useState<'reviewOfSystems' | 'physicalExam' | null>(null);
+  const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
+
+  const assessmentValue: ClinicalAssessmentValue = {
+    complaints: presentedComplaints,
+    history: hpc,
+    odq,
+    examination: physicalExam,
+    reviewOfSystems,
+    physicalExamStructured,
+  };
+
+  const saveAssessment = (next: ClinicalAssessmentValue) => {
+    setPresentedComplaints(next.complaints);
+    setHpc(next.history);
+    setOdq(next.odq);
+    setPhysicalExam(next.examination);
+    setReviewOfSystems(next.reviewOfSystems);
+    setPhysicalExamStructured(next.physicalExamStructured);
+  };
 
   const loadConsumableUses = async (id: string) => {
     const response = await getEncounterConsumableUses(id);
@@ -1427,13 +1450,12 @@ export default function MedicalEntries() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/medical-waiting-list')}
+            onClick={goBack}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >
             <ChevronLeft className="w-3.5 h-3.5" />
-            <Users className="w-3.5 h-3.5" />
-            Waiting List
+            Back
           </button>
 
           <div className="h-5 w-px bg-[var(--border-color)]" />
@@ -1684,63 +1706,11 @@ export default function MedicalEntries() {
                 Responsible clinician: <span className="font-semibold text-[var(--text-primary)]">{user?.fullName || user?.username || 'Not assigned'}</span>
                 {isClinicalFinalized && <span className="ml-2 text-emerald-700 font-semibold">Signed clinical record — read-only</span>}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Left sub-col */}
-                <div className="space-y-3">
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><FileText className="w-3 h-3" /> Presented Complaints</label>
-                      <button type="button" onClick={() => setClinicalModal('reviewOfSystems')} disabled={!canAddEntries || isClinicalFinalized}
-                        className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
-                        <ClipboardList className="w-3 h-3" /> Structured data
-                      </button>
-                    </div>
-                    <ComplaintInput value={presentedComplaints} onChange={setPresentedComplaints}
-                      placeholder="Search or type complaints…" disabled={!canAddEntries || isClinicalFinalized} />
-                    {Object.values(reviewOfSystems).some(value => String(value || '').trim()) && (
-                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured review recorded: {Object.entries(reviewOfSystems).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
-                    )}
-                  </div>
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                      <History className="w-3 h-3" /> History of Presenting Complaint
-                    </label>
-                    <textarea value={hpc} onChange={e => setHpc(e.target.value)} rows={3}
-                      disabled={!canAddEntries || isClinicalFinalized}
-                      placeholder="History of presenting complaint…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
-                  </div>
-                </div>
-                {/* Right sub-col */}
-                <div className="space-y-3">
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                       <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><Stethoscope className="w-3 h-3" /> Physical Examination</label>
-                       <button type="button" onClick={() => setClinicalModal('physicalExam')} disabled={!canAddEntries || isClinicalFinalized}
-                         className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
-                         <ClipboardList className="w-3 h-3" /> Structured PE
-                       </button>
-                     </div>
-                    <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
-                      disabled={!canAddEntries || isClinicalFinalized}
-                      placeholder="Physical examination findings…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
-                    {Object.values(physicalExamStructured).some(value => String(value || '').trim()) && (
-                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured findings recorded: {Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
-                    )}
-                  </div>
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                      <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
-                    </label>
-                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
-                  </div>
-                </div>
-              </div>
+              <ClinicalAssessmentSummary
+                value={assessmentValue}
+                onEdit={() => setAssessmentOpen(true)}
+                editDisabled={!canAddEntries || isClinicalFinalized}
+              />
                 </div>
               </section>
 
@@ -2151,6 +2121,15 @@ export default function MedicalEntries() {
                   boxShadow: 'var(--shadow-sm)',
                 }}
               >
+                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0 overflow-y-auto" style={{ maxHeight: '34%', scrollbarWidth: 'thin' }}>
+                  <ClinicalAssessmentSummary
+                    value={assessmentValue}
+                    title="Clinical notes"
+                    impression={assessment}
+                    onEdit={() => setAssessmentOpen(true)}
+                    editDisabled={!canAddEntries || isClinicalFinalized}
+                  />
+                </div>
                 <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
                   <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Impression</label>
                   <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
@@ -2257,32 +2236,13 @@ export default function MedicalEntries() {
         </div>
       ) : null}
 
-      {clinicalModal && (
-        <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setClinicalModal(null); }}>
-          <section role="dialog" aria-modal="true" aria-labelledby="clinical-structured-modal-title" className="w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-2xl">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4">
-              <div><h2 id="clinical-structured-modal-title" className="text-sm font-bold text-[var(--text-primary)]">{clinicalModal === 'reviewOfSystems' ? 'Structured Review of Systems' : 'Structured Physical Examination'}</h2>
-                <p className="mt-1 text-[10px] text-[var(--text-secondary)]">Record only what was assessed. Leave unassessed systems blank.</p></div>
-              <button type="button" onClick={() => setClinicalModal(null)} aria-label="Close structured clinical form" className="rounded-lg border border-[var(--border-color)] px-3 py-1.5 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-main)]">Close</button>
-            </div>
-            <div className="grid grid-cols-1 gap-3 p-5 sm:grid-cols-2">
-              {(clinicalModal === 'reviewOfSystems' ? ['General','Cardiovascular','Respiratory','Gastrointestinal','Genitourinary','Neurological','Musculoskeletal','Skin','ENT/Eyes','Endocrine','Psychiatric','Other'] : ['General appearance','Cardiovascular','Respiratory','Abdomen','Neurological','Musculoskeletal','Skin','ENT/Eyes','Other']).map(system => {
-                const key = system.toLowerCase().replace(/[^a-z]+/g, '_');
-                const values = clinicalModal === 'reviewOfSystems' ? reviewOfSystems : physicalExamStructured;
-                const setValues = clinicalModal === 'reviewOfSystems' ? setReviewOfSystems : setPhysicalExamStructured;
-                return <label key={key} className="text-[11px] font-medium text-[var(--text-secondary)]"><span className="mb-1 block">{system}</span>
-                  <textarea value={values[key] || ''} rows={2} onChange={e => setValues((prev: Record<string, string>) => ({ ...prev, [key]: e.target.value }))} disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder={clinicalModal === 'reviewOfSystems' ? 'Not assessed / symptoms and findings' : 'Not examined / findings'} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-3 py-2 text-xs text-[var(--text-primary)] disabled:opacity-60" />
-                </label>;
-              })}
-            </div>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border-color)] px-5 py-4">
-              <p className="text-[10px] text-[var(--text-tertiary)]">The summary appears under its corresponding clinical field. Click Save Clinical to persist all changes.</p>
-              <button type="button" onClick={() => setClinicalModal(null)} className="rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-xs font-semibold text-white hover:opacity-90">Done</button>
-            </div>
-          </section>
-        </div>
-      )}
+      <ClinicalAssessmentModal
+        isOpen={assessmentOpen}
+        onClose={() => setAssessmentOpen(false)}
+        value={assessmentValue}
+        readOnly={!canAddEntries || isClinicalFinalized}
+        onSave={saveAssessment}
+      />
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}

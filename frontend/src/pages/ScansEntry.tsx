@@ -554,10 +554,10 @@ export default function ScansEntry() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/dashboard/scans')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
           >
-            Back to Scans Queue
+            Back
           </button>
         </div>
       </div>
@@ -573,7 +573,7 @@ export default function ScansEntry() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/scans')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />

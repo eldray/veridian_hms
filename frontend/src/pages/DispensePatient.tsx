@@ -471,9 +471,9 @@ export default function DispensePatient() {
         <AlertCircle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3 opacity-60" />
         <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Patient not found</p>
         <p className="text-xs text-[var(--text-secondary)] mb-4">The patient record doesn't exist.</p>
-        <button onClick={() => navigate('/dashboard/dispense')}
+        <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
           className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-          Back to Waiting List
+          Back
         </button>
       </div>
     </div>
@@ -487,7 +487,7 @@ export default function DispensePatient() {
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/dispense')}
+          <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
             <ChevronLeft className="w-3.5 h-3.5" /> Waiting List
           </button>

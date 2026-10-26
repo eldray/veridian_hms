@@ -414,7 +414,7 @@ export default function VitalsEntry() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/vitals')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/vitals') : navigate(-1))}
             className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
           >
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
