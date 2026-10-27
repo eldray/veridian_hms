@@ -282,9 +282,16 @@ export class CounterRepository extends BaseRepository<any, any, any> {
   async createSaleLine(ticketId: string, data: { stockItemId: string; quantity: number; notes?: string | null }, actorId: string) {
     const stock = await this.prisma.stockItem.findUnique({
       where: { id: data.stockItemId },
-      select: { id: true, name: true, unitOfMeasure: true, currentStock: true },
+      select: { id: true, name: true, unitOfMeasure: true, currentStock: true, isMedication: true, isActive: true },
     });
     if (!stock) throw new NotFoundError('Stock item', data.stockItemId);
+    // Handing goods over runs the pharmacy's own dispensing, which only deducts stock for
+    // items configured as medicines. Reject an unconfigured item here, at the basket,
+    // rather than letting the counter discover it when the customer is already waiting.
+    if (!stock.isActive) throw new ValidationError(`"${stock.name}" is no longer an active stock item`);
+    if (!stock.isMedication) {
+      throw new ValidationError(`"${stock.name}" is not on the pharmacy's medicine list, so the counter cannot hand it out. Sell it through the pharmacy instead.`);
+    }
 
     // Pricing and the bill line both come from the catalog entry, so a sale of an item
     // nobody priced would silently bill nothing. Fail before the basket line is made.

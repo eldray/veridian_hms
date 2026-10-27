@@ -443,8 +443,9 @@ ${claimsXml}
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       // A claim is filed in a named patient's name with their age and NHIS identity, so a
-      // counter ticket (no Patient row, cash only) can never be claimed.
-      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      // counter ticket (no Patient row, cash only) can never be claimed. The NHIS form
+      // reads the patient's date of birth below, so the relation itself is required here.
+      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
       }
