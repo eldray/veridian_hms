@@ -384,14 +384,14 @@ export default function ServiceCatalogTab() {
 
   const getServiceColor = (type: string) => {
     const colors: Record<string, string> = {
-      consultation: 'bg-blue-100 text-blue-700',
-      lab_test: 'bg-green-100 text-green-700',
-      procedure: 'bg-purple-100 text-purple-700',
-      medication: 'bg-red-100 text-red-700',
-      ward: 'bg-amber-100 text-amber-700',
-      scan: 'bg-indigo-100 text-indigo-700',
+      consultation: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
+      lab_test: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+      procedure: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
+      medication: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+      ward: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
+      scan: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
     };
-    return colors[type] || 'bg-gray-100 text-gray-700';
+    return colors[type] || 'bg-[var(--bg-main)] text-[var(--text-primary)]';
   };
 
   // Pagination component
@@ -415,19 +415,19 @@ export default function ServiceCatalogTab() {
     };
 
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 rounded-b-xl">
+      <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-card)] border-t border-[var(--border-color)] sm:px-6 rounded-b-xl">
         <div className="flex flex-1 justify-between sm:hidden">
           <button
             onClick={() => handlePageChange(currentPage - 1)}
             disabled={currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Previous
           </button>
           <button
             onClick={() => handlePageChange(currentPage + 1)}
             disabled={currentPage === totalPages}
-            className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Next
           </button>
@@ -435,7 +435,7 @@ export default function ServiceCatalogTab() {
         
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
           <div>
-            <p className="text-sm text-gray-700">
+            <p className="text-sm text-[var(--text-primary)]">
               Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
               <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredServices.length)}</span> of{' '}
               <span className="font-medium">{filteredServices.length}</span> results
@@ -446,7 +446,7 @@ export default function ServiceCatalogTab() {
             <select
               value={itemsPerPage}
               onChange={handleItemsPerPageChange}
-              className="text-sm border border-gray-300 rounded-lg px-2 py-1"
+              className="text-sm border border-[var(--border-color)] rounded-lg px-2 py-1"
             >
               <option value={10}>10 per page</option>
               <option value={20}>20 per page</option>
@@ -458,7 +458,7 @@ export default function ServiceCatalogTab() {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                className="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -469,8 +469,8 @@ export default function ServiceCatalogTab() {
                   onClick={() => handlePageChange(page)}
                   className={`relative inline-flex items-center px-3 py-2 text-sm font-semibold ${
                     currentPage === page
-                      ? 'z-10 bg-cyan-600 text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-600'
-                      : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0'
+                      ? 'z-10 bg-[var(--icon-cyan-text)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--icon-cyan-text)]'
+                      : 'text-[var(--text-primary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0'
                   }`}
                 >
                   {page}
@@ -480,7 +480,7 @@ export default function ServiceCatalogTab() {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50"
+                className="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -492,88 +492,88 @@ export default function ServiceCatalogTab() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 text-[var(--text-primary)]">
       {/* Header Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-gray-900">{analytics.totalServices}</p>
-              <p className="text-xs text-gray-500">Total Services</p>
+              <p className="text-2xl font-bold text-[var(--text-primary)]">{analytics.totalServices}</p>
+              <p className="text-xs text-[var(--text-secondary)]">Total Services</p>
             </div>
-            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-              <Layers className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+              <Layers className="w-5 h-5 text-[var(--icon-cyan-text)]" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-green-600">GHS {analytics.totalCashValue.toFixed(0)}</p>
-              <p className="text-xs text-gray-500">Total Value (Cash)</p>
+              <p className="text-2xl font-bold text-[var(--icon-green-text)]">GHS {analytics.totalCashValue.toFixed(0)}</p>
+              <p className="text-xs text-[var(--text-secondary)]">Total Value (Cash)</p>
             </div>
-            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-green-600" />
+            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center">
+              <DollarSign className="w-5 h-5 text-[var(--icon-green-text)]" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-purple-600">GHS {analytics.totalInsuranceValue.toFixed(0)}</p>
-              <p className="text-xs text-gray-500">Insurance Value</p>
+              <p className="text-2xl font-bold text-[var(--icon-purple-text)]">GHS {analytics.totalInsuranceValue.toFixed(0)}</p>
+              <p className="text-xs text-[var(--text-secondary)]">Insurance Value</p>
             </div>
-            <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-purple-600" />
+            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
+              <Shield className="w-5 h-5 text-[var(--icon-purple-text)]" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-cyan-600">{analytics.nhisCovered}</p>
-              <p className="text-xs text-gray-500">NHIS Covered</p>
+              <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{analytics.nhisCovered}</p>
+              <p className="text-xs text-[var(--text-secondary)]">NHIS Covered</p>
             </div>
-            <div className="w-10 h-10 bg-cyan-100 rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-cyan-600" />
+            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+              <CheckCircle className="w-5 h-5 text-[var(--icon-cyan-text)]" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-amber-600">{analytics.requiresAuth}</p>
-              <p className="text-xs text-gray-500">Need Auth</p>
+              <p className="text-2xl font-bold text-[var(--icon-orange-text)]">{analytics.requiresAuth}</p>
+              <p className="text-xs text-[var(--text-secondary)]">Need Auth</p>
             </div>
-            <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-amber-600" />
+            <div className="w-10 h-10 bg-[var(--icon-orange-bg)] rounded-xl flex items-center justify-center">
+              <AlertCircle className="w-5 h-5 text-[var(--icon-orange-text)]" />
             </div>
           </div>
         </div>
         
-        <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-2xl font-bold text-indigo-600">{analytics.coverageRate.toFixed(0)}%</p>
-              <p className="text-xs text-gray-500">Coverage Rate</p>
+              <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{analytics.coverageRate.toFixed(0)}%</p>
+              <p className="text-xs text-[var(--text-secondary)]">Coverage Rate</p>
             </div>
-            <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+              <TrendingUp className="w-5 h-5 text-[var(--icon-cyan-text)]" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Search and Filters Bar */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)]">
         <div className="p-4">
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+              <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
               <input 
                 type="text" 
                 placeholder="Search by name, code, NHIS code, or description..." 
@@ -582,13 +582,13 @@ export default function ServiceCatalogTab() {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2.5 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
+                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
               />
             </div>
             
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
             >
               <Filter className="w-4 h-4" />
               Filters
@@ -598,13 +598,13 @@ export default function ServiceCatalogTab() {
             <div className="flex gap-2">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`p-2.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-500'}`}
+                className={`p-2.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}
               >
                 <Layers className="w-4 h-4" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`p-2.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-500'}`}
+                className={`p-2.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}
               >
                 <ClipboardList className="w-4 h-4" />
               </button>
@@ -613,7 +613,7 @@ export default function ServiceCatalogTab() {
             <button 
               onClick={loadData} 
               disabled={isLoading}
-              className="px-4 py-2.5 border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 transition-all"
+              className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             </button>
@@ -622,7 +622,7 @@ export default function ServiceCatalogTab() {
             <button 
               onClick={forceLoadAll} 
               disabled={isLoading}
-              className="px-4 py-2.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 transition-all text-sm font-medium"
+              className="px-4 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all text-sm font-medium"
             >
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load All'}
             </button>
@@ -630,7 +630,7 @@ export default function ServiceCatalogTab() {
             {user?.role === 'admin' && (
               <button
                 onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"
               >
                 <Plus className="w-4 h-4" />
                 Add Service
@@ -640,14 +640,14 @@ export default function ServiceCatalogTab() {
           
           {/* Expanded Filters */}
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div className="mt-4 pt-4 border-t border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-4 gap-3">
               <select 
                 value={filterServiceType} 
                 onChange={e => {
                   setFilterServiceType(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 text-sm"
+                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
               >
                 <option value="all">All Service Types</option>
                 {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
@@ -661,7 +661,7 @@ export default function ServiceCatalogTab() {
                   setFilterCategory(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 text-sm"
+                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
               >
                 <option value="all">All Categories</option>
                 {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
@@ -675,7 +675,7 @@ export default function ServiceCatalogTab() {
                   setFilterCoverage(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="px-3 py-2 text-gray-900 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-cyan-500 text-sm"
+                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
               >
                 <option value="all">All Coverage</option>
                 <option value="nhis_covered">NHIS Covered</option>
@@ -683,7 +683,7 @@ export default function ServiceCatalogTab() {
                 <option value="requires_auth">Requires Authorization</option>
               </select>
               
-              <div className="text-sm text-gray-500 flex items-center">
+              <div className="text-sm text-[var(--text-secondary)] flex items-center">
                 Showing {filteredServices.length} of {serviceCatalog.length} services
               </div>
             </div>
@@ -695,21 +695,21 @@ export default function ServiceCatalogTab() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(12)].map((_, i) => (
-            <div key={`skeleton-${i}`} className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse">
-              <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+            <div key={`skeleton-${i}`} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">
+              <div className="h-4 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div>
+              <div className="h-3 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div>
+              <div className="h-3 bg-[var(--bg-main)] rounded w-2/3"></div>
             </div>
           ))}
         </div>
       ) : filteredServices.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <ClipboardList className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 font-medium">No services found</p>
-          <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filters</p>
+        <div className="text-center py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <ClipboardList className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+          <p className="text-[var(--text-secondary)] font-medium">No services found</p>
+          <p className="text-[var(--text-tertiary)] text-sm mt-1">Try adjusting your search or filters</p>
           <button 
             onClick={forceLoadAll}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90"
           >
             Load All Services
           </button>
@@ -722,7 +722,7 @@ export default function ServiceCatalogTab() {
                 {paginatedServices.map(service => (
                   <div 
                     key={service.id} 
-                    className="bg-white rounded-xl border border-gray-200 hover:shadow-lg transition-all cursor-pointer"
+                    className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-lg transition-all cursor-pointer"
                     onClick={() => handleViewDetails(service)}
                   >
                     <div className="p-4">
@@ -732,66 +732,66 @@ export default function ServiceCatalogTab() {
                             {getServiceIcon(service.serviceType)}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-gray-900 line-clamp-1">{service.name}</h3>
+                            <h3 className="font-semibold text-[var(--text-primary)] line-clamp-1">{service.name}</h3>
                             <span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>
                               {service.serviceType.replace('_', ' ')}
                             </span>
                           </div>
                         </div>
                         {service.nhisRequiresAuth && (
-                          <div className="bg-amber-100 p-1 rounded-lg" title="Requires Authorization">
-                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                          <div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg" title="Requires Authorization">
+                            <AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" />
                           </div>
                         )}
                       </div>
                       
                       <div className="space-y-2 mb-3">
                         <div className="flex justify-between text-xs">
-                          <span className="text-gray-500">Code:</span>
-                          <span className="font-mono font-medium text-gray-700">{service.code}</span>
+                          <span className="text-[var(--text-secondary)]">Code:</span>
+                          <span className="font-mono font-medium text-[var(--text-primary)]">{service.code}</span>
                         </div>
                         {service.nhisServiceCode && (
                           <div className="flex justify-between text-xs">
-                            <span className="text-gray-500">NHIS:</span>
-                            <span className="font-mono font-medium text-cyan-600">{service.nhisServiceCode}</span>
+                            <span className="text-[var(--text-secondary)]">NHIS:</span>
+                            <span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span>
                           </div>
                         )}
                         {service.description && (
-                          <p className="text-xs text-gray-500 line-clamp-2">{service.description}</p>
+                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-gray-100">
-                        <div className="bg-green-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1">Cash</p>
-                          <p className="font-bold text-sm text-green-600">{getPriceText(service, 'cash')}</p>
+                      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[var(--border-color)]">
+                        <div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Cash</p>
+                          <p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p>
                         </div>
-                        <div className="bg-cyan-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1">NHIS</p>
-                          <p className="font-bold text-sm text-cyan-600">{getPriceText(service, 'nhis')}</p>
+                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">NHIS</p>
+                          <p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p>
                         </div>
-                        <div className="bg-purple-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1">Insurance</p>
-                          <p className="font-bold text-sm text-purple-600">{getPriceText(service, 'insurance')}</p>
+                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Insurance</p>
+                          <p className="font-bold text-sm text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</p>
                         </div>
-                        <div className="bg-amber-50 rounded-lg p-2 text-center">
-                          <p className="text-xs text-gray-500 mb-1">Corporate</p>
-                          <p className="font-bold text-sm text-amber-600">{getPriceText(service, 'corporate')}</p>
+                        <div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center">
+                          <p className="text-xs text-[var(--text-secondary)] mb-1">Corporate</p>
+                          <p className="font-bold text-sm text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</p>
                         </div>
                       </div>
                     </div>
                     
                     {user?.role === 'admin' && (
-                      <div className="flex border-t border-gray-100 divide-x divide-gray-100">
+                      <div className="flex border-t border-[var(--border-color)] divide-x divide-[var(--border-color)]">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleEdit(service); }}
-                          className="flex-1 py-2 text-sm text-amber-600 hover:bg-amber-50 rounded-bl-xl transition-colors"
+                          className="flex-1 py-2 text-sm text-[var(--icon-orange-text)] hover:bg:[var(--icon-orange-bg)] rounded-bl-xl transition-colors"
                         >
                           <Edit className="w-3 h-3 inline mr-1" /> Edit
                         </button>
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }}
-                          className="flex-1 py-2 text-sm text-red-600 hover:bg-red-50 rounded-br-xl transition-colors"
+                          className="flex-1 py-2 text-sm text-[var(--icon-red-text)] hover:bg:[var(--icon-red-bg)] rounded-br-xl transition-colors"
                         >
                           <Trash2 className="w-3 h-3 inline mr-1" /> Delete
                         </button>
@@ -804,51 +804,51 @@ export default function ServiceCatalogTab() {
             </>
           ) : (
             <>
-              <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                 <table className="w-full">
                   {/* Replace the table header in list view (around line 420-450) */}
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="text-left p-3 text-xs font-semibold text-gray-600">Service</th>
-                      <th className="text-left p-3 text-xs font-semibold text-gray-600">Type</th>
-                      <th className="text-left p-3 text-xs font-semibold text-gray-600">Code</th>
-                      <th className="text-left p-3 text-xs font-semibold text-gray-600">NHIS Code</th>
-                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Cash (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-gray-600">NHIS (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Insurance (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-gray-600">Corporate (GHS)</th>
-                      <th className="text-center p-3 text-xs font-semibold text-gray-600">Actions</th>
+                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Service</th>
+                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Type</th>
+                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Code</th>
+                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th>
+                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th>
+                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th>
+                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th>
+                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th>
+                      <th className="text-center p-3 text-xs font-semibold text-[var(--text-secondary)]">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className="divide-y divide-[var(--border-color)]">
                     {paginatedServices.map(service => (
-                      <tr key={service.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => handleViewDetails(service)}>
+                      <tr key={service.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => handleViewDetails(service)}>
                         <td className="p-3">
-                          <div className="font-medium text-gray-900">{service.name}</div>
-                          {service.description && <div className="text-xs text-gray-500 line-clamp-1">{service.description}</div>}
+                          <div className="font-medium text-[var(--text-primary)]">{service.name}</div>
+                          {service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}
                         </td>
                         <td className="p-3">
                           <span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>
                             {service.serviceType.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="p-3 font-mono text-xs text-gray-600">{service.code}</td>
-                        <td className="p-3 font-mono text-xs text-cyan-600">{service.nhisServiceCode || '-'}</td>
-                        <td className="p-3 text-right font-medium text-green-600">{getPriceText(service, 'cash')}</td>
-                        <td className="p-3 text-right font-medium text-cyan-600">{getPriceText(service, 'nhis')}</td>
-                        <td className="p-3 text-right font-medium text-purple-600">{getPriceText(service, 'insurance')}</td>
-                        <td className="p-3 text-right font-medium text-amber-600">{getPriceText(service, 'corporate')}</td>
+                        <td className="p-3 font-mono text-xs text-[var(--text-secondary)]">{service.code}</td>
+                        <td className="p-3 font-mono text-xs text-[var(--icon-cyan-text)]">{service.nhisServiceCode || '-'}</td>
+                        <td className="p-3 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
+                        <td className="p-3 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
+                        <td className="p-3 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
+                        <td className="p-3 text-right font-medium text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</td>
                         <td className="p-3 text-center">
                           <div className="flex justify-center gap-2">
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleEdit(service); }}
-                              className="p-1 text-amber-600 hover:bg-amber-50 rounded-lg transition-colors"
+                              className="p-1 text-[var(--icon-orange-text)] hover:bg:[var(--icon-orange-bg)] rounded-lg transition-colors"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
                             <button 
                               onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }}
-                              className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1 text-[var(--icon-red-text)] hover:bg:[var(--icon-red-bg)] rounded-lg transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -868,18 +868,18 @@ export default function ServiceCatalogTab() {
       {/* Service Detail Modal - Keep existing */}
       {showDetailModal && selectedService && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex items-center justify-between">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-5 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getServiceColor(selectedService.serviceType)}`}>
                   {getServiceIcon(selectedService.serviceType)}
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900">{selectedService.name}</h2>
-                  <p className="text-sm text-gray-500">{selectedService.code}</p>
+                  <h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedService.name}</h2>
+                  <p className="text-sm text-[var(--text-secondary)]">{selectedService.code}</p>
                 </div>
               </div>
-              <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-[var(--bg-main)] rounded-lg">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -887,31 +887,31 @@ export default function ServiceCatalogTab() {
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Service Type</label>
-                  <p className="text-gray-900 mt-1">{selectedService.serviceType?.replace('_', ' ')}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Service Type</label>
+                  <p className="text-[var(--text-primary)] mt-1">{selectedService.serviceType?.replace('_', ' ')}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Category</label>
-                  <p className="text-gray-900 mt-1">{selectedService.serviceCategory?.toUpperCase()}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Category</label>
+                  <p className="text-[var(--text-primary)] mt-1">{selectedService.serviceCategory?.toUpperCase()}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">NHIS Service Code</label>
-                  <p className="text-gray-900 mt-1 font-mono">{selectedService.nhisServiceCode || 'Not assigned'}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">NHIS Service Code</label>
+                  <p className="text-[var(--text-primary)] mt-1 font-mono">{selectedService.nhisServiceCode || 'Not assigned'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Tariff Code</label>
-                  <p className="text-gray-900 mt-1">{selectedService.tariffCode || 'Not assigned'}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Tariff Code</label>
+                  <p className="text-[var(--text-primary)] mt-1">{selectedService.tariffCode || 'Not assigned'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Unit</label>
-                  <p className="text-gray-900 mt-1">{selectedService.unit || 'Each'}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Unit</label>
+                  <p className="text-[var(--text-primary)] mt-1">{selectedService.unit || 'Each'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Status</label>
-                  <p className="text-gray-900 mt-1">
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Status</label>
+                  <p className="text-[var(--text-primary)] mt-1">
                     {selectedService.isActive !== false ? 
-                      <span className="text-green-600">Active</span> : 
-                      <span className="text-red-600">Inactive</span>
+                      <span className="text-[var(--icon-green-text)]">Active</span> : 
+                      <span className="text-[var(--icon-red-text)]">Inactive</span>
                     }
                   </p>
                 </div>
@@ -919,32 +919,32 @@ export default function ServiceCatalogTab() {
               
               {selectedService.description && (
                 <div>
-                  <label className="text-xs font-medium text-gray-500 uppercase">Description</label>
-                  <p className="text-gray-700 mt-1 text-sm">{selectedService.description}</p>
+                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Description</label>
+                  <p className="text-[var(--text-primary)] mt-1 text-sm">{selectedService.description}</p>
                 </div>
               )}
               
               <div>
-                <label className="text-xs font-medium text-gray-500 uppercase mb-2 block">Pricing</label>
+                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-green-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-green-600 mb-1">Cash Price</p>
-                    <p className="text-lg font-bold text-green-700">{getPriceText(selectedService, 'cash')}</p>
+                  <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 text-center">
+                    <p className="text-xs text-[var(--icon-green-text)] mb-1">Cash Price</p>
+                    <p className="text-lg font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p>
                   </div>
-                  <div className="bg-cyan-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-cyan-600 mb-1">NHIS Price</p>
-                    <p className="text-lg font-bold text-cyan-700">{getPriceText(selectedService, 'nhis')}</p>
+                  <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 text-center">
+                    <p className="text-xs text-[var(--icon-cyan-text)] mb-1">NHIS Price</p>
+                    <p className="text-lg font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p>
                   </div>
-                  <div className="bg-purple-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-purple-600 mb-1">Insurance Price</p>
-                    <p className="text-lg font-bold text-purple-700">{getPriceText(selectedService, 'insurance')}</p>
+                  <div className="bg-[var(--icon-purple-bg)] rounded-lg p-3 text-center">
+                    <p className="text-xs text-[var(--icon-purple-text)] mb-1">Insurance Price</p>
+                    <p className="text-lg font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p>
                   </div>
-                  <div className="bg-amber-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-amber-600 mb-1">Corporate Price</p>
-                    <p className="text-lg font-bold text-amber-700">{getPriceText(selectedService, 'corporate')}</p>
+                  <div className="bg-[var(--icon-orange-bg)] rounded-lg p-3 text-center">
+                    <p className="text-xs text-[var(--icon-orange-text)] mb-1">Corporate Price</p>
+                    <p className="text-lg font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p>
                   </div>
                 </div>
-                <p className="text-xs text-gray-400 mt-2">
+                <p className="text-xs text-[var(--text-tertiary)] mt-2">
                   "Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price.
                   Corporate accounts with a discount % get that discount off cash instead.
                 </p>
@@ -952,23 +952,23 @@ export default function ServiceCatalogTab() {
               
               <div className="flex gap-3 pt-2">
                 {selectedService.nhisRequiresAuth && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 rounded-lg text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg text-xs">
                     <AlertCircle className="w-3 h-3" /> Requires Authorization
                   </span>
                 )}
                 {selectedService.isNHISCovered === false && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-lg text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs">
                     <EyeOff className="w-3 h-3" /> Not NHIS Covered
                   </span>
                 )}
                 {selectedService.pricing?.isTaxable && selectedService.pricing?.vatRate > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 text-gray-700 rounded-lg text-xs">
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg text-xs">
                     <Tag className="w-3 h-3" /> VAT {selectedService.pricing.vatRate}%
                   </span>
                 )}
               </div>
               
-              <div className="text-xs text-gray-400 pt-3 border-t border-gray-100">
+              <div className="text-xs text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-color)]">
                 <p>Created: {new Date(selectedService.createdAt).toLocaleString()}</p>
                 <p>Updated: {new Date(selectedService.updatedAt).toLocaleString()}</p>
               </div>
@@ -980,12 +980,12 @@ export default function ServiceCatalogTab() {
       {/* Service Form Modal - Keep existing */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-gray-900">
+              <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 {editingItem ? 'Edit Service' : 'Add New Service'}
               </h2>
-              <button onClick={handleCancel} className="p-1 hover:bg-gray-100 rounded-lg">
+              <button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
                 <X className="w-4 h-4" />
               </button>
             </div>
@@ -993,35 +993,35 @@ export default function ServiceCatalogTab() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Name *</label>
                   <input 
                     type="text" required value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Code *</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Code *</label>
                   <input 
                     type="text" required value={formData.code}
                     onChange={e => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">NHIS Code</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Code</label>
                   <input 
                     type="text" value={formData.nhisServiceCode}
                     onChange={e => setFormData({ ...formData, nhisServiceCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Service Type *</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Service Type *</label>
                   <select 
                     value={formData.serviceType}
                     onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   >
                     {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
                       <option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>
@@ -1029,11 +1029,11 @@ export default function ServiceCatalogTab() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Category</label>
                   <select 
                     value={formData.serviceCategory}
                     onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   >
                     {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
                       <option key={c} value={c}>{c.toUpperCase()}</option>
@@ -1041,115 +1041,115 @@ export default function ServiceCatalogTab() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Unit</label>
                   <input 
                     type="text" value={formData.unit}
                     onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Cash Price *</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Cash Price *</label>
                   <input 
                     type="number" step="0.01" required value={formData.cashPrice}
                     onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Insurance Price *</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Insurance Price *</label>
                   <input 
                     type="number" step="0.01" required value={formData.insurancePrice}
                     onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">NHIS Price</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Price</label>
                   <input
                     type="number" step="0.01" min="0" value={formData.nhisPrice}
                     onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
-                  <p className="text-xs text-gray-400 mt-1">0 = bill at the cash price</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">0 = bill at the cash price</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Corporate Price</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Corporate Price</label>
                   <input
                     type="number" step="0.01" min="0" value={formData.corporatePrice}
                     onChange={e => setFormData({ ...formData, corporatePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
-                  <p className="text-xs text-gray-400 mt-1">0 = cash price (less the account discount, if any)</p>
+                  <p className="text-xs text-[var(--text-tertiary)] mt-1">0 = cash price (less the account discount, if any)</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Tariff Code</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Tariff Code</label>
                   <input 
                     type="text" value={formData.tariffCode}
                     onChange={e => setFormData({ ...formData, tariffCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">VAT Rate %</label>
+                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">VAT Rate %</label>
                   <input 
                     type="number" step="0.01" value={formData.vatRate}
                     onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Description</label>
                 <textarea 
                   rows={2} value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-cyan-500"
+                  className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
                 />
               </div>
 
               {editingItem?.StockItem?.id && editingItem?.serviceType === 'medication' && (
-                <section className="rounded-xl border border-cyan-200 bg-cyan-50/50 p-4 space-y-4">
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-cyan-bg)] p-4 space-y-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2"><Shield className="w-4 h-4 text-cyan-700" /> NHIS medicine payer policy</h3>
-                      <p className="text-xs text-gray-600 mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p>
+                      <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" /> NHIS medicine payer policy</h3>
+                      <p className="text-xs text-[var(--text-secondary)] mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p>
                     </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
+                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'}`}>
                       {nhisPolicyConfigured ? 'Policy configured' : 'Needs verification'}
                     </span>
                   </div>
                   {nhisPolicyLoading ? (
-                    <p className="text-sm text-gray-500">Loading payer rule…</p>
+                    <p className="text-sm text-[var(--text-secondary)]">Loading payer rule…</p>
                   ) : (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS coverage status *</label>
-                          <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS coverage status *</label>
+                          <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
                             <option value="unverified">Select coverage status…</option>
                             <option value="covered">Covered by NHIS</option>
                             <option value="not_covered">Not covered — patient pays cash price</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS prescribing level *</label>
-                          <select value={nhisPolicy.prescribingLevel} onChange={e => setNhisPolicy({ ...nhisPolicy, prescribingLevel: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS prescribing level *</label>
+                          <select value={nhisPolicy.prescribingLevel} onChange={e => setNhisPolicy({ ...nhisPolicy, prescribingLevel: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
                             {['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].map(level => <option key={level} value={level}>{level}</option>)}
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Prior authorization *</label>
-                          <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Prior authorization *</label>
+                          <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
                             <option value="unverified">Select requirement…</option>
                             <option value="yes">Required</option>
                             <option value="no">Not required</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Co-payment policy *</label>
-                          <select value={nhisPolicy.copaymentMode} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentMode: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm">
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment policy *</label>
+                          <select value={nhisPolicy.copaymentMode} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentMode: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
                             <option value="none">No co-payment</option>
                             <option value="fixed_amount">Fixed amount (GHS)</option>
                             <option value="percentage">Percentage of NHIS tariff</option>
@@ -1157,34 +1157,34 @@ export default function ServiceCatalogTab() {
                           </select>
                         </div>
                         {nhisPolicy.copaymentMode === 'fixed_amount' && <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Fixed co-payment (GHS) *</label>
-                          <input type="number" min="0" step="0.01" value={nhisPolicy.copaymentAmount} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentAmount: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Fixed co-payment (GHS) *</label>
+                          <input type="number" min="0" step="0.01" value={nhisPolicy.copaymentAmount} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentAmount: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                         </div>}
                         {nhisPolicy.copaymentMode === 'percentage' && <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Co-payment percentage (0–100) *</label>
-                          <input type="number" min="0" max="100" step="0.01" value={nhisPolicy.copaymentPercentage} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentPercentage: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment percentage (0–100) *</label>
+                          <input type="number" min="0" max="100" step="0.01" value={nhisPolicy.copaymentPercentage} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentPercentage: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                         </div>}
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">NHIS tariff (GHS)</label>
-                          <input type="number" min="0" step="0.01" value={nhisPolicy.tariffPrice} onChange={e => setNhisPolicy({ ...nhisPolicy, tariffPrice: e.target.value })} placeholder="Use the service NHIS price if blank" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS tariff (GHS)</label>
+                          <input type="number" min="0" step="0.01" value={nhisPolicy.tariffPrice} onChange={e => setNhisPolicy({ ...nhisPolicy, tariffPrice: e.target.value })} placeholder="Use the service NHIS price if blank" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Effective from *</label>
-                          <input type="date" required value={nhisPolicy.effectiveFrom} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveFrom: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective from *</label>
+                          <input type="date" required value={nhisPolicy.effectiveFrom} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveFrom: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                         </div>
                         <div>
-                          <label className="block text-xs font-medium text-gray-700 mb-1">Effective to (optional)</label>
-                          <input type="date" value={nhisPolicy.effectiveTo} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveTo: e.target.value })} className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective to (optional)</label>
+                          <input type="date" value={nhisPolicy.effectiveTo} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveTo: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-xs font-medium text-gray-700 mb-1">Policy notes / verification reference</label>
-                        <textarea rows={2} value={nhisPolicy.notes} onChange={e => setNhisPolicy({ ...nhisPolicy, notes: e.target.value })} placeholder="Record the source or reason for this policy decision" className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" />
+                        <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Policy notes / verification reference</label>
+                        <textarea rows={2} value={nhisPolicy.notes} onChange={e => setNhisPolicy({ ...nhisPolicy, notes: e.target.value })} placeholder="Record the source or reason for this policy decision" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
                       </div>
-                      {nhisPolicy.copaymentMode === 'cash_price_difference' && <p className="text-xs text-amber-800">The patient will pay only the positive difference between the cash price and NHIS tariff. Select this only when the applicable payer policy permits it.</p>}
-                      <div className="flex items-center justify-between gap-3 border-t border-cyan-100 pt-3">
-                        <p className="text-xs text-gray-600">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p>
-                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-cyan-700 px-3 py-2 text-sm font-medium text-white hover:bg-cyan-800 disabled:opacity-50">
+                      {nhisPolicy.copaymentMode === 'cash_price_difference' && <p className="text-xs text-[var(--icon-orange-text)]">The patient will pay only the positive difference between the cash price and NHIS tariff. Select this only when the applicable payer policy permits it.</p>}
+                      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3">
+                        <p className="text-xs text-[var(--text-secondary)]">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p>
+                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
                           <Save className="w-4 h-4" /> {nhisPolicySaving ? 'Saving…' : 'Save NHIS policy'}
                         </button>
                       </div>
@@ -1198,41 +1198,41 @@ export default function ServiceCatalogTab() {
                   <input
                     type="checkbox" checked={formData.isNHISCovered}
                     onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })}
-                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">Covered by NHIS</span>
+                  <span className="text-sm text-[var(--text-primary)]">Covered by NHIS</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox" checked={formData.isPrivateInsuranceExempted}
                     onChange={e => setFormData({ ...formData, isPrivateInsuranceExempted: e.target.checked })}
-                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">Excluded from private insurance</span>
+                  <span className="text-sm text-[var(--text-primary)]">Excluded from private insurance</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox" checked={formData.requiresAuthorization}
                     onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
-                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">Requires Authorization</span>
+                  <span className="text-sm text-[var(--text-primary)]">Requires Authorization</span>
                 </label>
                 <label className="flex items-center gap-2">
                   <input 
                     type="checkbox" checked={formData.isTaxable}
                     onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })}
-                    className="rounded border-gray-300 text-cyan-600 w-4 h-4"
+                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
                   />
-                  <span className="text-sm text-gray-700">Taxable</span>
+                  <span className="text-sm text-[var(--text-primary)]">Taxable</span>
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-3 border-t border-gray-200">
+              <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
                 <button 
                   type="submit"
                   disabled={formLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50 text-sm font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium"
                 >
                   <Save className="w-4 h-4" />
                   {formLoading ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
@@ -1240,7 +1240,7 @@ export default function ServiceCatalogTab() {
                 <button 
                   type="button" onClick={handleCancel}
                   disabled={formLoading}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm font-medium"
+                  className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium"
                 >
                   Cancel
                 </button>

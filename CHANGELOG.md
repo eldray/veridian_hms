@@ -327,6 +327,27 @@ semantic versioning.
   of the app uses. A page that sets no text colour at all inherits black, so each of these
   screens now declares its own base colour instead of leaving table cells and modal copy to
   the browser default.
+- Five more screens are on the tokens as well: the service-catalogue settings
+  tab, the vitals history panel, the visit selector shared by nine entry screens, and both
+  official report sheets (Form A midwives return and the monthly malaria returns). Each of
+  them used the raw palette throughout — the catalogue tab alone asked for 284 hardcoded
+  classes — so a dark scheme rendered them as bright white forms with black text and status
+  chips that no longer matched any other screen. The catalogue's six service-type chips keep
+  six distinct hues, since the token set has exactly one accent per meaning.
+
+### Fixed
+
+- Printing produced a blank sheet. The print stylesheet hid every element on the page and
+  then revealed `#anc-report-content` — an id no component renders, because the ANC form
+  container is `#form-a-report-content`. Nothing matched, so the Print button on the
+  Form A report, and the Print buttons on the clinical-entries, vitals and pharmacy screens
+  (which call `window.print()` on their own page) all printed nothing at all. The extract-
+  the-report rule is now driven by a `printable-report` class on the two report sheets and
+  only applies when one of them is on screen; other screens print their own page with the
+  dashboard header and sidebar removed.
+- A themed report no longer prints in screen colours. Dark schemes set light text, which is
+  invisible on paper, so `.printable-report` is forced to black-on-white with neutral table
+  borders inside the print stylesheet while the screen keeps following the theme.
 
 ### Removed
 

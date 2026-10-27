@@ -72,17 +72,21 @@
 }
 
 
-/* Add to your global.css or tailwind.css */
+/* Printing. Two different needs:
+   - a report sheet (`.printable-report`) must print alone, so everything else is hidden;
+   - any other screen's Print button (entries, vitals, pharmacy) prints the page it is on,
+     so the dashboard chrome simply steps out of the way. */
 @media print {
-  body * {
+  body:has(.printable-report) * {
     visibility: hidden;
   }
-  
-  #anc-report-content, #anc-report-content * {
+
+  body:has(.printable-report) .printable-report,
+  body:has(.printable-report) .printable-report * {
     visibility: visible;
   }
-  
-  #anc-report-content {
+
+  body:has(.printable-report) .printable-report {
     position: absolute;
     left: 0;
     top: 0;
@@ -90,7 +94,25 @@
     margin: 0;
     padding: 0;
   }
-  
+
+  /* The screen theme can be dark; paper is not. */
+  .printable-report,
+  .printable-report * {
+    background: #ffffff !important;
+    color: #111827 !important;
+    border-color: #d1d5db !important;
+  }
+
+  header,
+  aside,
+  nav {
+    display: none !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+  }
+
   .print\:shadow-none {
     box-shadow: none !important;
   }
