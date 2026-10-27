@@ -444,7 +444,7 @@ ${claimsXml}
       if (!att) throw new NotFoundError('Attendance', attendanceId);
       // A claim is filed in a named patient's name with their age and NHIS identity, so a
       // counter ticket (no Patient row, cash only) can never be claimed.
-      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
       }
@@ -716,7 +716,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
-      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
@@ -824,7 +824,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
-      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a corporate provider on the attendance first.`);
       }
