@@ -334,6 +334,14 @@ semantic versioning.
   classes — so a dark scheme rendered them as bright white forms with black text and status
   chips that no longer matched any other screen. The catalogue's six service-type chips keep
   six distinct hues, since the token set has exactly one accent per meaning.
+- The last four reachable screens that had never heard of the theme are converted:
+  the department worklist drawer, the shared "Send to patient" dialog used by five
+  entry screens, the vitals summary card on the antenatal page and the NHIA claim-form
+  building blocks behind the three claim editors. The claim editors keep the teal form
+  bars and the printed-form button outlines, because those reproduce the paper NHIA
+  claim; the sheet, labels, inputs and status chips follow the scheme. Text inputs now
+  declare their own background: nothing in the app sets `color-scheme`, so a native
+  control left unstyled paints a white field even when the card around it is dark.
 
 ### Fixed
 
