@@ -7,19 +7,37 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useBillingStore } from '../store/billingStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import SendDocumentModal from '../components/SendDocumentModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
 import { canAccessPage } from '../config/access';
+import { useHospitalStore } from '../store/hospitalStore';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { 
   ArrowLeft, Edit, FileText, Pill, FlaskConical, Scissors, DollarSign, 
-  User, Calendar, Stethoscope, Activity, CreditCard, Shield, 
+  User, Calendar, Stethoscope, Activity, CreditCard, Shield, X,
   AlertCircle, Loader, Trash2, Plus, ChevronLeft, ChevronRight,
   Clock, MapPin, Phone, Mail, Clipboard, Heart, Thermometer, 
   Droplet, Ruler, Weight, Brain, Bone, Eye, Microscope, Scan,
   Syringe, Hospital, CheckCircle, XCircle, AlertTriangle, TrendingUp,
-  Receipt, Printer, Download, Building2, Bed, Moon, Sun, History, RefreshCw  
+  Receipt, Printer, Download, Building2, Bed, Moon, Sun, History, RefreshCw,
+  MessageSquare  
 } from 'lucide-react';
 import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
+
+/**
+ * `GET /api/encounters/:id` answers with Prisma's relation names (`LabTest`, `Medication`,
+ * `Scan`…), while the frontend `Attendance` type spells them camelCase. A screen that picks
+ * one spelling silently shows an empty list for every visit that does have records, so read
+ * whichever key the payload actually carries.
+ */
+const relationList = (attendance: any, keys: string[]): any[] => {
+  for (const key of keys) {
+    const value = attendance?.[key];
+    if (Array.isArray(value)) return value;
+  }
+  return [];
+};
 
 // Helper function to format currency
 // ✅ ROBUST: Handles strings, numbers, null, undefined, and invalid values
@@ -118,6 +136,206 @@ const Td: React.FC<{ children: React.ReactNode; className?: string }> = ({ child
   <td className={`px-3 py-2 text-[var(--text-secondary)] ${className}`}>{children}</td>
 );
 
+type ResultRow = { label: string; value: string; unit?: string; range?: string };
+
+/**
+ * A lab result is stored as JSON — `{ parameters: [{ name, value, unit, normalRange }], testName }`
+ * — but older records hold free text and some templates answer as a flat object. Render all of
+ * them as rows instead of handing the user a stringified object.
+ */
+const labResultRows = (result: any): { rows: ResultRow[]; note?: string } => {
+  if (result === null || result === undefined) return { rows: [] };
+  if (typeof result === 'string') return { rows: [], note: result };
+
+  const toRow = (item: any, index: number): ResultRow => ({
+    label: item?.name || item?.fieldName || item?.label || `Parameter ${index + 1}`,
+    value: item?.value === undefined || item?.value === null || item?.value === '' ? '—' : String(item.value),
+    unit: item?.unit || undefined,
+    range: item?.normalRange || undefined,
+  });
+
+  if (Array.isArray(result?.parameters)) return { rows: result.parameters.map(toRow) };
+  if (Array.isArray(result)) return { rows: result.map(toRow) };
+  if (typeof result === 'object') {
+    return {
+      rows: Object.entries(result).map(([label, value]) => ({
+        label,
+        value: value && typeof value === 'object' ? JSON.stringify(value) : String(value ?? '—'),
+      })),
+    };
+  }
+  return { rows: [], note: String(result) };
+};
+
+// Read-only viewer for one lab or scan result. Everything it shows is already embedded in the
+// encounter payload, so opening it never needs a diagnostic-specific endpoint.
+const ResultDetailModal: React.FC<{
+  kind: 'lab' | 'scan';
+  record: any;
+  onClose: () => void;
+  onPrint: () => void;
+}> = ({ kind, record, onClose, onPrint }) => {
+  const [image, setImage] = useState<string | null>(null);
+  const images: string[] = Array.isArray(record?.imageUrls) ? record.imageUrls : [];
+  const title = record?.ServiceCatalog?.name
+    || record?.LabTestTemplate?.name
+    || record?.ScanTemplate?.name
+    || record?.scanType
+    || record?.name
+    || (kind === 'lab' ? 'Lab test' : 'Scan');
+  const when = record?.completedAt || record?.updatedAt || record?.requestedAt;
+  const whenText = when && !Number.isNaN(new Date(when).getTime()) ? new Date(when).toLocaleString() : '—';
+  const performer = record?.User_LabTest_performedByIdToUser?.fullName
+    || record?.User_Scan_performedByIdToUser?.fullName
+    || record?.performedBy?.fullName;
+  const { rows, note } = kind === 'lab' ? labResultRows(record?.result) : { rows: [], note: undefined as string | undefined };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full border border-[var(--border-color)] max-h-[85vh] flex flex-col">
+        <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[var(--border-color)]">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              {kind === 'lab'
+                ? <FlaskConical className="w-5 h-5 shrink-0 text-[var(--icon-green-text)]" />
+                : <Scan className="w-5 h-5 shrink-0 text-[var(--icon-purple-text)]" />}
+              <h3 className="text-base font-bold text-[var(--text-primary)] truncate">{title}</h3>
+              <StatusBadge status={record?.status || 'requested'} />
+            </div>
+            <p className="mt-1 text-xs text-[var(--text-secondary)]">
+              {whenText}{performer ? ` · Performed by ${performer}` : ''}{record?.turnaroundMinutes ? ` · ${record.turnaroundMinutes} min turnaround` : ''}
+            </p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] text-[var(--text-secondary)]">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4 overflow-y-auto">
+          {kind === 'lab' && (
+            rows.length > 0 ? (
+              <div className="rounded-lg border border-[var(--border-color)] overflow-hidden">
+                <Table heads={['Parameter', 'Result', 'Units', 'Normal range']}>
+                  {rows.map((row, index) => (
+                    <tr key={`${row.label}-${index}`}>
+                      <TdPrimary>{row.label}</TdPrimary>
+                      <Td className="font-semibold text-[var(--text-primary)]">{row.value}</Td>
+                      <Td>{row.unit || '—'}</Td>
+                      <Td>{row.range || '—'}</Td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+            ) : note ? (
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{note}</p>
+            ) : (
+              <p className="text-sm text-[var(--text-secondary)]">No result values were recorded for this test.</p>
+            )
+          )}
+
+          {kind === 'lab' && (record?.units || record?.normalRange) && (
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              {record?.units && (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-2">
+                  <span className="text-[var(--text-secondary)]">Units: </span>
+                  <span className="font-semibold text-[var(--text-primary)]">{record.units}</span>
+                </div>
+              )}
+              {record?.normalRange && (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-2">
+                  <span className="text-[var(--text-secondary)]">Normal range: </span>
+                  <span className="font-semibold text-[var(--text-primary)]">{record.normalRange}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {kind === 'lab' && record?.notes && (
+            <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-3">
+              <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Technician notes</p>
+              <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{record.notes}</p>
+            </div>
+          )}
+
+          {kind === 'scan' && (
+            <>
+              {record?.findings ? (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-3">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Findings</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{record.findings}</p>
+                </div>
+              ) : <p className="text-sm text-[var(--text-secondary)]">No findings text was recorded for this study.</p>}
+
+              {record?.impression && (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-3">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Impression / conclusion</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{record.impression}</p>
+                </div>
+              )}
+
+              {record?.result && (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-3">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Additional notes</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{record.result}</p>
+                </div>
+              )}
+
+              {record?.description && (
+                <div className="rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)] p-3">
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-1">Requested study</p>
+                  <p className="text-sm text-[var(--text-primary)]">{record.description}{record.bodyPart ? ` · ${record.bodyPart}` : ''}</p>
+                </div>
+              )}
+
+              {images.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">Images ({images.length})</p>
+                  <div className="flex flex-wrap gap-2">
+                    {images.map((url, index) => (
+                      <button
+                        key={`${url}-${index}`}
+                        type="button"
+                        onClick={() => setImage(url)}
+                        className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-2.5 py-1.5 text-xs text-[var(--icon-purple-text)] hover:opacity-80"
+                      >
+                        Image {index + 1}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t border-[var(--border-color)]">
+          <button
+            type="button"
+            onClick={onPrint}
+            className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-bg)] px-3 py-2 text-sm font-medium text-[var(--icon-cyan-text)] hover:opacity-80"
+          >
+            <Printer className="w-4 h-4" />
+            {kind === 'lab' ? 'Print results' : 'Print report'}
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] px-4 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+
+      {image && (
+        <div className="fixed inset-0 z-[60] bg-black/80 flex items-center justify-center p-6" onClick={() => setImage(null)}>
+          <img src={image} alt="Study image" className="max-h-full max-w-full rounded-lg" />
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default function AttendanceDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -142,15 +360,18 @@ export default function AttendanceDetails() {
 
   const { hasRole, user } = useAuthStore();
   const { bills, getBills, generateBillFromAttendance, isLoading: billsLoading } = useBillingStore();
+  const { hospital } = useHospitalStore();
 
   // ── State ─────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'procedures' | 'billing' | 'vitals' | 'clinical'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'medications' | 'lab-tests' | 'scans' | 'procedures' | 'billing' | 'vitals' | 'clinical'>('overview');
   const [refreshing, setRefreshing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [vitalsLoading, setVitalsLoading] = useState(false);
   const [syncingBilling, setSyncingBilling] = useState(false);
+  const [resultViewer, setResultViewer] = useState<{ kind: 'lab' | 'scan'; record: any } | null>(null);
+  const [receiptToSend, setReceiptToSend] = useState<any | null>(null);
 
   // A patient search on another screen must not blank this one: the visit record is what
   // the page is waiting for.
@@ -242,6 +463,13 @@ export default function AttendanceDetails() {
     return bills.filter(b => b.attendanceId === currentAttendance.id);
   }, [bills, currentAttendance]);
 
+  // Records the encounter payload embeds, read under whichever key spelling it uses.
+  const encounterMedications = useMemo(() => relationList(currentAttendance, ['Medication', 'medications']), [currentAttendance]);
+  const encounterLabTests = useMemo(() => relationList(currentAttendance, ['LabTest', 'labTests']), [currentAttendance]);
+  const encounterScans = useMemo(() => relationList(currentAttendance, ['Scan', 'scans']), [currentAttendance]);
+  const encounterProcedures = useMemo(() => relationList(currentAttendance, ['Procedure', 'procedures']), [currentAttendance]);
+  const encounterDiagnoses = useMemo(() => relationList(currentAttendance, ['AttendanceDiagnosis', 'diagnoses']), [currentAttendance]);
+
   const latestBill = attendanceBills[0];
   const clinicalNotes = currentAttendance?.clinicalNotes && typeof currentAttendance.clinicalNotes === 'object' && !Array.isArray(currentAttendance.clinicalNotes)
     ? currentAttendance.clinicalNotes as Record<string, any>
@@ -266,11 +494,10 @@ export default function AttendanceDetails() {
   // Derive a concise, read-only visit summary from the existing encounter payload.
   // Keep the summary tolerant of older records that may not contain every field.
   const visitDiagnoses = useMemo(() => {
-    const diagnoses = currentAttendance?.diagnoses || currentAttendance?.AttendanceDiagnosis || [];
-    return diagnoses
+    return encounterDiagnoses
       .map((item: any) => item?.diagnosis?.name || item?.diagnosisName || item?.name || item?.icdCode)
       .filter((name: unknown): name is string => typeof name === 'string' && name.trim().length > 0);
-  }, [currentAttendance]);
+  }, [encounterDiagnoses]);
 
   const visitClinicalSummary = [
     clinicalNotes.historyPresentingComplaint,
@@ -335,8 +562,10 @@ export default function AttendanceDetails() {
     setEditModalOpen(false);
   };
 
-  const handleAddClinical = (type: 'diagnosis' | 'lab' | 'medication' | 'procedure') => {
-    navigate(`/dashboard/attendance/${id}/clinical/${type}`);
+  const handleAddClinical = (type: 'diagnosis' | 'lab' | 'medication' | 'procedure' | 'scan') => {
+    // Medical Entries owns every clinical add for a visit and opens straight on the requested
+    // entry through ?entry=; there is no separate /attendance/:id/clinical/:type screen.
+    navigate(`/dashboard/medical-entries/${id}?entry=${type}`);
   };
 
   const handleGoToVitals = () => {
@@ -349,7 +578,20 @@ export default function AttendanceDetails() {
 
   const handleGoToBilling = () => {
     if (patient) {
-      navigate(`/dashboard/billing/patient/${patient.id}`);
+      navigate(`/dashboard/patients/${patient.id}/billing`);
+    }
+  };
+
+  // Both result screens are keyed on the patient and take the visit through route state.
+  const handleGoToLaboratory = () => {
+    if (patient) {
+      navigate(`/dashboard/laboratory/${patient.id}`, { state: { patient, attendanceId: id } });
+    }
+  };
+
+  const handleGoToScans = () => {
+    if (patient) {
+      navigate(`/dashboard/scans/${patient.id}`, { state: { patient, attendanceId: id } });
     }
   };
 
@@ -357,6 +599,64 @@ export default function AttendanceDetails() {
     if (patient) {
       navigate('/dashboard/estimates/new', { state: { patient } });
     }
+  };
+
+  const printDocument = (build: () => string, title: string) => {
+    try {
+      openPrintWindow(build(), title);
+      success('Print view opened', 'Use the browser print dialog to print or save the document.');
+    } catch (err: any) {
+      toastError('Print failed', err?.message || 'Could not build this document.');
+    }
+  };
+
+  const printLabResults = (test: any) => {
+    printDocument(
+      () => generatePDF('labResults', { labTests: [test], patient: patient ?? (currentAttendance as any)?.patient, attendance: currentAttendance }, hospital),
+      `Lab-Results-${test?.ServiceCatalog?.name || test?.LabTestTemplate?.name || test?.id?.slice(-6)}`
+    );
+  };
+
+  const printScanReport = (scan: any) => {
+    printDocument(
+      () => generatePDF('scanReport', { scans: [scan], patient: patient ?? (currentAttendance as any)?.patient, attendance: currentAttendance }, hospital),
+      `Scan-Report-${scan?.ServiceCatalog?.name || scan?.scanType || scan?.id?.slice(-6)}`
+    );
+  };
+
+  const printBillStatement = (bill: any) => {
+    printDocument(
+      () => generatePDF('billStatement', { bill, patient: (bill as any).Patient || patient }, hospital),
+      `Bill-Statement-${bill.billNumber}`
+    );
+  };
+
+  /** Newest recorded, non-voided payment — a receipt documents a payment, not an estimate. */
+  const latestPaymentOf = (bill: any) => (bill?.Payment || bill?.payments || [])
+    .filter((payment: any) => !payment.isVoided)
+    .slice()
+    .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime())[0] || null;
+
+  const printReceipt = (bill: any) => {
+    const payment = latestPaymentOf(bill);
+    if (!payment) {
+      toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
+      return;
+    }
+    printDocument(
+      () => generatePDF('receipt', {
+        bill,
+        patient: (bill as any).Patient || patient,
+        payment: {
+          amount: payment.amount,
+          paymentMethod: payment.paymentMethod,
+          receiptNumber: payment.reference || payment.id,
+          paymentDate: payment.transactionDate,
+          receivedBy: payment.User?.fullName || 'System',
+        },
+      }, hospital),
+      `Receipt-${bill.billNumber}`
+    );
   };
 
   // Generate the first bill or synchronize newly completed billable items into the
@@ -470,10 +770,26 @@ export default function AttendanceDetails() {
   // Mirrors POST /api/bills/generate/:encounterId. Lab techs and sonographers may
   // open the visit but must not raise charges.
   const canSyncBilling = hasRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']);
-  const canAddClinical = hasRole(['admin', 'doctor', 'nurse']);
   // Quoting from the visit hands the estimate form the patient in route state, which is
   // how a role that owns Estimates but cannot search the patient register attaches one.
   const canQuote = canAccessPage(user?.role, 'estimates');
+  // Links to another screen are only offered when that screen's own matrix entry admits the
+  // role; otherwise the click lands on Access Denied.
+  const canEnterMedicalEntries = canAccessPage(user?.role, 'medical_entries');
+  const canEnterVitals = canAccessPage(user?.role, 'vitals');
+  const canOpenBilling = canAccessPage(user?.role, 'billing');
+  const canEnterLaboratory = canAccessPage(user?.role, 'laboratory');
+  const canEnterScans = canAccessPage(user?.role, 'scans');
+  // Mirrors POST /api/documents/receipt/:billId — recording the receipt document, not just
+  // printing what the page already shows.
+  const canIssueReceiptDocument = hasRole(['admin', 'records', 'accounts']);
+  // Medical Entries keeps taking orders while the visit is open, so the shortcuts here stop
+  // at the same point (status gate from attendanceStore.canAddMedicalEntries).
+  const visitIsOpen = currentAttendance?.status === 'pending' || currentAttendance?.status === 'admitted';
+  // Every clinical order on a visit — diagnosis, lab test, scan, procedure, prescription — is
+  // POST-guarded to admin + doctor in the API. Offering the shortcut to a nurse or midwife
+  // would only lead them to a 403 on the save button.
+  const canAddClinical = canEnterMedicalEntries && visitIsOpen && hasRole(['admin', 'doctor']);
 
   // Get encounter category badge
   const getEncounterCategoryBadge = () => {
@@ -518,10 +834,11 @@ export default function AttendanceDetails() {
   // Tabs configuration with counts
   const tabs = [
     { id: 'overview', label: 'Overview', icon: FileText },
-    { id: 'clinical', label: 'Clinical', icon: Stethoscope, count: (currentAttendance?.diagnoses?.length || 0) + (currentAttendance?.medicalNotes ? 1 : 0) },
-    { id: 'medications', label: 'Medications', icon: Pill, count: currentAttendance?.medications?.length || 0 },
-    { id: 'lab-tests', label: 'Lab Tests', icon: FlaskConical, count: currentAttendance?.labTests?.length || 0 },
-    { id: 'procedures', label: 'Procedures', icon: Scissors, count: currentAttendance?.procedures?.length || 0 },
+    { id: 'clinical', label: 'Clinical', icon: Stethoscope, count: encounterDiagnoses.length + (currentAttendance?.medicalNotes ? 1 : 0) },
+    { id: 'medications', label: 'Medications', icon: Pill, count: encounterMedications.length },
+    { id: 'lab-tests', label: 'Lab Tests', icon: FlaskConical, count: encounterLabTests.length },
+    { id: 'scans', label: 'Scans', icon: Scan, count: encounterScans.length },
+    { id: 'procedures', label: 'Procedures', icon: Scissors, count: encounterProcedures.length },
     { id: 'vitals', label: 'Vitals', icon: Heart, count: vitalsList.length },
     { id: 'billing', label: 'Billing', icon: DollarSign, count: attendanceBills.length },
   ];
@@ -680,17 +997,15 @@ export default function AttendanceDetails() {
           <div className="mt-4 grid grid-cols-2 gap-2 border-t border-[var(--border-color)] pt-4 sm:grid-cols-4">
             <div className="rounded-lg bg-[var(--bg-main)] p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Diagnoses</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{currentAttendance.diagnoses?.length || 0}</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</p>
             </div>
             <div className="rounded-lg bg-[var(--bg-main)] p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Medicines</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{currentAttendance.medications?.length || 0}</p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterMedications.length}</p>
             </div>
             <div className="rounded-lg bg-[var(--bg-main)] p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Lab / scans</p>
-              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">
-                {(currentAttendance.labTests?.length || 0) + (currentAttendance.scans?.length || 0)}
-              </p>
+              <p className="mt-1 text-lg font-bold text-[var(--text-primary)]">{encounterLabTests.length + encounterScans.length}</p>
             </div>
             <div className="rounded-lg bg-[var(--bg-main)] p-3">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">Visit charges</p>
@@ -765,13 +1080,16 @@ export default function AttendanceDetails() {
           </div>
           <div className="flex items-center gap-2 text-xs flex-wrap">
             <span className="bg-blue-100 dark:bg-blue-900/50 px-2 py-1 rounded border border-blue-200 dark:border-blue-700 text-blue-700 dark:text-blue-300">
-              💊 Meds: {currentAttendance.medications?.length || 0}
+              💊 Meds: {encounterMedications.length}
             </span>
             <span className="bg-green-100 dark:bg-green-900/50 px-2 py-1 rounded border border-green-200 dark:border-green-700 text-green-700 dark:text-green-300">
-              🧪 Labs: {currentAttendance.labTests?.length || 0}
+              🧪 Labs: {encounterLabTests.length}
+            </span>
+            <span className="bg-cyan-100 dark:bg-cyan-900/50 px-2 py-1 rounded border border-cyan-200 dark:border-cyan-700 text-cyan-700 dark:text-cyan-300">
+              🩻 Scans: {encounterScans.length}
             </span>
             <span className="bg-purple-100 dark:bg-purple-900/50 px-2 py-1 rounded border border-purple-200 dark:border-purple-700 text-purple-700 dark:text-purple-300">
-              ✂️ Procs: {currentAttendance.procedures?.length || 0}
+              ✂️ Procs: {encounterProcedures.length}
             </span>
             <span className="bg-yellow-100 dark:bg-yellow-900/50 px-2 py-1 rounded border border-yellow-200 dark:border-yellow-700 text-yellow-700 dark:text-yellow-300 font-bold">
               💰 {formatCurrency(currentAttendance.totalBill || 0)}
@@ -785,27 +1103,33 @@ export default function AttendanceDetails() {
 
       {/* Quick Action Buttons */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        <button
-          onClick={handleGoToMedicalEntries}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
-        >
-          <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-          Medical Entries
-        </button>
-        <button
-          onClick={handleGoToVitals}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
-        >
-          <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
-          Vitals
-        </button>
-        <button
-          onClick={handleGoToBilling}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
-        >
-          <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
-          Billing
-        </button>
+        {canEnterMedicalEntries && (
+          <button
+            onClick={handleGoToMedicalEntries}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            Medical Entries
+          </button>
+        )}
+        {canEnterVitals && (
+          <button
+            onClick={handleGoToVitals}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
+            Vitals
+          </button>
+        )}
+        {canOpenBilling && (
+          <button
+            onClick={handleGoToBilling}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
+            Billing
+          </button>
+        )}
         {canQuote && (
           <button
             onClick={handleNewEstimate}
@@ -813,6 +1137,25 @@ export default function AttendanceDetails() {
           >
             <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
             Estimate
+          </button>
+        )}
+        {/* The two screens that own result entry, so their staff reach it from the visit. */}
+        {canEnterLaboratory && patient && (
+          <button
+            onClick={handleGoToLaboratory}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <Microscope className="w-4 h-4 text-[var(--icon-green-text)]" />
+            Lab worklist
+          </button>
+        )}
+        {canEnterScans && patient && (
+          <button
+            onClick={handleGoToScans}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <Scan className="w-4 h-4 text-[var(--icon-purple-text)]" />
+            Scan worklist
           </button>
         )}
       </div>
@@ -869,12 +1212,13 @@ export default function AttendanceDetails() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
+                <div className="grid grid-cols-2 xl:grid-cols-6 gap-3">
                   {[
                     { label: 'Diagnoses', value: visitDiagnoses.length, icon: Stethoscope, tab: 'clinical' as const },
-                    { label: 'Medicines', value: (currentAttendance?.medications || currentAttendance?.Medication || []).length, icon: Pill, tab: 'medications' as const },
-                    { label: 'Lab tests', value: (currentAttendance?.labTests || currentAttendance?.LabTest || []).length, icon: FlaskConical, tab: 'lab-tests' as const },
-                    { label: 'Procedures', value: (currentAttendance?.procedures || currentAttendance?.Procedure || []).length, icon: Scissors, tab: 'procedures' as const },
+                    { label: 'Medicines', value: encounterMedications.length, icon: Pill, tab: 'medications' as const },
+                    { label: 'Lab tests', value: encounterLabTests.length, icon: FlaskConical, tab: 'lab-tests' as const },
+                    { label: 'Scans', value: encounterScans.length, icon: Scan, tab: 'scans' as const },
+                    { label: 'Procedures', value: encounterProcedures.length, icon: Scissors, tab: 'procedures' as const },
                     { label: 'Vitals recorded', value: vitalsList.length, icon: Heart, tab: 'vitals' as const },
                   ].map((item) => {
                     const SummaryIcon = item.icon;
@@ -1029,7 +1373,7 @@ export default function AttendanceDetails() {
                   </div>
 
                   {/* Diagnoses */}
-                  {currentAttendance.diagnoses && currentAttendance.diagnoses.length > 0 && (
+                  {encounterDiagnoses.length > 0 && (
                     <div className="bg-white dark:bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
                       <div className="flex items-center gap-3 mb-4">
                         <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
@@ -1042,7 +1386,7 @@ export default function AttendanceDetails() {
                       </div>
                       
                       <div className="space-y-3">
-                        {currentAttendance.diagnoses.map((diagnosis: any, index: number) => (
+                        {encounterDiagnoses.map((diagnosis: any, index: number) => (
                           <div key={diagnosis.id || index} className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
@@ -1170,11 +1514,13 @@ export default function AttendanceDetails() {
                           </div>
                         )}
                       </div>
-                      <div className="mt-2 text-center">
-                        <button onClick={handleGoToVitals} className="text-xs text-[var(--icon-cyan-text)] hover:underline">
-                          View all vitals →
-                        </button>
-                      </div>
+                      {canEnterVitals && (
+                        <div className="mt-2 text-center">
+                          <button onClick={handleGoToVitals} className="text-xs text-[var(--icon-cyan-text)] hover:underline">
+                            View all vitals →
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1213,18 +1559,28 @@ export default function AttendanceDetails() {
                     <h3 className="text-md font-bold text-[var(--text-primary)] mb-3">Clinical Summary</h3>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
+                        <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)] mx-auto mb-1" />
+                        <div className="font-bold text-[var(--text-primary)]">{encounterDiagnoses.length}</div>
+                        <div className="text-xs text-[var(--text-secondary)]">Diagnoses</div>
+                      </div>
+                      <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
                         <Pill className="w-4 h-4 text-[var(--icon-purple-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{currentAttendance.medications?.length || 0}</div>
+                        <div className="font-bold text-[var(--text-primary)]">{encounterMedications.length}</div>
                         <div className="text-xs text-[var(--text-secondary)]">Medications</div>
                       </div>
                       <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
                         <FlaskConical className="w-4 h-4 text-[var(--icon-green-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{currentAttendance.labTests?.length || 0}</div>
+                        <div className="font-bold text-[var(--text-primary)]">{encounterLabTests.length}</div>
                         <div className="text-xs text-[var(--text-secondary)]">Lab Tests</div>
                       </div>
                       <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
+                        <Scan className="w-4 h-4 text-[var(--icon-purple-text)] mx-auto mb-1" />
+                        <div className="font-bold text-[var(--text-primary)]">{encounterScans.length}</div>
+                        <div className="text-xs text-[var(--text-secondary)]">Scans</div>
+                      </div>
+                      <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
                         <Scissors className="w-4 h-4 text-[var(--icon-red-text)] mx-auto mb-1" />
-                        <div className="font-bold text-[var(--text-primary)]">{currentAttendance.procedures?.length || 0}</div>
+                        <div className="font-bold text-[var(--text-primary)]">{encounterProcedures.length}</div>
                         <div className="text-xs text-[var(--text-secondary)]">Procedures</div>
                       </div>
                       <div className="text-center bg-white dark:bg-[var(--bg-main)] rounded-lg p-2 border border-[var(--border-color)]">
@@ -1242,16 +1598,16 @@ export default function AttendanceDetails() {
           {/* MEDICATIONS TAB */}
           {activeTab === 'medications' && (
             <div>
-              {currentAttendance.medications && currentAttendance.medications.length > 0 ? (
+              {encounterMedications.length > 0 ? (
                 <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status', 'Prescribed By', 'Date']}>
-                  {currentAttendance.medications.map((med: any) => (
+                  {encounterMedications.map((med: any) => (
                     <tr key={med.id}>
-                      <TdPrimary>{med.name}</TdPrimary>
+                      <TdPrimary>{med.name || med.StockItem?.name || 'Medication'}</TdPrimary>
                       <Td>{med.dosage || '—'}</Td>
                       <Td>{med.frequency || '—'}</Td>
                       <Td>{med.duration || '—'}</Td>
                       <Td><StatusBadge status={med.status || 'prescribed'} /></Td>
-                      <Td>{med.prescribedBy?.fullName || med.createdBy?.fullName || '—'}</Td>
+                      <Td>{med.prescribedBy?.fullName || med.User_Medication_prescribedByIdToUser?.fullName || med.createdBy?.fullName || '—'}</Td>
                       <Td>{new Date(med.createdAt).toLocaleDateString()}</Td>
                     </tr>
                   ))}
@@ -1260,6 +1616,14 @@ export default function AttendanceDetails() {
                 <div className="text-center py-12">
                   <Pill className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No medications prescribed for this attendance.</p>
+                  {canAddClinical && (
+                    <button
+                      onClick={() => handleAddClinical('medication')}
+                      className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    >
+                      Prescribe medication
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1267,12 +1631,29 @@ export default function AttendanceDetails() {
 
           {/* LAB TESTS TAB */}
           {activeTab === 'lab-tests' && (
-            <div>
-              {currentAttendance.labTests && currentAttendance.labTests.length > 0 ? (
-                <Table heads={['Test', 'Priority', 'Status', 'Requested By', 'Requested Date', 'Result']}>
-                  {currentAttendance.labTests.map((test: any) => (
+            <div className="space-y-4">
+              {encounterLabTests.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--text-secondary)]">Open a test to read its recorded parameters; print the sheet for the patient file.</p>
+                  <div className="flex items-center gap-2">
+                    {canEnterLaboratory && patient && (
+                      <button
+                        type="button"
+                        onClick={handleGoToLaboratory}
+                        className="inline-flex items-center gap-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                      >
+                        <Microscope className="h-4 w-4 text-[var(--icon-green-text)]" />
+                        Enter results
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {encounterLabTests.length > 0 ? (
+                <Table heads={['Test', 'Priority', 'Status', 'Performed by', 'Requested Date', 'Result']}>
+                  {encounterLabTests.map((test: any) => (
                     <tr key={test.id}>
-                      <TdPrimary>{test.ServiceCatalog?.name || test.name}</TdPrimary>
+                      <TdPrimary>{test.ServiceCatalog?.name || test.LabTestTemplate?.name || test.name}</TdPrimary>
                       <Td>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           test.priority === 'stat' ? 'bg-red-100 text-red-700' :
@@ -1283,9 +1664,20 @@ export default function AttendanceDetails() {
                         </span>
                       </Td>
                       <Td><StatusBadge status={test.status} /></Td>
-                      <Td>{test.requestedBy?.fullName || '—'}</Td>
+                      <Td>{test.User_LabTest_performedByIdToUser?.fullName || test.requestedBy?.fullName || '—'}</Td>
                       <Td>{new Date(test.requestedAt || test.createdAt).toLocaleDateString()}</Td>
-                      <Td>{test.result ? (typeof test.result === 'object' ? JSON.stringify(test.result) : test.result) : '—'}</Td>
+                      <Td>
+                        {test.result ? (
+                          <button
+                            type="button"
+                            onClick={() => setResultViewer({ kind: 'lab', record: test })}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--icon-cyan-text)] hover:opacity-80"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View result
+                          </button>
+                        ) : <span className="text-[var(--text-tertiary)]">Not resulted</span>}
+                      </Td>
                     </tr>
                   ))}
                 </Table>
@@ -1293,6 +1685,83 @@ export default function AttendanceDetails() {
                 <div className="text-center py-12">
                   <FlaskConical className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No lab tests requested for this attendance.</p>
+                  {canAddClinical && (
+                    <button
+                      onClick={() => handleAddClinical('lab')}
+                      className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    >
+                      Request a lab test
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SCANS TAB */}
+          {activeTab === 'scans' && (
+            <div className="space-y-4">
+              {encounterScans.length > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-xs text-[var(--text-secondary)]">Open a scan to read its findings and impression; print the report for the patient file.</p>
+                  {canEnterScans && patient && (
+                    <button
+                      type="button"
+                      onClick={handleGoToScans}
+                      className="inline-flex items-center gap-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-2 text-sm font-medium text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
+                    >
+                      <Scan className="h-4 w-4 text-[var(--icon-purple-text)]" />
+                      Enter results
+                    </button>
+                  )}
+                </div>
+              )}
+              {encounterScans.length > 0 ? (
+                <Table heads={['Scan', 'Body part', 'Priority', 'Status', 'Requested', 'Result']}>
+                  {encounterScans.map((scan: any) => (
+                    <tr key={scan.id}>
+                      <TdPrimary>{scan.ServiceCatalog?.name || scan.ScanTemplate?.name || scan.scanType}</TdPrimary>
+                      <Td>{scan.bodyPart || scan.ScanTemplate?.bodyPart || '—'}</Td>
+                      <Td>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          scan.priority === 'stat' ? 'bg-red-100 text-red-700' :
+                          scan.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
+                          'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                        }`}>
+                          {scan.priority || 'routine'}
+                        </span>
+                      </Td>
+                      <Td><StatusBadge status={scan.status} /></Td>
+                      <Td>{new Date(scan.requestedAt || scan.createdAt).toLocaleDateString()}</Td>
+                      <Td>
+                        {scan.findings || scan.impression || scan.result ? (
+                          <button
+                            type="button"
+                            onClick={() => setResultViewer({ kind: 'scan', record: scan })}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--icon-cyan-text)] hover:opacity-80"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            View report
+                          </button>
+                        ) : (
+                          <span className="text-[var(--text-tertiary)]">{scan.status === 'completed' ? 'No report text' : 'Not reported'}</span>
+                        )}
+                      </Td>
+                    </tr>
+                  ))}
+                </Table>
+              ) : (
+                <div className="text-center py-12">
+                  <Scan className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+                  <p className="text-[var(--text-secondary)]">No imaging requested for this attendance.</p>
+                  {canAddClinical && (
+                    <button
+                      onClick={() => handleAddClinical('scan')}
+                      className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    >
+                      Request a scan
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1301,15 +1770,15 @@ export default function AttendanceDetails() {
           {/* PROCEDURES TAB */}
           {activeTab === 'procedures' && (
             <div>
-              {currentAttendance.procedures && currentAttendance.procedures.length > 0 ? (
-                <Table heads={['Procedure', 'Scheduled Date', 'Status', 'Notes', 'Requested By']}>
-                  {currentAttendance.procedures.map((proc: any) => (
+              {encounterProcedures.length > 0 ? (
+                <Table heads={['Procedure', 'Scheduled Date', 'Status', 'Notes', 'Department']}>
+                  {encounterProcedures.map((proc: any) => (
                     <tr key={proc.id}>
-                      <TdPrimary>{proc.ServiceCatalog?.name || proc.name}</TdPrimary>
+                      <TdPrimary>{proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}</TdPrimary>
                       <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
                       <Td><StatusBadge status={proc.status} /></Td>
                       <Td className="max-w-xs truncate">{proc.notes || '—'}</Td>
-                      <Td>{proc.requestedBy?.fullName || proc.createdBy?.fullName || '—'}</Td>
+                      <Td>{proc.ProcedureTemplate?.department || '—'}</Td>
                     </tr>
                   ))}
                 </Table>
@@ -1317,6 +1786,14 @@ export default function AttendanceDetails() {
                 <div className="text-center py-12">
                   <Scissors className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No procedures scheduled for this attendance.</p>
+                  {canAddClinical && (
+                    <button
+                      onClick={() => handleAddClinical('procedure')}
+                      className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    >
+                      Schedule a procedure
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1335,12 +1812,14 @@ export default function AttendanceDetails() {
                 <div className="text-center py-12">
                   <Heart className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                   <p className="text-[var(--text-secondary)]">No vitals recorded for this attendance.</p>
-                  <button
-                    onClick={handleGoToVitals}
-                    className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
-                  >
-                    Record Vitals
-                  </button>
+                  {canEnterVitals && (
+                    <button
+                      onClick={handleGoToVitals}
+                      className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    >
+                      Record Vitals
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -1368,7 +1847,9 @@ export default function AttendanceDetails() {
               </div>
               {attendanceBills.length > 0 ? (
                 <div className="space-y-4">
-                  {attendanceBills.map((bill: any) => (
+                  {attendanceBills.map((bill: any) => {
+                    const paidSoFar = latestPaymentOf(bill);
+                    return (
                     <div key={bill.id} className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                       <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--border-color)]">
                         <div>
@@ -1387,7 +1868,7 @@ export default function AttendanceDetails() {
                         ))}
                         {(bill.BillLineItem?.filter((item: any) => !item.isVoided).length || 0) > 5 && (
                           <p className="text-xs text-[var(--text-tertiary)] text-center">
-                            +{(bill.BillLineItem?.filter((item: any) => !item.isVoided).length || 0) - 5} more items
+                            +{(bill.BillLineItem?.filter((item: any) => !item.isVoided).length || 0) - 5} more items — print the bill to see them all
                           </p>
                         )}
                         
@@ -1408,8 +1889,56 @@ export default function AttendanceDetails() {
                           )}
                         </div>
                       </div>
+
+                      {/* Documents built from data this page already holds, so any role that can
+                          read the bill can produce its paperwork. */}
+                      <div className="mt-3 pt-3 border-t border-[var(--border-color)] flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => printBillStatement(bill)}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+                        >
+                          <Printer className="h-3.5 w-3.5" />
+                          Print bill
+                        </button>
+                        {paidSoFar ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => printReceipt(bill)}
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--icon-green-bg)] px-3 py-1.5 text-xs font-medium text-[var(--icon-green-text)] hover:opacity-80"
+                            >
+                              <Receipt className="h-3.5 w-3.5" />
+                              Print receipt
+                            </button>
+                            {canIssueReceiptDocument && (
+                              <button
+                                type="button"
+                                onClick={() => setReceiptToSend(bill)}
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+                              >
+                                <MessageSquare className="h-3.5 w-3.5" />
+                                Send receipt
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-[var(--text-tertiary)]">No payment recorded yet, so there is nothing to receipt.</span>
+                        )}
+                        {canOpenBilling && (
+                          <button
+                            type="button"
+                            onClick={handleGoToBilling}
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] px-3 py-1.5 text-xs font-medium text-[var(--text-primary)] hover:bg-[var(--border-color)]"
+                          >
+                            <DollarSign className="h-3.5 w-3.5 text-[var(--icon-green-text)]" />
+                            Payments &amp; waivers
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="rounded-xl border border-dashed border-[var(--border-color)] py-10 text-center">
@@ -1479,7 +2008,7 @@ export default function AttendanceDetails() {
                     <div className="text-center py-8">
                       <Stethoscope className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
                       <p className="text-[var(--text-secondary)]">No clinical notes recorded for this attendance.</p>
-                      {canAddClinical && currentAttendance.status === 'pending' && (
+                      {canAddClinical && (
                         <button
                           onClick={() => handleAddClinical('diagnosis')}
                           className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
@@ -1493,7 +2022,7 @@ export default function AttendanceDetails() {
               </div>
               
               {/* Action Buttons for Adding Clinical Data */}
-              {canAddClinical && currentAttendance.status === 'pending' && (
+              {canAddClinical && (
                 <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
@@ -1514,6 +2043,13 @@ export default function AttendanceDetails() {
                       >
                         <Plus className="w-3 h-3" />
                         Lab Test
+                      </button>
+                      <button
+                        onClick={() => handleAddClinical('scan')}
+                        className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Scan
                       </button>
                       <button
                         onClick={() => handleAddClinical('medication')}
@@ -1581,6 +2117,28 @@ export default function AttendanceDetails() {
           onClose={handleEditClose}
           isEditMode={true}
           attendanceData={currentAttendance}
+        />
+      )}
+
+      {/* Lab / scan result viewer */}
+      {resultViewer && (
+        <ResultDetailModal
+          kind={resultViewer.kind}
+          record={resultViewer.record}
+          onClose={() => setResultViewer(null)}
+          onPrint={() => (resultViewer.kind === 'lab' ? printLabResults(resultViewer.record) : printScanReport(resultViewer.record))}
+        />
+      )}
+
+      {/* Send the recorded receipt to the patient by SMS / WhatsApp */}
+      {receiptToSend && (
+        <SendDocumentModal
+          open
+          onClose={() => setReceiptToSend(null)}
+          patient={patient ?? (receiptToSend as any).Patient}
+          documentType="receipt"
+          entityId={receiptToSend.id}
+          paymentId={latestPaymentOf(receiptToSend)?.id}
         />
       )}
     </div>

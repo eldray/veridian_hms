@@ -170,6 +170,20 @@ semantic versioning.
   in `App.tsx` and the sidebar in `DashboardLayout.tsx` both read this table, so the
   menu, the guard and the API role lists can be reviewed against one another. Backend
   route guards mirror it by hand and each divergence is commented where it lives.
+- The visit page is a complete record of one attendance. It has a Scans tab built from
+  the study rows the encounter already returns, and a result viewer that renders a lab
+  test's recorded parameters (name, value, units, normal range) or a scan's findings,
+  impression, notes and images. The previous table printed the raw `JSON.stringify` of
+  the result blob.
+- Documents can be produced from the visit itself. The result viewer prints the lab
+  sheet or scan report, and each bill in the billing tab can print its statement, print
+  a receipt for its most recent recorded payment, and — for the roles
+  `POST /api/documents/receipt/:billId` admits — send that receipt to the patient by
+  SMS or WhatsApp. Everything the print actions need is already loaded, so no role hits
+  a diagnostic or billing endpoint it cannot call.
+- Medical Entries accepts `?entry=diagnosis|lab|scan|medication|procedure|consumable`
+  and opens that entry once the visit is loaded. The visit page's clinical shortcuts use
+  it, so "Request a lab test" lands on the lab request form instead of a generic screen.
 
 ### Changed
 
@@ -398,6 +412,29 @@ semantic versioning.
   line arrives without a price, so the stored total matches what the form showed.
 
 ### Fixed
+
+- The visit page's Medications, Lab Tests and Procedures tabs always said "none recorded",
+  even on visits full of them, and the counts on the tabs, the summary tiles and the
+  diagnoses card agreed with the empty list. `GET /api/encounters/:id` answers with Prisma's
+  relation names (`Medication`, `LabTest`, `Procedure`, `Scan`, `AttendanceDiagnosis`) while
+  this screen read the camelCase names the frontend `Attendance` type claims. The page now
+  reads whichever key the payload carries.
+- Two shortcuts on the visit page went nowhere. "Billing" pointed at
+  `/dashboard/billing/patient/:id` and the clinical quick actions at
+  `/dashboard/attendance/:id/clinical/:type`; neither route is registered, so the catch-all
+  bounced the user back to the dashboard. They now go to `/dashboard/patients/:id/billing`
+  and to Medical Entries for that visit with the entry to open named in the query string.
+- A visit no longer offers a link its own access matrix refuses. Every cross-screen action —
+  Medical Entries, Vitals, Billing, Estimates, the laboratory and radiology worklists — is
+  checked against `config/access.ts`, so lab technicians, sonographers and accounts get the
+  screens they may actually open instead of an Access Denied page. The two result screens are
+  keyed on the patient, so the visit passes the patient and the attendance through route
+  state rather than sending an id they cannot resolve.
+- Clinical shortcuts match the guards that save them. Every order on a visit (diagnosis, lab
+  test, scan, procedure, prescription) is POST-guarded to admin and doctor, so the "quick
+  clinical actions" panel no longer offers a nurse a form whose save button returns 403. The
+  panel follows Medical Entries' own rule for a live visit — pending or admitted, not pending
+  only — so an admitted patient can still be ordered investigations.
 
 - Printing produced a blank sheet. The print stylesheet hid every element on the page and
   then revealed `#anc-report-content` — an id no component renders, because the ANC form

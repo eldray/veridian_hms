@@ -604,7 +604,7 @@ export default function MedicalEntries() {
 
   const { patients, loadPatients, fetchPatient, currentPatient } = usePatientStore();
   const { attendanceId } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   // Only the write helpers are needed here: this screen shows the visit it is on, and the
   // admission registers are loaded by the pages that list them.
   const { createAdmission, convertDetentionToIPD } = useAdmissionStore();
@@ -771,6 +771,18 @@ export default function MedicalEntries() {
     // fetches its record once and also derives the patient selection.
     setSelectedAttendanceId(attendanceId);
   }, [attendanceId]);
+
+  // A visit screen can name the entry it wants opened (…?entry=lab). Wait for the visit to be
+  // selected, then consume the parameter so changing visits here does not re-open the modal.
+  const requestedEntry = searchParams.get('entry');
+  useEffect(() => {
+    if (!requestedEntry || !selectedAttendanceId) return;
+    const openable: ModalType[] = ['diagnosis', 'lab', 'procedure', 'medication', 'scan', 'consumable'];
+    if (openable.includes(requestedEntry as ModalType)) setModalType(requestedEntry as ModalType);
+    const remaining = new URLSearchParams(searchParams);
+    remaining.delete('entry');
+    setSearchParams(remaining, { replace: true });
+  }, [requestedEntry, selectedAttendanceId, searchParams, setSearchParams]);
 
   // Load encounter clinical notes once per selected attendance. This used to be duplicated,
   // causing two identical requests and competing state updates whenever staff changed visits.
