@@ -2556,7 +2556,8 @@ model AbortionRecord {
 model ProformaInvoice {
   id                 String                @id @default(cuid())
   referenceNumber    String                @unique
-  patientId          String
+  // A quote can be raised for a walk-in client who is not on the register yet.
+  patientId          String?
   attendanceId       String?               @unique
   admissionId        String?
   status             ProformaInvoiceStatus @default(DRAFT)
@@ -2582,7 +2583,7 @@ model ProformaInvoice {
 
   Attendance         Attendance?           @relation(fields: [attendanceId], references: [id])
   admission          Admission?            @relation(fields: [admissionId], references: [id])
-  Patient            Patient               @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Patient            Patient?              @relation(fields: [patientId], references: [id], onDelete: Cascade)
   User_createdBy     User                  @relation("ProformaInvoice_createdByIdToUser", fields: [createdById], references: [id])
   User_approvedBy    User?                 @relation("ProformaInvoice_approvedByIdToUser", fields: [approvedById], references: [id])
   Bill               Bill?                 @relation(fields: [convertedToBillId], references: [id])

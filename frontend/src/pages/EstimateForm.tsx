@@ -1,6 +1,6 @@
 // src/pages/EstimateForm.tsx
 import { type FormEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check,
@@ -25,6 +25,9 @@ interface FormItem {
   vatRate: number;
   isInsuranceCovered: boolean;
   insuranceCoverage: number;
+  // Catalog prices per payment mode, kept on the row so switching the basis can
+  // re-price it. UI-only — never sent to the API.
+  tiers?: Record<string, number>;
 }
 
 const emptyItem = (): FormItem => ({
@@ -37,6 +40,22 @@ const emptyItem = (): FormItem => ({
   isInsuranceCovered: false,
   insuranceCoverage: 0,
 });
+
+// Which catalog column prices a line depends on the basis it is quoted on. The
+// pricing row the catalog list returns is the newest active one and carries all four.
+const PRICING_FIELD: Record<string, string> = {
+  cash: 'cashPrice',
+  nhis: 'nhisPrice',
+  private_insurance: 'insurancePrice',
+  corporate: 'corporatePrice',
+};
+
+const tiersOf = (pricing: any): Record<string, number> => {
+  if (!pricing) return {};
+  return Object.fromEntries(
+    Object.entries(PRICING_FIELD).map(([basis, field]) => [basis, Number(pricing[field] || 0)]),
+  );
+};
 
 const asArray = (response: any): any[] => {
   if (Array.isArray(response)) return response;
@@ -271,19 +290,24 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 export default function EstimateForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const editing = Boolean(id);
   const { error: toastError, success } = useToast();
   const { currentEstimate, loadEstimate, createEstimate, updateEstimate } = useEstimatesStore();
 
+  // Arriving from a visit carries its patient, so the form can label the line without
+  // a register search — which the roles that own Estimates are not allowed to make.
+  const carriedPatient = (location.state as any)?.patient ?? null;
+
   // The patient picker is searched on the server (25 rows per keystroke pause) instead of
   // pulling the whole register into the shared store before the form is usable.
   const [patientChoices, setPatientChoices] = useState<any[]>([]);
-  const [chosenPatient, setChosenPatient] = useState<any | null>(null);
+  const [chosenPatient, setChosenPatient] = useState<any | null>(carriedPatient);
   const [patientSearching, setPatientSearching] = useState(false);
   const [patientSearchBlocked, setPatientSearchBlocked] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState<string>(carriedPatient?.id || '');
   const [corporateAccountId, setCorporateAccountId] = useState('');
   const [items, setItems] = useState<FormItem[]>([emptyItem()]);
   const [discount, setDiscount] = useState(0);
@@ -352,10 +376,12 @@ export default function EstimateForm() {
   }, [id]);
 
   // A patient chosen from the search list is already labelled; one restored from a saved
-  // estimate is fetched on its own so the form shows who it belongs to.
+  // estimate arrives inside that estimate, and only otherwise needs its own request — a
+  // role without register access can still see the client its own quote belongs to.
   useEffect(() => {
     if (!patientId) { setChosenPatient(null); return; }
     if (chosenPatient?.id === patientId) return;
+    if (currentEstimate?.patient?.id === patientId) { setChosenPatient(currentEstimate.patient); return; }
     const inList = patientChoices.find((p: any) => p.id === patientId);
     if (inList) { setChosenPatient(inList); return; }
     let isCurrent = true;
@@ -366,7 +392,7 @@ export default function EstimateForm() {
       })
       .catch(() => { /* label falls back to blank */ });
     return () => { isCurrent = false; };
-  }, [patientId, patientChoices, chosenPatient?.id]);
+  }, [patientId, patientChoices, chosenPatient?.id, currentEstimate]);
 
   // ── Hydrate form when editing ────────────────
   useEffect(() => {
@@ -463,43 +489,61 @@ export default function EstimateForm() {
 
   const selectService = (index: number, serviceId: string) => {
     if (!serviceId) {
-      updateItem(index, { serviceCatalogId: undefined });
+      updateItem(index, { serviceCatalogId: undefined, tiers: undefined });
       return;
     }
     const service = services.find((candidate) => candidate.id === serviceId);
     if (!service) {
-      updateItem(index, { serviceCatalogId: undefined });
+      updateItem(index, { serviceCatalogId: undefined, tiers: undefined });
       return;
     }
     const pricing = Array.isArray(service.pricing) ? service.pricing[0] : service.pricing;
+    const tiers = tiersOf(pricing);
     updateItem(index, {
       serviceCatalogId: service.id,
       description: service.name || '',
       serviceType: service.serviceType || 'miscellaneous',
-      unitPrice: Number(pricing?.cashPrice || service.cashPrice || 0),
-      vatRate: Number(pricing?.vatRate || service.vatRate || 0),
+      unitPrice: tiers[items[index]?.pricingBasis || 'cash'] ?? 0,
+      vatRate: Number(pricing?.vatRate || 0),
+      tiers,
     });
+  };
+
+  // The same service carries a different tariff per payment mode, so switching the
+  // basis on a catalog line re-prices it rather than leaving the cash figure there.
+  const setPricingBasis = (index: number, basis: string) => {
+    const tiers = items[index]?.tiers;
+    if (tiers && tiers[basis] !== undefined) updateItem(index, { pricingBasis: basis, unitPrice: tiers[basis] });
+    else updateItem(index, { pricingBasis: basis });
   };
 
   // ── Save ─────────────────────────────────────
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!patientId) return toastError('Validation failed', 'Select a patient.');
     const validItems = items.filter((item) => item.description.trim() && item.quantity > 0);
     if (!validItems.length) return toastError('Validation failed', 'Add at least one line item.');
 
     setIsSaving(true);
     try {
       const payload = {
-        patientId,
+        // Blank means a walk-in client who is not on the register yet.
+        patientId: patientId || null,
         corporateAccountId: corporateAccountId || undefined,
         discount: Math.max(0, discount),
         validityDays: Math.max(1, validityDays),
         notes: notes || undefined,
         termsAndConditions: termsAndConditions || undefined,
-        items: validItems.map(({ id: itemId, ...item }) => ({
-          ...item,
-          id: editing ? itemId : undefined,
+        items: validItems.map((line) => ({
+          id: editing ? line.id : undefined,
+          serviceCatalogId: line.serviceCatalogId,
+          description: line.description,
+          serviceType: line.serviceType,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          pricingBasis: line.pricingBasis,
+          vatRate: line.vatRate,
+          isInsuranceCovered: line.isInsuranceCovered,
+          insuranceCoverage: line.insuranceCoverage,
         })),
       };
       const saved = editing
@@ -562,7 +606,7 @@ export default function EstimateForm() {
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
-            <UserIcon className="w-3.5 h-3.5 inline mr-1" /> Patient *
+            <UserIcon className="w-3.5 h-3.5 inline mr-1" /> Patient (optional)
           </label>
           <SearchableSelect
             options={patientOptions}
@@ -571,13 +615,13 @@ export default function EstimateForm() {
             onSearch={searchPatients}
             loading={patientSearching}
             placeholder="Search patients by name, folder, or phone…"
-            emptyLabel="Select patient"
+            emptyLabel="Walk-in client"
             icon={<UserIcon className="w-3.5 h-3.5" />}
           />
           {patientSearchBlocked && (
-            <p className="mt-1 text-xs text-[var(--icon-red-text)]">
-              Your role cannot search the patient register, so a new estimate has to be raised by
-              Records or an administrator. Existing estimates stay editable here.
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              Your role cannot search the patient register. Leave this blank to quote a walk-in
+              client, or pick the patient from the visit list.
             </p>
           )}
         </div>
@@ -670,7 +714,7 @@ export default function EstimateForm() {
               </label>
               <select
                 value={item.pricingBasis}
-                onChange={(e) => updateItem(index, { pricingBasis: e.target.value })}
+                onChange={(e) => setPricingBasis(index, e.target.value)}
                 className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
               >
                 <option value="cash">Cash</option>

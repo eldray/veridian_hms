@@ -19,6 +19,10 @@ const STATUS_STYLES: Record<EstimateStatus, string> = {
 
 const STATUSES: (EstimateStatus | 'all')[] = ['all', 'DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'CONVERTED', 'EXPIRED'];
 
+// A quote can be raised before anyone is registered, so the client column has a
+// walk-in label rather than showing every unregistered estimate as one "Unknown Patient".
+const clientName = (patient: any): string => (patient ? getPatientName(patient) : 'Walk-in client');
+
 export default function Estimates() {
   const navigate = useNavigate();
   const { error: toastError } = useToast();
@@ -48,7 +52,7 @@ export default function Estimates() {
       if (!q) return true;
       return (
         e.referenceNumber?.toLowerCase().includes(q) ||
-        getPatientName(e.patient).toLowerCase().includes(q) ||
+        clientName(e.patient).toLowerCase().includes(q) ||
         e.corporateAccount?.companyName?.toLowerCase().includes(q) ||
         e.patient?.folderNumber?.toLowerCase().includes(q)
       );
@@ -171,7 +175,7 @@ export default function Estimates() {
               <tr key={e.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => navigate(`/dashboard/estimates/${e.id}`)}>
                 <td className="px-4 py-3 font-mono text-xs text-[var(--text-primary)]">{e.referenceNumber}</td>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-[var(--text-primary)]">{getPatientName(e.patient)}</div>
+                  <div className="font-medium text-[var(--text-primary)]">{clientName(e.patient)}</div>
                   {e.corporateAccount && (
                     <div className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1">
                       <Briefcase className="w-3 h-3" /> {e.corporateAccount.companyName}

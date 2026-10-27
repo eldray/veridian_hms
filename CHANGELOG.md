@@ -380,6 +380,22 @@ semantic versioning.
 - The user-registration role picker offers HR Officer. `UserRole` has had that value since
   the schema defined it, but it was not selectable, so no account could ever be given the
   role the HR pages check for.
+- An estimate no longer requires a patient. A quote is something a walk-in client asks for
+  before anyone opens a file — "what will this scan cost" — and the form refused to save
+  without a register search, which for the Accounts role that owns the screen is a dead end,
+  because the patient register guard does not include them. `ProformaInvoice.patientId` is
+  nullable (migration `20261027120000_estimate_allows_walk_in_client`), the header field is
+  labelled optional, and an unattached quote prints as "Walk-in client" instead of grouping
+  every walk-in under one "Unknown Patient". A visit page now carries an Estimate action for
+  the roles that own the screen, which attaches the patient from the visit record itself
+  instead of requiring a register search the guard would refuse.
+- The estimate line's pricing basis picks the matching catalog tariff. `ServicePricing` keeps
+  a cash, NHIS, private-insurance and corporate price, but the form read the first row of the
+  historical pricing array and always took its cash price, so a line marked NHIS or corporate
+  printed the cash figure. The row's four tiers are now held on the line and switching the
+  basis re-prices it; choosing a service takes the newest active pricing row rather than
+  whichever row the API happened to return first. The same rule is applied server-side when a
+  line arrives without a price, so the stored total matches what the form showed.
 
 ### Fixed
 
@@ -451,3 +467,11 @@ semantic versioning.
   `DashboardLayout.tsx`. They were two halves of the same answer written independently, and
   they disagreed — the sidebar offered a role a link the guard then refused, or hid a page the
   guard allowed. All of it now comes from `config/access.ts`.
+- "Convert to Bill" is removed from estimates (`POST /estimates/:id/convert`, the service and
+  repository methods behind it, the API client call, the store action and the button plus its
+  payment-mode dialog). A quote records what someone asked to be priced; a bill has to carry
+  the labs that were resulted, the drugs that were dispensed and the procedures that were
+  rendered, and those line items are written by their own clinical routes. Converting produced
+  a second, understated bill beside the real one, which is how a patient ends up billed twice
+  or billed less than the care cost. Estimates now end at accepted or rejected and the bill is
+  generated from the encounter. Estimates converted before still show and link their bill.

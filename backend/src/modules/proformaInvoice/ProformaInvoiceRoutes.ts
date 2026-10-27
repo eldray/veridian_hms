@@ -4,7 +4,6 @@ import { ProformaInvoiceController } from './ProformaInvoiceController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 import { validateBody } from '../../middleware/validate';
 import {
-  ConvertEstimateToBillSchema,
   CreateEstimateSchema,
   RejectEstimateSchema,
   UpdateEstimateSchema,
@@ -49,14 +48,16 @@ export function createProformaInvoiceRoutes(prisma: PrismaClient): Router {
   router.post('/:id/send', requireRole(writeRoles), controller.send);
 
   // POST accept proforma invoice
-  // Accepting an estimate approves it, so it needs the same finance roles as create and convert.
+  // Accepting an estimate approves it, so it needs the same finance roles as create.
   router.post('/:id/accept', requireRole(writeRoles), controller.accept);
 
   // POST reject proforma invoice
   router.post('/:id/reject', requireRole(writeRoles), validateBody(RejectEstimateSchema), controller.reject);
 
-  // POST convert to bill
-  router.post('/:id/convert', requireRole(writeRoles), validateBody(ConvertEstimateToBillSchema), controller.convertToBill);
+  // There is deliberately no convert-to-bill route. A quote only lists what someone
+  // asked to be priced; a bill has to carry the labs actually resulted, the drugs
+  // actually dispensed and the procedures actually rendered, and those are written
+  // by their own clinical routes. Converting produced a parallel, understated bill.
 
   // DELETE proforma invoice (DRAFT only)
   router.delete('/:id', requireRole(adminRoles), controller.delete);

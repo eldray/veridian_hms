@@ -9,6 +9,7 @@ import { useBillingStore } from '../store/billingStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
+import { canAccessPage } from '../config/access';
 import { 
   ArrowLeft, Edit, FileText, Pill, FlaskConical, Scissors, DollarSign, 
   User, Calendar, Stethoscope, Activity, CreditCard, Shield, 
@@ -139,7 +140,7 @@ export default function AttendanceDetails() {
     fetchPatient,
   } = usePatientStore();
 
-  const { hasRole } = useAuthStore();
+  const { hasRole, user } = useAuthStore();
   const { bills, getBills, generateBillFromAttendance, isLoading: billsLoading } = useBillingStore();
 
   // ── State ─────────────────────────────────────
@@ -352,6 +353,12 @@ export default function AttendanceDetails() {
     }
   };
 
+  const handleNewEstimate = () => {
+    if (patient) {
+      navigate('/dashboard/estimates/new', { state: { patient } });
+    }
+  };
+
   // Generate the first bill or synchronize newly completed billable items into the
   // existing attendance bill. The backend source keys prevent duplicate line items.
   const handleSyncAttendanceBilling = async () => {
@@ -464,6 +471,9 @@ export default function AttendanceDetails() {
   // open the visit but must not raise charges.
   const canSyncBilling = hasRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']);
   const canAddClinical = hasRole(['admin', 'doctor', 'nurse']);
+  // Quoting from the visit hands the estimate form the patient in route state, which is
+  // how a role that owns Estimates but cannot search the patient register attaches one.
+  const canQuote = canAccessPage(user?.role, 'estimates');
 
   // Get encounter category badge
   const getEncounterCategoryBadge = () => {
@@ -796,6 +806,15 @@ export default function AttendanceDetails() {
           <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
           Billing
         </button>
+        {canQuote && (
+          <button
+            onClick={handleNewEstimate}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl hover:bg-[var(--bg-main)] transition-all text-sm font-medium text-[var(--text-primary)]"
+          >
+            <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+            Estimate
+          </button>
+        )}
       </div>
 
       {/* Main Content Card */}

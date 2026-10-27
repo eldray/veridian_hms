@@ -3993,9 +3993,6 @@ export const acceptEstimate = (id: string) =>
 export const rejectEstimate = (id: string, reason?: string) =>
   api.post(`/estimates/${id}/reject`, { reason }).then(r => r.data);
 
-export const convertEstimateToBill = (id: string, data: { paymentMode: string; notes?: string }) =>
-  api.post(`/estimates/${id}/convert`, data).then(r => r.data);
-
 export const getEstimateStatistics = (filters?: { fromDate?: string; toDate?: string }) =>
   api.get('/estimates/statistics', { params: filters }).then(r => r.data);
 
@@ -4266,7 +4263,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Proforma Invoices
   getEstimates, getEstimate, createEstimate, updateEstimate, deleteEstimate, sendEstimate,
-  acceptEstimate, rejectEstimate, convertEstimateToBill, getEstimateStatistics,
+  acceptEstimate, rejectEstimate, getEstimateStatistics,
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
 
   // Communications

@@ -22,13 +22,6 @@ const STATUS_STYLES: Record<EstimateStatus, string> = {
   EXPIRED: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
 };
 
-const PAYMENT_MODES = [
-  { value: 'cash', label: 'Cash' },
-  { value: 'nhis', label: 'NHIS' },
-  { value: 'private_insurance', label: 'Private Insurance' },
-  { value: 'corporate', label: 'Corporate' },
-];
-
 export default function EstimateDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -36,20 +29,14 @@ export default function EstimateDetails() {
   const { hospital } = useHospitalStore();
   const {
     currentEstimate: est, isLoading, loadEstimate,
-    sendEstimate, acceptEstimate, rejectEstimate, convertToBill, removeEstimate,
+    sendEstimate, acceptEstimate, rejectEstimate, removeEstimate,
   } = useEstimatesStore();
 
   const [busy, setBusy] = useState(false);
-  const [showConvert, setShowConvert] = useState(false);
-  const [paymentMode, setPaymentMode] = useState('cash');
 
   useEffect(() => {
     if (id) loadEstimate(id).catch((e: any) => toastError('Load failed', e?.response?.data?.message || e.message));
   }, [id]);
-
-  useEffect(() => {
-    if (est?.corporateAccountId) setPaymentMode('corporate');
-  }, [est?.corporateAccountId]);
 
   const fmt = (n: any) => Number(n || 0).toFixed(2);
 
@@ -78,14 +65,6 @@ export default function EstimateDetails() {
     run(() => rejectEstimate(id!, reason || undefined), 'Estimate rejected');
   };
 
-  const handleConvert = async () => {
-    setShowConvert(false);
-    await run(async () => {
-      const result = await convertToBill(id!, { paymentMode });
-      if (result?.bill?.id) navigate(`/dashboard/billing/${result.bill.id}/payment`);
-    }, 'Estimate converted to bill');
-  };
-
   const handlePrint = () => {
     if (!est) return;
     const rows = (est.items || []).map((it) => `
@@ -104,7 +83,7 @@ export default function EstimateDetails() {
         </div>
         <table style="width:100%;font-size:13px;margin-bottom:12px">
           <tr><td><b>Reference:</b> ${est.referenceNumber}</td><td style="text-align:right"><b>Date:</b> ${new Date(est.createdAt).toLocaleDateString()}</td></tr>
-          <tr><td><b>Patient:</b> ${getPatientName(est.patient)}</td><td style="text-align:right"><b>Folder:</b> ${est.patient?.folderNumber || '—'}</td></tr>
+          <tr><td><b>Patient:</b> ${est.patient ? getPatientName(est.patient) : 'Walk-in client'}</td><td style="text-align:right"><b>Folder:</b> ${est.patient?.folderNumber || '—'}</td></tr>
           ${est.corporateAccount ? `<tr><td colspan="2"><b>Corporate:</b> ${est.corporateAccount.companyName}</td></tr>` : ''}
           <tr><td><b>Status:</b> ${est.status}</td><td style="text-align:right"><b>Valid until:</b> ${est.expiresAt ? new Date(est.expiresAt).toLocaleDateString() : `${est.validityDays} days`}</td></tr>
         </table>
@@ -157,7 +136,7 @@ export default function EstimateDetails() {
               {est.referenceNumber}
               <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[est.status]}`}>{est.status}</span>
             </h1>
-            <p className="text-sm text-[var(--text-secondary)]">{getPatientName(est.patient)} • {est.patient?.folderNumber || '—'}</p>
+            <p className="text-sm text-[var(--text-secondary)]">{est.patient ? getPatientName(est.patient) : 'Walk-in client'} • {est.patient?.folderNumber || '—'}</p>
             {est.corporateAccount && (
               <p className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1 mt-0.5"><Briefcase className="w-3 h-3" /> {est.corporateAccount.companyName}</p>
             )}
@@ -197,11 +176,9 @@ export default function EstimateDetails() {
               </button>
             </>
           )}
-          {(est.status === 'APPROVED' || est.status === 'SENT') && (
-            <button disabled={busy} onClick={() => setShowConvert(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 text-sm disabled:opacity-50">
-              <Receipt className="w-4 h-4" /> Convert to Bill
-            </button>
-          )}
+          {/* No "convert to bill" action: a bill has to carry what was actually
+              rendered (labs resulted, drugs dispensed), which a quote never saw.
+              Estimates that were converted before still link to their bill. */}
           {est.status === 'CONVERTED' && est.bill && (
             <button onClick={() => navigate(`/dashboard/billing/${est.bill!.id}/payment`)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm">
               <Receipt className="w-4 h-4" /> View Bill {est.bill.billNumber}
@@ -253,24 +230,6 @@ export default function EstimateDetails() {
       {est.notes && (
         <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 text-sm text-[var(--text-primary)]">
           <p className="text-xs text-[var(--text-tertiary)] mb-1">Notes</p>{est.notes}
-        </div>
-      )}
-
-      {/* Convert modal */}
-      {showConvert && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-[var(--bg-card)] rounded-2xl p-6 w-full max-w-md border border-[var(--border-color)]">
-            <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Convert to Bill</h3>
-            <p className="text-sm text-[var(--text-secondary)] mb-4">Create a bill from estimate {est.referenceNumber} (GHS {fmt(est.totalAmount)}).</p>
-            <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Payment mode</label>
-            <select value={paymentMode} onChange={(e) => setPaymentMode(e.target.value)} className="w-full px-3 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] mb-5">
-              {PAYMENT_MODES.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
-            </select>
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setShowConvert(false)} className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] rounded-lg">Cancel</button>
-              <button disabled={busy} onClick={handleConvert} className="px-4 py-2 text-sm bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50">Convert</button>
-            </div>
-          </div>
         </div>
       )}
     </div>

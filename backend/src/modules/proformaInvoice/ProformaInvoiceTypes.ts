@@ -3,7 +3,7 @@ import { ProformaInvoiceStatus } from '@prisma/client';
 export interface ProformaInvoice {
   id: string;
   referenceNumber: string;
-  patientId: string;
+  patientId?: string | null;
   attendanceId?: string | null;
   admissionId?: string | null;
   corporateAccountId?: string | null;
@@ -42,7 +42,7 @@ export interface ProformaInvoiceItem {
 }
 
 export interface CreateProformaInvoiceDTO {
-  patientId: string;
+  patientId?: string | null;
   attendanceId?: string;
   admissionId?: string;
   corporateAccountId?: string;
@@ -80,11 +80,6 @@ export interface UpdateProformaInvoiceDTO {
     isInsuranceCovered?: boolean;
     insuranceCoverage?: number;
   }>;
-}
-
-export interface ConvertToBillDTO {
-  paymentMode: 'cash' | 'nhis' | 'private_insurance' | 'corporate';
-  notes?: string;
 }
 
 export interface ProformaInvoiceFilters {

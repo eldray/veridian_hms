@@ -9,7 +9,6 @@ import {
   sendEstimate as apiSendEstimate,
   acceptEstimate as apiAcceptEstimate,
   rejectEstimate as apiRejectEstimate,
-  convertEstimateToBill as apiConvertEstimateToBill,
   getEstimateStatistics as apiGetEstimateStatistics,
 } from '../api';
 
@@ -35,7 +34,7 @@ export interface Estimate {
   id: string;
   referenceNumber: string;
   status: EstimateStatus;
-  patientId: string;
+  patientId?: string | null;
   corporateAccountId?: string | null;
   subtotal: number;
   discount: number;
@@ -48,7 +47,7 @@ export interface Estimate {
   convertedToBillId?: string | null;
   createdAt: string;
   updatedAt: string;
-  patient?: { id: string; folderNumber: string; surname: string; otherNames: string; contact?: string };
+  patient?: { id: string; folderNumber: string; surname: string; otherNames: string; contact?: string } | null;
   corporateAccount?: { id: string; companyName: string; companyCode: string };
   attendance?: { id: string; attendanceNumber: string; dateTime: string };
   items?: EstimateItem[];
@@ -72,7 +71,6 @@ interface EstimatesState {
   sendEstimate: (id: string) => Promise<void>;
   acceptEstimate: (id: string) => Promise<void>;
   rejectEstimate: (id: string, reason?: string) => Promise<void>;
-  convertToBill: (id: string, data: { paymentMode: string; notes?: string }) => Promise<any>;
   loadStatistics: (filters?: any) => Promise<void>;
 }
 
@@ -137,12 +135,6 @@ export const useEstimatesStore = create<EstimatesState>((set, get) => ({
   rejectEstimate: async (id, reason) => {
     const res = await apiRejectEstimate(id, reason);
     if (get().currentEstimate?.id === id) set({ currentEstimate: res?.data });
-  },
-
-  convertToBill: async (id, data) => {
-    const res = await apiConvertEstimateToBill(id, data);
-    if (get().currentEstimate?.id === id) await get().loadEstimate(id);
-    return res?.data;
   },
 
   loadStatistics: async (filters) => {

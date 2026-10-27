@@ -1,8 +1,11 @@
 import { z } from 'zod';
 
-// Estimates become bills, so a line with a missing quantity or price used to reach
-// Prisma as NaN (a 500 or a corrupt total). These schemas keep the money arithmetic
-// finite and reject malformed bodies as 400s before any row is written.
+// An estimate is a quote the client walks away with — it is never converted into
+// a bill, because real bills are assembled from what was actually rendered (lab
+// results, dispensed drugs, procedures). A line with a missing quantity or price
+// used to reach Prisma as NaN (a 500 or a corrupt total), so these schemas keep
+// the money arithmetic finite and reject malformed bodies as 400s before a row
+// is written.
 const SERVICE_TYPES = [
   'consultation', 'ward', 'lab_test', 'scan', 'medication', 'procedure', 'diagnosis', 'miscellaneous',
 ] as const;
@@ -34,7 +37,9 @@ const items = z
   .max(200, 'An estimate cannot have more than 200 lines');
 
 export const CreateEstimateSchema = z.object({
-  patientId: z.string().min(1, 'patientId is required'),
+  // A walk-in client asking for a cost estimate is not registered yet, so the
+  // quote stands on its own; the patient is attached when there is one.
+  patientId: z.string().min(1).nullish(),
   attendanceId: z.string().min(1).nullish(),
   admissionId: z.string().min(1).nullish(),
   corporateAccountId: z.string().min(1).nullish(),
@@ -51,10 +56,6 @@ export const UpdateEstimateSchema = z.object({
   validityDays: z.coerce.number().int().min(1).max(180).optional(),
   notes: z.string().max(5000).nullish(),
   termsAndConditions: z.string().max(5000).nullish(),
-});
-
-export const ConvertEstimateToBillSchema = z.object({
-  paymentMode: z.enum(PRICING_BASIS),
 });
 
 export const RejectEstimateSchema = z.object({

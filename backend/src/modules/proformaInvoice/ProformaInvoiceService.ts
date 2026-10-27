@@ -1,7 +1,6 @@
 import { PrismaClient, ProformaInvoiceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ProformaInvoiceRepository } from './ProformaInvoiceRepository';
-import { getCounterService } from '../../services/CounterService';
 import { NotFoundError, ValidationError } from '../../utils/errors';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -37,10 +36,23 @@ export class ProformaInvoiceService extends BaseService {
     return { subtotal, taxAmount: totalVat, totalAmount: subtotal + totalVat - discount };
   }
 
+  // The catalog carries a price per payment mode, so a line left blank is filled
+  // from the tier that matches the basis the line was raised on — not always cash.
+  private tierPrice(pricing: any, basis: string): number {
+    const row = Array.isArray(pricing) ? pricing[0] : pricing;
+    if (!row) return 0;
+    const byBasis: Record<string, string> = {
+      cash: 'cashPrice', nhis: 'nhisPrice', private_insurance: 'insurancePrice', corporate: 'corporatePrice',
+    };
+    return toNumber(row[byBasis[basis] || 'cashPrice']);
+  }
+
   async create(data: any, userId: string) {
     this.logInfo('Creating proforma invoice', { patientId: data.patientId });
 
-    if (!(await this.prisma.patient.findUnique({ where: { id: data.patientId } }))) throw new NotFoundError('Patient not found');
+    // A quote can stand on its own for a walk-in client who is not registered yet,
+    // so the patient is only checked when one is attached.
+    if (data.patientId && !(await this.prisma.patient.findUnique({ where: { id: data.patientId } }))) throw new NotFoundError('Patient not found');
     if (data.attendanceId && !(await this.prisma.attendance.findUnique({ where: { id: data.attendanceId } }))) throw new NotFoundError('Attendance not found');
     if (data.admissionId && !(await this.prisma.admission.findUnique({ where: { id: data.admissionId } }))) throw new NotFoundError('Admission not found');
     if (data.corporateAccountId && !(await this.prisma.corporateAccount.findUnique({ where: { id: data.corporateAccountId } }))) throw new NotFoundError('Corporate account not found');
@@ -54,9 +66,8 @@ export class ProformaInvoiceService extends BaseService {
         });
         if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
         
-        // ✅ FIXED: Access array element
-        if (!item.unitPrice && service.pricing && service.pricing.length > 0) {
-          item.unitPrice = toNumber(service.pricing[0].cashPrice);
+        if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === '') {
+          item.unitPrice = this.tierPrice(service.pricing, item.pricingBasis);
         }
       }
 
@@ -115,8 +126,8 @@ export class ProformaInvoiceService extends BaseService {
             include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } }
           });
           if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
-          if (!item.unitPrice && service.pricing && service.pricing.length > 0) {
-            item.unitPrice = toNumber(service.pricing[0].cashPrice);
+          if (item.unitPrice === undefined || item.unitPrice === null || item.unitPrice === '') {
+            item.unitPrice = this.tierPrice(service.pricing, item.pricingBasis);
           }
         }
         const unitPrice = toNumber(item.unitPrice);
@@ -157,64 +168,6 @@ export class ProformaInvoiceService extends BaseService {
     if (!existing) throw new NotFoundError('Proforma invoice not found');
     if (existing.status !== 'SENT') throw new ValidationError('Only sent proforma invoices can be rejected');
     return this.repository.updateStatus(id, 'REJECTED', { notes: reason });
-  }
-
-  // ✅ FIXED: Wrapped in transaction and uses CounterService
-  async convertToBill(id: string, data: any, userId: string) {
-    const existing = await this.repository.findById(id);
-    if (!existing) throw new NotFoundError('Proforma invoice not found');
-    if (existing.status !== 'APPROVED' && existing.status !== 'SENT') throw new ValidationError('Only approved or sent proforma invoices can be converted to bills');
-    if (existing.convertedToBillId) throw new ValidationError('This proforma invoice has already been converted to a bill');
-
-    return this.prisma.$transaction(async (tx) => {
-      // Atomically reserve conversion so two concurrent requests cannot create two bills.
-      const reservation = await tx.proformaInvoice.updateMany({
-        where: {
-          id,
-          status: { in: ['APPROVED', 'SENT'] },
-          convertedToBillId: null,
-        },
-        data: { status: 'CONVERTED' },
-      });
-      if (reservation.count !== 1) {
-        throw new ValidationError('This proforma invoice has already been converted or is no longer eligible. Refresh and check its current status.');
-      }
-
-      const billNumber = getCounterService().nextBillNumber();
-      
-      const insuranceCovered = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.insuranceCoverage), 0);
-      const patientPayable = existing.items.reduce((sum: number, item: any) => sum + toNumber(item.patientResponsibility), 0) - toNumber(existing.discount);
-
-      const bill = await tx.bill.create({
-        data: {
-          billNumber, patientId: existing.patientId, attendanceId: existing.attendanceId, admissionId: existing.admissionId,
-          paymentMode: data.paymentMode, corporateAccountId: existing.corporateAccountId, status: 'pending',
-          subtotal: existing.subtotal, discount: existing.discount, taxAmount: existing.taxAmount, totalAmount: existing.totalAmount,
-          insuranceCovered, patientPayable, billDate: new Date(), createdById: userId
-        }
-      });
-
-      for (const item of existing.items) {
-        await tx.billLineItem.create({
-          data: {
-            billId: bill.id, serviceCatalogId: item.serviceCatalogId, description: item.description, serviceType: item.serviceType,
-            quantity: item.quantity, unitPrice: item.unitPrice, pricingBasis: item.pricingBasis, vatRate: item.vatRate,
-            vatAmount: item.vatAmount, lineTotal: item.totalPrice, insuranceCoveredAmount: item.insuranceCoverage,
-            patientPayableAmount: item.patientResponsibility, discount: 0
-          }
-        });
-      }
-
-      const updatedProforma = await tx.proformaInvoice.update({
-        where: { id }, data: { status: 'CONVERTED', convertedToBillId: bill.id },
-        include: { Patient: true, CorporateAccount: true }
-      });
-
-      return {
-        proformaInvoice: { ...updatedProforma, patient: (updatedProforma as any).Patient, corporateAccount: (updatedProforma as any).CorporateAccount },
-        bill
-      };
-    });
   }
 
   async delete(id: string, userId: string) {
