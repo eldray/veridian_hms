@@ -96,6 +96,17 @@ semantic versioning.
   instead of only proving that `requireRole` appears somewhere in the file,
   which is how the unguarded estimate-approval route stayed hidden.
 
+- A themed prompt dialog (`promptDialog`, mounted with the confirmation host)
+  replaces the four remaining native `window.prompt` boxes: the waiver rejection
+  reason and approved amount in billing, the estimate rejection reason and the
+  medication-record variance reason in the nursing workspace. The native box
+  cannot be themed, styled or keyboard-navigated consistently, and it conflated
+  Cancel with an empty answer — on the estimate screen that meant pressing OK
+  without typing silently did nothing at all. Cancelling now returns `null`,
+  and an empty answer is only accepted where the API allows one. The waiver
+  amount is now parsed and checked (`> 0`, or empty for the full requested
+  amount) instead of handed to `parseFloat` and forwarded whatever it produced.
+
 - An administrator can set a new password for a member of staff who cannot sign
   in: `PATCH /api/users/:id/password` (admin or super-admin), with a **Reset
   password** action on each row of Staff management. The chosen password passes

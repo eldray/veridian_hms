@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { ConfirmDialogHost } from './context/ConfirmDialog';
+import { PromptDialogHost } from './context/PromptDialog';
 import { initTheme } from './store/themeStore';
 import './index.css';
 
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <ErrorBoundary>
       <ConfirmDialogHost />
+      <PromptDialogHost />
       <App />
     </ErrorBoundary>
   </React.StrictMode>

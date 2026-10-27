@@ -1,6 +1,7 @@
 // src/pages/EstimateDetails.tsx - Proforma invoice (estimate) detail + actions
 import { useEffect, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
+import { promptDialog } from '../context/PromptDialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
@@ -64,10 +65,17 @@ export default function EstimateDetails() {
     }
   };
 
-  const handleReject = () => {
-    const reason = window.prompt('Reason for rejecting this estimate?') || undefined;
-    if (reason === undefined) return;
-    run(() => rejectEstimate(id!, reason), 'Estimate rejected');
+  const handleReject = async () => {
+    const reason = await promptDialog({
+      title: 'Reject estimate',
+      message: 'Optional, but a reason tells the requester why this estimate was not accepted.',
+      label: 'Reason',
+      multiline: true,
+      confirmText: 'Reject estimate',
+      maxLength: 2000,
+    });
+    if (reason === null) return;
+    run(() => rejectEstimate(id!, reason || undefined), 'Estimate rejected');
   };
 
   const handleConvert = async () => {

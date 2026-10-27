@@ -14,6 +14,7 @@ import { MarChart } from '../components/nursing/MarChart';
 import { MarGrid } from '../components/nursing/MarGrid';
 import { MarPrintModal } from '../components/nursing/MarPrintModal';
 import { NursingNotesPanel } from '../components/nursing/NursingNotesPanel';
+import { promptDialog } from '../context/PromptDialog';
 import { getPatientName } from '../utils/patient';
 import type { MarDose } from '../api/nursing';
 import {
@@ -235,12 +236,20 @@ export default function NursingPatientWorkspace() {
       : status === 'held' ? 'Awaiting doctor review'
       : status === 'missed' ? 'Not administered this shift'
       : 'Administered outside scheduled window';
-    const reason = window.prompt(`Reason for ${status}:`, defaultReason);
+    const reason = await promptDialog({
+      title: `Dose ${dose.doseNumber} — ${status}`,
+      message: 'The reason is written to the medication administration record.',
+      label: 'Reason',
+      defaultValue: defaultReason,
+      required: true,
+      confirmText: 'Record',
+      maxLength: 500,
+    });
     if (reason === null) return;
 
     setBusyDoseId(dose.id);
     try {
-      await recordVariance(dose.id, { status, reason: reason || undefined });
+      await recordVariance(dose.id, { status, reason });
       success('Recorded', `Dose ${dose.doseNumber} marked as ${status}`);
     } catch (err: any) {
       toastError('Failed', err?.response?.data?.message || err.message);

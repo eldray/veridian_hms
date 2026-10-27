@@ -9,6 +9,7 @@ import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getBillingCollections, getBillingInvoice } from '../api';
+import { promptDialog } from '../context/PromptDialog';
 import {
   Search, RefreshCw, FileText, DollarSign, CreditCard, Eye,
   ChevronLeft, ChevronRight, Receipt, TrendingUp,
@@ -484,7 +485,15 @@ const handlePrintStatement = async (billId: string) => {
   };
 
   const handleRejectWaiver = async (waiverId: string) => {
-    const rejectionReason = prompt('Enter rejection reason:');
+    const rejectionReason = await promptDialog({
+      title: 'Reject waiver request',
+      message: 'The reason is recorded against the request and shown to whoever raised it.',
+      label: 'Rejection reason',
+      required: true,
+      multiline: true,
+      confirmText: 'Reject waiver',
+      maxLength: 2000,
+    });
     if (!rejectionReason) return;
     try {
       await rejectWaiver(waiverId, rejectionReason);
@@ -1147,9 +1156,25 @@ const handlePrintStatement = async (billId: string) => {
                           {waiver.status === 'pending' && isAccountsStaff && (
                             <>
                               <button
-                                onClick={() => {
-                                  const amount = prompt('Enter approved amount (leave empty for full amount):', waiver.amountRequested.toString());
-                                  handleApproveWaiver(waiver.id, amount ? parseFloat(amount) : undefined);
+                                onClick={async () => {
+                                  const answer = await promptDialog({
+                                    title: 'Approve waiver',
+                                    message: `₵${Number(waiver.amountRequested).toLocaleString()} was requested. Leave the amount empty to approve all of it.`,
+                                    label: 'Approved amount',
+                                    placeholder: 'Full amount',
+                                    confirmText: 'Approve',
+                                  });
+                                  if (answer === null) return;
+                                  if (answer === '') {
+                                    handleApproveWaiver(waiver.id, undefined);
+                                    return;
+                                  }
+                                  const amount = Number(answer.replace(/,/g, ''));
+                                  if (!Number.isFinite(amount) || amount <= 0) {
+                                    toastError('Not an amount', 'Enter a number greater than zero, or leave it empty for the full amount.');
+                                    return;
+                                  }
+                                  handleApproveWaiver(waiver.id, amount);
                                 }}
                                 className="p-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
                                 title="Approve"
