@@ -307,7 +307,8 @@ export default function Attendance() {
     }
   };
 
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
+  // Mirrors the PUT/DELETE guards on /encounters/:id (midwife may edit a visit).
+  const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
   const canDelete = hasRole(['admin']);
 
   const getDateFilterDisplay = () => {

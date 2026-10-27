@@ -457,8 +457,12 @@ export default function AttendanceDetails() {
     }
   };
 
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
+  // Mirrors PUT /api/encounters/:id, which allows midwife as well as doctor and nurse.
+  const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
   const canDelete = hasRole(['admin']);
+  // Mirrors POST /api/bills/generate/:encounterId. Lab techs and sonographers may
+  // open the visit but must not raise charges.
+  const canSyncBilling = hasRole(['admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife']);
   const canAddClinical = hasRole(['admin', 'doctor', 'nurse']);
 
   // Get encounter category badge
@@ -1331,15 +1335,17 @@ export default function AttendanceDetails() {
                   <h2 className="font-semibold text-[var(--text-primary)]">Attendance billing</h2>
                   <p className="text-xs text-[var(--text-secondary)]">Charges are limited to this visit. Synchronize after new billable services or ward charges are recorded.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSyncAttendanceBilling}
-                  disabled={syncingBilling || !currentAttendance}
-                  className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-bg)] px-3 py-2 text-sm font-medium text-[var(--icon-cyan-text)] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <RefreshCw className={syncingBilling ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
-                  {syncingBilling ? 'Synchronizing…' : attendanceBills.length > 0 ? 'Sync bill' : 'Generate bill'}
-                </button>
+                {canSyncBilling && (
+                  <button
+                    type="button"
+                    onClick={handleSyncAttendanceBilling}
+                    disabled={syncingBilling || !currentAttendance}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-bg)] px-3 py-2 text-sm font-medium text-[var(--icon-cyan-text)] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <RefreshCw className={syncingBilling ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+                    {syncingBilling ? 'Synchronizing…' : attendanceBills.length > 0 ? 'Sync bill' : 'Generate bill'}
+                  </button>
+                )}
               </div>
               {attendanceBills.length > 0 ? (
                 <div className="space-y-4">

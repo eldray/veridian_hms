@@ -4,6 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
+import { useAuthStore } from '../../store/authStore';
+import { canAccessPage } from '../../config/access';
 import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
 import { useStockStore } from '../../store/stockStore';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
@@ -823,6 +825,10 @@ export default function EditNHISClaim() {
   } = useInsuranceStore();
 
   const { updatePatient } = usePatientStore();
+  // Correcting the member record writes to /api/patients, which is limited to the
+  // patient-management roles; accounts staff edit the claim itself, not the register.
+  const { user } = useAuthStore();
+  const canEditMember = canAccessPage(user?.role, 'patients');
   const { getDiagnoses } = useMedicalServicesStore();
   const { tariffs, fetchTariffs } = useGDRGTariffStore();
 
@@ -1298,7 +1304,7 @@ export default function EditNHISClaim() {
       >
         <ClaimCard
           title="Member Details"
-          action={isDraft && !isEditingMember ? (
+          action={isDraft && !isEditingMember && canEditMember ? (
             <button type="button" onClick={handleMemberEdit} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10">Edit</button>
           ) : undefined}
         >

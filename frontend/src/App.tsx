@@ -10,8 +10,8 @@ import {
   Outlet,
   Link,
   useLocation,
-  matchPath,
 } from 'react-router-dom';
+import { hasPermission } from './config/access';
 
 import './App.css';
 
@@ -82,197 +82,12 @@ const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ShiftManagement = lazy(() => import('./pages/ShiftManagement'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ROLE PERMISSIONS
-// Each key is a "permission tag" used by the route guard. '*' = everything.
-// ─────────────────────────────────────────────────────────────────────────────
-const rolePermissions: Record<string, string[]> = {
-  super_admin: ['*'],
-  admin: ['*'],
-
-  hr_officer: [
-    'dashboard', 'user_management', 'shifts', 'leaves',
-    'reports', 'profile', 'notifications', 'audit_logs',
-  ],
-
-  doctor: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'medical_entries', 'medical_waiting_list',
-    'vitals', 'admissions', 'wards',
-    'laboratory', 'scans', 'theatre', 'pharmacy',
-    'billing', 'insurance_claims', 'referrals',
-    'maternal_waiting_list', 'antenatal', 'family_planning',
-    'requisitions', 'stock_transfers',
-    'reports', 'profile', 'notifications', 'settings',
-    'audit_logs',
-  ],
-
-  nurse: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'admissions', 'wards', 'vitals', 'nursing',
-    'medical_waiting_list',
-    'medical_entries',           // ✅ NEW
-    'theatre',
-    'requisitions', 'referrals', 'stock_transfers',
-    'reports', 'profile', 'notifications',
-  ],
-
-  midwife: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'admissions', 'wards', 'vitals', 'nursing',
-    'medical_waiting_list',      // consultations — triage
-    'medical_entries',           // ✅ NEW
-    'theatre',                   // C-sections / deliveries
-    'maternal_waiting_list', 'antenatal', 'family_planning',
-    'scans', 'laboratory', 'referrals',
-    'service_catalog',           // ✅ NEW — view services offered
-    'pharmacy',     
-    'requisitions', 'stock_transfers', // Stock transfer requests and receipts
-    'dispense_medication',       // ✅ NEW — if midwives dispense from ward stock
-    'reports', 'profile', 'notifications',
-  ],
-
-  sonographer: [
-    'dashboard', 'patients', 'scans', 'laboratory',
-    'appointments', 'reports', 'profile', 'notifications', 'requisitions', 'stock_transfers',  
-  ],
-
-  lab_tech: [
-    'dashboard', 'patients', 'laboratory', 'requisitions', 'stock_transfers',  
-    'appointments', 'reports', 'profile', 'notifications',
-  ],
-
-  pharmacist: [
-    'dashboard', 'pharmacy', 'dispense_medication',
-    'inventory', 'stock_management', 'stock_transactions', 'stock_transfers',
-    'stock_reports', 'invoices', 'requisitions',
-    'reports', 'profile', 'notifications',
-  ],
-
-  accounts: [
-    'dashboard', 'patients', 'billing', 'process_payment',
-    'insurance_providers', 'insurance_claims', 'corporate',
-    'estimates', 'invoices', 'stock_transactions',
-    'stock_reports', 'reports', 'profile', 'notifications',
-    'audit_logs',
-  ],
-
-  records: [
-    'dashboard', 'patients', 'attendance',
-    'appointments', 'admissions', 'referrals', 'requisitions', 'stock_transfers',  
-    'reports', 'profile', 'notifications',
-    'audit_logs',
-  ],
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STATIC ROUTE MAP
-// Exact-match paths → permission tag. Dynamic segments live in DYNAMIC_ROUTES.
-// ─────────────────────────────────────────────────────────────────────────────
-const routeMap: Record<string, string> = {
-  '/dashboard':                                      'dashboard',
-  '/dashboard/patients':                             'patients',
-  '/dashboard/patients/register':                    'patients',
-  '/dashboard/attendance':                           'attendance',
-  '/dashboard/admissions':                           'admissions',
-  '/dashboard/wards':                                'wards',
-  '/dashboard/billing':                              'billing',
-  '/dashboard/insurance-providers':                  'insurance_providers',
-  '/dashboard/insurance-claims':                     'insurance_claims',
-  '/dashboard/insurance-claims/tracking':            'insurance_claims',
-  '/dashboard/insurance-claims/batches':             'insurance_claims',
-  '/dashboard/inventory':                            'inventory',
-  '/dashboard/pharmacy':                             'pharmacy',
-  '/dashboard/dispense':                             'dispense_medication',
-  '/dashboard/stock':                                'stock_management',
-  '/dashboard/stock/reports':                        'stock_reports',
-  '/dashboard/stock/transfers':                      'stock_transfers',
-  '/dashboard/theatre':                              'theatre',
-  '/dashboard/antenatal':                            'antenatal',
-  '/dashboard/scans':                                'scans',
-  '/dashboard/invoices':                             'invoices',
-  '/dashboard/invoices/create':                      'invoices',
-  '/dashboard/requisitions':                         'requisitions',
-  '/dashboard/requisitions/create':                  'requisitions',
-  '/dashboard/transactions':                         'stock_transactions',
-  '/dashboard/laboratory':                           'laboratory',
-  '/dashboard/medical-entries':                      'medical_entries',
-  '/dashboard/medical-waiting-list':                 'medical_waiting_list',
-  '/dashboard/maternal-waiting-list':                'maternal_waiting_list',
-  '/dashboard/medicalservices':                      'service_catalog',
-  '/dashboard/service-catalog':                      'service_catalog',
-  '/dashboard/vitals':                               'vitals',
-  '/dashboard/reports':                              'reports',
-  '/dashboard/profile':                              'profile',
-  '/dashboard/settings':                             'settings',
-  '/dashboard/notifications':                        'dashboard',
-  '/dashboard/appointments':                         'appointments',
-  '/dashboard/departments':                          'departments',
-  '/dashboard/family-planning':                      'family_planning',
-  '/dashboard/referrals':                            'referrals',
-  '/dashboard/corporate-accounts':                   'corporate',
-  '/dashboard/estimates':                            'estimates',
-  '/dashboard/estimates/new':                        'estimates',
-  '/dashboard/users':                                'user_management',
-  '/dashboard/audit-logs':                           'audit_logs',
-  '/dashboard/shifts':                               'shifts',
-  '/dashboard/leaves':                               'leaves',
-  '/dashboard/nursing':                              'nursing',
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DYNAMIC ROUTE MAP
-// Mirrors every `:param` route declared in the JSX below. Uses matchPath so it
-// can't drift from the actual router definitions.
-// ─────────────────────────────────────────────────────────────────────────────
-const dynamicRoutes: Array<{ pattern: string; permission: string }> = [
-  { pattern: '/dashboard/patients/:id',                        permission: 'patients' },
-  { pattern: '/dashboard/patients/:patientId/billing',         permission: 'billing' },
-  { pattern: '/dashboard/attendance/:id',                      permission: 'attendance' },
-  { pattern: '/dashboard/admissions/:id',                      permission: 'admissions' },
-  { pattern: '/dashboard/billing/:billId/payment',             permission: 'billing' },
-  { pattern: '/dashboard/insurance-claims/:id/edit',           permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/nhis/:id/edit',      permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/private/:id/edit',   permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/corporate/:id/edit', permission: 'insurance_claims' },
-  { pattern: '/dashboard/laboratory/:id',                      permission: 'laboratory' },
-  { pattern: '/dashboard/scans/:id',                           permission: 'scans' },
-  { pattern: '/dashboard/vitals/:id',                          permission: 'vitals' },
-  { pattern: '/dashboard/theatre/:id',                         permission: 'theatre' },
-  { pattern: '/dashboard/medical-entries/:attendanceId',       permission: 'medical_entries' },
-  { pattern: '/dashboard/maternal/:attendanceId',              permission: 'antenatal' },
-  { pattern: '/dashboard/nursing/patient/:attendanceId',       permission: 'nursing' },
-  { pattern: '/dashboard/dispense/:id',                        permission: 'pharmacy' },
-  { pattern: '/dashboard/invoices/:id',                        permission: 'invoices' },
-  { pattern: '/dashboard/requisitions/:id',                    permission: 'requisitions' },
-  { pattern: '/dashboard/corporate-accounts/:id',              permission: 'corporate' },
-  { pattern: '/dashboard/estimates/:id',                       permission: 'estimates' },
-  { pattern: '/dashboard/estimates/:id/edit',                  permission: 'estimates' },
-  { pattern: '/dashboard/users/:id',                           permission: 'user_management' },
-  { pattern: '/dashboard/hr/:id/edit',                         permission: 'hr' },
-  { pattern: '/dashboard/hr/:id/payslip',                      permission: 'hr' },
-  { pattern: '/dashboard/hr/:id',                              permission: 'hr' },
-];
-
-const hasPermission = (userRole: string, routePath: string) => {
-  const perms = rolePermissions[userRole];
-  if (!perms) return false;
-  if (perms.includes('*')) return true;
-
-  // 1. Exact match
-  const exact = routeMap[routePath];
-  if (exact) return perms.includes(exact);
-
-  // 2. Dynamic match — first pattern that matches wins
-  const dyn = dynamicRoutes.find(r => matchPath(r.pattern, routePath));
-  if (dyn) return perms.includes(dyn.permission);
-
-  // 3. Unknown route — deny by default
-  return false;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTE GUARDS
+// Which role opens which page lives in one place: src/config/access.ts. The
+// sidebar renders from the same table, so a menu item can no longer point at a
+// page the guard then refuses.
 // ─────────────────────────────────────────────────────────────────────────────
 const AccessDenied = () => {
   const { user } = useAuthStore();

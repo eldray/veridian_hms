@@ -302,7 +302,9 @@ export default function ScansEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients(), getScanTemplates(false)]);
+      // A sonographer has no read access to the patient directory, and this page is
+      // reached from the scans worklist, so the register is optional here.
+      await Promise.all([loadPatients().catch(() => undefined), getScanTemplates(false)]);
 
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;

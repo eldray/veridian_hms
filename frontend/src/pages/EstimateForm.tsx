@@ -280,6 +280,7 @@ export default function EstimateForm() {
   const [patientChoices, setPatientChoices] = useState<any[]>([]);
   const [chosenPatient, setChosenPatient] = useState<any | null>(null);
   const [patientSearching, setPatientSearching] = useState(false);
+  const [patientSearchBlocked, setPatientSearchBlocked] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
   const [patientId, setPatientId] = useState('');
@@ -298,8 +299,11 @@ export default function EstimateForm() {
     try {
       const response = await getPatients(query ? { search: query, limit: 25 } : { limit: 25 });
       setPatientChoices(asArray(response));
-    } catch {
-      /* an empty list is enough — the user can type again */
+      setPatientSearchBlocked(false);
+    } catch (err: any) {
+      // A 403 here is the patient register guard, not a network problem — say so
+      // instead of leaving an empty dropdown that looks like "no patients exist".
+      setPatientSearchBlocked(err?.response?.status === 403);
     } finally {
       setPatientSearching(false);
     }
@@ -570,6 +574,12 @@ export default function EstimateForm() {
             emptyLabel="Select patient"
             icon={<UserIcon className="w-3.5 h-3.5" />}
           />
+          {patientSearchBlocked && (
+            <p className="mt-1 text-xs text-[var(--icon-red-text)]">
+              Your role cannot search the patient register, so a new estimate has to be raised by
+              Records or an administrator. Existing estimates stay editable here.
+            </p>
+          )}
         </div>
 
         <div>

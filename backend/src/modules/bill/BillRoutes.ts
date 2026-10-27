@@ -16,7 +16,10 @@ export const createBillRoutes = () => {
 
   // POST /api/bills/generate/:encounterId - Generate a bill from an encounter's billable items
   // ⚠️ Registered BEFORE the dynamic /:id routes so :id does not swallow "generate".
-  router.post('/generate/:encounterId', billController.generateBillFromEncounter);
+  // Creating charge lines is a revenue action; the same roles that may create or
+  // amend a bill, so diagnostics and HR staff cannot raise charges.
+  const BILLING_STAFF = ['admin', 'super_admin', 'accounts', 'records', 'doctor', 'nurse', 'midwife'];
+  router.post('/generate/:encounterId', requireRole(BILLING_STAFF), billController.generateBillFromEncounter);
 
   // GET /api/bills/:id - Get bill by ID
   router.get('/:id', billController.getBillById);

@@ -442,8 +442,8 @@ export default function PatientDetails() {
     } catch { return '—'; }
   };
 
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
-  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse']);
+  const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
+  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
   const canDelete = hasRole(['admin']);
 
   const tabs = [

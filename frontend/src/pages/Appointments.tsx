@@ -185,7 +185,9 @@ export default function Appointments() {
       
       await Promise.all([
         getAppointments({ ...filters, limit: 5000 }), // all pages of the selected window
-        loadPatients(),
+        // Lab techs and sonographers book patients but have no read access to the
+        // patient directory, so the list is a name lookup only — never fatal here.
+        loadPatients().catch(() => undefined),
         getAvailableClinicians(['doctor', 'nurse', 'midwife'])
       ]);
     } catch (err) {

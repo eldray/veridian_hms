@@ -130,6 +130,7 @@ export default function UserRegistrationModal({ onClose, onSuccess }: UserRegist
                 <option value="">Select Role</option>
                 <option value="admin">Admin</option>
                 {currentUser?.role === 'super_admin' && <option value="super_admin">Super Admin</option>}
+                <option value="hr_officer">HR Officer</option>
                 <option value="doctor">Doctor</option>
                 <option value="nurse">Nurse</option>
                 <option value="midwife">Midwife</option>

@@ -19,9 +19,9 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
 
   router.use(protect);
 
-  // Read access — any clinical role
+  // Read access — the clinical team plus pharmacy, which checks the MAR before dispensing.
   const READERS: UserRole[] = [
-    'super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'hr_officer',
+    'super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'pharmacist',
   ];
 
   // Write access — the clinical team only

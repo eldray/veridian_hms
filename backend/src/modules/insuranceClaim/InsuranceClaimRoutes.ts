@@ -16,7 +16,9 @@ export const createInsuranceClaimRoutes = () => {
 
   router.use('/batches', createClaimBatchRoutes());
 
-  router.get('/tracking', requireRole(['admin', 'accounts']), insuranceClaimController.listTrackingClaims);
+  // Doctors may follow the progress of claims they submitted; only accounts
+  // record the tracking events themselves.
+  router.get('/tracking', requireRole(['admin', 'accounts', 'doctor']), insuranceClaimController.listTrackingClaims);
   router.post('/:claimId/tracking-events', requireRole(['admin', 'accounts']), insuranceClaimController.recordTrackingEvent);
 
   router.get('/summary', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.getClaimsSummary);

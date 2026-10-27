@@ -82,6 +82,29 @@ semantic versioning.
   transport and no endpoint consumed the token — so the value sat in the
   database as a plaintext credential that would become live the moment a
   consumer was written. Any token left by an earlier release is now cleared.
+- Staff identity and payroll data are no longer readable by every signed-in
+  account. `GET` and `PATCH /users/:id/full-profile` (bank details, SSNIT
+  number, contract dates) had no role guard at all, and
+  `GET /users/:id/payslips` and `GET /users/:id/documents` were open the same
+  way. All four are now limited to the account's owner, an administrator or the
+  HR officer, matching the `/users/:id` and `/users/:id/documents` POST guards.
+- Hard-deleting a patient is administrator-only. `DELETE /patients/:id`
+  previously inherited the patient-management role list, so a records officer or
+  midwife could erase a patient with all of their history.
+- `PATCH /stock-transfers/:id/receive` required only authentication, so any
+  account could book a receipt against a department it does not work in. It now
+  needs the same roles that may request a transfer.
+- `POST /bills/generate/:encounterId` required only authentication and now needs
+  one of the revenue or clinical roles that may create or amend a bill.
+- `POST /notifications` and `POST /notifications/message` required only
+  authentication, letting any account push a notice into anyone else's feed. Both
+  are now administrator-only, like the bulk and role broadcasts beside them.
+- The nursing MAR endpoints dropped `hr_officer` from their read list; the
+  medication record is patient data with no HR purpose.
+- The GHS report endpoints and the referral statistics endpoint refused roles that
+  the Reports and Referrals pages are open to (nurse; nurse, doctor, midwife),
+  so those users got a 403 for data their own screen loads on mount. The
+  insurance-claim tracking list likewise hid itself from doctors.
 
 ### Added
 
@@ -141,6 +164,12 @@ semantic versioning.
 - Bill responses now carry the visit and insurer details the billing screen needs:
   the attendance number, type and date, and the insurance provider with its
   coverage percentage.
+- `frontend/src/config/access.ts` is the one place that says which role opens which
+  page. Each entry lists the paths and `:param` patterns it owns, the roles that may
+  open it, and optionally the narrower set that gets a sidebar link. The route guard
+  in `App.tsx` and the sidebar in `DashboardLayout.tsx` both read this table, so the
+  menu, the guard and the API role lists can be reviewed against one another. Backend
+  route guards mirror it by hand and each divergence is commented where it lives.
 
 ### Changed
 
@@ -342,6 +371,15 @@ semantic versioning.
   claim; the sheet, labels, inputs and status chips follow the scheme. Text inputs now
   declare their own background: nothing in the app sets `color-scheme`, so a native
   control left unstyled paints a white field even when the card around it is dark.
+- The sidebar is rebuilt from the access matrix, so the links a role is offered are the
+  links that role can use. Patients disappears for laboratory, pharmacy, imaging, accounts
+  and HR (their screens reach patients through their own worklists), Settings disappears for
+  doctors (the page only rendered "Access Restricted" for them), and Antenatal, Stock
+  Transactions and the dispensing queue appear or go where the guard actually agrees.
+  Attendance appears for lab technicians, sonographers and accounts, as agreed.
+- The user-registration role picker offers HR Officer. `UserRole` has had that value since
+  the schema defined it, but it was not selectable, so no account could ever be given the
+  role the HR pages check for.
 
 ### Fixed
 
@@ -356,6 +394,36 @@ semantic versioning.
 - A themed report no longer prints in screen colours. Dark schemes set light text, which is
   invisible on paper, so `.printable-report` is forced to black-on-white with neutral table
   borders inside the print stylesheet while the screen keeps following the theme.
+- Laboratory and imaging results can be recorded again. `LabResultEntry` and `ScansEntry`
+  loaded the patient register while opening their worklist, and a lab technician or
+  sonographer has no read access to it, so the whole initial load failed. The register is
+  now optional on both screens — the patient arrives from the worklist row, not a search box.
+- The appointments list no longer fails for lab technicians and sonographers, for the same
+  reason: one rejected register call inside `Promise.all` discarded the appointments that
+  had loaded and reported "Load Failed".
+- Scan templates are readable by the sonographer who uses them. Every
+  `/scan-templates` route, including the category and body-part metadata the entry form
+  needs, excluded that role.
+- Requisitions and the visit list reach the roles that work them. The requisition endpoints
+  refused lab and imaging staff although both roles own the page, attendance was missing
+  from the sonographer and accounts lists, and the dispensing queue was the reverse case: it
+  was open to midwives, who cannot dispense (`PUT /encounters/:id/medications/:id/dispense`
+  is pharmacist-only), so every action on it would have failed.
+- Action buttons now match the guard behind them. A midwife can save a visit
+  (`PUT /encounters/:id`) but the attendance screens hid the edit controls, and the
+  attendance detail page showed a "Sync bill" button to roles that `POST
+  /bills/generate/:encounterId` refuses. Patient hard-delete is offered only to
+  administrators, matching the API.
+- The HR officer's User Management page loads. It is in the sidebar for that role, but
+  `GET /users` was administrator-only, so the page rendered an error instead of the staff list.
+- A lab technician or sonographer opening Medical Services no longer lands on a scans tab
+  their own template read now allows.
+- The NHIS claim "Edit member" button is hidden from roles that cannot save it: the write is
+  `PUT /patients/:id`, which the patient-register guard refuses for accounts. Billing's
+  "View Profile" shortcut is hidden for the same reason instead of bouncing to Access Denied.
+- Creating an estimate tells accounts why the patient list is empty rather than showing a
+  blank dropdown: the register search answers 403 for that role, and the hint names Records
+  or an administrator as the role that can raise the estimate.
 
 ### Removed
 
@@ -378,3 +446,8 @@ semantic versioning.
   a 2025 copyright, on a single-facility application that is installed locally and whose
   accounts are created by an administrator. Leaving it in the tree meant leaving a screen of
   dead links one refactor or stray route away from being reachable.
+- The two hand-maintained role tables in the frontend are deleted: `rolePermissions` plus
+  `routeMap`/`dynamicRoutes` in `App.tsx` and `navigationItems`/`NAV_GROUPS` in
+  `DashboardLayout.tsx`. They were two halves of the same answer written independently, and
+  they disagreed — the sidebar offered a role a link the guard then refused, or hid a page the
+  guard allowed. All of it now comes from `config/access.ts`.

@@ -178,7 +178,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       case 'diagnoses': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
       case 'lab-tests': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts']);
       case 'procedures': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']);
-      case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']);
+      case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'accounts']);
     }
   };
   const firstReadableTab = (['diagnoses', 'lab-tests', 'procedures', 'scans'] as ActiveTab[]).find(canReadTab) ?? 'diagnoses';

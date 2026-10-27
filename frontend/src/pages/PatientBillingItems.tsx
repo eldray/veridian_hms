@@ -8,6 +8,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { useAuthStore } from '../store/authStore';
+import { canAccessPage } from '../config/access';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
@@ -90,7 +91,10 @@ export default function PatientBillingItems() {
   const routerLocation = useLocation();
   const goBack = () => (routerLocation.key === 'default' ? navigate('/dashboard/billing') : navigate(-1));
   const { success, error: toastError } = useToast();
-  const { hasRole } = useAuthStore();
+  const { hasRole, user } = useAuthStore();
+  // The patient record is not part of the billing page's grant, so the shortcut
+  // only appears for roles that can actually open it (see config/access.ts).
+  const canViewPatientProfile = canAccessPage(user?.role, 'patients');
 
   // ===== Local UI state =====
   const [selectedBill, setSelectedBill] = useState<ProcessedBill | null>(null);
@@ -941,13 +945,15 @@ export default function PatientBillingItems() {
                 </div>
               </div>
             </div>
-            <Link
-              to={`/dashboard/patients/${patient.id}`}
-              className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-colors text-sm"
-            >
-              <Eye className="w-4 h-4" />
-              View Profile
-            </Link>
+            {canViewPatientProfile && (
+              <Link
+                to={`/dashboard/patients/${patient.id}`}
+                className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-colors text-sm"
+              >
+                <Eye className="w-4 h-4" />
+                View Profile
+              </Link>
+            )}
           </div>
         </div>
       )}
