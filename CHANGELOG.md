@@ -342,3 +342,10 @@ semantic versioning.
   cannot reintroduce the page freezes it was reported against. `apiLimits.ts` documents the
   one change needed if the server is ever split across processes: put a shared store such as
   Redis behind `hit()`.
+- The marketing landing page (`frontend/src/pages/LandingPage.tsx`) is deleted. Nothing
+  imported it and no route reached it — `/` redirects to the dashboard — and it advertised a
+  self-service SaaS this product is not: `/register`, `/pricing`, `/demo`, `/blog`,
+  `/careers`, `/about`, "Start Free Trial", "Trusted by 50+ Hospitals", `support@hms.app` and
+  a 2025 copyright, on a single-facility application that is installed locally and whose
+  accounts are created by an administrator. Leaving it in the tree meant leaving a screen of
+  dead links one refactor or stray route away from being reachable.
