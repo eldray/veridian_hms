@@ -74,6 +74,14 @@ semantic versioning.
 - A waiver approval or rejection is always attributed to the signed-in
   administrator. The caller-supplied `approvedById` field is no longer read, so
   one account could previously record an approval under another person's ID.
+- Resetting a password now closes every session of that account and is written
+  to the audit chain with the administrator who did it. The audit entry records
+  that the reset happened, never the password or its hash.
+- `POST /auth/forgot-password` no longer writes a random reset token to the user
+  row. Nothing in this deployment can deliver a link — there is no mail or SMS
+  transport and no endpoint consumed the token — so the value sat in the
+  database as a plaintext credential that would become live the moment a
+  consumer was written. Any token left by an earlier release is now cleared.
 
 ### Added
 
@@ -87,6 +95,14 @@ semantic versioning.
 - The route-authorization test now checks money and care routes one by one
   instead of only proving that `requireRole` appears somewhere in the file,
   which is how the unguarded estimate-approval route stayed hidden.
+
+- An administrator can set a new password for a member of staff who cannot sign
+  in: `PATCH /api/users/:id/password` (admin or super-admin), with a **Reset
+  password** action on each row of Staff management. The chosen password passes
+  the same policy as any other, only an administrator of equal or higher standing
+  may reset a super-admin, and the login screen points staff at this path instead
+  of promising a link. Until now there was no password reset path at all: the
+  account could only be recovered by editing the database by hand.
 
 - `backend/.env.example`.
 - Unit tests for file-access tokens, cookie parsing, and upload path resolution.

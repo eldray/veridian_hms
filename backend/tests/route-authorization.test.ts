@@ -75,6 +75,17 @@ describe('route authorization coverage', () => {
     expect(unguarded, 'mutating money and care routes need a role guard on the route itself').toEqual([]);
   });
 
+  // The administrator password reset is the only way a locked-out account gets back
+  // in, so it must never be reachable by a role that merely reads the staff register.
+  it('guards the administrator password reset with a role and a body check', () => {
+    const source = read(path.join(modulesDir, 'user', 'UserRoutes.ts'));
+    const route = source.match(/router\.patch\(\s*'\/:id\/password'([\s\S]*?)\);/);
+
+    expect(route, 'PATCH /users/:id/password must be registered').toBeTruthy();
+    expect(route![1]).toMatch(/requireRole/);
+    expect(route![1]).toMatch(/validateBody/);
+  });
+
   it('keeps only login, refresh and password reset public in the auth router', () => {
     const controller = read(path.join(modulesDir, 'auth', 'AuthController.ts'));
     const registrations = [

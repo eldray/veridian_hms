@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { UserController } from './UserController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { ResetUserPasswordSchema } from './UserValidators';
 import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
 import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
@@ -116,6 +118,16 @@ export const createUserRoutes = (prisma: any): Router => {
   );
 
   router.patch('/:id/deactivate', requireRole([...ADMIN_ONLY]), controller.deactivateUser);
+
+  // A member of staff who cannot sign in is reset here. There is no mail server in
+  // the packaged deployment, so /auth/forgot-password has nothing to send a link
+  // with; this route is the working path back into the account.
+  router.patch(
+    '/:id/password',
+    requireRole([...ADMIN_ONLY]),
+    validateBody(ResetUserPasswordSchema),
+    controller.resetUserPassword,
+  );
 
   // ==========================================
   // SHIFTS

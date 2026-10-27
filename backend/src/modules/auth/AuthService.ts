@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import crypto from 'crypto';
 import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
 import {
@@ -148,18 +147,27 @@ export class AuthService {
     return { success: true, data: { user: this.mapUserResponse(updatedUser), ...tokens, tokenType: 'Bearer' } };
   }
 
+  /**
+   * The "forgot password" entry point on the login screen.
+   *
+   * It cannot hand out a reset link: this deployment runs inside the hospital
+   * with no mail transport, and a token minted here was previously written to
+   * the user row in plain text that nothing ever consumed. The working path is
+   * an administrator (`PATCH /users/:id/password`), so this answers with that
+   * instruction — and answers the same way whether or not the account exists,
+   * so the endpoint stays a poor way to enumerate usernames.
+   */
   async forgotPassword(username: string) {
+    const message =
+      'Password resets are handled by a system administrator at this facility. Please ask one to reset it for you.';
     const user = await this.repository.findByUsername(username);
-    if (!user) return { success: true, message: 'If the account exists, a reset link was sent.' };
+    if (user) {
+      // A reset is now an administrator decision, so no token from an earlier
+      // release is left sitting on the account.
+      await this.repository.updateUser(user.id, { resetToken: null, resetExpiry: null });
+    }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpiry = new Date(Date.now() + 3600000);
-
-    await this.repository.updateUser(user.id, { resetToken, resetExpiry });
-    // Never log password-reset tokens. A secure delivery and token-consumption flow
-    // must be configured before this feature can be considered operational.
-
-    return { success: true, message: 'If the account exists, a reset link was sent.' };
+    return { success: true, message };
   }
 
   async refreshToken(refreshToken: string) {

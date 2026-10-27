@@ -688,6 +688,11 @@ export const updateUser = (userId: string, data: any) =>
 export const deactivateUser = (userId: string) =>
   api.patch(`/users/${userId}/deactivate`).then(r => r.data?.data || r.data);
 
+// An administrator setting a new password for a locked-out account. This is the
+// reset path in a deployment with no mail server to send a link through.
+export const adminResetUserPassword = (userId: string, newPassword: string) =>
+  api.patch(`/users/${userId}/password`, { newPassword }).then(r => r.data?.data || r.data);
+
 export const getUserProfile = () =>
   api.get('/auth/profile').then(r => r.data?.data || r.data);
 
@@ -4040,7 +4045,7 @@ export default {
   getSeniorityLabel,
 
   // User Management (NEW - separate module)
-  adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
+  adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, adminResetUserPassword, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
 
   // Shift Management (NEW)
   getShifts, getShiftById, createShift, updateShift, deleteShift, 

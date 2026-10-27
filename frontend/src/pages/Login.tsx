@@ -8,7 +8,7 @@ import {
   Hospital, Lock, User, Eye, EyeOff,
   Users, Stethoscope, Shield, Activity, Pill, Receipt, LogIn, CheckCircle,
   GraduationCap, FlaskConical, ScanLine, BriefcaseBusiness, Calculator,
-  HeartPulse, Archive, ArrowLeft, Mail,
+  HeartPulse, Archive, ArrowLeft, Mail, KeyRound,
 } from 'lucide-react';
 
 // ── Feature flag ─────────────────────────────────────────────────────────────
@@ -133,12 +133,12 @@ export default function Login() {
     }
     setResetLoading(true);
     try {
-      await forgotPassword(resetUsername.trim());
+      const response: any = await forgotPassword(resetUsername.trim());
       setResetSent(true);
       success(
-        'Reset requested',
-        'If the account exists, a reset link has been sent.',
-        6000,
+        'Ask an administrator',
+        response?.message || 'Passwords are reset by a system administrator at this facility.',
+        8000,
       );
     } catch (err: any) {
       // Backend always returns 200 for forgot-password (security best practice),
@@ -818,7 +818,7 @@ export default function Login() {
                       justifyContent: 'center',
                     }}
                   >
-                    <Mail
+                    <KeyRound
                       style={{
                         width: 20,
                         height: 20,
@@ -845,8 +845,8 @@ export default function Login() {
                     }}
                   >
                     {resetSent
-                      ? 'Check your inbox for the reset link'
-                      : 'Enter your username and we’ll send a reset link'}
+                      ? 'Ask a system administrator to reset it for you'
+                      : 'Enter your username to be told how a reset is done here'}
                   </p>
                 </div>
 
@@ -856,7 +856,7 @@ export default function Login() {
                       padding: '14px 16px',
                       borderRadius: 8,
                       border: '1px solid var(--border-color)',
-                      background: 'var(--icon-green-bg)',
+                      background: 'var(--icon-cyan-bg)',
                       marginBottom: 16,
                     }}
                   >
@@ -864,13 +864,16 @@ export default function Login() {
                       style={{
                         margin: 0,
                         fontSize: 12,
-                        color: 'var(--icon-green-text)',
+                        color: 'var(--icon-cyan-text)',
                         lineHeight: 1.55,
                       }}
                     >
-                      If an account exists for{' '}
-                      <strong>{resetUsername}</strong>, a password reset link
-                      has been sent. The link expires in 1 hour.
+                      This facility runs without an email service, so
+                      passwords are reset by a system administrator. Ask one to
+                      open <strong>Staff management</strong> for{' '}
+                      <strong>{resetUsername}</strong>, set a new password and
+                      hand it to you in person. Signing in with it closes every
+                      other session of that account.
                     </p>
                   </div>
                 ) : (

@@ -130,6 +130,11 @@ off-box copy), RTO ≤ 2 hours (documented restore and verification steps).
 - Data is not partitioned by facility; every administrator sees the whole
   database. Multi-facility deployments need a `facilityId` on both users and
   records before that can be enforced.
-- `POST /api/auth/forgot-password` records a reset token but no delivery channel
-  consumes it. Until email or SMS delivery and a reset-password endpoint are
-  configured, use the admin password-change path instead.
+- Password resets are an administrator action, not a self-service one. Staff who
+  cannot sign in are reset from **Staff management** (`PATCH
+  /api/users/:id/password`, admin or super-admin only): the new password must
+  satisfy the same 12-character policy as any other, the account's sessions are
+  revoked immediately, and the reset is recorded in the audit chain. There is no
+  email or SMS delivery, so `POST /api/auth/forgot-password` only answers with
+  those instructions and clears any token left by an older release; a genuine
+  link-based reset needs a delivery channel and a token consumer first.

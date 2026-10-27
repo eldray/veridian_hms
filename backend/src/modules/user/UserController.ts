@@ -89,6 +89,12 @@ export class UserController extends BaseController {
     return this.ok(res, user, 'User deactivated successfully');
   });
 
+  resetUserPassword = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { newPassword } = req.body;
+    const user = await this.service.resetUserPassword(req.params.id, newPassword, this.actorOf(req));
+    return this.ok(res, user, 'Password reset. The member of staff must sign in again everywhere.');
+  });
+
   getMyPermissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return this.unauthorized(res, 'User not authenticated');

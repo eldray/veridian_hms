@@ -6,6 +6,7 @@ import {
   getUserById as getUserByIdApi,
   updateUser as updateUserApi,
   deactivateUser as deactivateUserApi,
+  adminResetUserPassword,
   getUserProfile,
   updateUserProfile,
   changeUserPassword as changeUserPasswordApi,
@@ -190,6 +191,7 @@ interface UserState {
   getUserById: (userId: string) => Promise<User>;
   updateUser: (userId: string, data: Partial<User>) => Promise<User>;
   deactivateUser: (userId: string) => Promise<void>;
+  resetUserPassword: (userId: string, newPassword: string) => Promise<void>;
   createUser: (userData: {
     username: string;
     password: string;
@@ -341,6 +343,18 @@ export const useUserStore = create<UserState>((set, get) => ({
       set({ users, isLoading: false });
     } catch (error: any) {
       set({ isLoading: false, error: error?.response?.data?.message || 'Failed to deactivate user' });
+      throw error;
+    }
+  },
+
+  // The server also revokes the account's sessions, so nothing is cached to refresh.
+  resetUserPassword: async (userId, newPassword) => {
+    set({ isLoading: true, error: null });
+    try {
+      await adminResetUserPassword(userId, newPassword);
+      set({ isLoading: false });
+    } catch (error: any) {
+      set({ isLoading: false, error: error?.response?.data?.message || 'Failed to reset the password' });
       throw error;
     }
   },
