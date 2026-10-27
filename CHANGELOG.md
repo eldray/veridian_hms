@@ -67,8 +67,26 @@ semantic versioning.
   is blocked, page links never open a second Electron window, and navigation is
   limited to the exact API/UI origins instead of any URL that starts with the
   host string.
+- Accepting or rejecting an estimate, and reading one by ID, now require the
+  roles the rest of the estimate workflow already uses. Before this they only
+  required a signed-in session, so any account could mark an estimate approved
+  and have the approval recorded against its own user.
+- A waiver approval or rejection is always attributed to the signed-in
+  administrator. The caller-supplied `approvedById` field is no longer read, so
+  one account could previously record an approval under another person's ID.
 
 ### Added
+
+- Waiver, estimate and nursing writes now run through shared Zod request
+  schemas at the route (`WaiverValidators`, `ProformaInvoiceValidators`,
+  `NursingValidators`), the same layer already used for EMR, claim and
+  communication writes. A waiver amount that is not a number, an estimate line
+  with no quantity or price, a task priority outside `low/medium/high` or a
+  nursing-note type that does not exist are now rejected with the field name
+  before any row is touched.
+- The route-authorization test now checks money and care routes one by one
+  instead of only proving that `requireRole` appears somewhere in the file,
+  which is how the unguarded estimate-approval route stayed hidden.
 
 - `backend/.env.example`.
 - Unit tests for file-access tokens, cookie parsing, and upload path resolution.
@@ -98,6 +116,12 @@ semantic versioning.
   coverage percentage.
 
 ### Changed
+
+- Waiver, estimate and nursing records that do not exist, a waiver that is
+  already decided, a draft estimate that has moved on, and a note or task that
+  belongs to another author now answer 404, 409 or 403 instead of an
+  unexpected-server-error page, because those services raise typed errors like
+  the rest of the API.
 
 - Packaged upgrades use versioned SQL scripts with checksums instead of a
   single file name that was skipped on every release. Databases from older

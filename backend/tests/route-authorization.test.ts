@@ -43,6 +43,38 @@ describe('route authorization coverage', () => {
     expect(unguarded, 'mutating routes need a role or permission guard').toEqual([]);
   });
 
+  // Per-route check for the files that move money or record care. The module-wide
+  // check above only proves requireRole appears somewhere in the file, which is how
+  // an unguarded "accept estimate" route survived: one guarded route in the file
+  // was enough to pass it.
+  const FINANCE_AND_CARE_ROUTE_FILES = [
+    'bill/BillRoutes.ts',
+    'billing/BillingRoutes.ts',
+    'nursing/NursingRoutes.ts',
+    'proformaInvoice/ProformaInvoiceRoutes.ts',
+    'waiver/WaiverRoutes.ts',
+  ];
+
+  // Bill generation is a side effect of documenting clinical work (the attendance
+  // store regenerates after a lab result or procedure entry, including by lab techs),
+  // so it is authenticated rather than finance-role restricted.
+  const UNGUARDED_BY_DESIGN = new Set(['POST /generate/:encounterId']);
+
+  it('guards every mutating route in the money and care modules', () => {
+    const unguarded: string[] = [];
+
+    for (const relativeFile of FINANCE_AND_CARE_ROUTE_FILES) {
+      const source = read(path.join(modulesDir, relativeFile));
+      for (const [, method, args] of source.matchAll(/router\.(post|put|patch|delete)\(\s*(['"][^'"]*['"][\s\S]*?)\);/g)) {
+        const routePath = (args.match(/'([^']+)'/) || ['', ''])[1];
+        if (UNGUARDED_BY_DESIGN.has(`${method.toUpperCase()} ${routePath}`)) continue;
+        if (!/require(Role|Permission)/.test(args)) unguarded.push(`${relativeFile}: ${method.toUpperCase()} ${routePath}`);
+      }
+    }
+
+    expect(unguarded, 'mutating money and care routes need a role guard on the route itself').toEqual([]);
+  });
+
   it('keeps only login, refresh and password reset public in the auth router', () => {
     const controller = read(path.join(modulesDir, 'auth', 'AuthController.ts'));
     const registrations = [

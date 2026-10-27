@@ -1,5 +1,6 @@
 import { PrismaClient, WaiverStatus, WaiverType } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { WaiverRepository } from './WaiverRepository';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
@@ -17,13 +18,13 @@ export class WaiverService extends BaseService {
     const { billId, patientId, waiverType, amountRequested, reason, requestedById, supportingDocs } = data;
 
     if (!patientId || !amountRequested || !reason || !requestedById) {
-      throw new Error('Patient ID, amount requested, reason, and requested by are required');
+      throw new ValidationError('Patient ID, amount requested, reason, and requested by are required');
     }
 
     const validTypes: WaiverType[] = ['indigent', 'nhis_exempt', 'staff_discount', 'management_discretion', 'other'];
     const finalWaiverType = waiverType || 'other';
     if (!validTypes.includes(finalWaiverType)) {
-      throw new Error(`Invalid waiver type. Must be one of: ${validTypes.join(', ')}`);
+      throw new ValidationError(`Invalid waiver type. Must be one of: ${validTypes.join(', ')}`);
     }
 
     let finalPatientId = patientId;
@@ -31,7 +32,7 @@ export class WaiverService extends BaseService {
     
     if (billId) {
       bill = await this.repository.getBillById(billId);
-      if (!bill) throw new Error('Bill not found');
+      if (!bill) throw new NotFoundError('Bill', billId);
       if (!finalPatientId) finalPatientId = bill.patientId;
     }
 
@@ -48,29 +49,29 @@ export class WaiverService extends BaseService {
 
   async getById(id: string) {
     const waiver = await this.repository.findById(id);
-    if (!waiver) throw new Error('Waiver not found');
+    if (!waiver) throw new NotFoundError('Waiver', id);
     return waiver;
   }
 
   // ✅ FIXED: Decimal math for bill updates
   async approve(id: string, approvedById: string, amountApproved?: number, rejectionReason?: string) {
     const waiver = await this.repository.findById(id);
-    if (!waiver) throw new Error('Waiver not found');
-    if (waiver.status !== 'pending') throw new Error(`Waiver is already ${waiver.status}`);
+    if (!waiver) throw new NotFoundError('Waiver', id);
+    if (waiver.status !== 'pending') throw new ConflictError(`Waiver is already ${waiver.status}`);
 
     const finalAmountApproved = amountApproved !== undefined ? amountApproved : waiver.amountRequested;
     if (finalAmountApproved > waiver.amountRequested) {
-      throw new Error(`Approved amount (${finalAmountApproved}) cannot exceed requested amount (${waiver.amountRequested})`);
+      throw new ValidationError(`Approved amount (${finalAmountApproved}) cannot exceed requested amount (${waiver.amountRequested})`);
     }
 
     return this.repository.approve(id, approvedById, finalAmountApproved, rejectionReason);
   }
 
   async reject(id: string, approvedById: string, rejectionReason: string) {
-    if (!rejectionReason) throw new Error('Rejection reason is required');
+    if (!rejectionReason) throw new ValidationError('Rejection reason is required');
     const waiver = await this.repository.findById(id);
-    if (!waiver) throw new Error('Waiver not found');
-    if (waiver.status !== 'pending') throw new Error(`Waiver is already ${waiver.status}`);
+    if (!waiver) throw new NotFoundError('Waiver', id);
+    if (waiver.status !== 'pending') throw new ConflictError(`Waiver is already ${waiver.status}`);
     return this.repository.reject(id, approvedById, rejectionReason);
   }
 
@@ -93,8 +94,8 @@ export class WaiverService extends BaseService {
 
   async update(id: string, data: any) {
     const waiver = await this.repository.findById(id);
-    if (!waiver) throw new Error('Waiver not found');
-    if (waiver.status !== 'pending') throw new Error('Only pending waivers can be updated');
+    if (!waiver) throw new NotFoundError('Waiver', id);
+    if (waiver.status !== 'pending') throw new ValidationError('Only pending waivers can be updated');
     
     const updateData: any = {};
     if (data.amountRequested !== undefined) updateData.amountRequested = parseFloat(data.amountRequested);
@@ -106,8 +107,8 @@ export class WaiverService extends BaseService {
 
   async delete(id: string) {
     const waiver = await this.repository.findById(id);
-    if (!waiver) throw new Error('Waiver not found');
-    if (waiver.status !== 'pending') throw new Error('Only pending waivers can be deleted');
+    if (!waiver) throw new NotFoundError('Waiver', id);
+    if (waiver.status !== 'pending') throw new ValidationError('Only pending waivers can be deleted');
     return this.repository.delete(id);
   }
 }

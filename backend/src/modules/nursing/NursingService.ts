@@ -2,7 +2,7 @@
 import { PrismaClient, DoseStatus, NursingTaskStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { NursingRepository } from './NursingRepository';
-import { ValidationError, NotFoundError } from '../../utils/errors';
+import { ForbiddenError, NotFoundError, ValidationError } from '../../utils/errors';
 import {
   MarFilters,
   ScheduleDosesInput,
@@ -143,7 +143,7 @@ export class NursingService extends BaseService {
 
   async getDoseById(id: string) {
     const dose = await this.repository.findDoseById(id);
-    if (!dose) throw new Error('Dose not found');
+    if (!dose) throw new NotFoundError('MAR dose', id);
     return dose;
   }
 
@@ -190,7 +190,7 @@ export class NursingService extends BaseService {
 
   async administerDose(doseId: string, userId: string, data: AdministerDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
-    if (!existing) throw new Error('Dose not found');
+    if (!existing) throw new NotFoundError('MAR dose', doseId);
     if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
     if (existing.status === 'administered') throw new ValidationError('This dose has already been administered');
     if (existing.status === 'discontinued') throw new ValidationError('This dose was discontinued');
@@ -205,7 +205,7 @@ export class NursingService extends BaseService {
 
   async recordVariance(doseId: string, userId: string, data: VarianceDoseDTO) {
     const existing = await this.repository.findDoseById(doseId);
-    if (!existing) throw new Error('Dose not found');
+    if (!existing) throw new NotFoundError('MAR dose', doseId);
     if (existing.medication.status === 'cancelled') throw new ValidationError('This prescription was cancelled');
     if (existing.status === 'administered') throw new ValidationError('Cannot record a variance for an administered dose');
     await this.ensureEncounterOpenForDose(existing.medication.attendanceId);
@@ -227,7 +227,7 @@ export class NursingService extends BaseService {
 
   async getNoteById(id: string) {
     const note = await this.repository.findNoteById(id);
-    if (!note) throw new Error('Note not found');
+    if (!note) throw new NotFoundError('Nursing note', id);
     return note;
   }
 
@@ -286,11 +286,11 @@ export class NursingService extends BaseService {
 
   async updateNote(id: string, dto: UpdateNursingNoteDTO, actor: { userId: string; role: string }) {
     const existing = await this.repository.findNoteById(id);
-    if (!existing) throw new Error('Note not found');
+    if (!existing) throw new NotFoundError('Nursing note', id);
 
     const isAdminLike = ['super_admin', 'admin'].includes(actor.role);
     if (existing.createdById !== actor.userId && !isAdminLike) {
-      throw new Error('Only the author or an admin can edit this note');
+      throw new ForbiddenError('Only the author or an admin can edit this note');
     }
 
     const data: any = {};
@@ -304,11 +304,11 @@ export class NursingService extends BaseService {
 
   async deleteNote(id: string, actor: { userId: string; role: string }) {
     const existing = await this.repository.findNoteById(id);
-    if (!existing) throw new Error('Note not found');
+    if (!existing) throw new NotFoundError('Nursing note', id);
 
     const isAdminLike = ['super_admin', 'admin'].includes(actor.role);
     if (existing.createdById !== actor.userId && !isAdminLike) {
-      throw new Error('Only the author or an admin can delete this note');
+      throw new ForbiddenError('Only the author or an admin can delete this note');
     }
 
     await this.repository.deleteNote(id);
@@ -324,7 +324,7 @@ export class NursingService extends BaseService {
 
   async getTaskById(id: string) {
     const task = await this.repository.findTaskById(id);
-    if (!task) throw new Error('Task not found');
+    if (!task) throw new NotFoundError('Nursing task', id);
     return task;
   }
 
@@ -378,7 +378,7 @@ export class NursingService extends BaseService {
 
   async updateTask(id: string, dto: UpdateNursingTaskDTO, userId: string) {
     const existing = await this.repository.findTaskById(id);
-    if (!existing) throw new Error('Task not found');
+    if (!existing) throw new NotFoundError('Nursing task', id);
 
     // A closed encounter must not receive new or rescheduled actionable work via
     // the update endpoint. Completing/skipping an existing task and adding a

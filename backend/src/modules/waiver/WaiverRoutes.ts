@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { UserRole } from '@prisma/client';
 import { waiverController } from './WaiverController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { ApproveWaiverSchema, CreateWaiverSchema, RejectWaiverSchema, UpdateWaiverSchema } from './WaiverValidators';
 
 export const createWaiverRoutes = () => {
   const router = Router();
@@ -20,16 +22,16 @@ export const createWaiverRoutes = () => {
   router.get('/patient/:patientId', requireRole(readRoles), waiverController.getByPatient);
 
   // Approval routes (Admin/Finance only)
-  router.post('/:id/approve', requireRole(adminRoles), waiverController.approve);
-  router.post('/:id/reject', requireRole(adminRoles), waiverController.reject);
+  router.post('/:id/approve', requireRole(adminRoles), validateBody(ApproveWaiverSchema), waiverController.approve);
+  router.post('/:id/reject', requireRole(adminRoles), validateBody(RejectWaiverSchema), waiverController.reject);
 
   // ==========================================
   // DYNAMIC ID ROUTES (LAST)
   // ==========================================
   router.get('/', requireRole(readRoles), waiverController.getAll);
   router.get('/:id', requireRole(readRoles), waiverController.getById);
-  router.post('/', requireRole(financeRoles), waiverController.create);
-  router.put('/:id', requireRole(financeRoles), waiverController.update);
+  router.post('/', requireRole(financeRoles), validateBody(CreateWaiverSchema), waiverController.create);
+  router.put('/:id', requireRole(financeRoles), validateBody(UpdateWaiverSchema), waiverController.update);
   router.delete('/:id', requireRole(adminRoles), waiverController.delete);
 
   return router;

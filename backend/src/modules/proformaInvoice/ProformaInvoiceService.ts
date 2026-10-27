@@ -2,6 +2,7 @@ import { PrismaClient, ProformaInvoiceStatus } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ProformaInvoiceRepository } from './ProformaInvoiceRepository';
 import { getCounterService } from '../../services/CounterService';
+import { NotFoundError, ValidationError } from '../../utils/errors';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -39,10 +40,10 @@ export class ProformaInvoiceService extends BaseService {
   async create(data: any, userId: string) {
     this.logInfo('Creating proforma invoice', { patientId: data.patientId });
 
-    if (!(await this.prisma.patient.findUnique({ where: { id: data.patientId } }))) throw new Error('Patient not found');
-    if (data.attendanceId && !(await this.prisma.attendance.findUnique({ where: { id: data.attendanceId } }))) throw new Error('Attendance not found');
-    if (data.admissionId && !(await this.prisma.admission.findUnique({ where: { id: data.admissionId } }))) throw new Error('Admission not found');
-    if (data.corporateAccountId && !(await this.prisma.corporateAccount.findUnique({ where: { id: data.corporateAccountId } }))) throw new Error('Corporate account not found');
+    if (!(await this.prisma.patient.findUnique({ where: { id: data.patientId } }))) throw new NotFoundError('Patient not found');
+    if (data.attendanceId && !(await this.prisma.attendance.findUnique({ where: { id: data.attendanceId } }))) throw new NotFoundError('Attendance not found');
+    if (data.admissionId && !(await this.prisma.admission.findUnique({ where: { id: data.admissionId } }))) throw new NotFoundError('Admission not found');
+    if (data.corporateAccountId && !(await this.prisma.corporateAccount.findUnique({ where: { id: data.corporateAccountId } }))) throw new NotFoundError('Corporate account not found');
 
     const processedItems = [];
     for (const item of data.items) {
@@ -51,7 +52,7 @@ export class ProformaInvoiceService extends BaseService {
           where: { id: item.serviceCatalogId },
           include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } } // ✅ FIXED: 1-to-N pricing
         });
-        if (!service) throw new Error(`Service catalog item not found: ${item.serviceCatalogId}`);
+        if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
         
         // ✅ FIXED: Access array element
         if (!item.unitPrice && service.pricing && service.pricing.length > 0) {
@@ -93,19 +94,19 @@ export class ProformaInvoiceService extends BaseService {
 
   async getById(id: string) {
     const invoice = await this.repository.findById(id);
-    if (!invoice) throw new Error('Proforma invoice not found');
+    if (!invoice) throw new NotFoundError('Proforma invoice not found');
     return invoice;
   }
 
   async update(id: string, data: any, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'DRAFT') throw new Error('Only draft proforma invoices can be updated');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'DRAFT') throw new ValidationError('Only draft proforma invoices can be updated');
 
     let updateData: any = { notes: data.notes, termsAndConditions: data.termsAndConditions, discount: data.discount, validityDays: data.validityDays };
 
     if (Array.isArray(data.items)) {
-      if (data.items.length === 0) throw new Error('At least one proforma invoice item is required');
+      if (data.items.length === 0) throw new ValidationError('At least one proforma invoice item is required');
       const processedItems = [];
       for (const item of data.items) {
         if (item.serviceCatalogId) {
@@ -113,7 +114,7 @@ export class ProformaInvoiceService extends BaseService {
             where: { id: item.serviceCatalogId },
             include: { pricing: { where: { isActive: true }, take: 1, orderBy: { effectiveDate: 'desc' } } }
           });
-          if (!service) throw new Error(`Service catalog item not found: ${item.serviceCatalogId}`);
+          if (!service) throw new NotFoundError(`Service catalog item not found: ${item.serviceCatalogId}`);
           if (!item.unitPrice && service.pricing && service.pricing.length > 0) {
             item.unitPrice = toNumber(service.pricing[0].cashPrice);
           }
@@ -138,32 +139,32 @@ export class ProformaInvoiceService extends BaseService {
 
   async send(id: string, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'DRAFT') throw new Error('Only draft proforma invoices can be sent');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'DRAFT') throw new ValidationError('Only draft proforma invoices can be sent');
     return this.repository.updateStatus(id, 'SENT', { updatedAt: new Date() });
   }
 
   async accept(id: string, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'SENT') throw new Error('Only sent proforma invoices can be accepted');
-    if (existing.expiresAt && new Date() > existing.expiresAt) throw new Error('Proforma invoice has expired');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'SENT') throw new ValidationError('Only sent proforma invoices can be accepted');
+    if (existing.expiresAt && new Date() > existing.expiresAt) throw new ValidationError('Proforma invoice has expired');
     return this.repository.updateStatus(id, 'APPROVED', { approvedById: userId, approvedAt: new Date() });
   }
 
   async reject(id: string, reason: string, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'SENT') throw new Error('Only sent proforma invoices can be rejected');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'SENT') throw new ValidationError('Only sent proforma invoices can be rejected');
     return this.repository.updateStatus(id, 'REJECTED', { notes: reason });
   }
 
   // ✅ FIXED: Wrapped in transaction and uses CounterService
   async convertToBill(id: string, data: any, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'APPROVED' && existing.status !== 'SENT') throw new Error('Only approved or sent proforma invoices can be converted to bills');
-    if (existing.convertedToBillId) throw new Error('This proforma invoice has already been converted to a bill');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'APPROVED' && existing.status !== 'SENT') throw new ValidationError('Only approved or sent proforma invoices can be converted to bills');
+    if (existing.convertedToBillId) throw new ValidationError('This proforma invoice has already been converted to a bill');
 
     return this.prisma.$transaction(async (tx) => {
       // Atomically reserve conversion so two concurrent requests cannot create two bills.
@@ -176,7 +177,7 @@ export class ProformaInvoiceService extends BaseService {
         data: { status: 'CONVERTED' },
       });
       if (reservation.count !== 1) {
-        throw new Error('This proforma invoice has already been converted or is no longer eligible. Refresh and check its current status.');
+        throw new ValidationError('This proforma invoice has already been converted or is no longer eligible. Refresh and check its current status.');
       }
 
       const billNumber = getCounterService().nextBillNumber();
@@ -218,8 +219,8 @@ export class ProformaInvoiceService extends BaseService {
 
   async delete(id: string, userId: string) {
     const existing = await this.repository.findById(id);
-    if (!existing) throw new Error('Proforma invoice not found');
-    if (existing.status !== 'DRAFT') throw new Error('Only draft proforma invoices can be deleted');
+    if (!existing) throw new NotFoundError('Proforma invoice not found');
+    if (existing.status !== 'DRAFT') throw new ValidationError('Only draft proforma invoices can be deleted');
     await this.repository.delete(id);
     return { success: true };
   }
