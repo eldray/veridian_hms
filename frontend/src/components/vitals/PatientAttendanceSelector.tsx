@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
+import { getPatients } from '../../api';
 
 interface PatientAttendanceSelectorProps {
   patients: any[];
@@ -122,9 +123,40 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   // ✅ Filter patients based on search
   // Memoised and rendered as a capped slice: a one-letter query used to match most of the
   // register and mount every row of it, which froze the picker mid-typing.
+  //
+  // The register the page hands us is a streamed prefix, so filtering it alone could not
+  // reach the rest of the directory. The server filters on name, folder number and contact,
+  // so its matches are merged with the local ones instead of replacing them.
+  const [directoryMatches, setDirectoryMatches] = useState<any[]>([]);
+  const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
+
+  useEffect(() => {
+    const term = patientSearch.trim();
+    if (!showPatientDropdown || term.length < 3) {
+      setDirectoryMatches([]);
+      setIsSearchingDirectory(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingDirectory(true);
+      try {
+        const results: any = await getPatients({ search: term, limit: MAX_PICKER_ROWS });
+        if (!cancelled) setDirectoryMatches((Array.isArray(results) ? results : []).map(normalizePatient).filter(Boolean));
+      } catch {
+        // A directory outage must not empty the picker: the rows the page already loaded
+        // still filter locally.
+        if (!cancelled) setDirectoryMatches([]);
+      } finally {
+        if (!cancelled) setIsSearchingDirectory(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [patientSearch, showPatientDropdown]);
+
   const filteredPatients = React.useMemo(() => {
     const search = patientSearch.toLowerCase();
-    return normalizedPatients.filter(patient => {
+    const local = normalizedPatients.filter(patient => {
       const fullName = getPatientFullName(patient).toLowerCase();
       const folderNumber = getPatientFolderNumber(patient).toLowerCase();
       const contact = getPatientContact(patient).toLowerCase();
@@ -133,7 +165,16 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
              folderNumber.includes(search) ||
              contact.includes(search);
     });
-  }, [normalizedPatients, patientSearch]);
+    if (!directoryMatches.length) return local;
+    const seen = new Set(local.map(getPatientId).filter(Boolean));
+    const fromDirectory = directoryMatches.filter(patient => {
+      const id = getPatientId(patient);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    return [...local, ...fromDirectory];
+  }, [normalizedPatients, patientSearch, directoryMatches]);
 
   // Filter attendances for selected patient
   const patientAttendances = React.useMemo(() => attendances
@@ -269,7 +310,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
               </>
             ) : (
               <div className="p-4 text-center text-slate-500 text-sm">
-                No patients found
+                {isSearchingDirectory ? 'Searching the register…' : 'No patients found'}
               </div>
             )}
           </div>

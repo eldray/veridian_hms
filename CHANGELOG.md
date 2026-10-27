@@ -243,3 +243,16 @@ semantic versioning.
 - The attendance list no longer waits for the patient register before painting. The visit
   rows arrive with their own patient attached, so the register is only a name-search fallback
   and used to delay the table by however long it took to stream.
+- Lists that stopped at a server page size now walk it. The staff register answered 50
+  people per request by default, so user management, and the role, department and shift
+  pickers built on it, were missing everyone past the 50th member of staff; the roster and
+  leave registers capped at 500 rows while their screens asked for 1000 and 2000. All three
+  now page through what they asked for, and a caller that names a page still gets exactly
+  that page.
+- The stock requisition form reads the formulary from the shared inventory store instead of
+  downloading its own 1000-row slice, so items beyond that line can be requisitioned, and the
+  item picker is searchable and capped: every requisition line used to mount the entire
+  formulary as `<option>` rows.
+- The shared patient picker searches the register on the server as the operator types, the
+  way the estimate form already did. It used to match only against the pages of the register
+  that had already streamed in, so a patient further down the list could not be found at all.

@@ -393,6 +393,13 @@ async function fetchAllEnvelope(
 /** True when the caller asked for more rows than one request can return. */
 const wantsMoreThanOnePage = (filters?: any) => Number(filters?.limit) > API_PAGE_SIZE;
 
+/** Page size the staff, roster and leave endpoints accept (their `parsePageSize` cap). */
+const MAX_PAGE_SIZE_500 = 500;
+
+/** Brake on the staff walk: a hospital with more named users than this is a data problem,
+ *  not a list to render, and the register feeds pickers rather than a paged table. */
+const MAX_STAFF_REGISTER_ROWS = 2500;
+
 // ============================================
 // GENERIC RESPONSE HANDLER
 // ============================================
@@ -635,7 +642,7 @@ export const generateCCC = (data: { policyNumber: string; encounterId: string; t
 export const adminCreateUser = (userData: any) =>
   api.post('/users', userData).then(r => r.data);  // Admin only endpoint
 
-export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
+const getAllUsersPage = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
   api.get('/users', { params: filters }).then(r => {
     const response = r.data;
     const users = Array.isArray(response?.data)
@@ -654,6 +661,23 @@ export const getAllUsers = (filters?: { role?: string; departmentId?: string; is
       ?? null;
     return Object.assign(users, { pagination });
   });
+
+/**
+ * The staff endpoint answers 50 rows per request by default and 500 at most. Asking it
+ * for "the users" without a page therefore returned the first 50 people and the screen
+ * presented them as the whole register, which also hid staff from the role, department
+ * and shift pickers built on top of this list. A caller that names a page keeps
+ * server-side paging; everyone else walks the pages, bounded by the brake below.
+ */
+export const getAllUsers = async (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) => {
+  if (filters?.page) return getAllUsersPage(filters);
+  const requested = Number(filters?.limit);
+  return fetchAllPages<User>(getAllUsersPage, filters ?? {}, {
+    pageSize: MAX_PAGE_SIZE_500,
+    maxItems: Number.isFinite(requested) ? requested : MAX_STAFF_REGISTER_ROWS,
+    concurrency: 2,
+  });
+};
 
 export const getUserById = (userId: string) =>
   api.get(`/users/${userId}`).then(r => r.data?.data || r.data);
@@ -683,8 +707,16 @@ export const getCurrentUserPermissions = () =>
 // SHIFT MANAGEMENT (via User module)
 // ──────────────────────────────────────────────
 
-export const getShifts = (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
-  api.get('/users/shifts', { params: filters }).then(r => r.data?.data || r.data);
+const getShiftsPage = (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/users/shifts', { params: filters }).then(r => handleResponse<any>(r.data));
+
+// The roster screen asks for a month of shifts across every department, which is far more
+// than the 500-row page the endpoint serves. It used to take the first page and treat the
+// truncated week as the whole schedule.
+export const getShifts = async (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
+  if (filters?.page || !wantsMoreThanOnePage(filters)) return getShiftsPage(filters);
+  return fetchAllPages<any>(getShiftsPage, filters, { pageSize: MAX_PAGE_SIZE_500, maxItems: Number(filters!.limit), concurrency: 2 });
+};
 
 export const getShiftById = (shiftId: string) =>
   api.get(`/users/shifts/${shiftId}`).then(r => r.data?.data || r.data);
@@ -702,8 +734,15 @@ export const deleteShift = (shiftId: string) =>
 // LEAVE MANAGEMENT (via User module)
 // ──────────────────────────────────────────────
 
-export const getLeaves = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
-  api.get('/users/leaves', { params: filters }).then(r => r.data?.data || r.data);
+const getLeavesPage = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/users/leaves', { params: filters }).then(r => handleResponse<any>(r.data));
+
+// Same 500-row page as the roster: the leave register opened on one page and the approvals
+// queue looked empty for anything older than the first slice.
+export const getLeaves = async (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
+  if (filters?.page || !wantsMoreThanOnePage(filters)) return getLeavesPage(filters);
+  return fetchAllPages<any>(getLeavesPage, filters, { pageSize: MAX_PAGE_SIZE_500, maxItems: Number(filters!.limit), concurrency: 2 });
+};
 
 export const getLeaveById = (leaveId: string) =>
   api.get(`/users/leaves/${leaveId}`).then(r => r.data?.data || r.data);
