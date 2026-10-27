@@ -164,7 +164,7 @@ export class BillingController extends BaseController {
     const dateTo = typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined;
     if (!dateFrom || !dateTo) return null;
     const range = inclusiveReportRange(dateFrom, dateTo);
-    if (!range.gte || !range.lte) return null;
+    if (!range || !range.gte || !range.lte) return null;
     return { from: range.gte, to: range.lte };
   }
 

@@ -15,7 +15,7 @@ import { MalariaReportView } from '../components/reports/MalariaReportView';
 import FormAReportView from '../components/reports/ANCReportView';
 import GenericReportPage from '../components/reports/GenericReportPage';
 import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
-import { REPORT_EXPORT_ROLES } from '../components/reports/reportShell';
+import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
 
 const AGE_GROUPS = [
   '<28d', '1-11m', '1-4', '5-9', '10-14', '15-17',
@@ -39,6 +39,10 @@ const GHS_REPORTS = [
 // All nine are answered by /ghs-reports, which guards the whole module with this one list
 // (GHSReportRoutes.ts) — so the tab is gated, not each pill.
 const GHS_REPORT_ROLES = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
+
+// The tabs are the report groups the registry knows about, so a new group is one edit in
+// reportShell's ReportShape and not a new string union here.
+type ReportsTab = ReportShape['group'];
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -103,7 +107,7 @@ export default function Reports() {
     start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     end:   new Date().toISOString().split('T')[0],
   });
-  const [activeCategory,   setActiveCategory]   = useState<'ghs' | 'clinical' | 'financial' | 'nhis'>('ghs');
+  const [activeCategory,   setActiveCategory]   = useState<ReportsTab>('ghs');
   const [reportType,       setReportType]        = useState('opd-attendance');
   const [isLoading,        setIsLoading]         = useState(false);
   const [exportFormat,     setExportFormat]      = useState<'csv' | 'excel' | 'pdf'>('csv');
@@ -120,7 +124,7 @@ export default function Reports() {
     isLoading: storeLoading,
   } = useReportsStore();
 
-  const categories = [
+  const categories: { id: ReportsTab; label: string; icon: typeof FileText }[] = [
     { id: 'ghs',      label: 'GHS Standard',  icon: FileText   },
     { id: 'clinical', label: 'Clinical',       icon: Activity   },
     { id: 'financial',label: 'Financial',      icon: DollarSign },
@@ -198,7 +202,7 @@ export default function Reports() {
   // a new operational report is a registry entry and not an edit to this page. Every pill carries
   // the roles its own endpoint answers to: the Reports page is open to all staff but the reporting
   // routes are not, and a pill that 403s is worse than no pill.
-  const reportsForCategory = useCallback((groupId: string) => [
+  const reportsForCategory = useCallback((groupId: ReportsTab) => [
     ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: GHS_REPORT_ROLES })) : []),
     ...shellReportsForGroup(groupId).map(shape => ({
       key: shape.key,
@@ -216,7 +220,7 @@ export default function Reports() {
   useEffect(() => {
     if (currentReports.length > 0) return;
     const next = categories.map(category => category.id).find(id => reportsForCategory(id).length > 0);
-    if (next) setActiveCategory(next as any);
+    if (next) setActiveCategory(next);
   }, [currentReports.length, reportsForCategory]);
 
   // The remembered or default report may not be one this role may open.
@@ -664,7 +668,7 @@ const renderFormAReport = () => {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">
         {categories.map(({ id, label, icon: Icon }) => (
           <button key={id}
-            onClick={() => setActiveCategory(id as any)}
+            onClick={() => setActiveCategory(id)}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all ${activeCategory === id ? 'bg-[var(--icon-cyan-text)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'}`}>
             <Icon className="w-3.5 h-3.5" />{label}
           </button>
