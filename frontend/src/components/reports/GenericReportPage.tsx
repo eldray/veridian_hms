@@ -8,7 +8,7 @@
 // over rows the endpoint actually sent, and a list the server capped says so in its footer
 // instead of passing itself off as the whole period.
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Download, FileText, Filter, RefreshCw, Table2 } from 'lucide-react';
 import {
   getBillingCollections, getBillingRevenueLines, getInsuranceClaimsReport, exportReport,

@@ -12,7 +12,7 @@
 // deliberately keep their own renderers — those must match a printed form, so the exact
 // position of every cell is the point. This shell is for operational reports only.
 
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   ChevronDown, ChevronUp, ChevronLeft, ChevronRight, FileText,
 } from 'lucide-react';
