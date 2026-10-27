@@ -113,18 +113,6 @@ export const BILL_STATUS_OPTIONS = [
   { value: 'cancelled', label: 'Cancelled' },
 ];
 
-export const ORDER_STATUS_OPTIONS = [
-  { value: '', label: 'Any status' },
-  { value: 'requested', label: 'Requested' },
-  { value: 'in_progress', label: 'In progress' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'dispensed', label: 'Dispensed' },
-  { value: 'administered', label: 'Administered' },
-];
-
 /** The ServiceType enum, so a revenue-line filter sends the value the column actually holds. */
 export const SERVICE_TYPE_OPTIONS = [
   { value: '', label: 'Any service' },
@@ -136,12 +124,6 @@ export const SERVICE_TYPE_OPTIONS = [
   { value: 'procedure', label: 'Procedure' },
   { value: 'diagnosis', label: 'Diagnosis' },
   { value: 'miscellaneous', label: 'Miscellaneous' },
-];
-
-export const YES_NO_OPTIONS = [
-  { value: '', label: 'Registered & walk-in' },
-  { value: 'yes', label: 'Registered patients only' },
-  { value: 'no', label: 'Walk-in customers only' },
 ];
 
 /**
@@ -203,10 +185,10 @@ export const REPORT_EXPORT_ROLES = ['admin', 'accounts', 'records'];
  */
 export const COMMON_FILTERS: Record<string, ReportFilterDef> = {
   paymentMode: { kind: 'select', key: 'paymentMode', label: 'Payer', options: PAYMENT_MODE_OPTIONS, defaultValue: '' },
+  // The control the bill-status filter writes is `status`; a report whose endpoint names the
+  // parameter differently (revenue-lines uses `billStatus`) declares its own instead.
   billStatus: { kind: 'select', key: 'status', label: 'Bill status', options: BILL_STATUS_OPTIONS, defaultValue: '' },
   claimStatus: { kind: 'select', key: 'status', label: 'Claim state', options: CLAIM_STATE_OPTIONS, defaultValue: '' },
-  orderStatus: { kind: 'select', key: 'status', label: 'Order status', options: ORDER_STATUS_OPTIONS, defaultValue: '' },
-  walkIn: { kind: 'select', key: 'walkIn', label: 'Customer', options: YES_NO_OPTIONS, defaultValue: '' },
 };
 
 /** A report declares filters by key, or writes its own when the shared set does not fit. */

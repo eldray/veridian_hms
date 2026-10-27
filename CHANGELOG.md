@@ -140,7 +140,9 @@ semantic versioning.
   says so when the server itself capped the list. Export is limited to admin, accounts and
   records — the guard on `POST /reports/export` — so the button is hidden for other roles
   instead of being left to fail. A role that may open none of the returns on the default GHS tab
-  is moved to the first tab whose reports answer to it.
+  is moved to the first tab whose reports answer to it. Two filter controls no endpoint could read
+  (order status and a registered/walk-in toggle) are removed with their option lists, so the shared
+  filter catalogue only offers what a report actually declares.
 - `GET /billing/line-items` answers the revenue-lines report: every unvoided bill line inside a
   closed date window, each carrying its bill, payment mode and whoever it was raised for — a
   counter ticket is labelled as a walk-in rather than dropped, because it has no patient folder.
