@@ -74,9 +74,10 @@ export interface UpdateEncounterDTO {
 
 export interface BaseWorklistItem {
   id: string;
-  patientId: string;
+  // null for a counter ticket, which is served by name instead of by patient folder.
+  patientId: string | null;
   attendanceId: string;
-  patient: { name: string; age: number; gender: string; folderNumber: string; };
+  patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; isCounter?: boolean; };
   location?: { ward?: string; bed?: string; };
   waitTime: number;
   priority: 'routine' | 'urgent' | 'stat';
@@ -116,7 +117,7 @@ export interface AddProcedureDTO { templateId: string; serviceCatalogId: string;
 export interface AddServiceDTO { serviceCatalogId: string; quantity?: number; notes?: string; }
 
 export interface EncounterFilters {
-  patientId?: string; attendanceType?: string; encounterCategory?: 'opd' | 'ipd' | 'daycase';
+  patientId?: string; counterClientId?: string; attendanceType?: string; encounterCategory?: 'opd' | 'ipd' | 'daycase';
   status?: AttendanceStatus; paymentMode?: PaymentMode; dateFrom?: Date; dateTo?: Date;
   page?: number; limit?: number; hasAdmission?: boolean;
   admissionType?: 'elective' | 'emergency' | 'transfer' | 'detention_observation';

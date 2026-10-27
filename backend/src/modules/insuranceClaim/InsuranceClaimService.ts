@@ -442,6 +442,9 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      // A claim is filed in a named patient's name with their age and NHIS identity, so a
+      // counter ticket (no Patient row, cash only) can never be claimed.
+      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
       }
@@ -713,6 +716,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
@@ -820,6 +824,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a corporate provider on the attendance first.`);
       }
@@ -1162,7 +1167,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       ? await this.prisma.preAuthorisationRequest.findMany({
           where: {
             attendanceId: attendance.id,
-            patientId: attendance.patientId,
+            // A claim is only ever raised for a registered patient, so the attendance
+            // behind it always carries one; a counter ticket never reaches this path.
+            patientId: attendance.patientId as string,
             insuranceProviderId: claim.insuranceProviderId,
             status: { in: ['approved', 'partially_approved'] },
             authNumber: { not: null },

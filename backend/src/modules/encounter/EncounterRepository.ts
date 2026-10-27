@@ -211,6 +211,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           surgicalHistories: { select: { id: true, procedure: true, surgeryDate: true, notes: true } },
           familyHistories: { select: { id: true, relation: true, condition: true, notes: true } },
         } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } } } },
@@ -224,10 +225,11 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
   }
 
   async findManyEncounters(filters: EncounterFilters) {
-    const { patientId, attendanceType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
+    const { patientId, counterClientId, attendanceType, status, paymentMode, dateFrom, dateTo, page = 1, limit = 1000 } = filters;
     const live = (filters as any).live === true || (filters as any).live === 'true';
     const where: any = {};
     if (patientId) where.patientId = patientId;
+    if (counterClientId) where.counterClientId = counterClientId;
     if (attendanceType) {
       // one type, or several as "antenatal,delivery,postnatal"
       const types = String(attendanceType).split(',').map((x) => x.trim()).filter(Boolean);
@@ -267,6 +269,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
       where, page, limit: Math.min(limit, 1000), orderBy: { dateTime: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true } } } },
@@ -685,7 +688,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     });
   }
 
-  private async getOrCreateANCVisit(tx: any, attendance: { id: string; patientId: string; dateTime: Date }, userId: string) {
+  private async getOrCreateANCVisit(tx: any, attendance: { id: string; patientId: string | null; dateTime: Date }, userId: string) {
+    // An ANC booking and its visits belong to a named mother's card. A counter ticket has
+    // no Patient row, so the antenatal chain cannot start from one.
+    if (!attendance.patientId) throw new ValidationError('Antenatal care requires a registered patient');
     const existingVisit = await tx.aNCVisit.findUnique({ where: { attendanceId: attendance.id } });
     if (existingVisit) return existingVisit;
 
@@ -815,6 +821,8 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         select: { id: true, patientId: true, attendanceType: true, dateTime: true },
       });
       if (!attendance) throw new NotFoundError('Encounter', encounterId);
+      // Vital signs are charted against a registered patient; a counter ticket has none.
+      if (!attendance.patientId) throw new ValidationError('Vital signs need a registered patient. Register this counter customer first.');
 
       if (hasAntenatalData && attendance.attendanceType !== 'antenatal') {
         throw new ValidationError('Antenatal assessment fields can only be saved for an antenatal visit');
@@ -986,6 +994,10 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
     if (['discharged', 'referred', 'absconded', 'completed', 'cancelled'].includes(encounter.status)) {
       throw new ConflictError('Prescriptions cannot be added to a closed encounter');
     }
+    // A claim is filed in a named patient's name, so a counter ticket can only be self-pay.
+    if (!encounter.patientId && (encounter.paymentMode === 'nhis' || encounter.insuranceProviderId)) {
+      throw new ValidationError('An NHIS or insurance prescription needs a registered patient; a counter customer pays cash.');
+    }
 
     // Catch incomplete or impossible prescriptions before creating a medication
     // record or generating its medication-administration schedule.
@@ -1114,7 +1126,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
         const approvedRequests = await this.prisma.preAuthorisationRequest.findMany({
           where: {
             attendanceId: encounterId,
-            patientId: encounter.patientId,
+            patientId: encounter.patientId as string,
             insuranceProviderId: payer.id,
             status: { in: ['approved', 'partially_approved'] },
             authNumber: { not: null },
@@ -2809,10 +2821,47 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   // WORKLISTS (Your brilliant logic, preserved exactly)
   // ============================================
 
+  /**
+   * A visit belongs to either a registered patient or a counter customer — a self-pay
+   * walk-in who buys drugs or has one lab test or scan done and is deliberately kept out
+   * of the patient register. Every worklist has to name both, or the first counter ticket
+   * in the queue crashes the list that all the clinicians read.
+   */
+  private displayIdentity(row: any): {
+    patientId: string | null;
+    patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; isCounter: boolean };
+  } {
+    const patient = row?.Patient;
+    if (patient) {
+      return {
+        patientId: row.patientId ?? patient.id ?? null,
+        patient: {
+          name: `${patient.surname} ${patient.otherNames || ''}`.trim(),
+          age: patient.dateOfBirth ? this.calculateAge(patient.dateOfBirth) : null,
+          gender: patient.gender ?? null,
+          folderNumber: patient.folderNumber ?? null,
+          isCounter: false,
+        },
+      };
+    }
+    return {
+      patientId: null,
+      patient: {
+        name: row?.CounterClient?.name || 'Counter customer',
+        age: row?.CounterClient?.ageYears ?? null,
+        gender: null,
+        folderNumber: null,
+        isCounter: true,
+      },
+    };
+  }
+
   async getVitalsWorklist(): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
-      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
+      // A counter ticket is not a clinical queue: it has no vitals or consultation note to
+      // write, so including it would leave a permanent "pending" row and skew wait times.
+      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true }}, Bed: { include: { Ward: true }}, Vitals: { orderBy: { recordedAt: 'desc' }, take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
@@ -2838,7 +2887,9 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getMedicalWorklist(): Promise<any> {
     const today = new Date(); today.setUTCHours(0, 0, 0, 0);
     const activeAttendances = await this.getModel().findMany({
-      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] } },
+      // A counter ticket is not a clinical queue: it has no vitals or consultation note to
+      // write, so including it would leave a permanent "pending" row and skew wait times.
+      where: { OR: [{ status: 'admitted' }, { status: 'pending', dateTime: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }], encounterCategory: { in: ['opd', 'ipd', 'daycase'] }, attendanceType: { not: 'walk_in' } },
       include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } }, Vitals: { where: { recordedAt: { gte: today } }, orderBy: { recordedAt: 'desc' }, take: 1 }, AttendanceDiagnosis: { take: 1 } },
       orderBy: { dateTime: 'asc' }
     });
@@ -2878,6 +2929,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           select: {
             patientId: true,
             Patient: { select: { surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            CounterClient: { select: { name: true, ageYears: true } },
             Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
           }
         },
@@ -2889,7 +2941,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const test of allLabTests) {
       const attendanceId = test.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId, patientId: test.Attendance.patientId, patient: { name: `${test.Attendance.Patient.surname} ${test.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(test.Attendance.Patient.dateOfBirth), gender: test.Attendance.Patient.gender, folderNumber: test.Attendance.Patient.folderNumber }, location: test.Attendance.Bed ? { ward: test.Attendance.Bed.Ward?.wardName, bed: test.Attendance.Bed.bedNumber } : undefined, tests: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: test.requestedAt });
+        groupedByAttendance.set(attendanceId, { attendanceId, ...this.displayIdentity(test.Attendance), location: test.Attendance.Bed ? { ward: test.Attendance.Bed.Ward?.wardName, bed: test.Attendance.Bed.bedNumber } : undefined, tests: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: test.requestedAt });
       }
       const group = groupedByAttendance.get(attendanceId); group.tests.push(test);
       if (test.status === 'requested') group.requestedCount++; else if (test.status === 'in_progress') group.inProgressCount++; else if (test.status === 'completed') group.completedCount++;
@@ -2924,6 +2976,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
           select: {
             patientId: true,
             Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } },
+            CounterClient: { select: { name: true, ageYears: true } },
             Bed: { select: { bedNumber: true, Ward: { select: { wardName: true } } } }
           }
         }
@@ -2934,7 +2987,7 @@ async addProcedure(encounterId: string, data: any, userId: string) {
     for (const med of allMedications) {
       const attendanceId = med.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, patientId: med.Attendance.patientId, patient: { name: `${med.Attendance.Patient.surname} ${med.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(med.Attendance.Patient.dateOfBirth), gender: med.Attendance.Patient.gender, folderNumber: med.Attendance.Patient.folderNumber }, location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
+        groupedByAttendance.set(attendanceId, { attendanceId: med.attendanceId, ...this.displayIdentity(med.Attendance), location: med.Attendance.Bed ? { ward: med.Attendance.Bed.Ward?.wardName, bed: med.Attendance.Bed.bedNumber } : undefined, medications: [], prescribedCount: 0, dispensedCount: 0, oldestPrescribedAt: med.prescribedAt, newestPrescribedAt: med.prescribedAt });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.medications.push(med);
       if (med.status === 'prescribed') group.prescribedCount++; else if (med.status === 'dispensed') group.dispensedCount++;
@@ -2955,13 +3008,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getRadiologyWorklist(): Promise<any> {
     const allScans = await this.prisma.scan.findMany({
       where: { OR: [{ status: { in: ['requested', 'in_progress'] }, requestedAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ScanTemplate: true, User_Scan_performedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const scan of allScans) {
       const attendanceId = scan.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: scan.attendanceId, patientId: scan.Attendance.patientId, patient: { name: `${scan.Attendance.Patient.surname} ${scan.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(scan.Attendance.Patient.dateOfBirth), gender: scan.Attendance.Patient.gender, folderNumber: scan.Attendance.Patient.folderNumber }, location: scan.Attendance.Bed ? { ward: scan.Attendance.Bed.Ward?.wardName, bed: scan.Attendance.Bed.bedNumber } : undefined, scans: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: scan.requestedAt, highestPriority: 'routine' });
+        groupedByAttendance.set(attendanceId, { attendanceId: scan.attendanceId, ...this.displayIdentity(scan.Attendance), location: scan.Attendance.Bed ? { ward: scan.Attendance.Bed.Ward?.wardName, bed: scan.Attendance.Bed.bedNumber } : undefined, scans: [], requestedCount: 0, inProgressCount: 0, completedCount: 0, oldestRequestedAt: scan.requestedAt, highestPriority: 'routine' });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.scans.push(scan);
       if (scan.status === 'requested') group.requestedCount++; else if (scan.status === 'in_progress') group.inProgressCount++; else if (scan.status === 'completed') group.completedCount++;
@@ -2984,13 +3037,13 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   async getProceduresWorklist(): Promise<any> {
     const allProcedures = await this.prisma.procedure.findMany({
       where: { OR: [{ status: { in: ['scheduled', 'in_progress'] }, createdAt: { gte: daysAgo(WORKLIST_OPEN_DAYS) } }, { status: 'completed', updatedAt: { gte: hoursAgo(WORKLIST_DONE_HOURS) } }] },
-      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
+      include: { Attendance: { include: { Patient: { select: { id: true, surname: true, otherNames: true, dateOfBirth: true, gender: true, folderNumber: true } }, CounterClient: { select: { name: true, ageYears: true } }, Bed: { include: { Ward: true } } } }, ProcedureTemplate: true, User_Procedure_performedByIdToUser: { select: { fullName: true } } }, orderBy: { scheduledDate: 'asc' }
     });
     const groupedByAttendance = new Map<string, any>();
     for (const procedure of allProcedures) {
       const attendanceId = procedure.attendanceId;
       if (!groupedByAttendance.has(attendanceId)) {
-        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, patientId: procedure.Attendance.patientId, patient: { name: `${procedure.Attendance.Patient.surname} ${procedure.Attendance.Patient.otherNames || ''}`.trim(), age: this.calculateAge(procedure.Attendance.Patient.dateOfBirth), gender: procedure.Attendance.Patient.gender, folderNumber: procedure.Attendance.Patient.folderNumber }, location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
+        groupedByAttendance.set(attendanceId, { attendanceId: procedure.attendanceId, ...this.displayIdentity(procedure.Attendance), location: procedure.Attendance.Bed ? { ward: procedure.Attendance.Bed.Ward?.wardName, bed: procedure.Attendance.Bed.bedNumber } : undefined, procedures: [], scheduledCount: 0, inProgressCount: 0, completedCount: 0, earliestScheduledDate: null });
       }
       const group = groupedByAttendance.get(attendanceId)!; group.procedures.push(procedure);
       if (procedure.status === 'scheduled') group.scheduledCount++; else if (procedure.status === 'in_progress') group.inProgressCount++; else if (procedure.status === 'completed') group.completedCount++;

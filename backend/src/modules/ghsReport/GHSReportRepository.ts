@@ -3,6 +3,11 @@ import { FP_COMMODITIES } from './fpReturns';
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 
+// GHS returns count clinical attendances of registered patients. A counter ticket (walk_in)
+// has no patient record, no age at attendance and no diagnosis, so it must not enter any
+// return: it would both inflate the attendance counts and crash on the missing Patient row.
+const EXCLUDE_COUNTER_TICKETS = { attendanceType: { not: 'walk_in' as any } };
+
 export class GHSReportRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'gHSReportSubmission');
@@ -84,7 +89,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   // ── Morbidity Report Data ─────────────────────────────────────────────────
   async getMorbidityData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
-      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' }, ...EXCLUDE_COUNTER_TICKETS },
       include: {
         Patient: true,
         AttendanceDiagnosis: { include: { Diagnosis: true } },
@@ -92,7 +97,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       },
     });
 
-    const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    // Counter tickets are excluded above, so every attendance left names a patient.
+    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
       where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
@@ -304,6 +310,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     const malariaAttendances = await this.prisma.attendance.findMany({
       where: {
         dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' },
+        ...EXCLUDE_COUNTER_TICKETS,
         AttendanceDiagnosis: { some: { Diagnosis: { OR: [ { name: { contains: 'malaria', mode: 'insensitive' } }, { name: { contains: 'plasmodium', mode: 'insensitive' } }, { icdCode: { startsWith: 'B50' } }, { icdCode: { startsWith: 'B51' } }, { icdCode: { startsWith: 'B52' } }, { icdCode: { startsWith: 'B53' } }, { icdCode: { startsWith: 'B54' } } ] } } }
       },
       include: { Patient: { select: { dateOfBirth: true, gender: true } }, LabTest: { where: { status: { not: 'cancelled' } }, include: { ServiceCatalog: true } }, Medication: { where: { status: { not: 'cancelled' } }, include: { StockItem: true } } },
@@ -319,11 +326,12 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   // ── OPD Report Data ───────────────────────────────────────────────────────
   async getOPDData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
-      where: { encounterCategory: 'opd', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+      where: { encounterCategory: 'opd', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' }, ...EXCLUDE_COUNTER_TICKETS },
       include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true, nhisActive: true, nhisExpiryDate: true, nhisNumber: true } } },
     });
 
-    const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    // Counter tickets are excluded above, so every attendance left names a patient.
+    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
@@ -341,7 +349,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   // ── Top Diagnoses & IDSR Data ─────────────────────────────────────────────
   async getAttendancesWithDiagnoses(startDate: Date, endDate: Date) {
     return this.prisma.attendance.findMany({
-      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' }, ...EXCLUDE_COUNTER_TICKETS },
       include: { Patient: true, AttendanceDiagnosis: { include: { Diagnosis: true } } },
     });
   }
@@ -349,7 +357,7 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
   // ── Consulting Room Register Data ─────────────────────────────────────────
   async getConsultingRoomData(startDate: Date, endDate: Date) {
     const attendances = await this.prisma.attendance.findMany({
-      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+      where: { dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' }, ...EXCLUDE_COUNTER_TICKETS },
       include: {
         Patient: true, Bill: true,
         AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'asc' } },
@@ -362,7 +370,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       orderBy: { dateTime: 'asc' },
     });
 
-    const patientIds = [...new Set(attendances.map(a => a.patientId))];
+    // Counter tickets are excluded above, so every attendance left names a patient.
+    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],

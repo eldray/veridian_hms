@@ -184,6 +184,23 @@ semantic versioning.
 - Medical Entries accepts `?entry=diagnosis|lab|scan|medication|procedure|consumable`
   and opens that entry once the visit is loaded. The visit page's clinical shortcuts use
   it, so "Request a lab test" lands on the lab request form instead of a generic screen.
+- Counter tickets: a walk-in who only buys drugs or has one lab or scan is served without
+  creating a patient. `CounterClient` (`name`, optional `ageYears` and `phone`) holds the
+  identity, and the ticket itself is an ordinary `Attendance` with `attendanceType: walk_in`
+  pointing at that client instead of a `Patient`. Because `LabTest`, `Scan`, `Medication`,
+  `Procedure` and `BillLineItem` are keyed on `attendanceId` alone, ordering a test, entering
+  its result, dispensing a drug, raising the bill and printing all reuse the existing
+  encounter, billing and document pipelines — only the name on the paper changes. `Attendance`
+  and `Bill` now carry exactly one of `patientId` / `counterClientId`, enforced by a database
+  CHECK and mirrored in the service layer (CI resets the schema with `db push`, which never
+  runs the migration's constraints). Under `POST /api/counter/tickets`, staff create a ticket
+  from a new name, an existing customer, or a registered patient search; add sale or
+  consumable lines, lab and scan orders; raise the ticket's bill; and close it once nothing is
+  outstanding. A customer who later needs a folder is linked to a registered patient
+  (`PATCH /api/counter/clients/:id/link`), which keeps the ticket's history readable under
+  both identities instead of duplicating the person. Counter tickets are excluded from ANC,
+  vitals and medical worklists, GHS returns, and claim submission, and cannot be discharged —
+  they print a bill statement, receipt, prescription or lab/scan report instead.
 
 ### Changed
 

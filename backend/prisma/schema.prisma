@@ -240,6 +240,7 @@ model Patient {
   Attendance             Attendance[]
   // Removed Bed relation to prevent redundancy
   Bill                   Bill[]
+  counterClients       CounterClient[]  @relation("CounterClientRegistration")
   InsuranceClaim         InsuranceClaim[]
   InsuranceProvider      InsuranceProvider?      @relation(fields: [insuranceProviderId], references: [id])
   Vitals                 Vitals[]
@@ -275,6 +276,33 @@ model Patient {
   @@index([createdAt])
   @@index([residenceDistrict])
   @@index([residenceRegion])
+}
+
+/// A self-pay customer served at the counter: someone who buys drugs or has a lab test
+/// or scan done and nothing else. Deliberately NOT a Patient row — they never enter the
+/// clinical register, get no folder number and are not searchable from the patient
+/// directory. Attendance and Bill point here instead of at a patient (exactly one of the
+/// two links is set), so the whole order → result → bill → payment pipeline works for a
+/// walk-in without pretending they are a registered patient.
+model CounterClient {
+  id        String   @id @default(cuid())
+  name      String
+  ageYears  Int?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  /// Set once this customer is registered properly, so their counter history can follow
+  /// the new folder instead of being orphaned. Unique: one counter identity, one register.
+  Patient                 Patient? @relation("CounterClientRegistration", fields: [registeredPatientId], references: [id], onDelete: SetNull)
+  registeredPatientId     String?  @unique
+
+  Attendance Attendance[]
+  Bill       Bill[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([createdAt])
 }
 
 // NEW: Core EMR Models
@@ -465,7 +493,8 @@ model PreAuthorisationRequest {
 model Attendance {
   id                  String         @id @default(cuid())
   attendanceNumber    String         @unique
-  patientId           String
+  patientId           String?
+  counterClientId     String?
   insuranceProviderId String?
   corporateAccountId  String?
   bedId               String?
@@ -539,7 +568,9 @@ model Attendance {
   Ward              Ward?              @relation(fields: [wardId], references: [id])
   InsuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
   CorporateAccount  CorporateAccount?  @relation(fields: [corporateAccountId], references: [id])
-  Patient           Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Patient           Patient?           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  // A counter ticket carries a CounterClient instead of a Patient, never both and never neither.
+  CounterClient     CounterClient?     @relation(fields: [counterClientId], references: [id], onDelete: Restrict)
 
   User_Attendance_createdByIdToUser User  @relation("Attendance_createdByIdToUser", fields: [createdById], references: [id])
   User_Attendance_updatedByIdToUser User? @relation("Attendance_updatedByIdToUser", fields: [updatedById], references: [id])
@@ -577,6 +608,7 @@ model Attendance {
 
   @@index([nhisCCCCode])
   @@index([patientId, dateTime])
+  @@index([counterClientId])
   @@index([insuranceProviderId])
   @@index([bedId])
   @@index([wardId])
@@ -952,7 +984,8 @@ model AttendanceDiagnosis {
 model Bill {
   id                  String      @id @default(cuid())
   billNumber          String      @unique
-  patientId           String
+  patientId           String?
+  counterClientId     String?
   attendanceId        String      @unique
   admissionId         String?
   subtotal            Decimal     @default(0) @db.Decimal(15, 2)
@@ -987,7 +1020,9 @@ model Bill {
   admission                   Admission?         @relation(fields: [admissionId], references: [id])
   Attendance                  Attendance         @relation(fields: [attendanceId], references: [id])
   InsuranceProvider           InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
-  Patient                     Patient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  Patient                     Patient?           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  // Mirrors the attendance's identity: a counter bill names the walk-in, not a patient.
+  CounterClient               CounterClient?     @relation(fields: [counterClientId], references: [id], onDelete: Restrict)
   User_Bill_createdByIdToUser User               @relation("Bill_createdByIdToUser", fields: [createdById], references: [id])
   User_Bill_updatedByIdToUser User?              @relation("Bill_updatedByIdToUser", fields: [updatedById], references: [id])
   InsuranceClaim              InsuranceClaim[]
@@ -1001,6 +1036,7 @@ model Bill {
   @@index([billDate])
   @@index([billNumber])
   @@index([patientId])
+  @@index([counterClientId])
   @@index([status])
   @@index([admissionId])
   @@index([billDate, status])
@@ -3047,6 +3083,9 @@ enum AttendanceType {
   delivery
   surgery
   general_consultation
+  // Counter sale / walk-in lab or scan. Not a clinical consultation, and the visit it
+  // belongs to names a CounterClient rather than a Patient.
+  walk_in
 }
 
 enum PaymentMode {

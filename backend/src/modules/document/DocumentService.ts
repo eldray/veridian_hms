@@ -60,6 +60,56 @@ export class DocumentService {
     return `/uploads/documents/${fileName}`;
   }
 
+  /**
+   * Who the printed paper is addressed to. A counter ticket names a CounterClient and has
+   * no patient folder, so the header must not print an empty patient line.
+   */
+  private party(entity: any): { title: string; name: string; folder: string; folderLabel: string } {
+    const patient = entity?.Patient;
+    if (patient) {
+      return {
+        title: 'Patient',
+        name: `${patient.surname ?? ''} ${patient.otherNames ?? ''}`.trim() || 'Unknown patient',
+        folder: patient.folderNumber || 'N/A',
+        folderLabel: 'Patient Folder',
+      };
+    }
+    const client = entity?.CounterClient;
+    if (client) {
+      return {
+        title: 'Customer',
+        name: client.name || 'Counter customer',
+        folder: `${client.ageYears ? `age ${client.ageYears}` : 'no age given'}${client.phone ? ` · ${client.phone}` : ''}`,
+        folderLabel: 'Counter customer',
+      };
+    }
+    return { title: 'Patient', name: 'Unknown patient', folder: 'N/A', folderLabel: 'Patient Folder' };
+  }
+
+  /**
+   * A lab result is free-form JSON: a bare value, a single { value } object, or a panel of
+   * parameters. Print each shape as readable lines instead of "[object Object]".
+   */
+  private labResultLines(result: any, normalRange?: string | null, units?: string | null): string[] {
+    if (result === null || result === undefined) {
+      return normalRange ? [`Reference: ${normalRange}`] : [];
+    }
+    if (typeof result === 'string' || typeof result === 'number') {
+      return [`${result}${units ? ` ${units}` : ''}${normalRange ? ` (ref: ${normalRange})` : ''}`];
+    }
+    if (Array.isArray(result.parameters)) {
+      return result.parameters.map((p: any) =>
+        `- ${p?.name ?? 'Parameter'}: ${p?.value ?? '—'}${p?.unit ? ` ${p.unit}` : units ? ` ${units}` : ''}${p?.range ? ` (ref: ${p.range})` : ''}`
+      );
+    }
+    if ('value' in result) {
+      return this.labResultLines((result as any).value, normalRange, units);
+    }
+    return Object.entries(result)
+      .filter(([, v]) => typeof v === 'string' || typeof v === 'number')
+      .map(([k, v]) => `- ${k}: ${v}`);
+  }
+
   private async getEntityData(entityType: string, entityId: string): Promise<any> {
     switch (entityType) {
       case 'bill':
@@ -67,6 +117,7 @@ export class DocumentService {
           where: { id: entityId },
           include: {
             Patient: true,
+            CounterClient: true,
             Attendance: true,
             BillLineItem: {
               include: { serviceCatalog: true }
@@ -86,11 +137,15 @@ export class DocumentService {
           where: { id: entityId },
           include: {
             Patient: true,
+            CounterClient: true,
             AttendanceDiagnosis: {
               include: { Diagnosis: true }
             },
             Vitals: true,
-            Medication: true
+            Medication: true,
+            // A lab/scan order carries no name of its own; it lives on the template it was raised from.
+            LabTest: { include: { LabTestTemplate: true } },
+            Scan: { include: { ScanTemplate: true } }
           }
         });
       case 'admission':
@@ -130,13 +185,14 @@ export class DocumentService {
 
       const paymentAmount = payment ? Number(payment.amount) : null;
       const paymentDate = payment?.transactionDate ? new Date(payment.transactionDate) : new Date();
+      const who = this.party(bill);
       const content = `
         PAYMENT RECEIPT
         ===============
         Receipt Reference: ${payment ? payment.id : `BILL-${bill.billNumber}-SUMMARY`}
         Bill Number: ${bill.billNumber}
-        Patient: ${bill.Patient?.surname || ''} ${bill.Patient?.otherNames || ''}
-        Patient Folder: ${bill.Patient?.folderNumber || 'N/A'}
+        Customer: ${who.name}
+        ${who.folderLabel}: ${who.folder}
         Visit Number: ${bill.Attendance?.attendanceNumber || 'N/A'}
         ${payment ? `Payment Amount: ${paymentAmount?.toFixed(2)}
         Payment Method: ${String(payment.paymentMethod).replace('_', ' ').toUpperCase()}
@@ -222,6 +278,10 @@ export class DocumentService {
       if (!encounter) {
         return { success: false, error: 'Encounter not found' };
       }
+      // A counter ticket has no admission or ward stay, so there is nothing to summarise on discharge.
+      if (encounter.attendanceType === 'walk_in') {
+        return { success: false, error: 'A counter ticket cannot have a discharge summary. Print the bill statement or lab result instead.' };
+      }
 
       const template = await this.documentRepository.getDefaultTemplate('discharge_summary');
       if (!template) {
@@ -229,12 +289,13 @@ export class DocumentService {
       }
 
       const diagnoses = encounter.AttendanceDiagnosis?.map((d: any) => d.Diagnosis?.name).join(', ') || 'None';
+      const who = this.party(encounter);
 
       const content = `
         DISCHARGE SUMMARY
         =================
-        Patient: ${encounter.Patient?.surname} ${encounter.Patient?.otherNames}
-        Folder Number: ${encounter.Patient?.folderNumber}
+        ${who.title}: ${who.name}
+        ${who.folderLabel}: ${who.folder}
         Admission Date: ${encounter.dateTime}
         Discharge Date: ${new Date().toLocaleDateString()}
         Diagnoses: ${diagnoses}
@@ -275,15 +336,28 @@ export class DocumentService {
         return { success: false, error: 'Lab result template not found' };
       }
 
+      const who = this.party(encounter);
+      const labs = (encounter.LabTest || []).flatMap((t: any) => [
+        `${t.LabTestTemplate?.name || 'Laboratory test'} [${String(t.status).toUpperCase()}]`,
+        ...this.labResultLines(t.result, t.normalRange, t.units),
+      ]);
+      const scans = (encounter.Scan || []).map((s: any) => {
+        const report = [s.result, s.findings, s.impression].filter((v: any) => typeof v === 'string' && v.trim()).join(' — ');
+        return `- ${s.ScanTemplate?.name || s.scanType}: ${report || `no report issued (${String(s.status).toLowerCase()})`}`;
+      });
+
       const content = `
         LABORATORY RESULT
         =================
-        Patient: ${encounter.Patient?.surname} ${encounter.Patient?.otherNames}
-        Folder Number: ${encounter.Patient?.folderNumber}
+        ${who.title}: ${who.name}
+        ${who.folderLabel}: ${who.folder}
         Date: ${new Date().toLocaleDateString()}
         
         LAB TESTS:
-        ${encounter.LabTest?.map((t: any) => `- ${t.name}: ${t.result || 'Pending'}`).join('\n') || 'No lab tests found'}
+        ${labs.length ? labs.join('\n') : 'No lab tests found'}
+
+        SCANS:
+        ${scans.length ? scans.join('\n') : 'No scans found'}
       `;
 
       const fileName = `lab_result_${encounterId}_${Date.now()}.pdf`;
@@ -319,15 +393,22 @@ export class DocumentService {
         return { success: false, error: 'Prescription template not found' };
       }
 
+      const who = this.party(encounter);
       const content = `
         PRESCRIPTION
         ============
-        Patient: ${encounter.Patient?.surname} ${encounter.Patient?.otherNames}
-        Folder Number: ${encounter.Patient?.folderNumber}
+        ${who.title}: ${who.name}
+        ${who.folderLabel}: ${who.folder}
         Date: ${new Date().toLocaleDateString()}
         
         MEDICATIONS:
-        ${encounter.Medication?.map((m: any) => `- ${m.name}: ${m.dosage} ${m.frequency} for ${m.duration}`).join('\n') || 'No medications prescribed'}
+        ${encounter.Medication?.map((m: any) => {
+          // A counter sale is dispensed straight away, so it carries no dosage or course length.
+          const directions = [m.dosage, m.frequency, m.duration ? `for ${m.duration}` : '']
+            .filter((part) => typeof part === 'string' && part.trim())
+            .join(' ');
+          return `- ${m.name}${m.quantity ? ` x ${m.quantity}` : ''}: ${directions || m.instructions || 'As dispensed at the counter'}`;
+        }).join('\n') || 'No medications prescribed'}
       `;
 
       const fileName = `prescription_${encounterId}_${Date.now()}.pdf`;
@@ -363,11 +444,13 @@ export class DocumentService {
         return { success: false, error: 'Bill statement template not found' };
       }
 
+      const who = this.party(bill);
       const content = `
         BILL STATEMENT
         ==============
         Bill Number: ${bill.billNumber}
-        Patient: ${bill.Patient?.surname} ${bill.Patient?.otherNames}
+        ${who.title}: ${who.name}
+        ${who.folderLabel}: ${who.folder}
         Date: ${new Date().toLocaleDateString()}
         
         ITEMS:
