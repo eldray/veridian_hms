@@ -288,3 +288,18 @@ semantic versioning.
 - The remaining primary buttons and status chips in scans, estimates, claims and attendance
   detail use the accent tokens too, so one click target no longer looks different depending
   on which screen the operator came from.
+
+### Removed
+
+- The unused second rate-limiter implementation (`backend/src/middleware/rateLimiter.ts`) is
+  deleted. Nothing imported it: the live limiter is `backend/src/middleware/apiLimits.ts`,
+  mounted app-wide and again on `POST /login`. Keeping two limiters in the tree invited the
+  wrong one to be wired up later — that version counted per IP with unbounded keys and never
+  released its cleanup interval, which on a hospital network means one busy router locks out
+  the whole building.
+- The limits that remain are in-process on purpose. This deployment is one Node process behind
+  the packaged app, so per-user counters in that process cannot drift between workers, and the
+  API limit (1,500 requests per minute per signed-in user) is deliberately generous so it
+  cannot reintroduce the page freezes it was reported against. `apiLimits.ts` documents the
+  one change needed if the server is ever split across processes: put a shared store such as
+  Redis behind `hit()`.
