@@ -72,7 +72,12 @@ export interface BillingCollectionPayment {
   bill: {
     id: string;
     billNumber: string;
-    patient: { surname: string; otherNames: string; folderNumber: string };
+    /** A counter ticket pays without a folder, so the payer is named, not looked up. */
+    customer: {
+      name: string;
+      reference: string | null;
+      kind: 'patient' | 'walk_in';
+    };
   };
   items: BillingCollectionItem[];
 }

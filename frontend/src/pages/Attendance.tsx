@@ -58,12 +58,17 @@ export default function Attendance() {
   // ✅ FIXED: Find patient from multiple sources
   const findPatient = (attendance: any) => {
     if (!attendance) return null;
-    
+
     // 1. Check if patient is directly attached
     if (attendance.patient && typeof attendance.patient === 'object') {
       return attendance.patient;
     }
-    
+
+    // 1b. A counter ticket has no register entry — the walk-in's own name is on the visit.
+    if (attendance.counterClient && typeof attendance.counterClient === 'object') {
+      return attendance.counterClient;
+    }
+
     // 2. Check if patientId is an object with patient data
     if (attendance.patientId && typeof attendance.patientId === 'object') {
       return attendance.patientId;
@@ -88,6 +93,11 @@ export default function Attendance() {
     if (!patient) return 'Unknown Patient';
     return patient.fullName || patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   };
+
+  // A counter ticket is a real visit but the person is not in the patient register, so the
+  // list has to say so instead of showing a nameless row with a missing folder number.
+  const isCounterTicket = (attendance: any) =>
+    attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
 
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
     const today = new Date();
@@ -561,6 +571,7 @@ export default function Attendance() {
             const attendanceId = attendance.id;
             const totalBill = attendance.totalBill || 0;
             const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
+            const walkIn = isCounterTicket(attendance);
             
             return (
               <div key={attendanceId} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all duration-200 group">
@@ -574,7 +585,7 @@ export default function Attendance() {
                         {fullName}
                       </h3>
                       <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border mt-1">
-                        {patient?.folderNumber || 'No Folder'} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
+                        {patient?.folderNumber || (walkIn ? 'Walk-in' : 'No Folder')} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
                       </p>
                     </div>
                   </div>
@@ -696,6 +707,7 @@ export default function Attendance() {
                 const attendanceId = attendance.id;
                 const totalBill = attendance.totalBill || 0;
                 const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
+                const walkIn = isCounterTicket(attendance);
                 
                 return (
                   <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
@@ -707,12 +719,17 @@ export default function Attendance() {
                         <p className="font-semibold text-[var(--text-primary)] text-sm">
                           {fullName}
                         </p>
+                        {walkIn && (
+                          <span className="px-2 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] text-xs font-semibold">
+                            Walk-in
+                          </span>
+                        )}
                       </div>
                     </td>
                     
                     <td className="px-4 py-3">
                       <p className="font-mono text-sm font-medium text-[var(--text-primary)]">
-                        {patient?.folderNumber || 'N/A'}
+                        {patient?.folderNumber || (walkIn ? 'No folder' : 'N/A')}
                       </p>
                     </td>
                     

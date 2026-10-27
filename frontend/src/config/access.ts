@@ -19,7 +19,7 @@ import {
   Activity, ArrowLeftRight, Baby, BarChart3, BedDouble, Bell, Briefcase,
   Building, Calendar, Clipboard, ClipboardList, DollarSign, FileText,
   Heart, HeartPulse, LayoutDashboard, Microscope, Package, Pill, Scan,
-  ScrollText, Scissors, Send, Settings as SettingsIcon, Shield, Stethoscope,
+  ScrollText, Scissors, Send, Settings as SettingsIcon, Shield, Store, Stethoscope,
   Syringe, TrendingUp, Users, Warehouse,
 } from 'lucide-react';
 
@@ -44,7 +44,7 @@ export type PageKey =
   | 'stock_transactions' | 'stock_reports' | 'stock_transfers'
   | 'requisitions' | 'invoices'
   | 'billing' | 'insurance_claims' | 'insurance_providers' | 'corporate'
-  | 'estimates'
+  | 'estimates' | 'counter'
   | 'user_management' | 'shifts' | 'leaves'
   | 'departments' | 'audit_logs' | 'settings';
 
@@ -115,6 +115,10 @@ export const PAGES: PageDef[] = [
   { key: 'insurance_providers', paths: ['/dashboard/insurance-providers'], roles: ['accounts'], label: 'Insurance Providers', icon: Shield, group: 'Revenue' },
   { key: 'corporate', paths: ['/dashboard/corporate-accounts'], patterns: ['/dashboard/corporate-accounts/:id'], roles: ['accounts'], label: 'Corporate', icon: Briefcase, group: 'Revenue' },
   { key: 'estimates', paths: ['/dashboard/estimates', '/dashboard/estimates/new'], patterns: ['/dashboard/estimates/:id', '/dashboard/estimates/:id/edit'], roles: ['accounts'], label: 'Estimates', icon: FileText, group: 'Revenue' },
+  // Counter mirrors COUNTER_STAFF in backend/src/modules/counter/CounterRoutes.ts.
+  // Doctors and nurses are deliberately absent: a consultation is opened from the visit
+  // screen, and the API refuses any ticket that is not a walk-in.
+  { key: 'counter', paths: ['/dashboard/counter'], roles: ['pharmacist', 'lab_tech', 'sonographer', 'accounts', 'records'], label: 'Counter', icon: Store, group: 'Revenue' },
 
   // ── HR & staff ─────────────────────────────────────────────────────────────
   { key: 'user_management', paths: ['/dashboard/users'], patterns: ['/dashboard/users/:id'], roles: ['hr_officer'], label: 'User Management', icon: Users, group: 'HR & Staff' },

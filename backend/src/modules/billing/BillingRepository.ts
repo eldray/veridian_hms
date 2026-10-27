@@ -53,6 +53,8 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+        // Counter tickets bill a walk-in who is not in the register, so the queue needs a name.
+        CounterClient: { select: { id: true, name: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true } },
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true } },
@@ -76,6 +78,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       where: { id },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, paymentMode: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true, dateTime: true } },
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
@@ -268,6 +271,9 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             id: true,
             billNumber: true,
             Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+            // A counter ticket bills a walk-in customer who is not in the patient register,
+            // so the collections report has to know who paid as well as how much.
+            CounterClient: { select: { name: true } },
             BillLineItem: {
               where: { isVoided: false },
               orderBy: { createdAt: 'asc' },

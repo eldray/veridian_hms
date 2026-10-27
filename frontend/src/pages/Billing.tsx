@@ -283,7 +283,12 @@ export default function Billing() {
   );
 
   const getPatientFromBill = useCallback((bill: any) => {
-    if (bill.Patient?.surname) return bill.Patient;
+    // The API lowercases relation keys, but older call sites still read the Prisma spelling.
+    const registered = bill.Patient?.surname ? bill.Patient : (bill.patient?.surname ? bill.patient : null);
+    if (registered) return registered;
+    // A counter ticket bills a walk-in who is not in the register; their name is on the bill.
+    const walkIn = bill.CounterClient || bill.counterClient;
+    if (walkIn?.name) return walkIn;
     return patientById.get(bill.patientId);
   }, [patientById]);
 
@@ -339,9 +344,8 @@ export default function Billing() {
         searchText: [
           payment.reference,
           payment.bill.billNumber,
-          payment.bill.patient.surname,
-          payment.bill.patient.otherNames,
-          payment.bill.patient.folderNumber,
+          payment.bill.customer.name,
+          payment.bill.customer.reference,
           payment.collector.fullName,
           item.description,
           item.serviceCategory
@@ -861,7 +865,7 @@ const handlePrintStatement = async (billId: string) => {
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
-                      {['Collected At', 'Receipt / Bill', 'Patient', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
+                      {['Collected At', 'Receipt / Bill', 'Paid For', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
                         <th key={heading} className={`px-3 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase whitespace-nowrap ${heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left'}`}>{heading}</th>
                       ))}
                     </tr>
@@ -875,8 +879,10 @@ const handlePrintStatement = async (billId: string) => {
                           <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
                         </td>
                         <td className="px-3 py-3">
-                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.patient.surname} {payment.bill.patient.otherNames}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">{payment.bill.patient.folderNumber}</p>
+                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.customer.name}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {payment.bill.customer.reference || 'Walk-in (no folder)'}
+                          </p>
                         </td>
                         <td className="px-3 py-3 text-[var(--text-primary)]">{payment.collector.fullName || payment.collector.username}</td>
                         <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{payment.paymentMethod.replace(/_/g, ' ')}</td>
@@ -944,6 +950,7 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
+                    const isWalkIn = !(bill.patientId || bill.Patient?.id || bill.patient?.id);
                     return (
                       <tr key={bill.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                         <td className="px-4 py-3">
@@ -959,7 +966,7 @@ const handlePrintStatement = async (billId: string) => {
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-[var(--text-primary)] text-sm truncate">{patientName}</p>
-                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || 'No Folder'}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || (isWalkIn ? 'Walk-in customer' : 'No Folder')}</p>
                             </div>
                           </div>
                         </td>

@@ -78,6 +78,7 @@ const Referrals = lazy(() => import('./pages/Referrals'));
 const Estimates = lazy(() => import('./pages/Estimates'));
 const EstimateDetails = lazy(() => import('./pages/EstimateDetails'));
 const EstimateForm = lazy(() => import('./pages/EstimateForm'));
+const Counter = lazy(() => import('./pages/Counter'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ShiftManagement = lazy(() => import('./pages/ShiftManagement'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
@@ -266,6 +267,9 @@ function App() {
 
           <Route path="corporate-accounts"     element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+
+          {/* Counter: walk-in tickets held against a CounterClient, not the patient register */}
+          <Route path="counter" element={<ProtectedRoute><Counter /></ProtectedRoute>} />
 
           {/* Estimates */}
           <Route path="estimates"           element={<ProtectedRoute><Estimates /></ProtectedRoute>} />

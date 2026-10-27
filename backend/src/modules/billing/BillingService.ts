@@ -6,6 +6,29 @@ import { getCounterService } from '../../services/CounterService';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
+type CollectionPatient = { surname: string; otherNames: string; folderNumber: string } | null;
+type CollectionClient = { name: string } | null;
+
+/**
+ * The collections report is money-first, so it must print whoever actually paid.
+ * Registered patients are identified by folder number; a counter walk-in has no folder,
+ * so the line is labelled as such rather than left blank.
+ */
+function collectCustomerLabel(patient: CollectionPatient, client: CollectionClient) {
+  if (patient) {
+    return {
+      name: `${patient.surname} ${patient.otherNames}`.trim() || 'Patient',
+      reference: patient.folderNumber,
+      kind: 'patient' as const,
+    };
+  }
+  return {
+    name: client?.name || 'Walk-in customer',
+    reference: null,
+    kind: 'walk_in' as const,
+  };
+}
+
 export class BillingService extends BaseService {
   private repository: BillingRepository;
   private prisma: PrismaClient;
@@ -303,7 +326,9 @@ export class BillingService extends BaseService {
         bill: {
           id: payment.Bill.id,
           billNumber: payment.Bill.billNumber,
-          patient: payment.Bill.Patient
+          // One field for whoever handed over the money. A counter ticket has no Patient
+          // row, so the report must not assume the payer is in the patient register.
+          customer: collectCustomerLabel(payment.Bill.Patient, payment.Bill.CounterClient)
         },
         items: allocationTotal > 0
           ? lineItems.map((item, index) => ({

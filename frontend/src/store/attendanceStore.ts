@@ -41,7 +41,9 @@ import {
 interface Attendance {
   id: string;
   attendanceNumber: string;
-  patientId: string;
+  // A counter ticket is an ordinary visit held against a walk-in customer, so the
+  // register link is the field that may be absent — never both, never neither.
+  patientId: string | null;
   patient?: {
     id: string;
     surname: string;
@@ -50,7 +52,14 @@ interface Attendance {
     contact: string;
     dateOfBirth: string;
     gender: string;
-  };
+  } | null;
+  counterClientId?: string | null;
+  counterClient?: {
+    id: string;
+    name: string;
+    ageYears: number | null;
+    phone: string | null;
+  } | null;
   attendanceType: string;
   dateTime: string;
   paymentMode: string;

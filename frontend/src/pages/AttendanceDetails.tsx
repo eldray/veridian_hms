@@ -427,6 +427,11 @@ export default function AttendanceDetails() {
     const embeddedPatient = attendance?.patient ?? attendance?.Patient;
     if (embeddedPatient?.surname) return embeddedPatient;
 
+    // A counter ticket names a walk-in customer and has no folder at all; showing that
+    // record keeps the visit readable instead of crashing on a missing patient.
+    const counterClient = attendance?.counterClient ?? attendance?.CounterClient;
+    if (counterClient?.name) return counterClient;
+
     const pid = (typeof attendance.patientId === 'object'
       ? attendance.patientId.id
       : attendance.patientId) ||
@@ -442,6 +447,11 @@ export default function AttendanceDetails() {
     if (!currentAttendance) return null;
     return findPatient(currentAttendance);
   }, [currentAttendance, patients, currentPatient]);
+
+  // A counter ticket is a visit for someone who is deliberately not in the register, so
+  // this page labels them as a walk-in rather than a patient with a missing folder.
+  const isCounterTicket = currentAttendance?.attendanceType === 'walk_in'
+    || Boolean((currentAttendance as any)?.counterClientId);
 
   // The visit record embeds its patient, so this page does not download the register. If a
   // visit ever arrives without one, ask for that single patient record instead.
@@ -576,7 +586,15 @@ export default function AttendanceDetails() {
     navigate(`/dashboard/medical-entries/${id}`);
   };
 
+  // Those four screens are keyed on a patient folder. A counter ticket has none, and the
+  // counter page does everything they do for a walk-in, so send it there instead of
+  // handing a counter-customer id to a patient screen.
+  const counterFallback = (): string | null =>
+    isCounterTicket ? `/dashboard/counter?ticket=${id}` : null;
+
   const handleGoToBilling = () => {
+    const fallback = counterFallback();
+    if (fallback) { navigate(fallback); return; }
     if (patient) {
       navigate(`/dashboard/patients/${patient.id}/billing`);
     }
@@ -584,18 +602,24 @@ export default function AttendanceDetails() {
 
   // Both result screens are keyed on the patient and take the visit through route state.
   const handleGoToLaboratory = () => {
+    const fallback = counterFallback();
+    if (fallback) { navigate(fallback); return; }
     if (patient) {
       navigate(`/dashboard/laboratory/${patient.id}`, { state: { patient, attendanceId: id } });
     }
   };
 
   const handleGoToScans = () => {
+    const fallback = counterFallback();
+    if (fallback) { navigate(fallback); return; }
     if (patient) {
       navigate(`/dashboard/scans/${patient.id}`, { state: { patient, attendanceId: id } });
     }
   };
 
   const handleNewEstimate = () => {
+    const fallback = counterFallback();
+    if (fallback) { navigate(fallback); return; }
     if (patient) {
       navigate('/dashboard/estimates/new', { state: { patient } });
     }
@@ -967,15 +991,22 @@ export default function AttendanceDetails() {
               <div className="min-w-0">
                 <h2 className="break-words text-lg font-bold text-[var(--text-primary)]">
                   {getPatientFullName(patient)}
+                  {isCounterTicket && (
+                    <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]">
+                      Walk-in
+                    </span>
+                  )}
                 </h2>
                 <p className="mt-0.5 text-xs text-[var(--text-secondary)]">
-                  Folder No. {patient.folderNumber || 'Not recorded'}
-                  {patient.age !== undefined && patient.age !== null && patient.age !== '' ? ` · ${patient.age} years` : ''}
-                  {patient.gender ? ` · ${patient.gender}` : ''}
+                  {isCounterTicket
+                    ? `Counter customer · age ${patient?.ageYears ?? 'not given'}`
+                    : `Folder No. ${patient?.folderNumber || 'Not recorded'}`}
+                  {!isCounterTicket && patient?.age !== undefined && patient?.age !== null && patient?.age !== '' ? ` · ${patient.age} years` : ''}
+                  {patient?.gender ? ` · ${patient.gender}` : ''}
                 </p>
                 <p className="mt-1 break-words text-xs text-[var(--text-secondary)]">
-                  {patient.contact || patient.phone || 'No contact number recorded'}
-                  {patient.address ? ` · ${patient.address}` : ''}
+                  {patient?.contact || patient?.phone || 'No contact number recorded'}
+                  {patient?.address ? ` · ${patient.address}` : ''}
                 </p>
               </div>
             </div>
@@ -1015,8 +1046,10 @@ export default function AttendanceDetails() {
         </section>
       )}
 
-      {/* Medication safety: show recorded allergies across every attendance tab. */}
-      {patient && (
+      {/* Medication safety: show recorded allergies across every attendance tab.
+          A counter customer has no allergy record, so the banner would only shout about
+          a review that cannot exist. */}
+      {patient && !isCounterTicket && (
         <section
           role="alert"
           aria-label="Patient allergy information"

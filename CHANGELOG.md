@@ -194,13 +194,25 @@ semantic versioning.
   and `Bill` now carry exactly one of `patientId` / `counterClientId`, enforced by a database
   CHECK and mirrored in the service layer (CI resets the schema with `db push`, which never
   runs the migration's constraints). Under `POST /api/counter/tickets`, staff create a ticket
-  from a new name, an existing customer, or a registered patient search; add sale or
-  consumable lines, lab and scan orders; raise the ticket's bill; and close it once nothing is
+  from a new name, an existing customer, or a registered patient search; add medicine lines,
+  lab and scan orders; raise the ticket's bill; and close it once nothing is
   outstanding. A customer who later needs a folder is linked to a registered patient
-  (`PATCH /api/counter/clients/:id/link`), which keeps the ticket's history readable under
+  (`POST /api/counter/clients/:id/link`), which keeps the ticket's history readable under
   both identities instead of duplicating the person. Counter tickets are excluded from ANC,
   vitals and medical worklists, GHS returns, and claim submission, and cannot be discharged —
   they print a bill statement, receipt, prescription or lab/scan report instead.
+- A **Counter** page at `/dashboard/counter` (pharmacist, lab tech, sonographer, accounts,
+  records) drives those routes: three identity modes with the register check that
+  `/api/patients` will not answer for bench staff, a Sell / Labs & scans / Bill & print
+  workspace, and printing straight from the ticket. Dispensing is pharmacist-only and
+  deducts stock through the pharmacy's own earliest-expiry batch allocation, so the browser
+  never chooses a batch. Results are still entered by the lab or scan room on their own
+  screens — the ticket appears in their queue with the customer's name. Sale lines are
+  limited to stock marked as medicine with an active medication price, because dispensing
+  and stock deduction require `StockItem.isMedication` and the service catalog has no
+  consumable type; anything else is refused when it is added, with the reason. The billing
+  screens no longer assume every bill has a patient: the collections report names whoever
+  paid (`walk_in` for a ticket, with no folder number), and the visit list tags walk-ins.
 
 ### Changed
 

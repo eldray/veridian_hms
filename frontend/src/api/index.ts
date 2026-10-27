@@ -1947,10 +1947,12 @@ export interface BillingCollectionPayment {
   paymentMethod: string;
   bill: {
     billNumber: string;
-    patient: {
-      surname: string;
-      otherNames: string;
-      folderNumber: string;
+    // A counter ticket pays without a patient folder, so the report names the payer
+    // rather than assuming a registered patient. Mirrors BillingService.getCollections.
+    customer: {
+      name: string;
+      reference: string | null;
+      kind: 'patient' | 'walk_in';
     };
   };
   collector: {
@@ -4029,6 +4031,59 @@ export const createCommunicationTemplate = (data: any) =>
   api.post('/communications/templates', data).then(r => r.data);
 
 // ──────────────────────────────────────────────
+// COUNTER (walk-in sales, labs and scans)
+// ──────────────────────────────────────────────
+
+export const searchCounterClients = (query: string, limit = 20) =>
+  api.get('/counter/clients', { params: { query, limit } }).then(r => r.data);
+
+/** "Is this person already registered?" — name, folder and date of birth only. */
+export const searchCounterPatients = (query: string, limit = 20) =>
+  api.get('/counter/patients', { params: { query, limit } }).then(r => r.data);
+
+export const listCounterTickets = (filters?: { query?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/counter/tickets', { params: filters }).then(r => r.data);
+
+export const getCounterTicket = (id: string) =>
+  api.get(`/counter/tickets/${id}`).then(r => r.data);
+
+export const createCounterTicket = (data: { patientId?: string; clientId?: string; client?: { name: string; ageYears?: number | null; phone?: string | null }; reason?: string }) =>
+  api.post('/counter/tickets', data).then(r => r.data);
+
+export const addCounterSaleItem = (ticketId: string, data: { stockItemId: string; quantity: number; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/items`, data).then(r => r.data);
+
+export const dispenseCounterItem = (ticketId: string, medicationId: string, quantity: number) =>
+  api.post(`/counter/tickets/${ticketId}/items/${medicationId}/dispense`, { quantity }).then(r => r.data);
+
+export const removeCounterSaleItem = (ticketId: string, medicationId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/items/${medicationId}`).then(r => r.data);
+
+export const addCounterLabOrder = (ticketId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/lab-tests`, data).then(r => r.data);
+
+export const removeCounterLabOrder = (ticketId: string, labTestId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/lab-tests/${labTestId}`).then(r => r.data);
+
+export const addCounterScanOrder = (ticketId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/scans`, data).then(r => r.data);
+
+export const removeCounterScanOrder = (ticketId: string, scanId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/scans/${scanId}`).then(r => r.data);
+
+export const getCounterBill = (ticketId: string) =>
+  api.get(`/counter/tickets/${ticketId}/bill`).then(r => r.data);
+
+export const raiseCounterBill = (ticketId: string) =>
+  api.post(`/counter/tickets/${ticketId}/bill`).then(r => r.data);
+
+export const closeCounterTicket = (ticketId: string) =>
+  api.post(`/counter/tickets/${ticketId}/close`).then(r => r.data);
+
+export const linkCounterClient = (clientId: string, patientId: string) =>
+  api.post(`/counter/clients/${clientId}/link`, { patientId }).then(r => r.data);
+
+// ──────────────────────────────────────────────
 // DEFAULT EXPORT
 // ──────────────────────────────────────────────
 
@@ -4273,6 +4328,12 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   // Family Planning
   getFPServices, getFPServiceById, createFPService, updateFPService, deleteFPService,
   getCurrentFPMethod, getFPHistory, getFPClientDetails, getFPStatistics, getFPMethodMix, getGHSFPReport,
+
+  // Counter (walk-in tickets)
+  searchCounterClients, searchCounterPatients, listCounterTickets, getCounterTicket,
+  createCounterTicket, addCounterSaleItem, dispenseCounterItem, removeCounterSaleItem,
+  addCounterLabOrder, removeCounterLabOrder, addCounterScanOrder, removeCounterScanOrder,
+  getCounterBill, raiseCounterBill, closeCounterTicket, linkCounterClient,
 
   // Upload
   servePatientImages, serveScanImages, serveDocuments
