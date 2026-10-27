@@ -1,6 +1,7 @@
 // src/components/vitals/PatientAttendanceSelector.tsx - FIXED VERSION
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 
 interface PatientAttendanceSelectorProps {
   patients: any[];
@@ -119,19 +120,23 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   }, [selectedPatient]);
 
   // ✅ Filter patients based on search
-  const filteredPatients = normalizedPatients.filter(patient => {
-    const fullName = getPatientFullName(patient).toLowerCase();
-    const folderNumber = getPatientFolderNumber(patient).toLowerCase();
-    const contact = getPatientContact(patient).toLowerCase();
+  // Memoised and rendered as a capped slice: a one-letter query used to match most of the
+  // register and mount every row of it, which froze the picker mid-typing.
+  const filteredPatients = React.useMemo(() => {
     const search = patientSearch.toLowerCase();
-    
-    return fullName.includes(search) || 
-           folderNumber.includes(search) ||
-           contact.includes(search);
-  });
+    return normalizedPatients.filter(patient => {
+      const fullName = getPatientFullName(patient).toLowerCase();
+      const folderNumber = getPatientFolderNumber(patient).toLowerCase();
+      const contact = getPatientContact(patient).toLowerCase();
+
+      return fullName.includes(search) ||
+             folderNumber.includes(search) ||
+             contact.includes(search);
+    });
+  }, [normalizedPatients, patientSearch]);
 
   // Filter attendances for selected patient
-  const patientAttendances = attendances
+  const patientAttendances = React.useMemo(() => attendances
     .filter(a => {
       const linkedPatient = a.patientId || a.patient?.id || a.patient?._id;
       const linkedPatientId = typeof linkedPatient === 'object'
@@ -139,7 +144,8 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         : linkedPatient;
       return String(linkedPatientId || '') === selectedPatientId;
     })
-    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
+    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()),
+    [attendances, selectedPatientId]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -234,7 +240,8 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
             className="absolute z-20 w-full mt-1 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg"
           >
             {filteredPatients.length > 0 ? (
-              filteredPatients.map((patient) => (
+              <>
+              {capPickerRows(filteredPatients).map((patient) => (
                 <button
                   key={patient.id}
                   onClick={() => handlePatientSelect(patient)}
@@ -257,7 +264,9 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                     )}
                   </div>
                 </button>
-              ))
+              ))}
+              <PickerRowsHint shown={Math.min(filteredPatients.length, MAX_PICKER_ROWS)} total={filteredPatients.length} />
+              </>
             ) : (
               <div className="p-4 text-center text-slate-500 text-sm">
                 No patients found

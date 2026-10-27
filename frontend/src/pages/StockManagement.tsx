@@ -1,5 +1,5 @@
 // src/pages/StockManagement.tsx - FULLY FIXED VERSION
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useStockStore } from '../store/stockStore';
 import { useDepartmentStore } from '../store/departmentStore';
@@ -137,27 +137,35 @@ export default function StockManagement() {
   };
 
   // Apply filters
-  const filteredItems = stockItems.filter(item => {
-    // Search filter
-    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (item.description?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (item.drugCode?.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    // Category filter
-    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
-    
-    // Status filter
-    let matchesStatus = true;
-    if (filterStatus === 'low-stock') {
-      matchesStatus = item.currentStock <= item.reorderLevel;
-    } else if (filterStatus === 'in-stock') {
-      matchesStatus = item.currentStock > item.reorderLevel;
-    }
-    
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
+  // Memoised: this component also holds the item-form state, so without it every
+  // keystroke in the modal re-scanned the whole stock list.
+  const filteredItems = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return stockItems.filter(item => {
+      // Search filter
+      const matchesSearch = item.name.toLowerCase().includes(q) ||
+                           (item.description?.toLowerCase().includes(q)) ||
+                           (item.drugCode?.toLowerCase().includes(q));
 
-  const lowStockItems = stockItems.filter(item => item.currentStock <= item.reorderLevel);
+      // Category filter
+      const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+
+      // Status filter
+      let matchesStatus = true;
+      if (filterStatus === 'low-stock') {
+        matchesStatus = item.currentStock <= item.reorderLevel;
+      } else if (filterStatus === 'in-stock') {
+        matchesStatus = item.currentStock > item.reorderLevel;
+      }
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [stockItems, searchTerm, filterCategory, filterStatus]);
+
+  const lowStockItems = useMemo(
+    () => stockItems.filter(item => item.currentStock <= item.reorderLevel),
+    [stockItems]
+  );
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
@@ -605,7 +613,9 @@ export default function StockManagement() {
       </div>
 
       {/* Stock Items Display */}
-      {isLoading ? (
+      {/* The list streams in page by page: show skeletons only until the first rows exist,
+          otherwise the already-loaded items stay hidden behind the walk for its whole duration. */}
+      {isLoading && filteredItems.length === 0 ? (
         <div className={viewMode === 'grid' 
           ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" 
           : "space-y-3"

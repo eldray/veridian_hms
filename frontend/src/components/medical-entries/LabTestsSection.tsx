@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { LabTest, LabTestTemplate } from '../../types';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { LabTestEntry } from '../../types/medical-entries';
 import { FlaskConical, Plus, DollarSign, Shield, AlertCircle, Search, X } from 'lucide-react';
 
@@ -161,7 +162,8 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                 ref={dropdownRef}
                 className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg"
               >
-                {filteredTemplates.map((template) => (
+                <PickerRowsHint shown={Math.min(filteredTemplates.length, MAX_PICKER_ROWS)} total={filteredTemplates.length} />
+                {capPickerRows(filteredTemplates).map((template) => (
                   <button
                     key={template.id}
                     onClick={() => handleTemplateSelect(template)}

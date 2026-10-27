@@ -6,6 +6,7 @@ import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
 import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
 import { useStockStore } from '../../store/stockStore';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
 import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown } from 'lucide-react';
@@ -366,7 +367,8 @@ function AddDiagnosisModal({ isOpen, onClose, onAdd, editing = null }: { isOpen:
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filtered.map((d) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedDiagnosis(d)}
@@ -504,7 +506,8 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filtered.map((item) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -652,7 +655,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: 
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filtered.map((item) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((item) => (
               <button
                 key={item.id}
                 onClick={() => setSelectedItem(item)}
@@ -763,7 +767,8 @@ function AddProcedureModal({ isOpen, onClose, onAdd, editing = null }: { isOpen:
             <div className="text-xs text-[var(--text-secondary)]">Current: {selectedItem?.name} ({codeOf(selectedItem) || selectedItem?.procedureCode || '—'})</div>
           )}
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filtered.map((t: any) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((t: any) => (
               <button
                 key={t.id}
                 type="button"

@@ -1,5 +1,5 @@
 // src/pages/Departments.tsx - REDESIGNED (both pickers now searchable)
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
@@ -153,10 +153,13 @@ const { user, hasRole } = useAuthStore();
     finally { setLoadingUsers(false); }
   };
 
-  const filtered = departments.filter(d =>
-    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return departments.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.description?.toLowerCase().includes(q)
+    );
+  }, [departments, searchTerm]);
 
   const availableUsers = allUsers.filter(u => !departmentUsers.some(du => du.id === u.id));
 
@@ -334,7 +337,8 @@ const { user, hasRole } = useAuthStore();
       </div>
 
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
-      {isLoading ? (
+      {/* Keep already-loaded rows visible during a refresh; skeletons only stand in for an empty first paint. */}
+      {isLoading && filtered.length === 0 ? (
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
           {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} />)}
         </div>

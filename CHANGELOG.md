@@ -216,3 +216,30 @@ semantic versioning.
   loop held the payment button for two minutes and kept polling after the staff left.
 - The payment screen no longer downloads the patient register to print a name; the bill
   row carries its patient, and one patient record is fetched if it does not.
+- Screens keep showing their rows while a refresh runs. Stock management, departments,
+  notifications, appointments and the estimate form gated the whole list on `isLoading`,
+  which wiped a usable table on every refresh and every live update; skeletons now stand
+  in only for the first paint, when there is genuinely nothing to show.
+- Search pickers render at most 50 rows. The patient/attendance selector, the medication
+  section and the diagnosis, investigation, service, medicine and procedure dropdowns in
+  the three claim editors used to mount every catalogue match: opening the list, and each
+  keystroke in the search box, rebuilt thousands of buttons and left the window unresponsive.
+  A short footer states how many matches are hidden so the cap is visible, not silent.
+- The medication section filtered the formulary inside an effect that wrote a new array into
+  state on every render, so each render re-triggered the effect. Typing in that box looped the
+  panel until the browser froze; the list is now derived with `useMemo` instead of stored.
+- Register and formulary lookups are indexed. Attendance, admissions, nursing, appointments
+  and billing searched the patient list (or the stock list) linearly for every row while
+  filtering and rendering, which is thousands of rows times thousands of patients per keystroke;
+  each now builds one `Map` and reads from it.
+- The estimate form paints as soon as the saved estimate arrives. Its pickers (service
+  catalogue, corporate accounts) still stream in behind the form, and the line items are
+  labelled from the estimate payload so nothing reads as an empty row while they load.
+- Errors that were swallowed now reach the operator. A failed notification load and a failed
+  vitals load reported nothing, and `appointmentStore` recorded its failure in state that no
+  screen read, so an outage looked like an empty list; the appointments screen now reports it,
+  and a pharmacy-stock failure on the dispensing screen no longer hides the prescriptions
+  behind "patient not found".
+- The attendance list no longer waits for the patient register before painting. The visit
+  rows arrive with their own patient attached, so the register is only a name-search fallback
+  and used to delay the table by however long it took to stream.

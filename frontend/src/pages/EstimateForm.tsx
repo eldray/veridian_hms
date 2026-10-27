@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog } from '../api';
 import { useEstimatesStore } from '../store/estimatesStore';
+import { MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { useToast } from '../store/toastStore';
 
 // ─────────────────────────────────────────────
@@ -100,7 +101,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   }, [query, onSearch]);
 
   // Filter by query
-  const filtered = useMemo(() => {
+  const matches = useMemo(() => {
     if (onSearch) return options; // the server already narrowed the list
     if (!query.trim()) return options;
     const q = query.toLowerCase();
@@ -109,6 +110,10 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
       return hay.includes(q);
     });
   }, [options, query, onSearch]);
+
+  // Only the first rows are rendered: a 5,000-item catalogue turned the open dropdown,
+  // and every keystroke in it, into thousands of buttons and stalled the renderer.
+  const filtered = matches.slice(0, MAX_PICKER_ROWS);
 
   // Reset query and highlighted when dropdown opens
   useEffect(() => {
@@ -218,7 +223,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 No matches
               </div>
             ) : (
-              filtered.map((opt, idx) => {
+              <>
+              {filtered.map((opt, idx) => {
                 const isSelected = opt.value === value;
                 const isHighlighted = idx === highlighted;
                 return (
@@ -243,7 +249,13 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     {isSelected && <Check className="w-3.5 h-3.5 text-[var(--icon-cyan-text)] flex-shrink-0" />}
                   </button>
                 );
-              })
+              })}
+              {matches.length > filtered.length && (
+                <div className="px-3 py-1.5 text-center text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">
+                  Showing {filtered.length} of {matches.length} &mdash; keep typing
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>
@@ -278,6 +290,7 @@ export default function EstimateForm() {
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
   const searchPatients = useCallback(async (query: string) => {
@@ -297,25 +310,40 @@ export default function EstimateForm() {
   // Zustand stores and are not guaranteed to be reference-stable, so
   // including them caused an infinite refresh loop.
   useEffect(() => {
+    let cancelled = false;
     const loadOptions = async () => {
       setIsLoading(true);
+      // Only the saved estimate needs to block the form; without an id there is nothing to wait for.
+      if (id) {
+        try {
+          await loadEstimate(id);
+        } catch (e: any) {
+          toastError('Load failed', e?.response?.data?.message || e.message);
+        }
+      }
+      setIsLoading(false);
+
+      // The backend returns at most 100 rows per request, so these calls walk every page.
+      // They only fill the pickers, so they stream in behind the form instead of holding
+      // the whole screen still while the service catalog is paged through.
+      setOptionsLoading(true);
       try {
-        // The backend returns at most 100 rows per request; these calls walk every page.
         const [serviceResponse, corporateResponse] = await Promise.all([
           getServiceCatalog({ isActive: true, limit: 5000, page: 1 }),
           getCorporateAccounts({ isActive: true, limit: 1000, page: 1 }),
           searchPatients(''),
         ]);
+        if (cancelled) return;
         setServices(asArray(serviceResponse));
         setCorporateAccounts(asArray(corporateResponse));
-        if (id) await loadEstimate(id);
       } catch (e: any) {
-        toastError('Load failed', e?.response?.data?.message || e.message);
+        if (!cancelled) toastError('Load failed', e?.response?.data?.message || e.message);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setOptionsLoading(false);
       }
     };
     loadOptions();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -398,16 +426,29 @@ export default function EstimateForm() {
     [corporateAccounts],
   );
 
-  const serviceOptions: SearchableOption[] = useMemo(
-    () =>
-      services.map((s) => ({
-        value: s.id,
-        label: s.name,
-        sublabel: `${s.code} · ${s.serviceType || 'service'}`,
-        searchText: `${s.name || ''} ${s.code || ''} ${s.serviceType || ''}`,
-      })),
-    [services],
-  );
+  const serviceOptions: SearchableOption[] = useMemo(() => {
+    const options = services.map((s) => ({
+      value: s.id,
+      label: s.name,
+      sublabel: `${s.code} · ${s.serviceType || 'service'}`,
+      searchText: `${s.name || ''} ${s.code || ''} ${s.serviceType || ''}`,
+    }));
+    const seen = new Set(options.map((o) => o.value));
+    // Label the services already billed on this estimate straight away: the catalog
+    // streams in behind the form, and an unlabelled row reads as a lost line item.
+    (currentEstimate?.items || []).forEach((item: any) => {
+      const svc = item.serviceCatalog;
+      if (!svc?.id || seen.has(svc.id)) return;
+      seen.add(svc.id);
+      options.push({
+        value: svc.id,
+        label: svc.name || item.description || svc.id,
+        sublabel: `${svc.code || ''} · ${svc.serviceType || 'service'}`,
+        searchText: `${svc.name || ''} ${svc.code || ''}`,
+      });
+    });
+    return options;
+  }, [services, currentEstimate]);
 
   // ── Item helpers ─────────────────────────────
   const updateItem = (index: number, patch: Partial<FormItem>) => {
@@ -539,6 +580,7 @@ export default function EstimateForm() {
             options={corporateOptions}
             value={corporateAccountId}
             onChange={setCorporateAccountId}
+            loading={optionsLoading}
             placeholder="Search corporate accounts…"
             emptyLabel="No corporate account"
             icon={<Building2 className="w-3.5 h-3.5" />}
@@ -599,6 +641,7 @@ export default function EstimateForm() {
                 options={serviceOptions}
                 value={item.serviceCatalogId || ''}
                 onChange={(v) => selectService(index, v)}
+                loading={optionsLoading}
                 placeholder="Search services…"
                 emptyLabel="Custom description"
               />

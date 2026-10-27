@@ -143,17 +143,24 @@ export default function Nursing() {
     localStorage.setItem('nursingViewMode', viewMode);
   }, [viewMode]);
 
+  // Indexed register: findPatient() runs for every card on the board, and scanning the
+  // whole patient list from there stalled the ward view while it streamed in.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const findPatient = useCallback((attendance: any) => {
     if (!attendance) return null;
     if (attendance.patient && typeof attendance.patient === 'object') return attendance.patient;
     if (attendance.patientId && typeof attendance.patientId === 'object') return attendance.patientId;
     if (attendance.patientId && typeof attendance.patientId === 'string') {
-      const found = patients.find((p) => p.id === attendance.patientId);
+      const found = patientById.get(attendance.patientId);
       if (found) return found;
     }
     if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
     return null;
-  }, [patients]);
+  }, [patientById]);
 
   // ── Load the nursing board without letting optional lookups block the page ──
   const loadData = useCallback(async () => {

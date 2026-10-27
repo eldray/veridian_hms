@@ -200,7 +200,13 @@ export default function DispensePatient() {
       // The route names the patient, so ask for that patient's record and that
       // patient's visits. This screen used to download the whole patient register and
       // every live visit in the hospital before it could show one prescription list.
-      const stockItemsPromise = getStockItems();
+      // Pharmacy stock is awaited with the rest: the availability badges on every
+      // prescription row read from it, so painting the list first would advertise stock
+      // that has not been checked yet. The formulary walks in ~500-row pages, so this is cheap.
+      // Its failure is reported separately: a stock outage must not hide the prescriptions.
+      const stockItemsPromise = getStockItems().catch((err: any) => {
+        toastError('Stock Not Loaded', err?.message || 'Could not load pharmacy stock');
+      });
       // The patient picker searches the register in the browser, so it still arrives —
       // after the prescription list, not before it.
       void loadPatients().catch(() => undefined);

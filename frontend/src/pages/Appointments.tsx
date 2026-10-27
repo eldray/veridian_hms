@@ -50,7 +50,8 @@ export default function Appointments() {
     checkInAppointment,
     getAvailableClinicians,
     availableClinicians,
-    isLoading 
+    isLoading,
+    error: storeError
   } = useAppointmentStore();
   const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
   const { user, hasRole } = useAuthStore();
@@ -198,6 +199,12 @@ export default function Appointments() {
     loadData();
   }, [statusFilter, typeFilter, dateFilter, customStartDate, customEndDate]);
 
+  // The store records the failure in state instead of throwing, so without this the page
+  // would silently swap in an empty list and the operator would think there were no bookings.
+  useEffect(() => {
+    if (storeError) error('Appointments Not Loaded', storeError);
+  }, [storeError]);
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -210,11 +217,18 @@ export default function Appointments() {
   };
 
   // Get patient by ID
+  // Indexed register: the filter below runs this for every appointment, so a linear scan
+  // of the patient list turned each keystroke in the search box into seconds of dead UI.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const findPatient = (appointment: any) => {
     if (!appointment) return null;
     const patientId = appointment.patientId || appointment.patient?.id;
     if (!patientId) return null;
-    return patients.find(p => p.id === patientId);
+    return patientById.get(patientId);
   };
 
   // Filter appointments
@@ -237,7 +251,7 @@ export default function Appointments() {
       
       return matchesSearch;
     });
-  }, [appointments, patients, searchTerm]);
+  }, [appointments, patientById, searchTerm]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
@@ -609,7 +623,8 @@ export default function Appointments() {
       </div>
 
       {/* Appointments Table */}
-      {isLoading ? (
+      {/* A refresh keeps the current rows on screen; skeletons only stand in for the first paint. */}
+      {isLoading && filteredAppointments.length === 0 ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">

@@ -40,10 +40,20 @@ export default function Attendance() {
     isLoading: attendancesLoading 
   } = useAttendanceStore();
   
-  const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
+  const { patients, loadPatients } = usePatientStore();
   const { hasRole } = useAuthStore();
 
-  const isLoading = attendancesLoading || patientsLoading;
+  // The visit rows arrive with their own patient attached, so the table does not wait for
+  // the register: it only fills in the name-search fallback as the pages stream in.
+  const isLoading = attendancesLoading;
+
+  // One lookup table instead of a scan: findPatient() is called for every attendance while
+  // filtering and rendering, and searching the register linearly from there blocked the
+  // main thread for seconds on a full ward list.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
 
   // ✅ FIXED: Find patient from multiple sources
   const findPatient = (attendance: any) => {
@@ -61,7 +71,7 @@ export default function Attendance() {
     
     // 3. If we have a patientId string, find it in the patients store
     if (attendance.patientId && typeof attendance.patientId === 'string') {
-      const found = patients.find(p => p.id === attendance.patientId);
+      const found = patientById.get(attendance.patientId);
       if (found) return found;
     }
     
@@ -182,7 +192,7 @@ export default function Attendance() {
     });
     
     return filtered.sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
-  }, [attendances, patients, searchQuery, dateFilter, customStartDate, customEndDate]);
+  }, [attendances, patientById, searchQuery, dateFilter, customStartDate, customEndDate]);
 
   const totalPages = Math.ceil(filteredAttendances.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;

@@ -274,10 +274,17 @@ export default function Billing() {
     return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   }, []);
 
+  // Indexed register: the bill filter calls this for every loaded bill, and scanning the
+  // patient list linearly from there froze the screen on a long billing queue.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const getPatientFromBill = useCallback((bill: any) => {
     if (bill.Patient?.surname) return bill.Patient;
-    return patients.find((p) => p.id === bill.patientId);
-  }, [patients]);
+    return patientById.get(bill.patientId);
+  }, [patientById]);
 
   // Filter bills
   const filteredBills = useMemo(() => {

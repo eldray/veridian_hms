@@ -5,6 +5,7 @@ import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
 import { useStockStore } from '../../store/stockStore';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, fmtDate } from '../../components/claims/ClaimUI';
 import { Download, Printer, XCircle, Plus, Search, Edit, Trash2 as TrashIcon } from 'lucide-react';
@@ -150,7 +151,8 @@ function AddDiagnosisModalPrivate({ isOpen, onClose, onAdd }: any) {
             />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filtered.map((d) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedDiagnosis(d)}
@@ -243,7 +245,8 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filtered.map((s) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((s) => (
               <button
                 key={s.id}
                 onClick={() => setSelectedService(s)}
@@ -338,7 +341,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filtered.map((m) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((m) => (
               <button
                 key={m.id}
                 onClick={() => setSelectedMedicine(m)}

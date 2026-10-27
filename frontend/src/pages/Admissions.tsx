@@ -222,6 +222,12 @@ export default function Admissions() {
   // Admission rows arrive with their patient already attached; the register is only consulted as
   // a last-resort name fallback, so this page never downloads it on open.
   const { patients } = usePatientStore();
+  // Indexed once: the name fallback is consulted per admission row while filtering, and a
+  // linear scan of the register from there froze the page on a long ward list.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
 
@@ -432,7 +438,7 @@ export default function Admissions() {
       if (searchQuery) {
         const patient =
           admission.attendance?.Patient ||
-          patients.find((p) => p.id === admission.attendance?.patientId);
+          patientById.get(admission.attendance?.patientId);
         const fullName = patient ? getPatientName(patient) : '';
         const lower = searchQuery.toLowerCase();
         return (
@@ -448,7 +454,7 @@ export default function Admissions() {
     return filtered.sort(
       (a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime(),
     );
-  }, [allAdmissions, patients, searchQuery, getDateRange, activeTab]);
+  }, [allAdmissions, patientById, searchQuery, getDateRange, activeTab]);
 
   const activeAdmissions = filteredAdmissions.filter((a) => !a.dischargeDate);
   const dischargedAdmissions = filteredAdmissions.filter((a) => a.dischargeDate);
@@ -953,7 +959,7 @@ export default function Admissions() {
                   {paginatedAdmissions.map((admission) => {
                     const patient =
                       admission.attendance?.Patient ||
-                      patients.find((p) => p.id === admission.attendance?.patientId);
+                      patientById.get(admission.attendance?.patientId);
                     const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
                     const wardName = admission.attendance?.Ward?.wardName || '—';
                     const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
@@ -1215,7 +1221,7 @@ export default function Admissions() {
             {paginatedAdmissions.map((admission) => {
               const patient =
                 admission.attendance?.Patient ||
-                patients.find((p) => p.id === admission.attendance?.patientId);
+                patientById.get(admission.attendance?.patientId);
               const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
               const wardName = admission.attendance?.Ward?.wardName || '—';
               const bedNumber = admission.attendance?.Bed?.bedNumber || '—';

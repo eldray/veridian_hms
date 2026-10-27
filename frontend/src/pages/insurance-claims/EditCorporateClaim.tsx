@@ -5,6 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useInsuranceStore } from '../../store/insuranceStore';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useStockStore } from '../../store/stockStore';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, fmtDate } from '../../components/claims/ClaimUI';
 import { Printer, XCircle, Plus, Search, Edit, Trash2 } from 'lucide-react';
@@ -138,7 +139,8 @@ function AddDiagnosisModalCorporate({ isOpen, onClose, onAdd }: any) {
             <input type="text" placeholder="Search by diagnosis name or ICD-10 code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
-            {filtered.map((d) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((d) => (
               <button key={d.id} onClick={() => setSelected(d)} className={`w-full text-left p-2 rounded-lg transition-colors ${selected?.id === d.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>
                 <div className="font-medium text-sm">{d.name}</div>
                 <div className="text-xs text-[var(--text-secondary)]">ICD-10: {d.icdCode}</div>
@@ -204,7 +206,8 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filtered.map((s) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((s) => (
               <button key={s.id} onClick={() => setSelected(s)} className={`w-full text-left p-2 rounded-lg transition-colors ${selected?.id === s.id ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>
                 <div className="font-medium text-sm">{s.name}</div>
                 <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | GHS {(s.pricing?.corporatePrice || s.pricing?.cashPrice || 100).toFixed(2)}</div>
@@ -270,7 +273,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
             </div>
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
-            {filtered.map((m) => (
+            <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {capPickerRows(filtered).map((m) => (
               <button key={m.id} onClick={() => setSelected(m)} className={`w-full text-left p-2 rounded-lg transition-colors ${selected?.id === m.id ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>
                 <div className="font-medium text-sm">{m.name}</div>
                 <div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode || m.code} | GHS {(m.sellingPrice || m.costPrice || 0).toFixed(2)}</div>

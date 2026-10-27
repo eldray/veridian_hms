@@ -138,6 +138,7 @@ export default function VitalsEntry() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [vitalsList, setVitalsList] = useState<any[]>([]);
+  const [vitalsLoading, setVitalsLoading] = useState(false);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [editingVitals, setEditingVitals] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -211,13 +212,19 @@ export default function VitalsEntry() {
     }
   };
 
-  const loadVitals = async (attendanceId: string) => {
+  // `silent` is used by the live-refresh handler: a failing background poll must not
+  // stack toasts on top of each other.
+  const loadVitals = async (attendanceId: string, options?: { silent?: boolean }) => {
+    setVitalsLoading(true);
     try {
       const vitals = await getVitalsByAttendance(attendanceId);
       setVitalsList(vitals || []);
     } catch (err: any) {
       console.error('Error loading vitals:', err);
       setVitalsList([]);
+      if (!options?.silent) toastError('Vitals Not Loaded', err?.message || 'Could not load the vitals for this visit');
+    } finally {
+      setVitalsLoading(false);
     }
   };
 
@@ -226,7 +233,7 @@ export default function VitalsEntry() {
   useLiveRefresh(['encounters'], async () => {
     if (!selectedAttendanceId || isSubmitting) return;
     await refreshAttendance(selectedAttendanceId);
-    await loadVitals(selectedAttendanceId);
+    await loadVitals(selectedAttendanceId, { silent: true });
   });
 
 
@@ -661,6 +668,11 @@ export default function VitalsEntry() {
                   <div className="bg-[var(--bg-main)] rounded-lg p-4 h-[450px]">
                     <VitalsTrendGraph vitals={vitalsList} isAntenatal={isAntenatal} />
                   </div>
+                ) : vitalsLoading ? (
+                  <div className="h-[450px] bg-[var(--bg-main)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)]">
+                    <div className="w-8 h-8 border-4 border-[var(--icon-red-text)] border-t-transparent rounded-full animate-spin mb-3" />
+                    <p className="text-sm">Loading this visit&rsquo;s vitals&hellip;</p>
+                  </div>
                 ) : (
                   <div className="h-[450px] bg-[var(--bg-main)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)]">
                     <Activity className="w-12 h-12 mb-3 opacity-50" />
@@ -695,14 +707,14 @@ export default function VitalsEntry() {
                 vitals={vitalsList}
                 onEdit={canRecord ? handleEditVitals : undefined}
                 onDelete={canRecord ? handleDeleteVitals : undefined}
-                isLoading={false}
+                isLoading={vitalsLoading}
                 isAntenatal={isAntenatal}
               />
             </div>
           )}
 
           {/* Show message when no vitals */}
-          {vitalsList.length === 0 && (
+          {vitalsList.length === 0 && !vitalsLoading && (
             <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
               <Activity className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
               <p className="text-[var(--text-secondary)]">No vitals recorded for this visit</p>
