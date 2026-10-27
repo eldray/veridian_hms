@@ -315,6 +315,18 @@ semantic versioning.
 - The remaining primary buttons and status chips in scans, estimates, claims and attendance
   detail use the accent tokens too, so one click target no longer looks different depending
   on which screen the operator came from.
+- The estimate list, estimate detail, insurance claims, claim tracking and the shared
+  insurance section tabs read from the theme variables. These screens were written before
+  the tokens existed and still asked for `bg-white`, `text-gray-900` and Tailwind's blue,
+  green, purple and amber shades, so in a dark scheme they appeared as a bright white panel
+  with black text, and their status chips were unreadable. Surfaces use `--bg-card`, borders
+  `--border-color`, body copy `--text-primary/secondary/tertiary`, and each status keeps its
+  meaning through the matching `--icon-*` pair: approved green, rejected red, submitted or
+  converted purple, draft and expired yellow-to-orange, paid and informational cyan.
+  Solid action buttons take the accent fill with `hover:opacity-90`, the same shape the rest
+  of the app uses. A page that sets no text colour at all inherits black, so each of these
+  screens now declares its own base colour instead of leaving table cells and modal copy to
+  the browser default.
 
 ### Removed
 
