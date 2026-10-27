@@ -1254,7 +1254,7 @@ export default function AttendanceDetails() {
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           test.priority === 'stat' ? 'bg-red-100 text-red-700' :
                           test.priority === 'urgent' ? 'bg-orange-100 text-orange-700' :
-                          'bg-blue-100 text-blue-700'
+                          'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
                         }`}>
                           {test.priority || 'routine'}
                         </span>
@@ -1478,7 +1478,7 @@ export default function AttendanceDetails() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <button
                         onClick={() => handleAddClinical('diagnosis')}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-medium"
+                        className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium"
                       >
                         <Plus className="w-3 h-3" />
                         Diagnosis

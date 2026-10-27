@@ -14,7 +14,7 @@ import {
 
 const STATUS_STYLES: Record<EstimateStatus, string> = {
   DRAFT: 'bg-gray-100 text-gray-700',
-  SENT: 'bg-blue-100 text-blue-700',
+  SENT: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
   APPROVED: 'bg-green-100 text-green-700',
   REJECTED: 'bg-red-100 text-red-700',
   CONVERTED: 'bg-purple-100 text-purple-700',
@@ -128,7 +128,7 @@ export default function EstimateDetails() {
     return (
       <div className="p-10 text-center">
         <p className="text-gray-500">Estimate not found.</p>
-        <button onClick={() => navigate('/dashboard/estimates')} className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm">Back to Estimates</button>
+        <button onClick={() => navigate('/dashboard/estimates')} className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg text-sm">Back to Estimates</button>
       </div>
     );
   }
@@ -175,7 +175,7 @@ export default function EstimateDetails() {
             </>
           )}
           {est.status === 'DRAFT' && (
-            <button disabled={busy} onClick={() => run(() => sendEstimate(id!), 'Estimate sent')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm disabled:opacity-50">
+            <button disabled={busy} onClick={() => run(() => sendEstimate(id!), 'Estimate sent')} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm disabled:opacity-50">
               <Send className="w-4 h-4" /> Send
             </button>
           )}
@@ -195,7 +195,7 @@ export default function EstimateDetails() {
             </button>
           )}
           {est.status === 'CONVERTED' && est.bill && (
-            <button onClick={() => navigate(`/dashboard/billing/${est.bill!.id}/payment`)} className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">
+            <button onClick={() => navigate(`/dashboard/billing/${est.bill!.id}/payment`)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm">
               <Receipt className="w-4 h-4" /> View Bill {est.bill.billNumber}
             </button>
           )}

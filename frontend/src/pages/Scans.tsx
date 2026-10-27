@@ -67,7 +67,7 @@ const PriorityBadge = ({ priority }: { priority: string }) => {
     case 'urgent':
       return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Urgent</span>;
     default:
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Routine</span>;
+      return <span className="px-2 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-xs font-medium">Routine</span>;
   }
 };
 
@@ -77,7 +77,7 @@ const getScanStatusBadge = (status: string) => {
     case 'requested':
       return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Requested</span>;
     case 'in_progress':
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">In Progress</span>;
+      return <span className="px-2 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-xs font-medium">In Progress</span>;
     case 'completed':
       return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>;
     case 'cancelled':
@@ -296,7 +296,7 @@ export default function ScansWaitingList() {
               <Clock className="w-4 h-4" />
               Pending Scans
               {pendingScans.length > 0 && (
-                <span className="bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-xs">
+                <span className="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-2 py-0.5 rounded-full text-xs">
                   {pendingScans.length}
                 </span>
               )}
@@ -464,8 +464,8 @@ export default function ScansWaitingList() {
                           onClick={(e) => { e.stopPropagation(); handleScanClick(scan); }}
                           className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
                             activeTab === 'pending'
-                              ? 'bg-indigo-600 text-white hover:bg-indigo-700'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-700 hover:text-white'
+                              ? 'bg-[var(--icon-cyan-text)] text-white hover:opacity-90'
+                              : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white'
                           }`}
                         >
                           {activeTab === 'pending' ? (

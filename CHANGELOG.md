@@ -256,3 +256,11 @@ semantic versioning.
 - The shared patient picker searches the register on the server as the operator types, the
   way the estimate form already did. It used to match only against the pages of the register
   that had already streamed in, so a patient further down the list could not be found at all.
+- The payment screen follows the hospital's theme. It was built before the colour tokens
+  existed, so it stayed white-and-blue in a dark theme, and its header band hid the patient
+  name in one scheme and the amount figures in another. Cards, inputs, the payment-method
+  tiles and both action buttons now read from the same variables every other billing screen
+  uses, and the primary action is the standard accent button.
+- The remaining primary buttons and status chips in scans, estimates, claims and attendance
+  detail use the accent tokens too, so one click target no longer looks different depending
+  on which screen the operator came from.

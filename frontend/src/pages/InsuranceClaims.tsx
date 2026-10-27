@@ -841,7 +841,7 @@ export default function InsuranceClaims() {
                         onClick={() => goToPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
                           currentPage === pageNum
-                            ? 'bg-blue-600 text-white shadow-sm'
+                            ? 'bg-[var(--icon-cyan-text)] text-white shadow-sm'
                             : 'text-gray-600 hover:bg-gray-100'
                         }`}
                       >
