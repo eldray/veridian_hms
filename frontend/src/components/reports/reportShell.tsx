@@ -44,7 +44,7 @@ export interface ReportTable {
   /**
    * Where the rows live: a dot path, or a list of candidate paths. A path that resolves to
    * an object of counts (`{"cash": 12, "nhis": 40}`) is turned into rows of
-   * `{ key, value }` so grouped counts need no backend change.
+   * `{ key, label, value }` so grouped counts need no backend change.
    */
   source: string | string[];
   columns: ReportColumn[];
@@ -90,8 +90,10 @@ export interface ReportFilterDef {
 }
 
 /**
- * The options the money endpoints accept. Corporate and wallet are counted by
- * PaymentMode/Bill.paymentMode; momo is a payment METHOD, so it is not offered here.
+ * The options the money endpoints accept, value for value with the PaymentMode enum. These
+ * strings go straight into a Prisma `where`, so a value the column cannot hold is not an empty
+ * report but a failed request. Wallet is not a payer on a bill, and mobile money is a payment
+ * METHOD, so neither is offered here.
  */
 export const PAYMENT_MODE_OPTIONS = [
   { value: '', label: 'Any payer' },
@@ -99,9 +101,9 @@ export const PAYMENT_MODE_OPTIONS = [
   { value: 'nhis', label: 'NHIS' },
   { value: 'private_insurance', label: 'Private insurance' },
   { value: 'corporate', label: 'Corporate' },
-  { value: 'wallet', label: 'Wallet' },
 ];
 
+/** The BillStatus enum. A waived bill is `draft` or `pending` with a waiver row, not a status. */
 export const BILL_STATUS_OPTIONS = [
   { value: '', label: 'Any bill status' },
   { value: 'draft', label: 'Draft' },
@@ -109,7 +111,6 @@ export const BILL_STATUS_OPTIONS = [
   { value: 'partial', label: 'Part paid' },
   { value: 'paid', label: 'Paid' },
   { value: 'cancelled', label: 'Cancelled' },
-  { value: 'waived', label: 'Waived' },
 ];
 
 export const ORDER_STATUS_OPTIONS = [
@@ -143,12 +144,56 @@ export const YES_NO_OPTIONS = [
   { value: 'no', label: 'Walk-in customers only' },
 ];
 
+/**
+ * The ClaimStatus enum, again because the value goes into a Prisma `where`. Tracking events have
+ * their own richer vocabulary (submitted, approved, paid), but a claim row itself is only ever
+ * `draft` or `finalized`, and offering the others would fail the request.
+ */
 export const CLAIM_STATE_OPTIONS = [
   { value: '', label: 'Any claim state' },
-  { value: 'pending', label: 'Pending' },
-  { value: 'submitted', label: 'Submitted' },
+  { value: 'draft', label: 'Draft' },
   { value: 'finalized', label: 'Finalized' },
 ];
+
+/** The AttendanceType enum in schema.prisma — the attendance report filters on these words. */
+export const ATTENDANCE_TYPE_OPTIONS = [
+  { value: '', label: 'Any visit type' },
+  { value: 'general_consultation', label: 'General consultation' },
+  { value: 'emergency_acute', label: 'Emergency (acute)' },
+  { value: 'antenatal', label: 'Antenatal' },
+  { value: 'postnatal', label: 'Postnatal' },
+  { value: 'chronic_followup', label: 'Chronic follow-up' },
+  { value: 'specialist_consultation', label: 'Specialist consultation' },
+  { value: 'delivery', label: 'Delivery' },
+  { value: 'surgery', label: 'Surgery' },
+  { value: 'walk_in', label: 'Counter walk-in' },
+];
+
+/** The states ReportService.getNhisClaimsWithExpiry computes for each membership. */
+export const NHIS_EXPIRY_STATUS_OPTIONS = [
+  { value: '', label: 'Any membership state' },
+  { value: 'ACTIVE', label: 'Active (over 30 days left)' },
+  { value: 'WARNING', label: 'Warning (8–30 days)' },
+  { value: 'CRITICAL', label: 'Critical (within a week)' },
+  { value: 'EXPIRED', label: 'Expired' },
+  { value: 'UNKNOWN', label: 'No expiry date recorded' },
+];
+
+/** How far ahead the NHIS expiry report looks; the endpoint parseInts this and defaults to 30. */
+export const EXPIRY_WINDOW_OPTIONS = [
+  { value: '7', label: 'Next 7 days' },
+  { value: '14', label: 'Next 14 days' },
+  { value: '30', label: 'Next 30 days' },
+  { value: '60', label: 'Next 60 days' },
+  { value: '90', label: 'Next 90 days' },
+];
+
+/**
+ * POST /reports/export is guarded by requireRole(['admin','accounts','records']) whatever the
+ * report behind it is, so a clinician who may read an operational report may not export it.
+ * The button is hidden rather than left to fail with a 403 toast.
+ */
+export const REPORT_EXPORT_ROLES = ['admin', 'accounts', 'records'];
 
 /**
  * The filters the endpoints honour. A report only lists a filter whose query parameter its
@@ -195,6 +240,12 @@ export interface ReportShape {
   filters?: FilterRef[];
   /** Response field holding the currency code. */
   currencyField?: string;
+  /**
+   * The roles whose requests this endpoint answers, copied from the route's requireRole list.
+   * The Reports page is open to every staff role but the reporting endpoints are not, so a pill
+   * without its gate is a guaranteed 403. Left undefined when the route is protect-only.
+   */
+  roles?: string[];
   cards?: StatCard[];
   tables?: ReportTable[];
   /** Shown instead of the generic "no rows" when the endpoint returns nothing. */
@@ -249,7 +300,9 @@ const isPlainCountMap = (value: any): boolean =>
 
 /**
  * Rows may live at a dot path, behind one of the array keys the APIs keep renaming, or as an
- * object of counts — which becomes `{ key, value }` rows so a grouped table needs no endpoint.
+ * object of counts — which becomes `{ key, label, value }` rows so a grouped table needs no
+ * endpoint change. `label` is the readable form of the group key; `key` stays verbatim for
+ * filtering and export.
  */
 export function pickRows(source: ReportTable['source'], data: any): any[] {
   if (!data) return [];
@@ -259,7 +312,7 @@ export function pickRows(source: ReportTable['source'], data: any): any[] {
     const value = readPath(data, candidate);
     if (Array.isArray(value)) return value;
     if (isPlainCountMap(value)) {
-      return Object.entries(value).map(([key, count]) => ({ key, value: count }));
+      return Object.entries(value).map(([key, count]) => ({ key, label: countMapLabel(key), value: count }));
     }
     if (value && typeof value === 'object' && !Array.isArray(value)) {
       const nested = (Object.keys(value) as string[])
@@ -304,6 +357,22 @@ function toNumber(value: unknown): number | null {
 
 const prettyToken = (value: string): string =>
   value.replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+
+/**
+ * A count-map key is a machine identifier (`inProgress`, `private_insurance`,
+ * `totalNHISPatients`), so it needs the camelCase and acronym boundaries opened before a human
+ * reads it. Free-text values are never run through this — a patient called "McDonald" must not
+ * come out as "Mc Donald".
+ */
+function countMapLabel(key: string): string {
+  const spaced = key
+    .replace(/_/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  // An all-caps key is a code the staff recognise (ACTIVE, EXPIRED) — leave it alone.
+  if (/^[A-Z0-9 ]+$/.test(spaced)) return spaced;
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

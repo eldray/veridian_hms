@@ -11,13 +11,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertCircle, Download, FileText, Filter, RefreshCw, Table2 } from 'lucide-react';
 import {
-  getBillingCollections, getBillingRevenueLines, getInsuranceClaimsReport, exportReport,
+  exportReport, getBillingCollections, getBillingRevenueLines, getClinicalReport,
+  getDemographicReport, getEncounterReport, getFinancialReport, getInsuranceClaimsReport,
+  getLabReport, getMedicationReport, getNhisClaimsSummary, getNhisExpiryReport,
+  getProcedureReport, getRevenueReport, getScanReport, getVitalsReport,
 } from '../../api';
 import { useToast } from '../../store/toastStore';
+import { useAuthStore } from '../../store/authStore';
 import {
   currencyOf, columnMeta, EmptyRows, formatCell, isReportEmpty, kindFor, Pager, pickRows,
-  readPath, resolveFilter, resolveTotals, rowKeyOf, SHELL_PAGE_SIZES, SortIcons, sumColumn,
-  unwrapReport, useSortedRows,
+  readPath, REPORT_EXPORT_ROLES, resolveFilter, resolveTotals, rowKeyOf, SHELL_PAGE_SIZES,
+  SortIcons, sumColumn, unwrapReport, useSortedRows,
   type ReportShape, type ReportTable,
 } from './reportShell';
 
@@ -29,10 +33,30 @@ const REPORT_LOADERS: Record<string, (params: any) => Promise<any>> = {
   getBillingCollections,
   getBillingRevenueLines,
   getInsuranceClaimsReport,
+  getFinancialReport,
+  getRevenueReport,
+  getDemographicReport,
+  // api/index.ts names the attendance report after the old "encounter" wording.
+  getAttendanceReport: getEncounterReport,
+  getClinicalReport,
+  getLabReport,
+  getScanReport,
+  getProcedureReport,
+  getMedicationReport,
+  getVitalsReport,
+  getNhisExpiryReport,
+  getNhisClaimsSummary,
 };
 
 const labelOf = (value: unknown): string =>
   String(value).replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+
+/**
+ * The period printed on the page. Some services echo the query strings back ("2026-10-01") and
+ * some return the Date they built ("2026-10-01T00:00:00.000Z"), so both go through the same
+ * date cell as the tables rather than being shown verbatim.
+ */
+const periodOf = (value: unknown): string => formatCell(value, 'date', 'GHS');
 
 // ── One table ─────────────────────────────────────────────────────────────────
 
@@ -211,6 +235,7 @@ export default function GenericReportPage({
   dateTo: string;
 }) {
   const { success, error: toastError } = useToast();
+  const { hasRole } = useAuthStore();
   const filters = useMemo(() => (shape.filters || []).map(resolveFilter), [shape.filters]);
 
   const [values, setValues] = useState<Record<string, string>>(() => {
@@ -275,9 +300,11 @@ export default function GenericReportPage({
   const rangeLabel = `${dateFrom} to ${dateTo}`;
   const period = shape.periodField ? readPath(data, shape.periodField) : null;
   const periodLabel = period?.startDate && period?.endDate
-    ? `${labelOf(period.startDate)} — ${labelOf(period.endDate)}`
+    ? `${periodOf(period.startDate)} — ${periodOf(period.endDate)}`
     : rangeLabel;
   const cappedByServer = !!data?.capped;
+  // POST /reports/export answers only to admin, accounts and records whatever the report is.
+  const canExport = hasRole(REPORT_EXPORT_ROLES);
 
   const handleExport = async () => {
     if (!data) { toastError('Export Failed', 'There is nothing to export yet.'); return; }
@@ -327,28 +354,38 @@ export default function GenericReportPage({
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} /> Reload
           </button>
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg">
-            <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
-            <select
-              value={format}
-              onChange={event => setFormat(event.target.value as any)}
-              className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold"
-            >
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-              <option value="pdf">PDF</option>
-            </select>
-          </div>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={loading || !data}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50"
-          >
-            <Download className="w-3.5 h-3.5" /> Export
-          </button>
+          {canExport ? (
+            <>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg">
+                <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
+                <select
+                  value={format}
+                  onChange={event => setFormat(event.target.value as any)}
+                  className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold"
+                >
+                  <option value="csv">CSV</option>
+                  <option value="excel">Excel</option>
+                  <option value="pdf">PDF</option>
+                </select>
+              </div>
+              <button
+                type="button"
+                onClick={handleExport}
+                disabled={loading || !data}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50"
+              >
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
+            </>
+          ) : (
+            <span className="text-[11px] text-[var(--text-tertiary)]">
+              Reading only — exporting a report is limited to admin, accounts and records.
+            </span>
+          )}
         </div>
       </div>
+
+      <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{shape.description}</p>
 
       {filters.length === 0 && (
         <p className="text-[11px] text-[var(--text-tertiary)]">

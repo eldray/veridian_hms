@@ -117,10 +117,30 @@ semantic versioning.
   Their pills appear on the existing Financial tab. The statutory GHS returns (Form A, malaria,
   morbidity, IDSR, the consulting-room register) keep their own views because those must reproduce
   a printed form, and stock keeps its own screen because its lines are a physical count.
-  Three reports come with the shell: **Collections** (every payment taken, and who handed it over),
-  **Revenue Lines** (one row per charged line, priced as billed, split between funder and customer)
-  and **Claims Detail** — the insurance claims report that showed three summary cards and no claims
-  at all now shows them. Each one exports to CSV, Excel and PDF like the rest of the screen.
+  Three reports came with the shell and twelve more are declared in it now, so the Reports
+  screen generates every operational report the API already answers: **Financial Summary**,
+  **Revenue Analysis**, **Collections**, **Revenue Lines**, **Claims Detail** (the insurance
+  claims report that showed three summary cards and no claims at all now shows them) on the
+  money side; **Clinical Statistics**, **Attendance**, **Demographic**, **Laboratory**,
+  **Radiology**, **Procedures**, **Medications** and **Vitals** on the care side; and
+  **NHIS Expiry** and **NHIS Claims** under NHIS. Each one exports to CSV, Excel and PDF like
+  the rest of the screen, and each pill only appears for the roles its own endpoint answers to —
+  a pill that returns 403 for the officer reading the screen is worse than no pill. The entries
+  reuse the keys the hand-built views used, so exported filenames and the backend titles that map
+  to them are unchanged.
+- The Reports screen no longer carries its own copy of every operational report. Twelve
+  hand-written renderers (financial, revenue, claims, attendance, demographic, lab, scans,
+  procedures, medications, vitals and both NHIS reports) are gone, and the page dropped
+  from 1213 to about 720 lines; those reports now come from the registry through the shared
+  shell, which also adds a **Clinical Statistics** pill for the diagnosis report that had no
+  view of its own. What the page fetches itself is only the nine statutory GHS returns. Three display
+  defects went with them: the NHIS expiry "Last Visit" column, which read a field the service
+  never returned and printed "—" for every patient; the claims view with totals and no rows;
+  and the "Showing 50 of 100 of 142" truncations, since the shell pages the whole response and
+  says so when the server itself capped the list. Export is limited to admin, accounts and
+  records — the guard on `POST /reports/export` — so the button is hidden for other roles
+  instead of being left to fail. A role that may open none of the returns on the default GHS tab
+  is moved to the first tab whose reports answer to it.
 - `GET /billing/line-items` answers the revenue-lines report: every unvoided bill line inside a
   closed date window, each carrying its bill, payment mode and whoever it was raised for — a
   counter ticket is labelled as a walk-in rather than dropped, because it has no patient folder.
@@ -464,6 +484,13 @@ semantic versioning.
 
 ### Fixed
 
+- Collections and Revenue Lines lost the last day of every window. `GET /billing/collections`
+  and `GET /billing/line-items` parsed `dateFrom`/`dateTo` with `new Date(...)`, and a plain date
+  like `2026-10-27` is the first instant of that day, so `lte` stopped at midnight and excluded
+  every payment and charged line taken on the end date — on the range the Reports screen opens
+  with, that meant today's takings were missing entirely. Both routes now go through the shared
+  report-range parser, which runs to the last millisecond of the final day, exactly as the
+  `/reports/*` services already did.
 - The visit page's Medications, Lab Tests and Procedures tabs always said "none recorded",
   even on visits full of them, and the counts on the tabs, the summary tiles and the
   diagnoses card agreed with the empty list. `GET /api/encounters/:id` answers with Prisma's
