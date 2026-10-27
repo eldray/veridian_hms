@@ -120,18 +120,45 @@ export class BillingController extends BaseController {
   });
 
   getCollections = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const dateFrom = typeof req.query.dateFrom === 'string' ? new Date(req.query.dateFrom) : null;
-    const dateTo = typeof req.query.dateTo === 'string' ? new Date(req.query.dateTo) : null;
-    if (!dateFrom || !dateTo || Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
-      return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
-    }
-    if (dateFrom > dateTo) {
-      return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
-    }
+    const range = this.parseReportRange(req);
+    if (!range) return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    if (range.from > range.to) return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
 
-    const collections = await this.service.getCollections(dateFrom, dateTo);
+    const collections = await this.service.getCollections(range.from, range.to);
     return this.ok(res, collections, 'Payment collections retrieved successfully');
   });
+
+  // ============================================
+  // REVENUE LINES (one row per charged line in the window)
+  // ============================================
+  getRevenueLines = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const range = this.parseReportRange(req);
+    if (!range) return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    if (range.from > range.to) return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
+
+    const text = (value: unknown): string | undefined =>
+      typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+    const report = await this.service.getRevenueLines(range.from, range.to, {
+      paymentMode: text(req.query.paymentMode),
+      billStatus: text(req.query.billStatus),
+      serviceType: text(req.query.serviceType),
+      search: text(req.query.search),
+      limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : undefined,
+    });
+    return this.ok(res, report, 'Revenue lines retrieved successfully');
+  });
+
+  /**
+   * The two money reports take a closed date window and nothing else. A missing or unruly
+   * range is a bad request, not an unbounded table scan.
+   */
+  private parseReportRange(req: AuthRequest): { from: Date; to: Date } | null {
+    const dateFrom = typeof req.query.dateFrom === 'string' ? new Date(req.query.dateFrom) : null;
+    const dateTo = typeof req.query.dateTo === 'string' ? new Date(req.query.dateTo) : null;
+    if (!dateFrom || !dateTo || Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) return null;
+    return { from: dateFrom, to: dateTo };
+  }
 
   // ============================================
   // GET BILL LINE ITEMS

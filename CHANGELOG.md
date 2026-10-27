@@ -108,6 +108,28 @@ semantic versioning.
 
 ### Added
 
+- Operational reports are now declared instead of hand-built. `frontend/src/config/reportRegistry.ts`
+  describes a report — which API helper loads it, where its summary figures and its rows live,
+  which columns it prints and which filters its own endpoint honours — and
+  `frontend/src/components/reports/reportShell.tsx` plus `GenericReportPage.tsx` render any entry
+  alike: sortable, paginated tables, totals that are either server-computed or an explicit sum of
+  the rows the endpoint actually sent, and a footer that admits when the server capped the list.
+  Their pills appear on the existing Financial tab. The statutory GHS returns (Form A, malaria,
+  morbidity, IDSR, the consulting-room register) keep their own views because those must reproduce
+  a printed form, and stock keeps its own screen because its lines are a physical count.
+  Three reports come with the shell: **Collections** (every payment taken, and who handed it over),
+  **Revenue Lines** (one row per charged line, priced as billed, split between funder and customer)
+  and **Claims Detail** — the insurance claims report that showed three summary cards and no claims
+  at all now shows them. Each one exports to CSV, Excel and PDF like the rest of the screen.
+- `GET /billing/line-items` answers the revenue-lines report: every unvoided bill line inside a
+  closed date window, each carrying its bill, payment mode and whoever it was raised for — a
+  counter ticket is labelled as a walk-in rather than dropped, because it has no patient folder.
+  Money is summed in whole cents, never by adding Prisma decimals. The window is required rather
+  than optional, and `limit` is a stated guard rail the response reports hitting, so a short
+  total cannot be mistaken for the whole picture. The read is `protect`-only, mirroring
+  `/billing/collections`: any signed-in role may see money figures, and the route adds no new
+  patient search or listing.
+
 - Waiver, estimate and nursing writes now run through shared Zod request
   schemas at the route (`WaiverValidators`, `ProformaInvoiceValidators`,
   `NursingValidators`), the same layer already used for EMR, claim and

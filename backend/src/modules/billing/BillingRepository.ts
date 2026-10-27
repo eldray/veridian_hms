@@ -256,6 +256,70 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     }
   }
 
+  /**
+   * Every charged line in a date window, for the revenue-lines report. The bill travels with
+   * each line because it is the bill that carries the payer and the customer — the alternative
+   * was a lookup per row.
+   */
+  async findRevenueLines(filters: {
+    dateFrom: Date;
+    dateTo: Date;
+    paymentMode?: string;
+    billStatus?: string;
+    serviceType?: string;
+    search?: string;
+    limit: number;
+  }) {
+    const billWhere: any = { billDate: { gte: filters.dateFrom, lte: filters.dateTo } };
+    if (filters.paymentMode) billWhere.paymentMode = filters.paymentMode;
+    if (filters.billStatus) billWhere.status = filters.billStatus;
+
+    const where: any = { isVoided: false, bill: billWhere };
+    if (filters.serviceType) where.serviceType = filters.serviceType;
+    if (filters.search) {
+      const contains = { contains: filters.search, mode: 'insensitive' as const };
+      where.OR = [
+        { description: contains },
+        { bill: { ...billWhere, billNumber: contains } },
+        { bill: { ...billWhere, Patient: { surname: contains } } },
+        { bill: { ...billWhere, CounterClient: { name: contains } } },
+      ];
+    }
+
+    return this.prisma.billLineItem.findMany({
+      where,
+      select: {
+        id: true,
+        description: true,
+        serviceType: true,
+        quantity: true,
+        unitPrice: true,
+        discount: true,
+        vatAmount: true,
+        lineTotal: true,
+        insuranceCoveredAmount: true,
+        patientPayableAmount: true,
+        pricingBasis: true,
+        createdAt: true,
+        serviceCatalog: { select: { serviceCategory: true } },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            billDate: true,
+            status: true,
+            paymentMode: true,
+            Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+            // Same reason as findCollections: a counter ticket's customer is not in the register.
+            CounterClient: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filters.limit,
+    });
+  }
+
   async findCollections(dateFrom: Date, dateTo: Date) {
     return this.prisma.payment.findMany({
       where: {

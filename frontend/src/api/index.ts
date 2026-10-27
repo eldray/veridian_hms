@@ -1980,6 +1980,61 @@ export const getBillingCollections = async (params?: {
   return response.data?.data ?? response.data;
 };
 
+/**
+ * One charged line of a bill — the row the money reports are built from. A line remembers who
+ * it was raised for only through its bill, and a counter ticket's customer is not a patient.
+ */
+export interface BillingRevenueLine {
+  id: string;
+  chargedAt: string;
+  description: string;
+  serviceType: string;
+  serviceCategory: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  vatAmount: number;
+  lineTotal: number;
+  insuranceCovered: number;
+  patientPayable: number;
+  pricingBasis: string;
+  bill: {
+    id: string;
+    billNumber: string;
+    billDate: string;
+    status: string;
+    paymentMode: string;
+    customer: {
+      name: string;
+      reference: string | null;
+      kind: 'patient' | 'walk_in';
+    };
+  };
+}
+
+export interface BillingRevenueLinesReport {
+  totalLines: number;
+  totalAmount: number;
+  patientPayableAmount: number;
+  insuranceCoveredAmount: number;
+  lines: BillingRevenueLine[];
+  limit: number;
+  capped: boolean;
+}
+
+export const getBillingRevenueLines = async (params: {
+  dateFrom: string;
+  dateTo: string;
+  paymentMode?: string;
+  billStatus?: string;
+  serviceType?: string;
+  search?: string;
+  limit?: number;
+}): Promise<BillingRevenueLinesReport> => {
+  const response = await api.get('/billing/line-items', { params });
+  return response.data?.data ?? response.data;
+};
+
 // ============================================
 // ADMISSIONS API ENDPOINTS
 // ============================================
@@ -4173,7 +4228,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   getBillingInvoice,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
-  getBillLineItems, voidBillLineItem, getBillingCollections,
+  getBillLineItems, voidBillLineItem, getBillingCollections, getBillingRevenueLines,
 
   // Consumables (non-medication stock used during the visit)   ← add these
   recordEncounterConsumableUse,

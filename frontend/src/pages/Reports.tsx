@@ -13,6 +13,8 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';
 import FormAReportView from '../components/reports/ANCReportView';
+import GenericReportPage from '../components/reports/GenericReportPage';
+import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
 
 const AGE_GROUPS = [
   '<28d', '1-11m', '1-4', '5-9', '10-14', '15-17',
@@ -200,6 +202,9 @@ export default function Reports() {
   };
 
   const loadReport = useCallback(async () => {
+    // Shell reports load themselves: the request, the filters and the totals all come from the
+    // entry in config/reportRegistry.ts, so the page must not fetch a second copy.
+    if (SHELL_REPORT_BY_KEY[reportType]) return;
     setIsLoading(true);
     try {
       const f = { startDate: dateRange.start, endDate: dateRange.end };
@@ -278,7 +283,13 @@ export default function Reports() {
   };
 
   const isLoading_ = isLoading || storeLoading;
-  const currentReports = reportItems[activeCategory as keyof typeof reportItems] || reportItems.ghs;
+  // A tab is the hand-written reports plus whatever the registry declares for that group, so a
+  // new operational report is a registry entry and not an edit to this page.
+  const currentReports = [
+    ...(reportItems[activeCategory as keyof typeof reportItems] || reportItems.ghs),
+    ...shellReportsForGroup(activeCategory).map(shape => ({ key: shape.key, label: shape.label, icon: ListOrdered, color: 'green' })),
+  ];
+  const shellReport = SHELL_REPORT_BY_KEY[reportType];
 
   const getReportTitle = () => {
     const m: Record<string, string> = {
@@ -1053,6 +1064,11 @@ const renderFormAReport = () => {
   };
 
   const renderReportContent = () => {
+    // Declared reports render through the shared shell; anything not in the registry keeps its
+    // own view, which is what the statutory GHS returns need.
+    if (shellReport) {
+      return <GenericReportPage shape={shellReport} dateFrom={dateRange.start} dateTo={dateRange.end} />;
+    }
     const map: Record<string, () => React.ReactNode> = {
       'consulting-room-register': renderConsultingRoomRegister,
       'nhis-expiry':              renderNhisExpiryReport,
@@ -1101,23 +1117,29 @@ const renderFormAReport = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
-            <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
-            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)}
-              className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold">
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-              <option value="pdf">PDF</option>
-            </select>
-          </div>
-          <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50">
-            <Download className="w-3.5 h-3.5" /> Export
-          </button>
-          <button onClick={loadReport} disabled={isLoading_}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          {/* A shell report carries its own export and reload beside its filters; a second set of
+              buttons that exported nothing was the old trap on this screen. */}
+          {!shellReport && (
+            <>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
+                <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
+                <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)}
+                  className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold">
+                  <option value="csv">CSV</option>
+                  <option value="excel">Excel</option>
+                  <option value="pdf">PDF</option>
+                </select>
+              </div>
+              <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50">
+                <Download className="w-3.5 h-3.5" /> Export
+              </button>
+              <button onClick={loadReport} disabled={isLoading_}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh
+              </button>
+            </>
+          )}
         </div>
       </div>
 
