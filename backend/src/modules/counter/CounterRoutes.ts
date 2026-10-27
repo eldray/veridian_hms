@@ -31,6 +31,11 @@ export function createCounterRoutes(prisma: PrismaClient): Router {
   // touches Patient rows, and the patient directory never returns these names.
   router.get('/clients', requireRole(COUNTER_STAFF), controller.searchClients);
 
+  // …but the bench still has to ask "is this person already registered?", which
+  // /api/patients will not answer for pharmacist, lab, scan or accounts staff.
+  // This returns name, folder and date of birth only — enough to pick the right folder.
+  router.get('/patients', requireRole(COUNTER_STAFF), controller.searchPatients);
+
   router.get('/tickets', requireRole(COUNTER_STAFF), controller.listTickets);
   router.get('/tickets/:id', requireRole(COUNTER_STAFF), controller.getTicket);
   router.post('/tickets', requireRole(COUNTER_STAFF), validateBody(CreateTicketSchema), controller.createTicket);

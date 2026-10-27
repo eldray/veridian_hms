@@ -37,6 +37,11 @@ export class CounterService extends BaseService {
     return this.repository.searchClients(query, limit);
   }
 
+  /** The register check the counter bench cannot make through /api/patients. */
+  async searchPatients(query: string, limit = 20) {
+    return this.repository.searchPatientsForCounter(query, Math.min(limit, 50));
+  }
+
   async listTickets(filters: CounterTicketFilters) {
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 50, 200);

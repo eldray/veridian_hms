@@ -97,6 +97,35 @@ export class CounterRepository extends BaseRepository<any, any, any> {
   }
 
   /**
+   * "Is this person already registered?" asked from the counter bench.
+   *
+   * `/api/patients` is limited to the roles that manage the register, so pharmacist,
+   * lab, scan and accounts staff could not answer it and were forced to open a second,
+   * unregistered identity for someone who already has a folder. This returns only the
+   * fields needed to tell two names apart and pick the right folder — no history, no
+   * clinical record, no address.
+   */
+  async searchPatientsForCounter(query: string, limit: number) {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+    const digits = trimmed.replace(/\D/g, '');
+    const identityMatches: any[] = [
+      { surname: { contains: trimmed, mode: 'insensitive' } },
+      { otherNames: { contains: trimmed, mode: 'insensitive' } },
+      { folderNumber: { contains: trimmed, mode: 'insensitive' } },
+    ];
+    if (digits.length >= 3) {
+      identityMatches.push({ phoneNumber: { contains: digits } }, { contact: { contains: digits } });
+    }
+    return this.prisma.patient.findMany({
+      where: { OR: identityMatches },
+      orderBy: { surname: 'asc' },
+      take: limit,
+      select: { id: true, folderNumber: true, surname: true, otherNames: true, gender: true, dateOfBirth: true },
+    });
+  }
+
+  /**
    * Creates the ticket. A walk-in is a person with no folder, so the counter client is
    * created here when the caller handed over a name instead of an existing identity.
    */

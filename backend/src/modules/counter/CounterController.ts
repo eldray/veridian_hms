@@ -27,6 +27,13 @@ export class CounterController extends BaseController {
     return this.ok(res, data, 'Counter customers retrieved');
   });
 
+  searchPatients = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const query = String(req.query.query ?? '').trim();
+    const limit = Math.min(parsePageSize(req.query.limit, 20), 50);
+    const data = await this.service.searchPatients(query, limit);
+    return this.ok(res, data, 'Registered customers retrieved');
+  });
+
   listTickets = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.service.listTickets({
       query: req.query.query ? String(req.query.query) : undefined,
