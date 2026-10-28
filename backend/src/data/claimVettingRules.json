@@ -1,0 +1,52 @@
+{
+  "source": {
+    "title": "Ghana Standard Treatment Guidelines",
+    "edition": "7th Edition, 2017",
+    "publisher": "Ministry of Health, Ghana / Ghana National Drugs Programme",
+    "url": "https://www.moh.gov.gh/wp-content/uploads/2020/07/GHANA-STG-2017-1.pdf",
+    "note": "Clinical decision support reference. Rules should be checked against current facility policy and newer national guidance."
+  },
+  "rules": [
+    {
+      "id": "malaria-test-not-found",
+      "condition": "Diagnosis contains malaria and no MPS/blood film or malaria RDT appears among investigations",
+      "severity": "high",
+      "exceptions": ["Suspected severe malaria where testing is not immediately possible", "Children under five where the 2017 STG describes a clinical exception"],
+      "review": "Check the laboratory register and clinical notes before treating as an error."
+    },
+    {
+      "id": "antibiotic-no-supporting-diagnosis",
+      "condition": "Systemic antibiotic present but no obvious bacterial diagnosis",
+      "severity": "high",
+      "review": "Compare diagnosis, indication, route and STG treatment guidance. Do not add a diagnosis just to justify a prescription."
+    },
+    {
+      "id": "h-pylori-test-not-found",
+      "condition": "H. pylori diagnosis or H. pylori eradication regimen without a related test listed",
+      "severity": "medium",
+      "review": "Check for a test in the lab record; not every dyspepsia patient requires testing."
+    },
+    {
+      "id": "iron-deficiency-no-fbc-hb",
+      "condition": "Iron-deficiency diagnosis without FBC/CBC or Hb in listed investigations",
+      "severity": "medium",
+      "review": "Check records for results and assess the complete clinical context."
+    },
+    {
+      "id": "enteric-fever-test-not-found",
+      "condition": "Typhoid/enteric fever diagnosis without related investigation listed",
+      "severity": "low",
+      "review": "Verify evidence; Widal alone should not be treated as definitive confirmation."
+    },
+    {
+      "id": "uti-investigation-not-found",
+      "condition": "UTI diagnosis without urine investigation listed",
+      "severity": "low",
+      "review": "Verify investigations and whether testing was indicated."
+    }
+  ],
+  "icd10": {
+    "lookupUrl": "https://icd.who.int/browse10/2019/en",
+    "policy": "Suggest a lookup when code is missing. A clinician/claims reviewer must confirm the match and store the confirmed code in the diagnosis catalogue; never guess from free text."
+  }
+}
