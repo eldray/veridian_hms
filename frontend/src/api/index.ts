@@ -1246,6 +1246,65 @@ export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
 export const getClaimBatches = (filters?: any) =>
   api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
 
+/**
+ * How many claims one month holds per insurance type, and what they add up to. Scope it with the
+ * provider or corporate account the batch will use and the number is exactly what Generate takes.
+ */
+export interface BatchEligibility {
+  periodYear: number;
+  periodMonth: number;
+  nhis: number;
+  private: number;
+  corporate: number;
+  totalAmount: { nhis: number; private: number; corporate: number };
+  overall: { count: number; totalAmount: number };
+}
+
+export const getClaimBatchEligibility = (params: {
+  periodYear: number;
+  periodMonth: number;
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
+}): Promise<BatchEligibility> =>
+  api.get('/insurance-claims/batches/eligible', { params }).then(r => r.data?.data ?? r.data);
+
+/** Every claim whose visit falls in the month, batched or not, plus the month's totals. */
+export interface PeriodClaimRow {
+  claimId: string;
+  claimNumber: string;
+  status: 'draft' | 'finalized';
+  amount: number;
+  visitDate: string | null;
+  attendanceNumber: string | null;
+  folderNumber: string | null;
+  patient: string;
+  insuranceType: string | null;
+  provider: string | null;
+  corporateAccount: string | null;
+  batch: { batchId: string; batchNumber: string; status: string } | null;
+}
+
+export interface PeriodClaims {
+  data: PeriodClaimRow[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+  totals: {
+    claims: number;
+    amount: number;
+    byStatus: Record<string, { count: number; amount: number }>;
+    batchable: { count: number; amount: number };
+  };
+}
+
+export const getClaimPeriodClaims = (params: {
+  periodYear: number;
+  periodMonth: number;
+  insuranceType?: string;
+  batched?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PeriodClaims> =>
+  api.get('/insurance-claims/batches/period-claims', { params }).then(r => r.data?.data ?? r.data);
+
 export const getClaimBatch = (id: string) =>
   api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
 

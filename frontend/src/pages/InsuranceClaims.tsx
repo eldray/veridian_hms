@@ -161,7 +161,7 @@ export default function InsuranceClaims() {
   const currentStats = {
     total: currentClaims.length,
     draft: currentClaims.filter((c: any) => c.status === 'draft').length,
-    submitted: currentClaims.filter((c: any) => c.status === 'submitted').length,
+    submitted: currentClaims.filter((c: any) => c.status === 'finalized').length,
     approved: currentClaims.filter((c: any) => c.status === 'approved').length,
     paid: currentClaims.filter((c: any) => c.status === 'paid').length,
     rejected: currentClaims.filter((c: any) => c.status === 'rejected').length,
@@ -302,7 +302,7 @@ export default function InsuranceClaims() {
         return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
       case 'paid':
         return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
-      case 'submitted':
+      case 'finalized':
         return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
       case 'draft':
         return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
@@ -311,14 +311,8 @@ export default function InsuranceClaims() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'submitted':
-        return 'Finalized';
-      default:
-        return status.charAt(0).toUpperCase() + status.slice(1);
-    }
-  };
+  const getStatusLabel = (status: string) =>
+    status.charAt(0).toUpperCase() + status.slice(1);
 
   const getDateFilterDisplay = () => {
     if (startDate && endDate) {
@@ -613,7 +607,7 @@ export default function InsuranceClaims() {
             >
               <option value="all">All Status</option>
               <option value="draft">Draft</option>
-              <option value="submitted">Submitted</option>
+              <option value="finalized">Finalized</option>
               <option value="approved">Approved</option>
               <option value="rejected">Rejected</option>
               <option value="paid">Paid</option>
@@ -761,7 +755,7 @@ export default function InsuranceClaims() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1.5">
-                        {claim.status === 'submitted' && (
+                        {claim.status === 'finalized' && (
                           <>
                             <button
                               onClick={() => handleDownloadXML(claim.id)}

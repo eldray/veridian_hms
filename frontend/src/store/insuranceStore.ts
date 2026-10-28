@@ -27,6 +27,8 @@ import {
   deleteClaimBatch as apiDeleteClaimBatch,
   downloadBatchXml as apiDownloadBatchXml,
   printClaimBatch as apiPrintClaimBatch,
+  getClaimBatchEligibility as apiGetClaimBatchEligibility,
+  getClaimPeriodClaims as apiGetClaimPeriodClaims,
 
   getInsuranceProviders as apiGetInsuranceProviders,
   getInsuranceProvider as apiGetInsuranceProvider,
@@ -36,6 +38,7 @@ import {
   deleteInsuranceProvider as apiDeleteInsuranceProvider,
 } from '../api';
 import type { InsuranceProvider, InsuranceClaim, ClaimBatch, Pagination } from '../types';
+import type { BatchEligibility, PeriodClaimRow } from '../api';
 
 interface ClaimStats {
   total: number;
@@ -54,6 +57,23 @@ interface ClaimSummary {
 interface FinalizedClaimsTotal {
   total: number;
   totalAmount: number;
+}
+
+interface BatchSummary {
+  batches: number;
+  claims: number;
+  amount: number;
+}
+
+interface PeriodClaimsState {
+  rows: PeriodClaimRow[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+  totals: {
+    claims: number;
+    amount: number;
+    byStatus: Record<string, { count: number; amount: number }>;
+    batchable: { count: number; amount: number };
+  };
 }
 
 interface InsuranceState {
@@ -79,6 +99,10 @@ interface InsuranceState {
   summary: ClaimSummary | null;
   /** Legacy mirror of summary.finalized for old callers. */
   finalizedClaimsTotal: FinalizedClaimsTotal | null;
+  /** Totals for the whole batch filter, straight from the server — not just the loaded page. */
+  batchSummary: BatchSummary | null;
+  /** The claims of the selected month and that month's totals. */
+  periodClaims: PeriodClaimsState | null;
 
   // Claims
   getNHISClaims: (filters?: any) => Promise<void>;
@@ -125,21 +149,24 @@ interface InsuranceState {
   downloadBatchXml: (batchId: string) => Promise<void>;
   printBatch: (batchId: string) => Promise<void>;
   /**
-   * Un-batched finalized claims grouped by insurance type for the current
-   * year/month. Powers the "Generate batch" form on ClaimBatches.tsx so it can
-   * show how many claims are eligible and disable the button when 0.
+   * What one month holds per insurance type. The server answers it with the same query that
+   * fills a batch, so the number shown is the batch that gets built.
    */
   getEligibleClaimsForBatch: (params: {
     periodYear: number;
     periodMonth: number;
-  }) => Promise<{
-    nhis: number;
-    private: number;
-    corporate: number;
-    totalAmount: { nhis: number; private: number; corporate: number };
-  }>;
-  /** All finalized claims across types (used by batches page's "eligible" panel). */
-  getFinalizedUnbatchedClaims: () => Promise<InsuranceClaim[]>;
+    insuranceProviderId?: string;
+    corporateAccountId?: string;
+  }) => Promise<BatchEligibility>;
+  /** The claims of one month — batched or not — with that month's totals. */
+  getPeriodClaims: (params: {
+    periodYear: number;
+    periodMonth: number;
+    insuranceType?: string;
+    batched?: string;
+    page?: number;
+    limit?: number;
+  }) => Promise<void>;
 
   // Providers
   getInsuranceProviders: (filters?: any) => Promise<void>;
@@ -191,9 +218,10 @@ const normalizeBatch = (b: any): ClaimBatch => {
 };
 
 /**
- * Backend lifecycle is draft → submitted. "Finalized" is the UI label for
- * "submitted", NOT a distinct status value. Count both for safety so legacy
- * data with `status: 'finalized'` still reports correctly.
+ * Claim lifecycle is draft → finalized (the ClaimStatus enum). This file used to say the second
+ * state was "submitted", and screens written against that asked the API for status=submitted —
+ * which is not an empty result but an invalid enum value the request is rejected over. Both
+ * labels are counted so legacy rows that carry it still add up.
  */
 const calculateStats = (claims: InsuranceClaim[]): ClaimStats => {
   const draft = claims.filter((c) => c.status === 'draft');
@@ -281,6 +309,8 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   error: null,
   summary: null,
   finalizedClaimsTotal: null,
+  batchSummary: null,
+  periodClaims: null,
   nhisStats: { ...EMPTY_STATS },
   privateStats: { ...EMPTY_STATS },
 
@@ -575,9 +605,18 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const res = await apiGetClaimBatches(filters);
+      const payload: any = res?.data ?? res;
+      const summary: any = payload?.summary;
       set({
         batches: extractBatches(res),
         pagination: extractPagination(res),
+        batchSummary: summary
+          ? {
+              batches: Number(summary.batches) || 0,
+              claims: Number(summary.claims) || 0,
+              amount: Number(summary.amount) || 0,
+            }
+          : null,
         isLoading: false,
       });
     } catch (e: any) {
@@ -748,63 +787,48 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
 
   // Add to the create(...) body:
 
-getEligibleClaimsForBatch: async ({ periodYear, periodMonth }) => {
-  set({ isLoading: true, error: null });
-  try {
-    // The service has no dedicated endpoint for this; the cheapest correct
-    // query is: get all finalized claims, keep only the ones with batchId==null
-    // whose Attendance.dateTime falls in the requested month, grouped by type.
-    const res = await apiGetInsuranceClaims({ status: 'submitted', page: 1, limit: 5000 });
-    const all = extractClaims(res);
-    const start = new Date(periodYear, periodMonth - 1, 1, 0, 0, 0, 0);
-    const end = new Date(periodYear, periodMonth, 1, 0, 0, 0, 0);
-
-    const inMonth = (c: InsuranceClaim) => {
-      const d = (c as any).Attendance?.dateTime ? new Date((c as any).Attendance.dateTime) : null;
-      return d !== null && d >= start && d < end && !(c as any).batchId;
-    };
-
-    const zero = () => ({ nhis: 0, private: 0, corporate: 0 });
-    const counts = zero();
-    const totals = zero();
-
-    for (const c of all) {
-      if (!inMonth(c)) continue;
-      const type = (c as any).insuranceProvider?.type as 'nhis' | 'private' | 'corporate' | undefined;
-      const amount = Number((c as any).totalClaimAmount) || 0;
-      // Corporate is identified by corporateAccountId linkage, not provider type.
-      if ((c as any).corporateAccountId) {
-        counts.corporate += 1;
-        totals.corporate += amount;
-      } else if (type === 'nhis') {
-        counts.nhis += 1;
-        totals.nhis += amount;
-      } else if (type === 'private') {
-        counts.private += 1;
-        totals.private += amount;
-      }
+  getEligibleClaimsForBatch: async ({ periodYear, periodMonth, insuranceProviderId, corporateAccountId }) => {
+    try {
+      return await apiGetClaimBatchEligibility({
+        periodYear,
+        periodMonth,
+        insuranceProviderId: insuranceProviderId || undefined,
+        corporateAccountId: corporateAccountId || undefined,
+      });
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message });
+      throw e;
     }
+  },
 
-    set({ isLoading: false });
-    return { ...counts, totalAmount: totals };
-  } catch (e: any) {
-    set({ isLoading: false, error: e?.response?.data?.message || e?.message });
-    throw e;
-  }
-},
-
-getFinalizedUnbatchedClaims: async () => {
-  set({ isLoading: true, error: null });
-  try {
-    const res = await apiGetInsuranceClaims({ status: 'submitted', page: 1, limit: 5000 });
-    const all = extractClaims(res).filter((c: any) => !c.batchId);
-    set({ isLoading: false });
-    return all;
-  } catch (e: any) {
-    set({ isLoading: false, error: e?.response?.data?.message || e?.message });
-    throw e;
-  }
-},
+  getPeriodClaims: async ({ periodYear, periodMonth, insuranceType, batched, page = 1, limit = 50 }) => {
+    set({ periodClaims: null });
+    try {
+      const result = await apiGetClaimPeriodClaims({
+        periodYear,
+        periodMonth,
+        insuranceType: insuranceType && insuranceType !== 'all' ? insuranceType : undefined,
+        batched: batched && batched !== 'all' ? batched : undefined,
+        page,
+        limit,
+      });
+      set({
+        periodClaims: {
+          rows: Array.isArray(result?.data) ? result.data : [],
+          pagination: result?.pagination ?? { page, limit, total: 0, pages: 0 },
+          totals: result?.totals ?? {
+            claims: 0,
+            amount: 0,
+            byStatus: { draft: { count: 0, amount: 0 }, finalized: { count: 0, amount: 0 } },
+            batchable: { count: 0, amount: 0 },
+          },
+        },
+      });
+    } catch (e: any) {
+      set({ error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
 
   updateStats: () => {
     set((state) => ({

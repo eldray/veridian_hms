@@ -257,6 +257,14 @@ semantic versioning.
   consumable type; anything else is refused when it is added, with the reason. The billing
   screens no longer assume every bill has a patient: the collections report names whoever
   paid (`walk_in` for a ticket, with no folder number), and the visit list tags walk-ins.
+- Claim batching now reads a month end to end.
+  `GET /api/insurance-claims/batches/period-claims` answers every claim whose visit fell in
+  `periodYear`/`periodMonth` — batched or not, draft or finalized — with that month's count,
+  value, per-status split, and what a batch would still take from it. The batching screen is
+  built around that period: choose September 2026 and the claim ledger, the month totals and the
+  batch cards all describe September, whether or not a batch has been generated for it yet. Each
+  claim row links to the batch it already sits in, and a batch's own total is checked against the
+  claims inside it, with a warning when they have drifted apart.
 
 ### Changed
 
@@ -486,6 +494,20 @@ semantic versioning.
 
 ### Fixed
 
+- Claim batching is monthly, and it did not behave like it. The batching screen asked the API for
+  `status=submitted` — which is not a `ClaimStatus` value, so the request is rejected and the
+  account swallowed the error — then summed only the rows it happened to load, so the eligible
+  count and the Generate button described a page instead of a month. It now calls
+  `GET /api/insurance-claims/batches/eligible`, scoped by the provider or corporate account the
+  batch will use. The preview also used to bucket corporate claims by `corporateAccountId` while
+  the query that fills a batch filtered by provider type, so the number on screen was not the
+  batch that got built; both readings now come from one eligibility rule. And the batch list
+  totalled the current page, so a month holding more batches than the page size reported a
+  smaller value than it actually did — the cards are now an aggregate over the whole filter.
+- Insurance claims list: the Download XML and Print actions, the status filter and the "submitted"
+  tile tested a status the enum does not have, so a finalized claim offered no actions and could
+  not be filtered for. The accounts dashboard made the same invalid request and its error handler
+  turned it into an empty list, so it reported no finalized claims at all.
 - Collections and Revenue Lines lost the last day of every window. `GET /billing/collections`
   and `GET /billing/line-items` parsed `dateFrom`/`dateTo` with `new Date(...)`, and a plain date
   like `2026-10-27` is the first instant of that day, so `lte` stopped at midnight and excluded

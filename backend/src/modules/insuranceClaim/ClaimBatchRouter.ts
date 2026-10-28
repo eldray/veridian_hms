@@ -23,6 +23,14 @@ export const createClaimBatchRoutes = () => {
   claimBatchController.eligible,
 );
 
+  // The month's claim rows — must sit above the dynamic :id route or "period-claims"
+  // is read as a batch id.
+  router.get(
+    '/period-claims',
+    requireRole(['admin', 'accounts', 'doctor', 'records']),
+    claimBatchController.periodClaims,
+  );
+
   // Dynamic :id routes — two-segment before one-segment
   router.get(
     '/:id/xml',

@@ -167,7 +167,7 @@ export async function fetchMaternalExtras() {
 export async function fetchAccountsExtras() {
   const [billsRes, claimsRes, waiversRes, estimatesRes, corporateRes] = await Promise.all([
     safe(() => getBills({ startDate: today(), endDate: today() }), [] as any),
-    safe(() => getInsuranceClaims({ status: 'submitted' }), [] as any),
+    safe(() => getInsuranceClaims({ status: 'finalized' }), [] as any),
     safe(() => getWaivers({ status: 'pending' }), [] as any),
     safe(() => getExpiringEstimates(7), [] as any),
     safe(() => getCorporateStatistics(), null as any),

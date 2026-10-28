@@ -2,6 +2,7 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
+import { money } from '../../utils/reportDates';
 import { getCounterService } from '../../services/CounterService';
 import { NHISClaimXMLBuilder } from './xml/NHISClaimXMLBuilder';
 import * as fs from 'fs';
@@ -34,6 +35,9 @@ export class ClaimBatchService extends BaseService {
   // LISTING
   // ==========================================
   async listBatches(filters: any) {
+    // The page size only limits the rows returned. The summary the screen shows is the whole
+    // filter, which is the difference between "this month held GHS 41,200" and a total that
+    // quietly stops at whatever fell inside the first page.
     return this.repo.findBatchesPaginated({
       ...filters,
       limit: Math.min(filters.limit ?? 20, 100),
@@ -55,12 +59,7 @@ export class ClaimBatchService extends BaseService {
     if (!['nhis', 'private', 'corporate'].includes(insuranceType)) {
       throw new ValidationError('insuranceType must be nhis, private, or corporate');
     }
-    if (periodMonth < 1 || periodMonth > 12) {
-      throw new ValidationError('periodMonth must be 1–12');
-    }
-    if (periodYear < 2000 || periodYear > 2100) {
-      throw new ValidationError('periodYear is out of range');
-    }
+    this.assertPeriod(periodYear, periodMonth);
 
     let insuranceProviderId = input.insuranceProviderId ?? null;
     const corporateAccountId = input.corporateAccountId ?? null;
@@ -337,36 +336,74 @@ export class ClaimBatchService extends BaseService {
     });
   }
 
-  async eligibleForPeriod(periodYear: number, periodMonth: number) {
-  const start = new Date(periodYear, periodMonth - 1, 1);
-  const end = new Date(periodYear, periodMonth, 1);
+  async eligibleForPeriod(
+    periodYear: number,
+    periodMonth: number,
+    scope: { insuranceProviderId?: string | null; corporateAccountId?: string | null } = {},
+  ) {
+    this.assertPeriod(periodYear, periodMonth);
 
-  const claims = await this.prisma.insuranceClaim.findMany({
-    where: {
-      status: 'finalized',
-      batchId: null,
-      Attendance: { dateTime: { gte: start, lt: end } },
-    },
-    select: {
-      id: true,
-      totalClaimAmount: true,
-      corporateAccountId: true,
-      InsuranceProvider: { select: { type: true } },
-    },
-  });
+    // Deliberately the same query that fills a batch: the preview is a promise about what
+    // "Generate" will do, and it was previously a second, disagreeing copy of that rule.
+    const byType = await this.repo.summarizeBatchableByType(periodYear, periodMonth, scope);
+    const types = ['nhis', 'private', 'corporate'] as const;
 
-  const zero = () => ({ count: 0, totalAmount: 0 });
-  const out = { nhis: zero(), private: zero(), corporate: zero() };
+    return {
+      periodYear,
+      periodMonth,
+      ...types.reduce((acc, type) => {
+        acc[type] = byType[type].count;
+        return acc;
+      }, {} as Record<(typeof types)[number], number>),
+      totalAmount: types.reduce((acc, type) => {
+        acc[type] = byType[type].amount;
+        return acc;
+      }, {} as Record<(typeof types)[number], number>),
+      overall: {
+        count: types.reduce((sum, type) => sum + byType[type].count, 0),
+        totalAmount: money(types.reduce((sum, type) => sum + byType[type].amount, 0)),
+      },
+    };
+  }
 
-  for (const c of claims) {
-    const bucket = c.corporateAccountId ? 'corporate' : (c.InsuranceProvider?.type ?? null);
-    if (bucket === 'nhis' || bucket === 'private' || bucket === 'corporate') {
-      out[bucket].count += 1;
-      out[bucket].totalAmount += Number(c.totalClaimAmount);
+  /**
+   * Every claim of one month — batched or not — with the month's totals, for the batching
+   * screen's period view. Reading the whole month must not depend on a batch existing yet.
+   */
+  async claimsForPeriod(
+    periodYear: number,
+    periodMonth: number,
+    options: { insuranceType?: string; batched?: string; page?: number; limit?: number } = {},
+  ) {
+    this.assertPeriod(periodYear, periodMonth);
+
+    const insuranceType = options.insuranceType && options.insuranceType !== 'all'
+      ? options.insuranceType
+      : undefined;
+    if (insuranceType && !['nhis', 'private', 'corporate'].includes(insuranceType)) {
+      throw new ValidationError('insuranceType must be nhis, private, or corporate');
+    }
+    const batched = options.batched && options.batched !== 'all' ? options.batched : undefined;
+    if (batched && !['batched', 'unbatched'].includes(batched)) {
+      throw new ValidationError('batched must be batched or unbatched');
+    }
+
+    return this.repo.findClaimsForPeriod(periodYear, periodMonth, {
+      insuranceType,
+      batched,
+      page: options.page ?? 1,
+      limit: options.limit ?? 50,
+    });
+  }
+
+  private assertPeriod(periodYear: number, periodMonth: number) {
+    if (!Number.isInteger(periodMonth) || periodMonth < 1 || periodMonth > 12) {
+      throw new ValidationError('periodMonth must be 1–12');
+    }
+    if (!Number.isInteger(periodYear) || periodYear < 2000 || periodYear > 2100) {
+      throw new ValidationError('periodYear is out of range');
     }
   }
-  return out;
-}
 
   // ==========================================
   // XML (NHIS only)
