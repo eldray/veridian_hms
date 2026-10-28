@@ -37,7 +37,11 @@ import {
   Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
   Hospital, User, Calendar, DollarSign, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
+<<<<<<< HEAD
   Printer, History, Eye, Edit, ClipboardList, Microscope, Image,
+=======
+  Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
+>>>>>>> refs/remotes/origin/main
   ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package, Send,
 } from 'lucide-react';
 
@@ -1718,6 +1722,38 @@ export default function MedicalEntries() {
                 editDisabled={!canAddEntries || isClinicalFinalized}
               />
                 </div>
+<<<<<<< HEAD
+=======
+                {/* Right sub-col */}
+                <div className="space-y-3">
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                       <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><Stethoscope className="w-3 h-3" /> Physical Examination</label>
+                       <button type="button" onClick={() => setClinicalModal('physicalExam')} disabled={!canAddEntries || isClinicalFinalized}
+                         className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
+                         <ClipboardList className="w-3 h-3" /> Structured PE
+                       </button>
+                     </div>
+                    <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
+                      disabled={!canAddEntries || isClinicalFinalized}
+                      placeholder="Physical examination findings…"
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
+                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
+                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
+                    {Object.values(physicalExamStructured).some(value => String(value || '').trim()) && (
+                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured findings recorded: {Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
+                    )}
+                  </div>
+                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
+                      <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
+                    </label>
+                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
+                  </div>
+                </div>
+              </div>
+                </div>
+>>>>>>> refs/remotes/origin/main
               </section>
 
               {/* Group 2: allergy safety and outcome */}

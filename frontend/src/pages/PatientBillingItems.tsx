@@ -251,6 +251,7 @@ export default function PatientBillingItems() {
         const cacheBuster = Date.now();
         await Promise.all([
           getBills({ patientId: resolvedId, _t: cacheBuster }),
+<<<<<<< HEAD
           getAttendances({ patientId: resolvedId }),
         ]);
 
@@ -259,6 +260,12 @@ export default function PatientBillingItems() {
         void getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster }).catch(() => undefined);
         void loadPatients().catch(() => undefined);
 
+=======
+          getServiceCatalog({ isActive: true, limit: 1000, _t: cacheBuster }),
+          getAttendances({ patientId: resolvedId }),
+        ]);
+
+>>>>>>> refs/remotes/origin/main
         // Match the selected attendance to the bill clicked on the main Billing page;
         // otherwise default to the patient's most recent visit, like Vitals and Medical Entries.
         const freshBills = useBillingStore.getState().bills.filter((bill: any) => bill.patientId === resolvedId);
@@ -864,11 +871,16 @@ export default function PatientBillingItems() {
           <p className="text-sm text-[var(--text-secondary)] mt-1">
             View and manage all billable items for {getPatientName(patient)}
           </p>
+<<<<<<< HEAD
           <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
             {patientBills.length} bill(s) for the selected visit
             {selectedAttendance?.attendanceNumber && ` (${selectedAttendance.attendanceNumber})`}
             {selectedAttendance?.dateTime && ` · ${formatDate(selectedAttendance.dateTime)}`}
             {' · '}Folder: {patient?.folderNumber}
+=======
+          <p className="text-xs text-gray-400 mt-0.5">
+            {patientBills.length} bill(s) for selected visit · Folder: {patient?.folderNumber}
+>>>>>>> refs/remotes/origin/main
           </p>
         </div>
         <button
@@ -881,7 +893,11 @@ export default function PatientBillingItems() {
       </div>
 
       {/* Patient / attendance selector — consistent with Vitals and Medical Entries */}
+<<<<<<< HEAD
       <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 shadow-sm">
+=======
+      <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+>>>>>>> refs/remotes/origin/main
         <PatientAttendanceSelector
           patients={patient ? [patient, ...patients.filter((p: any) => p.id !== patient.id)] : patients}
           attendances={attendances}
@@ -916,7 +932,11 @@ export default function PatientBillingItems() {
             setSelectedItems(new Set());
           }}
         />
+<<<<<<< HEAD
         <p className="mt-2 text-xs text-[var(--text-secondary)]">
+=======
+        <p className="mt-2 text-xs text-gray-500">
+>>>>>>> refs/remotes/origin/main
           Select a visit to view only its bills. Choose a previous attendance to review that visit’s charges and payments.
         </p>
       </div>
@@ -1052,9 +1072,15 @@ export default function PatientBillingItems() {
 
       {/* Bills List */}
       {patientBills.length === 0 ? (
+<<<<<<< HEAD
         <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
           <Receipt className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
+=======
+        <div className="bg-white rounded-xl p-8 shadow-sm border border-gray-200 text-center">
+          <Receipt className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-bold text-gray-900 mb-2">
+>>>>>>> refs/remotes/origin/main
             {searchQuery ? 'No Bills Found' : !selectedAttendanceId ? 'Select an Attendance' : 'No Billing Records for This Visit'}
           </h3>
           <p className="text-[var(--text-secondary)] text-sm">
