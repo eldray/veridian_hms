@@ -4,6 +4,7 @@ import { insuranceClaimController } from './InsuranceClaimController';
 import { createClaimBatchRoutes } from './ClaimBatchRouter';
 import { protect, requireRole } from '../../middleware/authMiddleware';
 import { validateBody } from '../../middleware/validate';
+import { checkClaimVetting } from './ClaimVettingController';
 import {
   GenerateClaimSchema,
   UpdateClaimDraftSchema,
@@ -15,6 +16,9 @@ export const createInsuranceClaimRoutes = () => {
   router.use(protect);
 
   router.use('/batches', createClaimBatchRoutes());
+
+  // Advisory-only vetting preview; does not mutate clinical or claim records.
+  router.post('/vetting/check', requireRole(['admin', 'accounts']), checkClaimVetting);
 
   // Doctors may follow the progress of claims they submitted; only accounts
   // record the tracking events themselves.
