@@ -220,12 +220,11 @@ const normalizeBatch = (b: any): ClaimBatch => {
 /**
  * Claim lifecycle is draft → finalized (the ClaimStatus enum). This file used to say the second
  * state was "submitted", and screens written against that asked the API for status=submitted —
- * which is not an empty result but an invalid enum value the request is rejected over. Both
- * labels are counted so legacy rows that carry it still add up.
+ * which is not an empty result but an invalid enum value the request is rejected over.
  */
 const calculateStats = (claims: InsuranceClaim[]): ClaimStats => {
   const draft = claims.filter((c) => c.status === 'draft');
-  const finalized = claims.filter((c) => c.status === 'submitted' || c.status === 'finalized');
+  const finalized = claims.filter((c) => c.status === 'finalized');
   return {
     total: claims.length,
     draft: draft.length,
