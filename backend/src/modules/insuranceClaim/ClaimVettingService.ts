@@ -94,6 +94,11 @@ export function vetClaim(c: ClaimVettingInput): VettingResult {
   if (c.claimDate && c.serviceDate && !sameDay(c.claimDate, c.serviceDate)) {
     add(issue('claim-service-date-mismatch', 'high', 'DATA QUALITY', 'Claim date differs from the attendance/service date.', 'Compare the claim header, attendance, medicine and investigation dates; correct only after checking the source record.'));
   }
+  [...meds, ...inv].forEach((item, index) => {
+    if (item.date && c.serviceDate && !sameDay(item.date, c.serviceDate)) {
+      add(issue('entry-service-date-mismatch', 'medium', 'DATA QUALITY', `${item.name}: entry date differs from the attendance/service date.`, 'Check whether this item belongs to this attendance or a different visit. Preserve genuine separately dated services; do not silently change dates.', { itemIndex: index }));
+    }
+  });
   if (c.diagnoses?.some(d => isMissingCode(d.icd10))) {
     for (const d of c.diagnoses.filter(x => isMissingCode(x.icd10))) {
       add(issue('missing-icd10', 'medium', 'UNCLEAR DIAGNOSIS', `Diagnosis “${d.name}” has no valid-looking ICD-10 code.`, 'Confirm the clinician-entered diagnosis and select the matching ICD-10 code. Do not infer a diagnosis solely to justify treatment.', { suggestedIcd10SearchUrl: 'https://icd.who.int/browse10/2019/en' }));
