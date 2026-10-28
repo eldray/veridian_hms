@@ -9,6 +9,7 @@ import {
   UpdateScanTemplateDTO,
   BulkUpdateDTO
 } from './ScanTemplateTypes';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 
 /**
  * Async handler wrapper to catch promise rejections
@@ -35,8 +36,8 @@ export class ScanTemplateController {
       category: category as string | undefined,
       bodyPart: bodyPart as string | undefined,
       scanType: scanType as string | undefined,
-      page: page ? parseInt(page as string) : 1,
-      limit: limit ? parseInt(limit as string) : 10000
+      page: parsePage(page),
+      limit: parsePageSize(limit, 500, 500)
     };
 
     const result = await this.service.getAllScanTemplates(params);

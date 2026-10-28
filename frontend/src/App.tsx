@@ -1,5 +1,5 @@
 // src/App.tsx — FULLY CORRECTED
-import { useEffect, useState } from 'react';
+import { lazy, useEffect, useState } from 'react';
 import { useAuthStore } from './store/authStore';
 import { ToastContainer } from './components/ToastContainer';
 import {
@@ -8,285 +8,108 @@ import {
   Route,
   Navigate,
   Outlet,
+  Link,
   useLocation,
-  matchPath,
 } from 'react-router-dom';
-
-// Pages
-import DashboardLayout from './layouts/DashboardLayout';
-import Dashboard from './pages/Dashboard';
-import PatientRegistration from './pages/PatientRegistration';
-import Patients from './pages/Patients';
-import UserDetail from './pages/UserDetail';
-import Attendance from './pages/Attendance';
-import Admissions from './pages/Admissions';
-import CorporateAccounts from './pages/CorporateAccounts';
-import Billing from './pages/Billing';
-import ScansEntry from './pages/ScansEntry';
-import FamilyPlanning from './pages/FamilyPlanning';
-import Inventory from './pages/Inventory';
-import Reports from './pages/Reports';
-import Laboratory from './pages/Laboratory';
-import AdmissionDetails from './pages/AdmissionDetails';
-import DispensePatient from './pages/DispensePatient';
-import Pharmacy from './pages/Pharmacy';
-import MedicalEntries from './pages/MedicalEntries';
-import ProcessPayment from './pages/ProcessPayment';
-import Login from './pages/Login';
-import Vitals from './pages/Vitals';
-import PatientDetails from './pages/PatientDetails';
-import MedicalWaitingList from './pages/MedicalWaitingList';
-import MaternalWaitingList from './pages/MaternalWaitingList';
-import Antenatal from './pages/Antenatal';
-import AttendanceDetails from './pages/AttendanceDetails';
-import Theatre from './pages/Theatre';
-import Nursing from './pages/Nursing';
-import MedicalServicesManagement from './pages/MedicalServicesManagement';
-import UserProfile from './pages/UserProfile';
-import Settings from './pages/Settings';
-import StockManagement from './pages/StockManagement';
-import InsuranceProviders from './pages/InsuranceProviders';
-import InsuranceClaims from './pages/InsuranceClaims';
-import InsuranceClaimsTracking from './pages/InsuranceClaimsTracking';
-import EditInsuranceClaim from './pages/EditInsuranceClaim';
-import VitalsEntry from './pages/VitalsEntry';
-import EditNHISClaim from './pages/insurance-claims/EditNHISClaim';
-import EditPrivateClaim from './pages/insurance-claims/EditPrivateClaim';
-import EditCorporateClaim from './pages/insurance-claims/EditCorporateClaim';
-import ClaimBatches from './pages/ClaimBatches';
-import WardManagement from './pages/WardManagement';
-import Notifications from './pages/Notifications';
-import Appointments from './pages/Appointments';
-import LabResultEntry from './pages/LabResultEntry';
-import Departments from './pages/Departments';
-import TheatreProcedure from './pages/TheatreProcedure';
-import AuditLogs from './pages/AuditLogs';
-import Scans from './pages/Scans';
-import InvoiceManagement from './pages/InvoiceManagement';
-import RequisitionManagement from './pages/RequisitionManagement';
-import StockTransactions from './pages/StockTransactions';
-import StockTransfers from './pages/StockTransfers';
-import StockReports from './pages/StockReports';
-import PatientBillingItems from './pages/PatientBillingItems';
-import NursingPatientWorkspace from './pages/NursingPatientWorkspace';
-import Referrals from './pages/Referrals';
-import Estimates from './pages/Estimates';
-import EstimateDetails from './pages/EstimateDetails';
-import EstimateForm from './pages/EstimateForm';
-import UserManagement from './pages/UserManagement';
-import ShiftManagement from './pages/ShiftManagement';
-import LeaveManagement from './pages/LeaveManagement';
+import { hasPermission } from './config/access';
 
 import './App.css';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// ROLE PERMISSIONS
-// Each key is a "permission tag" used by the route guard. '*' = everything.
-// ─────────────────────────────────────────────────────────────────────────────
-const rolePermissions: Record<string, string[]> = {
-  super_admin: ['*'],
-  admin: ['*'],
+// Shell and login stay eager: they are needed before any route chunk resolves.
+import DashboardLayout from './layouts/DashboardLayout';
+import Login from './pages/Login';
 
-  hr_officer: [
-    'dashboard', 'user_management', 'shifts', 'leaves',
-    'reports', 'profile', 'notifications', 'audit_logs',
-  ],
+// Pages are split per route so the first paint does not wait on all 60 modules.
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const PatientRegistration = lazy(() => import('./pages/PatientRegistration'));
+const Patients = lazy(() => import('./pages/Patients'));
+const UserDetail = lazy(() => import('./pages/UserDetail'));
+const Attendance = lazy(() => import('./pages/Attendance'));
+const Admissions = lazy(() => import('./pages/Admissions'));
+const CorporateAccounts = lazy(() => import('./pages/CorporateAccounts'));
+const Billing = lazy(() => import('./pages/Billing'));
+const ScansEntry = lazy(() => import('./pages/ScansEntry'));
+const FamilyPlanning = lazy(() => import('./pages/FamilyPlanning'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Reports = lazy(() => import('./pages/Reports'));
+const Laboratory = lazy(() => import('./pages/Laboratory'));
+const AdmissionDetails = lazy(() => import('./pages/AdmissionDetails'));
+const DispensePatient = lazy(() => import('./pages/DispensePatient'));
+const Pharmacy = lazy(() => import('./pages/Pharmacy'));
+const MedicalEntries = lazy(() => import('./pages/MedicalEntries'));
+const ProcessPayment = lazy(() => import('./pages/ProcessPayment'));
+const Vitals = lazy(() => import('./pages/Vitals'));
+const PatientDetails = lazy(() => import('./pages/PatientDetails'));
+const MedicalWaitingList = lazy(() => import('./pages/MedicalWaitingList'));
+const MaternalWaitingList = lazy(() => import('./pages/MaternalWaitingList'));
+const Antenatal = lazy(() => import('./pages/Antenatal'));
+const AttendanceDetails = lazy(() => import('./pages/AttendanceDetails'));
+const Theatre = lazy(() => import('./pages/Theatre'));
+const Nursing = lazy(() => import('./pages/Nursing'));
+const MedicalServicesManagement = lazy(() => import('./pages/MedicalServicesManagement'));
+const UserProfile = lazy(() => import('./pages/UserProfile'));
+const Settings = lazy(() => import('./pages/Settings'));
+const StockManagement = lazy(() => import('./pages/StockManagement'));
+const InsuranceProviders = lazy(() => import('./pages/InsuranceProviders'));
+const InsuranceClaims = lazy(() => import('./pages/InsuranceClaims'));
+const InsuranceClaimsTracking = lazy(() => import('./pages/InsuranceClaimsTracking'));
+const EditInsuranceClaim = lazy(() => import('./pages/EditInsuranceClaim'));
+const VitalsEntry = lazy(() => import('./pages/VitalsEntry'));
+const EditNHISClaim = lazy(() => import('./pages/insurance-claims/EditNHISClaim'));
+const EditPrivateClaim = lazy(() => import('./pages/insurance-claims/EditPrivateClaim'));
+const EditCorporateClaim = lazy(() => import('./pages/insurance-claims/EditCorporateClaim'));
+const ClaimBatches = lazy(() => import('./pages/ClaimBatches'));
+const WardManagement = lazy(() => import('./pages/WardManagement'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Appointments = lazy(() => import('./pages/Appointments'));
+const LabResultEntry = lazy(() => import('./pages/LabResultEntry'));
+const Departments = lazy(() => import('./pages/Departments'));
+const TheatreProcedure = lazy(() => import('./pages/TheatreProcedure'));
+const AuditLogs = lazy(() => import('./pages/AuditLogs'));
+const Scans = lazy(() => import('./pages/Scans'));
+const InvoiceManagement = lazy(() => import('./pages/InvoiceManagement'));
+const RequisitionManagement = lazy(() => import('./pages/RequisitionManagement'));
+const StockTransactions = lazy(() => import('./pages/StockTransactions'));
+const StockTransfers = lazy(() => import('./pages/StockTransfers'));
+const StockReports = lazy(() => import('./pages/StockReports'));
+const PatientBillingItems = lazy(() => import('./pages/PatientBillingItems'));
+const NursingPatientWorkspace = lazy(() => import('./pages/NursingPatientWorkspace'));
+const Referrals = lazy(() => import('./pages/Referrals'));
+const Estimates = lazy(() => import('./pages/Estimates'));
+const EstimateDetails = lazy(() => import('./pages/EstimateDetails'));
+const EstimateForm = lazy(() => import('./pages/EstimateForm'));
+const Counter = lazy(() => import('./pages/Counter'));
+const UserManagement = lazy(() => import('./pages/UserManagement'));
+const ShiftManagement = lazy(() => import('./pages/ShiftManagement'));
+const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
 
-  doctor: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'medical_entries', 'medical_waiting_list',
-    'vitals', 'admissions', 'wards',
-    'laboratory', 'scans', 'theatre', 'pharmacy',
-    'billing', 'insurance_claims', 'referrals',
-    'maternal_waiting_list', 'antenatal', 'family_planning',
-    'requisitions', 'stock_transfers',
-    'reports', 'profile', 'notifications', 'settings',
-    'audit_logs',
-  ],
-
-  nurse: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'admissions', 'wards', 'vitals', 'nursing',
-    'medical_waiting_list',
-    'medical_entries',           // ✅ NEW
-    'theatre',
-    'requisitions', 'referrals', 'stock_transfers',
-    'reports', 'profile', 'notifications',
-  ],
-
-  midwife: [
-    'dashboard', 'patients', 'attendance', 'appointments',
-    'admissions', 'wards', 'vitals', 'nursing',
-    'medical_waiting_list',      // consultations — triage
-    'medical_entries',           // ✅ NEW
-    'theatre',                   // C-sections / deliveries
-    'maternal_waiting_list', 'antenatal', 'family_planning',
-    'scans', 'laboratory', 'referrals',
-    'service_catalog',           // ✅ NEW — view services offered
-    'pharmacy',     
-    'requisitions', 'stock_transfers', // Stock transfer requests and receipts
-    'dispense_medication',       // ✅ NEW — if midwives dispense from ward stock
-    'reports', 'profile', 'notifications',
-  ],
-
-  sonographer: [
-    'dashboard', 'patients', 'scans', 'laboratory',
-    'appointments', 'reports', 'profile', 'notifications', 'requisitions', 'stock_transfers',  
-  ],
-
-  lab_tech: [
-    'dashboard', 'patients', 'laboratory', 'requisitions', 'stock_transfers',  
-    'appointments', 'reports', 'profile', 'notifications',
-  ],
-
-  pharmacist: [
-    'dashboard', 'pharmacy', 'dispense_medication',
-    'inventory', 'stock_management', 'stock_transactions', 'stock_transfers',
-    'stock_reports', 'invoices', 'requisitions',
-    'reports', 'profile', 'notifications',
-  ],
-
-  accounts: [
-    'dashboard', 'patients', 'billing', 'process_payment',
-    'insurance_providers', 'insurance_claims', 'corporate',
-    'estimates', 'invoices', 'stock_transactions',
-    'stock_reports', 'reports', 'profile', 'notifications',
-    'audit_logs',
-  ],
-
-  records: [
-    'dashboard', 'patients', 'attendance',
-    'appointments', 'admissions', 'referrals', 'requisitions', 'stock_transfers',  
-    'reports', 'profile', 'notifications',
-    'audit_logs',
-  ],
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// STATIC ROUTE MAP
-// Exact-match paths → permission tag. Dynamic segments live in DYNAMIC_ROUTES.
-// ─────────────────────────────────────────────────────────────────────────────
-const routeMap: Record<string, string> = {
-  '/dashboard':                                      'dashboard',
-  '/dashboard/patients':                             'patients',
-  '/dashboard/patients/register':                    'patients',
-  '/dashboard/attendance':                           'attendance',
-  '/dashboard/admissions':                           'admissions',
-  '/dashboard/wards':                                'wards',
-  '/dashboard/billing':                              'billing',
-  '/dashboard/insurance-providers':                  'insurance_providers',
-  '/dashboard/insurance-claims':                     'insurance_claims',
-  '/dashboard/insurance-claims/tracking':            'insurance_claims',
-  '/dashboard/insurance-claims/batches':             'insurance_claims',
-  '/dashboard/inventory':                            'inventory',
-  '/dashboard/pharmacy':                             'pharmacy',
-  '/dashboard/dispense':                             'dispense_medication',
-  '/dashboard/stock':                                'stock_management',
-  '/dashboard/stock/reports':                        'stock_reports',
-  '/dashboard/stock/transfers':                      'stock_transfers',
-  '/dashboard/theatre':                              'theatre',
-  '/dashboard/antenatal':                            'antenatal',
-  '/dashboard/scans':                                'scans',
-  '/dashboard/invoices':                             'invoices',
-  '/dashboard/invoices/create':                      'invoices',
-  '/dashboard/requisitions':                         'requisitions',
-  '/dashboard/requisitions/create':                  'requisitions',
-  '/dashboard/transactions':                         'stock_transactions',
-  '/dashboard/laboratory':                           'laboratory',
-  '/dashboard/medical-entries':                      'medical_entries',
-  '/dashboard/medical-waiting-list':                 'medical_waiting_list',
-  '/dashboard/maternal-waiting-list':                'maternal_waiting_list',
-  '/dashboard/medicalservices':                      'service_catalog',
-  '/dashboard/service-catalog':                      'service_catalog',
-  '/dashboard/vitals':                               'vitals',
-  '/dashboard/reports':                              'reports',
-  '/dashboard/profile':                              'profile',
-  '/dashboard/settings':                             'settings',
-  '/dashboard/notifications':                        'dashboard',
-  '/dashboard/appointments':                         'appointments',
-  '/dashboard/departments':                          'departments',
-  '/dashboard/family-planning':                      'family_planning',
-  '/dashboard/referrals':                            'referrals',
-  '/dashboard/corporate-accounts':                   'corporate',
-  '/dashboard/estimates':                            'estimates',
-  '/dashboard/estimates/new':                        'estimates',
-  '/dashboard/users':                                'user_management',
-  '/dashboard/audit-logs':                           'audit_logs',
-  '/dashboard/shifts':                               'shifts',
-  '/dashboard/leaves':                               'leaves',
-  '/dashboard/nursing':                              'nursing',
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// DYNAMIC ROUTE MAP
-// Mirrors every `:param` route declared in the JSX below. Uses matchPath so it
-// can't drift from the actual router definitions.
-// ─────────────────────────────────────────────────────────────────────────────
-const dynamicRoutes: Array<{ pattern: string; permission: string }> = [
-  { pattern: '/dashboard/patients/:id',                        permission: 'patients' },
-  { pattern: '/dashboard/patients/:patientId/billing',         permission: 'billing' },
-  { pattern: '/dashboard/attendance/:id',                      permission: 'attendance' },
-  { pattern: '/dashboard/admissions/:id',                      permission: 'admissions' },
-  { pattern: '/dashboard/billing/:billId/payment',             permission: 'billing' },
-  { pattern: '/dashboard/insurance-claims/:id/edit',           permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/nhis/:id/edit',      permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/private/:id/edit',   permission: 'insurance_claims' },
-  { pattern: '/dashboard/insurance-claims/corporate/:id/edit', permission: 'insurance_claims' },
-  { pattern: '/dashboard/laboratory/:id',                      permission: 'laboratory' },
-  { pattern: '/dashboard/scans/:id',                           permission: 'scans' },
-  { pattern: '/dashboard/vitals/:id',                          permission: 'vitals' },
-  { pattern: '/dashboard/theatre/:id',                         permission: 'theatre' },
-  { pattern: '/dashboard/medical-entries/:attendanceId',       permission: 'medical_entries' },
-  { pattern: '/dashboard/maternal/:attendanceId',              permission: 'antenatal' },
-  { pattern: '/dashboard/nursing/patient/:attendanceId',       permission: 'nursing' },
-  { pattern: '/dashboard/dispense/:id',                        permission: 'pharmacy' },
-  { pattern: '/dashboard/invoices/:id',                        permission: 'invoices' },
-  { pattern: '/dashboard/requisitions/:id',                    permission: 'requisitions' },
-  { pattern: '/dashboard/corporate-accounts/:id',              permission: 'corporate' },
-  { pattern: '/dashboard/estimates/:id',                       permission: 'estimates' },
-  { pattern: '/dashboard/estimates/:id/edit',                  permission: 'estimates' },
-  { pattern: '/dashboard/users/:id',                           permission: 'user_management' },
-  { pattern: '/dashboard/hr/:id/edit',                         permission: 'hr' },
-  { pattern: '/dashboard/hr/:id/payslip',                      permission: 'hr' },
-  { pattern: '/dashboard/hr/:id',                              permission: 'hr' },
-];
-
-const hasPermission = (userRole: string, routePath: string) => {
-  const perms = rolePermissions[userRole];
-  if (!perms) return false;
-  if (perms.includes('*')) return true;
-
-  // 1. Exact match
-  const exact = routeMap[routePath];
-  if (exact) return perms.includes(exact);
-
-  // 2. Dynamic match — first pattern that matches wins
-  const dyn = dynamicRoutes.find(r => matchPath(r.pattern, routePath));
-  if (dyn) return perms.includes(dyn.permission);
-
-  // 3. Unknown route — deny by default
-  return false;
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ROUTE GUARDS
+// Which role opens which page lives in one place: src/config/access.ts. The
+// sidebar renders from the same table, so a menu item can no longer point at a
+// page the guard then refuses.
 // ─────────────────────────────────────────────────────────────────────────────
-const AccessDenied = () => (
-  <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
-    <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)] max-w-md">
-      <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Denied</h2>
-      <p className="text-sm text-[var(--text-secondary)] mb-4">
-        You don't have permission to access this page.
-      </p>
-      <button
-        onClick={() => window.history.back()}
-        className="px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold"
-      >
-        Go Back
-      </button>
+const AccessDenied = () => {
+  const { user } = useAuthStore();
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
+      <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)] max-w-md">
+        <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Denied</h2>
+        <p className="text-sm text-[var(--text-secondary)] mb-4">
+          The <span className="font-semibold capitalize">{user?.role?.replace(/_/g, ' ') || 'current'}</span> role
+          doesn't have permission to open this page.
+        </p>
+        <Link
+          to="/dashboard"
+          className="inline-block px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold"
+        >
+          Back to dashboard
+        </Link>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuthStore();
@@ -302,18 +125,7 @@ const DashboardLayoutWrapper = () => {
   const { pathname } = useLocation();
 
   if (!user) return <Navigate to="/login" replace />;
-  if (!hasPermission(user.role, pathname)) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--bg-main)]">
-        <div className="text-center">
-          <h2 className="text-xl font-bold text-[var(--icon-red-text)] mb-2">Access Restricted</h2>
-          <p className="text-sm text-[var(--text-secondary)]">
-            Your role doesn't have access to this page.
-          </p>
-        </div>
-      </div>
-    );
-  }
+  if (!hasPermission(user.role, pathname)) return <AccessDenied />;
   return (
     <DashboardLayout>
       <Outlet />
@@ -455,6 +267,9 @@ function App() {
 
           <Route path="corporate-accounts"     element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+
+          {/* Counter: walk-in tickets held against a CounterClient, not the patient register */}
+          <Route path="counter" element={<ProtectedRoute><Counter /></ProtectedRoute>} />
 
           {/* Estimates */}
           <Route path="estimates"           element={<ProtectedRoute><Estimates /></ProtectedRoute>} />

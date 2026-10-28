@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import fs from 'fs/promises';
 import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { BackupService } from './BackupService';
@@ -33,8 +34,11 @@ export class BackupController extends BaseController {
     // ✅ Send immediate response and continue in background
     const response = this.ok(res, null, 'Restore started in background. This may take several minutes.');
 
-    this.backupService.restoreBackup(req.file.path, req.user!.id)
-      .catch(err => console.error('❌ Background restore failed:', err));
+    const uploadedPath = req.file.path;
+    this.backupService.restoreBackup(uploadedPath, req.user!.id)
+      .catch(err => console.error('❌ Background restore failed:', err))
+      // The upload is a full database dump; do not leave it on disk after the restore.
+      .finally(() => fs.unlink(uploadedPath).catch(() => undefined));
     return response;
   });
 

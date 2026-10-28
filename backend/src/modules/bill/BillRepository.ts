@@ -39,10 +39,11 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async findAll(filters: BillFilter) {
-    const { patientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 1000 } = filters;
+    const { patientId, counterClientId, status, paymentMode, dateFrom, dateTo, attendanceId, page = 1, limit = 1000 } = filters;
     const where: any = {};
 
     if (patientId) where.patientId = patientId;
+    if (counterClientId) where.counterClientId = counterClientId;
     if (attendanceId) where.attendanceId = attendanceId;
     if (status) where.status = Array.isArray(status) ? { in: status } : status;
     if (paymentMode) where.paymentMode = paymentMode;
@@ -56,7 +57,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
-        Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
+        Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
         Payment: true
       }
@@ -68,18 +70,24 @@ export class BillRepository extends BaseRepository<any, any, any> {
       where: { id },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, dateTime: true } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { id: true, name: true, code: true, serviceType: true } } } },
+        InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         Payment: true
       }
     });
   }
 
   async create(data: CreateBillInput, createdBy: string) {
-    const { patientId, attendanceId, paymentMode = 'cash', items } = data;
+    const { patientId, counterClientId, attendanceId, paymentMode = 'cash', items } = data;
 
     // A bill belongs to a visit: attendanceId is a required column
     if (!attendanceId) throw new ValidationError('A bill must be created for a visit (attendanceId is required)');
+    // A bill is addressed to exactly one identity: a registered patient or a counter customer.
+    if (Boolean(patientId) === Boolean(counterClientId)) {
+      throw new ValidationError('A bill must be for either a registered patient or a counter customer, not both');
+    }
 
     return this.prisma.$transaction(async (tx) => {
       // Each line needs the service's name and type (required columns): read them from the catalog
@@ -92,7 +100,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
 
       const bill = await tx.bill.create({
         data: {
-          patientId, attendanceId, paymentMode,
+          patientId, counterClientId, attendanceId, paymentMode,
           billNumber: getCounterService().nextBillNumber(), // ✅ FIXED: Uses CounterService instead of Math.random()
           status: 'pending', totalAmount: 0, paidAmount: 0, balance: 0, patientPayable: 0,
           insuranceCovered: 0, waiverAmount: 0, discount: 0, createdById: createdBy, billDate: new Date(),
@@ -109,7 +117,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
             })
           }
         },
-        include: { BillLineItem: true, Patient: true }
+        include: { BillLineItem: true, Patient: true, CounterClient: true }
       });
 
       // ✅ FIXED: Safely parse Prisma Decimals to numbers for JS math
@@ -118,7 +126,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
       const updatedBill = await tx.bill.update({
         where: { id: bill.id },
         data: { totalAmount, patientPayable: totalAmount, balance: totalAmount },
-        include: { BillLineItem: true, Patient: true }
+        include: { BillLineItem: true, Patient: true, CounterClient: true }
       });
       await this.syncAttendanceFinancials(tx, attendanceId, updatedBill);
       return updatedBill;
@@ -126,7 +134,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
   }
 
   async update(id: string, data: UpdateBillInput) {
-    return this.getModel().update({ where: { id }, data, include: { BillLineItem: true, Patient: true } });
+    return this.getModel().update({ where: { id }, data, include: { BillLineItem: true, Patient: true, CounterClient: true } });
   }
 
   async delete(id: string) {
@@ -415,6 +423,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
       where: { id: billId },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
         BillLineItem: {
           where: { isVoided: false },
@@ -467,6 +476,8 @@ export class BillRepository extends BaseRepository<any, any, any> {
       billNumber: bill.billNumber,
       status: bill.status,
       patient: bill.Patient,
+      // A counter bill has no Patient row; the customer's name lives here instead.
+      counterClient: bill.CounterClient ?? null,
       attendance: bill.Attendance,
       // Flat fields matching the BillingBreakdown type the frontend expects.
       subtotal,
@@ -593,7 +604,9 @@ export class BillRepository extends BaseRepository<any, any, any> {
             tariff !== null;
 
           let hasRequiredAuthorization = rule?.authorizationRequired !== true;
-          if (rule?.authorizationRequired === true && attendance.insuranceProviderId) {
+          // Pre-authorisation is a claim against a registered patient's policy, so a counter
+          // ticket (no patientId) can never satisfy an auth-required rule.
+          if (rule?.authorizationRequired === true && attendance.insuranceProviderId && attendance.patientId) {
             const approvals = await tx.preAuthorisationRequest.findMany({
               where: {
                 attendanceId: attendance.id,
@@ -728,6 +741,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         bill = await tx.bill.create({
           data: {
             patientId: attendance.patientId,
+            counterClientId: attendance.counterClientId,
             attendanceId: attendance.id,
             paymentMode,
             billNumber: getCounterService().getBillNumberFromAttendance(attendance.attendanceNumber),
@@ -800,6 +814,7 @@ export class BillRepository extends BaseRepository<any, any, any> {
         },
         include: {
           Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true } },
+          CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
           Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true } },
           BillLineItem: {
             where: { isVoided: false },

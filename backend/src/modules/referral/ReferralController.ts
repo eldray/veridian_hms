@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { ReferralService } from './ReferralService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 
 export class ReferralController extends BaseController {
   private service: ReferralService;
@@ -27,8 +28,8 @@ export class ReferralController extends BaseController {
       insuranceProviderId: insuranceProviderId as string,
       dateFrom: dateFrom as string,
       dateTo: dateTo as string,
-      page: page ? parseInt(page as string) : 1,
-      limit: limit ? parseInt(limit as string) : 50
+      page: parsePage(page),
+      limit: parsePageSize(limit, 50)
     };
 
     const result = await this.service.getAllReferrals(filters);

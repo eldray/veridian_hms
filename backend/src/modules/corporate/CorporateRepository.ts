@@ -308,6 +308,8 @@ export class CorporateRepository extends BaseRepository<any, any, any> {
     // Group encounters by patient
     const encountersByPatient = new Map<string, any[]>();
     for (const att of attendances) {
+      // A corporate statement is raised per patient folder; a counter ticket is not billed to a company.
+      if (!att.patientId) continue;
       if (!encountersByPatient.has(att.patientId)) {
         encountersByPatient.set(att.patientId, []);
       }

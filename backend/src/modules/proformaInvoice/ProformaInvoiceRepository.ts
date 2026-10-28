@@ -141,14 +141,6 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
     return this.normalize(updated);
   }
 
-  async convertToBill(id: string, billId: string) {
-    const updated = await this.getModel().update({
-      where: { id }, data: { status: 'CONVERTED', convertedToBillId: billId },
-      include: { Patient: true, CorporateAccount: true }
-    });
-    return this.normalize(updated);
-  }
-
   // ✅ FIXED: Wrapped in transaction to prevent orphaned items
   async delete(id: string) {
     return this.prisma.$transaction(async (tx) => {

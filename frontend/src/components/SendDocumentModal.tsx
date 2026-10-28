@@ -146,30 +146,30 @@ export default function SendDocumentModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <div className="bg-[var(--bg-card)] text-[var(--text-primary)] rounded-2xl w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)]">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-green-100 rounded-lg flex items-center justify-center">
-              <MessageSquare className="w-5 h-5 text-green-600" />
+            <div className="w-9 h-9 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
+              <MessageSquare className="w-5 h-5 text-[var(--icon-green-text)]" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-gray-900">Send {DOC_LABEL[documentType]}</h3>
-              <p className="text-xs text-gray-500">{patientName}</p>
+              <h3 className="text-base font-bold">Send {DOC_LABEL[documentType]}</h3>
+              <p className="text-xs text-[var(--text-secondary)]">{patientName}</p>
             </div>
           </div>
           <button 
             onClick={onClose} 
-            className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg transition-colors"
             aria-label="Close"
           >
-            <X className="w-5 h-5 text-gray-500" />
+            <X className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
         </div>
 
         <div className="p-5 space-y-4">
           {/* Channel */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Channel</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Channel</label>
             <div className="flex gap-2">
               {(['sms', 'whatsapp'] as const).map((c) => (
                 <button
@@ -177,8 +177,8 @@ export default function SendDocumentModal({
                   onClick={() => setChannel(c)}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium border transition-all ${
                     channel === c 
-                      ? 'bg-green-600 text-white border-green-600' 
-                      : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+                      ? 'bg-[var(--icon-green-text)] text-white border-[var(--icon-green-text)]' 
+                      : 'bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-main)]'
                   }`}
                 >
                   {c === 'sms' ? 'SMS' : 'WhatsApp'}
@@ -189,43 +189,43 @@ export default function SendDocumentModal({
 
           {/* Recipient */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Recipient phone</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Recipient phone</label>
             <div className="relative">
-              <Phone className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Phone className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="tel"
                 value={recipient}
                 onChange={(e) => setRecipient(e.target.value)}
                 placeholder="e.g. +233241234567"
-                className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none"
+                className="w-full pl-10 pr-3 py-2.5 bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--icon-green-text)] focus:border-[var(--icon-green-text)] outline-none"
               />
             </div>
             {!patient?.contact && !patient?.phone && !patient?.mobile && (
-              <p className="text-xs text-amber-600 mt-1">⚠️ No contact on file — enter one manually.</p>
+              <p className="text-xs text-[var(--icon-orange-text)] mt-1">⚠️ No contact on file — enter one manually.</p>
             )}
           </div>
 
           {/* Message */}
           <div>
-            <label className="block text-xs font-medium text-gray-500 mb-1.5">Message</label>
+            <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">Message</label>
             <textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none"
+              className="w-full px-3 py-2.5 bg-[var(--bg-card)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--icon-green-text)] focus:border-[var(--icon-green-text)] outline-none resize-none"
               placeholder="Type your message here..."
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
+            <div className="flex justify-between text-xs text-[var(--text-tertiary)] mt-1">
               <span>{message.length} characters</span>
               <span>{message.length > 160 ? `${Math.ceil(message.length / 160)} SMS segments` : '1 SMS'}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 px-5 py-4 border-t border-gray-100">
+        <div className="flex justify-end gap-2 px-5 py-4 border-t border-[var(--border-color)]">
           <button 
             onClick={onClose} 
-            className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="px-4 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-main)] rounded-lg transition-colors"
             disabled={sending}
           >
             Cancel
@@ -233,7 +233,7 @@ export default function SendDocumentModal({
           <button
             onClick={handleSend}
             disabled={sending || !recipient.trim() || !message.trim()}
-            className="flex items-center gap-2 px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 text-sm bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {sending ? <Loader className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             {sending ? 'Sending…' : 'Send'}

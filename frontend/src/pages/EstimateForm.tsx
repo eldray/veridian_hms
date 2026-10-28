@@ -1,13 +1,13 @@
 // src/pages/EstimateForm.tsx
-import { type FormEvent, useEffect, useMemo, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { type FormEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check,
 } from 'lucide-react';
-import { getCorporateAccounts, getServiceCatalog } from '../api';
-import { usePatientStore } from '../store/patientStore';
+import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog } from '../api';
 import { useEstimatesStore } from '../store/estimatesStore';
+import { MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { useToast } from '../store/toastStore';
 
 // ─────────────────────────────────────────────
@@ -25,6 +25,9 @@ interface FormItem {
   vatRate: number;
   isInsuranceCovered: boolean;
   insuranceCoverage: number;
+  // Catalog prices per payment mode, kept on the row so switching the basis can
+  // re-price it. UI-only — never sent to the API.
+  tiers?: Record<string, number>;
 }
 
 const emptyItem = (): FormItem => ({
@@ -37,6 +40,22 @@ const emptyItem = (): FormItem => ({
   isInsuranceCovered: false,
   insuranceCoverage: 0,
 });
+
+// Which catalog column prices a line depends on the basis it is quoted on. The
+// pricing row the catalog list returns is the newest active one and carries all four.
+const PRICING_FIELD: Record<string, string> = {
+  cash: 'cashPrice',
+  nhis: 'nhisPrice',
+  private_insurance: 'insurancePrice',
+  corporate: 'corporatePrice',
+};
+
+const tiersOf = (pricing: any): Record<string, number> => {
+  if (!pricing) return {};
+  return Object.fromEntries(
+    Object.entries(PRICING_FIELD).map(([basis, field]) => [basis, Number(pricing[field] || 0)]),
+  );
+};
 
 const asArray = (response: any): any[] => {
   if (Array.isArray(response)) return response;
@@ -67,6 +86,10 @@ interface SearchableSelectProps {
   icon?: React.ReactNode;
   required?: boolean;
   className?: string;
+  // When set, the list is searched by the server as the user types, so the page can offer
+  // a whole register without downloading it. `options` is then whatever the last search returned.
+  onSearch?: (query: string) => void;
+  loading?: boolean;
 }
 
 const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -78,6 +101,8 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
   disabled = false,
   icon,
   className = '',
+  onSearch,
+  loading = false,
 }) => {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -87,15 +112,27 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
   const selected = options.find((o) => o.value === value);
 
+  // Ask the server after a short pause so typing does not queue a request per keystroke.
+  useEffect(() => {
+    if (!onSearch) return;
+    const timer = setTimeout(() => onSearch(query.trim()), 300);
+    return () => clearTimeout(timer);
+  }, [query, onSearch]);
+
   // Filter by query
-  const filtered = useMemo(() => {
+  const matches = useMemo(() => {
+    if (onSearch) return options; // the server already narrowed the list
     if (!query.trim()) return options;
     const q = query.toLowerCase();
     return options.filter((o) => {
       const hay = (o.searchText ?? `${o.label} ${o.sublabel ?? ''}`).toLowerCase();
       return hay.includes(q);
     });
-  }, [options, query]);
+  }, [options, query, onSearch]);
+
+  // Only the first rows are rendered: a 5,000-item catalogue turned the open dropdown,
+  // and every keystroke in it, into thousands of buttons and stalled the renderer.
+  const filtered = matches.slice(0, MAX_PICKER_ROWS);
 
   // Reset query and highlighted when dropdown opens
   useEffect(() => {
@@ -195,12 +232,18 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
           </div>
 
           <div className="max-h-60 overflow-y-auto py-1" style={{ scrollbarWidth: 'thin' }}>
-            {filtered.length === 0 ? (
+            {loading && (
+              <div className="px-3 py-1.5 text-center text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">
+                Searching…
+              </div>
+            )}
+            {!loading && filtered.length === 0 ? (
               <div className="px-3 py-4 text-center text-xs text-[var(--text-tertiary)]">
                 No matches
               </div>
             ) : (
-              filtered.map((opt, idx) => {
+              <>
+              {filtered.map((opt, idx) => {
                 const isSelected = opt.value === value;
                 const isHighlighted = idx === highlighted;
                 return (
@@ -225,7 +268,13 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
                     {isSelected && <Check className="w-3.5 h-3.5 text-[var(--icon-cyan-text)] flex-shrink-0" />}
                   </button>
                 );
-              })
+              })}
+              {matches.length > filtered.length && (
+                <div className="px-3 py-1.5 text-center text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">
+                  Showing {filtered.length} of {matches.length} &mdash; keep typing
+                </div>
+              )}
+              </>
             )}
           </div>
         </div>
@@ -241,15 +290,24 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 export default function EstimateForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const editing = Boolean(id);
   const { error: toastError, success } = useToast();
   const { currentEstimate, loadEstimate, createEstimate, updateEstimate } = useEstimatesStore();
 
-  // Patients come from the shared store, which loads every page (100 per request).
-  const patients = usePatientStore((state) => state.patients);
+  // Arriving from a visit carries its patient, so the form can label the line without
+  // a register search — which the roles that own Estimates are not allowed to make.
+  const carriedPatient = (location.state as any)?.patient ?? null;
+
+  // The patient picker is searched on the server (25 rows per keystroke pause) instead of
+  // pulling the whole register into the shared store before the form is usable.
+  const [patientChoices, setPatientChoices] = useState<any[]>([]);
+  const [chosenPatient, setChosenPatient] = useState<any | null>(carriedPatient);
+  const [patientSearching, setPatientSearching] = useState(false);
+  const [patientSearchBlocked, setPatientSearchBlocked] = useState(false);
   const [services, setServices] = useState<any[]>([]);
   const [corporateAccounts, setCorporateAccounts] = useState<any[]>([]);
-  const [patientId, setPatientId] = useState('');
+  const [patientId, setPatientId] = useState<string>(carriedPatient?.id || '');
   const [corporateAccountId, setCorporateAccountId] = useState('');
   const [items, setItems] = useState<FormItem[]>([emptyItem()]);
   const [discount, setDiscount] = useState(0);
@@ -257,34 +315,84 @@ export default function EstimateForm() {
   const [notes, setNotes] = useState('');
   const [termsAndConditions, setTermsAndConditions] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+
+  const searchPatients = useCallback(async (query: string) => {
+    setPatientSearching(true);
+    try {
+      const response = await getPatients(query ? { search: query, limit: 25 } : { limit: 25 });
+      setPatientChoices(asArray(response));
+      setPatientSearchBlocked(false);
+    } catch (err: any) {
+      // A 403 here is the patient register guard, not a network problem — say so
+      // instead of leaving an empty dropdown that looks like "no patients exist".
+      setPatientSearchBlocked(err?.response?.status === 403);
+    } finally {
+      setPatientSearching(false);
+    }
+  }, []);
 
   // ── Load options once per id ─────────────────
   // NOTE: dependency is [id] ONLY. loadEstimate / toastError come from
   // Zustand stores and are not guaranteed to be reference-stable, so
   // including them caused an infinite refresh loop.
   useEffect(() => {
+    let cancelled = false;
     const loadOptions = async () => {
       setIsLoading(true);
+      // Only the saved estimate needs to block the form; without an id there is nothing to wait for.
+      if (id) {
+        try {
+          await loadEstimate(id);
+        } catch (e: any) {
+          toastError('Load failed', e?.response?.data?.message || e.message);
+        }
+      }
+      setIsLoading(false);
+
+      // The backend returns at most 100 rows per request, so these calls walk every page.
+      // They only fill the pickers, so they stream in behind the form instead of holding
+      // the whole screen still while the service catalog is paged through.
+      setOptionsLoading(true);
       try {
-        // The backend returns at most 100 rows per request; these calls walk every page.
         const [serviceResponse, corporateResponse] = await Promise.all([
           getServiceCatalog({ isActive: true, limit: 5000, page: 1 }),
           getCorporateAccounts({ isActive: true, limit: 1000, page: 1 }),
-          usePatientStore.getState().loadPatients(),
+          searchPatients(''),
         ]);
+        if (cancelled) return;
         setServices(asArray(serviceResponse));
         setCorporateAccounts(asArray(corporateResponse));
-        if (id) await loadEstimate(id);
       } catch (e: any) {
-        toastError('Load failed', e?.response?.data?.message || e.message);
+        if (!cancelled) toastError('Load failed', e?.response?.data?.message || e.message);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setOptionsLoading(false);
       }
     };
     loadOptions();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
+
+  // A patient chosen from the search list is already labelled; one restored from a saved
+  // estimate arrives inside that estimate, and only otherwise needs its own request — a
+  // role without register access can still see the client its own quote belongs to.
+  useEffect(() => {
+    if (!patientId) { setChosenPatient(null); return; }
+    if (chosenPatient?.id === patientId) return;
+    if (currentEstimate?.patient?.id === patientId) { setChosenPatient(currentEstimate.patient); return; }
+    const inList = patientChoices.find((p: any) => p.id === patientId);
+    if (inList) { setChosenPatient(inList); return; }
+    let isCurrent = true;
+    getPatient(patientId)
+      .then((response: any) => {
+        const found = response?.patient || response?.data?.patient || response?.data || response;
+        if (isCurrent && found?.id) setChosenPatient(found);
+      })
+      .catch(() => { /* label falls back to blank */ });
+    return () => { isCurrent = false; };
+  }, [patientId, patientChoices, chosenPatient?.id, currentEstimate]);
 
   // ── Hydrate form when editing ────────────────
   useEffect(() => {
@@ -323,16 +431,19 @@ export default function EstimateForm() {
   const total = subtotal + tax - discount;
 
   // ── Option lists ─────────────────────────────
-  const patientOptions: SearchableOption[] = useMemo(
-    () =>
-      patients.map((p) => ({
-        value: p.id,
-        label: `${p.surname || ''} ${p.otherNames || ''}`.trim() || p.folderNumber,
-        sublabel: `${p.folderNumber}${p.contact ? ` · ${p.contact}` : ''}`,
-        searchText: `${p.surname || ''} ${p.otherNames || ''} ${p.folderNumber || ''} ${p.contact || ''}`,
-      })),
-    [patients],
-  );
+  const toPatientOption = (p: any): SearchableOption => ({
+    value: p.id,
+    label: `${p.surname || ''} ${p.otherNames || ''}`.trim() || p.folderNumber || p.id,
+    sublabel: `${p.folderNumber || ''}${p.contact ? ` · ${p.contact}` : ''}`,
+  });
+
+  const patientOptions: SearchableOption[] = useMemo(() => {
+    const list = patientChoices.map(toPatientOption);
+    if (chosenPatient && !list.some((o) => o.value === chosenPatient.id)) {
+      list.unshift(toPatientOption(chosenPatient));
+    }
+    return list;
+  }, [patientChoices, chosenPatient]);
 
   const corporateOptions: SearchableOption[] = useMemo(
     () =>
@@ -345,16 +456,29 @@ export default function EstimateForm() {
     [corporateAccounts],
   );
 
-  const serviceOptions: SearchableOption[] = useMemo(
-    () =>
-      services.map((s) => ({
-        value: s.id,
-        label: s.name,
-        sublabel: `${s.code} · ${s.serviceType || 'service'}`,
-        searchText: `${s.name || ''} ${s.code || ''} ${s.serviceType || ''}`,
-      })),
-    [services],
-  );
+  const serviceOptions: SearchableOption[] = useMemo(() => {
+    const options = services.map((s) => ({
+      value: s.id,
+      label: s.name,
+      sublabel: `${s.code} · ${s.serviceType || 'service'}`,
+      searchText: `${s.name || ''} ${s.code || ''} ${s.serviceType || ''}`,
+    }));
+    const seen = new Set(options.map((o) => o.value));
+    // Label the services already billed on this estimate straight away: the catalog
+    // streams in behind the form, and an unlabelled row reads as a lost line item.
+    (currentEstimate?.items || []).forEach((item: any) => {
+      const svc = item.serviceCatalog;
+      if (!svc?.id || seen.has(svc.id)) return;
+      seen.add(svc.id);
+      options.push({
+        value: svc.id,
+        label: svc.name || item.description || svc.id,
+        sublabel: `${svc.code || ''} · ${svc.serviceType || 'service'}`,
+        searchText: `${svc.name || ''} ${svc.code || ''}`,
+      });
+    });
+    return options;
+  }, [services, currentEstimate]);
 
   // ── Item helpers ─────────────────────────────
   const updateItem = (index: number, patch: Partial<FormItem>) => {
@@ -365,43 +489,61 @@ export default function EstimateForm() {
 
   const selectService = (index: number, serviceId: string) => {
     if (!serviceId) {
-      updateItem(index, { serviceCatalogId: undefined });
+      updateItem(index, { serviceCatalogId: undefined, tiers: undefined });
       return;
     }
     const service = services.find((candidate) => candidate.id === serviceId);
     if (!service) {
-      updateItem(index, { serviceCatalogId: undefined });
+      updateItem(index, { serviceCatalogId: undefined, tiers: undefined });
       return;
     }
     const pricing = Array.isArray(service.pricing) ? service.pricing[0] : service.pricing;
+    const tiers = tiersOf(pricing);
     updateItem(index, {
       serviceCatalogId: service.id,
       description: service.name || '',
       serviceType: service.serviceType || 'miscellaneous',
-      unitPrice: Number(pricing?.cashPrice || service.cashPrice || 0),
-      vatRate: Number(pricing?.vatRate || service.vatRate || 0),
+      unitPrice: tiers[items[index]?.pricingBasis || 'cash'] ?? 0,
+      vatRate: Number(pricing?.vatRate || 0),
+      tiers,
     });
+  };
+
+  // The same service carries a different tariff per payment mode, so switching the
+  // basis on a catalog line re-prices it rather than leaving the cash figure there.
+  const setPricingBasis = (index: number, basis: string) => {
+    const tiers = items[index]?.tiers;
+    if (tiers && tiers[basis] !== undefined) updateItem(index, { pricingBasis: basis, unitPrice: tiers[basis] });
+    else updateItem(index, { pricingBasis: basis });
   };
 
   // ── Save ─────────────────────────────────────
   const save = async (event: FormEvent) => {
     event.preventDefault();
-    if (!patientId) return toastError('Validation failed', 'Select a patient.');
     const validItems = items.filter((item) => item.description.trim() && item.quantity > 0);
     if (!validItems.length) return toastError('Validation failed', 'Add at least one line item.');
 
     setIsSaving(true);
     try {
       const payload = {
-        patientId,
+        // Blank means a walk-in client who is not on the register yet.
+        patientId: patientId || null,
         corporateAccountId: corporateAccountId || undefined,
         discount: Math.max(0, discount),
         validityDays: Math.max(1, validityDays),
         notes: notes || undefined,
         termsAndConditions: termsAndConditions || undefined,
-        items: validItems.map(({ id: itemId, ...item }) => ({
-          ...item,
-          id: editing ? itemId : undefined,
+        items: validItems.map((line) => ({
+          id: editing ? line.id : undefined,
+          serviceCatalogId: line.serviceCatalogId,
+          description: line.description,
+          serviceType: line.serviceType,
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          pricingBasis: line.pricingBasis,
+          vatRate: line.vatRate,
+          isInsuranceCovered: line.isInsuranceCovered,
+          insuranceCoverage: line.insuranceCoverage,
         })),
       };
       const saved = editing
@@ -464,16 +606,24 @@ export default function EstimateForm() {
       <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
-            <UserIcon className="w-3.5 h-3.5 inline mr-1" /> Patient *
+            <UserIcon className="w-3.5 h-3.5 inline mr-1" /> Patient (optional)
           </label>
           <SearchableSelect
             options={patientOptions}
             value={patientId}
             onChange={setPatientId}
+            onSearch={searchPatients}
+            loading={patientSearching}
             placeholder="Search patients by name, folder, or phone…"
-            emptyLabel="Select patient"
+            emptyLabel="Walk-in client"
             icon={<UserIcon className="w-3.5 h-3.5" />}
           />
+          {patientSearchBlocked && (
+            <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+              Your role cannot search the patient register. Leave this blank to quote a walk-in
+              client, or pick the patient from the visit list.
+            </p>
+          )}
         </div>
 
         <div>
@@ -484,6 +634,7 @@ export default function EstimateForm() {
             options={corporateOptions}
             value={corporateAccountId}
             onChange={setCorporateAccountId}
+            loading={optionsLoading}
             placeholder="Search corporate accounts…"
             emptyLabel="No corporate account"
             icon={<Building2 className="w-3.5 h-3.5" />}
@@ -544,6 +695,7 @@ export default function EstimateForm() {
                 options={serviceOptions}
                 value={item.serviceCatalogId || ''}
                 onChange={(v) => selectService(index, v)}
+                loading={optionsLoading}
                 placeholder="Search services…"
                 emptyLabel="Custom description"
               />
@@ -562,7 +714,7 @@ export default function EstimateForm() {
               </label>
               <select
                 value={item.pricingBasis}
-                onChange={(e) => updateItem(index, { pricingBasis: e.target.value })}
+                onChange={(e) => setPricingBasis(index, e.target.value)}
                 className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
               >
                 <option value="cash">Cash</option>

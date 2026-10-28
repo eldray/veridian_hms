@@ -9,15 +9,19 @@ import {
 } from 'lucide-react';
 
 const STATUS_STYLES: Record<EstimateStatus, string> = {
-  DRAFT: 'bg-gray-100 text-gray-700',
-  SENT: 'bg-blue-100 text-blue-700',
-  APPROVED: 'bg-green-100 text-green-700',
-  REJECTED: 'bg-red-100 text-red-700',
-  CONVERTED: 'bg-purple-100 text-purple-700',
-  EXPIRED: 'bg-amber-100 text-amber-700',
+  DRAFT: 'bg-[var(--bg-main)] text-[var(--text-secondary)]',
+  SENT: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
+  APPROVED: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
+  REJECTED: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+  CONVERTED: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
+  EXPIRED: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
 };
 
 const STATUSES: (EstimateStatus | 'all')[] = ['all', 'DRAFT', 'SENT', 'APPROVED', 'REJECTED', 'CONVERTED', 'EXPIRED'];
+
+// A quote can be raised before anyone is registered, so the client column has a
+// walk-in label rather than showing every unregistered estimate as one "Unknown Patient".
+const clientName = (patient: any): string => (patient ? getPatientName(patient) : 'Walk-in client');
 
 export default function Estimates() {
   const navigate = useNavigate();
@@ -48,7 +52,7 @@ export default function Estimates() {
       if (!q) return true;
       return (
         e.referenceNumber?.toLowerCase().includes(q) ||
-        getPatientName(e.patient).toLowerCase().includes(q) ||
+        clientName(e.patient).toLowerCase().includes(q) ||
         e.corporateAccount?.companyName?.toLowerCase().includes(q) ||
         e.patient?.folderNumber?.toLowerCase().includes(q)
       );
@@ -62,33 +66,33 @@ export default function Estimates() {
     (statistics?.byStatus || []).find((b: any) => b.status === s)?.count ?? 0;
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-6 text-[var(--text-primary)]">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-gray-100 rounded-xl transition-all">
-            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          <button onClick={() => navigate('/dashboard')} className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all">
+            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
           </button>
           <button
             onClick={() => navigate('/dashboard/estimates/new')}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm"
           >
             New estimate
           </button>
-          <div className="w-12 h-12 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-indigo-600" />
+          <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
+            <FileText className="w-6 h-6 text-[var(--icon-cyan-text)]" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900">Estimates / Proforma Invoices</h1>
-            <p className="text-sm text-gray-500">Patient and corporate cost estimates</p>
-            <p className="text-xs text-gray-400 mt-0.5">{filtered.length} of {pagination.total || filtered.length} estimate(s)</p>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">Estimates / Proforma Invoices</h1>
+            <p className="text-sm text-[var(--text-secondary)]">Patient and corporate cost estimates</p>
+            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">{filtered.length} of {pagination.total || filtered.length} estimate(s)</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             onClick={load}
             disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-all disabled:opacity-50 text-sm text-gray-700"
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
           >
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
@@ -99,24 +103,24 @@ export default function Estimates() {
       {/* Stats */}
       {statistics && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs text-gray-500">Total Estimates</p>
-            <p className="text-xl font-bold text-gray-900">{statistics.total ?? estimates.length}</p>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4">
+            <p className="text-xs text-[var(--text-secondary)]">Total Estimates</p>
+            <p className="text-xl font-bold text-[var(--text-primary)]">{statistics.total ?? estimates.length}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs text-gray-500">Pending (Sent)</p>
-            <p className="text-xl font-bold text-blue-600">{statusCount('SENT')}</p>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4">
+            <p className="text-xs text-[var(--text-secondary)]">Pending (Sent)</p>
+            <p className="text-xl font-bold text-[var(--icon-cyan-text)]">{statusCount('SENT')}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-xs text-gray-500">Approved</p>
-            <p className="text-xl font-bold text-green-600">{statusCount('APPROVED')}</p>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4">
+            <p className="text-xs text-[var(--text-secondary)]">Approved</p>
+            <p className="text-xl font-bold text-[var(--icon-green-text)]">{statusCount('APPROVED')}</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-500">Total Value</p>
-              <p className="text-xl font-bold text-gray-900">GHS {fmt(statistics.totalAmount)}</p>
+              <p className="text-xs text-[var(--text-secondary)]">Total Value</p>
+              <p className="text-xl font-bold text-[var(--text-primary)]">GHS {fmt(statistics.totalAmount)}</p>
             </div>
-            <DollarSign className="w-5 h-5 text-gray-300" />
+            <DollarSign className="w-5 h-5 text-[var(--text-tertiary)]" />
           </div>
         </div>
       )}
@@ -124,13 +128,13 @@ export default function Estimates() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Search by reference, patient, company, folder no..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-10 pr-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
           />
         </div>
         <select
@@ -139,7 +143,7 @@ export default function Estimates() {
             setStatusFilter(e.target.value as EstimateStatus | 'all');
             setPage(1);
           }}
-          className="px-4 py-2.5 border border-gray-200 rounded-lg text-sm"
+          className="px-4 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
         >
           {STATUSES.map((s) => (
             <option key={s} value={s}>{s === 'all' ? 'All Statuses' : s}</option>
@@ -148,9 +152,9 @@ export default function Estimates() {
       </div>
 
       {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden">
         <table className="w-full">
-          <thead className="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase">
+          <thead className="bg-[var(--bg-main)] text-left text-xs font-medium text-[var(--text-secondary)] uppercase">
             <tr>
               <th className="px-4 py-3">Reference</th>
               <th className="px-4 py-3">Patient / Company</th>
@@ -160,33 +164,33 @@ export default function Estimates() {
               <th className="px-4 py-3 text-right">Action</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100 text-sm">
+          <tbody className="divide-y divide-[var(--border-color)] text-sm">
             {isLoading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">Loading…</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-[var(--text-tertiary)]">Loading…</td></tr>
             )}
             {!isLoading && filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400">No estimates found</td></tr>
+              <tr><td colSpan={6} className="px-4 py-10 text-center text-[var(--text-tertiary)]">No estimates found</td></tr>
             )}
             {filtered.map((e) => (
-              <tr key={e.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => navigate(`/dashboard/estimates/${e.id}`)}>
-                <td className="px-4 py-3 font-mono text-xs text-gray-700">{e.referenceNumber}</td>
+              <tr key={e.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => navigate(`/dashboard/estimates/${e.id}`)}>
+                <td className="px-4 py-3 font-mono text-xs text-[var(--text-primary)]">{e.referenceNumber}</td>
                 <td className="px-4 py-3">
-                  <div className="font-medium text-gray-900">{getPatientName(e.patient)}</div>
+                  <div className="font-medium text-[var(--text-primary)]">{clientName(e.patient)}</div>
                   {e.corporateAccount && (
-                    <div className="text-xs text-cyan-600 flex items-center gap-1">
+                    <div className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1">
                       <Briefcase className="w-3 h-3" /> {e.corporateAccount.companyName}
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-3 font-semibold text-gray-900">GHS {fmt(e.totalAmount)}</td>
+                <td className="px-4 py-3 font-semibold text-[var(--text-primary)]">GHS {fmt(e.totalAmount)}</td>
                 <td className="px-4 py-3">
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[e.status]}`}>{e.status}</span>
                 </td>
-                <td className="px-4 py-3 text-gray-500">{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}</td>
+                <td className="px-4 py-3 text-[var(--text-secondary)]">{e.createdAt ? new Date(e.createdAt).toLocaleDateString() : '—'}</td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={(ev) => { ev.stopPropagation(); navigate(`/dashboard/estimates/${e.id}`); }}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 text-xs bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white"
                   >
                     <Eye className="w-3.5 h-3.5" /> View
                   </button>
@@ -197,11 +201,11 @@ export default function Estimates() {
         </table>
       </div>
       {pagination.totalPages > 1 && (
-        <div className="flex items-center justify-between text-sm text-gray-600">
+        <div className="flex items-center justify-between text-sm text-[var(--text-secondary)]">
           <span>Page {pagination.page} of {pagination.totalPages}</span>
           <div className="flex gap-2">
-            <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Previous</button>
-            <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="px-3 py-1.5 border rounded-lg disabled:opacity-40">Next</button>
+            <button disabled={page <= 1} onClick={() => setPage((current) => current - 1)} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg disabled:opacity-40">Previous</button>
+            <button disabled={page >= pagination.totalPages} onClick={() => setPage((current) => current + 1)} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg disabled:opacity-40">Next</button>
           </div>
         </div>
       )}

@@ -25,6 +25,9 @@ export class ClaimBatchController extends BaseController {
       insuranceProviderId: req.query.insuranceProviderId as string | undefined,
       corporateAccountId: req.query.corporateAccountId as string | undefined,
       status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
       periodYear: req.query.periodYear
         ? parseInt(req.query.periodYear as string, 10)
         : undefined,
@@ -34,10 +37,9 @@ export class ClaimBatchController extends BaseController {
       page,
       limit,
     });
-    return this.paginated(
+    return this.ok(
       res,
-      result.data,
-      { page: result.pagination.page, limit: result.pagination.limit, total: result.pagination.total },
+      { data: result.data, pagination: result.pagination, summary: result.summary },
       'Claim batches retrieved',
     );
   });
@@ -66,22 +68,45 @@ export class ClaimBatchController extends BaseController {
   });
 
   // ==========================================
-  // ELIGIBLE (per period, grouped by type)
+  // PERIOD VIEWS (month-driven)
   // ==========================================
+
+  /** Counts + amounts for one month. Pass the provider or account the batch will use to get
+   *  exactly the number that batch would take. */
   eligible = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const periodYear = parseInt(req.query.periodYear as string, 10);
-    const periodMonth = parseInt(req.query.periodMonth as string, 10);
+    const period = this.parsePeriod(req);
+    if (!period) return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
 
-    if (!Number.isFinite(periodYear) || !Number.isFinite(periodMonth)) {
-      return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
-    }
-    if (periodMonth < 1 || periodMonth > 12) {
-      return this.badRequest(res, 'periodMonth must be 1–12');
-    }
-
-    const summary = await this.service.eligibleForPeriod(periodYear, periodMonth);
+    const summary = await this.service.eligibleForPeriod(period.periodYear, period.periodMonth, {
+      insuranceProviderId: typeof req.query.insuranceProviderId === 'string' ? req.query.insuranceProviderId : null,
+      corporateAccountId: typeof req.query.corporateAccountId === 'string' ? req.query.corporateAccountId : null,
+    });
     return this.ok(res, summary, 'Eligible claims for period');
   });
+
+  /**
+   * GET /insurance-claims/batches/period-claims
+   * The claims of one month — batched or not — with that month's totals.
+   */
+  periodClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const period = this.parsePeriod(req);
+    if (!period) return this.badRequest(res, 'periodYear and periodMonth are required (1–12)');
+
+    const result = await this.service.claimsForPeriod(period.periodYear, period.periodMonth, {
+      insuranceType: typeof req.query.insuranceType === 'string' ? req.query.insuranceType : undefined,
+      batched: typeof req.query.batched === 'string' ? req.query.batched : undefined,
+      page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
+      limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
+    });
+    return this.ok(res, result, 'Claims for period retrieved');
+  });
+
+  private parsePeriod(req: AuthRequest): { periodYear: number; periodMonth: number } | null {
+    const periodYear = parseInt(req.query.periodYear as string, 10);
+    const periodMonth = parseInt(req.query.periodMonth as string, 10);
+    if (!Number.isFinite(periodYear) || !Number.isFinite(periodMonth)) return null;
+    return { periodYear, periodMonth };
+  }
 
   // ==========================================
   // FINALIZE / DELETE

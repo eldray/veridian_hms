@@ -2,7 +2,8 @@
 import { Router } from 'express';
 import { claimBatchController } from './ClaimBatchController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
-import { validate, GenerateBatchSchema } from './InsuranceClaimValidators';
+import { validateBody } from '../../middleware/validate';
+import { GenerateBatchSchema } from './InsuranceClaimValidators';
 
 export const createClaimBatchRoutes = () => {
   const router = Router();
@@ -12,7 +13,7 @@ export const createClaimBatchRoutes = () => {
   router.post(
     '/generate',
     requireRole(['admin', 'accounts']),
-    validate(GenerateBatchSchema),
+    validateBody(GenerateBatchSchema),
     claimBatchController.generateBatch,
   );
 
@@ -21,6 +22,14 @@ export const createClaimBatchRoutes = () => {
   requireRole(['admin', 'accounts', 'doctor', 'records']),
   claimBatchController.eligible,
 );
+
+  // The month's claim rows — must sit above the dynamic :id route or "period-claims"
+  // is read as a batch id.
+  router.get(
+    '/period-claims',
+    requireRole(['admin', 'accounts', 'doctor', 'records']),
+    claimBatchController.periodClaims,
+  );
 
   // Dynamic :id routes — two-segment before one-segment
   router.get(

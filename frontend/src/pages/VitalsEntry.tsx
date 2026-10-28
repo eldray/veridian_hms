@@ -1,5 +1,6 @@
 // src/pages/VitalsEntry.tsx - FIXED with refresh and proper vitals display
 import { useLiveRefresh } from '../api/realtime';
+import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -10,6 +11,7 @@ import { VitalsFormModal } from '../components/vitals/VitalsFormModal';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft,
@@ -136,6 +138,7 @@ export default function VitalsEntry() {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [vitalsList, setVitalsList] = useState<any[]>([]);
+  const [vitalsLoading, setVitalsLoading] = useState(false);
   const [showVitalsModal, setShowVitalsModal] = useState(false);
   const [editingVitals, setEditingVitals] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -191,10 +194,16 @@ export default function VitalsEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([
-        loadPatients(),
-        getAttendances()
-      ]);
+      // The register is what the patient search box filters over, so it stays loaded.
+      const tasks: Promise<any>[] = [loadPatients()];
+      // The route normally names the patient or the visit, and autoSelectFromRoute()
+      // then asks for that patient's visits in one request. Walking every live visit in
+      // the hospital first was a duplicate 50-request job done before the screen opened.
+      const routePatientId = (location.state as any)?.patient?.id;
+      if (routePatientId) tasks.push(getAttendances({ patientId: routePatientId }));
+      else if (selectedPatientId) tasks.push(getAttendances({ patientId: selectedPatientId }));
+      else if (!id && !(location.state as any)?.attendanceId) tasks.push(getAttendances({ live: true, limit: 500 }));
+      await Promise.all(tasks);
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -203,14 +212,19 @@ export default function VitalsEntry() {
     }
   };
 
-  const loadVitals = async (attendanceId: string) => {
+  // `silent` is used by the live-refresh handler: a failing background poll must not
+  // stack toasts on top of each other.
+  const loadVitals = async (attendanceId: string, options?: { silent?: boolean }) => {
+    setVitalsLoading(true);
     try {
       const vitals = await getVitalsByAttendance(attendanceId);
-      console.log('Loaded vitals:', vitals); // Debug log
       setVitalsList(vitals || []);
     } catch (err: any) {
       console.error('Error loading vitals:', err);
       setVitalsList([]);
+      if (!options?.silent) toastError('Vitals Not Loaded', err?.message || 'Could not load the vitals for this visit');
+    } finally {
+      setVitalsLoading(false);
     }
   };
 
@@ -219,7 +233,7 @@ export default function VitalsEntry() {
   useLiveRefresh(['encounters'], async () => {
     if (!selectedAttendanceId || isSubmitting) return;
     await refreshAttendance(selectedAttendanceId);
-    await loadVitals(selectedAttendanceId);
+    await loadVitals(selectedAttendanceId, { silent: true });
   });
 
 
@@ -342,27 +356,25 @@ export default function VitalsEntry() {
     
     setIsSubmitting(true);
     try {
-      let result;
       if (editingVitals?.id) {
-        result = await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
+        await updateVitals(selectedAttendanceId, editingVitals.id, vitalsData);
         success('Vitals Updated', 'Vitals updated successfully!');
       } else {
-        result = await addVitals(selectedAttendanceId, {
+        await addVitals(selectedAttendanceId, {
           ...vitalsData,
           recordedAt: new Date().toISOString(),
           recordedById: user?.id,
         });
         success('Vitals Recorded', 'Vitals recorded successfully!');
       }
-      
-      console.log('Save result:', result);
-      
+
       // IMPORTANT: Force reload vitals after save
       await loadVitals(selectedAttendanceId);
-      
-      // Also refresh the attendance to ensure UI updates
-      await getAttendances();
-      
+
+      // Only this visit's row changes when vitals are saved — refresh that one record instead
+      // of re-walking every live visit in the hospital.
+      await refreshAttendance(selectedAttendanceId);
+
       setShowVitalsModal(false);
       setEditingVitals(null);
     } catch (err: any) {
@@ -380,7 +392,7 @@ export default function VitalsEntry() {
 
   const handleDeleteVitals = async (vitals: any) => {
     if (!selectedAttendanceId || !vitals.id) return;
-    if (!confirm('Are you sure you want to delete these vitals?')) return;
+    if (!(await confirmDialog({ title: 'Delete vitals', message: 'Are you sure you want to delete these vitals?', confirmText: 'Delete' }))) return;
     
     try {
       await deleteVitals(selectedAttendanceId, vitals.id);
@@ -412,7 +424,7 @@ export default function VitalsEntry() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/vitals')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/vitals') : navigate(-1))}
             className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
           >
             <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
@@ -529,6 +541,12 @@ export default function VitalsEntry() {
               </div>
             </div>
           </div>
+
+          <AllergyBanner
+            patientId={selectedPatientId}
+            allergies={selectedPatient?.allergies}
+            allergyReviewStatus={selectedAttendance.allergyReviewStatus}
+          />
 
           {/* Read-only warning */}
           {!canRecord && (
@@ -650,6 +668,11 @@ export default function VitalsEntry() {
                   <div className="bg-[var(--bg-main)] rounded-lg p-4 h-[450px]">
                     <VitalsTrendGraph vitals={vitalsList} isAntenatal={isAntenatal} />
                   </div>
+                ) : vitalsLoading ? (
+                  <div className="h-[450px] bg-[var(--bg-main)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)]">
+                    <div className="w-8 h-8 border-4 border-[var(--icon-red-text)] border-t-transparent rounded-full animate-spin mb-3" />
+                    <p className="text-sm">Loading this visit&rsquo;s vitals&hellip;</p>
+                  </div>
                 ) : (
                   <div className="h-[450px] bg-[var(--bg-main)] rounded-lg flex flex-col items-center justify-center text-[var(--text-secondary)]">
                     <Activity className="w-12 h-12 mb-3 opacity-50" />
@@ -684,14 +707,14 @@ export default function VitalsEntry() {
                 vitals={vitalsList}
                 onEdit={canRecord ? handleEditVitals : undefined}
                 onDelete={canRecord ? handleDeleteVitals : undefined}
-                isLoading={false}
+                isLoading={vitalsLoading}
                 isAntenatal={isAntenatal}
               />
             </div>
           )}
 
           {/* Show message when no vitals */}
-          {vitalsList.length === 0 && (
+          {vitalsList.length === 0 && !vitalsLoading && (
             <div className="bg-[var(--bg-card)] rounded-xl p-8 text-center border border-[var(--border-color)]">
               <Activity className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
               <p className="text-[var(--text-secondary)]">No vitals recorded for this visit</p>

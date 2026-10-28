@@ -209,6 +209,8 @@ export class GHSReportService extends BaseService {
     const seenPeriod = new Set<string>();
     const reAttMap = new Map<string, boolean>();
     for (const att of sorted) {
+      // Re-attendance is a statement about a patient's history; a counter ticket has none.
+      if (!att.patientId) continue;
       const hasPreviousVisit = hadPrior.has(att.patientId) || seenPeriod.has(att.patientId);
       const isReAttendance = att.patientClassification === 'NEW'
         ? false
@@ -231,7 +233,7 @@ export class GHSReportService extends BaseService {
     const inc = (section: Record<string, AgeSexBreakdown>, key: string, ag: GHSAgeGroup, gender: Gender) => { if (!section[key]?.[ag]) return; if (gender === 'male') section[key][ag].male++; else if (gender === 'female') section[key][ag].female++; };
     
     for (const att of sorted) {
-      if (!att.Patient) continue;
+      if (!att.Patient || !att.patientId) continue;
       const ag = getMorbidityAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender = att.Patient.gender;
       report.totals.totalAttendances++;
@@ -317,6 +319,8 @@ export class GHSReportService extends BaseService {
     const ACT_KEYWORDS = ['artemether', 'lumefantrine', 'artesunate', 'amodiaquine', 'coartem', 'asaq'];
     
     for (const att of malariaAttendances) {
+      // Malaria returns are counted per patient and per age band; a counter ticket has neither.
+      if (!att.Patient || !att.patientId) continue;
       const ageYrs = (att.dateTime.getTime() - att.Patient.dateOfBirth.getTime()) / (365.25 * 86_400_000);
       const under5 = ageYrs < 5;
       if (under5) u5_susp++; else a5_susp++;
@@ -354,7 +358,7 @@ export class GHSReportService extends BaseService {
     const seenPeriod = new Set<string>();
     
     for (const att of sorted) {
-      if (!att.Patient) continue;
+      if (!att.Patient || !att.patientId) continue;
       const ag = getOPDAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender = att.Patient.gender as 'male' | 'female';
       // Ghana OPD reporting asks for NHIS membership status, not the visit's payment mode.
@@ -386,7 +390,7 @@ export class GHSReportService extends BaseService {
     const counts = new Map<string, any>();
     
     for (const att of attendances) {
-      if (!att.Patient) continue;
+      if (!att.Patient || !att.patientId) continue;
       const ag = getMorbidityAgeGroup(att.Patient.dateOfBirth, att.dateTime);
       const gender = att.Patient.gender;
       for (const diag of att.AttendanceDiagnosis) {

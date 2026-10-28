@@ -1,5 +1,6 @@
 // src/pages/Appointments.tsx - FIXED with NewAttendanceModal
 import { useEffect, useState, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useAppointmentStore } from '../store/appointmentStore';
 import { useAuthStore } from '../store/authStore';
 import { usePatientStore } from '../store/patientStore';
@@ -49,7 +50,8 @@ export default function Appointments() {
     checkInAppointment,
     getAvailableClinicians,
     availableClinicians,
-    isLoading 
+    isLoading,
+    error: storeError
   } = useAppointmentStore();
   const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
   const { user, hasRole } = useAuthStore();
@@ -183,7 +185,9 @@ export default function Appointments() {
       
       await Promise.all([
         getAppointments({ ...filters, limit: 5000 }), // all pages of the selected window
-        loadPatients(),
+        // Lab techs and sonographers book patients but have no read access to the
+        // patient directory, so the list is a name lookup only — never fatal here.
+        loadPatients().catch(() => undefined),
         getAvailableClinicians(['doctor', 'nurse', 'midwife'])
       ]);
     } catch (err) {
@@ -197,6 +201,12 @@ export default function Appointments() {
     loadData();
   }, [statusFilter, typeFilter, dateFilter, customStartDate, customEndDate]);
 
+  // The store records the failure in state instead of throwing, so without this the page
+  // would silently swap in an empty list and the operator would think there were no bookings.
+  useEffect(() => {
+    if (storeError) error('Appointments Not Loaded', storeError);
+  }, [storeError]);
+
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
@@ -209,11 +219,18 @@ export default function Appointments() {
   };
 
   // Get patient by ID
+  // Indexed register: the filter below runs this for every appointment, so a linear scan
+  // of the patient list turned each keystroke in the search box into seconds of dead UI.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const findPatient = (appointment: any) => {
     if (!appointment) return null;
     const patientId = appointment.patientId || appointment.patient?.id;
     if (!patientId) return null;
-    return patients.find(p => p.id === patientId);
+    return patientById.get(patientId);
   };
 
   // Filter appointments
@@ -236,7 +253,7 @@ export default function Appointments() {
       
       return matchesSearch;
     });
-  }, [appointments, patients, searchTerm]);
+  }, [appointments, patientById, searchTerm]);
 
   // Pagination
   const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
@@ -319,7 +336,7 @@ export default function Appointments() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Are you sure you want to delete this appointment?')) {
+    if (await confirmDialog({ title: 'Delete appointment', message: 'Are you sure you want to delete this appointment?', confirmText: 'Delete' })) {
       try {
         await deleteAppointment(id);
         success('Appointment Deleted', 'Appointment deleted successfully');
@@ -608,7 +625,8 @@ export default function Appointments() {
       </div>
 
       {/* Appointments Table */}
-      {isLoading ? (
+      {/* A refresh keeps the current rows on screen; skeletons only stand in for the first paint. */}
+      {isLoading && filteredAppointments.length === 0 ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">
@@ -704,7 +722,7 @@ export default function Appointments() {
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
-                          {canEditAppointment(apt) && (
+                          {hasRole(['admin']) && (
                             <button onClick={() => handleDelete(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors" title="Delete">
                               <Trash2 className="w-4 h-4" />
                             </button>

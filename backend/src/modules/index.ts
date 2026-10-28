@@ -22,6 +22,9 @@ import { createAntenatalRoutes } from './antenatal/AntenatalRoutes';
 import { createFamilyPlanningRoutes } from './familyPlanning/FamilyPlanningRoutes';
 import { createReferralRoutes } from './referral/ReferralRoutes';
 
+// Counter (walk-in point of sale)
+import { createCounterRoutes } from './counter/CounterRoutes';
+
 // Ward & Bed Management
 import { createWardRoutes } from './ward/WardRoutes';
 import { createBedRoutes } from './bed/BedRoutes';
@@ -105,6 +108,11 @@ export function registerModules(app: Express, prisma: PrismaClient): void {
   // ============================================
   app.use('/patients', createPatientRoutes(prisma));
   console.log('✅ Patient routes mounted at /patients');
+
+  // Counter (walk-in point of sale): sells drugs, orders labs/scans and bills people who
+  // are held as CounterClients, never as patients in the clinical register.
+  app.use('/counter', createCounterRoutes(prisma));
+  console.log('✅ Counter routes mounted at /counter');
 
   // ============================================
   // 3. CLINICAL OPERATIONS

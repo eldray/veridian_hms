@@ -53,6 +53,8 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { billDate: 'desc' },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true } },
+        // Counter tickets bill a walk-in who is not in the register, so the queue needs a name.
+        CounterClient: { select: { id: true, name: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true } },
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true } },
@@ -76,6 +78,7 @@ export class BillingRepository extends BaseRepository<any, any, any> {
       where: { id },
       include: {
         Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, paymentMode: true } },
+        CounterClient: { select: { id: true, name: true, ageYears: true, phone: true } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, encounterCategory: true, dateTime: true } },
         admission: { select: { id: true, admissionNumber: true, admissionDate: true, dischargeDate: true } },
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
@@ -253,6 +256,70 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     }
   }
 
+  /**
+   * Every charged line in a date window, for the revenue-lines report. The bill travels with
+   * each line because it is the bill that carries the payer and the customer — the alternative
+   * was a lookup per row.
+   */
+  async findRevenueLines(filters: {
+    dateFrom: Date;
+    dateTo: Date;
+    paymentMode?: string;
+    billStatus?: string;
+    serviceType?: string;
+    search?: string;
+    limit: number;
+  }) {
+    const billWhere: any = { billDate: { gte: filters.dateFrom, lte: filters.dateTo } };
+    if (filters.paymentMode) billWhere.paymentMode = filters.paymentMode;
+    if (filters.billStatus) billWhere.status = filters.billStatus;
+
+    const where: any = { isVoided: false, bill: billWhere };
+    if (filters.serviceType) where.serviceType = filters.serviceType;
+    if (filters.search) {
+      const contains = { contains: filters.search, mode: 'insensitive' as const };
+      where.OR = [
+        { description: contains },
+        { bill: { ...billWhere, billNumber: contains } },
+        { bill: { ...billWhere, Patient: { surname: contains } } },
+        { bill: { ...billWhere, CounterClient: { name: contains } } },
+      ];
+    }
+
+    return this.prisma.billLineItem.findMany({
+      where,
+      select: {
+        id: true,
+        description: true,
+        serviceType: true,
+        quantity: true,
+        unitPrice: true,
+        discount: true,
+        vatAmount: true,
+        lineTotal: true,
+        insuranceCoveredAmount: true,
+        patientPayableAmount: true,
+        pricingBasis: true,
+        createdAt: true,
+        serviceCatalog: { select: { serviceCategory: true } },
+        bill: {
+          select: {
+            id: true,
+            billNumber: true,
+            billDate: true,
+            status: true,
+            paymentMode: true,
+            Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+            // Same reason as findCollections: a counter ticket's customer is not in the register.
+            CounterClient: { select: { name: true } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: filters.limit,
+    });
+  }
+
   async findCollections(dateFrom: Date, dateTo: Date) {
     return this.prisma.payment.findMany({
       where: {
@@ -268,6 +335,9 @@ export class BillingRepository extends BaseRepository<any, any, any> {
             id: true,
             billNumber: true,
             Patient: { select: { surname: true, otherNames: true, folderNumber: true } },
+            // A counter ticket bills a walk-in customer who is not in the patient register,
+            // so the collections report has to know who paid as well as how much.
+            CounterClient: { select: { name: true } },
             BillLineItem: {
               where: { isVoided: false },
               orderBy: { createdAt: 'asc' },

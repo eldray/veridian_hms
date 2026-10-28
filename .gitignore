@@ -35,9 +35,12 @@ backend/seed-full.log
 # Patient/claims exports and local backups (do not commit real health data)
 all.xml
 backend/backups/
+backend/uploads/
+backups/
 *.backup
 *.bak
 *.dump
+*.sha256
 
 # OS generated files
 .DS_Store

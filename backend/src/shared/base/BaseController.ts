@@ -6,6 +6,7 @@ import {
   createErrorResponse,
 } from '../types/ApiResponse';
 import { normalizeResponse } from '../../utils/normalizeResponse';
+import { parsePage, parsePageSize } from '../pagination';
 
 export abstract class BaseController {
   protected ok(res: Response, data: any, message?: string, meta?: Record<string, any>): Response {
@@ -83,9 +84,10 @@ export abstract class BaseController {
   }
 
   protected getPaginationParams(req: Request, maxLimit: number = 100): { page: number; limit: number } {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(maxLimit, Math.max(1, parseInt(req.query.limit as string) || 10));
-    return { page, limit };
+    return {
+      page: parsePage(req.query.page),
+      limit: parsePageSize(req.query.limit, 10, maxLimit),
+    };
   }
 
   protected getCurrentUser(req: Request): { userId: string; role: string } | null {

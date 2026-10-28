@@ -52,27 +52,7 @@ import {
   calculateServiceCost as apiCalculateServiceCost
 } from '../api';
 import type { Diagnosis, LabTestTemplate, ProcedureTemplate, ServiceCatalog, ScanTemplate, Pagination } from '../types';
-import api from '../api/api';
-
-const SAFE_PAGE_LIMIT = 100;
-
-const getSafePageLimit = (requestedLimit?: number | string | null) => {
-  const parsed = Number(requestedLimit ?? SAFE_PAGE_LIMIT);
-  if (!Number.isFinite(parsed) || parsed <= 0) return SAFE_PAGE_LIMIT;
-  return Math.min(parsed, SAFE_PAGE_LIMIT);
-};
-
-const getPaginationSummary = (response: any, fallbackLimit = SAFE_PAGE_LIMIT) => {
-  const pagination = response?.pagination || response?.data?.pagination || response?.meta || response?.data?.meta || null;
-  const limit = getSafePageLimit(pagination?.limit ?? fallbackLimit);
-  const total = Number(pagination?.total ?? response?.total ?? response?.data?.total ?? 0);
-  const page = Number(pagination?.page ?? pagination?.currentPage ?? response?.page ?? 1);
-  const totalPages = Number(
-    pagination?.totalPages ?? pagination?.pages ?? (total > 0 ? Math.ceil(total / limit) : 1)
-  );
-
-  return { page, total, totalPages, limit };
-};
+import { invalidateCollection, streamCollection } from './streamCollection';
 
 interface MedicalServicesState {
   // Data collections
@@ -228,71 +208,27 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
   // === DIAGNOSIS ACTIONS ===
 
   getDiagnoses: async (filters = {}) => {
-    set({ isLoadingDiagnoses: true });
+    // Only block the screen when there is nothing to show; the remaining pages stream in.
+    set({ isLoadingDiagnoses: get().diagnoses.length === 0, errors: { ...get().errors, diagnoses: null } });
     try {
-      const limit = getSafePageLimit(filters?.limit);
-      let allDiagnoses: Diagnosis[] = [];
-      let currentPage = 1;
-      let totalPages = 1;
-      let totalCount = 0;
-
-      const firstResponse = await apiGetDiagnoses({ ...filters, page: 1, limit });
-      const firstMeta = getPaginationSummary(firstResponse, limit);
-
-      console.log('Diagnoses first response:', firstResponse);
-
-      if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allDiagnoses = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allDiagnoses = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (Array.isArray(firstResponse)) {
-        allDiagnoses = [...firstResponse];
-        totalCount = allDiagnoses.length;
-        totalPages = 1;
-      } else if (firstResponse?.diagnoses && Array.isArray(firstResponse.diagnoses)) {
-        allDiagnoses = [...firstResponse.diagnoses];
-        totalCount = firstResponse.total || allDiagnoses.length;
-        totalPages = firstResponse.totalPages || 1;
-      }
-
-      if (currentPage < totalPages) {
-        const remainingPromises = [];
-        for (let page = currentPage + 1; page <= totalPages; page++) {
-          remainingPromises.push(apiGetDiagnoses({ ...filters, page, limit }));
-        }
-
-        const remainingResponses = await Promise.all(remainingPromises);
-
-        for (const response of remainingResponses) {
-          if (response?.success && response?.data && Array.isArray(response.data)) {
-            allDiagnoses = [...allDiagnoses, ...response.data];
-          } else if (response?.data && Array.isArray(response.data)) {
-            allDiagnoses = [...allDiagnoses, ...response.data];
-          } else if (Array.isArray(response)) {
-            allDiagnoses = [...allDiagnoses, ...response];
-          } else if (response?.diagnoses && Array.isArray(response.diagnoses)) {
-            allDiagnoses = [...allDiagnoses, ...response.diagnoses];
-          }
-        }
-      }
-
-      console.log(`📊 Diagnoses loaded: ${allDiagnoses.length} records (Total in DB: ${totalCount})`);
-
-      set({
-        diagnoses: allDiagnoses,
-        diagnosesTotalCount: totalCount,
-        isLoadingDiagnoses: false
+      await streamCollection<Diagnosis>({
+        key: 'diagnoses',
+        fetchPage: apiGetDiagnoses,
+        filters,
+        // Reference catalogues answer up to 1000 rows per request; 500 keeps the
+        // whole list down to one or two calls instead of one per hundred entries.
+        pageSize: 500,
+        onProgress: (diagnoses, total) => set({
+          diagnoses,
+          diagnosesTotalCount: total,
+          isLoadingDiagnoses: false,
+        }),
       });
+      set({ isLoadingDiagnoses: false });
     } catch (error: unknown) {
       console.error('Failed to fetch diagnoses:', error);
       set({
-        errors: { ...get().errors, diagnoses: error.message },
+        errors: { ...get().errors, diagnoses: (error as Error).message },
         isLoadingDiagnoses: false
       });
       throw error;
@@ -315,6 +251,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       const newDiagnosis = await apiCreateDiagnosis(data);
+      invalidateCollection('diagnoses');
       set({
         diagnoses: [newDiagnosis, ...get().diagnoses],
         diagnosesTotalCount: get().diagnosesTotalCount + 1,
@@ -332,6 +269,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       const updatedDiagnosis = await apiUpdateDiagnosis(id, data);
+      invalidateCollection('diagnoses');
       set({
         diagnoses: get().diagnoses.map(d => d.id === id ? updatedDiagnosis : d),
         currentDiagnosis: updatedDiagnosis,
@@ -348,6 +286,7 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
     set({ isLoading: true });
     try {
       await apiDeleteDiagnosis(id);
+      invalidateCollection('diagnoses');
       const diagnoses = get().diagnoses.filter(d => d.id !== id);
       set({
         diagnoses,
@@ -387,60 +326,28 @@ export const useMedicalServicesStore = create<MedicalServicesState>((set, get) =
 
   // === LAB TEST TEMPLATES ===
 
-  // In medicalServicesStore.ts - FIXED getLabTestTemplates
-
 getLabTestTemplates: async (filters = {}) => {
-  set({ isLoadingLabTests: true, errors: { ...get().errors, labTests: null } });
+  set({
+    isLoadingLabTests: get().labTestTemplates.length === 0,
+    errors: { ...get().errors, labTests: null },
+  });
   try {
-    const limit = getSafePageLimit(filters?.limit);
-    let allLabTests: LabTestTemplate[] = [];
-    let currentPage = 1;
-    let totalPages = 1;
-    let totalCount = 0;
-
-    const firstResponse = await apiGetLabTestTemplates({ ...filters, page: 1, limit });
-    const firstMeta = getPaginationSummary(firstResponse, limit);
-
-    console.log('Lab tests first response:', firstResponse);
-
-    if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-      allLabTests = [...firstResponse.data];
-      totalCount = firstMeta.total || allLabTests.length;
-      totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-      currentPage = firstMeta.page;
-    } else if (Array.isArray(firstResponse)) {
-      allLabTests = [...firstResponse as any[]];
-      totalCount = allLabTests.length;
-      totalPages = 1;
-    }
-
-    if (currentPage < totalPages) {
-      const remainingPromises = [];
-      for (let page = currentPage + 1; page <= totalPages; page++) {
-        remainingPromises.push(apiGetLabTestTemplates({ ...filters, page, limit }));
-      }
-      const remainingResponses = await Promise.all(remainingPromises);
-      for (const response of remainingResponses as any[]) {
-        if (response?.data && Array.isArray(response.data)) {
-          allLabTests = [...allLabTests, ...response.data];
-        } else if (Array.isArray(response)) {
-          allLabTests = [...allLabTests, ...response];
-        }
-      }
-    }
-
-    console.log(`📊 Lab tests loaded: ${allLabTests.length} records (Total: ${totalCount})`);
-
-    set({
-      labTestTemplates: allLabTests,
-      labTestsTotalCount: totalCount,
-      isLoadingLabTests: false
+    await streamCollection<LabTestTemplate>({
+      key: 'labTestTemplates',
+      fetchPage: apiGetLabTestTemplates,
+      filters,
+      pageSize: 500,
+      onProgress: (labTestTemplates, total) => set({
+        labTestTemplates,
+        labTestsTotalCount: total,
+        isLoadingLabTests: false,
+      }),
     });
+    set({ isLoadingLabTests: false });
   } catch (error: unknown) {
     console.error('Failed to fetch lab test templates:', error);
-
     set({
-      errors: { ...get().errors, labTests: error.message },
+      errors: { ...get().errors, labTests: (error as Error).message },
       isLoadingLabTests: false
     });
     throw error;
@@ -463,6 +370,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const newTemplate = await apiCreateLabTestTemplate(data);
+      invalidateCollection('labTestTemplates');
       set({
         labTestTemplates: [newTemplate, ...get().labTestTemplates],
         labTestsTotalCount: get().labTestsTotalCount + 1,
@@ -480,6 +388,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const updatedTemplate = await apiUpdateLabTestTemplate(id, data);
+      invalidateCollection('labTestTemplates');
       set({
         labTestTemplates: get().labTestTemplates.map(t => t.id === id ? updatedTemplate : t),
         currentLabTestTemplate: updatedTemplate,
@@ -496,6 +405,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiDeleteLabTestTemplate(id);
+      invalidateCollection('labTestTemplates');
       set({
         labTestTemplates: get().labTestTemplates.filter(t => t.id !== id),
         labTestsTotalCount: Math.max(0, get().labTestsTotalCount - 1),
@@ -540,6 +450,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiBulkUpdateLabTestTemplates(data);
+      invalidateCollection('labTestTemplates');
       await get().getLabTestTemplates();
       set({ isLoading: false });
     } catch (error: unknown) {
@@ -550,68 +461,31 @@ getLabTestTemplates: async (filters = {}) => {
 
   // === PROCEDURE TEMPLATES ===
   getProcedureTemplates: async (filters = {}) => {
-    set({ isLoadingProcedures: true, errors: { ...get().errors, procedures: null } });
+    set({
+      isLoadingProcedures: get().procedureTemplates.length === 0,
+      errors: { ...get().errors, procedures: null },
+    });
     try {
-      const limit = getSafePageLimit(filters?.limit);
-      let allProcedures: ProcedureTemplate[] = [];
-      let currentPage = 1;
-      let totalPages = 1;
-      let totalCount = 0;
-
-      const firstResponse = await apiGetProcedureTemplates({ ...filters, page: 1, limit });
-      const firstMeta = getPaginationSummary(firstResponse, limit);
-
-      if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allProcedures = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allProcedures = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (Array.isArray(firstResponse)) {
-        allProcedures = [...firstResponse];
-        totalCount = allProcedures.length;
-        totalPages = 1;
-      }
-
-      if (currentPage < totalPages) {
-        const remainingPages = [];
-        for (let page = currentPage + 1; page <= totalPages; page++) {
-          remainingPages.push(apiGetProcedureTemplates({ ...filters, page, limit }));
-        }
-
-        const remainingResponses = await Promise.all(remainingPages);
-
-        for (const response of remainingResponses) {
-          if (response?.success && response?.data && Array.isArray(response.data)) {
-            allProcedures = [...allProcedures, ...response.data];
-          } else if (response?.data && Array.isArray(response.data)) {
-            allProcedures = [...allProcedures, ...response.data];
-          } else if (Array.isArray(response)) {
-            allProcedures = [...allProcedures, ...response];
-          }
-        }
-      }
-
-      allProcedures = allProcedures.map(item => ({
-        ...item,
-        procedureCode: item.procedureCode || item.procedure_code || item.code || 'N/A'
-      }));
-
-      console.log(`📊 Procedures loaded: ${allProcedures.length} records (Total: ${totalCount})`);
-
-      set({
-        procedureTemplates: allProcedures,
-        proceduresTotalCount: totalCount,
-        isLoadingProcedures: false
+      await streamCollection<ProcedureTemplate>({
+        key: 'procedureTemplates',
+        fetchPage: apiGetProcedureTemplates,
+        filters,
+        pageSize: 500,
+        transform: (rows) => rows.map((item: any) => ({
+          ...item,
+          procedureCode: item.procedureCode || item.procedure_code || item.code || 'N/A',
+        })),
+        onProgress: (procedureTemplates, total) => set({
+          procedureTemplates,
+          proceduresTotalCount: total,
+          isLoadingProcedures: false,
+        }),
       });
+      set({ isLoadingProcedures: false });
     } catch (error: unknown) {
       console.error('Failed to fetch procedure templates:', error);
       set({
-        errors: { ...get().errors, procedures: error.message },
+        errors: { ...get().errors, procedures: (error as Error).message },
         isLoadingProcedures: false
       });
       throw error;
@@ -634,6 +508,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const newTemplate = await apiCreateProcedureTemplate(data);
+      invalidateCollection('procedureTemplates');
       set({
         procedureTemplates: [newTemplate, ...get().procedureTemplates],
         proceduresTotalCount: get().proceduresTotalCount + 1,
@@ -651,6 +526,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const updatedTemplate = await apiUpdateProcedureTemplate(id, data);
+      invalidateCollection('procedureTemplates');
       set({
         procedureTemplates: get().procedureTemplates.map(t => t.id === id ? updatedTemplate : t),
         currentProcedureTemplate: updatedTemplate,
@@ -667,6 +543,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiDeleteProcedureTemplate(id);
+      invalidateCollection('procedureTemplates');
       set({
         procedureTemplates: get().procedureTemplates.filter(t => t.id !== id),
         proceduresTotalCount: Math.max(0, get().proceduresTotalCount - 1),
@@ -702,6 +579,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiBulkUpdateProcedureTemplates(data);
+      invalidateCollection('procedureTemplates');
       await get().getProcedureTemplates();
       set({ isLoading: false });
     } catch (error: unknown) {
@@ -712,68 +590,32 @@ getLabTestTemplates: async (filters = {}) => {
 
   // === SCAN TEMPLATES ===
   getScanTemplates: async (filters = {}) => {
-    set({ isLoadingScans: true, errors: { ...get().errors, scans: null } });
+    set({
+      isLoadingScans: get().scanTemplates.length === 0,
+      errors: { ...get().errors, scans: null },
+    });
     try {
-      const limit = getSafePageLimit(filters?.limit);
-      let allScans: ScanTemplate[] = [];
-      let currentPage = 1;
-      let totalPages = 1;
-      let totalCount = 0;
-
-      const firstResponse = await apiGetScanTemplates({ ...filters, page: 1, limit });
-      const firstMeta = getPaginationSummary(firstResponse, limit);
-
-      if (firstResponse?.success && firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allScans = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-        allScans = [...firstResponse.data];
-        totalCount = firstMeta.total || firstResponse.data.length;
-        totalPages = firstMeta.totalPages || Math.ceil(totalCount / limit);
-        currentPage = firstMeta.page;
-      } else if (Array.isArray(firstResponse)) {
-        allScans = [...firstResponse];
-        totalCount = allScans.length;
-        totalPages = 1;
-      }
-
-      if (currentPage < totalPages) {
-        const remainingPages = [];
-        for (let page = currentPage + 1; page <= totalPages; page++) {
-          remainingPages.push(apiGetScanTemplates({ ...filters, page, limit }));
-        }
-
-        const remainingResponses = await Promise.all(remainingPages);
-
-        for (const response of remainingResponses) {
-          if (response?.success && response?.data && Array.isArray(response.data)) {
-            allScans = [...allScans, ...response.data];
-          } else if (response?.data && Array.isArray(response.data)) {
-            allScans = [...allScans, ...response.data];
-          } else if (Array.isArray(response)) {
-            allScans = [...allScans, ...response];
-          }
-        }
-      }
-
-      allScans = allScans.map(item => ({
-        ...item,
-        scanCode: item.scanCode || item.scan_code || item.code || 'N/A'
-      }));
-
-      console.log(`📊 Scans loaded: ${allScans.length} records (Total: ${totalCount})`);
-
-      set({
-        scanTemplates: allScans,
-        scansTotalCount: totalCount,
-        isLoadingScans: false
+      await streamCollection<ScanTemplate>({
+        key: 'scanTemplates',
+        fetchPage: apiGetScanTemplates,
+        filters,
+        // /scan-templates clamps a page at 500 rows.
+        pageSize: 500,
+        transform: (rows) => rows.map((item: any) => ({
+          ...item,
+          scanCode: item.scanCode || item.scan_code || item.code || 'N/A',
+        })),
+        onProgress: (scanTemplates, total) => set({
+          scanTemplates,
+          scansTotalCount: total,
+          isLoadingScans: false,
+        }),
       });
+      set({ isLoadingScans: false });
     } catch (error: unknown) {
       console.error('Failed to fetch scan templates:', error);
       set({
-        errors: { ...get().errors, scans: error.message },
+        errors: { ...get().errors, scans: (error as Error).message },
         isLoadingScans: false
       });
       throw error;
@@ -795,6 +637,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const newTemplate = await apiCreateScanTemplate(data);
+      invalidateCollection('scanTemplates');
       set({
         scanTemplates: [newTemplate, ...get().scanTemplates],
         scansTotalCount: get().scansTotalCount + 1,
@@ -811,6 +654,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       const updatedTemplate = await apiUpdateScanTemplate(id, data);
+      invalidateCollection('scanTemplates');
       set({
         scanTemplates: get().scanTemplates.map(t => t.id === id ? updatedTemplate : t),
         currentScanTemplate: updatedTemplate,
@@ -826,6 +670,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiDeleteScanTemplate(id);
+      invalidateCollection('scanTemplates');
       set({
         scanTemplates: get().scanTemplates.filter(t => t.id !== id),
         scansTotalCount: Math.max(0, get().scansTotalCount - 1),
@@ -874,6 +719,7 @@ getLabTestTemplates: async (filters = {}) => {
     set({ isLoading: true });
     try {
       await apiBulkUpdateScanTemplates(data);
+      invalidateCollection('scanTemplates');
       await get().getScanTemplates();
       set({ isLoading: false });
     } catch (error: unknown) {
@@ -883,47 +729,28 @@ getLabTestTemplates: async (filters = {}) => {
   },
 
   // === SERVICE CATALOG ===
-// In medicalServicesStore.ts - CORRECTED getServiceCatalog
 
 getServiceCatalog: async (filters = {}) => {
-  set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
+  set({ isLoading: get().serviceCatalog.length === 0, errors: { ...get().errors, serviceCatalog: null } });
   try {
-    // Callers may ask for more than one page (e.g. limit: 10000 = "everything").
-    // api.getServiceCatalog walks the pages itself when limit > 100.
-    const requested = Number(filters?.limit);
-    const limit = Number.isFinite(requested) && requested > 0 ? Math.min(requested, 10000) : SAFE_PAGE_LIMIT;
-    const response = await apiGetServiceCatalog({ ...filters, limit, page: filters?.page || 1 });
-
-    console.log('📦 Service Catalog API Response:', response);
-
-    let services: ServiceCatalog[] = [];
-    let pagination = null;
-
-    if (response && typeof response === 'object') {
-      if (response.data && Array.isArray(response.data)) {
-        services = response.data;
-        pagination = response.pagination;
-      } else if (Array.isArray(response)) {
-        services = response;
-      } else if (response.services && Array.isArray(response.services)) {
-        services = response.services;
-        pagination = response.pagination;
-      }
-    }
-
-    console.log(`✅ Loaded ${services.length} services`);
-
-    set({
-      serviceCatalog: services,
-      pagination: pagination,
-      isLoading: false
+    // One shared walk (bounded by the caller's limit) instead of every screen
+    // starting its own page-by-page crawl of the whole catalog.
+    const services = await streamCollection<ServiceCatalog>({
+      key: 'serviceCatalog',
+      fetchPage: apiGetServiceCatalog,
+      filters,
+      onProgress: (serviceCatalog, total) => set({
+        serviceCatalog,
+        pagination: { page: 1, limit: serviceCatalog.length, total, pages: 1, hasNext: false, hasPrev: false },
+        isLoading: false,
+      }),
     });
-
-    return { services, pagination };
+    set({ isLoading: false });
+    return { services, pagination: get().pagination };
   } catch (error: unknown) {
     console.error('❌ Failed to fetch service catalog:', error);
     set({
-      errors: { ...get().errors, serviceCatalog: error.message },
+      errors: { ...get().errors, serviceCatalog: (error as Error).message },
       isLoading: false
     });
     throw error;
@@ -931,64 +758,6 @@ getServiceCatalog: async (filters = {}) => {
 },
 
 
-getServiceCatalogs: async (filters = {}) => {
-  set({ isLoading: true, errors: { ...get().errors, serviceCatalog: null } });
-  try {
-    const apiFilters = {
-      ...filters,
-      limit: getSafePageLimit(filters.limit),
-      page: filters.page || 1
-    };
-
-    console.log('📡 Fetching service catalog with filters:', apiFilters);
-
-    const response = await apiGetServiceCatalog(apiFilters);
-
-    console.log('📦 Service Catalog API Response:', response);
-
-    let services: ServiceCatalog[] = [];
-    let pagination = null;
-
-    if (response?.success && response?.data) {
-      if (response.data.data && Array.isArray(response.data.data)) {
-        services = response.data.data;
-        pagination = response.data.pagination;
-      } else if (Array.isArray(response.data)) {
-        services = response.data;
-      } else if (response.data.services && Array.isArray(response.data.services)) {
-        services = response.data.services;
-        pagination = response.data.pagination;
-      }
-    } else if (Array.isArray(response)) {
-      services = response;
-    } else if (response?.data && Array.isArray(response.data)) {
-      services = response.data;
-      pagination = response.pagination;
-    } else if (response?.services && Array.isArray(response.services)) {
-      services = response.services;
-      pagination = response.pagination;
-    }
-
-    console.log(`✅ Loaded ${services.length} services (Total in DB: ${pagination?.total || services.length})`);
-
-    set({
-      serviceCatalog: services,
-      pagination: pagination,
-      isLoading: false
-    });
-    
-    return { services, pagination };
-  } catch (error: unknown) {
-    console.error('❌ Failed to fetch service catalog:', error);
-    set({
-      errors: { ...get().errors, serviceCatalog: error.message },
-      isLoading: false
-    });
-    throw error;
-  }
-},
- 
-  
   createServiceCatalogItem: async (data: any) => {
     set({ isLoading: true });
     try {
@@ -997,6 +766,8 @@ getServiceCatalogs: async (filters = {}) => {
       }
       
       const newItem = await apiCreateServiceCatalogItem(data);
+      invalidateCollection('serviceCatalog');
+      invalidateCollection('serviceCatalogByType');
       
       set({
         serviceCatalog: [newItem, ...get().serviceCatalog],
@@ -1020,6 +791,8 @@ getServiceCatalogs: async (filters = {}) => {
       }
       
       const updatedItem = await apiUpdateServiceCatalogItem(id, data);
+      invalidateCollection('serviceCatalog');
+      invalidateCollection('serviceCatalogByType');
       
       set({
         serviceCatalog: get().serviceCatalog.map(item => item.id === id ? updatedItem : item),
@@ -1043,6 +816,8 @@ getServiceCatalogs: async (filters = {}) => {
       }
       
       await apiDeleteServiceCatalogItem(id);
+      invalidateCollection('serviceCatalog');
+      invalidateCollection('serviceCatalogByType');
       
       set({
         serviceCatalog: get().serviceCatalog.filter(item => item.id !== id),
@@ -1125,17 +900,16 @@ getServiceCatalogs: async (filters = {}) => {
   },
 
 
-  // FIXED VERSION:
+  // Side lookup: returns the list without touching the shared serviceCatalog state,
+  // so it gets its own cache identity instead of superseding the page's own load.
   getServiceCatalogByType: async (serviceType: string) => {
     set({ isLoading: true });
     try {
-      // Use the imported getServiceCatalog function instead
-      const response = await apiGetServiceCatalog({ 
-        serviceType: serviceType, 
-        isActive: true, 
-        limit: 10000 
+      const services = await streamCollection<ServiceCatalog>({
+        key: 'serviceCatalogByType',
+        fetchPage: apiGetServiceCatalog,
+        filters: { serviceType, isActive: true },
       });
-      const services = response.services || response.data || [];
       set({ isLoading: false });
       return services;
     } catch (error) {

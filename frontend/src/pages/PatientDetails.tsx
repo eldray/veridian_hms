@@ -6,6 +6,7 @@ import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
+import { getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
@@ -135,7 +136,7 @@ export default function PatientDetails() {
   const { success, error: toastError } = useToast();
 
   const { currentPatient, fetchPatient, deletePatient } = usePatientStore();
-  const { attendances, getAttendances, getVitalsByAttendance } = useAttendanceStore();
+  const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
   const { getInsuranceProviders } = useInsuranceStore();
 
@@ -225,26 +226,29 @@ export default function PatientDetails() {
     };
   }, [patientAttendances]);
 
+  // One batched request for every visit on this patient (the server chunks at 100 ids).
+  // This used to fire one GET per visit, so a 40-visit patient cost 40 requests every time
+  // the history was opened, and the four-GET window made the page crawl.
   const loadAllVitals = async () => {
-    const all: any[] = [];
-    await Promise.all(
-      patientAttendances.map(async att => {
-        try {
-          const v = await getVitalsByAttendance(att.id);
-          if (v?.length) {
-            all.push(...v.map((x: any) => ({
-              ...x,
-              attendanceId: att.id,
-              attendanceDate: att.dateTime || att.createdAt,
-              attendanceNumber: att.attendanceNumber,
-            })));
-          }
-        } catch (e) {
-          console.error('Vitals load error', att.id, e);
-        }
-      })
-    );
-    setVitalsList(all.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+    const byVisit = new Map<string, Attendance>(patientAttendances.map((att) => [att.id, att] as [string, Attendance]));
+    try {
+      const rows = await getVitalsForEncounters(patientAttendances.map((att) => att.id));
+      const all = (Array.isArray(rows) ? rows : [])
+        .filter((v: any) => byVisit.has(v.attendanceId))
+        .map((v: any) => {
+          const att = byVisit.get(v.attendanceId)!;
+          return {
+            ...v,
+            attendanceId: att.id,
+            attendanceDate: att.dateTime || att.createdAt,
+            attendanceNumber: att.attendanceNumber,
+          };
+        });
+      setVitalsList(all.sort((a, b) => new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime()));
+    } catch (e) {
+      console.error('Vitals batch load error', e);
+      setVitalsList([]);
+    }
   };
 
   const latestVitals = vitalsList[0] || null;
@@ -324,7 +328,7 @@ export default function PatientDetails() {
   const handleAttendanceSuccess = async () => {
     setShowAttendanceModal(false);
     try {
-      await getAttendances();
+      await getAttendances({ patientId: patient?.id || id });
       setActiveTab('attendances');
       setRefreshTrigger(p => p + 1);
       success('Check-in complete', 'New visit created');
@@ -366,6 +370,29 @@ export default function PatientDetails() {
       success('Download started', 'Document is being downloaded');
     } catch {
       toastError('Download Failed', 'Could not download document');
+    }
+  };
+
+  const handlePrintDocument = async (doc: GeneratedDocument) => {
+    // Opened synchronously from the click so pop-up blockers allow it; the tab
+    // is pointed at the blob URL once the authenticated download finishes.
+    const printWindow = window.open('', '_blank');
+    try {
+      const blob = await downloadDocument(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      if (!printWindow) {
+        window.URL.revokeObjectURL(url);
+        toastError('Print Blocked', 'Allow pop-ups for this site to print documents');
+        return;
+      }
+      printWindow.opener = null;
+      printWindow.location.href = url;
+      printWindow.addEventListener('load', () => {
+        window.setTimeout(() => window.URL.revokeObjectURL(url), 60_000);
+      }, { once: true });
+    } catch {
+      printWindow?.close();
+      toastError('Print Failed', 'Could not open document for printing');
     }
   };
 
@@ -415,8 +442,8 @@ export default function PatientDetails() {
     } catch { return '—'; }
   };
 
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
-  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse']);
+  const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
+  const canCreateAttendance = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
   const canDelete = hasRole(['admin']);
 
   const tabs = [
@@ -1129,7 +1156,7 @@ export default function PatientDetails() {
                                   <Download className="w-3 h-3" /> Download
                                 </button>
                                 <button
-                                  onClick={() => window.open(`/documents/download/${doc.id}`, '_blank')}
+                                  onClick={() => handlePrintDocument(doc)}
                                   className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--border-color)] transition-colors text-[10px] font-semibold border border-[var(--border-color)]"
                                 >
                                   <Printer className="w-3 h-3" /> Print
@@ -1270,14 +1297,6 @@ export default function PatientDetails() {
                           <span className="text-[11px] text-[var(--text-secondary)]">
                             Status: <span className="font-medium">{t.status}</span>
                           </span>
-                          {t.result && (
-                            <button
-                              className="text-[10px] text-[var(--icon-cyan-text)] hover:underline font-medium"
-                              onClick={() => window.open(`/api/documents/lab/${t.id}`)}
-                            >
-                              View Result
-                            </button>
-                          )}
                         </div>
                         {t.result && (
                           <p className="text-[11px] text-[var(--text-secondary)] mt-1">

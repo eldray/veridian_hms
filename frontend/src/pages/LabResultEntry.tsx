@@ -406,7 +406,9 @@ export default function LabResultEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients(), getLabTestTemplates(false)]);
+      // A lab tech has no read access to the patient directory, and this page is
+      // reached from the laboratory worklist, so the register is optional here.
+      await Promise.all([loadPatients().catch(() => undefined), getLabTestTemplates(false)]);
 
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
@@ -656,9 +658,9 @@ export default function LabResultEntry() {
         <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
         <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
         <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
-        <button onClick={() => navigate('/dashboard/laboratory')}
+        <button onClick={() => (location.key === 'default' ? navigate('/dashboard/laboratory') : navigate(-1))}
           className="mt-4 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all">
-          Back to Waiting List
+          Back
         </button>
       </div>
     </div>
@@ -674,7 +676,7 @@ export default function LabResultEntry() {
       {/* ── HEADER ── */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/laboratory')}
+          <button onClick={() => (location.key === 'default' ? navigate('/dashboard/laboratory') : navigate(-1))}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors">
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>

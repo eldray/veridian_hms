@@ -1,8 +1,9 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
-import { Request, Response, NextFunction } from 'express';
-import express from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
+import { generateUploadFilename } from '../utils/uploadFilename';
+import { verifyFileSignature } from '../utils/fileSignature';
 
 const createUploadsDirectories = () => {
   const directories = [
@@ -22,14 +23,10 @@ const createUploadsDirectories = () => {
 };
 createUploadsDirectories();
 
-// Helper to generate safe filenames
-const generateFilename = (prefix: string, id: string, file: Express.Multer.File) => {
-  const timestamp = Date.now();
-  const originalName = path.parse(file.originalname).name;
-  const extension = path.extname(file.originalname);
-  const safeName = originalName.replace(/[^a-zA-Z0-9]/g, '_');
-  return `${prefix}_${id}_${safeName}_${timestamp}${extension}`;
-};
+// Helper to generate safe filenames. See utils/uploadFilename for why the
+// extension is taken from the MIME type rather than the client filename.
+const generateFilename = (prefix: string, id: string, file: Express.Multer.File) =>
+  generateUploadFilename(prefix, id, file);
 
 // ✅ NEW: Storage for User Profile Images
 const userStorage = multer.diskStorage({
@@ -67,26 +64,77 @@ const documentFileFilter = (req: Request, file: Express.Multer.File, cb: multer.
 };
 
 // ✅ EXPORTS
-export const uploadUserImage = multer({ storage: userStorage, fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } }).single('image');
-export const uploadPatientImage = multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 5 } }).array('images', 5);
-export const uploadPatientPhoto = multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 1 } }).single('image');
-export const uploadScanImages = multer({ storage: scanStorage, fileFilter: imageFileFilter, limits: { fileSize: 20 * 1024 * 1024, files: 10 } }).array('images', 10);
-export const uploadSingleDocument = multer({
+const uploadedFiles = (req: Request): Express.Multer.File[] => {
+  if (req.file) return [req.file];
+  if (Array.isArray(req.files)) return req.files;
+  if (req.files && typeof req.files === 'object') {
+    return Object.values(req.files).flat();
+  }
+  return [];
+};
+
+const discardUploads = async (files: Express.Multer.File[]): Promise<void> => {
+  await Promise.all(files.map(file => fs.promises.unlink(file.path).catch(() => undefined)));
+};
+
+// The MIME type comes from the client, so every stored file is checked against
+// its leading bytes before the request reaches a controller. A mismatch deletes
+// the whole upload so a rejected request cannot leave orphans behind.
+const withFileSignatureCheck = (upload: RequestHandler): RequestHandler => (req, res, next) => {
+  upload(req, res, (error?: unknown) => {
+    if (error) {
+      next(error);
+      return;
+    }
+
+    const files = uploadedFiles(req);
+    if (files.length === 0) {
+      next();
+      return;
+    }
+
+    void (async () => {
+      for (const file of files) {
+        let matches = false;
+        try {
+          matches = await verifyFileSignature(file.path, file.mimetype);
+        } catch {
+          matches = false;
+        }
+
+        if (!matches) {
+          await discardUploads(files);
+          const rejection = new Error('File content does not match its declared type') as Error & { statusCode?: number };
+          rejection.statusCode = 400;
+          next(rejection);
+          return;
+        }
+      }
+      next();
+    })().catch(next);
+  });
+};
+
+export const uploadUserImage = withFileSignatureCheck(multer({ storage: userStorage, fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } }).single('image'));
+export const uploadPatientImage = withFileSignatureCheck(multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 5 } }).array('images', 5));
+export const uploadPatientPhoto = withFileSignatureCheck(multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 1 } }).single('image'));
+export const uploadScanImages = withFileSignatureCheck(multer({ storage: scanStorage, fileFilter: imageFileFilter, limits: { fileSize: 20 * 1024 * 1024, files: 10 } }).array('images', 10));
+export const uploadSingleDocument = withFileSignatureCheck(multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),
     filename: (req, file, cb) => cb(null, generateFilename('doc', (req as any).params?.id || (req as any).user?.id || 'sys', file))
   }),
   fileFilter: documentFileFilter,
   limits: { fileSize: 5 * 1024 * 1024, files: 1 }
-}).single('file');
-export const uploadDocuments = multer({ 
+}).single('file'));
+export const uploadDocuments = withFileSignatureCheck(multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),
     filename: (req, file, cb) => cb(null, generateFilename('doc', (req as any).user?.id || 'sys', file))
-  }), 
-  fileFilter: documentFileFilter, 
-  limits: { fileSize: 5 * 1024 * 1024, files: 3 } 
-}).array('documents', 3);
+  }),
+  fileFilter: documentFileFilter,
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 }
+}).array('documents', 3));
 
 export const handleUploadError = (error: any, req: Request, res: Response, next: NextFunction): void => {
   if (error instanceof multer.MulterError) {
@@ -105,12 +153,9 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
   next(error);
 };
 
-export const getFileUrl = (filename: string, type: 'patient' | 'user' | 'scan' | 'document' = 'patient'): string => {
-  return `/api/uploads/${type}/${filename}`;
+export const getFileUrl = (
+  filename: string,
+  category: 'patients' | 'users' | 'scans' | 'documents' = 'patients',
+): string => {
+  return `/api/uploads/${category}/${filename}`;
 };
-
-// Static serving
-export const serveUserImages = express.static(path.join(process.cwd(), 'uploads', 'users'));
-export const servePatientImages = express.static(path.join(process.cwd(), 'uploads', 'patients'));
-export const serveScanImages = express.static(path.join(process.cwd(), 'uploads', 'scans'));
-export const serveDocuments = express.static(path.join(process.cwd(), 'uploads', 'documents'));

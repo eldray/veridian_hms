@@ -1,6 +1,7 @@
 // src/pages/InvoiceManagement.tsx - COMPLETE UPDATED VERSION WITH SEARCHABLE ITEMS
 
 import { useEffect, useState, useRef } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useStockStore } from '../store/stockStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -346,7 +347,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this invoice? This will reverse all stock movements.')) return;
+    if (!(await confirmDialog({ title: 'Delete invoice', message: 'Delete this invoice? This will reverse all stock movements.', confirmText: 'Delete' }))) return;
     try {
       await deletePurchaseInvoice(id);
       success('Deleted', 'Invoice deleted and stock reversed');

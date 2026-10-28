@@ -1,5 +1,6 @@
 // src/pages/TheatreProcedure.tsx — V2 with Grid Note Tiles
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -7,6 +8,7 @@ import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { getPatientName } from '../utils/patient';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
@@ -580,7 +582,7 @@ export default function TheatreProcedure() {
   };
 
   const handleCancelProcedure = async (procedureId: string) => {
-    if (!window.confirm('Cancel this procedure? This action cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Cancel procedure', message: 'Cancel this procedure? This action cannot be undone.', confirmText: 'Cancel procedure' }))) return;
     try {
       await updateProcedureStatus(selectedAttendanceId!, procedureId, { status: 'cancelled' });
       success('Procedure cancelled', 'The procedure has been cancelled');
@@ -637,10 +639,10 @@ export default function TheatreProcedure() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/dashboard/theatre')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/theatre') : navigate(-1))}
             className="mt-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all"
           >
-            Back to Theatre Queue
+            Back
           </button>
         </div>
       </div>
@@ -676,7 +678,7 @@ export default function TheatreProcedure() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/theatre')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/theatre') : navigate(-1))}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -778,6 +780,12 @@ export default function TheatreProcedure() {
               </div>
             </div>
           </div>
+
+          <AllergyBanner
+            patientId={patient?.id}
+            allergies={patient?.allergies}
+            allergyReviewStatus={attendance?.allergyReviewStatus}
+          />
 
           {/* Read-only warning */}
           {!canUpdateProcedure && (

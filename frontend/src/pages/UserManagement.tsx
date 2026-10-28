@@ -1,10 +1,12 @@
 // src/pages/UserManagement.tsx - Admin HR hub with Pagination + Full Role Coverage
 import { useState, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useUserStore } from '../store/userStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
   Search, Plus, User as UserIcon, Shield, Edit, Ban, Hospital, Activity,
+  KeyRound,
   RefreshCw, Users, Mail, Phone, X, CheckCircle, AlertTriangle, ArrowLeft,
   Stethoscope, Briefcase, DollarSign, FileText, Play, Download, Check,
   Clock, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
@@ -209,6 +211,8 @@ export default function UserManagement() {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deactivatingUser, setDeactivatingUser] = useState<User | null>(null);
+  const [resettingUser, setResettingUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   // Payslips state
   const now = new Date();
@@ -242,7 +246,7 @@ export default function UserManagement() {
   useEffect(() => { localStorage.setItem('userMgmtDocPageSize', String(docPageSize)); }, [docPageSize]);
 
   const {
-    users, getAllUsers, updateUser, deactivateUser, isLoading,
+    users, getAllUsers, updateUser, deactivateUser, resetUserPassword, isLoading,
     allPayslips, getAllPayslips,
     allDocuments, getAllDocuments,
     runPayroll,
@@ -251,6 +255,8 @@ export default function UserManagement() {
   const { success, error: toastError } = useToast();
 
   const canManageUsers = hasRole(['admin', 'super_admin', 'hr_officer']);
+  // HR may edit an account but may not hand out a new password for one.
+  const canResetPasswords = hasRole(['admin', 'super_admin']);
 
   useEffect(() => {
     if (canManageUsers) {
@@ -388,8 +394,26 @@ export default function UserManagement() {
     }
   };
 
+  const openPasswordReset = (user: User) => {
+    setResettingUser(user);
+    setNewPassword('');
+  };
+
+  const handlePasswordReset = async () => {
+    if (!resettingUser) return;
+    try {
+      await resetUserPassword(resettingUser.id, newPassword);
+      const name = resettingUser.fullName;
+      setResettingUser(null);
+      success('Password reset', `${name} can sign in with the new password. Every other session of that account is now closed.`);
+    } catch (err: any) {
+      // The server holds the password rules, so its wording is the useful part.
+      toastError('Reset failed', err?.response?.data?.message || 'Could not reset the password');
+    }
+  };
+
   const handleRunPayroll = async () => {
-    if (!window.confirm(`Run payroll for ${payrollMonth}/${payrollYear}? This will generate or refresh payslips for every active staff member.`)) return;
+    if (!(await confirmDialog({ title: 'Run payroll', message: `Run payroll for ${payrollMonth}/${payrollYear}? This will generate or refresh payslips for every active staff member.`, confirmText: 'Run payroll', type: 'warning' }))) return;
     setPayrollRunning(true);
     try {
       const result = await runPayroll(payrollMonth, payrollYear);
@@ -651,6 +675,15 @@ export default function UserManagement() {
                               >
                                 <Edit className="w-3.5 h-3.5" />
                               </button>
+                              )}
+                              {canResetPasswords && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (
+                                <button
+                                  onClick={() => openPasswordReset(user)}
+                                  className="p-1.5 text-[var(--icon-orange-text)] border border-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-bg)]"
+                                  title="Reset password (signs the account out everywhere)"
+                                >
+                                  <KeyRound className="w-3.5 h-3.5" />
+                                </button>
                               )}
                               {user.isActive && user.id !== currentUser?.id && (user.role !== 'super_admin' || currentUser?.role === 'super_admin') && (
                                 <button
@@ -914,6 +947,56 @@ export default function UserManagement() {
                 <button onClick={handleDeactivateUser} disabled={isLoading}
                   className="flex-1 px-5 py-2.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-sm font-medium disabled:opacity-50">
                   {isLoading ? 'Deactivating…' : 'Deactivate'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset password modal — the path back in for a locked-out account */}
+      {resettingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={() => setResettingUser(null)}>
+          <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md border border-[var(--border-color)]" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 bg-[var(--icon-orange-bg)] rounded-xl flex items-center justify-center">
+                  <KeyRound className="w-5 h-5 text-[var(--icon-orange-text)]" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Reset password</h3>
+                  <p className="text-xs text-[var(--text-secondary)]">{resettingUser.fullName} · @{resettingUser.username}</p>
+                </div>
+                <button onClick={() => setResettingUser(null)} className="ml-auto p-1.5 rounded-lg hover:bg-[var(--bg-main)]">
+                  <X className="w-4 h-4 text-[var(--text-secondary)]" />
+                </button>
+              </div>
+
+              <label htmlFor="admin-new-password" className="block text-xs font-medium text-[var(--text-secondary)] mb-1.5">
+                New password
+              </label>
+              <input
+                id="admin-new-password"
+                type="password"
+                autoComplete="new-password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && newPassword.length >= 12) handlePasswordReset(); }}
+                className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm text-[var(--text-primary)]"
+              />
+              <p className="mt-2 text-xs text-[var(--text-secondary)]">
+                At least 12 characters. The account is signed out on every machine, so give the password to
+                the member of staff directly and have them choose their own afterwards.
+              </p>
+
+              <div className="flex gap-3 pt-4 mt-5 border-t border-[var(--border-color)]">
+                <button onClick={() => setResettingUser(null)}
+                  className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg text-sm font-medium">
+                  Cancel
+                </button>
+                <button onClick={handlePasswordReset} disabled={isLoading || newPassword.length < 12}
+                  className="flex-1 px-5 py-2.5 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg hover:bg-[var(--icon-orange-text)] hover:text-white text-sm font-medium disabled:opacity-50">
+                  {isLoading ? 'Resetting…' : 'Reset password'}
                 </button>
               </div>
             </div>

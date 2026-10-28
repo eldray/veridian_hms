@@ -27,6 +27,7 @@ interface DecodedToken {
   fullName: string;
   email?: string;
   permissions?: string[];
+  type?: string;
 }
 
 const isSuperAdminOrAdmin = (role?: string) => role === 'super_admin' || role === 'admin';
@@ -53,7 +54,8 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
     }
 
     const decoded = jwt.verify(token, secret) as DecodedToken;
-    if (!decoded.userId) {
+    // Refresh tokens are long-lived and must only be exchanged at /auth/refresh-token.
+    if (!decoded.userId || decoded.type === 'refresh') {
       res.status(401).json({ success: false, message: 'Invalid token' });
       return;
     }

@@ -175,8 +175,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const response = await apiGetBill(id);
-      console.log('📄 Billing Store - Raw Response:', response);
-      
+
       let billData = null;
       if (response && response.success === true && response.data) {
         billData = response.data;
@@ -185,18 +184,10 @@ export const useBillingStore = create<BillingState>((set, get) => ({
       } else {
         billData = response;
       }
-      
+
       // ✅ Parse numeric amounts
       const parsedBill = parseBillAmounts(billData);
-      
-      console.log('📄 Billing Store - Parsed Bill:', {
-        id: parsedBill?.id,
-        billNumber: parsedBill?.billNumber,
-        totalAmount: parsedBill?.totalAmount,
-        status: parsedBill?.status,
-        lineItemsCount: parsedBill?.BillLineItem?.length
-      });
-      
+
       set({ currentBill: parsedBill, isLoading: false });
     } catch (error: unknown) {
       console.error('❌ Failed to fetch bill:', error);
@@ -215,8 +206,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
     set({ isLoading: true });
     try {
       const response = await apiGetBills(filters);
-      console.log('📊 Billing Store - API Response:', response);
-      
+
       let billsArray: Bill[] = [];
       let paginationData = null;
 
@@ -241,9 +231,7 @@ export const useBillingStore = create<BillingState>((set, get) => ({
 
       // ✅ Parse numeric amounts for all bills
       const parsedBills = billsArray.map(parseBillAmounts);
-      
-      console.log('✅ Billing Store - Processed Bills:', parsedBills.length);
-      
+
       if (requestVersion !== billsRequestVersion) return;
       set({ 
         bills: parsedBills,

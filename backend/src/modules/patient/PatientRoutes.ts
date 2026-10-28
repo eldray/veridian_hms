@@ -3,8 +3,10 @@ import multer from 'multer';
 import { PrismaClient } from '@prisma/client';
 import { PatientController } from './PatientController';
 // ✅ ADDED: Security Middleware
-import { protect, requirePatientManagement } from '../../middleware/authMiddleware';
-import { uploadPatientPhoto } from '../../middleware/uploadMiddleware';
+import { protect, requireAdmin, requirePatientManagement } from '../../middleware/authMiddleware';
+import { uploadPatientPhoto, handleUploadError } from '../../middleware/uploadMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { createAllergySchema, createMedicalHistorySchema } from './PatientSchemas';
 
 export function createPatientRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -27,16 +29,18 @@ export function createPatientRoutes(prisma: PrismaClient): Router {
   router.post('/', parseMultipartFields, controller.createPatient);
   router.post('/generate-ccc', controller.generateCCC);
   router.put('/:id', parseMultipartFields, controller.updatePatient);
-  router.post('/:id/upload-image', uploadPatientPhoto, controller.uploadImage);
+  router.post('/:id/upload-image', uploadPatientPhoto, handleUploadError, controller.uploadImage);
   router.post('/:id/upload-image-base64', controller.uploadImageBase64);
-  router.delete('/:id', controller.deletePatient);
+  // Hard delete removes the whole record; docs and clinical history go with it,
+  // so it is reserved for administrators even though records staff may edit patients.
+  router.delete('/:id', requireAdmin, controller.deletePatient);
 
   // ==========================================
   // NEW: EMR (Allergies & Histories) Routes
   // ==========================================
-  router.post('/:id/allergies', controller.addAllergy);
+  router.post('/:id/allergies', validateBody(createAllergySchema), controller.addAllergy);
   router.get('/:id/allergies', controller.getAllergies);
-  router.post('/:id/medical-history', controller.addMedicalHistory);
+  router.post('/:id/medical-history', validateBody(createMedicalHistorySchema), controller.addMedicalHistory);
   router.get('/:id/medical-history', controller.getMedicalHistories);
 
   return router;

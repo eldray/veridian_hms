@@ -13,6 +13,10 @@ const processQueue = (error: any, token: string | null = null) => {
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: { 'Content-Type': 'application/json' },
+  // Login sets an HttpOnly cookie used to authenticate <img>/<a> requests for
+  // uploaded clinical files. Cross-origin API deployments need this flag for
+  // the browser to accept and resend that cookie.
+  withCredentials: true,
   timeout: 30000,
 });
 

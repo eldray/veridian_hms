@@ -7,8 +7,9 @@ export const createAppointmentRoutes = () => {
   const router = Router();
   router.use(protect);
 
-  // Read access for clinical and records staff
-  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records'];
+  // Read access for clinical, records and the diagnostic departments, which see the
+  // clinic list to know who is coming; only clinical and records may change it.
+  const readRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'sonographer'];
   // Write access restricted to clinical and records staff
   const writeRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records'];
 

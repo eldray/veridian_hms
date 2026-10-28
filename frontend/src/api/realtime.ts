@@ -10,6 +10,8 @@
  *  - one shared connection for the whole app (not one per screen)
  *  - a random 0.2-2 s delay before re-fetching, so 100 open screens don't all hit the
  *    server in the same instant after one change
+ *  - at most one refresh per screen in flight, and no second one inside the gap below, so a
+ *    busy clinic (vitals, dispensing, billing writes every few seconds) cannot stack walks
  *  - hidden browser tabs do nothing until they become visible again, then catch up once
  *  - if the stream drops it reconnects (2 s, 4 s ... 30 s) and catches up on reconnect;
  *    while disconnected, visible screens fall back to a refresh every 45 s
@@ -17,15 +19,21 @@
 import { useEffect, useRef } from 'react';
 import api from './api';
 
-type Handler = () => void;
+type Handler = () => unknown;
 
 const FALLBACK_POLL_MS = 45_000;
 const MAX_BACKOFF_MS = 30_000;
 const STALL_MS = 70_000; // no bytes (not even the 25 s heartbeat) for this long = connection is dead
+// Shortest distance between two refreshes of the same screen. A change burst arriving inside
+// this window is not dropped: it re-arms a timer for the remainder, so the screen still
+// catches up, just once instead of once per event.
+const MIN_REFRESH_GAP_MS = 10_000;
 
 const subscribers = new Map<string, Set<Handler>>(); // topic -> handlers
 const pendingTimers = new Map<Handler, number>();     // handler -> scheduled re-fetch
 const stale = new Set<Handler>();                     // changed while the tab was hidden
+const lastRunAt = new Map<Handler, number>();          // handler -> when its refresh started
+const inFlight = new Set<Handler>();                   // handler -> refresh still fetching
 
 let running = false;
 let connected = false;
@@ -45,12 +53,35 @@ const visible = () => typeof document === 'undefined' || document.visibilityStat
 function schedule(handler: Handler) {
   if (pendingTimers.has(handler)) return; // a re-fetch is already queued
   if (!visible()) { stale.add(handler); return; }
-  const delay = 200 + Math.random() * 1800;
-  pendingTimers.set(handler, window.setTimeout(() => {
-    pendingTimers.delete(handler);
-    if (!visible()) { stale.add(handler); return; }
-    try { handler(); } catch { /* a failing screen must not break the others */ }
-  }, delay));
+  const since = Date.now() - (lastRunAt.get(handler) ?? 0);
+  const wait = MIN_REFRESH_GAP_MS - since;
+  const delay = wait > 0 ? wait : 200 + Math.random() * 1800;
+  pendingTimers.set(handler, window.setTimeout(() => run(handler), delay));
+}
+
+function run(handler: Handler) {
+  pendingTimers.delete(handler);
+  if (!visible()) { stale.add(handler); return; }
+  if (inFlight.has(handler)) {
+    // The previous refresh of this screen is still walking its lists. Starting a second
+    // copy would double the requests for the same rows, so try again after one more gap.
+    pendingTimers.set(handler, window.setTimeout(() => run(handler), MIN_REFRESH_GAP_MS));
+    return;
+  }
+  inFlight.add(handler);
+  lastRunAt.set(handler, Date.now());
+  let result: unknown;
+  try {
+    result = handler();
+  } catch {
+    inFlight.delete(handler);
+    return;
+  }
+  // A screen's refresh is a promise chain; keep the slot until it settles. A failing
+  // screen must not break the others.
+  Promise.resolve(result)
+    .catch(() => undefined)
+    .finally(() => inFlight.delete(handler));
 }
 
 function onChange(topic: string) {
@@ -164,6 +195,8 @@ function stop() {
   pendingTimers.forEach((t) => window.clearTimeout(t));
   pendingTimers.clear();
   stale.clear();
+  lastRunAt.clear();
+  inFlight.clear();
 }
 
 /** Subscribe to topics. Returns the unsubscribe function. */
@@ -183,6 +216,8 @@ export function subscribeToChanges(topics: string[], handler: Handler): () => vo
     const timer = pendingTimers.get(handler);
     if (timer !== undefined) { window.clearTimeout(timer); pendingTimers.delete(handler); }
     stale.delete(handler);
+    lastRunAt.delete(handler);
+    inFlight.delete(handler);
     if (subscribers.size === 0) stop();
   };
 }
@@ -198,11 +233,13 @@ export function useLiveRefresh(topics: string[], refresh: () => unknown, enabled
 
   useEffect(() => {
     if (!enabled) return;
-    return subscribeToChanges(topics, () => {
+    return subscribeToChanges(topics, () =>
+      // Returned, not swallowed: the dispatcher keeps the screen's slot busy until this
+      // settles, so one slow walk cannot overlap the next one.
       Promise.resolve()
         .then(() => latest.current())
-        .catch(() => undefined);
-    });
+        .catch(() => undefined)
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, enabled]);
 }

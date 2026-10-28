@@ -9,6 +9,7 @@ import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr) ? arr.join(sep) : (arr || '');
+const escapeXml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
 const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => (arr || []).map(mapper).filter(Boolean);
 
 export class InsuranceClaimService extends BaseService {
@@ -123,16 +124,35 @@ export class InsuranceClaimService extends BaseService {
       if (!existing) throw new Error('Batch not found');
       if (existing.status !== 'generated') throw new Error('Claims can only be added to generated, unfinalized batches');
 
-      const claims = await tx.insuranceClaim.findMany({ where: { id: { in: claimIds }, batchId: null }, include: { InsuranceProvider: true, items: { select: { id: true } } } });
+      const claims = await tx.insuranceClaim.findMany({
+        where: { id: { in: claimIds }, batchId: null },
+        include: {
+          InsuranceProvider: true,
+          Attendance: { select: { dateTime: true } },
+          items: { select: { id: true } },
+        },
+      });
       if (claims.length !== claimIds.length) throw new Error('Claims not found or already in a batch');
 
       for (const c of claims) {
         if (c.status !== 'finalized') throw new Error(`Claim ${c.claimNumber} is not finalized`);
         if (!c.items?.length) throw new ValidationError(`Claim ${c.claimNumber} has no itemized lines and cannot be added to a batch. Repair the draft claim or resolve it through the claims audit workflow.`);
-        if (c.InsuranceProvider?.type !== 'nhis') throw new Error(`Claim ${c.claimNumber} not NHIS`);
+        if (c.InsuranceProvider?.type !== existing.insuranceType) {
+          throw new Error(`Claim ${c.claimNumber} insurance type does not match this batch`);
+        }
+        if (c.insuranceProviderId !== existing.insuranceProviderId) {
+          throw new Error('A claim batch cannot contain multiple insurance providers');
+        }
+        if ((c.corporateAccountId ?? null) !== (existing.corporateAccountId ?? null)) {
+          throw new Error('A claim batch cannot contain multiple corporate accounts');
+        }
+        const serviceDate = c.Attendance.dateTime;
+        if (serviceDate.getFullYear() !== existing.periodYear || serviceDate.getMonth() + 1 !== existing.periodMonth) {
+          throw new Error('A claim batch can contain claims from only one service month');
+        }
       }
 
-      // ✅ FIXED: Decimal math
+      // Recompute the aggregate from persisted claims, avoiding cumulative rounding drift.
       const addAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
 
       await tx.claimBatch.update({
@@ -176,7 +196,9 @@ export class InsuranceClaimService extends BaseService {
       where: { id: batchId },
       include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true, items: { select: { id: true } } } }, createdBy: true }
     });
-    if (!batch || !batch.claims.length) throw new Error('Batch not found or empty');
+    if (!batch) throw new NotFoundError('Claim batch', batchId);
+    if (batch.insuranceType !== 'nhis') throw new ValidationError('Only NHIS claim batches can be exported as NHIS XML.');
+    if (!batch.claims.length) throw new ValidationError('An empty claim batch cannot be exported.');
     const claimWithoutItems = batch.claims.find((claim: any) => !claim.items?.length);
     if (claimWithoutItems) throw new ValidationError(`Claim ${claimWithoutItems.claimNumber} has no itemized lines. The batch XML cannot be generated until the claim is repaired.`);
 
@@ -184,23 +206,23 @@ export class InsuranceClaimService extends BaseService {
     
     // ✅ FIXED: Safely join JSON arrays for XML
     const claimsXml = batch.claims.map(c => `    <Claim>
-      <ClaimNumber>${c.claimNumber}</ClaimNumber>
-      <PatientCCC>${c.Attendance?.nhisCCC || ''}</PatientCCC>
-      <PatientName>${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}</PatientName>
+      <ClaimNumber>${escapeXml(c.claimNumber)}</ClaimNumber>
+      <PatientCCC>${escapeXml(c.Attendance?.nhisCCC || '')}</PatientCCC>
+      <PatientName>${escapeXml(`${c.Patient?.surname || ''} ${c.Patient?.otherNames || ''}`.trim())}</PatientName>
       <TotalAmount>${toNumber(c.totalClaimAmount).toFixed(2)}</TotalAmount>
-      <DiagnosisCodes>${safeArrayJoin(c.diagnosisCodes)}</DiagnosisCodes>
-      <GDRGCodes>${safeArrayJoin(c.gdrgCodes)}</GDRGCodes>
+      <DiagnosisCodes>${escapeXml(safeArrayJoin(c.diagnosisCodes))}</DiagnosisCodes>
+      <GDRGCodes>${escapeXml(safeArrayJoin(c.gdrgCodes))}</GDRGCodes>
     </Claim>`).join('\n');
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <NHISBatchSubmission>
   <BatchInfo>
-    <BatchNumber>${batch.batchNumber}</BatchNumber>
+    <BatchNumber>${escapeXml(batch.batchNumber)}</BatchNumber>
     <BatchDate>${new Date(batch.periodYear, batch.periodMonth - 1, 1).toISOString()}</BatchDate>
-    <FacilityCode>${facilityCode}</FacilityCode>
+    <FacilityCode>${escapeXml(facilityCode)}</FacilityCode>
     <TotalClaims>${batch.claims.length}</TotalClaims>
     <TotalAmount>${toNumber(batch.totalAmount).toFixed(2)}</TotalAmount>
-    <GeneratedBy>${batch.createdBy.fullName || batch.createdBy.username}</GeneratedBy>
+    <GeneratedBy>${escapeXml(batch.createdBy.fullName || batch.createdBy.username)}</GeneratedBy>
     <GeneratedAt>${new Date().toISOString()}</GeneratedAt>
   </BatchInfo>
   <Claims>
@@ -208,17 +230,27 @@ ${claimsXml}
   </Claims>
 </NHISBatchSubmission>`;
 
-    await this.prisma.claimBatch.update({ where: { id: batchId }, data: { status: 'generated' } });
+    // Exporting a finalized batch is read-only; downloading must never reopen it.
     return { xml, batchNumber: batch.batchNumber };
   }
 
   async updateBatchStatus(batchId: string, status: string) {
-    const valid = ['generated', 'finalized'];
-    if (!valid.includes(status)) throw new Error('Invalid status');
-    return this.prisma.claimBatch.update({
-      where: { id: batchId },
-      data: { status: status as any, ...(status === 'finalized' ? { finalizedAt: new Date() } : {}) },
-      include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } }
+    if (status !== 'finalized') throw new ValidationError('Batch status can only move from generated to finalized; finalized batches cannot be reopened.');
+    return this.prisma.$transaction(async (tx) => {
+      const batch = await tx.claimBatch.findUnique({
+        where: { id: batchId },
+        include: { claims: { select: { id: true, status: true, items: { select: { id: true } } } } },
+      });
+      if (!batch) throw new NotFoundError('Claim batch', batchId);
+      if (batch.status !== 'generated') throw new ValidationError('Only generated batches can be finalized.');
+      if (!batch.claims.length) throw new ValidationError('An empty claim batch cannot be finalized.');
+      const invalidClaim = batch.claims.find((claim) => claim.status !== 'finalized' || !claim.items.length);
+      if (invalidClaim) throw new ValidationError('Every claim in the batch must be finalized and contain itemized lines.');
+      return tx.claimBatch.update({
+        where: { id: batchId },
+        data: { status: 'finalized', finalizedAt: new Date() },
+        include: { claims: { include: { InsuranceProvider: true, Patient: true, Attendance: true, Bill: true } }, createdBy: { select: { id: true, fullName: true, username: true } } },
+      });
     });
   }
 
@@ -410,6 +442,10 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      // A claim is filed in a named patient's name with their age and NHIS identity, so a
+      // counter ticket (no Patient row, cash only) can never be claimed. The NHIS form
+      // reads the patient's date of birth below, so the relation itself is required here.
+      if (!att.Patient || !att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'nhis') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not an NHIS visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Set the NHIS provider on the attendance first.`);
       }
@@ -681,6 +717,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'private') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a private-insurance visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a private insurance provider on the attendance first.`);
       }
@@ -788,6 +825,7 @@ ${claimsXml}
       });
 
       if (!att) throw new NotFoundError('Attendance', attendanceId);
+      if (!att.patientId) throw new ValidationError(`Attendance ${att.attendanceNumber} has no registered patient, so no claim can be filed for it.`);
       if (!att.InsuranceProvider || att.InsuranceProvider.type !== 'corporate') {
         throw new ValidationError(`Attendance ${att.attendanceNumber} is not a corporate visit (insurance provider: ${att.InsuranceProvider?.name ?? 'none selected'}). Select a corporate provider on the attendance first.`);
       }
@@ -1130,7 +1168,9 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       ? await this.prisma.preAuthorisationRequest.findMany({
           where: {
             attendanceId: attendance.id,
-            patientId: attendance.patientId,
+            // A claim is only ever raised for a registered patient, so the attendance
+            // behind it always carries one; a counter ticket never reaches this path.
+            patientId: attendance.patientId as string,
             insuranceProviderId: claim.insuranceProviderId,
             status: { in: ['approved', 'partially_approved'] },
             authNumber: { not: null },

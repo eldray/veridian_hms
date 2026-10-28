@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { Medication, StockItem } from '../../types';
 import { MedicationEntry } from '../../types/medical-entries';
 import { Pill, Plus, CheckCircle, AlertCircle, Package, DollarSign, Shield, Search, X } from 'lucide-react';
@@ -36,9 +37,17 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
 }) => {
   const [medicationSearch, setMedicationSearch] = useState('');
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
-  const [filteredMedications, setFilteredMedications] = useState<StockItem[]>([]);
 
-  const medicationStockItems = stockItems.filter((s) => s.isMedication && s.isActive);
+  // Memoised: this section re-renders with every keystroke of the entry form, and a fresh
+  // filter of the whole formulary on each pass kept the panel busy for hundreds of rows.
+  const medicationStockItems = useMemo(
+    () => stockItems.filter((s) => s.isMedication && s.isActive),
+    [stockItems],
+  );
+  const medicationStockById = useMemo(
+    () => new Map(stockItems.map((s: any) => [s.id, s] as [string, any])),
+    [stockItems],
+  );
 
   // Frequency options
   const frequencyOptions = [
@@ -99,17 +108,16 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   };
 
   // Filter medications based on search
-  useEffect(() => {
-    if (medicationSearch.trim()) {
-      const filtered = medicationStockItems.filter(item =>
-        item.name.toLowerCase().includes(medicationSearch.toLowerCase()) ||
-        item.strength?.toLowerCase().includes(medicationSearch.toLowerCase()) ||
-        item.drugCode?.toLowerCase().includes(medicationSearch.toLowerCase())
-      );
-      setFilteredMedications(filtered);
-    } else {
-      setFilteredMedications([]);
-    }
+  // Memoised, and the rendered slice is capped: a one-letter query used to match most of
+  // the formulary and mount every row of it into the dropdown.
+  const medicationMatches = useMemo(() => {
+    const query = medicationSearch.trim().toLowerCase();
+    if (!query) return [];
+    return medicationStockItems.filter(item =>
+      item.name.toLowerCase().includes(query) ||
+      item.strength?.toLowerCase().includes(query) ||
+      item.drugCode?.toLowerCase().includes(query)
+    );
   }, [medicationSearch, medicationStockItems]);
 
   // Get dosage options based on selected medication strength
@@ -203,8 +211,9 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                 {/* Medication Search Results */}
                 {showMedicationDropdown && medicationSearch && (
                   <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
-                    {filteredMedications.length > 0 ? (
-                      filteredMedications.map((item) => (
+                    {medicationMatches.length > 0 ? (
+                      <>
+                      {capPickerRows(medicationMatches).map((item) => (
                         <button
                           key={item.id}
                           onClick={() => handleMedicationSelect(item)}
@@ -218,7 +227,9 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                             ${getMedicationPrice(item).toFixed(2)} ({paymentMode})
                           </div>
                         </button>
-                      ))
+                      ))}
+                      <PickerRowsHint shown={Math.min(medicationMatches.length, MAX_PICKER_ROWS)} total={medicationMatches.length} />
+                      </>
                     ) : (
                       <div className="p-3 text-[var(--text-secondary)] text-center text-sm">
                         No medications found
@@ -461,7 +472,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
             </div>
             <div className="divide-y divide-[var(--border-color)]">
               {medications.map((med) => {
-                const stockItem = stockItems.find((s) => getEntityId(s) === med.stockItemId);
+                const stockItem = medicationStockById.get(med.stockItemId);
                 const hasStock = stockItem && stockItem.currentStock >= med.quantity;
                 const isDispensing = dispensingId === getEntityId(med);
                 
@@ -544,7 +555,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
 
         {/* Authorization Warning */}
         {medications.some(med => {
-          const stockItem = stockItems.find(s => getEntityId(s) === med.stockItemId);
+          const stockItem = medicationStockById.get(med.stockItemId);
           return stockItem?.requiresAuthorization;
         }) && !isDispensingMode && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">

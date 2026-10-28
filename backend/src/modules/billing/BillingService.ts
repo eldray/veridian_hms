@@ -6,6 +6,29 @@ import { getCounterService } from '../../services/CounterService';
 import { calculateNHISMedicineAllocation, isPayerCovered, resolveConfiguredNHISTariff } from '../../utils/pricing';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 
+type CollectionPatient = { surname: string; otherNames: string; folderNumber: string } | null;
+type CollectionClient = { name: string } | null;
+
+/**
+ * The collections report is money-first, so it must print whoever actually paid.
+ * Registered patients are identified by folder number; a counter walk-in has no folder,
+ * so the line is labelled as such rather than left blank.
+ */
+function collectCustomerLabel(patient: CollectionPatient, client: CollectionClient) {
+  if (patient) {
+    return {
+      name: `${patient.surname} ${patient.otherNames}`.trim() || 'Patient',
+      reference: patient.folderNumber,
+      kind: 'patient' as const,
+    };
+  }
+  return {
+    name: client?.name || 'Walk-in customer',
+    reference: null,
+    kind: 'walk_in' as const,
+  };
+}
+
 export class BillingService extends BaseService {
   private repository: BillingRepository;
   private prisma: PrismaClient;
@@ -303,7 +326,9 @@ export class BillingService extends BaseService {
         bill: {
           id: payment.Bill.id,
           billNumber: payment.Bill.billNumber,
-          patient: payment.Bill.Patient
+          // One field for whoever handed over the money. A counter ticket has no Patient
+          // row, so the report must not assume the payer is in the patient register.
+          customer: collectCustomerLabel(payment.Bill.Patient, payment.Bill.CounterClient)
         },
         items: allocationTotal > 0
           ? lineItems.map((item, index) => ({
@@ -329,6 +354,74 @@ export class BillingService extends BaseService {
       totalAmount: Math.round(collectionPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100,
       paymentCount: collectionPayments.length,
       payments: collectionPayments
+    };
+  }
+
+  /**
+   * The revenue-lines report: one row per charged line in the window, priced as it was
+   * billed, with the bill and whoever it was raised for. Money-first reporting cannot assume
+   * the payer is a registered patient, because a counter ticket is not one.
+   *
+   * `limit` is a guard rail, not a silent cap: the response says whether it was reached so
+   * the screen can widen the window instead of under-reporting.
+   */
+  async getRevenueLines(
+    dateFrom: Date,
+    dateTo: Date,
+    options: { paymentMode?: string; billStatus?: string; serviceType?: string; search?: string; limit?: number } = {},
+  ) {
+    this.logInfo('Fetching revenue lines', { dateFrom, dateTo, ...options });
+    const limit = Math.min(Math.max(Math.round(options.limit || 2000), 1), 5000);
+    const rows = await this.repository.findRevenueLines({
+      dateFrom,
+      dateTo,
+      paymentMode: options.paymentMode,
+      billStatus: options.billStatus,
+      serviceType: options.serviceType,
+      search: options.search,
+      limit,
+    });
+
+    // Prisma hands back Decimals; adding them with + concatenates text, so every money value
+    // becomes a number here and the totals are computed in whole cents.
+    const cents = (value: any) => Math.round(Number(value) * 100);
+    const lines = rows.map(line => ({
+      id: line.id,
+      chargedAt: line.createdAt,
+      description: line.description,
+      serviceType: line.serviceType,
+      serviceCategory: line.serviceCatalog?.serviceCategory || 'other',
+      quantity: line.quantity,
+      unitPrice: Number(line.unitPrice),
+      discount: Number(line.discount),
+      vatAmount: Number(line.vatAmount),
+      lineTotal: Number(line.lineTotal),
+      insuranceCovered: Number(line.insuranceCoveredAmount),
+      patientPayable: Number(line.patientPayableAmount),
+      pricingBasis: line.pricingBasis,
+      bill: {
+        id: line.bill.id,
+        billNumber: line.bill.billNumber,
+        billDate: line.bill.billDate,
+        status: line.bill.status,
+        paymentMode: line.bill.paymentMode,
+        customer: collectCustomerLabel(line.bill.Patient, line.bill.CounterClient),
+      },
+    }));
+
+    const sumOf = (pick: (line: typeof lines[number]) => number) =>
+      lines.reduce((total, line) => total + cents(pick(line)), 0) / 100;
+
+    return {
+      totalLines: lines.length,
+      totalAmount: sumOf(line => line.lineTotal),
+      patientPayableAmount: sumOf(line => line.patientPayable),
+      insuranceCoveredAmount: sumOf(line => line.insuranceCovered),
+      lines,
+      limit,
+      // True when the window holds more lines than the guard rail, so the screen can say so
+      // rather than presenting a short total as the whole picture.
+      capped: rows.length >= limit,
     };
   }
 

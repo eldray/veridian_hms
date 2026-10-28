@@ -3,6 +3,15 @@ import { Router } from 'express';
 import { PrismaClient, UserRole } from '@prisma/client';
 import { NursingController } from './NursingController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { validateBody } from '../../middleware/validate';
+import {
+  AdministerDoseSchema,
+  CreateNursingNoteSchema,
+  CreateNursingTaskSchema,
+  RecordDoseVarianceSchema,
+  UpdateNursingNoteSchema,
+  UpdateNursingTaskSchema,
+} from './NursingValidators';
 
 export function createNursingRoutes(prisma: PrismaClient): Router {
   const router = Router();
@@ -10,9 +19,9 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
 
   router.use(protect);
 
-  // Read access — any clinical role
+  // Read access — the clinical team plus pharmacy, which checks the MAR before dispensing.
   const READERS: UserRole[] = [
-    'super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'hr_officer',
+    'super_admin', 'admin', 'doctor', 'nurse', 'midwife', 'pharmacist',
   ];
 
   // Write access — the clinical team only
@@ -30,8 +39,8 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
   router.get('/attendance/:attendanceId/shift', requireRole(READERS), controller.getShiftMar);
 
   router.post('/doses/preview-schedule', requireRole(WRITERS), controller.previewSchedule);
-  router.post('/doses/:id/administer', requireRole(WRITERS), controller.administerDose);
-  router.post('/doses/:id/variance', requireRole(WRITERS), controller.recordVariance);
+  router.post('/doses/:id/administer', requireRole(WRITERS), validateBody(AdministerDoseSchema), controller.administerDose);
+  router.post('/doses/:id/variance', requireRole(WRITERS), validateBody(RecordDoseVarianceSchema), controller.recordVariance);
 
   // ═══════════════════════════════════════════════════════════
   // NURSING NOTES
@@ -39,8 +48,8 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
 
   router.get('/notes', requireRole(READERS), controller.getNotes);
   router.get('/notes/:id', requireRole(READERS), controller.getNoteById);
-  router.post('/notes', requireRole(WRITERS), controller.createNote);
-  router.patch('/notes/:id', requireRole(WRITERS), controller.updateNote);
+  router.post('/notes', requireRole(WRITERS), validateBody(CreateNursingNoteSchema), controller.createNote);
+  router.patch('/notes/:id', requireRole(WRITERS), validateBody(UpdateNursingNoteSchema), controller.updateNote);
   router.delete('/notes/:id', requireRole(WRITERS), controller.deleteNote);
 
   // ═══════════════════════════════════════════════════════════
@@ -49,8 +58,8 @@ export function createNursingRoutes(prisma: PrismaClient): Router {
 
   router.get('/tasks', requireRole(READERS), controller.getTasks);
   router.get('/tasks/:id', requireRole(READERS), controller.getTaskById);
-  router.post('/tasks', requireRole(WRITERS), controller.createTask);
-  router.patch('/tasks/:id', requireRole(WRITERS), controller.updateTask);
+  router.post('/tasks', requireRole(WRITERS), validateBody(CreateNursingTaskSchema), controller.createTask);
+  router.patch('/tasks/:id', requireRole(WRITERS), validateBody(UpdateNursingTaskSchema), controller.updateTask);
   router.delete('/tasks/:id', requireRole(WRITERS), controller.deleteTask);
 
   return router;

@@ -9,7 +9,9 @@ export const createGHSReportRoutes = (prisma: PrismaClient) => {
 
   router.use(protect);
   
-  const allowedRoles: UserRole[] = ['admin', 'doctor', 'midwife', 'records', 'accounts'];
+  // Nurse is included because the consulting-room register below already allows it
+  // and the Reports page is open to every staff role.
+  const allowedRoles: UserRole[] = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
   router.use(requireRole(allowedRoles));
 
   // ── Generate Reports ──────────────────────────────────────────────────────

@@ -48,7 +48,7 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
   if (!data || !data.facility) {
     console.error('MalariaReportView: Invalid data structure', data);
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+      <div className="bg-[var(--icon-red-bg)] border border-[var(--border-color)] rounded-lg p-4 text-[var(--icon-red-text)]">
         Error: Invalid report data structure. Please try generating the report again.
       </div>
     );
@@ -57,63 +57,63 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
   const hasStockOut = (stock: any) => stock?.stockOutDays > 7;
 
   return (
-    <div className="space-y-6" id="malaria-report">
+    <div className="printable-report space-y-6 text-[var(--text-primary)]" id="malaria-report">
       {/* Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
-        <h2 className="text-xl font-bold text-gray-900">GHANA HEALTH SERVICE</h2>
-        <h3 className="text-lg font-semibold text-gray-700 mt-1">MONTHLY MALARIA DATA RETURNS ON ANTI-MALARIAS</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center">
+        <h2 className="text-xl font-bold text-[var(--text-primary)]">GHANA HEALTH SERVICE</h2>
+        <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-1">MONTHLY MALARIA DATA RETURNS ON ANTI-MALARIAS</h3>
         <div className="mt-3 text-sm">
           <p className="font-medium">{data.facility.name}</p>
-          <p className="text-gray-500">District: {data.facility.district} | GHF Code: {data.facility.ghfCode}</p>
-          <p className="text-gray-500 mt-1">Reporting Period: {dateRange.start} to {dateRange.end}</p>
+          <p className="text-[var(--text-secondary)]">District: {data.facility.district} | GHF Code: {data.facility.ghfCode}</p>
+          <p className="text-[var(--text-secondary)] mt-1">Reporting Period: {dateRange.start} to {dateRange.end}</p>
         </div>
       </div>
 
       {/* SECTION 1: OPD Malaria Cases */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="font-bold text-gray-900">OPD Malaria Cases</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+          <h3 className="font-bold text-[var(--text-primary)]">OPD Malaria Cases</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-[var(--bg-main)] border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Age Group</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Suspected</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Tested</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Confirmed</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Treated with ACT</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Age Group</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Suspected</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Tested</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Confirmed</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Treated with ACT</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">Under 5 years</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.opdMalaria.under5.suspected}</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.opdMalaria.under5.tested}</td>
-                <td className="px-4 py-3 text-center font-semibold text-green-600">{data.opdMalaria.under5.confirmed}</td>
-                <td className="px-4 py-3 text-center font-semibold text-blue-600">{data.opdMalaria.under5.treatedWithACT}</td>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              <tr className="hover:bg-[var(--bg-main)]">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">Under 5 years</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.under5.suspected}</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.under5.tested}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-green-text)]">{data.opdMalaria.under5.confirmed}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-cyan-text)]">{data.opdMalaria.under5.treatedWithACT}</td>
               </tr>
-              <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">5 years and Above</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.opdMalaria.above5.suspected}</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.opdMalaria.above5.tested}</td>
-                <td className="px-4 py-3 text-center font-semibold text-green-600">{data.opdMalaria.above5.confirmed}</td>
-                <td className="px-4 py-3 text-center font-semibold text-blue-600">{data.opdMalaria.above5.treatedWithACT}</td>
+              <tr className="hover:bg-[var(--bg-main)]">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">5 years and Above</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.above5.suspected}</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.above5.tested}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-green-text)]">{data.opdMalaria.above5.confirmed}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-cyan-text)]">{data.opdMalaria.above5.treatedWithACT}</td>
               </tr>
             </tbody>
-            <tfoot className="bg-gray-50 border-t">
+            <tfoot className="bg-[var(--bg-main)] border-t">
               <tr className="font-semibold">
-                <td className="px-4 py-3 text-gray-900">Total</td>
-                <td className="px-4 py-3 text-center text-gray-900">
+                <td className="px-4 py-3 text-[var(--text-primary)]">Total</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
                   {data.opdMalaria.under5.suspected + data.opdMalaria.above5.suspected}
                 </td>
-                <td className="px-4 py-3 text-center text-gray-900">
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
                   {data.opdMalaria.under5.tested + data.opdMalaria.above5.tested}
                 </td>
-                <td className="px-4 py-3 text-center text-green-700">
+                <td className="px-4 py-3 text-center text-[var(--icon-green-text)]">
                   {data.opdMalaria.under5.confirmed + data.opdMalaria.above5.confirmed}
                 </td>
-                <td className="px-4 py-3 text-center text-blue-700">
+                <td className="px-4 py-3 text-center text-[var(--icon-cyan-text)]">
                   {data.opdMalaria.under5.treatedWithACT + data.opdMalaria.above5.treatedWithACT}
                 </td>
               </tr>
@@ -123,34 +123,34 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       </div>
 
       {/* SECTION 2: Testing Methods */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 bg-gray-50 border-b border-gray-200">
-          <h3 className="font-bold text-gray-900">Testing Methods</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+          <h3 className="font-bold text-[var(--text-primary)]">Testing Methods</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-[var(--bg-main)] border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Method</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Number Tested</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Number Positive</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Positivity Rate</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Method</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Number Tested</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Number Positive</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Positivity Rate</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">Microscopy</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.testing.microscopy}</td>
-                <td className="px-4 py-3 text-center font-semibold text-red-600">{data.testing.microscopyPositive}</td>
-                <td className="px-4 py-3 text-center text-gray-700">
+            <tbody className="divide-y divide-[var(--border-color)]">
+              <tr className="hover:bg-[var(--bg-main)]">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">Microscopy</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.testing.microscopy}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-red-text)]">{data.testing.microscopyPositive}</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
                   {data.testing.microscopy > 0 ? ((data.testing.microscopyPositive / data.testing.microscopy) * 100).toFixed(1) : 0}%
                 </td>
               </tr>
-              <tr className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">RDT</td>
-                <td className="px-4 py-3 text-center text-gray-700">{data.testing.rdt}</td>
-                <td className="px-4 py-3 text-center font-semibold text-red-600">{data.testing.rdtPositive}</td>
-                <td className="px-4 py-3 text-center text-gray-700">
+              <tr className="hover:bg-[var(--bg-main)]">
+                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">RDT</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.testing.rdt}</td>
+                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-red-text)]">{data.testing.rdtPositive}</td>
+                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
                   {data.testing.rdt > 0 ? ((data.testing.rdtPositive / data.testing.rdt) * 100).toFixed(1) : 0}%
                 </td>
               </tr>
@@ -160,41 +160,41 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       </div>
 
       {/* SECTION 3: Commodity Stock - ASAQ */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 bg-blue-50 border-b border-blue-200">
-          <h3 className="font-bold text-blue-800">Artesunate-Amodiaquine (ASAQ)</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]">
+          <h3 className="font-bold text-[var(--icon-cyan-text)]">Artesunate-Amodiaquine (ASAQ)</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-[var(--bg-main)] border-b">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600">Age Group</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Opening Stock</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Dispensed</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Closing Stock</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600">Stock Out &gt;7 days</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Age Group</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Opening Stock</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Dispensed</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Closing Stock</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Stock Out &gt;7 days</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              <tr className="hover:bg-gray-50"><td className="px-4 py-3">Below 1 year</td>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">Below 1 year</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_below_1yr.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_below_1yr.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_below_1yr.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_below_1yr) ? 'Yes' : 'No'}</td>
               </tr>
-              <tr className="hover:bg-gray-50"><td className="px-4 py-3">1-5 years</td>
+              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">1-5 years</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_1_5yrs.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_1_5yrs.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_1_5yrs.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_1_5yrs) ? 'Yes' : 'No'}</td>
                </tr>
-              <tr className="hover:bg-gray-50"><td className="px-4 py-3">6-13 years</td>
+              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">6-13 years</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_6_13yrs.closingStock}</td>
                 <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_6_13yrs) ? 'Yes' : 'No'}</td>
                </tr>
-              <tr className="hover:bg-gray-50"><td className="px-4 py-3">14+ years</td>
+              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">14+ years</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.openingStock}</td>
                 <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.dispensed}</td>
                 <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_14_plus.closingStock}</td>
@@ -206,13 +206,13 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       </div>
 
       {/* SECTION 4: Commodity Stock - AL */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 bg-green-50 border-b border-green-200">
-          <h3 className="font-bold text-green-800">Artemether-Lumefantrine (AL)</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 bg-[var(--icon-green-bg)] border-b border-[var(--border-color)]">
+          <h3 className="font-bold text-[var(--icon-green-text)]">Artemether-Lumefantrine (AL)</h3>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-[var(--bg-main)] border-b">
               <tr><th className="px-4 py-3 text-left">Age Group</th><th className="px-4 py-3 text-center">Opening Stock</th><th className="px-4 py-3 text-center">Dispensed</th><th className="px-4 py-3 text-center">Closing Stock</th><th className="px-4 py-3 text-center">Stock Out &gt;7 days</th></tr>
             </thead>
             <tbody className="divide-y">
@@ -228,63 +228,63 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       {/* SECTION 5: Other Anti-Malarials */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* DHAP */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-purple-50 border-b border-purple-200"><h4 className="font-bold text-purple-800">DHAP 40/320mg</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-purple-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-purple-text)]">DHAP 40/320mg</h4></div>
           <div className="p-4 space-y-2">
             <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.dhap_40_320mg.openingStock}</span></div>
             <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.dhap_40_320mg.dispensed}</span></div>
             <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.dhap_40_320mg.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.dhap_40_320mg) ? 'text-red-600 font-bold' : 'text-green-600'}>{hasStockOut(data.commodities.dhap_40_320mg) ? 'Yes' : 'No'}</span></div>
+            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.dhap_40_320mg) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.dhap_40_320mg) ? 'Yes' : 'No'}</span></div>
           </div>
         </div>
 
         {/* Quinine Tablets */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200"><h4 className="font-bold text-yellow-800">Quinine Tablets 300mg</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-yellow-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-yellow-text)]">Quinine Tablets 300mg</h4></div>
           <div className="p-4 space-y-2">
             <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.quinine_tablet.openingStock}</span></div>
             <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.quinine_tablet.dispensed}</span></div>
             <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.quinine_tablet.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_tablet) ? 'text-red-600 font-bold' : 'text-green-600'}>{hasStockOut(data.commodities.quinine_tablet) ? 'Yes' : 'No'}</span></div>
+            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_tablet) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.quinine_tablet) ? 'Yes' : 'No'}</span></div>
           </div>
         </div>
 
         {/* Quinine Injection */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-orange-50 border-b border-orange-200"><h4 className="font-bold text-orange-800">Quinine Injection</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-orange-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-orange-text)]">Quinine Injection</h4></div>
           <div className="p-4 space-y-2">
             <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.quinine_injection.openingStock}</span></div>
             <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.quinine_injection.dispensed}</span></div>
             <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.quinine_injection.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_injection) ? 'text-red-600 font-bold' : 'text-green-600'}>{hasStockOut(data.commodities.quinine_injection) ? 'Yes' : 'No'}</span></div>
+            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_injection) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.quinine_injection) ? 'Yes' : 'No'}</span></div>
           </div>
         </div>
 
         {/* RDT Kits */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-red-50 border-b border-red-200"><h4 className="font-bold text-red-800">RDT Kits</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-red-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-red-text)]">RDT Kits</h4></div>
           <div className="p-4 space-y-2">
             <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.rdt_kits.openingStock}</span></div>
             <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.rdt_kits.dispensed}</span></div>
             <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.rdt_kits.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.rdt_kits) ? 'text-red-600 font-bold' : 'text-green-600'}>{hasStockOut(data.commodities.rdt_kits) ? 'Yes' : 'No'}</span></div>
+            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.rdt_kits) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.rdt_kits) ? 'Yes' : 'No'}</span></div>
           </div>
         </div>
 
         {/* SP */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-teal-50 border-b border-teal-200"><h4 className="font-bold text-teal-800">SP (Sulfadoxine-Pyrimethamine)</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-green-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-green-text)]">SP (Sulfadoxine-Pyrimethamine)</h4></div>
           <div className="p-4 space-y-2">
             <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.sp.openingStock}</span></div>
             <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.sp.dispensed}</span></div>
             <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.sp.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.sp) ? 'text-red-600 font-bold' : 'text-green-600'}>{hasStockOut(data.commodities.sp) ? 'Yes' : 'No'}</span></div>
+            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.sp) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.sp) ? 'Yes' : 'No'}</span></div>
           </div>
         </div>
 
         {/* Artesunate Injections Group */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-cyan-50 border-b border-cyan-200"><h4 className="font-bold text-cyan-800">Artesunate Injection</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-cyan-text)]">Artesunate Injection</h4></div>
           <div className="p-3 space-y-2 text-sm">
             <div className="flex justify-between"><span>30mg - Opening Stock:</span><span>{data.commodities.artesunate_injection_30mg.openingStock}</span></div>
             <div className="flex justify-between"><span>30mg - Dispensed:</span><span>{data.commodities.artesunate_injection_30mg.dispensed}</span></div>
@@ -301,8 +301,8 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
         </div>
 
         {/* Arthemeter Injections */}
-        <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-4 py-3 bg-indigo-50 border-b border-indigo-200"><h4 className="font-bold text-indigo-800">Arthemeter Injection</h4></div>
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+          <div className="px-4 py-3 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-cyan-text)]">Arthemeter Injection</h4></div>
           <div className="p-3 space-y-2 text-sm">
             <div className="flex justify-between"><span>40mg - Opening Stock:</span><span>{data.commodities.arthemeter_injection_40mg.openingStock}</span></div>
             <div className="flex justify-between"><span>40mg - Dispensed:</span><span>{data.commodities.arthemeter_injection_40mg.dispensed}</span></div>
@@ -316,9 +316,9 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       </div>
 
       {/* SECTION 6: Rectal Artesunate */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 bg-red-50 border-b border-red-200">
-          <h3 className="font-bold text-red-800">Rectal Artesunate</h3>
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className="px-5 py-4 bg-[var(--icon-red-bg)] border-b border-[var(--border-color)]">
+          <h3 className="font-bold text-[var(--icon-red-text)]">Rectal Artesunate</h3>
         </div>
         <div className="grid grid-cols-2 gap-4 p-4">
           <div className="border rounded-lg p-3">
@@ -341,7 +341,7 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
       </div>
 
       {/* Footer */}
-      <div className="text-center py-4 text-xs text-gray-400">
+      <div className="text-center py-4 text-xs text-[var(--text-tertiary)]">
         Generated on {new Date().toLocaleString()} | GHS Monthly Malaria Data Returns
       </div>
     </div>

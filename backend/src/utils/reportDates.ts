@@ -69,6 +69,18 @@ export function money(value: unknown): number {
 
 
 /**
+ * A whole calendar month as a half-open Prisma range: { gte: 1st 00:00, lt: 1st of the next month }.
+ * Uses the same server-local calendar as parseReportRange so a month boundary in claim batching
+ * means the same instant as a day boundary in the reports.
+ */
+export function monthRange(periodYear: number, periodMonth: number): { gte: Date; lt: Date } {
+  return {
+    gte: new Date(periodYear, periodMonth - 1, 1, 0, 0, 0, 0),
+    lt: new Date(periodYear, periodMonth, 1, 0, 0, 0, 0),
+  };
+}
+
+/**
  * Parse a report boundary from an API query.
  * Plain calendar dates use the server's local calendar (matching parseReportRange);
  * explicit timestamps retain their exact instant. This avoids mixing UTC date-only

@@ -1,5 +1,6 @@
 // src/pages/InsuranceProviders.tsx - UPDATED WITH CORPORATE SUPPORT
 import { useEffect, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
@@ -259,7 +260,7 @@ export default function InsuranceProviders() {
     const newStatus = !provider.isActive;
     const action = newStatus ? 'activate' : 'deactivate';
     
-    if (!window.confirm(`Are you sure you want to ${action} ${provider.name}?`)) return;
+    if (!(await confirmDialog({ title: 'Change provider status', message: `Are you sure you want to ${action} ${provider.name}?`, confirmText: newStatus ? 'Activate' : 'Deactivate', type: 'warning' }))) return;
     
     try {
       if (provider.type === 'corporate') {
@@ -284,7 +285,7 @@ export default function InsuranceProviders() {
       return;
     }
     
-    if (!window.confirm(`Delete ${provider.name}? This cannot be undone.`)) return;
+    if (!(await confirmDialog({ title: 'Delete provider', message: `Delete ${provider.name}? This cannot be undone.`, confirmText: 'Delete' }))) return;
   
     try {
       if (provider.type === 'corporate') {

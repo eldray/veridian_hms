@@ -16,15 +16,19 @@ export function createScanTemplateRoutes(prisma: PrismaClient): Router {
   // Add authentication middleware
   router.use(protect);
 
+  // Read roles mirror the scans page guard in src/config/access.ts; sonographer
+  // is the role that actually performs the exam, so it must read the catalogue.
+  const READERS = ['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'accounts'];
+
   // Specific routes FIRST (before /:id)
-  router.get('/meta/categories', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanCategories as any);
-  router.get('/meta/body-parts', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanBodyParts as any);
-  router.get('/meta/scan-types', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTypes as any);
+  router.get('/meta/categories', requireRole(READERS), controller.getScanCategories as any);
+  router.get('/meta/body-parts', requireRole(READERS), controller.getScanBodyParts as any);
+  router.get('/meta/scan-types', requireRole(READERS), controller.getScanTypes as any);
   router.post('/bulk-update', requireRole(['admin']), controller.bulkUpdateScanTemplates as any);
 
   // Dynamic routes AFTER
-  router.get('/', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTemplates as any);
-  router.get('/:id', requireRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']), controller.getScanTemplateById as any);
+  router.get('/', requireRole(READERS), controller.getScanTemplates as any);
+  router.get('/:id', requireRole(READERS), controller.getScanTemplateById as any);
   router.post('/', requireRole(['admin']), controller.createScanTemplate);
   router.put('/:id', requireRole(['admin']), controller.updateScanTemplate);
   router.delete('/:id', requireRole(['admin']), controller.deleteScanTemplate as any);

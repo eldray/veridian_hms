@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Scan, ScanTemplate } from '../../types';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { ScanEntry } from '../../types/medical-entries';
 import { useScanTemplateStore } from '../../store/scanTemplateStore';
 import { ScanIcon, Plus, DollarSign, Shield, AlertCircle, Search, X } from 'lucide-react';
@@ -165,8 +166,9 @@ const ScansSection: React.FC<ScansSectionProps> = ({
             {/* Scan Search Results */}
             {showScanDropdown && scanSearch && (
               <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
+                <PickerRowsHint shown={Math.min(filteredScanTemplates.length, MAX_PICKER_ROWS)} total={filteredScanTemplates.length} />
                 {filteredScanTemplates.length > 0 ? (
-                  filteredScanTemplates.map((template) => (
+                  capPickerRows(filteredScanTemplates).map((template) => (
                     <button
                       key={template.id || template.id} // ✅ FIXED: Consistent ID
                       onClick={() => handleScanSelect(template)}

@@ -30,7 +30,9 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
   // ==========================================
   // ✅ SPECIFIC ROUTES FIRST (BEFORE dynamic :id routes)
   // ==========================================
-  router.get('/stats/summary', protect, requireRole(['admin', 'records']), controller.getReferralStats);
+  // The referrals page is open to the clinical team, and it loads this summary on
+  // mount, so nurses and midwives read it too.
+  router.get('/stats/summary', protect, requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), controller.getReferralStats);
   router.get('/patient/:patientId', protect, controller.getReferralsByPatient);
 
   // ==========================================

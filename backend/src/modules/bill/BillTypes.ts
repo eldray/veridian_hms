@@ -2,7 +2,8 @@ import { Bill, BillLineItem, BillStatus, PaymentMode, PaymentMethod } from '@pri
 
 // ✅ FIXED: Aligned with actual Prisma schema field names
 export interface BillWithRelations extends Bill {
-  Patient?: { id: string; surname: string; otherNames: string; folderNumber: string | null; contact?: string; };
+  Patient?: { id: string; surname: string; otherNames: string; folderNumber: string | null; contact?: string; } | null;
+  CounterClient?: { id: string; name: string; ageYears: number | null; phone: string | null } | null;
   Attendance?: { id: string; attendanceNumber: string; attendanceType: string; dateTime?: Date; }; // ✅ Fixed field names
   BillLineItem?: BillLineItemWithRelations[];
   Payment?: PaymentRecord[]; // ✅ Renamed to avoid conflict
@@ -27,7 +28,9 @@ export interface PaymentRecord {
 }
 
 export interface CreateBillInput {
-  patientId: string;
+  // Exactly one of these identifies who is being billed.
+  patientId?: string;
+  counterClientId?: string;
   attendanceId?: string;
   paymentMode?: PaymentMode;
   insuranceProviderId?: string;
@@ -57,6 +60,7 @@ export interface AddPaymentInput {
 
 export interface BillFilter {
   patientId?: string;
+  counterClientId?: string;
   status?: BillStatus | BillStatus[];
   paymentMode?: PaymentMode;
   dateFrom?: Date;

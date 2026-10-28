@@ -2,7 +2,7 @@
   "coreData": true,
   "diagnosisLinks": true,
   "procedureLinks": true,
-  "testData": false,
+  "testData": true,
   "maternityData": false,
-  "lastRun": "2026-10-18T22:44:11.636Z"
+  "lastRun": "2026-10-28T14:19:30.670Z"
 }

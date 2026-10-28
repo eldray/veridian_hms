@@ -39,6 +39,9 @@ export function createBillingRoutes(prisma: PrismaClient): Router {
   // Get bill line items
   router.get('/invoices/:id/items', controller.getLineItems.bind(controller));
 
+  // Revenue-line report: every charge in a date range, across all bills (Reports screen)
+  router.get('/line-items', controller.getRevenueLines.bind(controller));
+
   // Void bill line item (Admin/Accounts only)
   router.post('/line-items/:lineItemId/void', requireRole(['admin', 'accounts']), controller.voidLineItem);
 

@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import { hashRefreshToken } from '../../utils/tokenHash';
 
 export class AuthRepository {
   private prisma: PrismaClient;
@@ -74,16 +75,17 @@ export class AuthRepository {
   }
 
   async storeRefreshToken(userId: string, refreshToken: string, expiresAt: Date): Promise<void> {
+    const tokenHash = hashRefreshToken(refreshToken);
     await this.prisma.refreshToken.upsert({
       where: { userId },
-      update: { token: refreshToken, expiresAt },
-      create: { userId, token: refreshToken, expiresAt },
+      update: { token: tokenHash, expiresAt },
+      create: { userId, token: tokenHash, expiresAt },
     });
   }
 
   async validateRefreshToken(refreshToken: string) {
     const tokenRecord = await this.prisma.refreshToken.findUnique({
-      where: { token: refreshToken },
+      where: { token: hashRefreshToken(refreshToken) },
       include: { user: { select: { isActive: true } } },
     });
     if (!tokenRecord) return { userId: '', valid: false };
@@ -94,7 +96,7 @@ export class AuthRepository {
   }
 
   async deleteRefreshToken(refreshToken: string): Promise<void> {
-    await this.prisma.refreshToken.deleteMany({ where: { token: refreshToken } });
+    await this.prisma.refreshToken.deleteMany({ where: { token: hashRefreshToken(refreshToken) } });
   }
 
   async deleteRefreshTokenForUser(userId: string): Promise<void> {

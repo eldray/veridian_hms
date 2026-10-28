@@ -2,7 +2,9 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { UserController } from './UserController';
 import { protect, requireRole } from '../../middleware/authMiddleware';
-import { uploadSingleDocument } from '../../middleware/uploadMiddleware';
+import { validateBody } from '../../middleware/validate';
+import { ResetUserPasswordSchema } from './UserValidators';
+import { uploadSingleDocument, handleUploadError } from '../../middleware/uploadMiddleware';
 import { VALID_ROLES, VALID_SENIORITY, VALID_LEAVE_TYPES, VALID_SHIFT_TYPES } from './UserTypes';
 
 // Role groups
@@ -51,14 +53,18 @@ export const createUserRoutes = (prisma: any): Router => {
     controller.createUser,
   );
 
-  router.get('/', requireRole([...ADMIN_ONLY]), controller.getAllUsers);
+  // HR Officer reads the staff directory; creating, editing and deactivating
+  // accounts stays with the administrators (see PUT /:id below).
+  router.get('/', requireRole([...ADMIN_HR]), controller.getAllUsers);
 
   // ==========================================
   // FULL PROFILE
   // ==========================================
 
-  router.get('/:id/full-profile', controller.getFullProfile);
-  router.patch('/:id/full-profile', controller.updateFullProfile);
+  // Carries bank details and national ID, so it is self or HR/admin only —
+  // otherwise every signed-in role (lab tech, pharmacist, …) could read it.
+  router.get('/:id/full-profile', selfOrRoles(ADMIN_HR), controller.getFullProfile);
+  router.patch('/:id/full-profile', selfOrRoles(ADMIN_HR), controller.updateFullProfile);
 
   // ==========================================
   // PAYROLL — static routes FIRST
@@ -87,10 +93,12 @@ export const createUserRoutes = (prisma: any): Router => {
   // PER-USER payslips and documents
   // ==========================================
 
-  router.get('/:id/payslips', controller.getUserPayslips);
+  // /me/payslips and /me/documents above serve self-service; these per-user
+  // variants are the HR/admin view and must not be open to every role.
+  router.get('/:id/payslips', selfOrRoles(ADMIN_HR), controller.getUserPayslips);
   router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
-  router.get('/:id/documents', controller.getUserDocuments);
-  router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, controller.uploadUserDocument);
+  router.get('/:id/documents', selfOrRoles(ADMIN_HR), controller.getUserDocuments);
+  router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, handleUploadError, controller.uploadUserDocument);
 
   // ==========================================
   // USER UPDATE / DEACTIVATE
@@ -116,6 +124,16 @@ export const createUserRoutes = (prisma: any): Router => {
   );
 
   router.patch('/:id/deactivate', requireRole([...ADMIN_ONLY]), controller.deactivateUser);
+
+  // A member of staff who cannot sign in is reset here. There is no mail server in
+  // the packaged deployment, so /auth/forgot-password has nothing to send a link
+  // with; this route is the working path back into the account.
+  router.patch(
+    '/:id/password',
+    requireRole([...ADMIN_ONLY]),
+    validateBody(ResetUserPasswordSchema),
+    controller.resetUserPassword,
+  );
 
   // ==========================================
   // SHIFTS

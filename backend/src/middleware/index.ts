@@ -1,7 +1,6 @@
 // Re-export all middleware
 export * from './authMiddleware';  
-export * from './concurrency';     
-export * from './rateLimiter';
+export * from './concurrency';
 export * from './audit';           
 export * from './transaction';     
 
@@ -9,10 +8,9 @@ export * from './transaction';
 import { withTransaction, secureOperation } from './transaction';
 import { auditFinancialEvent, auditBillOperation, auditPaymentOperation } from './audit';
 import { withOptimisticLock } from './concurrency';
-import { createRateLimiter } from './rateLimiter';
 import { protect, requireRole, requirePermission, requireMinSeniority } from './authMiddleware';
 
 export const transactionMiddleware = { withTransaction, secureOperation };
 export const auditMiddleware = { auditFinancialEvent, auditBillOperation, auditPaymentOperation };
-export const concurrencyMiddleware = { withOptimisticLock, createRateLimiter };
+export const concurrencyMiddleware = { withOptimisticLock };
 export const authMiddleware = { protect, requireRole, requirePermission, requireMinSeniority };

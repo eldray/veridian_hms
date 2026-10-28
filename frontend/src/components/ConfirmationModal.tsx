@@ -164,7 +164,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             </h3>
             <p
               id="confirmation-modal-message"
-              className="text-sm mb-6"
+              className="text-sm mb-6 whitespace-pre-line"
               style={{ color: 'var(--text-secondary)' }}
             >
               {message}

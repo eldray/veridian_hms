@@ -1,6 +1,7 @@
 // src/pages/Antenatal.tsx — restructured
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { confirmDialog } from '../context/ConfirmDialog';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAntenatalStore } from '../store/antenatalStore';
 import { useDeliveryStore } from '../store/deliveryStore';
 import { usePostnatalStore } from '../store/postnatalStore';
@@ -29,7 +30,7 @@ import {
   ChevronLeft, RefreshCw, X, Stethoscope, Pill, FlaskConical, Scissors,
   Scan, FileText, Activity, AlertCircle, Plus, Trash2, Edit, User, Calendar,
   Baby, Heart, Droplet, Shield, CheckCircle, Clock, AlertTriangle, Syringe,
-  Ruler, Weight, TrendingUp, Eye, Hospital, Users, Bed, Building2, Moon, Sun,
+  Ruler, Weight, TrendingUp, Eye, Hospital, Bed, Building2, Moon, Sun,
   ClipboardList, ArrowRight, Gauge, Thermometer, Wind, Droplets,
 } from 'lucide-react';
 
@@ -359,6 +360,7 @@ const BedWardSelectionModalAntenatal: React.FC<{
 // ═════════════════════════════════════════════════════════════════════════════
 export default function Antenatal() {
   const navigate = useNavigate();
+  const routerLocation = useLocation();
   const { attendanceId: urlAttendanceId } = useParams();
   const { success, error: toastError } = useToast();
   const addToast = useToastStore(state => state.addToast);
@@ -381,7 +383,7 @@ export default function Antenatal() {
   const { postnatalRecords, getPostnatalRecords, deletePostnatalRecord } = usePostnatalStore();
 
   const { updateBed } = useWardStore();
-  const { createAdmission, getAdmissions } = useAdmissionStore();
+  const { createAdmission } = useAdmissionStore();
 
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -514,12 +516,10 @@ const prescribedMeds = medicationsList.filter((m: any) => m.status === 'prescrib
   const loadData = async () => {
     setRefreshing(true);
     try {
-      // Only what the page shows first: current visits and the delivery / postnatal records
-      await Promise.all([
-        getAttendances(),
-        getDeliveryRecords(),
-        getPostnatalRecords(),
-      ]);
+      // Only the visit list, and only the current worklist (live visits, 500 rows maximum).
+      // Delivery/postnatal records are consumed filtered by the selected visit and are fetched
+      // per patient when a patient is picked, so they are not loaded for the whole hospital here.
+      await getAttendances({ live: true, limit: 500 });
     } catch (err: any) {
       toastError('Load failed', err.message);
     } finally {
@@ -582,6 +582,9 @@ useEffect(() => {
   getActiveAntenatalRecordByPatient(selectedPatientId).catch((err) => {
     console.error('Failed to load active antenatal record:', err);
   });
+  // The visit dropdown lists this patient's own history, so ask for it (one request)
+  // instead of expecting the shared live-worklist to still hold it.
+  getAttendances({ patientId: selectedPatientId }).catch(() => {});
   getDeliveryRecords({ patientId: selectedPatientId }).catch(() => {});
   getPostnatalRecords({ patientId: selectedPatientId }).catch(() => {});
 }, [selectedPatientId]);
@@ -636,7 +639,7 @@ useEffect(() => {
   };
 
   const handleDeleteDeliveryRecord = async (id: string) => {
-    if (!window.confirm('Delete this delivery record?')) return;
+    if (!(await confirmDialog({ title: 'Delete delivery record', message: 'Delete this delivery record?', confirmText: 'Delete' }))) return;
     try {
       await deleteDeliveryRecord(id);
       await getDeliveryRecords({ patientId: selectedPatientId });
@@ -776,7 +779,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for antenatal observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
     } catch (err: any) {
@@ -815,7 +817,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for delivery to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setActiveTab('delivery');
@@ -855,7 +856,6 @@ useEffect(() => {
       });
       success('Admitted', `Patient admitted for postpartum observation to Bed ${bedNumber}, ${wardName}`);
       await getAttendance(selectedAttendanceId);
-      await getAdmissions();
       setShowBedWardModal(false);
       setPendingAdmissionType(null);
       setActiveTab('postnatal');
@@ -989,10 +989,10 @@ useEffect(() => {
       {/* ── PAGE HEADER ───────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/maternal-waiting-list')}
+          <button onClick={() => (routerLocation.key === 'default' ? navigate('/dashboard/maternal-waiting-list') : navigate(-1))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
               text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
-            <ChevronLeft className="w-3.5 h-3.5" /><Users className="w-3.5 h-3.5" /> Waiting List
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
           </button>
           <div className="h-5 w-px bg-[var(--border-color)]" />
           <div className="flex items-center gap-2.5">

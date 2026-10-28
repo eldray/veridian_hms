@@ -1,5 +1,5 @@
 // src/layouts/DashboardLayout.tsx
-import { ReactNode, useState, useRef, useEffect, useCallback } from 'react';
+import { ReactNode, Suspense, useState, useRef, useEffect, useCallback } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -7,14 +7,10 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { useThemeStore } from '../store/themeStore';
 import { useLiveRefresh } from '../api/realtime';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { navGroupsFor } from '../config/access';
 import {
-  LayoutDashboard, Users, FileText, DollarSign, Send, Package,
-  BedDouble, BarChart3, LogOut, Menu, X, User, Stethoscope,
-  FlaskConical, Pill, ChevronDown, Settings, Bell, Heart, Shield,
-  ClipboardList, Building, CreditCard, Warehouse, Calendar, Activity,
-  ChevronLeft, ChevronRight, Sun, Moon, Baby, Scissors, Syringe,
-  Clipboard, TrendingUp, Eye, Trash2, Microscope, HeartPulse, Scan, ArrowLeftRight,
-  Briefcase, ScrollText,
+  LogOut, Menu, X, User, ChevronDown, Settings, Bell, Heart,
+  ChevronLeft, ChevronRight, Sun, Moon, Eye, Trash2,
 } from 'lucide-react';
 
 const TOPBAR_H = 52;
@@ -24,80 +20,6 @@ interface DashboardLayoutProps {
 }
 
 const ADMIN_LIKE = ['admin', 'super_admin'];
-
-const navigationItems = [
-  { name: 'Dashboard',           path: '/dashboard',                     icon: LayoutDashboard, roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer','hr_officer'] },
-  { name: 'Notifications',       path: '/dashboard/notifications',       icon: Bell,            roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer','hr_officer'] },
-  { name: 'Patients',            path: '/dashboard/patients',            icon: Users,           roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','accounts','records','sonographer'] },
-  { name: 'Attendance',          path: '/dashboard/attendance',          icon: Calendar,        roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','records','sonographer','accounts',] },
-  { name: 'Appointments',        path: '/dashboard/appointments',        icon: Calendar,        roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','records','sonographer'] },
-  { name: 'Consultations',       path: '/dashboard/medical-waiting-list',icon: Clipboard,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
-  { name: 'Vitals',              path: '/dashboard/vitals',              icon: HeartPulse,      roles: ['admin','super_admin','doctor','nurse','midwife'] },
-  { name: 'Theatre',             path: '/dashboard/theatre',             icon: Scissors,        roles: ['admin','super_admin','doctor','nurse','midwife'] },
-  { name: 'Nursing',             path: '/dashboard/nursing',             icon: Syringe,         roles: ['admin','super_admin','nurse','midwife'] },
-  { name: 'Maternal Health',     path: '/dashboard/maternal-waiting-list',icon: Baby,           roles: ['admin','super_admin','doctor','midwife','nurse'] },
-  { name: 'Family Planning',     path: '/dashboard/family-planning',     icon: Heart,           roles: ['admin','super_admin','doctor','midwife'] },
-  { name: 'Laboratory',          path: '/dashboard/laboratory',          icon: Microscope,      roles: ['admin','super_admin','lab_tech'] },
-  { name: 'Scans',               path: '/dashboard/scans',               icon: Scan,            roles: ['admin','super_admin','sonographer'] },
-  { name: 'Dispense Queue',      path: '/dashboard/pharmacy',            icon: Pill,            roles: ['admin','super_admin','pharmacist'] },
-  { name: 'Inventory',           path: '/dashboard/inventory',           icon: Package,         roles: ['admin','super_admin','pharmacist'] },
-  { name: 'Stock',               path: '/dashboard/stock',               icon: Warehouse,       roles: ['admin','super_admin','pharmacist'] },
-  { name: 'Invoices',            path: '/dashboard/invoices',            icon: FileText,        roles: ['admin','super_admin','pharmacist','accounts'] },
-  { name: 'Requisitions',        path: '/dashboard/requisitions',        icon: ClipboardList,   roles: ['admin','super_admin','pharmacist','nurse','midwife'] },
-  { name: 'Stock Transfers',     path: '/dashboard/stock/transfers',     icon: ArrowLeftRight,  roles: ['admin','super_admin','pharmacist','doctor','nurse','midwife','lab_tech','sonographer','records'] },
-  { name: 'Stock Reports',       path: '/dashboard/stock/reports',       icon: BarChart3,       roles: ['admin','super_admin','pharmacist','accounts'] },
-  { name: 'Admissions',          path: '/dashboard/admissions',          icon: BedDouble,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
-  { name: 'Wards',               path: '/dashboard/wards',               icon: BedDouble,       roles: ['admin','super_admin','doctor','nurse','midwife'] },
-  { name: 'Referrals',           path: '/dashboard/referrals',           icon: Send,            roles: ['admin','super_admin','doctor','nurse','midwife','records'] },
-  { name: 'Shifts',              path: '/dashboard/shifts',              icon: Calendar,        roles: ['admin','super_admin','hr_officer'] },
-  { name: 'Leave Requests',      path: '/dashboard/leaves',              icon: FileText,        roles: ['admin','super_admin','hr_officer'] },
-  { name: 'User Management',     path: '/dashboard/users',               icon: Users,           roles: ['admin','super_admin','hr_officer'] },
-  { name: 'Billing',             path: '/dashboard/billing',             icon: DollarSign,      roles: ['admin','super_admin','accounts'] },
-  { name: 'Insurance',           path: '/dashboard/insurance-claims',    icon: Shield,          roles: ['admin','super_admin','accounts'] },
-  { name: 'Insurance Providers', path: '/dashboard/insurance-providers', icon: Shield,          roles: ['admin','super_admin','accounts'] },
-  { name: 'Corporate',           path: '/dashboard/corporate-accounts',  icon: Briefcase,       roles: ['admin','super_admin','accounts'] },
-  { name: 'Estimates',           path: '/dashboard/estimates',           icon: FileText,        roles: ['admin','super_admin','accounts'] },
-  { name: 'Departments',         path: '/dashboard/departments',         icon: Building,        roles: ['admin','super_admin'] },
-  { name: 'Audit Logs',          path: '/dashboard/audit-logs',          icon: ScrollText,      roles: ['admin','super_admin'] },
-  { name: 'Reports',             path: '/dashboard/reports',             icon: TrendingUp,      roles: ['admin','super_admin','doctor','nurse','midwife','lab_tech','pharmacist','accounts','records','sonographer','hr_officer'] },
-  { name: 'Settings',            path: '/dashboard/settings',            icon: Settings,        roles: ['admin','super_admin','doctor'] },
-];
-
-// Groups — all keys must exist in `navigationItems`
-const NAV_GROUPS = [
-  {
-    label: 'Core',
-    keys: ['Dashboard', 'Notifications', 'Patients', 'Attendance', 'Appointments'],
-  },
-  {
-    label: 'Clinical',
-    keys: ['Consultations', 'Vitals', 'Medical Records', 'Theatre', 'Nursing', 'Maternal Health', 'Antenatal', 'Family Planning'],
-  },
-  {
-    label: 'Diagnostics',
-    keys: ['Laboratory', 'Scans'],
-  },
-  {
-    label: 'Pharmacy',
-    keys: ['Pharmacy', 'Dispense Queue', 'Inventory', 'Stock', 'Requisitions', 'Stock Transfers', 'Stock Reports'],
-  },
-  {
-    label: 'Ward',
-    keys: ['Admissions', 'Wards', 'Referrals'],
-  },
-  {
-    label: 'Revenue',
-    keys: ['Billing', 'Invoices', 'Insurance', 'Insurance Providers', 'Corporate', 'Estimates'],
-  },
-  {
-    label: 'HR & Staff',
-    keys: ['Shifts', 'Leave Requests', 'User Management'],
-  },
-  {
-    label: 'Management',
-    keys: ['Departments', 'Audit Logs', 'Reports', 'Settings'],
-  },
-];
 
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -196,10 +118,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       setPendingDeleteId(null);
     } finally { setIsDeleting(false); }
   };
-
-  const visibleNavItems = navigationItems.filter(item =>
-    item.roles.some(role => hasRole([role]))
-  );
 
   const formatNotificationDate = (dateString: string) => {
     const date = new Date(dateString);
@@ -639,9 +557,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             className="flex-1 overflow-y-auto py-2 px-2 space-y-1"
             style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}
           >
-            {NAV_GROUPS.map(group => {
-              const groupItems = visibleNavItems.filter(item => group.keys.includes(item.name));
-              if (groupItems.length === 0) return null;
+            {navGroupsFor(user?.role).map(group => {
+              const groupItems = group.items;
               return (
                 <div key={group.label}>
                   {!sidebarCollapsed && (
@@ -728,7 +645,24 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             sidebarCollapsed ? 'lg:ml-[60px]' : 'lg:ml-[220px]'
           }`}
         >
-          <div className="p-4">{children}</div>
+          <div className="p-4">
+            <Suspense
+              fallback={
+                <div
+                  className="flex flex-col items-center justify-center gap-3 py-24"
+                  style={{ color: 'var(--text-tertiary)' }}
+                >
+                  <div
+                    className="w-6 h-6 rounded-full border-2 animate-spin"
+                    style={{ borderColor: 'var(--icon-cyan-text)', borderTopColor: 'transparent' }}
+                  />
+                  <p className="text-xs">Loading…</p>
+                </div>
+              }
+            >
+              {children}
+            </Suspense>
+          </div>
         </main>
       </div>
 

@@ -1,5 +1,6 @@
 // src/pages/FamilyPlanning.tsx — Enhanced UI/UX
 import React, { useState, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate } from 'react-router-dom';
 import { useFamilyPlanningStore } from '../store/familyPlanningStore';
 import { useWorklistStore } from '../store/worklistStore';
@@ -707,7 +708,7 @@ export default function FamilyPlanning() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this FP service record?')) return;
+    if (!(await confirmDialog({ title: 'Delete FP record', message: 'Delete this FP service record?', confirmText: 'Delete' }))) return;
     try {
       await deleteService(id);
       success('Deleted', 'FP service deleted');

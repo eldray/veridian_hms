@@ -4,12 +4,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
-import { useAttendanceStore } from '../store/attendanceStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getBillingCollections, getBillingInvoice } from '../api';
+import { promptDialog } from '../context/PromptDialog';
 import {
   Search, RefreshCw, FileText, DollarSign, CreditCard, Eye,
   ChevronLeft, ChevronRight, Receipt, TrendingUp,
@@ -152,8 +152,9 @@ export default function Billing() {
     isLoading: waiversLoading
   } = useWaiverStore();
 
-  const { patients, loadPatients } = usePatientStore();
-  const { attendances, getAttendances } = useAttendanceStore();
+  // Bills already carry the patient name; the register is only consulted for legacy rows,
+  // so this page never downloads all patients (or all visits) just to render a list.
+  const { patients } = usePatientStore();
   const { hasRole } = useAuthStore();
   const { isLoading: isDocLoading } = useDocumentStore();
 
@@ -235,9 +236,8 @@ export default function Billing() {
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
-      const [, , , , , collections] = await Promise.all([
+      const [, , , , collections] = await Promise.all([
         getBills({ ...filters, limit: 5000 }), // all pages of the selected window (100 per request)
-        loadPatients(),
         getBillStatistics(filters),
         getWaivers(filters),
         getWaiverStats(filters),
@@ -261,10 +261,6 @@ export default function Billing() {
   };
 
   useEffect(() => {
-    void getAttendances({ limit: 5000 }, { silent: true }).catch(() => undefined);
-  }, [getAttendances]);
-
-  useEffect(() => {
     loadData();
   }, [dateFilter, customStartDate, customEndDate, statusFilter, activeTab]);
 
@@ -279,10 +275,22 @@ export default function Billing() {
     return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   }, []);
 
+  // Indexed register: the bill filter calls this for every loaded bill, and scanning the
+  // patient list linearly from there froze the screen on a long billing queue.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const getPatientFromBill = useCallback((bill: any) => {
-    if (bill.Patient?.surname) return bill.Patient;
-    return patients.find((p) => p.id === bill.patientId);
-  }, [patients]);
+    // The API lowercases relation keys, but older call sites still read the Prisma spelling.
+    const registered = bill.Patient?.surname ? bill.Patient : (bill.patient?.surname ? bill.patient : null);
+    if (registered) return registered;
+    // A counter ticket bills a walk-in who is not in the register; their name is on the bill.
+    const walkIn = bill.CounterClient || bill.counterClient;
+    if (walkIn?.name) return walkIn;
+    return patientById.get(bill.patientId);
+  }, [patientById]);
 
   // Filter bills
   const filteredBills = useMemo(() => {
@@ -336,9 +344,8 @@ export default function Billing() {
         searchText: [
           payment.reference,
           payment.bill.billNumber,
-          payment.bill.patient.surname,
-          payment.bill.patient.otherNames,
-          payment.bill.patient.folderNumber,
+          payment.bill.customer.name,
+          payment.bill.customer.reference,
           payment.collector.fullName,
           item.description,
           item.serviceCategory
@@ -482,7 +489,15 @@ const handlePrintStatement = async (billId: string) => {
   };
 
   const handleRejectWaiver = async (waiverId: string) => {
-    const rejectionReason = prompt('Enter rejection reason:');
+    const rejectionReason = await promptDialog({
+      title: 'Reject waiver request',
+      message: 'The reason is recorded against the request and shown to whoever raised it.',
+      label: 'Rejection reason',
+      required: true,
+      multiline: true,
+      confirmText: 'Reject waiver',
+      maxLength: 2000,
+    });
     if (!rejectionReason) return;
     try {
       await rejectWaiver(waiverId, rejectionReason);
@@ -850,7 +865,7 @@ const handlePrintStatement = async (billId: string) => {
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                     <tr>
-                      {['Collected At', 'Receipt / Bill', 'Patient', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
+                      {['Collected At', 'Receipt / Bill', 'Paid For', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
                         <th key={heading} className={`px-3 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase whitespace-nowrap ${heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left'}`}>{heading}</th>
                       ))}
                     </tr>
@@ -864,8 +879,10 @@ const handlePrintStatement = async (billId: string) => {
                           <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
                         </td>
                         <td className="px-3 py-3">
-                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.patient.surname} {payment.bill.patient.otherNames}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">{payment.bill.patient.folderNumber}</p>
+                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.customer.name}</p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {payment.bill.customer.reference || 'Walk-in (no folder)'}
+                          </p>
                         </td>
                         <td className="px-3 py-3 text-[var(--text-primary)]">{payment.collector.fullName || payment.collector.username}</td>
                         <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{payment.paymentMethod.replace(/_/g, ' ')}</td>
@@ -933,6 +950,7 @@ const handlePrintStatement = async (billId: string) => {
                   {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
+                    const isWalkIn = !(bill.patientId || bill.Patient?.id || bill.patient?.id);
                     return (
                       <tr key={bill.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
                         <td className="px-4 py-3">
@@ -948,7 +966,7 @@ const handlePrintStatement = async (billId: string) => {
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-[var(--text-primary)] text-sm truncate">{patientName}</p>
-                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || 'No Folder'}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || (isWalkIn ? 'Walk-in customer' : 'No Folder')}</p>
                             </div>
                           </div>
                         </td>
@@ -1145,9 +1163,25 @@ const handlePrintStatement = async (billId: string) => {
                           {waiver.status === 'pending' && isAccountsStaff && (
                             <>
                               <button
-                                onClick={() => {
-                                  const amount = prompt('Enter approved amount (leave empty for full amount):', waiver.amountRequested.toString());
-                                  handleApproveWaiver(waiver.id, amount ? parseFloat(amount) : undefined);
+                                onClick={async () => {
+                                  const answer = await promptDialog({
+                                    title: 'Approve waiver',
+                                    message: `₵${Number(waiver.amountRequested).toLocaleString()} was requested. Leave the amount empty to approve all of it.`,
+                                    label: 'Approved amount',
+                                    placeholder: 'Full amount',
+                                    confirmText: 'Approve',
+                                  });
+                                  if (answer === null) return;
+                                  if (answer === '') {
+                                    handleApproveWaiver(waiver.id, undefined);
+                                    return;
+                                  }
+                                  const amount = Number(answer.replace(/,/g, ''));
+                                  if (!Number.isFinite(amount) || amount <= 0) {
+                                    toastError('Not an amount', 'Enter a number greater than zero, or leave it empty for the full amount.');
+                                    return;
+                                  }
+                                  handleApproveWaiver(waiver.id, amount);
                                 }}
                                 className="p-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
                                 title="Approve"

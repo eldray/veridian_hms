@@ -1,6 +1,6 @@
 // server.ts or app.ts
 import 'dotenv/config';
-import express from 'express';
+import express, { Router } from 'express';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -9,12 +9,15 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cron from 'node-cron';
 import routes from './app';
+import { serveUploadFile } from './middleware/fileAccess';
+import { requestId } from './middleware/requestId';
 import { runDailyWardChargeJob } from './cron/wardChargeCron';
 import { initCounterService } from './services/CounterService';
 import prisma from './core/database/prisma.client';
 import { toHttpError } from './utils/httpError';
 
 const app = express();
+const PORT = process.env.PORT || 5000;
 
 // Authentication configuration preflight. Never print the secret itself.
 // AuthService rejects missing/short secrets during token signing; warn at startup
@@ -30,6 +33,9 @@ if (!configuredJwtSecret || configuredJwtSecret.length < 32) {
 }
 
 const isDesktopApp = process.env.ELECTRON === 'true' && process.env.NODE_ENV === 'production';
+
+// Correlates a user-visible failure with this request's log line.
+app.use(requestId);
 
 // Security middleware
 app.use(
@@ -50,20 +56,64 @@ app.use(
       : undefined
   )
 );
+// Only known UI origins may call the API from a browser. Requests without an
+// Origin header (desktop shell, curl, same-origin) are still allowed.
+// Additional trusted origins can be supplied with CORS_ALLOWED_ORIGINS.
+// The Vite dev server origins are excluded from production builds.
+const allowedOrigins = new Set([
+  ...(process.env.NODE_ENV !== 'production'
+    ? ['http://localhost:3000', 'http://127.0.0.1:3000']
+    : []),
+  `http://localhost:${PORT}`,
+  `http://127.0.0.1:${PORT}`,
+  ...(process.env.CORS_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+]);
+
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    return callback(null, allowedOrigins.has(origin));
+  },
+  credentials: true,
+  methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Request-Id'],
+  exposedHeaders: ['X-Request-Id'],
+  maxAge: 600,
 }));
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging
-app.use(morgan('combined'));
+// API responses contain patient data, so browsers and intermediaries must not
+// reuse them. Uploaded files set their own private cache header in the handler.
+app.use('/api', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
 
-// Static files (uploads)
-app.use('/uploads', express.static('uploads'));
+// Logging. Search and filter query strings can contain patient names or MRNs,
+// so the path is logged without the query string.
+// @types/morgan types the token callback request as http.IncomingMessage, which
+// has no originalUrl. Express requests do carry it, so read it defensively.
+morgan.token('path', (req) => {
+  const originalUrl = (req as unknown as { originalUrl?: string }).originalUrl;
+  return (originalUrl || req.url || '').split('?')[0];
+});
+morgan.token('reqid', (req) => (req as unknown as { id?: string }).id || '-');
+app.use(morgan(':remote-addr :method :path :status :res[content-length] - :response-time ms [:reqid]'));
+
+// Uploaded patient, scan and document files are private health data. They are
+// served through an authenticated route instead of express.static, so knowing
+// a filename is not enough to download it. Login sets an HttpOnly cookie that
+// lets <img> and <a> requests authenticate; API clients may use a bearer token.
+const uploadFiles = Router();
+uploadFiles.get('/:category/:filename', serveUploadFile);
+app.use('/uploads', uploadFiles);
+app.use('/api/uploads', uploadFiles);
 
 // ── Desktop app: serve the built frontend from the same Express server ─────
 // main.cjs loads the UI from http://127.0.0.1:<port>, so Express serves the Vite dist/ files.
@@ -101,7 +151,8 @@ if (isDesktopApp) {
 app.use((req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Route not found'
+    message: 'Route not found',
+    requestId: req.id,
   });
 });
 
@@ -109,18 +160,17 @@ app.use((req, res) => {
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   const { status, message } = toHttpError(error);
   // Expected client errors (404, 400, 409 ...) are not worth a stack trace in the log
-  if (status >= 500) console.error('🚨 Global error handler:', error);
-  else console.warn(`⚠️  ${req.method} ${req.originalUrl} -> ${status}: ${message}`);
+  if (status >= 500) console.error(`🚨 [${req.id}] Global error handler:`, error);
+  else console.warn(`⚠️  [${req.id}] ${req.method} ${req.originalUrl.split('?')[0]} -> ${status}: ${message}`);
 
   if (res.headersSent) return next(error);
   res.status(status).json({
     success: false,
     message,
+    requestId: req.id,
     ...(process.env.NODE_ENV === 'development' && status >= 500 && { stack: error.stack })
   });
 });
-
-const PORT = process.env.PORT || 5000;
 
 // ✅ UPDATED: Function to run seed script safely
 const runSeedScript = async () => {
@@ -174,7 +224,7 @@ const startServer = async () => {
   }
 
   // 🕐 Schedule daily ward charge job at midnight (00:00) every day
-  cron.schedule('0 0 * * *', async () => {
+  const wardChargeTask = cron.schedule('0 0 * * *', async () => {
     console.log('⏰ Running scheduled daily ward charge job...');
     await runDailyWardChargeJob();
   }, {
@@ -189,8 +239,9 @@ const startServer = async () => {
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
 
-    // Additional info for development
-    if (process.env.NODE_ENV === 'development') {
+    // Additional info for development. Disabled by default so demo credentials
+    // never appear in production logs or support bundles.
+    if (process.env.SHOW_DEV_CREDENTIALS === 'true') {
       console.log('\n👤 Test User Credentials:');
       console.log('   - doctor1 / doctor123');
       console.log('   - nurse1 / nurse123');
@@ -209,6 +260,32 @@ const startServer = async () => {
     console.error(`🚨 Could not start HTTP server on port ${PORT}: ${err.code || ''} ${err.message}`);
     process.exit(1);
   });
+
+  // Drain connections and close Prisma before exiting so scheduled work and
+  // in-flight database queries are not killed mid-write.
+  let shuttingDown = false;
+  const shutdown = (signal: string) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    console.log(`\n${signal} received: shutting down the API...`);
+    wardChargeTask.stop();
+    const forceExit = setTimeout(() => {
+      console.error('Shutdown timed out after 10 seconds; exiting forcefully.');
+      process.exit(1);
+    }, 10_000);
+    forceExit.unref();
+    httpServer.close(async () => {
+      try {
+        await prisma.$disconnect();
+      } catch (error) {
+        console.error('Prisma disconnect failed during shutdown:', error);
+      } finally {
+        process.exit(0);
+      }
+    });
+  };
+  process.once('SIGINT', () => shutdown('SIGINT'));
+  process.once('SIGTERM', () => shutdown('SIGTERM'));
 };
 
 startServer().catch((err) => {

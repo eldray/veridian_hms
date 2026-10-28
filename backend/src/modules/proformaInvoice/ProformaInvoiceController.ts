@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { ProformaInvoiceService } from './ProformaInvoiceService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 
 export class ProformaInvoiceController extends BaseController {
   private proformaInvoiceService: ProformaInvoiceService;
@@ -23,7 +24,7 @@ export class ProformaInvoiceController extends BaseController {
       status: req.query.status as any, encounterId: req.query.encounterId as string,
       fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
       toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
-      page: parseInt(req.query.page as string) || 1, limit: parseInt(req.query.limit as string) || 20
+      page: parsePage(req.query.page), limit: parsePageSize(req.query.limit, 20)
     };
     const result = await this.proformaInvoiceService.getAll(filters);
     return this.paginated(res, result.data, { page: result.pagination.page, limit: result.pagination.limit, total: result.pagination.total }, 'Proforma invoices retrieved');
@@ -75,16 +76,6 @@ export class ProformaInvoiceController extends BaseController {
       return this.ok(res, result, 'Proforma invoice rejected');
     } catch (e: any) {
       if (e.message.includes('not found') || e.message.includes('Only sent')) return this.badRequest(res, e.message);
-      throw e;
-    }
-  });
-
-  convertToBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    try {
-      const result = await this.proformaInvoiceService.convertToBill(req.params.id, req.body, req.user!.id);
-      return this.created(res, result, 'Proforma invoice converted to bill');
-    } catch (e: any) {
-      if (e.message.includes('not found') || e.message.includes('Only approved') || e.message.includes('already been converted') || e.message.includes('no longer eligible')) return this.badRequest(res, e.message);
       throw e;
     }
   });

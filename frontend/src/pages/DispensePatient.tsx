@@ -1,5 +1,6 @@
 // src/pages/DispensePatient.tsx - REDESIGNED v3 (two-column card grid)
 import { useLiveRefresh } from '../api/realtime';
+import { confirmDialog } from '../context/ConfirmDialog';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
@@ -9,6 +10,7 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
@@ -182,8 +184,8 @@ export default function DispensePatient() {
     isOpen: false, medication: null, stockItem: null,
   });
 
-  const { attendances, getAttendances, dispenseMedication, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
-  const { patients, loadPatients } = usePatientStore();
+  const { getAttendances, dispenseMedication, getAttendance, refreshAttendance, calculateBill } = useAttendanceStore();
+  const { patients: register, loadPatients, fetchPatient } = usePatientStore();
   const { stockItems, getStockItems } = useStockStore();
   const { user } = useAuthStore();
 
@@ -195,18 +197,34 @@ export default function DispensePatient() {
   const loadData = async () => {
     setRefreshing(true);
     try {
-      await Promise.all([loadPatients(), getAttendances(), getStockItems()]);
-      let foundPatient = location.state?.patient;
-      if (!foundPatient && id) foundPatient = patients.find(p => p.id === id);
+      // The route names the patient, so ask for that patient's record and that
+      // patient's visits. This screen used to download the whole patient register and
+      // every live visit in the hospital before it could show one prescription list.
+      // Pharmacy stock is awaited with the rest: the availability badges on every
+      // prescription row read from it, so painting the list first would advertise stock
+      // that has not been checked yet. The formulary walks in ~500-row pages, so this is cheap.
+      // Its failure is reported separately: a stock outage must not hide the prescriptions.
+      const stockItemsPromise = getStockItems().catch((err: any) => {
+        toastError('Stock Not Loaded', err?.message || 'Could not load pharmacy stock');
+      });
+      // The patient picker searches the register in the browser, so it still arrives —
+      // after the prescription list, not before it.
+      void loadPatients().catch(() => undefined);
+      let foundPatient: any = (location.state as any)?.patient || null;
+      if (!foundPatient && id) foundPatient = await fetchPatient(id).catch(() => null);
+      const patientAtts = foundPatient?.id
+        ? await getAttendances({ patientId: foundPatient.id })
+        : await getAttendances({ live: true, limit: 500 });
+      await stockItemsPromise;
+      if (!foundPatient) setAllAttendances(patientAtts);
       if (foundPatient) {
         setPatient(foundPatient);
         setSelectedPatientId(foundPatient.id);
-        const patientAtts = attendances.filter(a => a.patientId === foundPatient.id);
         setAllAttendances(patientAtts);
-        const initId = location.state?.attendanceId;
+        const initId = (location.state as any)?.attendanceId;
         const pick = initId
-          ? attendances.find(a => a.id === initId)
-          : patientAtts.sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
+          ? (patientAtts.find((a: any) => a.id === initId) || await getAttendance(initId).catch(() => null))
+          : [...patientAtts].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
         if (pick) {
           setSelectedAttendanceId(pick.id);
           setAttendance(pick);
@@ -292,11 +310,14 @@ export default function DispensePatient() {
     success(medication.name, `${quantity} unit(s) dispensed`);
     setDispenseModal({ isOpen: false, medication: null, stockItem: null });
     try {
-      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendanceId)]);
+      // Refresh the stock quantities and this bill, then reload only the visit that
+      // changed. Walking every live visit here used to cost ~50 requests per dispense.
+      await Promise.all([getStockItems(), calculateBill(attendanceId)]);
       const refreshedAttendance = await getAttendance(attendanceId);
       if (refreshedAttendance?.id === attendanceId) {
         setAttendance(refreshedAttendance);
         setPrescriptions((refreshedAttendance?.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
+        setAllAttendances(list => list.map(a => (a.id === attendanceId ? refreshedAttendance : a)));
       }
     } catch (err: any) {
       toastError('Dispensing saved; refresh needed', 'The medicine was dispensed, but the screen could not refresh all updated details. Refresh the page before making further dispensing decisions.');
@@ -336,12 +357,13 @@ export default function DispensePatient() {
           });
         }
       }
-      await Promise.all([getAttendances(), getStockItems(), calculateBill(attendance.id)]);
+      await Promise.all([getStockItems(), calculateBill(attendance.id)]);
       const refreshed = await getAttendance(attendance.id);
       if (refreshed?.id === attendance.id) {
         setAttendance(refreshed);
         setPrescriptions((refreshed?.Medication || []).filter((m: any) =>
           ['prescribed', 'dispensed'].includes(m.status)));
+        setAllAttendances(list => list.map(a => (a.id === attendance.id ? refreshed : a)));
       }
       if (failedItems.length > 0) {
         const details = failedItems
@@ -410,7 +432,7 @@ export default function DispensePatient() {
     await Promise.all([refreshConsumableUses(), getStockItems()]);
   };
   const handleDeleteConsumable = async (use: any) => {
-    if (!window.confirm(`Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`)) return;
+    if (!(await confirmDialog({ title: 'Delete consumable use', message: `Delete ${use.StockItem?.name || 'this consumable use'}? Stock will be restored.`, confirmText: 'Delete' }))) return;
     try {
       await deleteEncounterConsumableUse(selectedAttendanceId, use.id);
       success('Consumable use deleted', 'The stock was restored.');
@@ -469,9 +491,9 @@ export default function DispensePatient() {
         <AlertCircle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3 opacity-60" />
         <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Patient not found</p>
         <p className="text-xs text-[var(--text-secondary)] mb-4">The patient record doesn't exist.</p>
-        <button onClick={() => navigate('/dashboard/dispense')}
+        <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
           className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-          Back to Waiting List
+          Back
         </button>
       </div>
     </div>
@@ -485,7 +507,7 @@ export default function DispensePatient() {
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard/dispense')}
+          <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
             <ChevronLeft className="w-3.5 h-3.5" /> Waiting List
           </button>
@@ -537,16 +559,22 @@ export default function DispensePatient() {
 
       {/* ── PATIENT SELECTOR ────────────────────────────────────────────── */}
       <PatientAttendanceSelector
-        patients={[patient]}
+        patients={patient ? [patient, ...register.filter((p: any) => p.id !== patient.id)] : register}
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
         onPatientSelect={pid => {
           setSelectedPatientId(pid);
-          setAllAttendances(attendances.filter(a => a.patientId === pid));
+          setAllAttendances([]);
           setSelectedAttendanceId('');
           setAttendance(null);
           setPrescriptions([]);
+          // Only the selected patient's visits are needed; the register-wide list is no
+          // longer held in the store.
+          void getAttendances({ patientId: pid })
+            .then(rows => setAllAttendances(rows || []))
+            .catch(() => setAllAttendances([]));
+          void fetchPatient(pid).then(p => setPatient(p)).catch(() => {});
         }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
@@ -583,6 +611,12 @@ export default function DispensePatient() {
           </div>
         </div>
       </div>
+
+      <AllergyBanner
+        patientId={patient?.id || selectedPatientId}
+        allergies={patient?.allergies}
+        allergyReviewStatus={attendance?.allergyReviewStatus}
+      />
 
       {/* ── ALERT BANNERS ───────────────────────────────────────────────── */}
       {attendance && !canDispense && (
@@ -1197,8 +1231,9 @@ export default function DispensePatient() {
           onClose={() => setIsPrescribeModalOpen(false)}
           onSuccess={async () => {
             setIsPrescribeModalOpen(false);
+            // loadData() re-reads this patient's visits, stock and bill below, so the
+            // live visit list must not be walked a second time here.
             await Promise.all([
-              getAttendances(),
               getAttendance(attendance?.id),
               calculateBill(attendance?.id),
             ]);

@@ -1,5 +1,6 @@
 // src/pages/ScansEntry.tsx — Scans Results Entry (Enhanced UI/UX)
 import React, { useState, useEffect, useMemo } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
@@ -33,7 +34,7 @@ const PriorityPill: React.FC<{ priority: string }> = ({ priority }) => {
   const map: Record<string, string> = {
     stat:   'bg-red-100 text-red-700 border-red-200',
     urgent: 'bg-orange-100 text-orange-700 border-orange-200',
-    routine:'bg-blue-100 text-blue-700 border-blue-200',
+    routine:'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)]',
   };
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[priority] || map.routine}`}>
@@ -53,7 +54,22 @@ const ScanResultDisplay: React.FC<{
   canEdit: boolean;
 }> = ({ scan, printing, onPrint, onSend, onEdit, canEdit }) => {
   const [expanded, setExpanded] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const imageCount = scan.imageUrls?.length || 0;
+
+  useEffect(() => {
+    if (!previewImage) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setPreviewImage(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [previewImage]);
 
   return (
     <div className="border-b border-[var(--border-color)] last:border-b-0">
@@ -175,17 +191,16 @@ const ScanResultDisplay: React.FC<{
               </p>
               <div className="flex flex-wrap gap-2">
                 {scan.imageUrls.map((url: string, idx: number) => (
-                  <a
+                  <button
                     key={idx}
-                    href={url}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    type="button"
+                    onClick={() => setPreviewImage(url)}
                     className="group relative flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 rounded-lg px-2.5 py-1.5 bg-[var(--bg-card)] transition-all"
                   >
                     <ImageIcon className="w-3 h-3" />
                     <span className="font-medium">Image {idx + 1}</span>
                     <Maximize2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </a>
+                  </button>
                 ))}
               </div>
             </div>
@@ -195,6 +210,32 @@ const ScanResultDisplay: React.FC<{
               <p className="text-xs text-[var(--text-tertiary)] italic">No result details recorded</p>
             </div>
           )}
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Scan image preview"
+          onClick={() => setPreviewImage(null)}
+        >
+          <button
+            type="button"
+            onClick={() => setPreviewImage(null)}
+            className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-800 hover:bg-white"
+            aria-label="Close image preview"
+            autoFocus
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={previewImage}
+            alt="Scan"
+            className="max-h-[90vh] max-w-[90vw] rounded-lg object-contain"
+            onClick={(event) => event.stopPropagation()}
+          />
         </div>
       )}
     </div>
@@ -261,7 +302,9 @@ export default function ScansEntry() {
   const loadData = async () => {
     try {
       setRefreshing(true);
-      await Promise.all([loadPatients(), getScanTemplates(false)]);
+      // A sonographer has no read access to the patient directory, and this page is
+      // reached from the scans worklist, so the register is optional here.
+      await Promise.all([loadPatients().catch(() => undefined), getScanTemplates(false)]);
 
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
@@ -392,7 +435,7 @@ export default function ScansEntry() {
   };
 
   const handleDeleteScan = async (scanId: string) => {
-    if (!window.confirm('Delete this scan request?')) return;
+    if (!(await confirmDialog({ title: 'Delete scan request', message: 'Delete this scan request?', confirmText: 'Delete' }))) return;
     try {
       await removeScan(selectedAttendanceId!, scanId);
       success('Deleted', 'Scan removed');
@@ -513,10 +556,10 @@ export default function ScansEntry() {
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
           <button
-            onClick={() => navigate('/dashboard/scans')}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
+            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all"
           >
-            Back to Scans Queue
+            Back
           </button>
         </div>
       </div>
@@ -532,12 +575,12 @@ export default function ScansEntry() {
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/dashboard/scans')}
+            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
             className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
           >
             <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
           </button>
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm shadow-indigo-500/20">
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm ">
             <Scan className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
@@ -552,7 +595,7 @@ export default function ScansEntry() {
           <button
             onClick={() => setShowScanModal(true)}
             disabled={!canAddEntries}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all text-sm font-semibold disabled:opacity-50 shadow-sm shadow-indigo-500/20"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold disabled:opacity-50 shadow-sm "
           >
             <Plus className="w-4 h-4" />
             <span className="hidden sm:inline">Request Scan</span>
@@ -760,7 +803,7 @@ export default function ScansEntry() {
                             <button
                               onClick={() => handleMarkInProgress(scan.id)}
                               disabled={!canUpdateScan}
-                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold hover:bg-indigo-600 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="inline-flex items-center gap-1 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-xs font-semibold hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               <Play className="w-3 h-3" />
                               Start
@@ -886,7 +929,7 @@ export default function ScansEntry() {
               {canAddEntries && (
                 <button
                   onClick={() => setShowScanModal(true)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-semibold transition-all shadow-sm shadow-indigo-500/20"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm font-semibold transition-all shadow-sm "
                 >
                   <Plus className="w-4 h-4" />
                   Request First Scan

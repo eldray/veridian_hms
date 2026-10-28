@@ -154,13 +154,16 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
 
   const uploadImages = async (): Promise<string[]> => {
     if (images.length === 0) return [];
+    const token = localStorage.getItem('auth_token');
+    if (!token) throw new Error('Your session has expired. Sign in again to upload images.');
+
     const formData = new FormData();
     images.forEach((img) => formData.append('images', img));
 
-    const res = await fetch(`/api/encounters/scans/${scan.id}/upload-images`, {
+    const res = await fetch(`${import.meta.env.VITE_API_URL || '/api'}/encounters/scans/${scan.id}/upload-images`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${localStorage.getItem('token') || localStorage.getItem('auth_token')}`,
+        Authorization: `Bearer ${token}`,
       },
       body: formData,
     });

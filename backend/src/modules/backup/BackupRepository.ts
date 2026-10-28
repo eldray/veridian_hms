@@ -1,5 +1,6 @@
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { IBackupResult, IBackupListResponse } from './BackupTypes';
+import { appendAuditLog } from '../../services/auditChain';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -19,6 +20,14 @@ export class BackupRepository {
     } catch {
       await fs.mkdir(this.backupDir, { recursive: true });
     }
+  }
+
+  private resolveInBackupDir(filename: string): string {
+    const filePath = path.join(this.backupDir, filename);
+    if (!filePath.startsWith(this.backupDir + path.sep)) {
+      throw new Error('Invalid backup filename');
+    }
+    return filePath;
   }
 
   async getBackupList(page: number = 1, limit: number = 50): Promise<{ backups: IBackupListResponse[]; total: number }> {
@@ -53,9 +62,11 @@ export class BackupRepository {
   }
 
   async deleteBackupFile(filename: string): Promise<void> {
-    const filePath = path.join(this.backupDir, filename);
+    const filePath = this.resolveInBackupDir(filename);
     await fs.access(filePath);
     await fs.unlink(filePath);
+    // Sidecar written by createBackup; without this the checksums outlive their dump.
+    await fs.unlink(`${filePath}.sha256`).catch(() => undefined);
   }
 
   async deleteUploadedFile(filePath: string): Promise<void> {
@@ -69,14 +80,12 @@ export class BackupRepository {
 
   async saveBackupResult(result: IBackupResult, userId: string): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          entityType: 'Backup',
-          entityId: result.filename,
-          action: 'create' as AuditAction, // ✅ Safely cast to Prisma Enum
-          performedById: userId,
-          metadata: { filename: result.filename, size: result.size, path: result.path, timestamp: result.createdAt }
-        }
+      await appendAuditLog(this.prisma, {
+        entityType: 'Backup',
+        entityId: result.filename,
+        action: 'create' as AuditAction, // ✅ Safely cast to Prisma Enum
+        performedById: userId,
+        metadata: { filename: result.filename, size: result.size, path: result.path, timestamp: result.createdAt }
       });
     } catch (error) {
       console.error('Failed to log backup to audit trail:', error);
@@ -85,14 +94,12 @@ export class BackupRepository {
 
   async logRestoreOperation(filename: string, userId: string, success: boolean, errorMessage?: string): Promise<void> {
     try {
-      await this.prisma.auditLog.create({
-        data: {
-          entityType: 'Backup',
-          entityId: filename,
-          action: (success ? 'update' : 'create') as AuditAction,
-          performedById: userId,
-          metadata: { filename, success, errorMessage, timestamp: new Date().toISOString() }
-        }
+      await appendAuditLog(this.prisma, {
+        entityType: 'Backup',
+        entityId: filename,
+        action: (success ? 'update' : 'create') as AuditAction,
+        performedById: userId,
+        metadata: { filename, success, errorMessage, timestamp: new Date().toISOString() }
       });
     } catch (error) {
       console.error('Failed to log restore operation:', error);
@@ -101,7 +108,7 @@ export class BackupRepository {
 
   async getBackupFilePath(filename: string): Promise<string> {
     const decodedFilename = decodeURIComponent(filename);
-    const filePath = path.join(this.backupDir, decodedFilename);
+    const filePath = this.resolveInBackupDir(decodedFilename);
     try {
       await fs.access(filePath);
       return filePath;
@@ -112,7 +119,7 @@ export class BackupRepository {
 
   async backupExists(filename: string): Promise<boolean> {
     try {
-      const filePath = path.join(this.backupDir, decodeURIComponent(filename));
+      const filePath = this.resolveInBackupDir(decodeURIComponent(filename));
       await fs.access(filePath);
       return true;
     } catch { return false; }

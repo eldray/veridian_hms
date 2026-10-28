@@ -11,6 +11,9 @@ import {
   PayslipFilters,
 } from './UserTypes';
 import { AuditLogger } from '../audit/AuditLogger';
+import { bcryptRounds, refreshTokenExpiresAt, refreshTokenLifetime } from '../../utils/tokenConfig';
+import { passwordPolicyError } from '../../utils/passwordPolicy';
+import { ForbiddenError, NotFoundError, ValidationError } from '../../utils/errors';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -20,7 +23,7 @@ const getJwtSecret = (): string => {
   return secret;
 };
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const SALT_ROUNDS = 12;
+const SALT_ROUNDS = bcryptRounds();
 
 /**
  * Roles that can perform "admin-like" operations: manage users, edit profiles,
@@ -84,6 +87,16 @@ export class UserService extends BaseService {
         err.statusCode = 409;
         throw err;
       }
+    }
+
+    const policyError = passwordPolicyError(dto.password, {
+      username: dto.username,
+      email: dto.email,
+    });
+    if (policyError) {
+      const err: any = new Error(policyError);
+      err.statusCode = 400;
+      throw err;
     }
 
     const passwordHash = await bcrypt.hash(dto.password, SALT_ROUNDS);
@@ -266,6 +279,58 @@ export class UserService extends BaseService {
     return deactivated;
   }
 
+  /**
+   * Administrator-set password. A locked-out member of staff has no other way
+   * back in: the packaged hospital deployment has no mail server, so there is
+   * nothing to send a reset link to. The new password goes through the same
+   * policy as any other, and every session of the account is revoked so an
+   * unattended workstation or a leaked token cannot outlive the reset.
+   */
+  async resetUserPassword(
+    userId: string,
+    newPassword: string,
+    actor: { userId: string; role: string; ipAddress?: string; userAgent?: string },
+  ): Promise<UserResponse> {
+    const existing = await this.repository.findById(userId);
+    if (!existing) throw new NotFoundError('User', userId);
+
+    if (String(existing.role).toLowerCase() === 'super_admin' && String(actor.role).toLowerCase() !== 'super_admin') {
+      throw new ForbiddenError('Only super admins can reset a super-admin password');
+    }
+
+    const policyError = passwordPolicyError(newPassword, {
+      username: existing.username,
+      email: existing.email,
+    });
+    if (policyError) throw new ValidationError(policyError);
+
+    const passwordHash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+    const updated = await this.repository.update(userId, {
+      password: passwordHash,
+      // Clear the unused reset columns: an administrator decision ends any
+      // outstanding request, and no plaintext token is left on the row.
+      resetToken: null,
+      resetExpiry: null,
+    });
+
+    await this.repository.deleteAllRefreshTokens(userId);
+
+    await this.auditLogger.log({
+      entityType: 'User',
+      entityId: userId,
+      action: AuditAction.update,
+      performedById: actor.userId,
+      ipAddress: actor.ipAddress,
+      userAgent: actor.userAgent,
+      previousState: { role: existing.role, isActive: existing.isActive },
+      newState: { role: updated.role, isActive: updated.isActive },
+      // Never the password or a hash of it — only that the reset happened.
+      metadata: { note: 'Password reset by administrator; all sessions for the account were revoked' },
+    });
+
+    return updated;
+  }
+
   async getUserPermissions(userId: string, role?: string): Promise<{ role: string; permissions: string[] }> {
     const permissions = await this.repository.getUserPermissions(userId);
     const effectiveRole = role || (await this.repository.findById(userId))?.role || 'unknown';
@@ -291,11 +356,11 @@ export class UserService extends BaseService {
     const refreshToken = jwt.sign(
       { userId: user.id, type: 'refresh' },
       getJwtSecret(),
-      { expiresIn: '7d' },
+      { expiresIn: refreshTokenLifetime() as SignOptions['expiresIn'] },
     );
 
     await this.repository.createRefreshToken(
-      userId, refreshToken, new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      userId, refreshToken, refreshTokenExpiresAt(),
     );
 
     return { accessToken, refreshToken, user };

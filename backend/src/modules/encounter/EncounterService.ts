@@ -331,6 +331,10 @@ export class EncounterService extends BaseService {
       if (terminal.includes(encounter.status)) {
         throw new ValidationError(`Cannot discharge: encounter is already "${encounter.status}"`);
       }
+      // A counter ticket has no admission, ward stay or clinical outcome to discharge.
+      if (encounter.attendanceType === 'walk_in') {
+        throw new ValidationError('A counter ticket is closed by completing it, not by discharge');
+      }
       const dischargeDate = dischargeData.dischargeDate ? new Date(dischargeData.dischargeDate) : new Date();
       if (Number.isNaN(dischargeDate.getTime())) throw new ValidationError('A valid discharge date is required');
       const dischargeStatus = dischargeData.dischargeStatus || 'home';
@@ -376,7 +380,7 @@ export class EncounterService extends BaseService {
         data: {
           userId,
           title: 'Patient Discharged',
-          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} discharged.`,
+          message: `${encounter.Patient?.surname ?? 'Counter customer'} ${encounter.Patient?.otherNames ?? ''} discharged.`,
           type: 'clinical',
           priority: 'medium',
           actionType: 'discharge',
@@ -429,6 +433,10 @@ export class EncounterService extends BaseService {
         throw new ValidationError(
           `This encounter already has referral ${encounter.referral.referralNumber}`,
         );
+      }
+      // A referral is sent in a named patient's name, so a counter ticket cannot be referred.
+      if (!encounter.patientId) {
+        throw new ValidationError('A referral needs a registered patient. Register this counter customer first.');
       }
 
       // The unique attendanceId constraint is a final safeguard against two concurrent
@@ -496,7 +504,7 @@ export class EncounterService extends BaseService {
         data: {
           userId,
           title: 'Patient Referred',
-          message: `${encounter.Patient.surname} ${encounter.Patient.otherNames} referred to ${referredToFacility}.`,
+          message: `${encounter.Patient?.surname ?? 'Counter customer'} ${encounter.Patient?.otherNames ?? ''} referred to ${referredToFacility}.`,
           type: 'clinical',
           priority: data.urgency === 'stat' ? 'urgent' : data.urgency === 'urgent' ? 'high' : 'medium',
           actionType: 'referral',
@@ -731,6 +739,20 @@ export class EncounterService extends BaseService {
   }
 
   async getVitalsByEncounter(id: string) { return this.prisma.vitals.findMany({ where: { attendanceId: id }, orderBy: { recordedAt: 'desc' } }); }
+
+  /**
+   * Every vitals reading for many encounters in ONE query. The patient history tab used to
+   * ask once per visit, so a patient with 40 visits cost 40 requests on open.
+   */
+  async getVitalsByEncounters(ids: string[]) {
+    if (ids.length === 0) return [];
+    return this.prisma.vitals.findMany({
+      where: { attendanceId: { in: ids.slice(0, 200) } },
+      orderBy: { recordedAt: 'desc' },
+      take: 2000,
+    });
+  }
+
   async addVitals(id: string, data: AddVitalsDTO, userId: string) { return this.repository.addVitals(id, data, userId); }
   async updateVitals(id: string, data: any) { return this.repository.updateVitals(id, data); }
   async deleteVitals(id: string) { return this.repository.deleteVitals(id); }
@@ -752,6 +774,7 @@ export class EncounterService extends BaseService {
   async removeProcedure(id: string, procId: string) { return this.repository.removeProcedure(id, procId); }
   
   async addService(id: string, data: AddServiceDTO, userId: string) { return this.repository.addService(id, data, userId); }
+  async addServices(id: string, items: any[], userId: string) { return this.repository.addServices(id, items, userId); }
   async removeService(id: string, servId: string) { return this.repository.removeService(id, servId); }
 
   // Admissions & IPD

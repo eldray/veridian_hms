@@ -28,7 +28,11 @@ export type AttendanceType =
   | 'chronic_followup'
   | 'specialist_consultation'
   | 'delivery'
-  | 'surgery';
+  | 'surgery'
+  | 'general_consultation'
+  // A counter ticket: labs, scans or medicines bought over the bench by someone who
+  // may not be in the patient register at all.
+  | 'walk_in';
 
 export type AttendanceStatus = 'pending' | 'completed' | 'cancelled' | 'admitted' | 'discharged';
 export type EncounterCategory = 'opd' | 'ipd' | 'daycase';
@@ -514,10 +518,24 @@ export interface ServiceRendered {
   serviceCatalog?: ServiceCatalog;
 }
 
+/** The counter bench's own record of a walk-in customer — deliberately not a patient folder. */
+export interface CounterClient {
+  id: string;
+  name: string;
+  ageYears?: number | null;
+  phone?: string | null;
+  registeredPatientId?: string | null;
+  createdAt?: string;
+}
+
 export interface Attendance {
   id: string;
   attendanceNumber: string;
-  patientId: string;
+  // Exactly one of patientId / counterClientId is set: a counter ticket holds a walk-in
+  // customer, not a register entry.
+  patientId: string | null;
+  counterClientId?: string | null;
+  counterClient?: CounterClient | null;
   insuranceProviderId?: string;
   bedId?: string;
   wardId?: string;
@@ -671,7 +689,9 @@ export interface Payment {
 export interface Bill {
   id: string;
   billNumber: string;
-  patientId: string;
+  patientId: string | null;
+  counterClientId?: string | null;
+  counterClient?: CounterClient | null;
   attendanceId: string;
   admissionId?: string;
   subtotal: number;
@@ -858,7 +878,9 @@ export interface InsuranceClaim {
 export interface Bill {
   id: string;
   billNumber: string;
-  patientId: string;
+  patientId: string | null;
+  counterClientId?: string | null;
+  counterClient?: CounterClient | null;
   attendanceId: string;
   admissionId?: string;
   subtotal: number;
@@ -961,6 +983,7 @@ export interface Ward {
   wardType: string;
   totalBeds: number;
   occupiedBeds: number;
+  isActive?: boolean;
   isNHISCovered: boolean;
   nhisRequiresAuth: boolean;
   isPrivateInsExempted: boolean;

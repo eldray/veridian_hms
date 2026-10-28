@@ -202,46 +202,208 @@ async function createDatabaseIfMissing(db) {
   return true;
 }
 
-// Applies backend/sql/*.sql in order, once each. Returns true when this call applied anything.
+// Applies bundled schema/migration scripts. Returns true when this call changed the schema.
+//
+// sql/full-schema.sql is only for empty databases. Existing databases receive the
+// versioned files in sql/migrations in filename order. Each applied file is
+// recorded with a SHA-256 checksum so silent drift or tampering is detected.
+function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+function compareVersions(a, b) {
+  const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0);
+  }
+  return 0;
+}
+
+function readSqlManifest() {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(getBackendDir(), 'sql', 'manifest.json'), 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+// Best effort pre-upgrade snapshot. PostgreSQL client tools are not bundled, so
+// a missing pg_dump is reported and the upgrade continues; an installed but
+// failing pg_dump aborts the upgrade rather than risk data loss.
+function preUpgradeSnapshot(db) {
+  return new Promise((resolve) => {
+    const dir = path.join(getDataDir(), 'backups', 'pre-upgrade');
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, `pre-upgrade-${new Date().toISOString().replace(/[:.]/g, '-')}.backup`);
+    const pgDump = process.env.PG_DUMP_PATH || 'pg_dump';
+    const child = spawn(pgDump, [
+      '-h', db.host, '-p', String(db.port), '-U', db.user, '-d', db.database,
+      '-f', file, '--format=custom', '--no-owner', '--no-privileges',
+    ], { env: { ...process.env, PGPASSWORD: db.password || '' }, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+    let stderr = '';
+    child.stderr.on('data', (b) => { stderr += b.toString(); });
+    child.on('error', (e) => resolve({ ok: false, unavailable: e.code === 'ENOENT', error: e.message }));
+    child.on('close', (code) => resolve(
+      code === 0 ? { ok: true, file } : { ok: false, error: stderr.trim() || `pg_dump exited with code ${code}` },
+    ));
+  });
+}
+
 async function applyMigrations(db, onProgress) {
   const sqlDir = path.join(getBackendDir(), 'sql');
   if (!fs.existsSync(sqlDir)) throw new Error(`Database scripts not found at ${sqlDir}. The installer is incomplete.`);
-  const files = fs.readdirSync(sqlDir).filter((f) => f.endsWith('.sql')).sort();
-  if (files.length === 0) throw new Error('No database scripts were bundled with this installer.');
+
+  const fullSchemaPath = path.join(sqlDir, 'full-schema.sql');
+  if (!fs.existsSync(fullSchemaPath)) throw new Error('sql/full-schema.sql is missing. The installer is incomplete.');
+
+  const migrationsDir = path.join(sqlDir, 'migrations');
+  const files = fs.existsSync(migrationsDir)
+    ? fs.readdirSync(migrationsDir).filter((f) => f.endsWith('.sql')).sort()
+    : [];
+  const manifest = readSqlManifest();
+  const fullSchemaSql = fs.readFileSync(fullSchemaPath, 'utf8');
 
   return withClient(db, db.database, async (c) => {
-    await c.query('CREATE TABLE IF NOT EXISTS _veridian_migrations (name text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())');
-    const done = new Set((await c.query('SELECT name FROM _veridian_migrations')).rows.map((r) => r.name));
+    await c.query('CREATE TABLE IF NOT EXISTS _veridian_migrations (name text PRIMARY KEY, checksum text, applied_at timestamptz NOT NULL DEFAULT now())');
+    await c.query('ALTER TABLE _veridian_migrations ADD COLUMN IF NOT EXISTS checksum text');
+    await c.query('CREATE TABLE IF NOT EXISTS _veridian_meta (key text PRIMARY KEY, value text NOT NULL)');
 
-    // A database that was built another way (e.g. `prisma db push` during development) already has the tables.
-    // Treat the first script as applied instead of failing with "type already exists".
-    if (done.size === 0) {
-      const existing = await c.query(`SELECT to_regclass('"User"') AS t`);
-      if (existing.rows[0].t) {
-        await c.query('INSERT INTO _veridian_migrations (name) VALUES ($1) ON CONFLICT DO NOTHING', [files[0]]);
-        done.add(files[0]);
-        log(`Existing database detected, baselined ${files[0]}`);
+    const recorded = new Map(
+      (await c.query('SELECT name, checksum FROM _veridian_migrations')).rows.map((r) => [r.name, r.checksum]),
+    );
+    const hasUserTable = !!(await c.query(`SELECT to_regclass('"User"') AS t`)).rows[0].t;
+    const isFresh = !hasUserTable && recorded.size === 0;
+    let changed = false;
+
+    const markApplied = async (name, checksum) => {
+      await c.query(
+        'INSERT INTO _veridian_migrations (name, checksum) VALUES ($1, $2) ON CONFLICT (name) DO UPDATE SET checksum = EXCLUDED.checksum',
+        [name, checksum],
+      );
+      recorded.set(name, checksum);
+    };
+
+    const setSchemaVersion = async (version) => {
+      await c.query(
+        "INSERT INTO _veridian_meta (key, value) VALUES ('schema_version', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value",
+        [version],
+      );
+    };
+
+    if (isFresh) {
+      onProgress && onProgress('Creating the database schema...');
+      try {
+        await c.query('BEGIN');
+        await c.query(fullSchemaSql);
+        await c.query('INSERT INTO _veridian_migrations (name, checksum) VALUES ($1, $2)', ['full-schema.sql', sha256File(fullSchemaPath)]);
+        await c.query('COMMIT');
+      } catch (e) {
+        await c.query('ROLLBACK').catch(() => {});
+        throw new Error(`Creating the database schema failed: ${e.message}`);
       }
+      recorded.set('full-schema.sql', sha256File(fullSchemaPath));
+      // The full script already contains every migration; record them so they
+      // are not replayed on the next start.
+      for (const file of files) await markApplied(file, sha256File(path.join(migrationsDir, file)));
+      if (manifest && manifest.version) await setSchemaVersion(manifest.version);
+      log('Created database schema from full-schema.sql');
+      return true;
     }
 
-    let applied = false;
+    const versionRow = await c.query("SELECT value FROM _veridian_meta WHERE key = 'schema_version'");
+    const recordedVersion = (versionRow.rows[0] && versionRow.rows[0].value) || null;
+
+    if (!recordedVersion) {
+      // Created by the old single-script installer, or by `prisma db push`.
+      // There is no version stamp, so the schema is only adopted after checking
+      // that every table this release expects actually exists.
+      const expectedTables = [...fullSchemaSql.matchAll(
+        /CREATE TABLE (?:IF NOT EXISTS )?"?(?:public"?\.)?"?([A-Za-z_][A-Za-z0-9_]*)"?/g,
+      )].map((m) => m[1]);
+
+      if (expectedTables.length > 0) {
+        const liveTables = new Set(
+          (await c.query("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")).rows.map((r) => r.tablename),
+        );
+        const missing = expectedTables.filter((t) => !liveTables.has(t));
+        if (missing.length > 0) {
+          const shown = missing.slice(0, 5).join(', ') + (missing.length > 5 ? ', …' : '');
+          throw new Error(
+            `This database was created by an older Veridian HMS release and is missing ${missing.length} table(s) this version needs (${shown}). ` +
+            'Install the release that created it first, or restore a database backup made by this version.',
+          );
+        }
+      }
+
+      if (files.some((f) => !recorded.has(f))) {
+        throw new Error(
+          'This database was created before schema version tracking and needs migrations whose starting point cannot be verified. ' +
+          'Open this database once with the previous Veridian HMS release, then start this version again.',
+        );
+      }
+
+      if (manifest && manifest.version) {
+        await setSchemaVersion(manifest.version);
+        log(`Adopted the existing database as schema version ${manifest.version}`);
+      }
+      return changed;
+    }
+
+    if (manifest && manifest.version && compareVersions(recordedVersion, manifest.version) > 0) {
+      throw new Error(`The database schema (${recordedVersion}) is newer than this application (${manifest.version}). Install the newer application version instead of downgrading.`);
+    }
+
+    const pending = files.filter((f) => !recorded.has(f));
+    if (pending.length > 0) {
+      // Files are named NNNN_<from>_to_<to>.sql. If the first pending file does
+      // not start at the recorded version, a release was skipped and applying
+      // it could alter columns that do not exist yet.
+      const firstStep = /^\d{4}_(.+)_to_(.+)\.sql$/.exec(pending[0]);
+      if (firstStep && compareVersions(firstStep[1], recordedVersion) !== 0) {
+        throw new Error(
+          `This database is at schema version ${recordedVersion}, but the next migration starts from ${firstStep[1]}. ` +
+          'Install the intermediate Veridian HMS release first so no schema step is skipped.',
+        );
+      }
+
+      const snapshot = await preUpgradeSnapshot(db);
+      if (snapshot.ok) log(`Pre-upgrade backup: ${snapshot.file}`);
+      else if (snapshot.unavailable) log('WARNING: pg_dump was not found. Upgrading without a pre-upgrade backup; install PostgreSQL client tools or set PG_DUMP_PATH.');
+      else throw new Error(`Pre-upgrade backup failed; upgrade aborted. ${snapshot.error}`);
+    }
+
     for (const file of files) {
-      if (done.has(file)) continue;
-      onProgress && onProgress(`Creating database tables (${file})...`);
-      const sql = fs.readFileSync(path.join(sqlDir, file), 'utf8');
+      const filePath = path.join(migrationsDir, file);
+      const checksum = sha256File(filePath);
+      if (recorded.has(file)) {
+        const previousChecksum = recorded.get(file);
+        if (previousChecksum && previousChecksum !== checksum) {
+          throw new Error(`Migration ${file} changed after it was applied (checksum mismatch). Refusing to start with a drifted schema.`);
+        }
+        if (!previousChecksum) await markApplied(file, checksum);
+        continue;
+      }
+
+      onProgress && onProgress(`Applying database migration (${file})...`);
+      const sql = fs.readFileSync(filePath, 'utf8');
       try {
         await c.query('BEGIN');
         await c.query(sql);
-        await c.query('INSERT INTO _veridian_migrations (name) VALUES ($1)', [file]);
+        await c.query('INSERT INTO _veridian_migrations (name, checksum) VALUES ($1, $2)', [file, checksum]);
         await c.query('COMMIT');
       } catch (e) {
         await c.query('ROLLBACK').catch(() => {});
         throw new Error(`Applying ${file} failed: ${e.message}`);
       }
-      applied = true;
+      recorded.set(file, checksum);
+      changed = true;
       log(`Applied ${file}`);
     }
-    return applied;
+
+    if (manifest && manifest.version) await setSchemaVersion(manifest.version);
+
+    return changed;
   });
 }
 
@@ -573,6 +735,7 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
       webSecurity: true,
       devTools: !app.isPackaged,
@@ -582,19 +745,45 @@ function createWindow() {
 
   createMenu();
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      shell.openExternal(url);
-      return { action: 'deny' };
-    }
-    return { action: 'allow' };
+  // The renderer never needs a camera, microphone, geolocation or MIDI. Only
+  // desktop notifications and clipboard access are allowed; everything else is
+  // denied so a compromised page cannot ask the operating system for devices.
+  const ALLOWED_PERMISSIONS = new Set([
+    'notifications',
+    'clipboard-read',
+    'clipboard-sanitized-write',
+  ]);
+  const session = mainWindow.webContents.session;
+  session.setPermissionRequestHandler((_contents, permission, callback) => {
+    callback(ALLOWED_PERMISSIONS.has(permission));
   });
-  // Never let the app window navigate away to an arbitrary site
+  session.setPermissionCheckHandler((_contents, permission) => ALLOWED_PERMISSIONS.has(permission));
+
+  mainWindow.webContents.on('will-attach-webview', (event) => {
+    event.preventDefault();
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) {
+      shell.openExternal(url);
+    }
+    // Never let a page open a second Electron window with its own preferences.
+    return { action: 'deny' };
+  });
+  // Never let the app window navigate away to an arbitrary site. Compare full
+  // origins so look-alike hosts such as 127.0.0.1:5000.example.com are rejected.
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    const allowed = url.startsWith(`http://127.0.0.1:${activePort}`) || url.startsWith('http://localhost:3000') || url.startsWith('file://');
+    let origin;
+    try {
+      origin = new URL(url).origin;
+    } catch {
+      event.preventDefault();
+      return;
+    }
+    const allowed = origin === `http://127.0.0.1:${activePort}` || origin === 'http://localhost:3000';
     if (!allowed) {
       event.preventDefault();
-      if (/^https?:/.test(url)) shell.openExternal(url);
+      if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     }
   });
 

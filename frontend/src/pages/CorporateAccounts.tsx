@@ -1,5 +1,6 @@
 // src/pages/CorporateAccounts.tsx
 import { useEffect, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -190,7 +191,7 @@ export default function CorporateAccounts() {
   };
 
   const handleRemoveEmployee = async (employeeId: string, employeeName: string) => {
-    if (!confirm(`Remove ${employeeName} from this corporate account?`)) return;
+    if (!(await confirmDialog({ title: 'Remove employee', message: `Remove ${employeeName} from this corporate account?`, confirmText: 'Remove' }))) return;
     try {
       await removeCorporateEmployee(employeeId);
       success('Employee Removed', `${employeeName} removed successfully`);
@@ -203,7 +204,7 @@ export default function CorporateAccounts() {
   const handleToggleAccountStatus = async (account: any) => {
     const newStatus = !account.isActive;
     const action = newStatus ? 'activate' : 'deactivate';
-    if (!confirm(`${action.charAt(0).toUpperCase() + action.slice(1)} ${account.companyName}?`)) return;
+    if (!(await confirmDialog({ title: 'Change account status', message: `${action.charAt(0).toUpperCase() + action.slice(1)} ${account.companyName}?`, confirmText: 'Continue', type: 'warning' }))) return;
     try {
       await deactivateCorporateAccount(account.id);
       success('Status Updated', `${account.companyName} ${action}d successfully`);

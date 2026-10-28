@@ -1,5 +1,5 @@
 // src/pages/Notifications.tsx - REDESIGNED
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
@@ -385,10 +385,12 @@ export default function Notifications() {
     try {
       await getNotifications({});
       await getNotificationStats();
-    } catch { /* silent */ }
+    } catch (err: any) {
+      toastError('Load Failed', err?.message || 'Could not load notifications');
+    }
   };
 
-  const filtered = (() => {
+  const filtered = useMemo(() => {
     const q = searchTerm.toLowerCase();
     const list = (notifications || []).filter(n => {
       if (!n) return false;
@@ -404,7 +406,7 @@ export default function Notifications() {
       return [...list].sort((a, b) => (order[a.priority || 'low'] ?? 3) - (order[b.priority || 'low'] ?? 3));
     }
     return [...list].sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
-  })();
+  }, [notifications, searchTerm, typeFilter, priorityFilter, readFilter, sortBy]);
 
   const unreadCount = (notifications || []).filter(n => !n?.isRead).length;
   const readCount   = (notifications || []).filter(n =>  n?.isRead).length;
@@ -642,7 +644,8 @@ export default function Notifications() {
       </div>
 
       {/* ── NOTIFICATION LIST ─────────────────────────────────────────────── */}
-      {isLoading ? (
+      {/* A refresh keeps the current list on screen; skeletons only cover the first paint. */}
+      {isLoading && filtered.length === 0 ? (
         <div className="space-y-2">
           {[1,2,3,4,5].map(i => <SkeletonRow key={i} />)}
         </div>

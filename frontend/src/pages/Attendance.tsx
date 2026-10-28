@@ -40,20 +40,35 @@ export default function Attendance() {
     isLoading: attendancesLoading 
   } = useAttendanceStore();
   
-  const { patients, loadPatients, isLoading: patientsLoading } = usePatientStore();
+  const { patients, loadPatients } = usePatientStore();
   const { hasRole } = useAuthStore();
 
-  const isLoading = attendancesLoading || patientsLoading;
+  // The visit rows arrive with their own patient attached, so the table does not wait for
+  // the register: it only fills in the name-search fallback as the pages stream in.
+  const isLoading = attendancesLoading;
+
+  // One lookup table instead of a scan: findPatient() is called for every attendance while
+  // filtering and rendering, and searching the register linearly from there blocked the
+  // main thread for seconds on a full ward list.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
 
   // ✅ FIXED: Find patient from multiple sources
   const findPatient = (attendance: any) => {
     if (!attendance) return null;
-    
+
     // 1. Check if patient is directly attached
     if (attendance.patient && typeof attendance.patient === 'object') {
       return attendance.patient;
     }
-    
+
+    // 1b. A counter ticket has no register entry — the walk-in's own name is on the visit.
+    if (attendance.counterClient && typeof attendance.counterClient === 'object') {
+      return attendance.counterClient;
+    }
+
     // 2. Check if patientId is an object with patient data
     if (attendance.patientId && typeof attendance.patientId === 'object') {
       return attendance.patientId;
@@ -61,7 +76,7 @@ export default function Attendance() {
     
     // 3. If we have a patientId string, find it in the patients store
     if (attendance.patientId && typeof attendance.patientId === 'string') {
-      const found = patients.find(p => p.id === attendance.patientId);
+      const found = patientById.get(attendance.patientId);
       if (found) return found;
     }
     
@@ -78,6 +93,11 @@ export default function Attendance() {
     if (!patient) return 'Unknown Patient';
     return patient.fullName || patient.name || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
   };
+
+  // A counter ticket is a real visit but the person is not in the patient register, so the
+  // list has to say so instead of showing a nameless row with a missing folder number.
+  const isCounterTicket = (attendance: any) =>
+    attendance?.attendanceType === 'walk_in' || Boolean(attendance?.counterClient || attendance?.counterClientId);
 
   const getDateRange = (): { startDate: Date; endDate: Date } | null => {
     const today = new Date();
@@ -115,13 +135,13 @@ export default function Attendance() {
       // Only the selected date window is requested (all pages of it, 100 per request).
       // The backend caps a single request at 100 rows, so this walks the pages.
       const range = getDateRange();
-      await Promise.all([
-        getAttendances({
-          limit: 5000,
-          ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
-        }),
-        loadPatients(),
-      ]);
+      await getAttendances({
+        limit: 5000,
+        ...(range ? { dateFrom: range.startDate.toISOString(), dateTo: range.endDate.toISOString() } : {}),
+      });
+      // Every visit row carries its patient, so the register is only reference data for the
+      // counters and the fallback name lookup — it arrives afterwards instead of gating the table.
+      void loadPatients().catch(() => undefined);
     } catch (e) {
       error('Refresh failed', 'Could not load attendance data.');
     } finally {
@@ -182,7 +202,7 @@ export default function Attendance() {
     });
     
     return filtered.sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
-  }, [attendances, patients, searchQuery, dateFilter, customStartDate, customEndDate]);
+  }, [attendances, patientById, searchQuery, dateFilter, customStartDate, customEndDate]);
 
   const totalPages = Math.ceil(filteredAttendances.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -297,7 +317,8 @@ export default function Attendance() {
     }
   };
 
-  const canEdit = hasRole(['admin', 'doctor', 'nurse']);
+  // Mirrors the PUT/DELETE guards on /encounters/:id (midwife may edit a visit).
+  const canEdit = hasRole(['admin', 'doctor', 'nurse', 'midwife']);
   const canDelete = hasRole(['admin']);
 
   const getDateFilterDisplay = () => {
@@ -550,6 +571,7 @@ export default function Attendance() {
             const attendanceId = attendance.id;
             const totalBill = attendance.totalBill || 0;
             const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
+            const walkIn = isCounterTicket(attendance);
             
             return (
               <div key={attendanceId} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] hover:shadow-md transition-all duration-200 group">
@@ -563,7 +585,7 @@ export default function Attendance() {
                         {fullName}
                       </h3>
                       <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border mt-1">
-                        {patient?.folderNumber || 'No Folder'} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
+                        {patient?.folderNumber || (walkIn ? 'Walk-in' : 'No Folder')} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
                       </p>
                     </div>
                   </div>
@@ -685,6 +707,7 @@ export default function Attendance() {
                 const attendanceId = attendance.id;
                 const totalBill = attendance.totalBill || 0;
                 const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
+                const walkIn = isCounterTicket(attendance);
                 
                 return (
                   <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
@@ -696,12 +719,17 @@ export default function Attendance() {
                         <p className="font-semibold text-[var(--text-primary)] text-sm">
                           {fullName}
                         </p>
+                        {walkIn && (
+                          <span className="px-2 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] text-xs font-semibold">
+                            Walk-in
+                          </span>
+                        )}
                       </div>
                     </td>
                     
                     <td className="px-4 py-3">
                       <p className="font-mono text-sm font-medium text-[var(--text-primary)]">
-                        {patient?.folderNumber || 'N/A'}
+                        {patient?.folderNumber || (walkIn ? 'No folder' : 'N/A')}
                       </p>
                     </td>
                     

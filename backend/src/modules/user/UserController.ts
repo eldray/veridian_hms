@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { UserService } from './UserService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePage, parsePageSize } from '../../shared/pagination';
 import {
   UpdateUserDTO, UserFilters,
   CreateShiftDTO, UpdateShiftDTO, ShiftFilters,
@@ -49,8 +50,8 @@ export class UserController extends BaseController {
       departmentId: req.query.departmentId as string,
       isActive: req.query.isActive === 'true' ? true : req.query.isActive === 'false' ? false : undefined,
       search: req.query.search as string,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 50,
+      page: parsePage(req.query.page),
+      limit: parsePageSize(req.query.limit, 50, 500),
     };
 
     const result = await this.service.getAllUsers(filters);
@@ -88,6 +89,12 @@ export class UserController extends BaseController {
     return this.ok(res, user, 'User deactivated successfully');
   });
 
+  resetUserPassword = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { newPassword } = req.body;
+    const user = await this.service.resetUserPassword(req.params.id, newPassword, this.actorOf(req));
+    return this.ok(res, user, 'Password reset. The member of staff must sign in again everywhere.');
+  });
+
   getMyPermissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) return this.unauthorized(res, 'User not authenticated');
@@ -106,8 +113,8 @@ export class UserController extends BaseController {
       shiftDate: req.query.shiftDate ? new Date(req.query.shiftDate as string) : undefined,
       fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
       toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 500,
+      page: parsePage(req.query.page),
+      limit: parsePageSize(req.query.limit, 500, 500),
     };
 
     const actor = {
@@ -218,8 +225,8 @@ export class UserController extends BaseController {
       year: req.query.year ? parseInt(req.query.year as string) : undefined,
       userId: req.query.userId as string | undefined,
       isPaid: req.query.isPaid === 'true' ? true : req.query.isPaid === 'false' ? false : undefined,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 500,
+      page: parsePage(req.query.page),
+      limit: parsePageSize(req.query.limit, 500, 500),
     };
     const result = await this.service.getPayslips(filters);
     return res.json({ success: true, data: result });
@@ -361,8 +368,8 @@ export class UserController extends BaseController {
       status: req.query.status as any,
       fromDate: req.query.fromDate ? new Date(req.query.fromDate as string) : undefined,
       toDate: req.query.toDate ? new Date(req.query.toDate as string) : undefined,
-      page: parseInt(req.query.page as string) || 1,
-      limit: parseInt(req.query.limit as string) || 50,
+      page: parsePage(req.query.page),
+      limit: parsePageSize(req.query.limit, 50, 500),
     };
 
     const result = await this.service.getAllLeaves(filters);

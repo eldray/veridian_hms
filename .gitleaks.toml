@@ -1,0 +1,14 @@
+# Run with: gitleaks detect --source . --config .gitleaks.toml
+title = "Veridian HMS secret scanning"
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated lockfiles and documented placeholders"
+paths = [
+  '''package-lock\.json$''',
+  '''frontend/package-lock\.json$''',
+  '''backend/package-lock\.json$''',
+  '''frontend/yarn\.lock$''',
+  '''.*\.example$''',
+]

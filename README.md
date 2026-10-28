@@ -22,10 +22,11 @@ A comprehensive Hospital Management System built with React, Electron, Node.js, 
 - 🔐 Secure authentication with JWT
 - 📊 Interactive charts and dashboards
 - 📄 PDF report generation
-- 💾 Offline-first architecture with Dexie
 - 🎨 Modern UI with Tailwind CSS
-- 🌍 Multi-language support (i18n)
 - ☁️ Cloudinary integration for image storage
+
+> The UI is English-only today. `i18next` and Dexie are installed but are not
+> wired into the application; there is no offline mode yet.
 
 ## 🛠️ Tech Stack
 
@@ -41,8 +42,7 @@ A comprehensive Hospital Management System built with React, Electron, Node.js, 
 - **Tailwind CSS** - Styling
 - **Chart.js & Recharts** - Data visualization
 - **Axios** - HTTP client
-- **Dexie** - IndexedDB wrapper for offline support
-- **i18next** - Internationalization
+- **i18next** - Installed for future localization (not active)
 
 ### Backend
 - **Node.js** - Runtime environment
@@ -62,14 +62,14 @@ A comprehensive Hospital Management System built with React, Electron, Node.js, 
 ## 📦 Installation
 
 ### Prerequisites
-- Node.js (v18 or higher)
+- Node.js 22 LTS (see `.nvmrc`)
 - PostgreSQL (v14 or higher)
-- npm or yarn
+- npm (the root, backend, and frontend each have their own lockfile)
 
 ### 1. Clone the Repository
 ```bash
 git clone <repository-url>
-cd medicare-hms
+cd veridian_hms
 ```
 
 ### 2. Install Dependencies
@@ -95,7 +95,7 @@ CREATE DATABASE hmis_db;
 
 # Configure environment variables
 cd backend
-cp .env.example .env  # If example exists, otherwise create .env
+cp .env.example .env
 ```
 
 ### 4. Environment Configuration
@@ -107,9 +107,6 @@ ENABLE_SEEDING=true
 NODE_ENV=development
 # Must be at least 32 characters; generate a unique random value for each environment.
 JWT_SECRET=replace-with-a-unique-random-secret-at-least-32-characters
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
 ```
 
 ### 5. Database Setup
@@ -156,22 +153,21 @@ npm run client
 
 ### Production Build
 ```bash
-# Build frontend
-npm run build
+# Build backend and frontend
+npm --prefix backend run build
+npm --prefix frontend run build
 
-# Build backend
-cd backend
-npm run build
-
-# Start production server
-npm start
+# Start the compiled API (serves the UI when FRONTEND_DIST points at frontend/dist)
+npm run server:public
 ```
+
+For upgrades, backups, health checks, and supported topologies, read
+[docs/OPERATIONS.md](docs/OPERATIONS.md).
 
 ### Electron Desktop App
 ```bash
-cd frontend
-npm run dev  # Development
-npm run electron:build  # Build distributable
+npm run build:win       # installer -> release/
+npm run build:win:dir   # unpacked app for a quick check
 ```
 
 ## 📖 Available Scripts
@@ -179,20 +175,24 @@ npm run electron:build  # Build distributable
 ### Root Level
 | Command | Description |
 |---------|-------------|
-| `npm start` | Run both client and server concurrently |
+| `npm start` | Run frontend, backend, and Electron together |
 | `npm run client` | Start frontend development server |
 | `npm run server` | Start backend development server |
-| `npm run build` | Build frontend for production |
-| `npm run dev` | Vite development mode |
-| `npm run preview` | Preview production build |
+| `npm run server:public` | Build and start the compiled backend |
+| `npm run build:win` | Build the Windows installer |
+| `npm test` | Run backend tests |
+| `npm run typecheck` | Type-check backend and frontend |
+| `npm run lint` | Run frontend ESLint |
+| `npm run secret-scan` | Scan for committed secrets with gitleaks |
 
 ### Backend (`/backend`)
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start development server with hot reload |
-| `npm run start` | Start production server |
+| `npm run start` | Start server from TypeScript sources |
 | `npm run build` | Compile TypeScript to JavaScript |
-| `npm run build:watch` | Watch mode for TypeScript compilation |
+| `npm run typecheck` | Type-check without emitting |
+| `npm test` | Run the Vitest suite |
 | `npm run seed` | Seed database with test data |
 | `npm run gen:types` | Generate frontend TypeScript types |
 | `npm run gen:meds` | Update medication database |
@@ -201,16 +201,16 @@ npm run electron:build  # Build distributable
 ### Frontend (`/frontend`)
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Start Electron app in development mode |
+| `npm run dev` | Start the Vite dev server |
 | `npm run build` | Build for production |
+| `npm run typecheck` | Type-check without emitting |
 | `npm run lint` | Run ESLint |
 | `npm run preview` | Preview production build |
-| `npm run electron:build` | Build Electron distributable |
 
 ## 🗂️ Project Structure
 
 ```
-medicare-hms/
+veridian_hms/
 ├── backend/
 │   ├── src/
 │   │   ├── config/          # Configuration files
@@ -367,4 +367,4 @@ For support, email support@medicarehms.com or open an issue in the repository.
 ---
 
 **Version**: 1.0.0  
-**Last Updated**: May 2025
+**Last Updated**: October 2026

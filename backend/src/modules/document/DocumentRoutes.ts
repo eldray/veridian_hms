@@ -14,7 +14,9 @@ export const createDocumentRoutes = () => {
   router.post('/receipt/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateReceipt);
   router.post('/referral/:referralId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), documentController.generateReferralLetter);
   router.post('/discharge/:encounterId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife']), documentController.generateDischargeSummary);
-  router.post('/lab-result/:encounterId', requireRole(['admin', 'records', 'lab_tech', 'doctor']), documentController.generateLabResult);
+  // A scan report is printed on the same sheet as a lab result, so the sonographer needs
+  // this route too — a counter customer collects their own printed report at the desk.
+  router.post('/lab-result/:encounterId', requireRole(['admin', 'records', 'lab_tech', 'sonographer', 'doctor']), documentController.generateLabResult);
   router.post('/prescription/:encounterId', requireRole(['admin', 'records', 'pharmacist', 'doctor']), documentController.generatePrescription);
   router.post('/bill-statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);
   router.post('/statement/:billId', requireRole(['admin', 'records', 'accounts']), documentController.generateBillStatement);

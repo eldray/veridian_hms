@@ -1,5 +1,6 @@
 // src/pages/UserDetail.tsx - Admin editing a single user
 import { useState, useEffect } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
@@ -94,7 +95,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
   };
 
   const handleDelete = async (documentId: string) => {
-    if (!window.confirm('Delete this document permanently?')) return;
+    if (!(await confirmDialog({ title: 'Delete document', message: 'Delete this document permanently?', confirmText: 'Delete' }))) return;
     try {
       await deleteDocument(documentId);
       success('Deleted', 'Document removed');

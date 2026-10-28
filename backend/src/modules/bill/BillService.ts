@@ -39,6 +39,11 @@ export class BillService extends BaseService {
 
     // Both bill-creation endpoints must use the same server-side tariff and payer rules.
     // Never trust a price supplied by the browser for cash, NHIS, or private insurance.
+    // This endpoint bills a registered visit; a counter ticket raises its bill from the
+    // ticket, where the walk-in's own identity is attached.
+    if (!data.patientId) {
+      throw new Error('A bill created here must name a registered patient. Raise a counter ticket\'s bill from the ticket.');
+    }
     return this.billingService.createBill({
       patientId: data.patientId,
       attendanceId: data.attendanceId!,

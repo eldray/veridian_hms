@@ -1,13 +1,11 @@
 // src/api/index.ts - COMPLETE CONSOLIDATED VERSION (FIXED)
 import api from './api';
-// Add Seniority to the import
 import type {
-  GDRGTariff, Patient, Attendance, Bill, InsuranceProvider, InsuranceClaim,
-  Diagnosis, LabTestTemplate, ProcedureTemplate, ScanTemplate, ServiceCatalog,
-  StockItem, StockTransaction, Admission, Ward, Bed, User, Department,
-  Appointment, Notification, ConsultationType, HospitalInfo, ServiceType, ClaimStatus,
-  Seniority  // ✅ ADD THIS
+  Patient, PatientAllergy, InsuranceProvider,
+  StockItem, StockTransaction, Ward, Bed, User,
+  Appointment, ConsultationType, HospitalInfo, Seniority
 } from '../types';
+import type { NewbornRecord } from '../store/deliveryStore';
 
 // ============================================
 // TYPES
@@ -322,28 +320,46 @@ export async function fetchAllPages<T = any>(
   const total = pageTotal(first);
   options.onPage?.(all.slice(), total);
 
-  if (firstItems.length < pageSize || all.length >= maxItems) return all.slice(0, maxItems);
+  // A short first page normally means the table is smaller than one page, but it can
+  // equally mean this endpoint caps the page size below what we asked for. Only treat
+  // it as the end when the reported total agrees; otherwise the cap becomes the page
+  // size we walk with. (Comparing rows against the requested limit is what used to
+  // stop lists at the first page.)
+  let effectivePageSize = pageSize;
+  if (firstItems.length < pageSize) {
+    if (firstItems.length === 0 || total === null || all.length >= total) return all.slice(0, maxItems);
+    effectivePageSize = firstItems.length;
+  }
+  if (all.length >= maxItems) return all.slice(0, maxItems);
 
   if (total !== null) {
     // Total known: request the remaining pages a few at a time, keeping order.
-    const totalPages = Math.min(Math.ceil(Math.min(total, maxItems) / pageSize), maxPages);
+    const totalPages = Math.min(Math.ceil(Math.min(total, maxItems) / effectivePageSize), maxPages);
     for (let start = 2; start <= totalPages; start += concurrency) {
+      const before = all.length;
       const batch: Promise<any>[] = [];
       for (let page = start; page < start + concurrency && page <= totalPages; page++) {
-        batch.push(fetchPage({ ...filters, page, limit: pageSize }));
+        batch.push(fetchPage({ ...filters, page, limit: effectivePageSize }));
       }
       const responses = await Promise.all(batch);
       for (const response of responses) add(pageItems(response));
       options.onPage?.(all.slice(), total);
+      // No new rows means this endpoint repeats itself; further pages cost requests for
+      // nothing and would re-paint the same snapshot.
+      if (all.length === before) break;
       if (all.length >= maxItems) break;
     }
   } else {
     // Total unknown: keep going until a short page comes back.
     for (let page = 2; page <= maxPages; page++) {
-      const items = pageItems(await fetchPage({ ...filters, page, limit: pageSize }));
+      const before = all.length;
+      const items = pageItems(await fetchPage({ ...filters, page, limit: effectivePageSize }));
       add(items);
       options.onPage?.(all.slice(), null);
-      if (items.length < pageSize || all.length >= maxItems) break;
+      // An endpoint that ignores `page` hands back the same rows every time; without
+      // this the walk would run to the brake instead of stopping.
+      if (all.length === before) break;
+      if (items.length < effectivePageSize || all.length >= maxItems) break;
     }
   }
 
@@ -364,7 +380,7 @@ async function fetchAllEnvelope(
     const resp = await fetchPage(params);
     if (!envelope) envelope = resp;
     return resp;
-  }, filters, { maxItems: options.maxItems ?? 5000, concurrency: options.concurrency ?? 1 });
+  }, filters, { maxItems: options.maxItems ?? 5000, concurrency: options.concurrency ?? 4 });
   const base = envelope ?? {};
   const inner = base?.data;
   // Shape A: { data: [...] }   Shape B: { data: { data: [...], pagination } }
@@ -376,6 +392,13 @@ async function fetchAllEnvelope(
 
 /** True when the caller asked for more rows than one request can return. */
 const wantsMoreThanOnePage = (filters?: any) => Number(filters?.limit) > API_PAGE_SIZE;
+
+/** Page size the staff, roster and leave endpoints accept (their `parsePageSize` cap). */
+const MAX_PAGE_SIZE_500 = 500;
+
+/** Brake on the staff walk: a hospital with more named users than this is a data problem,
+ *  not a list to render, and the register feeds pickers rather than a paged table. */
+const MAX_STAFF_REGISTER_ROWS = 2500;
 
 // ============================================
 // GENERIC RESPONSE HANDLER
@@ -619,7 +642,7 @@ export const generateCCC = (data: { policyNumber: string; encounterId: string; t
 export const adminCreateUser = (userData: any) =>
   api.post('/users', userData).then(r => r.data);  // Admin only endpoint
 
-export const getAllUsers = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
+const getAllUsersPage = (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) =>
   api.get('/users', { params: filters }).then(r => {
     const response = r.data;
     const users = Array.isArray(response?.data)
@@ -639,6 +662,23 @@ export const getAllUsers = (filters?: { role?: string; departmentId?: string; is
     return Object.assign(users, { pagination });
   });
 
+/**
+ * The staff endpoint answers 50 rows per request by default and 500 at most. Asking it
+ * for "the users" without a page therefore returned the first 50 people and the screen
+ * presented them as the whole register, which also hid staff from the role, department
+ * and shift pickers built on top of this list. A caller that names a page keeps
+ * server-side paging; everyone else walks the pages, bounded by the brake below.
+ */
+export const getAllUsers = async (filters?: { role?: string; departmentId?: string; isActive?: boolean; search?: string; page?: number; limit?: number }) => {
+  if (filters?.page) return getAllUsersPage(filters);
+  const requested = Number(filters?.limit);
+  return fetchAllPages<User>(getAllUsersPage, filters ?? {}, {
+    pageSize: MAX_PAGE_SIZE_500,
+    maxItems: Number.isFinite(requested) ? requested : MAX_STAFF_REGISTER_ROWS,
+    concurrency: 2,
+  });
+};
+
 export const getUserById = (userId: string) =>
   api.get(`/users/${userId}`).then(r => r.data?.data || r.data);
 
@@ -647,6 +687,11 @@ export const updateUser = (userId: string, data: any) =>
 
 export const deactivateUser = (userId: string) =>
   api.patch(`/users/${userId}/deactivate`).then(r => r.data?.data || r.data);
+
+// An administrator setting a new password for a locked-out account. This is the
+// reset path in a deployment with no mail server to send a link through.
+export const adminResetUserPassword = (userId: string, newPassword: string) =>
+  api.patch(`/users/${userId}/password`, { newPassword }).then(r => r.data?.data || r.data);
 
 export const getUserProfile = () =>
   api.get('/auth/profile').then(r => r.data?.data || r.data);
@@ -667,8 +712,16 @@ export const getCurrentUserPermissions = () =>
 // SHIFT MANAGEMENT (via User module)
 // ──────────────────────────────────────────────
 
-export const getShifts = (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
-  api.get('/users/shifts', { params: filters }).then(r => r.data?.data || r.data);
+const getShiftsPage = (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/users/shifts', { params: filters }).then(r => handleResponse<any>(r.data));
+
+// The roster screen asks for a month of shifts across every department, which is far more
+// than the 500-row page the endpoint serves. It used to take the first page and treat the
+// truncated week as the whole schedule.
+export const getShifts = async (filters?: { userId?: string; departmentId?: string; shiftDate?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
+  if (filters?.page || !wantsMoreThanOnePage(filters)) return getShiftsPage(filters);
+  return fetchAllPages<any>(getShiftsPage, filters, { pageSize: MAX_PAGE_SIZE_500, maxItems: Number(filters!.limit), concurrency: 2 });
+};
 
 export const getShiftById = (shiftId: string) =>
   api.get(`/users/shifts/${shiftId}`).then(r => r.data?.data || r.data);
@@ -686,8 +739,15 @@ export const deleteShift = (shiftId: string) =>
 // LEAVE MANAGEMENT (via User module)
 // ──────────────────────────────────────────────
 
-export const getLeaves = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
-  api.get('/users/leaves', { params: filters }).then(r => r.data?.data || r.data);
+const getLeavesPage = (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/users/leaves', { params: filters }).then(r => handleResponse<any>(r.data));
+
+// Same 500-row page as the roster: the leave register opened on one page and the approvals
+// queue looked empty for anything older than the first slice.
+export const getLeaves = async (filters?: { userId?: string; departmentId?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) => {
+  if (filters?.page || !wantsMoreThanOnePage(filters)) return getLeavesPage(filters);
+  return fetchAllPages<any>(getLeavesPage, filters, { pageSize: MAX_PAGE_SIZE_500, maxItems: Number(filters!.limit), concurrency: 2 });
+};
 
 export const getLeaveById = (leaveId: string) =>
   api.get(`/users/leaves/${leaveId}`).then(r => r.data?.data || r.data);
@@ -1123,7 +1183,7 @@ const downloadAuthenticatedFile = async (path: string, fallbackFilename: string)
   const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] || fallbackFilename;
   const blob = response.data instanceof Blob
     ? response.data
-    : new Blob([response.data], { type: response.headers?.['content-type'] || 'application/octet-stream' });
+    : new Blob([response.data], { type: String(response.headers?.['content-type'] || 'application/octet-stream') });
   const objectUrl = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = objectUrl;
@@ -1186,6 +1246,65 @@ export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
 export const getClaimBatches = (filters?: any) =>
   api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
 
+/**
+ * How many claims one month holds per insurance type, and what they add up to. Scope it with the
+ * provider or corporate account the batch will use and the number is exactly what Generate takes.
+ */
+export interface BatchEligibility {
+  periodYear: number;
+  periodMonth: number;
+  nhis: number;
+  private: number;
+  corporate: number;
+  totalAmount: { nhis: number; private: number; corporate: number };
+  overall: { count: number; totalAmount: number };
+}
+
+export const getClaimBatchEligibility = (params: {
+  periodYear: number;
+  periodMonth: number;
+  insuranceProviderId?: string;
+  corporateAccountId?: string;
+}): Promise<BatchEligibility> =>
+  api.get('/insurance-claims/batches/eligible', { params }).then(r => r.data?.data ?? r.data);
+
+/** Every claim whose visit falls in the month, batched or not, plus the month's totals. */
+export interface PeriodClaimRow {
+  claimId: string;
+  claimNumber: string;
+  status: 'draft' | 'finalized';
+  amount: number;
+  visitDate: string | null;
+  attendanceNumber: string | null;
+  folderNumber: string | null;
+  patient: string;
+  insuranceType: string | null;
+  provider: string | null;
+  corporateAccount: string | null;
+  batch: { batchId: string; batchNumber: string; status: string } | null;
+}
+
+export interface PeriodClaims {
+  data: PeriodClaimRow[];
+  pagination: { page: number; limit: number; total: number; pages: number };
+  totals: {
+    claims: number;
+    amount: number;
+    byStatus: Record<string, { count: number; amount: number }>;
+    batchable: { count: number; amount: number };
+  };
+}
+
+export const getClaimPeriodClaims = (params: {
+  periodYear: number;
+  periodMonth: number;
+  insuranceType?: string;
+  batched?: string;
+  page?: number;
+  limit?: number;
+}): Promise<PeriodClaims> =>
+  api.get('/insurance-claims/batches/period-claims', { params }).then(r => r.data?.data ?? r.data);
+
 export const getClaimBatch = (id: string) =>
   api.get(`/insurance-claims/batches/${id}`).then(r => r.data);
 
@@ -1246,6 +1365,13 @@ export const getPatients = async (filters?: any) => {
     pagination: { page: 1, limit: items.length, total: items.length, pages: 1 }
   });
 };
+
+// Patient lists omit EMR relations, so clinical screens read allergies separately.
+export const getPatientAllergies = (patientId: string) =>
+  api.get(`/patients/${patientId}/allergies`).then(r => {
+    const payload = r.data?.data ?? r.data;
+    return (Array.isArray(payload) ? payload : []) as PatientAllergy[];
+  });
 
 export const createPatient = (data: any) => {
   // FormData must be sent intact: spreading it into an object drops its entries.
@@ -1519,6 +1645,15 @@ export const addServiceToEncounter = async (encounterId: string, data: any) => {
   return response.data;
 };
 
+/** Add several services to one encounter in a single request. */
+export const addServicesToEncounter = async (
+  encounterId: string,
+  items: { serviceCatalogId: string; quantity?: number; notes?: string }[]
+) => {
+  const response = await api.post(`/encounters/${encounterId}/services/bulk`, { items });
+  return response.data;
+};
+
 export const removeServiceFromEncounter = async (encounterId: string, serviceId: string) => {
   const response = await api.delete(`/encounters/${encounterId}/services/${serviceId}`);
   return response.data;
@@ -1598,10 +1733,21 @@ export const getLatestVitals = async (encounterIds: string[]): Promise<any[]> =>
   return out;
 };
 
+/** Every recorded reading for many encounters in one request (chunks of 100 ids). */
+export const getVitalsForEncounters = async (encounterIds: string[]): Promise<any[]> => {
+  const out: any[] = [];
+  for (let i = 0; i < encounterIds.length; i += 100) {
+    const chunk = encounterIds.slice(i, i + 100);
+    const response = await api.get('/encounters/vitals/batch', { params: { ids: chunk.join(',') } });
+    const rows = response.data?.data ?? response.data;
+    if (Array.isArray(rows)) out.push(...rows);
+  }
+  return out;
+};
+
 export const getVitalsByEncounter = async (encounterId: string) => {
   try {
     const response = await api.get(`/encounters/${encounterId}/vitals`);
-    console.log('API getVitalsByEncounter response:', response.data);
 
     // Handle different response formats
     if (response.data?.data) {
@@ -1654,6 +1800,28 @@ export const getEncounterStats = async (filters?: any) => {
 // BILLS & PAYMENTS
 // ──────────────────────────────────────────────
 
+// The API lowercases Prisma relation keys (Attendance → attendance), while the shared
+// Bill type and the billing screens read the relation names. Restore them here so every
+// bill consumer sees one shape; the camelCase copies are kept for screens using those.
+const BILL_RELATION_ALIASES: Record<string, string> = {
+  Attendance: 'attendance',
+  BillLineItem: 'billLineItem',
+  Patient: 'patient',
+  Payment: 'payment',
+  InsuranceProvider: 'insuranceProvider',
+  CorporateAccount: 'corporateAccount',
+  Admission: 'admission',
+};
+
+const withBillRelations = (bill: any) => {
+  if (!bill || typeof bill !== 'object') return bill;
+  const out: any = { ...bill };
+  for (const [relation, camel] of Object.entries(BILL_RELATION_ALIASES)) {
+    if (out[relation] === undefined && out[camel] !== undefined) out[relation] = out[camel];
+  }
+  return out;
+};
+
 const getBillsPage = (filters?: any) => {
   // Cache-bust list reads while preserving the server's pagination contract.
   const params = { ...filters, _t: Date.now() };
@@ -1661,7 +1829,7 @@ const getBillsPage = (filters?: any) => {
   return api.get('/bills', { params }).then(r => {
     const body = r.data;
     // BaseController.paginated returns { success, data: Bill[], meta: { page, limit, total, totalPages } }.
-    const bills: any[] = Array.isArray(body)
+    const rawBills: any[] = Array.isArray(body)
       ? body
       : Array.isArray(body?.data)
         ? body.data
@@ -1670,6 +1838,7 @@ const getBillsPage = (filters?: any) => {
           : Array.isArray(body?.data?.data)
             ? body.data.data
             : [];
+    const bills = rawBills.map(withBillRelations);
     const pagination = readPagination(body);
     if (pagination) {
       Object.defineProperty(bills, 'pagination', {
@@ -1708,16 +1877,19 @@ export const getBill = (id: string) => {
   return api.get(`/bills/${id}`, {
     params: { _t: Date.now() }
   }).then(r => {
-    console.log('📄 API Bill Response:', r.data);
-    return r.data;
+    const body = r.data;
+    if (body?.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      return { ...body, data: withBillRelations(body.data) };
+    }
+    return withBillRelations(body);
   });
 };
 
 export const createBill = (data: any) =>
-  api.post('/bills', data).then(r => r.data?.data || r.data);
+  api.post('/bills', data).then(r => withBillRelations(r.data?.data || r.data));
 
 export const updateBill = (id: string, data: any) =>
-  api.put(`/bills/${id}`, data).then(r => r.data?.data || r.data);
+  api.put(`/bills/${id}`, data).then(r => withBillRelations(r.data?.data || r.data));
 
 export const deleteBill = (id: string) =>
   api.delete(`/bills/${id}`).then(r => r.data);
@@ -1726,7 +1898,13 @@ export const addPaymentToBill = (billId: string, data: any) =>
   api.post(`/bills/${billId}/payment`, data).then(r => r.data);
 
 export const generateBillFromEncounter = (encounterId: string) =>
-  api.post(`/bills/generate/${encounterId}`).then(r => r.data);
+  api.post(`/bills/generate/${encounterId}`).then(r => {
+    const body = r.data;
+    if (body?.data && typeof body.data === 'object' && !Array.isArray(body.data)) {
+      return { ...body, data: withBillRelations(body.data) };
+    }
+    return body;
+  });
 
 export const generateBillReport = (billId: string) =>
   api.get(`/bills/${billId}/report`).then(r => r.data?.data || r.data);
@@ -1828,10 +2006,12 @@ export interface BillingCollectionPayment {
   paymentMethod: string;
   bill: {
     billNumber: string;
-    patient: {
-      surname: string;
-      otherNames: string;
-      folderNumber: string;
+    // A counter ticket pays without a patient folder, so the report names the payer
+    // rather than assuming a registered patient. Mirrors BillingService.getCollections.
+    customer: {
+      name: string;
+      reference: string | null;
+      kind: 'patient' | 'walk_in';
     };
   };
   collector: {
@@ -1859,6 +2039,61 @@ export const getBillingCollections = async (params?: {
   return response.data?.data ?? response.data;
 };
 
+/**
+ * One charged line of a bill — the row the money reports are built from. A line remembers who
+ * it was raised for only through its bill, and a counter ticket's customer is not a patient.
+ */
+export interface BillingRevenueLine {
+  id: string;
+  chargedAt: string;
+  description: string;
+  serviceType: string;
+  serviceCategory: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  vatAmount: number;
+  lineTotal: number;
+  insuranceCovered: number;
+  patientPayable: number;
+  pricingBasis: string;
+  bill: {
+    id: string;
+    billNumber: string;
+    billDate: string;
+    status: string;
+    paymentMode: string;
+    customer: {
+      name: string;
+      reference: string | null;
+      kind: 'patient' | 'walk_in';
+    };
+  };
+}
+
+export interface BillingRevenueLinesReport {
+  totalLines: number;
+  totalAmount: number;
+  patientPayableAmount: number;
+  insuranceCoveredAmount: number;
+  lines: BillingRevenueLine[];
+  limit: number;
+  capped: boolean;
+}
+
+export const getBillingRevenueLines = async (params: {
+  dateFrom: string;
+  dateTo: string;
+  paymentMode?: string;
+  billStatus?: string;
+  serviceType?: string;
+  search?: string;
+  limit?: number;
+}): Promise<BillingRevenueLinesReport> => {
+  const response = await api.get('/billing/line-items', { params });
+  return response.data?.data ?? response.data;
+};
+
 // ============================================
 // ADMISSIONS API ENDPOINTS
 // ============================================
@@ -1873,8 +2108,6 @@ const getAdmissionsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/admissions', { params: filters }).then(r => {
-    console.log('🔍 getAdmissions API response:', r.data);
-
     // Handle various response structures
     if (r.data?.success && r.data?.data) {
       return r.data.data;
@@ -1998,7 +2231,6 @@ const getDetentionPatientsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/detention', { params: filters }).then(r => {
-    console.log('🔍 getDetentionPatients API response:', r.data);
     // Return the full response with data and summary
     return r.data;
   });
@@ -2025,7 +2257,6 @@ const getFormalIPDPatientsPage = (filters?: {
   limit?: number;
 }) =>
   api.get('/encounters/formal-ipd', { params: filters }).then(r => {
-    console.log('🔍 getFormalIPDPatients API response:', r.data);
     return r.data;
   });
 
@@ -2093,7 +2324,7 @@ const getBedsPage = (filters?: any) =>
 export const getBeds = async (filters?: any) => {
   if (filters?.page || filters?.limit) return getBedsPage(filters);
   const rows = await fetchAllPages<Bed>(getBedsPage, filters || {}, {
-    pageSize: 50, maxItems: 5000, concurrency: 2,
+    pageSize: API_PAGE_SIZE, maxItems: 5000, concurrency: 3,
   });
   return Object.assign(rows, {
     pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
@@ -2209,6 +2440,9 @@ export const getLowStockAlerts = () =>
 // ──────────────────────────────────────────────
 // REQUISITIONS
 // ──────────────────────────────────────────────
+
+const getStockTransfersPage = (filters?: { page?: number; limit?: number; status?: string }) =>
+  api.get('/stock-transfers', { params: filters }).then(r => handleResponse<any>(r.data));
 
 export const getStockTransfers = async (filters?: { page?: number; limit?: number; status?: string }) => {
   if (!wantsMoreThanOnePage(filters)) return getStockTransfersPage(filters);
@@ -2331,11 +2565,6 @@ export const updateReferralStatus = async (id: string, status: string, outcomeNo
   return response.data;
 };
 
-export const updateReferral = async (id: string, data: any) => {
-  const response = await api.put(`/referrals/${id}`, data);
-  return response.data;
-};
-
 export const deleteReferral = async (id: string) => {
   const response = await api.delete(`/referrals/${id}`);
   return response.data;
@@ -2359,15 +2588,12 @@ export const getReferralStats = async (params?: { startDate?: string; endDate?: 
 
 export const getDiagnoses = (filters?: any) =>
   api.get('/diagnoses', { params: filters }).then(r => {
-    console.log('🔍 Raw Diagnoses API response:', r.data);
-
     const responseData = r.data;
 
     // Handle nested response structure (similar to services)
     if (responseData?.success && responseData?.data?.data) {
       const diagnoses = responseData.data.data;
       const pagination = responseData.data.pagination;
-      console.log(`✅ Extracted ${diagnoses.length} diagnoses from nested response`);
       return {
         data: diagnoses,
         diagnoses: diagnoses,
@@ -2764,7 +2990,7 @@ export const deleteConsultationType = (id: string) =>
 export const getDepartments = async (filters?: any) => {
   if (filters?.page || filters?.limit) return getDepartmentsPage(filters);
   const rows = await fetchAllPages<any>(getDepartmentsPage, filters || {}, {
-    pageSize: 50, maxItems: 5000, concurrency: 2,
+    pageSize: API_PAGE_SIZE, maxItems: 5000, concurrency: 3,
   });
   return Object.assign(rows, {
     pagination: { page: 1, limit: rows.length, total: rows.length, pages: 1, totalPages: 1 },
@@ -3126,7 +3352,7 @@ export const deleteTemplate = (id: string) =>
   api.delete(`/documents/templates/${id}`).then(r => r.data);
 
 // ──────────────────────────────────────────────
-// UPLOAD SYSTEM (Static file serving)
+// UPLOAD SYSTEM (authenticated file routes)
 // ──────────────────────────────────────────────
 
 export const servePatientImages = (filename: string) =>
@@ -3883,9 +4109,6 @@ export const acceptEstimate = (id: string) =>
 export const rejectEstimate = (id: string, reason?: string) =>
   api.post(`/estimates/${id}/reject`, { reason }).then(r => r.data);
 
-export const convertEstimateToBill = (id: string, data: { paymentMode: string; notes?: string }) =>
-  api.post(`/estimates/${id}/convert`, data).then(r => r.data);
-
 export const getEstimateStatistics = (filters?: { fromDate?: string; toDate?: string }) =>
   api.get('/estimates/statistics', { params: filters }).then(r => r.data);
 
@@ -3922,6 +4145,59 @@ export const createCommunicationTemplate = (data: any) =>
   api.post('/communications/templates', data).then(r => r.data);
 
 // ──────────────────────────────────────────────
+// COUNTER (walk-in sales, labs and scans)
+// ──────────────────────────────────────────────
+
+export const searchCounterClients = (query: string, limit = 20) =>
+  api.get('/counter/clients', { params: { query, limit } }).then(r => r.data);
+
+/** "Is this person already registered?" — name, folder and date of birth only. */
+export const searchCounterPatients = (query: string, limit = 20) =>
+  api.get('/counter/patients', { params: { query, limit } }).then(r => r.data);
+
+export const listCounterTickets = (filters?: { query?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+  api.get('/counter/tickets', { params: filters }).then(r => r.data);
+
+export const getCounterTicket = (id: string) =>
+  api.get(`/counter/tickets/${id}`).then(r => r.data);
+
+export const createCounterTicket = (data: { patientId?: string; clientId?: string; client?: { name: string; ageYears?: number | null; phone?: string | null }; reason?: string }) =>
+  api.post('/counter/tickets', data).then(r => r.data);
+
+export const addCounterSaleItem = (ticketId: string, data: { stockItemId: string; quantity: number; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/items`, data).then(r => r.data);
+
+export const dispenseCounterItem = (ticketId: string, medicationId: string, quantity: number) =>
+  api.post(`/counter/tickets/${ticketId}/items/${medicationId}/dispense`, { quantity }).then(r => r.data);
+
+export const removeCounterSaleItem = (ticketId: string, medicationId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/items/${medicationId}`).then(r => r.data);
+
+export const addCounterLabOrder = (ticketId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/lab-tests`, data).then(r => r.data);
+
+export const removeCounterLabOrder = (ticketId: string, labTestId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/lab-tests/${labTestId}`).then(r => r.data);
+
+export const addCounterScanOrder = (ticketId: string, data: { serviceCatalogId: string; priority?: string; notes?: string }) =>
+  api.post(`/counter/tickets/${ticketId}/scans`, data).then(r => r.data);
+
+export const removeCounterScanOrder = (ticketId: string, scanId: string) =>
+  api.delete(`/counter/tickets/${ticketId}/scans/${scanId}`).then(r => r.data);
+
+export const getCounterBill = (ticketId: string) =>
+  api.get(`/counter/tickets/${ticketId}/bill`).then(r => r.data);
+
+export const raiseCounterBill = (ticketId: string) =>
+  api.post(`/counter/tickets/${ticketId}/bill`).then(r => r.data);
+
+export const closeCounterTicket = (ticketId: string) =>
+  api.post(`/counter/tickets/${ticketId}/close`).then(r => r.data);
+
+export const linkCounterClient = (clientId: string, patientId: string) =>
+  api.post(`/counter/clients/${clientId}/link`, { patientId }).then(r => r.data);
+
+// ──────────────────────────────────────────────
 // DEFAULT EXPORT
 // ──────────────────────────────────────────────
 
@@ -3935,7 +4211,7 @@ export default {
   getSeniorityLabel,
 
   // User Management (NEW - separate module)
-  adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
+  adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, adminResetUserPassword, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
 
   // Shift Management (NEW)
   getShifts, getShiftById, createShift, updateShift, deleteShift, 
@@ -4011,7 +4287,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getBills, getBill, createBill, updateBill, deleteBill, addPaymentToBill, generateBillFromEncounter,
   getBillingInvoice,
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
-  getBillLineItems, voidBillLineItem, getBillingCollections,
+  getBillLineItems, voidBillLineItem, getBillingCollections, getBillingRevenueLines,
 
   // Consumables (non-medication stock used during the visit)   ← add these
   recordEncounterConsumableUse,
@@ -4059,7 +4335,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Referrals
   getReferrals, getReferralById, createOutgoingReferral, createIncomingReferral, updateReferralStatus,
-  updateReferral, deleteReferral, getReferralsByPatient, getReferralStats,
+  deleteReferral, getReferralsByPatient, getReferralStats,
 
   // Medical Services
   getDiagnoses, getDiagnosis, createDiagnosis, updateDiagnosis, deleteDiagnosis, searchDiagnoses,
@@ -4156,7 +4432,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Proforma Invoices
   getEstimates, getEstimate, createEstimate, updateEstimate, deleteEstimate, sendEstimate,
-  acceptEstimate, rejectEstimate, convertEstimateToBill, getEstimateStatistics,
+  acceptEstimate, rejectEstimate, getEstimateStatistics,
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
 
   // Communications
@@ -4166,6 +4442,12 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   // Family Planning
   getFPServices, getFPServiceById, createFPService, updateFPService, deleteFPService,
   getCurrentFPMethod, getFPHistory, getFPClientDetails, getFPStatistics, getFPMethodMix, getGHSFPReport,
+
+  // Counter (walk-in tickets)
+  searchCounterClients, searchCounterPatients, listCounterTickets, getCounterTicket,
+  createCounterTicket, addCounterSaleItem, dispenseCounterItem, removeCounterSaleItem,
+  addCounterLabOrder, removeCounterLabOrder, addCounterScanOrder, removeCounterScanOrder,
+  getCounterBill, raiseCounterBill, closeCounterTicket, linkCounterClient,
 
   // Upload
   servePatientImages, serveScanImages, serveDocuments

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Procedure, ProcedureTemplate } from '../../types';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { ProcedureEntry } from '../../types/medical-entries';
 import { Scissors, Plus, DollarSign, Shield, AlertCircle, Search, X, Calendar } from 'lucide-react';
 
@@ -155,8 +156,9 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
             {/* Procedure Search Results */}
             {showProcedureDropdown && procedureSearch && (
               <div className="absolute z-10 w-full mt-1 max-h-48 overflow-y-auto border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] shadow-lg">
+                <PickerRowsHint shown={Math.min(filteredProcedureTemplates.length, MAX_PICKER_ROWS)} total={filteredProcedureTemplates.length} />
                 {filteredProcedureTemplates.length > 0 ? (
-                  filteredProcedureTemplates.map((template) => (
+                  capPickerRows(filteredProcedureTemplates).map((template) => (
                     <button
                       key={template.id}
                       onClick={() => handleProcedureSelect(template)}

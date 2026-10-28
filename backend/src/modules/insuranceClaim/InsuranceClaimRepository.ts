@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { money, monthRange, toNum } from '../../utils/reportDates';
 
 export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -119,10 +120,15 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   async findBatchesWithFilters(filters: any) {
     const { status, startDate, endDate, page = 1, limit = 1000 } = filters;
     const where: any = {};
+    // Two filters that each need their own OR block — search terms and the month
+    // expansion — so they go into AND instead of clobbering one another.
+    const and: any[] = [];
     if (status) where.status = status;
     if (filters.insuranceType) where.insuranceType = filters.insuranceType;
     if (filters.periodYear) where.periodYear = Number(filters.periodYear);
     if (filters.periodMonth) where.periodMonth = Number(filters.periodMonth);
+    if (filters.insuranceProviderId) where.insuranceProviderId = String(filters.insuranceProviderId);
+    if (filters.corporateAccountId) where.corporateAccountId = String(filters.corporateAccountId);
 
     if (startDate || endDate) {
       const start = startDate ? new Date(startDate) : new Date(2000, 0, 1);
@@ -133,14 +139,25 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       for (let month = firstMonth; month <= lastMonth && periods.length < 2400; month += 1) {
         periods.push({ periodYear: Math.floor(month / 12), periodMonth: (month % 12) + 1 });
       }
-      where.OR = periods;
+      and.push({ OR: periods });
     }
+
+    const search = typeof filters.search === 'string' ? filters.search.trim() : '';
+    if (search) {
+      and.push({
+        OR: [
+          { batchNumber: { contains: search, mode: 'insensitive' } },
+          { description: { contains: search, mode: 'insensitive' } },
+        ],
+      });
+    }
+    if (and.length) where.AND = and;
 
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(1000, Math.max(1, Number(limit) || 20));
     const skip = (safePage - 1) * safeLimit;
 
-    const [batches, total] = await Promise.all([
+    const [batches, total, totals] = await Promise.all([
       this.prisma.claimBatch.findMany({
         where,
         include: {
@@ -153,13 +170,24 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
               Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }
             }
           },
+          // The list screen shows a Provider / Account column; without these the
+          // cell had nothing to render and every row showed an em dash.
+          insuranceProvider: { select: { id: true, name: true, type: true } },
+          corporateAccount: { select: { id: true, companyName: true } },
           createdBy: { select: { id: true, fullName: true, username: true } }
         },
-        orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }],
+        orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }, { batchNumber: 'desc' }],
         skip,
         take: safeLimit
       }),
-      this.prisma.claimBatch.count({ where })
+      this.prisma.claimBatch.count({ where }),
+      // The cards describe the whole filter, not the rows on this page: a month with
+      // more batches than the page size used to report a smaller total than it held.
+      this.prisma.claimBatch.aggregate({
+        where,
+        _count: { _all: true },
+        _sum: { totalAmount: true, totalClaims: true },
+      }),
     ]);
 
     return {
@@ -169,6 +197,11 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         limit: safeLimit,
         total,
         pages: Math.ceil(total / safeLimit)
+      },
+      summary: {
+        batches: totals._count._all,
+        claims: toNum(totals._sum.totalClaims),
+        amount: money(totals._sum.totalAmount),
       }
     };
   }
@@ -223,24 +256,11 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     insuranceProviderId?: string | null,
     corporateAccountId?: string | null,
   ) {
-    const start = new Date(periodYear, periodMonth - 1, 1);
-    const end = new Date(periodYear, periodMonth, 1);
-    const where: any = {
-      status: 'finalized',
-      batchId: null,
-      Attendance: { dateTime: { gte: start, lt: end } },
-    };
-    if (insuranceProviderId) where.insuranceProviderId = insuranceProviderId;
-    if (corporateAccountId) where.corporateAccountId = corporateAccountId;
-    if (insuranceType === 'nhis') where.InsuranceProvider = { type: 'nhis' };
-    if (insuranceType === 'private') where.InsuranceProvider = { type: 'private' };
-    if (insuranceType === 'corporate') {
-      if (corporateAccountId) where.corporateAccountId = corporateAccountId;
-      else where.InsuranceProvider = { type: 'corporate' };
-    }
-
     return this.prisma.insuranceClaim.findMany({
-      where,
+      where: this.batchableWhere(insuranceType, periodYear, periodMonth, {
+        insuranceProviderId,
+        corporateAccountId,
+      }),
       include: {
         InsuranceProvider: true,
         Patient: true,
@@ -250,6 +270,157 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  /**
+   * The single definition of "a claim from this month that a batch may take".
+   *
+   * The month is the VISIT's month — a claim belongs to the period of its attendance, which is
+   * the period the payer is billed for. A batch is scoped by insurance type and, when one was
+   * chosen, by provider or corporate account.
+   *
+   * Every count shown before a batch is generated has to come through here. There used to be two
+   * copies of this rule and they disagreed — the preview bucketed by corporateAccountId while the
+   * query that fills a batch filtered by provider type — so the number on screen was not the
+   * batch that got built.
+   */
+  private batchableWhere(
+    insuranceType: string,
+    periodYear: number,
+    periodMonth: number,
+    scope: { insuranceProviderId?: string | null; corporateAccountId?: string | null } = {},
+  ): any {
+    const where: any = {
+      status: 'finalized',
+      batchId: null,
+      Attendance: { dateTime: monthRange(periodYear, periodMonth) },
+    };
+    if (scope.insuranceProviderId) where.insuranceProviderId = scope.insuranceProviderId;
+    if (scope.corporateAccountId) where.corporateAccountId = scope.corporateAccountId;
+    // A corporate batch named by its account is already narrow enough; otherwise the provider
+    // type is the only thing left to group by.
+    if (insuranceType !== 'corporate' || !scope.corporateAccountId) {
+      where.InsuranceProvider = { type: insuranceType };
+    }
+    return where;
+  }
+
+  /** Per-type counts and amounts for one month — the numbers behind the Generate button. */
+  async summarizeBatchableByType(
+    periodYear: number,
+    periodMonth: number,
+    scope: { insuranceProviderId?: string | null; corporateAccountId?: string | null } = {},
+  ) {
+    const types = ['nhis', 'private', 'corporate'] as const;
+    const rows = await Promise.all(
+      types.map((type) =>
+        this.prisma.insuranceClaim.aggregate({
+          where: this.batchableWhere(type, periodYear, periodMonth, scope),
+          _count: { _all: true },
+          _sum: { totalClaimAmount: true },
+        }),
+      ),
+    );
+    return types.reduce((acc, type, index) => {
+      acc[type] = {
+        count: rows[index]._count._all,
+        amount: money(rows[index]._sum.totalClaimAmount),
+      };
+      return acc;
+    }, {} as Record<(typeof types)[number], { count: number; amount: number }>);
+  }
+
+  /**
+   * Every claim whose visit falls in the month, batched or not, drafted or finalized.
+   * This is what the batching screen lists when a period is picked: the claims of that month
+   * and their total, whether or not a batch has been generated for them yet.
+   */
+  async findClaimsForPeriod(
+    periodYear: number,
+    periodMonth: number,
+    options: { insuranceType?: string; batched?: string; page: number; limit: number },
+  ) {
+    const range = monthRange(periodYear, periodMonth);
+    const where: any = { Attendance: { dateTime: range } };
+    const type = options.insuranceType && options.insuranceType !== 'all' ? options.insuranceType : null;
+    if (type) where.InsuranceProvider = { type };
+    if (options.batched === 'batched') where.batchId = { not: null };
+    if (options.batched === 'unbatched') where.batchId = null;
+
+    const safePage = Math.max(1, options.page || 1);
+    const safeLimit = Math.min(200, Math.max(1, options.limit || 50));
+    const skip = (safePage - 1) * safeLimit;
+
+    // What generating a batch over this period would take, using the same rule as the batch.
+    const batchableWhere = type
+      ? this.batchableWhere(type, periodYear, periodMonth)
+      : { status: 'finalized', batchId: null, Attendance: { dateTime: range } };
+
+    const [rows, total, summed, byStatus, batchable] = await Promise.all([
+      this.prisma.insuranceClaim.findMany({
+        where,
+        include: {
+          Patient: { select: { folderNumber: true, surname: true, otherNames: true } },
+          Attendance: { select: { attendanceNumber: true, dateTime: true } },
+          InsuranceProvider: { select: { name: true, type: true } },
+          CorporateAccount: { select: { companyName: true } },
+          batch: { select: { id: true, batchNumber: true, status: true } },
+        },
+        orderBy: { Attendance: { dateTime: 'asc' } },
+        skip,
+        take: safeLimit,
+      }),
+      this.prisma.insuranceClaim.count({ where }),
+      this.prisma.insuranceClaim.aggregate({ where, _sum: { totalClaimAmount: true } }),
+      this.prisma.insuranceClaim.groupBy({
+        by: ['status'],
+        where,
+        _count: { _all: true },
+        _sum: { totalClaimAmount: true },
+      }),
+      this.prisma.insuranceClaim.aggregate({
+        where: batchableWhere,
+        _count: { _all: true },
+        _sum: { totalClaimAmount: true },
+      }),
+    ]);
+
+    const statusTotals: Record<string, { count: number; amount: number }> = {
+      draft: { count: 0, amount: 0 },
+      finalized: { count: 0, amount: 0 },
+    };
+    for (const row of byStatus) {
+      statusTotals[String(row.status)] = {
+        count: row._count._all,
+        amount: money(row._sum.totalClaimAmount),
+      };
+    }
+
+    return {
+      data: rows.map((c: any) => ({
+        claimId: c.id,
+        claimNumber: c.claimNumber,
+        status: c.status,
+        amount: money(c.totalClaimAmount),
+        visitDate: c.Attendance?.dateTime ?? null,
+        attendanceNumber: c.Attendance?.attendanceNumber ?? null,
+        folderNumber: c.Patient?.folderNumber ?? null,
+        patient: c.Patient ? `${c.Patient.surname ?? ''} ${c.Patient.otherNames ?? ''}`.trim() : '',
+        insuranceType: c.InsuranceProvider?.type ?? null,
+        provider: c.InsuranceProvider?.name ?? null,
+        corporateAccount: c.CorporateAccount?.companyName ?? null,
+        batch: c.batch
+          ? { batchId: c.batch.id, batchNumber: c.batch.batchNumber, status: c.batch.status }
+          : null,
+      })),
+      pagination: { page: safePage, limit: safeLimit, total, pages: Math.ceil(total / safeLimit) },
+      totals: {
+        claims: total,
+        amount: money(summed._sum.totalClaimAmount),
+        byStatus: statusTotals,
+        batchable: { count: batchable._count._all, amount: money(batchable._sum.totalClaimAmount) },
+      },
+    };
   }
 
   // ==========================================

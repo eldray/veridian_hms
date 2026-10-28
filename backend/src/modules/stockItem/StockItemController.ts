@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { StockItemService } from './StockItemService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parsePageSize } from '../../shared/pagination';
 import { StockTransactionType, RequisitionStatus } from '@prisma/client';
 
 import prisma from '../../core/database/prisma.client';
@@ -146,7 +147,7 @@ export class StockItemController extends BaseController {
     const includeAllStockLocations = ['admin', 'super_admin'].includes(String(req.user?.role || '').toLowerCase());
     const result = await this.service.getUsageReport(
       req.query.period as string,
-      req.query.limit ? parseInt(req.query.limit as string) : 20,
+      parsePageSize(req.query.limit, 20),
       req.query.category as string,
       { departmentId: req.user?.departmentId, includeAllStockLocations },
     );

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient, AuditAction } from '@prisma/client';
 import { logger } from '../utils/logger';
+import { appendAuditLog } from '../services/auditChain';
 
 import prisma from '../core/database/prisma.client';
 
@@ -39,13 +40,11 @@ async function createAuditLog(data: {
   // performedById must be a real user (foreign key); skip silently instead of failing with 'system'
   if (!data.performedById) return;
   try {
-    await prisma.auditLog.create({
-      data: {
-        entityType: data.entityType, entityId: data.entityId, action: data.action,
-        performedById: data.performedById, ipAddress: data.ipAddress,
-        previousState: data.previousState || null, newState: data.newState || null,
-        metadata: data.metadata || {}
-      }
+    await appendAuditLog(prisma, {
+      entityType: data.entityType, entityId: data.entityId, action: data.action,
+      performedById: data.performedById, ipAddress: data.ipAddress,
+      previousState: data.previousState || null, newState: data.newState || null,
+      metadata: data.metadata || {}
     });
   } catch (error) {
     logger.error('Failed to create audit log', { error });

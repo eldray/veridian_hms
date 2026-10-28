@@ -1,5 +1,6 @@
 // src/pages/Departments.tsx - REDESIGNED (both pickers now searchable)
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
@@ -152,10 +153,13 @@ const { user, hasRole } = useAuthStore();
     finally { setLoadingUsers(false); }
   };
 
-  const filtered = departments.filter(d =>
-    d.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    d.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = useMemo(() => {
+    const q = searchTerm.toLowerCase();
+    return departments.filter(d =>
+      d.name.toLowerCase().includes(q) ||
+      d.description?.toLowerCase().includes(q)
+    );
+  }, [departments, searchTerm]);
 
   const availableUsers = allUsers.filter(u => !departmentUsers.some(du => du.id === u.id));
 
@@ -186,7 +190,7 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Delete this department? This cannot be undone.')) return;
+    if (!(await confirmDialog({ title: 'Delete department', message: 'Delete this department? This cannot be undone.', confirmText: 'Delete' }))) return;
     try { await deleteDepartment(id); success('Deleted', 'Department removed'); await loadData(); }
     catch { error('Delete Failed', 'Failed to delete department'); }
   };
@@ -209,7 +213,7 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleRemoveHead = async (dept: any) => {
-    if (!window.confirm(`Remove ${dept.head?.fullName} as head of ${dept.name}?`)) return;
+    if (!(await confirmDialog({ title: 'Remove department head', message: `Remove ${dept.head?.fullName} as head of ${dept.name}?`, confirmText: 'Remove' }))) return;
     try { await updateDepartment(dept.id, { headId: null }); success('Removed', 'Head removed'); await loadData(); }
     catch (err: any) { error('Failed', err.message); }
   };
@@ -227,17 +231,30 @@ const { user, hasRole } = useAuthStore();
     if (!selectedDept || pickedUserIds.length === 0) return;
     setAssigningUser(true);
     try {
-      for (const userId of pickedUserIds) {
-        await assignUserToDepartment(selectedDept.id, { userId });
-      }
-      success(
-        'Added',
-        `${pickedUserIds.length} user${pickedUserIds.length === 1 ? '' : 's'} added to ${selectedDept.name}`,
+      // One round-trip per user is unavoidable (each assignment is its own write), but they
+      // no longer wait for each other, and the three refreshes that follow run together
+      // instead of one after another.
+      const results = await Promise.allSettled(
+        pickedUserIds.map((userId) => assignUserToDepartment(selectedDept.id, { userId }))
       );
+      const added = results.filter((r) => r.status === 'fulfilled').length;
+      const failed = pickedUserIds.length - added;
+      if (added > 0) {
+        success(
+          'Added',
+          `${added} user${added === 1 ? '' : 's'} added to ${selectedDept.name}` +
+            (failed > 0 ? ` (${failed} could not be added)` : ''),
+        );
+      }
+      if (failed > 0) {
+        error('Partly failed', `${failed} user(s) were already assigned or could not be added.`);
+      }
       setPickedUserIds([]);
-      await getDepartmentUsers(selectedDept.id);
-      await getDepartments();
-      await loadAllUsers();
+      await Promise.allSettled([
+        getDepartmentUsers(selectedDept.id),
+        getDepartments(),
+        loadAllUsers(),
+      ]);
     } catch (err: any) {
       error('Failed', err.message || 'Could not add some users');
     } finally {
@@ -246,14 +263,12 @@ const { user, hasRole } = useAuthStore();
   };
 
   const handleRemoveUser = async (userId: string, userName: string) => {
-    if (!selectedDept || !window.confirm(`Remove ${userName} from ${selectedDept.name}?`)) return;
+    if (!selectedDept || !(await confirmDialog({ title: 'Remove member', message: `Remove ${userName} from ${selectedDept.name}?`, confirmText: 'Remove' }))) return;
     setRemovingId(userId);
     try {
       await removeUserFromDepartment(selectedDept.id, userId);
       success('Removed', `${userName} removed`);
-      await getDepartmentUsers(selectedDept.id);
-      await getDepartments();
-      await loadAllUsers();
+      await Promise.allSettled([getDepartmentUsers(selectedDept.id), getDepartments(), loadAllUsers()]);
     } catch (err: any) { error('Failed', err.message); }
     finally { setRemovingId(null); }
   };
@@ -322,7 +337,8 @@ const { user, hasRole } = useAuthStore();
       </div>
 
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}
-      {isLoading ? (
+      {/* Keep already-loaded rows visible during a refresh; skeletons only stand in for an empty first paint. */}
+      {isLoading && filtered.length === 0 ? (
         <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'space-y-2'}>
           {[1, 2, 3, 4, 5].map(i => <SkeletonCard key={i} />)}
         </div>
@@ -771,7 +787,7 @@ const { user, hasRole } = useAuthStore();
                             {!isHead && (staff.seniority === 'SENIOR' || staff.seniority === 'PRINCIPAL') && (
                               <button
                                 onClick={async () => {
-                                  if (!window.confirm(`Make ${staff.fullName} the head of ${selectedDept.name}?`)) return;
+                                  if (!(await confirmDialog({ title: 'Assign department head', message: `Make ${staff.fullName} the head of ${selectedDept.name}?`, confirmText: 'Assign', type: 'info' }))) return;
                                   try {
                                     await assignDepartmentHead(selectedDept.id, staff.id);
                                     success('Promoted', `${staff.fullName} is now head of ${selectedDept.name}`);

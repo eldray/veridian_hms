@@ -1,23 +1,48 @@
 // src/pages/Reports.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useReportsStore } from '../store/reportsStore';
+import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  BarChart3, TrendingUp, Users, DollarSign, FileText, Calendar,
-  Download, Activity, Clock, CheckCircle, Baby, Heart, Stethoscope,
+  BarChart3, Users, DollarSign, FileText, Calendar,
+  Download, Activity, Clock, Baby, Heart,
   PieChart, UserCheck, Shield, AlertTriangle, Droplet, RefreshCw,
-  ArrowLeft, Hospital, Syringe, Scissors, FlaskConical, ListOrdered,
-  FileSpreadsheet, ClipboardList, AlertCircle, Filter,
-  CalendarDays, CreditCard, Package,Eye,
+  ArrowLeft, Hospital, ListOrdered,
+  FileSpreadsheet, ClipboardList,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MalariaReportView } from '../components/reports/MalariaReportView';
 import FormAReportView from '../components/reports/ANCReportView';
+import GenericReportPage from '../components/reports/GenericReportPage';
+import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
+import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
 
 const AGE_GROUPS = [
   '<28d', '1-11m', '1-4', '5-9', '10-14', '15-17',
   '18-19', '20-34', '35-49', '50-59', '60-69', '70+',
 ];
+
+// The hand-written views that are left. Each of them reproduces a printed GHS return, so the
+// position of every cell is the point and they cannot be rendered from the shared report shell.
+const GHS_REPORTS = [
+  { key: 'opd-attendance',           label: 'OPD Attendance',         icon: Users,          color: 'cyan'   },
+  { key: 'consulting-room-register', label: 'Consulting Register',    icon: ClipboardList,  color: 'cyan'   },
+  { key: 'opd-morbidity',            label: 'OPD Morbidity (Form A)', icon: FileSpreadsheet, color: 'red'   },
+  { key: 'top-diagnoses',            label: 'Top 10 Diagnoses',       icon: ListOrdered,    color: 'orange' },
+  { key: 'form-a',                   label: 'Form A (Maternal)',      icon: Heart,          color: 'cyan'   },
+  { key: 'ipd',                      label: 'IPD & Mortality',        icon: Hospital,       color: 'purple' },
+  { key: 'malaria',                  label: 'Malaria Data',           icon: Droplet,        color: 'green'  },
+  { key: 'idsr',                     label: 'IDSR (Notifiable)',      icon: AlertTriangle,  color: 'orange' },
+  { key: 'family-planning',          label: 'Family Planning',        icon: Users,          color: 'cyan'   },
+];
+
+// All nine are answered by /ghs-reports, which guards the whole module with this one list
+// (GHSReportRoutes.ts) — so the tab is gated, not each pill.
+const GHS_REPORT_ROLES = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts'];
+
+// The tabs are the report groups the registry knows about, so a new group is one edit in
+// reportShell's ReportShape and not a new string union here.
+type ReportsTab = ReportShape['group'];
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -71,125 +96,40 @@ const EmptyState = ({ message }: { message: string }) => (
   </div>
 );
 
-const FilterBar = ({ children }: { children: React.ReactNode }) => (
-  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-4 py-3">
-    <div className="flex flex-wrap items-center gap-3">{children}</div>
-  </div>
-);
-
-const SelectField = ({ value, onChange, children }: any) => (
-  <select value={value} onChange={onChange}
-    className="px-3 py-1.5 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)]">
-    {children}
-  </select>
-);
-
-const ApplyBtn = ({ onClick }: { onClick: () => void }) => (
-  <button onClick={onClick}
-    className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-    Apply
-  </button>
-);
-
-const NhisStatusBadge = ({ status }: { status: string }) => {
-  const map: Record<string, string> = {
-    EXPIRED:  'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-    CRITICAL: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
-    WARNING:  'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    HEALTHY:  'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    ACTIVE:   'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  };
-  return (
-    <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status] ?? 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}>
-      {status}
-    </span>
-  );
-};
-
-const expiryColour = (days: number | null) => {
-  if (days === null) return 'text-[var(--text-tertiary)]';
-  if (days <= 0)  return 'text-[var(--icon-red-text)] font-bold';
-  if (days <= 7)  return 'text-[var(--icon-orange-text)] font-bold';
-  if (days <= 30) return 'text-[var(--icon-yellow-text)] font-semibold';
-  return 'text-[var(--icon-green-text)]';
-};
-
 // ═════════════════════════════════════════════════════════════════════════════
 
 export default function Reports() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { hasRole } = useAuthStore();
 
   const [dateRange, setDateRange] = useState({
     start: new Date(new Date().setDate(1)).toISOString().split('T')[0],
     end:   new Date().toISOString().split('T')[0],
   });
-  const [activeCategory,   setActiveCategory]   = useState<'ghs' | 'clinical' | 'financial' | 'nhis'>('ghs');
+  const [activeCategory,   setActiveCategory]   = useState<ReportsTab>('ghs');
   const [reportType,       setReportType]        = useState('opd-attendance');
-  const [activeFormATab,   setActiveFormATab]    = useState<'antenatal' | 'delivery' | 'postnatal'>('antenatal');
   const [isLoading,        setIsLoading]         = useState(false);
   const [exportFormat,     setExportFormat]      = useState<'csv' | 'excel' | 'pdf'>('csv');
   const [generatedAt,      setGeneratedAt]       = useState<Date | null>(null);
-  const [nhisExpiryDays,   setNhisExpiryDays]   = useState(30);
-  const [nhisExpiryStatus, setNhisExpiryStatus] = useState('all');
 
+  // Only the statutory GHS returns are still fetched here. Everything else the screen offers is
+  // declared in config/reportRegistry.ts and loaded by the shared shell beside its own tables.
   const {
     getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport,
     getGHSFormAReport, getFamilyPlanningReport, getMorbidityMortalityReport, getTopDiagnoses,
-    getDemographicReport, getFinancialReport, getInsuranceClaimsReport, getClinicalReport,
-    getAttendanceReport, getRevenueReport, getLabReport, getScanReport,
-    getProcedureReport, getMedicationReport, getVitalsReport,
-    getNhisExpiryReport, getNhisClaimsSummary, exportReport,
-    // FIXED: also pull getConsultingRoomRegister from the store
-    getConsultingRoomRegister,
+    getConsultingRoomRegister, exportReport,
     opdReport, ipdReport, formAReport, malariaReport, idsrReport, familyPlanningReport,
-    morbidityMortalityReport, topDiagnoses, demographicReport, financialReport,
-    insuranceClaimsReport, clinicalReport, attendanceReport, revenueReport,
-    labReport, scanReport, procedureReport, medicationReport, vitalsReport,
-    nhisExpiryReport, nhisClaimsSummary,
-    // FIXED: consultingRoomRegister is its own state field in the store now
-    consultingRoomRegister,
+    morbidityMortalityReport, topDiagnoses, consultingRoomRegister,
     isLoading: storeLoading,
   } = useReportsStore();
 
-  const categories = [
+  const categories: { id: ReportsTab; label: string; icon: typeof FileText }[] = [
     { id: 'ghs',      label: 'GHS Standard',  icon: FileText   },
     { id: 'clinical', label: 'Clinical',       icon: Activity   },
     { id: 'financial',label: 'Financial',      icon: DollarSign },
     { id: 'nhis',     label: 'NHIS',           icon: Shield     },
   ];
-
-  const reportItems = {
-    ghs: [
-      { key: 'opd-attendance',           label: 'OPD Attendance',       icon: Users,         color: 'cyan'   },
-      { key: 'consulting-room-register', label: 'Consulting Register',   icon: ClipboardList, color: 'cyan'   },
-      { key: 'opd-morbidity',            label: 'OPD Morbidity (Form A)',icon: FileSpreadsheet,color: 'red'   },
-      { key: 'top-diagnoses',            label: 'Top 10 Diagnoses',     icon: ListOrdered,   color: 'orange' },
-      { key: 'form-a',                   label: 'Form A (Maternal)',     icon: Heart,         color: 'cyan'   },
-      { key: 'ipd',                      label: 'IPD & Mortality',       icon: Hospital,      color: 'purple' },
-      { key: 'malaria',                  label: 'Malaria Data',          icon: Droplet,       color: 'green'  },
-      { key: 'idsr',                     label: 'IDSR (Notifiable)',     icon: AlertTriangle, color: 'orange' },
-      { key: 'family-planning',          label: 'Family Planning',       icon: Users,         color: 'cyan'   },
-    ],
-    clinical: [
-      { key: 'demographic', label: 'Demographic',  icon: PieChart,      color: 'cyan' },
-      { key: 'attendance',  label: 'Attendance',   icon: Calendar,      color: 'cyan' },
-      { key: 'lab',         label: 'Laboratory',   icon: FlaskConical,  color: 'cyan' },
-      { key: 'scans',       label: 'Radiology',    icon: ClipboardList, color: 'cyan' },
-      { key: 'procedures',  label: 'Procedures',   icon: Scissors,      color: 'cyan' },
-      { key: 'medications', label: 'Medications',  icon: Syringe,       color: 'cyan' },
-      { key: 'vitals',      label: 'Vitals',       icon: Activity,      color: 'cyan' },
-    ],
-    financial: [
-      { key: 'financial', label: 'Financial Summary', icon: DollarSign, color: 'green'  },
-      { key: 'revenue',   label: 'Revenue Analysis',  icon: TrendingUp, color: 'green'  },
-      { key: 'insurance', label: 'Insurance Claims',  icon: Shield,     color: 'purple' },
-    ],
-    nhis: [
-      { key: 'nhis-expiry', label: 'NHIS Expiry',         icon: CalendarDays, color: 'orange' },
-      { key: 'nhis-claims', label: 'NHIS Claims Summary',  icon: CreditCard,  color: 'cyan'   },
-    ],
-  };
 
   const setDatePreset = (preset: 'month' | 'quarter' | 'year') => {
     const end = new Date(); let start = new Date();
@@ -200,6 +140,9 @@ export default function Reports() {
   };
 
   const loadReport = useCallback(async () => {
+    // Shell reports load themselves: the request, the filters and the totals all come from the
+    // entry in config/reportRegistry.ts, so the page must not fetch a second copy.
+    if (SHELL_REPORT_BY_KEY[reportType]) return;
     setIsLoading(true);
     try {
       const f = { startDate: dateRange.start, endDate: dateRange.end };
@@ -212,32 +155,15 @@ export default function Reports() {
         case 'malaria':           await getGHSMalariaReport(f);         break;
         case 'idsr':              await getGHSIDSRReport(f);            break;
         case 'family-planning':   await getFamilyPlanningReport(f);     break;
-        case 'demographic':       await getDemographicReport(f);        break;
-        case 'financial':         await getFinancialReport(f);          break;
-        case 'insurance':         await getInsuranceClaimsReport(f);    break;
-        case 'attendance':        await getAttendanceReport(f);         break;
-        case 'revenue':           await getRevenueReport(f);            break;
-        case 'lab':               await getLabReport(f);                break;
-        case 'scans':             await getScanReport(f);               break;
-        case 'procedures':        await getProcedureReport(f);          break;
-        case 'medications':       await getMedicationReport(f);         break;
-        case 'vitals':            await getVitalsReport(f);             break;
         // FIXED: was calling getGHSOPDReport — now calls the correct store action
         case 'consulting-room-register':
           await getConsultingRoomRegister({ ...f, period: 'daily' });   break;
-        case 'nhis-expiry':
-          await getNhisExpiryReport({ daysThreshold: nhisExpiryDays, ...f }); break;
-        case 'nhis-claims':
-          await getNhisClaimsSummary({
-            ...f,
-            expiryStatus: nhisExpiryStatus !== 'all' ? nhisExpiryStatus as any : undefined,
-          }); break;
       }
       setGeneratedAt(new Date());
     } catch (err: any) {
       toastError('Report Error', err.message || 'Failed to generate report');
     } finally { setIsLoading(false); }
-  }, [reportType, dateRange, nhisExpiryDays, nhisExpiryStatus]);
+  }, [reportType, dateRange]);
 
   useEffect(() => { loadReport(); }, [loadReport]);
   
@@ -252,18 +178,6 @@ export default function Reports() {
       'malaria':                  malariaReport,
       'idsr':                     idsrReport,
       'family-planning':          familyPlanningReport,
-      'demographic':              demographicReport,
-      'financial':                financialReport,
-      'insurance':                insuranceClaimsReport,
-      'attendance':               attendanceReport,
-      'revenue':                  revenueReport,
-      'lab':                      labReport,
-      'scans':                    scanReport,
-      'procedures':               procedureReport,
-      'medications':              medicationReport,
-      'vitals':                   vitalsReport,
-      'nhis-expiry':              nhisExpiryReport,
-      'nhis-claims':              nhisClaimsSummary,
     };
     return map[reportType] ?? null;
   };
@@ -278,19 +192,51 @@ export default function Reports() {
   };
 
   const isLoading_ = isLoading || storeLoading;
-  const currentReports = reportItems[activeCategory as keyof typeof reportItems] || reportItems.ghs;
+  const shellReport = SHELL_REPORT_BY_KEY[reportType];
+  const allowedForRole = useCallback((roles?: string[]) => !roles || hasRole(roles), [hasRole]);
+  // The export endpoint answers to fewer roles than the reports do, so the button is hidden
+  // rather than left to fail with a 403.
+  const canExport = hasRole(REPORT_EXPORT_ROLES);
+
+  // A tab is the hand-written GHS returns plus whatever the registry declares for that group, so
+  // a new operational report is a registry entry and not an edit to this page. Every pill carries
+  // the roles its own endpoint answers to: the Reports page is open to all staff but the reporting
+  // routes are not, and a pill that 403s is worse than no pill.
+  const reportsForCategory = useCallback((groupId: ReportsTab) => [
+    ...(groupId === 'ghs' ? GHS_REPORTS.map(item => ({ ...item, roles: GHS_REPORT_ROLES })) : []),
+    ...shellReportsForGroup(groupId).map(shape => ({
+      key: shape.key,
+      label: shape.label,
+      icon: ListOrdered,
+      color: 'green',
+      roles: shape.roles,
+    })),
+  ].filter(item => allowedForRole(item.roles)), [allowedForRole]);
+
+  const currentReports = useMemo(() => reportsForCategory(activeCategory), [reportsForCategory, activeCategory]);
+
+  // GHS is the tab the screen opens on, but a lab or pharmacy role cannot open any of those
+  // statutory returns — move to the first group whose reports answer to this role.
+  useEffect(() => {
+    if (currentReports.length > 0) return;
+    const next = categories.map(category => category.id).find(id => reportsForCategory(id).length > 0);
+    if (next) setActiveCategory(next);
+  }, [currentReports.length, reportsForCategory]);
+
+  // The remembered or default report may not be one this role may open.
+  useEffect(() => {
+    if (currentReports.length > 0 && !currentReports.some(item => item.key === reportType)) {
+      setReportType(currentReports[0].key);
+    }
+  }, [currentReports, reportType]);
 
   const getReportTitle = () => {
+    if (shellReport) return shellReport.label;
     const m: Record<string, string> = {
       'opd-attendance': 'OPD Attendance', 'consulting-room-register': 'Consulting Room Register',
       'opd-morbidity': 'OPD Morbidity (Form A)', 'top-diagnoses': 'Top 10 Diagnoses',
       'form-a': 'Form A — Maternal Health', 'ipd': 'IPD & Mortality',
       'malaria': 'Malaria Data', 'idsr': 'IDSR Notifiable Diseases', 'family-planning': 'Family Planning',
-      'demographic': 'Demographic Analysis', 'financial': 'Financial Summary',
-      'insurance': 'Insurance Claims', 'attendance': 'Attendance Patterns',
-      'revenue': 'Revenue Analysis', 'lab': 'Laboratory', 'scans': 'Radiology/Scans',
-      'procedures': 'Procedures', 'medications': 'Medications', 'vitals': 'Vitals',
-      'nhis-expiry': 'NHIS Membership Expiry', 'nhis-claims': 'NHIS Claims Summary',
     };
     return m[reportType] || 'Report';
   };
@@ -337,118 +283,6 @@ export default function Reports() {
             </table>
           </div>
           {entries.length > 100 && <p className="text-center text-[11px] text-[var(--text-tertiary)] py-2">Showing 100 of {entries.length}</p>}
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderNhisExpiryReport = () => {
-    const report = nhisExpiryReport as any;
-    if (!report) return <EmptyState message="No NHIS expiry data available" />;
-    const s = report.summary || {};
-    const patients = report.patients || [];
-    return (
-      <div className="space-y-4">
-        <FilterBar>
-          <AlertCircle className="w-4 h-4 text-[var(--text-tertiary)]" />
-          <span className="text-xs font-semibold text-[var(--text-secondary)]">Days threshold:</span>
-          <SelectField value={nhisExpiryDays} onChange={(e: any) => setNhisExpiryDays(parseInt(e.target.value))}>
-            {[7,14,30,60,90].map(d => <option key={d} value={d}>{d} days</option>)}
-          </SelectField>
-          <ApplyBtn onClick={loadReport} />
-        </FilterBar>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-          <StatCard label="Total NHIS" value={s.totalNHISPatients||0} icon={Users}         color="cyan"   />
-          <StatCard label="Expired"    value={s.expired||0}           icon={AlertTriangle}  color="red"    />
-          <StatCard label="Critical"   value={s.critical||0}          icon={AlertCircle}    color="orange" />
-          <StatCard label="Warning"    value={s.warning||0}           icon={AlertTriangle}  color="yellow" />
-          <StatCard label="Healthy"    value={s.healthy||0}           icon={CheckCircle}    color="green"  />
-        </div>
-        <SectionCard title="NHIS Memberships — Expiry Status" icon={CalendarDays}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr>{['Folder No','Patient Name','NHIS Number','Contact','Expiry Date','Days Left','Status','Last Visit'].map(h => <TH key={h}>{h}</TH>)}</tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {patients.map((p: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <TD className="font-mono text-[var(--text-primary)]">{p.folderNumber}</TD>
-                  <TD className="text-[var(--text-primary)]">{p.fullName}</TD>
-                  <TD className="font-mono">{p.nhisNumber || '—'}</TD>
-                  <TD>{p.phoneNumber || p.contact || '—'}</TD>
-                  <TD>{p.nhisExpiryDate ? new Date(p.nhisExpiryDate).toLocaleDateString() : '—'}</TD>
-                  <TD><span className={expiryColour(p.daysUntilExpiry)}>{p.daysUntilExpiry !== null ? (p.daysUntilExpiry <= 0 ? 'Expired' : `${p.daysUntilExpiry}d`) : '—'}</span></TD>
-                  <TD><NhisStatusBadge status={p.expiryStatus} /></TD>
-                  <TD>{p.lastVisit ? new Date(p.lastVisit).toLocaleDateString() : '—'}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderNhisClaimsSummary = () => {
-    const report = nhisClaimsSummary as any;
-    if (!report) return <EmptyState message="No NHIS claims data available" />;
-    const s = report.summary || {};
-    const claims = report.claims || [];
-    const byStatus = s.byExpiryStatus || {};
-    return (
-      <div className="space-y-4">
-        <FilterBar>
-          <Filter className="w-4 h-4 text-[var(--text-tertiary)]" />
-          <span className="text-xs font-semibold text-[var(--text-secondary)]">Expiry Status:</span>
-          <SelectField value={nhisExpiryStatus} onChange={(e: any) => setNhisExpiryStatus(e.target.value)}>
-            <option value="all">All</option>
-            <option value="ACTIVE">Active</option>
-            <option value="WARNING">Warning (31–60 days)</option>
-            <option value="CRITICAL">Critical (0–30 days)</option>
-            <option value="EXPIRED">Expired</option>
-          </SelectField>
-          <ApplyBtn onClick={loadReport} />
-        </FilterBar>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Claims"   value={s.totalClaims||0}                                    icon={FileText}     color="cyan"  />
-          <StatCard label="Claim Amount"   value={`GHS ${(s.totalClaimAmount||0).toLocaleString()}`}   icon={DollarSign}   color="green" />
-          <StatCard label="Active Members" value={byStatus.ACTIVE||0}                                  icon={CheckCircle}  color="green" />
-          <StatCard label="Expired"        value={byStatus.EXPIRED||0}                                 icon={AlertTriangle}color="red"   />
-        </div>
-        <div className="grid grid-cols-5 gap-3">
-          {[
-            { k: 'ACTIVE',   l: 'Active',   cls: 'border-[var(--icon-green-text)] bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-            { k: 'WARNING',  l: 'Warning',  cls: 'border-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-            { k: 'CRITICAL', l: 'Critical', cls: 'border-[var(--icon-orange-text)] bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]' },
-            { k: 'EXPIRED',  l: 'Expired',  cls: 'border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' },
-            { k: 'UNKNOWN',  l: 'Unknown',  cls: 'border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-secondary)]' },
-          ].map(({ k, l, cls }) => (
-            <div key={k} className={`p-3 rounded-xl border text-center ${cls}`}>
-              <p className="text-[10px] font-semibold opacity-80">{l}</p>
-              <p className="text-xl font-bold mt-0.5">{byStatus[k] || 0}</p>
-            </div>
-          ))}
-        </div>
-        <SectionCard title="NHIS Claims with Expiry Status" icon={CreditCard}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Claim #</TH><TH>Patient</TH><TH>NHIS #</TH><TH>Expiry Date</TH><TH>Status</TH><TH>Amount</TH><TH>Submitted</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {claims.slice(0, 50).map((c: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <TD className="font-mono text-[var(--text-primary)]">{c.claimNumber}</TD>
-                  <TD className="text-[var(--text-primary)]">{c.patientName}</TD>
-                  <TD className="font-mono">{c.nhisNumber || '—'}</TD>
-                  <TD>{c.nhisExpiryDate ? new Date(c.nhisExpiryDate).toLocaleDateString() : '—'}</TD>
-                  <TD><NhisStatusBadge status={c.nhisExpiryStatus} /></TD>
-                  <TD className="text-right font-medium text-[var(--text-primary)]">GHS {c.totalClaimAmount?.toLocaleString()}</TD>
-                  <TD>{c.submissionDate ? new Date(c.submissionDate).toLocaleDateString() : '—'}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {claims.length > 50 && <p className="text-center text-[11px] text-[var(--text-tertiary)] py-2">Showing 50 of {claims.length}</p>}
         </SectionCard>
       </div>
     );
@@ -756,307 +590,14 @@ const renderFormAReport = () => {
     );
   };
 
-  const renderDemographicReport = () => {
-    const report = demographicReport as any;
-    if (!report) return <EmptyState message="No demographic data available" />;
-    const demo = report.patientDemographics || {};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Patients"     value={demo.totalPatients||0}                                      icon={Users}    color="cyan"  />
-          <StatCard label="Male"               value={demo.genderDistribution?.male||0}                           icon={Users}    color="cyan"  />
-          <StatCard label="Female"             value={demo.genderDistribution?.female||0}                         icon={Users}    color="cyan"  />
-          <StatCard label="Avg Visits/Patient" value={report.attendancePatterns?.visitsPerPatient?.toFixed(1)||0} icon={Activity} color="green" />
-        </div>
-        <SectionCard title="Age Distribution" icon={PieChart}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Age Group</TH><TH>Count</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {Object.entries(demo.ageDistribution||{}).map(([g,c]: [string,any]) => (
-                <tr key={g} className="hover:bg-[var(--bg-main)]">
-                  <TD className="text-[var(--text-primary)]">{g}</TD>
-                  <TD>{c}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderFinancialReport = () => {
-    const report = financialReport as any;
-    if (!report) return <EmptyState message="No financial data available" />;
-    const s = report.summary || {};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Revenue"   value={`GHS ${(s.totalRevenue||0).toLocaleString()}`}      icon={DollarSign}   color="green" />
-          <StatCard label="Total Paid"      value={`GHS ${(s.totalPaid||0).toLocaleString()}`}          icon={CheckCircle}  color="green" />
-          <StatCard label="Outstanding"     value={`GHS ${(s.outstandingBalance||0).toLocaleString()}`} icon={AlertTriangle} color="red"  />
-          <StatCard label="Total Bills"     value={s.totalBills||0}                                     icon={FileText}     color="cyan"  />
-        </div>
-        <SectionCard title="Revenue by Payment Mode" icon={PieChart}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Payment Mode</TH><TH>Revenue</TH><TH>Bills</TH><TH>Avg Bill</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.revenueByPaymentMode||[]).map((item: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <TD className="capitalize text-[var(--text-primary)]">{item.paymentMode?.replace('_',' ')}</TD>
-                  <TD>GHS {item.totalRevenue?.toLocaleString()}</TD>
-                  <TD>{item.billCount}</TD>
-                  <TD>GHS {item.averageBill?.toLocaleString()}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderLabReport = () => {
-    const report = labReport as any;
-    if (!report) return <EmptyState message="No laboratory data available" />;
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Tests"   value={report.summary?.totalTests||0}              icon={FlaskConical}color="cyan"  />
-          <StatCard label="Completed"     value={report.summary?.byStatus?.completed||0}     icon={CheckCircle} color="green" />
-          <StatCard label="In Progress"   value={report.summary?.byStatus?.inProgress||0}    icon={Activity}    color="yellow"/>
-          <StatCard label="Avg Turnaround"value={`${report.summary?.averageTurnaroundTime||0}min`}icon={Clock}color="cyan"  />
-        </div>
-        <SectionCard title="Top 10 Tests" icon={FlaskConical}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Test Name</TH><TH>Count</TH><TH>Positivity Rate</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.topTests||[]).map((test: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <TD className="text-[var(--text-primary)]">{i+1}. {test.testName}</TD>
-                  <TD>{test.count}</TD>
-                  <TD>{test.positiveRate||0}%</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderAttendanceReport = () => {
-    const report = attendanceReport as any;
-    if (!report) return <EmptyState message="No attendance data available" />;
-    const s = report.summary||{}, p = report.attendancePatterns||{};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <StatCard label="Total Attendances"  value={s.totalAttendances||0}                    icon={Users}    color="cyan"   />
-          <StatCard label="Unique Patients"    value={s.uniquePatients||0}                      icon={UserCheck}color="green"  />
-          <StatCard label="Avg Visits/Patient" value={s.averageVisitsPerPatient?.toFixed(1)||0} icon={Activity} color="cyan"   />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[{title:'By Type',data:p.byType},{title:'By Payment Mode',data:p.byPaymentMode}].map(({title,data})=>(
-            <SectionCard key={title} title={title} icon={PieChart}>
-              <div className="p-4 space-y-2">
-                {Object.entries(data||{}).map(([k,v]: [string,any]) => (
-                  <div key={k} className="flex items-center justify-between text-xs">
-                    <span className="capitalize text-[var(--text-secondary)]">{k.replace('_',' ')}</span>
-                    <span className="font-bold text-[var(--text-primary)]">{v}</span>
-                  </div>
-                ))}
-              </div>
-            </SectionCard>
-          ))}
-        </div>
-      </div>
-    );
-  };
-
-  const renderRevenueReport = () => {
-    const report = revenueReport as any;
-    if (!report) return <EmptyState message="No revenue data available" />;
-    const s = report.summary||{};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <StatCard label="Total Revenue" value={`GHS ${(s.totalRevenue||0).toLocaleString()}`}    icon={DollarSign}color="green" />
-          <StatCard label="Total Bills"   value={s.totalBills||0}                                   icon={FileText}  color="cyan"  />
-          <StatCard label="Average Bill"  value={`GHS ${(s.averageBillAmount||0).toLocaleString()}`}icon={TrendingUp}color="cyan"  />
-        </div>
-        <SectionCard title="Revenue by Payment Mode" icon={TrendingUp}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Payment Mode</TH><TH>Revenue</TH><TH>Bills</TH><TH>Avg Bill</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.revenueByPaymentMode||[]).map((item: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <TD className="capitalize text-[var(--text-primary)]">{item.paymentMode?.replace('_',' ')}</TD>
-                  <TD>GHS {item.totalRevenue?.toLocaleString()}</TD>
-                  <TD>{item.billCount}</TD>
-                  <TD>GHS {item.averageBill?.toLocaleString()}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderScanReport = () => {
-    const report = scanReport as any;
-    if (!report) return <EmptyState message="No radiology data available" />;
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Scans"    value={report.summary?.totalScans||0}           icon={ClipboardList}color="cyan"  />
-          <StatCard label="Completed"      value={report.summary?.byStatus?.completed||0}  icon={CheckCircle}  color="green" />
-          <StatCard label="Avg Turnaround" value={`${report.summary?.averageTurnaroundTime||0}min`} icon={Clock}color="cyan"  />
-          <StatCard label="Cancelled"      value={report.summary?.byStatus?.cancelled||0}  icon={AlertTriangle}color="red"   />
-        </div>
-        <SectionCard title="Top Scans" icon={ClipboardList}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Scan Name</TH><TH>Count</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.topScans||[]).map((s: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <TD className="text-[var(--text-primary)]">{i+1}. {s.scanName}</TD>
-                  <TD className="font-bold text-[var(--text-primary)]">{s.count}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderProcedureReport = () => {
-    const report = procedureReport as any;
-    if (!report) return <EmptyState message="No procedure data available" />;
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          <StatCard label="Total Procedures" value={report.summary?.totalProcedures||0}      icon={Scissors}   color="cyan"  />
-          <StatCard label="Completed"        value={report.summary?.byStatus?.completed||0}  icon={CheckCircle}color="green" />
-          <StatCard label="Scheduled"        value={report.summary?.byStatus?.scheduled||0}  icon={Calendar}   color="cyan"  />
-          {/* FIXED: removed 'Avg Duration' — ProcedureReport.averageDuration is not computed in the service */}
-        </div>
-        <SectionCard title="Top Procedures" icon={Scissors}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Procedure Name</TH><TH>Count</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.topProcedures||[]).map((p: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  <TD className="text-[var(--text-primary)]">{i+1}. {p.procedureName}</TD>
-                  <TD className="font-bold text-[var(--text-primary)]">{p.count}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderMedicationReport = () => {
-    const report = medicationReport as any;
-    if (!report) return <EmptyState message="No medication data available" />;
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Medications"  value={report.summary?.totalMedications||0}    icon={Syringe}    color="green" />
-          <StatCard label="Dispensed"          value={report.summary?.byStatus?.dispensed||0} icon={CheckCircle}color="green" />
-          <StatCard label="Administered"       value={report.summary?.byStatus?.administered||0}icon={Activity} color="cyan"  />
-          <StatCard label="Total Quantity"     value={report.summary?.totalQuantity||0}        icon={Package}   color="cyan"  />
-        </div>
-        <SectionCard title="Top Medications" icon={Syringe}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Medication</TH><TH>Prescriptions</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.topMedications||[]).map((m: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)]">
-                  {/* FIXED: service returns drugName not medicationName */}
-                  <TD className="text-[var(--text-primary)]">{i+1}. {m.drugName || m.medicationName}</TD>
-                  <TD className="font-bold text-[var(--text-primary)]">{m.count}</TD>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderVitalsReport = () => {
-    const report = vitalsReport as any;
-    if (!report) return <EmptyState message="No vitals data available" />;
-    const abn = report.summary?.abnormalFindings||{};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {/* FIXED: service returns totalVitals not totalVitalsRecords */}
-          <StatCard label="Total Records"   value={report.summary?.totalVitals||0}    icon={Activity}     color="cyan"   />
-          <StatCard label="Unique Patients" value={report.summary?.uniquePatients||0} icon={Users}        color="cyan"   />
-          <StatCard label="Hypertension"    value={abn.hypertension||0}               icon={AlertTriangle}color="red"    />
-          <StatCard label="Fever"           value={abn.fever||0}                      icon={AlertTriangle}color="orange" />
-        </div>
-        <SectionCard title="Abnormal Findings Summary" icon={AlertTriangle}>
-          <div className="p-4 grid grid-cols-2 gap-3">
-            {[
-              {l:'Hypertension', v:abn.hypertension||0, cls:'text-[var(--icon-red-text)]'},
-              {l:'Fever (>38°C)',  v:abn.fever||0,        cls:'text-[var(--icon-red-text)]'},
-              {l:'Tachycardia',   v:abn.tachycardia||0,  cls:'text-[var(--icon-yellow-text)]'},
-              {l:'Bradycardia',   v:abn.bradycardia||0,  cls:'text-[var(--icon-cyan-text)]'},
-              {l:'Hypoxia',       v:abn.hypoxia||0,      cls:'text-[var(--icon-purple-text)]'},
-            ].map(({l,v,cls}) => (
-              <div key={l} className="flex items-center justify-between text-xs">
-                <span className="text-[var(--text-secondary)]">{l}</span>
-                <span className={`font-bold ${cls}`}>{v}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
-      </div>
-    );
-  };
-
-  const renderInsuranceClaimsReport = () => {
-    const report = insuranceClaimsReport as any;
-    if (!report) return <EmptyState message="No insurance claims data available" />;
-    // FIXED: service returns 'summary' not 'totals'
-    const s = report.summary || report.totals || {};
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <StatCard label="Total Claims"       value={s.totalClaims||0}                                    icon={FileText}   color="cyan"  />
-          <StatCard label="Total Claim Amount" value={`GHS ${(s.totalClaimAmount||0).toLocaleString()}`}   icon={DollarSign} color="yellow"/>
-          <StatCard label="Total Paid"         value={`GHS ${(s.totalPaidAmount||0).toLocaleString()}`}    icon={CheckCircle}color="green" />
-        </div>
-      </div>
-    );
-  };
-
   const renderReportContent = () => {
+    // Declared reports render through the shared shell; anything not in the registry keeps its
+    // own view, which is what the statutory GHS returns need.
+    if (shellReport) {
+      return <GenericReportPage shape={shellReport} dateFrom={dateRange.start} dateTo={dateRange.end} />;
+    }
     const map: Record<string, () => React.ReactNode> = {
       'consulting-room-register': renderConsultingRoomRegister,
-      'nhis-expiry':              renderNhisExpiryReport,
-      'nhis-claims':              renderNhisClaimsSummary,
       'opd-attendance':           renderOPDAttendanceReport,
       'opd-morbidity':            renderFullMorbidityReport,
       'top-diagnoses':            renderTopDiagnoses,
@@ -1065,16 +606,6 @@ const renderFormAReport = () => {
       'malaria':                  renderMalariaReport,
       'idsr':                     renderIDSRReport,
       'family-planning':          renderFamilyPlanningReport,
-      'demographic':              renderDemographicReport,
-      'financial':                renderFinancialReport,
-      'insurance':                renderInsuranceClaimsReport,
-      'attendance':               renderAttendanceReport,
-      'revenue':                  renderRevenueReport,
-      'lab':                      renderLabReport,
-      'scans':                    renderScanReport,
-      'procedures':               renderProcedureReport,
-      'medications':              renderMedicationReport,
-      'vitals':                   renderVitalsReport,
     };
     return map[reportType]?.() ?? <EmptyState message="Select a report type to view data" />;
   };
@@ -1101,23 +632,35 @@ const renderFormAReport = () => {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
-            <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
-            <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)}
-              className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold">
-              <option value="csv">CSV</option>
-              <option value="excel">Excel</option>
-              <option value="pdf">PDF</option>
-            </select>
-          </div>
-          <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50">
-            <Download className="w-3.5 h-3.5" /> Export
-          </button>
-          <button onClick={loadReport} disabled={isLoading_}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh
-          </button>
+          {/* A shell report carries its own export and reload beside its filters; a second set of
+              buttons that exported nothing was the old trap on this screen. */}
+          {!shellReport && (
+            <>
+              {canExport ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg">
+                    <span className="text-[11px] text-[var(--text-tertiary)]">Export as</span>
+                    <select value={exportFormat} onChange={e => setExportFormat(e.target.value as any)}
+                      className="bg-transparent text-xs text-[var(--text-primary)] focus:outline-none font-semibold">
+                      <option value="csv">CSV</option>
+                      <option value="excel">Excel</option>
+                      <option value="pdf">PDF</option>
+                    </select>
+                  </div>
+                  <button onClick={handleExport} disabled={isLoading_ || !getActiveReport()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50">
+                    <Download className="w-3.5 h-3.5" /> Export
+                  </button>
+                </>
+              ) : (
+                <span className="text-[11px] text-[var(--text-tertiary)]">Reading only — exporting a report is limited to admin, accounts and records.</span>
+              )}
+              <button onClick={loadReport} disabled={isLoading_}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50">
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading_ ? 'animate-spin' : ''}`} /> Refresh
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -1125,7 +668,7 @@ const renderFormAReport = () => {
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-1 flex gap-1">
         {categories.map(({ id, label, icon: Icon }) => (
           <button key={id}
-            onClick={() => { setActiveCategory(id as any); const first = reportItems[id as keyof typeof reportItems]?.[0]?.key; if (first) setReportType(first); }}
+            onClick={() => setActiveCategory(id)}
             className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all ${activeCategory === id ? 'bg-[var(--icon-cyan-text)] text-white shadow' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-main)]'}`}>
             <Icon className="w-3.5 h-3.5" />{label}
           </button>
@@ -1134,18 +677,24 @@ const renderFormAReport = () => {
 
       {/* Report type pills */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
-        <div className="flex flex-wrap gap-2">
-          {currentReports.map(({ key, label, icon: Icon }) => (
-            <button key={key} onClick={() => setReportType(key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                reportType === key
-                  ? 'bg-[var(--icon-cyan-text)] text-white shadow'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] hover:border-[var(--icon-cyan-text)]'
-              }`}>
-              <Icon className="w-3.5 h-3.5" />{label}
-            </button>
-          ))}
-        </div>
+        {currentReports.length === 0 ? (
+          <p className="text-[11px] text-[var(--text-tertiary)] px-1 py-1.5">
+            No reports are available for your role in this category.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {currentReports.map(({ key, label, icon: Icon }) => (
+              <button key={key} onClick={() => setReportType(key)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  reportType === key
+                    ? 'bg-[var(--icon-cyan-text)] text-white shadow'
+                    : 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)] hover:text-[var(--text-primary)] hover:border-[var(--icon-cyan-text)]'
+                }`}>
+                <Icon className="w-3.5 h-3.5" />{label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Date range */}

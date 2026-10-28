@@ -1,6 +1,8 @@
 // src/components/vitals/PatientAttendanceSelector.tsx - FIXED VERSION
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, User, Calendar, ChevronDown, X, Clock, Activity, CheckCircle, Sparkles } from 'lucide-react';
+import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
+import { getPatients } from '../../api';
 
 interface PatientAttendanceSelectorProps {
   patients: any[];
@@ -119,19 +121,63 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
   }, [selectedPatient]);
 
   // ✅ Filter patients based on search
-  const filteredPatients = normalizedPatients.filter(patient => {
-    const fullName = getPatientFullName(patient).toLowerCase();
-    const folderNumber = getPatientFolderNumber(patient).toLowerCase();
-    const contact = getPatientContact(patient).toLowerCase();
+  // Memoised and rendered as a capped slice: a one-letter query used to match most of the
+  // register and mount every row of it, which froze the picker mid-typing.
+  //
+  // The register the page hands us is a streamed prefix, so filtering it alone could not
+  // reach the rest of the directory. The server filters on name, folder number and contact,
+  // so its matches are merged with the local ones instead of replacing them.
+  const [directoryMatches, setDirectoryMatches] = useState<any[]>([]);
+  const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
+
+  useEffect(() => {
+    const term = patientSearch.trim();
+    if (!showPatientDropdown || term.length < 3) {
+      setDirectoryMatches([]);
+      setIsSearchingDirectory(false);
+      return;
+    }
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      setIsSearchingDirectory(true);
+      try {
+        const results: any = await getPatients({ search: term, limit: MAX_PICKER_ROWS });
+        if (!cancelled) setDirectoryMatches((Array.isArray(results) ? results : []).map(normalizePatient).filter(Boolean));
+      } catch {
+        // A directory outage must not empty the picker: the rows the page already loaded
+        // still filter locally.
+        if (!cancelled) setDirectoryMatches([]);
+      } finally {
+        if (!cancelled) setIsSearchingDirectory(false);
+      }
+    }, 300);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [patientSearch, showPatientDropdown]);
+
+  const filteredPatients = React.useMemo(() => {
     const search = patientSearch.toLowerCase();
-    
-    return fullName.includes(search) || 
-           folderNumber.includes(search) ||
-           contact.includes(search);
-  });
+    const local = normalizedPatients.filter(patient => {
+      const fullName = getPatientFullName(patient).toLowerCase();
+      const folderNumber = getPatientFolderNumber(patient).toLowerCase();
+      const contact = getPatientContact(patient).toLowerCase();
+
+      return fullName.includes(search) ||
+             folderNumber.includes(search) ||
+             contact.includes(search);
+    });
+    if (!directoryMatches.length) return local;
+    const seen = new Set(local.map(getPatientId).filter(Boolean));
+    const fromDirectory = directoryMatches.filter(patient => {
+      const id = getPatientId(patient);
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+    return [...local, ...fromDirectory];
+  }, [normalizedPatients, patientSearch, directoryMatches]);
 
   // Filter attendances for selected patient
-  const patientAttendances = attendances
+  const patientAttendances = React.useMemo(() => attendances
     .filter(a => {
       const linkedPatient = a.patientId || a.patient?.id || a.patient?._id;
       const linkedPatientId = typeof linkedPatient === 'object'
@@ -139,14 +185,15 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         : linkedPatient;
       return String(linkedPatientId || '') === selectedPatientId;
     })
-    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime());
+    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()),
+    [attendances, selectedPatientId]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'pending': return <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />;
-      case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />;
-      case 'admitted': return <Activity className="w-3.5 h-3.5 text-rose-500" />;
-      default: return <Clock className="w-3.5 h-3.5 text-slate-400" />;
+      case 'pending': return <span className="w-1.5 h-1.5 rounded-full bg-[var(--icon-orange-text)] animate-pulse" />;
+      case 'completed': return <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />;
+      case 'admitted': return <Activity className="w-3.5 h-3.5 text-[var(--icon-red-text)]" />;
+      default: return <Clock className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />;
     }
   };
 
@@ -194,21 +241,16 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
     onAttendanceSelect('');
   };
 
-  // Debug log
-  console.log('🔍 PatientAttendanceSelector - normalizedPatients:', normalizedPatients.length);
-  console.log('🔍 Selected patient:', selectedPatient);
-  console.log('🔍 Selected patient name:', selectedPatient ? getPatientFullName(selectedPatient) : 'none');
-
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {/* Patient Search Box */}
       <div className="relative">
-        <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-2">
-          <User className="w-4 h-4 text-indigo-500" />
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5 flex items-center gap-2">
+          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           Select Patient
         </label>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
           <input
             ref={patientInputRef}
             type="text"
@@ -220,14 +262,14 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
             }}
             onFocus={() => setShowPatientDropdown(true)}
             placeholder="Search by name, folder number, or phone..."
-            className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-slate-800 placeholder-slate-400 transition-all"
+            className="w-full pl-9 pr-8 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] transition-all"
           />
           {patientSearch && selectedPatientId && (
             <button
               onClick={clearPatient}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-100"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[var(--bg-main)]"
             >
-              <X className="w-4 h-4 text-slate-400 hover:text-slate-600" />
+              <X className="w-4 h-4 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" />
             </button>
           )}
         </div>
@@ -236,21 +278,22 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         {showPatientDropdown && patientSearch && (
           <div 
             ref={patientDropdownRef}
-            className="absolute z-20 w-full mt-1 max-h-72 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg"
+            className="absolute z-20 w-full mt-1 max-h-72 overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg"
           >
             {filteredPatients.length > 0 ? (
-              filteredPatients.map((patient) => (
+              <>
+              {capPickerRows(filteredPatients).map((patient) => (
                 <button
                   key={patient.id}
                   onClick={() => handlePatientSelect(patient)}
-                  className="w-full text-left p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors"
+                  className="w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="font-medium text-slate-800">
+                      <div className="font-medium text-[var(--text-primary)]">
                         {getPatientFullName(patient)}
                       </div>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                      <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
                         {getPatientFolderNumber(patient) && <span className="font-mono">#{getPatientFolderNumber(patient)}</span>}
                         {getPatientContact(patient) && <span>📞 {getPatientContact(patient)}</span>}
                         {getPatientAge(patient) && <span>🎂 {getPatientAge(patient)}y</span>}
@@ -258,14 +301,16 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                       </div>
                     </div>
                     {getPatientPaymentMode(patient) === 'nhis' && (
-                      <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">NHIS</span>
+                      <span className="px-2 py-0.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] text-xs font-medium rounded-full">NHIS</span>
                     )}
                   </div>
                 </button>
-              ))
+              ))}
+              <PickerRowsHint shown={Math.min(filteredPatients.length, MAX_PICKER_ROWS)} total={filteredPatients.length} />
+              </>
             ) : (
-              <div className="p-4 text-center text-slate-500 text-sm">
-                No patients found
+              <div className="p-4 text-center text-[var(--text-secondary)] text-sm">
+                {isSearchingDirectory ? 'Searching the register…' : 'No patients found'}
               </div>
             )}
           </div>
@@ -273,17 +318,17 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
 
         {/* Selected Patient Display */}
         {selectedPatient && !patientSearch && (
-          <div className="mt-3 p-3 bg-indigo-50 rounded-lg border border-indigo-100">
+          <div className="mt-3 p-3 bg-[var(--icon-cyan-bg)] rounded-lg border border-[var(--border-color)]">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                  <User className="w-5 h-5 text-indigo-600" />
+                <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                  <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
                 </div>
                 <div>
-                  <div className="font-semibold text-slate-800">
+                  <div className="font-semibold text-[var(--text-primary)]">
                     {getPatientFullName(selectedPatient)}
                   </div>
-                  <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 mt-0.5 text-xs text-[var(--text-secondary)]">
                     {getPatientFolderNumber(selectedPatient) && <span className="font-mono">#{getPatientFolderNumber(selectedPatient)}</span>}
                     {getPatientContact(selectedPatient) && <span>• {getPatientContact(selectedPatient)}</span>}
                     {getPatientAge(selectedPatient) && <span>• {getPatientAge(selectedPatient)} years</span>}
@@ -291,8 +336,8 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                   </div>
                 </div>
               </div>
-              <button onClick={clearPatient} className="p-1.5 hover:bg-white rounded-lg transition-colors">
-                <X className="w-4 h-4 text-slate-400" />
+              <button onClick={clearPatient} className="p-1.5 hover:bg-[var(--bg-card)] rounded-lg transition-colors">
+                <X className="w-4 h-4 text-[var(--text-tertiary)]" />
               </button>
             </div>
           </div>
@@ -301,11 +346,11 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
 
       {/* Attendance Selector */}
       <div className="relative">
-        <label className="block text-sm font-medium text-slate-700 mb-1.5 flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-amber-500" />
+        <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5 flex items-center gap-2">
+          <Calendar className="w-4 h-4 text-[var(--icon-orange-text)]" />
           Select Visit / Attendance
           {autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId && (
-            <span className="text-xs text-indigo-500 flex items-center gap-1 ml-2">
+            <span className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1 ml-2">
               <Sparkles className="w-3 h-3" />
               Auto-selecting latest...
             </span>
@@ -313,13 +358,13 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         </label>
         
         {!selectedPatientId ? (
-          <div className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-400 flex items-center gap-2 cursor-not-allowed">
-            <span className="w-2 h-2 rounded-full bg-slate-300" />
+          <div className="w-full px-3 py-2.5 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-tertiary)] flex items-center gap-2 cursor-not-allowed">
+            <span className="w-2 h-2 rounded-full bg-[var(--bg-main)]" />
             Select a patient first
           </div>
         ) : (
           <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
             <input
               ref={attendanceInputRef}
               type="text"
@@ -327,21 +372,21 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
               onFocus={() => setShowAttendanceDropdown(true)}
               placeholder={patientAttendances.length > 0 ? "Select a visit..." : "No visits found"}
               readOnly
-              className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm text-slate-800 placeholder-slate-400 cursor-pointer transition-all"
+              className="w-full pl-9 pr-8 py-2.5 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm text-[var(--text-primary)] placeholder-[var(--text-tertiary)] cursor-pointer transition-all"
             />
             <button
               onClick={() => setShowAttendanceDropdown(!showAttendanceDropdown)}
               className="absolute right-2 top-1/2 -translate-y-1/2 p-1"
             >
-              <ChevronDown className="w-4 h-4 text-slate-400" />
+              <ChevronDown className="w-4 h-4 text-[var(--text-tertiary)]" />
             </button>
             
             {selectedAttendanceId && (
               <button
                 onClick={clearAttendance}
-                className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-slate-100"
+                className="absolute right-8 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-[var(--bg-main)]"
               >
-                <X className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                <X className="w-3.5 h-3.5 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]" />
               </button>
             )}
 
@@ -349,7 +394,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
             {showAttendanceDropdown && (
               <div 
                 ref={attendanceDropdownRef}
-                className="absolute z-20 w-full mt-1 max-h-64 overflow-y-auto bg-white border border-slate-200 rounded-lg shadow-lg"
+                className="absolute z-20 w-full mt-1 max-h-64 overflow-y-auto bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg shadow-lg"
               >
                 {patientAttendances.length > 0 ? (
                   patientAttendances.map((att) => (
@@ -359,39 +404,39 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                         onAttendanceSelect(String(att.id || att._id));
                         setShowAttendanceDropdown(false);
                       }}
-                      className={`w-full text-left p-3 hover:bg-slate-50 border-b border-slate-100 last:border-b-0 transition-colors ${
-                        selectedAttendanceId === String(att.id || att._id) ? 'bg-indigo-50' : ''
+                      className={`w-full text-left p-3 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors ${
+                        selectedAttendanceId === String(att.id || att._id) ? 'bg-[var(--icon-cyan-bg)]' : ''
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-800">
+                            <span className="font-medium text-[var(--text-primary)]">
                               {att.attendanceNumber}
                             </span>
                             {getStatusIcon(att.status)}
-                            <span className="text-xs text-slate-500">
+                            <span className="text-xs text-[var(--text-secondary)]">
                               {getStatusText(att.status)}
                             </span>
                           </div>
-                          <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
                             <span>📅 {new Date(att.dateTime || att.createdAt).toLocaleDateString()}</span>
                             <span>🏥 {att.attendanceType?.replace(/_/g, ' ') || 'General'}</span>
                           </div>
                           {att.complaints && (
-                            <p className="text-xs text-slate-500 mt-1 truncate max-w-md">
+                            <p className="text-xs text-[var(--text-secondary)] mt-1 truncate max-w-md">
                               {att.complaints}
                             </p>
                           )}
                         </div>
                         {att.paymentMode === 'nhis' && (
-                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-full">NHIS</span>
+                          <span className="px-2 py-0.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] text-xs font-medium rounded-full">NHIS</span>
                         )}
                       </div>
                     </button>
                   ))
                 ) : (
-                  <div className="p-4 text-center text-slate-500 text-sm">
+                  <div className="p-4 text-center text-[var(--text-secondary)] text-sm">
                     No attendances found for this patient
                   </div>
                 )}

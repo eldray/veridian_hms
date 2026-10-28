@@ -1,5 +1,6 @@
 // src/components/nursing/NursingNotesPanel.tsx
 import React, { useEffect, useMemo, useState } from 'react';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import {
   StickyNote, Plus, X, Check, Trash2, Pencil, Flag, Search,
   MessageSquare, AlertTriangle, FileText, User as UserIcon,
@@ -558,7 +559,7 @@ export const NursingNotesPanel: React.FC<NursingNotesPanelProps> = ({
 
   // ── Delete ──
   const handleDelete = async (note: NursingNote) => {
-    if (!window.confirm('Delete this note permanently?')) return;
+    if (!(await confirmDialog({ title: 'Delete note', message: 'Delete this note permanently?', confirmText: 'Delete' }))) return;
     try {
       await removeNote(note.id);
       success('Note deleted', 'Note removed');

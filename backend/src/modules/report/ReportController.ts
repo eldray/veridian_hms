@@ -15,6 +15,9 @@ const REPORT_TITLES: Record<string, string> = {
   'scans': 'Radiology Report', 'procedures': 'Procedures Report', 'medications': 'Medications Report',
   'vitals': 'Vitals Report', 'nhis-expiry': 'NHIS Membership Expiry', 'nhis-claims': 'NHIS Claims Summary',
   'clinical': 'Clinical Statistics',
+  // The reports the shared shell renders from config/reportRegistry.ts — the same names the
+  // pills on the Reports screen carry, so an exported file matches what the officer saw.
+  'collections': 'Payment Collections', 'revenue-lines': 'Revenue Lines', 'claims': 'Insurance Claims Detail',
 };
 
 export class ReportController {

@@ -48,8 +48,9 @@ export default function ProcessPayment() {
   const navigate = useNavigate();
   const { billId } = useParams<{ billId: string }>();
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
-  const { patients, getPatients } = usePatientStore();
-  const { user } = useAuthStore();
+  const { patients, currentPatient, fetchPatient } = usePatientStore();
+  const { user, hasRole } = useAuthStore();
+  const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
   const { success, error: toastError } = useToast();
 
   const [amount, setAmount] = useState(0);
@@ -61,6 +62,9 @@ export default function ProcessPayment() {
   const [showSendReceipt, setShowSendReceipt] = useState(false);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const paymentAttemptKey = useRef(getOrCreatePaymentAttemptKey(billId || 'pending'));
+  const mountedRef = useRef(true);
+
+  useEffect(() => () => { mountedRef.current = false; }, []);
 
   useEffect(() => {
     if (!billId) return;
@@ -72,11 +76,14 @@ export default function ProcessPayment() {
       if (billId) {
         try {
           setIsPageLoading(true);
-          await Promise.all([
-            getBill(billId),
-            patients.length === 0 ? getPatients() : Promise.resolve()
-          ]);
-          
+          // The bill row already carries its patient, so this screen never downloads the
+          // patient register just to print a name in the header.
+          await getBill(billId);
+          const bill: any = useBillingStore.getState().currentBill;
+          if (bill && !bill.Patient?.surname && bill.patientId) {
+            await fetchPatient(bill.patientId).catch(() => undefined);
+          }
+
           // Get billing breakdown
           const breakdown = await getBillingBreakdown(billId);
           setBillingBreakdown(breakdown);
@@ -88,7 +95,7 @@ export default function ProcessPayment() {
       }
     };
     loadData();
-  }, [billId, getBill, getPatients, patients.length, getBillingBreakdown, toastError]);
+  }, [billId, getBill, fetchPatient, getBillingBreakdown, toastError]);
 
   useEffect(() => {
     if (currentBill) {
@@ -97,7 +104,12 @@ export default function ProcessPayment() {
   }, [currentBill]);
 
   const bill = currentBill;
-  const patient = bill ? patients.find(p => p.id === bill.patientId) : null;
+  const patient = bill
+    ? ((bill as any).Patient?.surname
+        ? (bill as any).Patient
+        : patients.find(p => p.id === bill.patientId)
+          || (currentPatient?.id === bill.patientId ? currentPatient : null))
+    : null;
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -133,9 +145,21 @@ export default function ProcessPayment() {
         });
         success('Payment request sent', 'Ask the patient to approve the MoMo prompt on their phone. Do not record a separate cash payment while this request is pending.');
         let finalStatus = intent;
-        for (let attempt = 0; attempt < 24; attempt++) {
-          if (finalStatus.status === 'successful' || finalStatus.status === 'failed') break;
-          await new Promise(resolve => window.setTimeout(resolve, 5000));
+        // The payer approves on their own phone, so this waits — but with a budget, a
+        // backoff and an unmount guard. The old fixed 24 x 5 s loop kept the button busy
+        // for two minutes, even after staff navigated away from the bill.
+        const WAIT_BUDGET_MS = 60_000;
+        let waited = 0;
+        while (
+          waited < WAIT_BUDGET_MS &&
+          mountedRef.current &&
+          finalStatus.status !== 'successful' &&
+          finalStatus.status !== 'failed'
+        ) {
+          const step = waited < 30_000 ? 2_000 : 5_000;
+          await new Promise(resolve => window.setTimeout(resolve, step));
+          waited += step;
+          if (!mountedRef.current) break;
           finalStatus = await checkMomoPaymentStatus(intent.id);
         }
         if (finalStatus.status === 'failed') {
@@ -227,11 +251,11 @@ export default function ProcessPayment() {
 
   if (isPageLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="text-center bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-10 max-w-md">
-          <div className="w-14 h-14 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Loading Bill...</h2>
-          <p className="text-gray-600 text-sm">Please wait while we load the bill details</p>
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+          <div className="w-14 h-14 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Loading Bill...</h2>
+          <p className="text-[var(--text-secondary)] text-sm">Please wait while we load the bill details</p>
         </div>
       </div>
     );
@@ -239,21 +263,21 @@ export default function ProcessPayment() {
 
   if (!bill) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 flex items-center justify-center p-4">
-        <div className="text-center bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-10 max-w-md">
-          <DollarSign className="w-14 h-14 text-gray-400 mx-auto mb-3" />
-          <h2 className="text-xl font-bold text-gray-900 mb-1">Bill Not Found</h2>
-          <p className="text-gray-600 text-sm mb-5">The bill you're looking for doesn't exist.</p>
+      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-4">
+        <div className="text-center bg-[var(--bg-card)] rounded-2xl shadow-md border border-[var(--border-color)] p-10 max-w-md">
+          <DollarSign className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
+          <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Bill Not Found</h2>
+          <p className="text-[var(--text-secondary)] text-sm mb-5">The bill you're looking for doesn't exist.</p>
           <div className="flex gap-3 justify-center">
             <button
               onClick={() => navigate('/dashboard/billing')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 shadow-md hover:shadow-lg font-medium text-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all font-medium text-sm"
             >
               Back to Billing
             </button>
             <Link
               to="/dashboard/billing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-medium text-sm"
+              className="inline-flex items-center gap-2 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] bg-[var(--bg-card)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm"
             >
               View All Bills
             </Link>
@@ -264,33 +288,33 @@ export default function ProcessPayment() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 min-h-screen">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-[var(--bg-main)] min-h-screen">
       {/* Header */}
-      <div className="bg-gradient-to-r from-slate-800 to-blue-900 rounded-2xl p-6 text-white shadow-lg">
+      <div className="bg-[var(--bg-card)] rounded-2xl p-6 shadow-sm border border-[var(--border-color)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
               onClick={() => navigate('/dashboard/billing')}
-              className="p-2.5 hover:bg-white/20 rounded-xl transition-all duration-200"
+              className="p-2.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all duration-200"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-2xl md:text-3xl font-bold">Process Payment</h1>
-              <p className="text-blue-100 text-sm mt-0.5">Bill: {bill.billNumber}</p>
+              <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">Process Payment</h1>
+              <p className="text-[var(--text-secondary)] text-sm mt-0.5">Bill: {bill.billNumber}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowSendReceipt(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
             >
               <MessageSquare className="w-4 h-4" />
               Send Receipt
             </button>
             <Link
               to="/dashboard/billing"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-all text-sm font-medium"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all"
             >
               <BarChart3 className="w-4 h-4" />
               Billing Dashboard
@@ -318,76 +342,76 @@ export default function ProcessPayment() {
         {/* Left Column - Bill Summary & Breakdown */}
         <div className="lg:col-span-2 space-y-6">
           {/* Bill Summary */}
-          <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6">
-            <h2 className="text-lg font-bold text-gray-900 mb-5 flex items-center gap-2">
-              <FileText className="w-5 h-5" />
+          <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
               Bill Summary
             </h2>
             
             {/* Patient & Bill Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-200">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-semibold text-blue-800">PATIENT</span>
+                  <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">PATIENT</span>
                 </div>
-                <p className="font-bold text-gray-900 text-lg">
+                <p className="font-bold text-[var(--text-primary)] text-lg">
                   {getPatientName(patient)}
                 </p>
                 {patient?.folderNumber && (
-                  <p className="text-sm text-blue-600 mt-1">Folder: {patient.folderNumber}</p>
+                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Folder: {patient.folderNumber}</p>
                 )}
               </div>
               
-              <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <Tag className="w-4 h-4 text-purple-600" />
-                  <span className="text-xs font-semibold text-purple-800">BILL INFO</span>
+                  <Tag className="w-4 h-4 text-[var(--icon-purple-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">BILL INFO</span>
                 </div>
-                <p className="font-bold text-gray-900 text-lg">{bill.billNumber}</p>
-                <p className="text-sm text-purple-600 mt-1 capitalize">{bill.status}</p>
+                <p className="font-bold text-[var(--text-primary)] text-lg">{bill.billNumber}</p>
+                <p className="text-sm text-[var(--icon-purple-text)] mt-1 capitalize">{bill.status}</p>
               </div>
             </div>
 
             {/* Financial Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-green-600" />
-                  <span className="text-xs font-semibold text-green-800">TOTAL AMOUNT</span>
+                  <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">TOTAL AMOUNT</span>
                 </div>
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(bill.totalAmount)}</p>
+                <p className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(bill.totalAmount)}</p>
               </div>
               
-              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-semibold text-blue-800">AMOUNT PAID</span>
+                  <CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">AMOUNT PAID</span>
                 </div>
-                <p className="text-2xl font-bold text-blue-600">{formatCurrency(bill.paidAmount)}</p>
+                <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{formatCurrency(bill.paidAmount)}</p>
               </div>
               
-              <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-4 border border-red-200">
+              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                 <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-red-600" />
-                  <span className="text-xs font-semibold text-red-800">BALANCE DUE</span>
+                  <DollarSign className="w-4 h-4 text-[var(--icon-red-text)]" />
+                  <span className="text-xs font-semibold text-[var(--text-secondary)]">BALANCE DUE</span>
                 </div>
-                <p className="text-2xl font-bold text-red-600">{formatCurrency(bill.balance)}</p>
+                <p className="text-2xl font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</p>
               </div>
             </div>
 
             {/* Billing Breakdown */}
             {billingBreakdown && (
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                  <BarChart3 className="w-4 h-4" />
+              <div className="mt-6 pt-6 border-t border-[var(--border-color)]">
+                <h3 className="text-base font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                   Billing Breakdown
                 </h3>
                 <div className="space-y-2">
                   {billingBreakdown.items?.map((item: any, index: number) => (
-                    <div key={index} className="flex justify-between items-center bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl p-3 border border-gray-200">
-                      <span className="text-gray-700 font-medium">{item.description}</span>
-                      <span className="font-bold text-gray-900">{formatCurrency(item.totalPrice)}</span>
+                    <div key={index} className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-3 border border-[var(--border-color)]">
+                      <span className="text-[var(--text-secondary)] font-medium">{item.description}</span>
+                      <span className="font-bold text-[var(--text-primary)]">{formatCurrency(item.totalPrice)}</span>
                     </div>
                   ))}
                 </div>
@@ -397,23 +421,23 @@ export default function ProcessPayment() {
 
           {/* Previous Payments */}
           {bill.payments && bill.payments.length > 0 && (
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6">
-              <h3 className="text-base font-bold text-gray-900 mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
+            <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6">
+              <h3 className="text-base font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                 Payment History
               </h3>
               <div className="space-y-2">
                 {bill.payments.map((payment) => (
-                  <div key={payment.id} className="flex justify-between items-center bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                  <div key={payment.id} className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">
+                      <p className="text-sm font-semibold text-[var(--text-primary)]">
                         {new Date(payment.transactionDate).toLocaleDateString()} - {payment.paymentMethod}
                       </p>
                       {payment.reference && (
-                        <p className="text-xs text-gray-600 mt-1">Ref: {payment.reference}</p>
+                        <p className="text-xs text-[var(--text-secondary)] mt-1">Ref: {payment.reference}</p>
                       )}
                     </div>
-                    <span className="text-lg font-bold text-green-600">{formatCurrency(payment.amount)}</span>
+                    <span className="text-lg font-bold text-[var(--icon-green-text)]">{formatCurrency(payment.amount)}</span>
                   </div>
                 ))}
               </div>
@@ -423,19 +447,20 @@ export default function ProcessPayment() {
 
         {/* Right Column - Payment Form */}
         <div className="lg:col-span-1">
-          <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 space-y-6 sticky top-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
+          {canProcessPayment ? (
+          <form onSubmit={handleSubmit} className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6 space-y-6 sticky top-6">
+            <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-[var(--icon-cyan-text)]" />
               Payment Details
             </h2>
 
             {/* Amount */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Payment Amount <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                Payment Amount <span className="text-[var(--icon-red-text)]">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 text-xs font-bold">{CURRENCY_CODE}</span>
+                <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)] text-xs font-bold">{CURRENCY_CODE}</span>
                 <input
                   type="number"
                   step="0.01"
@@ -444,18 +469,18 @@ export default function ProcessPayment() {
                   required
                   value={amount}
                   onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full pl-11 pr-4 py-3.5 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base font-bold"
+                  className="w-full pl-11 pr-4 py-3.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base font-bold"
                 />
               </div>
-              <p className="text-xs text-gray-600 mt-2">
-                Maximum: <span className="font-bold text-red-600">{formatCurrency(bill.balance)}</span>
+              <p className="text-xs text-[var(--text-secondary)] mt-2">
+                Maximum: <span className="font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</span>
               </p>
             </div>
 
             {/* Payment Method */}
             <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-3">
-                Payment Method <span className="text-red-500">*</span>
+              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-3">
+                Payment Method <span className="text-[var(--icon-red-text)]">*</span>
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {paymentMethods.map((mode) => {
@@ -466,14 +491,14 @@ export default function ProcessPayment() {
                       key={mode.value}
                       type="button"
                       onClick={() => setPaymentMethod(mode.value)}
-                      className={`p-4 border-2 rounded-xl transition-all duration-300 hover:shadow-md ${
+                      className={`p-4 border-2 rounded-lg transition-all duration-200 ${
                         isSelected
-                          ? 'border-blue-600 bg-gradient-to-r from-blue-50 to-teal-50 shadow-md'
-                          : 'border-gray-200 hover:border-gray-300 bg-white'
+                          ? 'border-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]'
+                          : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:bg-[var(--bg-main)]'
                       }`}
                     >
-                      <Icon className={`w-5 h-5 mx-auto mb-1 ${isSelected ? 'text-blue-600' : 'text-gray-600'}`} />
-                      <p className={`text-xs font-bold ${isSelected ? 'text-blue-900' : 'text-gray-700'}`}>
+                      <Icon className={`w-5 h-5 mx-auto mb-1 ${isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-secondary)]'}`} />
+                      <p className={`text-xs font-bold ${isSelected ? 'text-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)]'}`}>
                         {mode.label}
                       </p>
                     </button>
@@ -485,8 +510,8 @@ export default function ProcessPayment() {
             {/* Mobile Money payer number: the backend initiates a real collection request. */}
             {paymentMethod === 'mobile_money' && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Mobile Money Number <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                  Mobile Money Number <span className="text-[var(--icon-red-text)]">*</span>
                 </label>
                 <input
                   type="tel"
@@ -496,17 +521,17 @@ export default function ProcessPayment() {
                   onChange={(e) => setMomoPhone(e.target.value)}
                   required
                   placeholder="024 123 4567"
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                  className="w-full px-4 py-3 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base"
                 />
-                <p className="text-xs text-gray-600 mt-2">A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success.</p>
+                <p className="text-xs text-[var(--text-secondary)] mt-2">A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success.</p>
               </div>
             )}
 
             {/* Reference */}
             {(paymentMethod === 'card' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Reference Number <span className="text-red-500">*</span>
+                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
+                  Reference Number <span className="text-[var(--icon-red-text)]">*</span>
                 </label>
                 <input
                   type="text"
@@ -514,17 +539,17 @@ export default function ProcessPayment() {
                   onChange={(e) => setReference(e.target.value)}
                   required
                   placeholder="Enter transaction reference"
-                  className="w-full px-4 py-3 text-gray-900 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white text-base"
+                  className="w-full px-4 py-3 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base"
                 />
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex flex-col gap-3 pt-5 border-t border-gray-200">
+            <div className="flex flex-col gap-3 pt-5 border-t border-[var(--border-color)]">
               <button
                 type="submit"
                 disabled={isLoading || isSubmittingPayment}
-                className="flex items-center justify-center gap-2.5 px-7 py-3 bg-gradient-to-r from-blue-600 to-teal-600 text-white rounded-xl hover:from-blue-700 hover:to-teal-700 transition-all duration-200 hover:shadow-lg shadow-md font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center justify-center gap-2.5 px-7 py-3 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Save className="w-5 h-5" />
                 {isLoading || isSubmittingPayment ? 'Processing...' : 'Process Payment'}
@@ -532,12 +557,17 @@ export default function ProcessPayment() {
               <button
                 type="button"
                 onClick={() => navigate('/dashboard/billing')}
-                className="px-7 py-3 border border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium text-base"
+                className="px-7 py-3 border border-[var(--border-color)] text-[var(--text-primary)] bg-[var(--bg-card)] rounded-lg hover:bg-[var(--bg-main)] transition-all duration-200 font-medium text-base"
               >
                 Cancel
               </button>
             </div>
           </form>
+          ) : (
+            <div className="rounded-2xl border border-[var(--border-color)] border-l-4 border-l-[var(--icon-yellow-text)] bg-[var(--bg-card)] p-6 text-sm text-[var(--text-secondary)]">
+              You have read-only access to this bill. Only authorised accounts, records, or administrator staff can record payments.
+            </div>
+          )}
         </div>
       </div>
     </div>

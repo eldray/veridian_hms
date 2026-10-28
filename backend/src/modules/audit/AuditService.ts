@@ -46,6 +46,10 @@ export class AuditService extends BaseService {
     return this.auditRepository.createAuditLog(input);
   }
 
+  async verifyChain() {
+    return this.auditRepository.verifyChain();
+  }
+
   async exportLogs(filters: AuditLogExportFilters) {
     const logs = await this.auditRepository.exportLogs(filters);
 

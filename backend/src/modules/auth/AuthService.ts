@@ -1,12 +1,13 @@
 import bcrypt from 'bcryptjs';
 import jwt, { type SignOptions } from 'jsonwebtoken';
-import crypto from 'crypto';
 import { PrismaClient, Seniority } from '@prisma/client';
 import { AuthRepository } from './AuthRepository';
 import {
   LoginRequestDTO, ChangePasswordRequestDTO,
   AuthResponse, TokenPayload,
 } from './AuthTypes';
+import { bcryptRounds, refreshTokenExpiresAt, refreshTokenLifetime } from '../../utils/tokenConfig';
+import { passwordPolicyError } from '../../utils/passwordPolicy';
 
 const getJwtSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -16,8 +17,8 @@ const getJwtSecret = (): string => {
   return secret;
 };
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-const REFRESH_TOKEN_EXPIRY = '7d';
-const SALT_ROUNDS = 12;
+const REFRESH_TOKEN_EXPIRY = refreshTokenLifetime();
+const SALT_ROUNDS = bcryptRounds();
 
 /**
  * Fields that a user may change on their own profile via PUT /auth/profile.
@@ -103,7 +104,7 @@ export class AuthService {
 
     await this.repository.updateLastLogin(user.id);
     await this.repository.storeRefreshToken(
-      user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000),
+      user.id, tokens.refreshToken, refreshTokenExpiresAt(),
     );
 
     return {
@@ -140,29 +141,51 @@ export class AuthService {
       updatedUser.departmentId ?? null,
     );
     await this.repository.storeRefreshToken(
-      updatedUser.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000),
+      updatedUser.id, tokens.refreshToken, refreshTokenExpiresAt(),
     );
 
     return { success: true, data: { user: this.mapUserResponse(updatedUser), ...tokens, tokenType: 'Bearer' } };
   }
 
+  /**
+   * The "forgot password" entry point on the login screen.
+   *
+   * It cannot hand out a reset link: this deployment runs inside the hospital
+   * with no mail transport, and a token minted here was previously written to
+   * the user row in plain text that nothing ever consumed. The working path is
+   * an administrator (`PATCH /users/:id/password`), so this answers with that
+   * instruction — and answers the same way whether or not the account exists,
+   * so the endpoint stays a poor way to enumerate usernames.
+   */
   async forgotPassword(username: string) {
+    const message =
+      'Password resets are handled by a system administrator at this facility. Please ask one to reset it for you.';
     const user = await this.repository.findByUsername(username);
-    if (!user) return { success: true, message: 'If the account exists, a reset link was sent.' };
+    if (user) {
+      // A reset is now an administrator decision, so no token from an earlier
+      // release is left sitting on the account.
+      await this.repository.updateUser(user.id, { resetToken: null, resetExpiry: null });
+    }
 
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetExpiry = new Date(Date.now() + 3600000);
-
-    await this.repository.updateUser(user.id, { resetToken, resetExpiry });
-    // Never log password-reset tokens. A secure delivery and token-consumption flow
-    // must be configured before this feature can be considered operational.
-
-    return { success: true, message: 'If the account exists, a reset link was sent.' };
+    return { success: true, message };
   }
 
   async refreshToken(refreshToken: string) {
     const validation = await this.repository.validateRefreshToken(refreshToken);
-    if (!validation.valid) return { success: false, error: 'Invalid refresh token' };
+    if (!validation.valid) {
+      // A refresh token that verifies cryptographically but is absent from the
+      // store has already been rotated: treat it as possible theft and revoke
+      // every session for that user. Expired/invalid signatures are ignored.
+      try {
+        const decoded = jwt.verify(refreshToken, getJwtSecret()) as { userId?: string; type?: string };
+        if (decoded.type === 'refresh' && decoded.userId) {
+          await this.repository.deleteRefreshTokenForUser(decoded.userId);
+        }
+      } catch {
+        /* expired or invalid token: nothing to revoke */
+      }
+      return { success: false, error: 'Invalid refresh token' };
+    }
 
     const user = await this.repository.findById(validation.userId);
     if (!user || !user.isActive) return { success: false, error: 'User not found' };
@@ -178,7 +201,7 @@ export class AuthService {
     );
 
     await this.repository.storeRefreshToken(
-      user.id, tokens.refreshToken, new Date(Date.now() + 7 * 86400000),
+      user.id, tokens.refreshToken, refreshTokenExpiresAt(),
     );
     await this.repository.deleteRefreshToken(refreshToken);
 
@@ -192,8 +215,19 @@ export class AuthService {
     const isValid = await bcrypt.compare(data.currentPassword, user.password);
     if (!isValid) return { success: false, error: 'Current password is incorrect' };
 
+    if (data.newPassword === data.currentPassword) {
+      return { success: false, error: 'New password must be different from the current password' };
+    }
+    const policyError = passwordPolicyError(data.newPassword, {
+      username: user.username,
+      email: user.email,
+    });
+    if (policyError) return { success: false, error: policyError };
+
     const newPasswordHash = await bcrypt.hash(data.newPassword, SALT_ROUNDS);
     await this.repository.updateUser(userId, { password: newPasswordHash });
+    // Changing a password must invalidate every other session for this account.
+    await this.repository.deleteRefreshTokenForUser(userId);
     return { success: true };
   }
 

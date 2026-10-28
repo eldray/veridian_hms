@@ -5,17 +5,27 @@
   "license": "ISC",
   "author": "Emmanuel Appiah <emk.appiah@gmail.com>",
   "main": "main.cjs",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "client": "cd frontend && npm run dev",
     "server": "cd backend && npm run dev",
     "start": "concurrently \"npm run client\" \"npm run server\" \"electron .\"",
     "start:public": "concurrently \"npm run client\" \"npm run server:public\"",
-    "server:public": "cd backend && node server.js",
+    "server:public": "cd backend && npm run build && node dist/server.js",
     "electron:dev": "concurrently \"npm run client\" \"npm run server\" \"electron .\"",
     "electron:preview": "electron .",
     "build:win": "node build-win.js",
     "build:win:dir": "node build-win.js --dir",
-    "build:clean": "node -e \"['release','build/backend','backend/dist-bundle','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\""
+    "build:clean": "node -e \"['release','build/backend','backend/dist-bundle','frontend/dist'].forEach(d=>{try{require('fs').rmSync(d,{recursive:true,force:true});console.log('removed',d)}catch(e){}})\"",
+    "test": "npm --prefix backend test",
+    "test:coverage": "npm --prefix backend run test:coverage",
+    "typecheck": "npm run typecheck:backend && npm run typecheck:frontend",
+    "typecheck:backend": "npm --prefix backend run typecheck",
+    "typecheck:frontend": "npm --prefix frontend run typecheck",
+    "lint": "npm --prefix frontend run lint",
+    "secret-scan": "gitleaks detect --source . --config .gitleaks.toml"
   },
   "dependencies": {
     "concurrently": "^9.1.2"

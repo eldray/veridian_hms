@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 import { BaseController } from '../../shared/base/BaseController';
 import { BillingService } from './BillingService';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { parseReportRange as inclusiveReportRange } from '../../utils/reportDates';
 
 export class BillingController extends BaseController {
   private service: BillingService;
@@ -120,18 +121,52 @@ export class BillingController extends BaseController {
   });
 
   getCollections = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const dateFrom = typeof req.query.dateFrom === 'string' ? new Date(req.query.dateFrom) : null;
-    const dateTo = typeof req.query.dateTo === 'string' ? new Date(req.query.dateTo) : null;
-    if (!dateFrom || !dateTo || Number.isNaN(dateFrom.getTime()) || Number.isNaN(dateTo.getTime())) {
-      return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
-    }
-    if (dateFrom > dateTo) {
-      return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
-    }
+    const range = this.parseReportRange(req);
+    if (!range) return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    if (range.from > range.to) return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
 
-    const collections = await this.service.getCollections(dateFrom, dateTo);
+    const collections = await this.service.getCollections(range.from, range.to);
     return this.ok(res, collections, 'Payment collections retrieved successfully');
   });
+
+  // ============================================
+  // REVENUE LINES (one row per charged line in the window)
+  // ============================================
+  getRevenueLines = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const range = this.parseReportRange(req);
+    if (!range) return this.badRequest(res, 'Valid dateFrom and dateTo query parameters are required');
+    if (range.from > range.to) return this.badRequest(res, 'dateFrom must be earlier than or equal to dateTo');
+
+    const text = (value: unknown): string | undefined =>
+      typeof value === 'string' && value.trim() ? value.trim() : undefined;
+
+    const report = await this.service.getRevenueLines(range.from, range.to, {
+      paymentMode: text(req.query.paymentMode),
+      billStatus: text(req.query.billStatus),
+      serviceType: text(req.query.serviceType),
+      search: text(req.query.search),
+      limit: Number(req.query.limit) > 0 ? Number(req.query.limit) : undefined,
+    });
+    return this.ok(res, report, 'Revenue lines retrieved successfully');
+  });
+
+  /**
+   * The two money reports take a closed date window and nothing else. A missing or unruly
+   * range is a bad request, not an unbounded table scan.
+   *
+   * The window is run through the shared report-range parser: new Date("2026-10-27") is the very
+   * first instant of the day, so a plain parse made `lte` midnight and dropped every payment and
+   * every charged line taken on the last day — which is the whole of today on the range the
+   * Reports screen opens with.
+   */
+  private parseReportRange(req: AuthRequest): { from: Date; to: Date } | null {
+    const dateFrom = typeof req.query.dateFrom === 'string' ? req.query.dateFrom : undefined;
+    const dateTo = typeof req.query.dateTo === 'string' ? req.query.dateTo : undefined;
+    if (!dateFrom || !dateTo) return null;
+    const range = inclusiveReportRange(dateFrom, dateTo);
+    if (!range || !range.gte || !range.lte) return null;
+    return { from: range.gte, to: range.lte };
+  }
 
   // ============================================
   // GET BILL LINE ITEMS

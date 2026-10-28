@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { confirmDialog } from '../context/ConfirmDialog';
 import {
   AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight,
   ClipboardList, Download, Eye, Filter, Package, Plus, RefreshCw, Search,
@@ -6,7 +7,9 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
-import { getStockTransfers, getDepartments, getStockItems, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer } from '../api';
+import { useStockStore } from '../store/stockStore';
+import { capPickerRows, MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
+import { getStockTransfers, getDepartments, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer } from '../api';
 
 type TransferItem = {
   id?: string;
@@ -78,7 +81,18 @@ export default function StockTransfers() {
   const canRequest = hasRole(['admin', 'super_admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'records']);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [departments, setDepartments] = useState<Option[]>([]);
-  const [stockItems, setStockItems] = useState<Option[]>([]);
+  // The formulary comes from the shared stock store, which walks the endpoint page by page.
+  // Asking for `limit: 1000` in one request looked complete but stopped at the server's
+  // page size, so a large hospital could not requisition the items below that line.
+  const formulary = useStockStore((s) => s.stockItems);
+  const loadFormulary = useStockStore((s) => s.getStockItems);
+  const stockItems = useMemo<Option[]>(() => formulary
+    .filter((item: any) => item.isActive !== false)
+    .map((item: any) => ({
+      id: item.id, name: item.name || 'Unnamed item', drugCode: item.drugCode,
+      unitOfMeasure: item.unitOfMeasure,
+    }))
+    .filter((item: Option) => item.id), [formulary]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
@@ -89,29 +103,48 @@ export default function StockTransfers() {
   const [destinationId, setDestinationId] = useState('');
   const [notes, setNotes] = useState('');
   const [requestItems, setRequestItems] = useState([{ stockItemId: '', quantityRequested: '1' }]);
+  const [itemQuery, setItemQuery] = useState('');
+
+  // Every requisition line renders this list, so an uncapped formulary multiplied into
+  // thousands of <option> nodes per keystroke. The rows already chosen stay in the list
+  // even when the search narrows past them, or a filled line would blank itself.
+  const selectedItemIds = useMemo(
+    () => new Set(requestItems.map((row) => row.stockItemId).filter(Boolean)),
+    [requestItems],
+  );
+  const pickerItems = useMemo(() => {
+    const q = itemQuery.trim().toLowerCase();
+    const matches = q
+      ? stockItems.filter((s) => `${s.name} ${s.drugCode ?? ''}`.toLowerCase().includes(q))
+      : stockItems;
+    const capped = capPickerRows(matches);
+    for (const id of selectedItemIds) {
+      if (!capped.some((s) => s.id === id)) {
+        const chosen = stockItems.find((s) => s.id === id);
+        if (chosen) capped.push(chosen);
+      }
+    }
+    return capped;
+  }, [stockItems, itemQuery, selectedItemIds]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [transferResponse, departmentResponse, stockResponse] = await Promise.all([
+      const [transferResponse, departmentResponse] = await Promise.all([
         getStockTransfers({ limit: 1000 }),
         getDepartments(),
-        getStockItems({ limit: 1000, isActive: true }),
+        loadFormulary({ isActive: true }),
       ]);
       setTransfers(asArray(transferResponse) as Transfer[]);
       setDepartments(asArray(departmentResponse).map((d: any) => ({
         id: d.id, name: d.name || d.departmentName || 'Unnamed department',
       })).filter((d: Option) => d.id));
-      setStockItems(asArray(stockResponse).map((s: any) => ({
-        id: s.id, name: s.name || 'Unnamed item', drugCode: s.drugCode,
-        unitOfMeasure: s.unitOfMeasure,
-      })).filter((s: Option) => s.id));
     } catch (error: any) {
       toastError('Load failed', error?.response?.data?.message || 'Could not load stock transfers. Check your access and try again.');
     } finally {
       setLoading(false);
     }
-  }, [toastError]);
+  }, [toastError, loadFormulary]);
 
   useEffect(() => { void loadData(); }, [loadData]);
 
@@ -135,7 +168,7 @@ export default function StockTransfers() {
 
   const performAction = async (transfer: Transfer, action: 'approve' | 'dispatch' | 'receive') => {
     const label = action === 'approve' ? 'approve' : action === 'dispatch' ? 'dispatch' : 'confirm receipt for';
-    if (!window.confirm(`Are you sure you want to ${label} transfer ${transfer.transferNumber || ''}?`)) return;
+    if (!(await confirmDialog({ title: 'Update stock transfer', message: `Are you sure you want to ${label} transfer ${transfer.transferNumber || ''}?`, confirmText: 'Continue', type: 'warning' }))) return;
     try {
       const actions = { approve: approveStockTransfer, dispatch: dispatchStockTransfer, receive: receiveStockTransfer };
       await actions[action](transfer.id);
@@ -261,10 +294,18 @@ export default function StockTransfers() {
           </label>
         </div>
         <div className="space-y-2">
+          <label className="block text-sm text-[var(--text-secondary)]">Find stock item
+            <input
+              value={itemQuery}
+              onChange={e => setItemQuery(e.target.value)}
+              placeholder="Name or drug code"
+              className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]"
+            />
+          </label>
           {requestItems.map((item, index) => <div key={index} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_140px_44px]">
             <label className="text-sm text-[var(--text-secondary)]">Stock item
               <select required value={item.stockItemId} onChange={e => setRequestItems(rows => rows.map((row, i) => i === index ? { ...row, stockItemId: e.target.value } : row))} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
-                <option value="">Select item</option>{stockItems.map(s => <option key={s.id} value={s.id}>{s.name}{s.drugCode ? ` · ${s.drugCode}` : ''}</option>)}
+                <option value="">Select item</option>{pickerItems.map(s => <option key={s.id} value={s.id}>{s.name}{s.drugCode ? ` · ${s.drugCode}` : ''}</option>)}
               </select>
             </label>
             <label className="text-sm text-[var(--text-secondary)]">Quantity
@@ -272,6 +313,11 @@ export default function StockTransfers() {
             </label>
             <button type="button" aria-label="Remove item" disabled={requestItems.length === 1} onClick={() => setRequestItems(rows => rows.filter((_, i) => i !== index))} className="mt-5 rounded-lg border border-[var(--border-color)] p-2 text-[var(--text-secondary)] disabled:opacity-30"><X className="h-4 w-4" /></button>
           </div>)}
+          {stockItems.length > MAX_PICKER_ROWS && (
+            <p className="text-xs text-[var(--text-tertiary)]">
+              Showing {Math.min(stockItems.length, MAX_PICKER_ROWS)} of {stockItems.length} items &mdash; type to narrow the list.
+            </p>
+          )}
           <button type="button" onClick={() => setRequestItems(rows => [...rows, { stockItemId: '', quantityRequested: '1' }])} className="inline-flex items-center gap-2 text-sm font-medium text-[var(--icon-cyan-text)]"><Plus className="h-4 w-4" /> Add another item</button>
         </div>
         <label className="block text-sm text-[var(--text-secondary)]">Reason / notes (optional)

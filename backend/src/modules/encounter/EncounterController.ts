@@ -122,6 +122,13 @@ export class EncounterController extends BaseController {
     return this.ok(res, vitals, 'Vitals retrieved successfully');
   });
 
+  /** Every reading for many encounters at once: GET /encounters/vitals/batch?ids=a,b,c */
+  getVitalsByEncounters = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ids = String(req.query.ids || '').split(',').map((v) => v.trim()).filter(Boolean);
+    const vitals = await this.service.getVitalsByEncounters(ids);
+    return this.ok(res, vitals, 'Vitals retrieved successfully');
+  });
+
   addVitals = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const data: AddVitalsDTO = req.body;
@@ -232,7 +239,7 @@ export class EncounterController extends BaseController {
       return this.badRequest(res, 'No images were uploaded.');
     }
 
-    // Files are served statically at /uploads/scans/<filename> (see server.ts)
+    // Served through the authenticated /uploads route in server.ts
     const imageUrls = files.map((file) => `/uploads/scans/${file.filename}`);
     return this.ok(res, { imageUrls }, 'Scan images uploaded');
   });
@@ -285,6 +292,14 @@ export class EncounterController extends BaseController {
 
     const result = await this.service.addService(id, data, user.id);
     return this.created(res, result, 'Service added successfully');
+  });
+
+  /** Add several services to one encounter in one write: POST /encounters/:id/services/bulk */
+  addServices = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { id } = req.params;
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const result = await this.service.addServices(id, items, req.user!.id);
+    return this.created(res, result, `${result.added} service(s) added successfully`);
   });
 
   removeService = this.asyncHandler(async (req: AuthRequest, res: Response) => {

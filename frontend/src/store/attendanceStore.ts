@@ -41,7 +41,9 @@ import {
 interface Attendance {
   id: string;
   attendanceNumber: string;
-  patientId: string;
+  // A counter ticket is an ordinary visit held against a walk-in customer, so the
+  // register link is the field that may be absent — never both, never neither.
+  patientId: string | null;
   patient?: {
     id: string;
     surname: string;
@@ -50,7 +52,14 @@ interface Attendance {
     contact: string;
     dateOfBirth: string;
     gender: string;
-  };
+  } | null;
+  counterClientId?: string | null;
+  counterClient?: {
+    id: string;
+    name: string;
+    ageYears: number | null;
+    phone: string | null;
+  } | null;
   attendanceType: string;
   dateTime: string;
   paymentMode: string;
@@ -58,6 +67,20 @@ interface Attendance {
   complaints: string;
   medicalNotes?: string;
   clinicalNotes?: Record<string, any> | null;
+  historyPresentingComplaint?: string | null;
+  reviewOfSystems?: Record<string, string> | null;
+  physicalExamination?: string | null;
+  physicalExamStructured?: Record<string, string> | null;
+  assessment?: string | null;
+  treatmentPlan?: string | null;
+  clinicalOutcome?: 'improved' | 'stable' | 'unchanged' | 'deteriorated' | 'deceased' | 'unknown' | null;
+  allergyReviewStatus?: 'not_reviewed' | 'no_known_allergies' | 'allergies_present' | null;
+  allergyReviewNotes?: string | null;
+  allergyReviewedAt?: string | null;
+  allergyReviewedById?: string | null;
+  providerId?: string | null;
+  finalizedAt?: string | null;
+  finalizedById?: string | null;
   encounterCategory: 'opd' | 'ipd' | 'daycase';  // ✅ UPDATED
   visitCategory: string;
   gdrgCategory?: string;

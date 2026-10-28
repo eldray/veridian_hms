@@ -6,12 +6,19 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 
-const uploadsDir = path.join(process.cwd(), 'uploads');
-if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+// Uploaded restore files contain the entire database. Keep them in the backup
+// directory, never in uploads/, which is reachable through the file route.
+const restoreDir = path.join(process.cwd(), 'backups', 'restore');
+if (!fs.existsSync(restoreDir)) fs.mkdirSync(restoreDir, { recursive: true });
 
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadsDir),
-  filename: (req, file, cb) => cb(null, `backup-restore-${Date.now()}-${Math.round(Math.random() * 1E9)}.sql`)
+  destination: (req, file, cb) => cb(null, restoreDir),
+  filename: (req, file, cb) => {
+    // Keep the format distinction: pg_restore reads custom archives, psql reads
+    // plain SQL. Renaming everything to .sql made custom backups unrestorable.
+    const extension = path.extname(file.originalname).toLowerCase() === '.sql' ? '.sql' : '.backup';
+    cb(null, `backup-restore-${Date.now()}-${Math.round(Math.random() * 1E9)}${extension}`);
+  }
 });
 
 const upload = multer({ 

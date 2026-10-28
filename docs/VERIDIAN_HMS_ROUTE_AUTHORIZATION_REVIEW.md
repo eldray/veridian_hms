@@ -24,3 +24,17 @@ Reviewed branch: `audit/main-sync-2026-10-20`, created from the current `main`.
 ## Verification status
 
 This is a source review and a record of targeted changes, not a runtime security test. No automated authorization tests, API integration tests, or end-to-end tests were run in this environment. Before merging, test allowed and denied roles for each changed endpoint using non-production accounts.
+
+## Update (2026-10-26)
+
+- `protect` now reloads role, seniority, department, active flag and permissions
+  from the database on every request, so deactivation and role changes take
+  effect immediately instead of waiting for the access token to expire.
+- `backend/tests/route-authorization.test.ts` adds a static regression guard:
+  every module router except the public auth endpoints must apply `protect`,
+  mutating route files must reference a role/permission guard, and the auth
+  controller may register only login, refresh-token and forgot-password without
+  `protect`.
+- The guard catches missing wiring, not an incorrect role list. Runtime
+  allowed/denied checks against a running API remain a manual or future
+  integration-test task.

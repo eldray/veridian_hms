@@ -143,17 +143,24 @@ export default function Nursing() {
     localStorage.setItem('nursingViewMode', viewMode);
   }, [viewMode]);
 
+  // Indexed register: findPatient() runs for every card on the board, and scanning the
+  // whole patient list from there stalled the ward view while it streamed in.
+  const patientById = useMemo(
+    () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
+    [patients],
+  );
+
   const findPatient = useCallback((attendance: any) => {
     if (!attendance) return null;
     if (attendance.patient && typeof attendance.patient === 'object') return attendance.patient;
     if (attendance.patientId && typeof attendance.patientId === 'object') return attendance.patientId;
     if (attendance.patientId && typeof attendance.patientId === 'string') {
-      const found = patients.find((p) => p.id === attendance.patientId);
+      const found = patientById.get(attendance.patientId);
       if (found) return found;
     }
     if (attendance.Patient && typeof attendance.Patient === 'object') return attendance.Patient;
     return null;
-  }, [patients]);
+  }, [patientById]);
 
   // ── Load the nursing board without letting optional lookups block the page ──
   const loadData = useCallback(async () => {
@@ -162,7 +169,8 @@ export default function Nursing() {
       // The inpatient list is the essential first render. Wards, beds and admission
       // metadata can hydrate in the background; one slow secondary endpoint must not
       // hold the whole nursing station behind a full-screen spinner.
-      await getAttendances({ status: 'admitted' });
+      // 500 rows bounds the walk to five requests; a ward never holds that many inpatients.
+      await getAttendances({ status: 'admitted', limit: 500 });
     } catch (err: any) {
       toastError('Load failed', err?.message || 'Could not load the inpatient list');
     } finally {
@@ -172,7 +180,7 @@ export default function Nursing() {
 
     // These datasets enrich the board but are not prerequisites for displaying it.
     void Promise.allSettled([
-      getAdmissions({ status: 'active' }),
+      getAdmissions({ status: 'active', limit: 500 }),
       getWards(),
       getBeds(),
     ]);
@@ -185,7 +193,11 @@ export default function Nursing() {
   }, []);
 
   useLiveRefresh(['encounters', 'admissions', 'nursing', 'beds'], () =>
-    Promise.all([getAttendances({ status: 'admitted' }, { silent: true }), getAdmissions({ status: 'active' }, { silent: true }), getBeds()])
+    Promise.all([
+      getAttendances({ status: 'admitted', limit: 500 }, { silent: true }),
+      getAdmissions({ status: 'active', limit: 500 }, { silent: true }),
+      getBeds(),
+    ])
   );
 
   // ── Inpatients ──

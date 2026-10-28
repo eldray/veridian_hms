@@ -141,7 +141,9 @@ export default function Patients() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedPatients = sortedPatients.slice(startIndex, startIndex + itemsPerPage);
 
-  const canRegister = hasRole(['admin', 'nurse', 'doctor']);
+  // Mirrors the patient API: everyone in requirePatientManagement may register,
+  // only an administrator may delete a record.
+  const canRegister = hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
   const canDelete = hasRole(['admin']);
 
   const handleAddAttendance = (patientId: string) => {

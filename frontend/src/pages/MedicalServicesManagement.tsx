@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import CreateEditModal from '../components/CreateEditModal';
 import { useToast } from '../store/toastStore';
+import { useAuthStore } from '../store/authStore';
 import { 
   Plus, 
   Search, 
@@ -171,7 +172,17 @@ const getMorbidityOptionsByCategory = () => {
 };
 
 export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: MedicalServicesManagementProps) {
-  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
+  const { hasRole } = useAuthStore();
+  const canReadTab = (tab: ActiveTab) => {
+    switch (tab) {
+      case 'diagnoses': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
+      case 'lab-tests': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts']);
+      case 'procedures': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']);
+      case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'accounts']);
+    }
+  };
+  const firstReadableTab = (['diagnoses', 'lab-tests', 'procedures', 'scans'] as ActiveTab[]).find(canReadTab) ?? 'diagnoses';
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => canReadTab(initialTab) ? initialTab : firstReadableTab);
   const [searchTerm, setSearchTerm] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
@@ -190,6 +201,14 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
   });
   
   const { success, error: toastError } = useToast();
+
+  // Keep visible actions consistent with the role guards on each backend module.
+  const canWriteActiveTab =
+    activeTab === 'diagnoses' ? hasRole(['admin']) :
+    activeTab === 'lab-tests' ? hasRole(['admin', 'lab_tech', 'accounts']) :
+    activeTab === 'procedures' ? hasRole(['admin', 'doctor']) :
+    hasRole(['admin']);
+  const canDeleteActiveTab = hasRole(['admin']);
   
   const {
     diagnoses,
@@ -239,91 +258,37 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     loadAllCounts();
   }, []);
 
+  /** Total rows in a list endpoint, read from the paging metadata. */
+  const readTotal = async (apiCall: (params: any) => Promise<any>): Promise<number> => {
+    const response = await apiCall({ page: 1, limit: 1 });
+    const pagination =
+      response?.data?.pagination || response?.pagination || response?.meta || response?.data?.meta;
+    const total = Number(pagination?.total);
+    if (Number.isFinite(total) && total > 0) return total;
+
+    // No usable total in the envelope: fall back to the rows the request returned.
+    if (Array.isArray(response?.data?.data)) return response.data.data.length;
+    if (Array.isArray(response?.data)) return response.data.length;
+    if (Array.isArray(response)) return response.length;
+    return 0;
+  };
+
   const loadAllCounts = async () => {
     try {
-      // Helper function to fetch all pages of data
-      const fetchAllPages = async (apiCall: (params: any) => Promise<any>, params: any = {}) => {
-        let allData: any[] = [];
-        let currentPage = 1;
-        let totalPages = 1;
-        const limit = 500;
-        
-        try {
-          // First request to get total pages
-          const firstResponse = await apiCall({ ...params, page: 1, limit });
-          
-          // Extract data and pagination
-          let dataArray: any[] = [];
-          let pagination: any = null;
-          
-          if (firstResponse?.data?.data && Array.isArray(firstResponse.data.data)) {
-            dataArray = firstResponse.data.data;
-            pagination = firstResponse.data.pagination;
-          } else if (firstResponse?.data && Array.isArray(firstResponse.data)) {
-            dataArray = firstResponse.data;
-            pagination = firstResponse.pagination;
-          } else if (Array.isArray(firstResponse)) {
-            dataArray = firstResponse;
-          } else if (firstResponse?.items && Array.isArray(firstResponse.items)) {
-            dataArray = firstResponse.items;
-            pagination = firstResponse.pagination;
-          }
-          
-          allData = [...dataArray];
-          
-          if (pagination) {
-            totalPages = pagination.pages || Math.ceil(pagination.total / limit);
-            currentPage = pagination.page || 1;
-          }
-          
-          // Fetch remaining pages
-          if (currentPage < totalPages) {
-            const remainingPromises = [];
-            for (let page = currentPage + 1; page <= totalPages; page++) {
-              remainingPromises.push(apiCall({ ...params, page, limit }));
-            }
-            
-            const remainingResponses = await Promise.all(remainingPromises);
-            
-            for (const response of remainingResponses) {
-              if (response?.data?.data && Array.isArray(response.data.data)) {
-                allData = [...allData, ...response.data.data];
-              } else if (response?.data && Array.isArray(response.data)) {
-                allData = [...allData, ...response.data];
-              } else if (Array.isArray(response)) {
-                allData = [...allData, ...response];
-              } else if (response?.items && Array.isArray(response.items)) {
-                allData = [...allData, ...response.items];
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching paginated data:', error);
-        }
-        
-        return allData;
-      };
-      
-      // Fetch all data from all pages
+      // The tab badges only need totals, so ask for one row per table instead of
+      // downloading every record and counting it in the browser.
       const [allDiagnoses, allLabTests, allProcedures, allScans] = await Promise.all([
-        fetchAllPages(apiGetDiagnoses),
-        fetchAllPages(apiGetLabTestTemplates),
-        fetchAllPages(apiGetProcedureTemplates),
-        fetchAllPages(apiGetScanTemplates),
+        readTotal(apiGetDiagnoses).catch(() => 0),
+        readTotal(apiGetLabTestTemplates).catch(() => 0),
+        readTotal(apiGetProcedureTemplates).catch(() => 0),
+        readTotal(apiGetScanTemplates).catch(() => 0),
       ]);
-      
+
       setTotalCounts({
-        diagnoses: allDiagnoses.length,
-        labTests: allLabTests.length,
-        procedures: allProcedures.length,
-        scans: allScans.length,
-      });
-      
-      console.log('📊 Full counts loaded:', {
-        diagnoses: allDiagnoses.length,
-        labTests: allLabTests.length,
-        procedures: allProcedures.length,
-        scans: allScans.length,
+        diagnoses: allDiagnoses,
+        labTests: allLabTests,
+        procedures: allProcedures,
+        scans: allScans,
       });
     } catch (error) {
       console.error('Error loading counts:', error);
@@ -529,19 +494,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     { id: 'procedures' as ActiveTab, label: 'Procedures', icon: Scissors, color: 'green', count: totalCounts.procedures },
     { id: 'scans' as ActiveTab, label: 'Scans', icon: Scan, color: 'orange', count: totalCounts.scans },
   ];
-
-    // Load all data when component mounts to populate counts
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await Promise.all([
-        getDiagnoses({ limit: 1000 }),
-        getLabTestTemplates({ limit: 1000 }),
-        getProcedureTemplates({ limit: 1000 }),
-        getScanTemplates({ limit: 1000 }),
-      ]);
-    };
-    loadInitialData();
-  }, []);
+  const visibleTabs = tabs.filter(tab => canReadTab(tab.id));
 
   const filteredData = getFilteredData();
   const isLoading = getIsLoading();
@@ -617,7 +570,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     <div className="space-y-6">
       {/* Header with Stats */}
       <div className="grid grid-cols-4 gap-3">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const isActiveTab = activeTab === tab.id;
           return (
@@ -721,13 +674,15 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
           </div>
         )}
         
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-        >
-          <Plus className="w-4 h-4" />
-          Add New
-        </button>
+        {canWriteActiveTab && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+          >
+            <Plus className="w-4 h-4" />
+            Add New
+          </button>
+        )}
       </div>
 
       {/* Data Table */}
@@ -746,7 +701,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
             <p className="text-sm text-[var(--text-secondary)] mb-4">
               {searchTerm || morbidityFilter !== 'all' ? 'Try adjusting your search or filter terms' : `Get started by creating your first ${activeTab.slice(0, -1)}`}
             </p>
-            {!searchTerm && morbidityFilter === 'all' && (
+            {canWriteActiveTab && !searchTerm && morbidityFilter === 'all' && (
               <button
                 onClick={() => setShowCreateModal(true)}
                 className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
@@ -805,20 +760,24 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setEditingItem(item)}
-                            className="p-1.5 text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg transition-colors"
-                            title="Edit"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button
-                            onClick={() => setDeleteConfirm(item.id)}
-                            className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {canWriteActiveTab && (
+                            <button
+                              onClick={() => setEditingItem(item)}
+                              className="p-1.5 text-[var(--icon-yellow-text)] hover:bg-[var(--icon-yellow-bg)] rounded-lg transition-colors"
+                              title="Edit"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {canDeleteActiveTab && (
+                            <button
+                              onClick={() => setDeleteConfirm(item.id)}
+                              className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                       </tr>

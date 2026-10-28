@@ -40,21 +40,22 @@ export class WaiverController extends BaseController {
   });
 
   approve = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const { amountApproved, rejectionReason } = req.body;
-    // The approver is the logged-in user (the UI does not send an id)
-    const approvedById = req.user?.userId || req.body.approvedById;
-    if (!approvedById) return this.badRequest(res, 'approvedById is required');
-    
-    const result = await this.service.approve(req.params.id, approvedById, amountApproved, rejectionReason);
+    const { amountApproved } = req.body;
+    // The approver is always the signed-in administrator; a caller-supplied identity
+    // would let one approval be attributed to someone who never acted.
+    const approvedById = req.user?.userId;
+    if (!approvedById) return this.unauthorized(res, 'User authentication required');
+
+    const result = await this.service.approve(req.params.id, approvedById, amountApproved);
     return this.ok(res, result, 'Waiver approved successfully');
   });
 
   reject = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { rejectionReason } = req.body;
-    const approvedById = req.user?.userId || req.body.approvedById;
-    if (!approvedById) return this.badRequest(res, 'approvedById is required');
+    const approvedById = req.user?.userId;
+    if (!approvedById) return this.unauthorized(res, 'User authentication required');
     if (!rejectionReason) return this.badRequest(res, 'rejectionReason is required');
-    
+
     const result = await this.service.reject(req.params.id, approvedById, rejectionReason);
     return this.ok(res, result, 'Waiver rejected successfully');
   });
