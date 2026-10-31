@@ -529,7 +529,7 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
       </Card>
 
       {/* Month totals — all from the server, for the whole period rather than the loaded page */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
         <StatCard
           label={`Claims in ${MONTH_NAMES[periodMonth - 1]}`}
           value={totals?.claims ?? 0}
@@ -542,6 +542,18 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
           value={money(totals?.amount)}
           hint={totals ? `${money(totals.batchable.amount)} still un-batched` : undefined}
         />
+        {filterType === 'nhis' ? (
+          <>
+            <StatCard label="Total GDRG" size="money" value={money(totals?.gdrg)} />
+            <StatCard label="Total medications" size="money" value={money(totals?.medications)} />
+          </>
+        ) : (
+          <>
+            <StatCard label="Total services" size="money" value={money(totals?.services)} />
+            <StatCard label="Total labs" size="money" value={money(totals?.labs)} />
+            <StatCard label="Total medications" size="money" value={money(totals?.medications)} />
+          </>
+        )}
         <StatCard
           label="Batches this month"
           value={batchSummary?.batches ?? 0}
