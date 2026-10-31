@@ -1308,6 +1308,7 @@ export interface PeriodClaims {
     medications: number;
     labs: number;
     services: number;
+    byPayer: Array<{ payer: string; claims: number; amount: number; gdrg: number; medications: number; labs: number; services: number }>;
     byStatus: Record<string, { count: number; amount: number }>;
     batchable: { count: number; amount: number };
   };
