@@ -196,6 +196,7 @@ export class InsuranceClaimController extends BaseController {
         { Patient: { folderNumber: { contains: search, mode: 'insensitive' } } },
         { Patient: { surname: { contains: search, mode: 'insensitive' } } },
         { InsuranceProvider: { name: { contains: search, mode: 'insensitive' } } },
+        { CorporateAccount: { companyName: { contains: search, mode: 'insensitive' } } },
       ];
     }
     const [claims, total] = await Promise.all([
@@ -204,6 +205,7 @@ export class InsuranceClaimController extends BaseController {
         orderBy: { finalizedAt: 'desc' },
         include: {
           InsuranceProvider: { select: { id: true, name: true, type: true } },
+          CorporateAccount: { select: { id: true, companyName: true } },
           Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
           Attendance: { select: { attendanceNumber: true, dateTime: true } },
           trackingEvents: { orderBy: { createdAt: 'asc' } },
