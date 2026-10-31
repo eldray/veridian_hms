@@ -63,14 +63,12 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
     try {
       const filters = { limit: 100, search: search.trim() || undefined, insuranceType: type };
       const firstResponse = await getInsuranceClaimsTracking({ ...filters, page: 1 });
-      const firstPayload = firstResponse?.data?.data ?? firstResponse?.data ?? firstResponse;
-      const firstRows = Array.isArray(firstPayload) ? firstPayload : firstPayload?.data || [];
-      const pageCount = Math.max(1, Number(firstPayload?.pagination?.pages || 1));
+      const firstRows = Array.isArray(firstResponse?.data) ? firstResponse.data : (firstResponse?.data?.data || firstResponse?.data || []);
+      const pageCount = Math.max(1, Number(firstResponse?.pagination?.pages || firstResponse?.data?.pagination?.pages || 1));
       const allRows = [...firstRows];
       for (let page = 2; page <= pageCount; page += 1) {
         const pageResponse = await getInsuranceClaimsTracking({ ...filters, page });
-        const pagePayload = pageResponse?.data?.data ?? pageResponse?.data ?? pageResponse;
-        const pageRows = Array.isArray(pagePayload) ? pagePayload : pagePayload?.data || [];
+        const pageRows = Array.isArray(pageResponse?.data) ? pageResponse.data : (pageResponse?.data?.data || pageResponse?.data || []);
         allRows.push(...pageRows);
       }
       setClaims(allRows);
