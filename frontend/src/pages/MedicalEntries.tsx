@@ -47,7 +47,6 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
 
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'consumable' | null;
 type EntryTab = 'clinical' | 'orders';
-type OrderTab = 'medications' | 'consumables' | 'labs' | 'scans' | 'procedures';
 
 // ─── Reusable section card ───────────────────────────────────────────────────
 const SectionCard: React.FC<{
@@ -709,7 +708,6 @@ export default function MedicalEntries() {
     const hash = window.location.hash.replace('#', '');
     return hash === 'orders' ? 'orders' : 'clinical';
   });
-  const [orderTab, setOrderTab] = useState<OrderTab>('medications');
 
   const selectTab = (tab: EntryTab) => {
     setActiveTab(tab);
@@ -835,17 +833,9 @@ export default function MedicalEntries() {
     const openable: ModalType[] = ['diagnosis', 'lab', 'procedure', 'medication', 'scan', 'consumable'];
     if (openable.includes(requestedEntry as ModalType)) {
       setModalType(requestedEntry as ModalType);
-      // Open the panel that owns the thing being added, so the modal does not float over a tab
-      // where its records are invisible.
-      const orderTabFor: Record<string, OrderTab> = {
-        medication: 'medications', consumable: 'consumables',
-        lab: 'labs', scan: 'scans', procedure: 'procedures',
-      };
+      // Orders all share one stacked panel, so only the tab needs switching.
       if (requestedEntry === 'diagnosis') selectTab('clinical');
-      else if (orderTabFor[requestedEntry]) {
-        selectTab('orders');
-        setOrderTab(orderTabFor[requestedEntry]);
-      }
+      else selectTab('orders');
     }
     const remaining = new URLSearchParams(searchParams);
     remaining.delete('entry');
@@ -1926,43 +1916,99 @@ export default function MedicalEntries() {
               </div>
               )}
 
-              {/* ── ORDERS: one panel per order type ────────────────────── */}
+              {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
               {activeTab === 'orders' && (
-              <>
-              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                <div className="flex items-center border-b border-[var(--border-color)] px-1">
-                  <div className="flex overflow-x-auto">
-                    {[
-                      { key: 'medications' as OrderTab, label: 'Medications', icon: <Pill className="w-3.5 h-3.5" />, count: medicationsList.length },
-                      { key: 'consumables' as OrderTab, label: 'Consumables', icon: <Package className="w-3.5 h-3.5" />, count: consumableUses.length },
-                      { key: 'labs' as OrderTab, label: 'Labs', icon: <FlaskConical className="w-3.5 h-3.5" />, count: labTestsList.length },
-                      { key: 'scans' as OrderTab, label: 'Scans', icon: <Scan className="w-3.5 h-3.5" />, count: scansList.length },
-                      { key: 'procedures' as OrderTab, label: 'Procedures', icon: <Scissors className="w-3.5 h-3.5" />, count: proceduresList.length },
-                    ].map(tab => {
-                      const isActive = orderTab === tab.key;
-                      return (
-                        <button key={tab.key} onClick={() => setOrderTab(tab.key)}
-                          className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
-                            ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
-                            : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)]'
-                            }`}>
-                          {tab.icon}{tab.label}
-                          {tab.count > 0 && (
-                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">{tab.count}</span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-              {/* Consumables are stock issued against the visit; the Add button opens the same
-                  order modal as a prescription, so both can be entered from one place. */}
-              {orderTab === 'consumables' && (
+                <SectionCard
+                  icon={<Pill className="w-4 h-4 text-[var(--icon-green-text)]" />}
+                  title="Prescribed Medications"
+                  count={medicationsList.length}
+                  countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
+                  action={canAddEntries && <AddBtn onClick={() => setModalType('medication')} label="Prescribe" />}
+                >
+                  {medicationsList.length === 0
+                    ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
+                    : (
+                      <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
+                        {medicationsList.map((med: any) => (
+                          <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                            <TdPrimary>
+                              {med.name}
+                              {med.instructions && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{med.instructions}</p>}
+                            </TdPrimary>
+                            <Td>{med.dosage || '—'}</Td>
+                            <Td>
+                              {med.frequency || '—'}
+                              {(med.duration || med.route) && (
+                                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                                  {[med.duration, med.route].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </Td>
+                            <Td>{med.quantity ?? '—'}</Td>
+                            <Td><StatusBadge status={med.status} /></Td>
+                            <Td>
+                              {canAddEntries && med.status === 'prescribed'
+                                ? <DelBtn onClick={() => handleDeleteItem('medication', med.id)} />
+                                : med.status === 'dispensed'
+                                  ? <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
+                                  : null}
+                            </Td>
+                          </tr>
+                        ))}
+                      </Table>
+                    )}
+                </SectionCard>
+
+                <SectionCard
+                  icon={<CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                  title="Dispensed History"
+                  count={dispensedMeds.length}
+                  countColor="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]"
+                >
+                  {dispensedMeds.length === 0
+                    ? <EmptyState icon={<CheckCircle className="w-9 h-9" />} label="No medications dispensed yet" />
+                    : (
+                      <Table heads={['Medication', 'Qty', 'Unit Cost', 'Total', 'Dispensed']}
+                        colWidths={['32%', '10%', '16%', '16%', '26%']}>
+                        {dispensedMeds.map((med: any) => {
+                          const unitCost = Number(med.dispensedUnitCost ?? med.unitCost ?? 0);
+                          const qty = Number(med.quantity ?? 0);
+                          return (
+                            <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {med.name}
+                                {(med.dosage || med.frequency) && (
+                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                    {[med.dosage, med.frequency].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
+                              </TdPrimary>
+                              <Td>{qty || '—'}</Td>
+                              <Td>GHS {unitCost.toFixed(2)}</Td>
+                              <Td className="font-semibold text-[var(--text-primary)]">GHS {(unitCost * qty).toFixed(2)}</Td>
+                              <Td>
+                                <p>{med.dispensedAt ? new Date(med.dispensedAt).toLocaleString() : '—'}</p>
+                                {med.User_Medication_dispensedByIdToUser?.fullName && (
+                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{med.User_Medication_dispensedByIdToUser.fullName}</p>
+                                )}
+                              </Td>
+                            </tr>
+                          );
+                        })}
+                      </Table>
+                    )}
+                </SectionCard>
+              </div>
+              )}
+
+              {/* Consumables are stock issued against the visit: recording one deducts stock
+                  immediately, with no prescription/dispense step. */}
+              {activeTab === 'orders' && (
                 <SectionCard
                   icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                  title="Consumables Used"
+                  title="Consumables Issued"
                   count={consumableUses.length}
                   maxH="max-h-96"
                   action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
@@ -1972,10 +2018,9 @@ export default function MedicalEntries() {
                     onDelete={canAddEntries ? deleteConsumableUse : undefined} />
                 </SectionCard>
               )}
-              </>
-              )}
+
               {/* ── LABS: the request beside the results that came back ── */}
-              {activeTab === 'orders' && orderTab === 'labs' && (
+              {activeTab === 'orders' && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
                 <SectionCard
@@ -2074,213 +2119,8 @@ export default function MedicalEntries() {
               </div>
               )}
 
-              {/* ── DIAGNOSIS + PROCEDURES ────────────────────────────── */}
-              <div className="grid grid-cols-1 gap-4">
-
-                {/* Diagnosis */}
-                {activeTab === 'clinical' && (
-                <SectionCard
-                  icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                  title="Diagnosis (ICD-10)"
-                  count={diagnosesList.length}
-                  action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
-                >
-                  {diagnosesList.length === 0
-                    ? <EmptyState icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" />
-                    : (
-                      <Table heads={['Diagnosis', 'ICD-10', 'Type', 'By', 'Date', '']}>
-                        {diagnosesList.map((item: any) => {
-                          const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
-                          const cfg: Record<string, { label: string; cls: string }> = {
-                            provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-                            primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-                            additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
-                          };
-                          const c = cfg[t] ?? cfg.additional;
-                          return (
-                            <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                              <TdPrimary>
-                                {item.Diagnosis?.name}
-                                {item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}
-                              </TdPrimary>
-                              <Td className="font-mono">{item.Diagnosis?.icdCode || '—'}</Td>
-                              <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></Td>
-                              <Td>{item.createdBy?.fullName || '—'}</Td>
-                              <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
-                              <Td>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</Td>
-                            </tr>
-                          );
-                        })}
-                      </Table>
-                    )}
-                </SectionCard>
-                )}
-
-                {/* Procedures: the schedule beside the recorded outcome */}
-                {activeTab === 'orders' && orderTab === 'procedures' && (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <SectionCard
-                    icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />}
-                    title="Procedures & Scheduling"
-                    count={proceduresList.length}
-                    countColor="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
-                    action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}
-                  >
-                    {proceduresList.length === 0
-                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
-                      : (
-                        <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', '']}>
-                          {proceduresList.map((proc: any) => (
-                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
-                              <TdPrimary>
-                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
-                                {(proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName) && (
-                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
-                                    {proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName}
-                                  </p>
-                                )}
-                              </TdPrimary>
-                              <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
-                              <Td><StatusBadge status={proc.status} /></Td>
-                              <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
-                              <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
-                            </tr>
-                          ))}
-                        </Table>
-                      )}
-                  </SectionCard>
-
-                  <SectionCard
-                    icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
-                    title="Procedure Results"
-                    count={proceduresList.filter((p: any) => p.status === 'completed').length}
-                    countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
-                    maxH="max-h-80"
-                  >
-                    {proceduresList.filter((p: any) => p.status === 'completed').length === 0
-                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No completed procedures yet" />
-                      : (
-                        <Table heads={['Procedure', 'Outcome & Complications', 'Notes']}
-                          colWidths={['26%', '34%', '40%']}>
-                          {proceduresList.filter((p: any) => p.status === 'completed').map((proc: any) => (
-                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
-                              <TdPrimary>
-                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
-                                <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">
-                                  {proc.performedAt ? new Date(proc.performedAt).toLocaleString() : proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}
-                                  {proc.User_Procedure_performedByIdToUser?.fullName && ` · ${proc.User_Procedure_performedByIdToUser.fullName}`}
-                                </p>
-                              </TdPrimary>
-                              <Td className="whitespace-pre-wrap">
-                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">Outcome</span>
-                                <p>{proc.outcome || '—'}</p>
-                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] mt-1 block">Complications</span>
-                                <p>{proc.complications || 'None recorded'}</p>
-                              </Td>
-                              <Td className="whitespace-pre-wrap">
-                                {proc.postOperativeNotes || proc.notes || '—'}
-                                {proc.intraOperativeNotes && (
-                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1 whitespace-pre-wrap">{proc.intraOperativeNotes}</p>
-                                )}
-                              </Td>
-                            </tr>
-                          ))}
-                        </Table>
-                      )}
-                  </SectionCard>
-                </div>
-                )}
-              </div>
-
-              {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
-              {activeTab === 'orders' && orderTab === 'medications' && (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-
-                <SectionCard
-                  icon={<Pill className="w-4 h-4 text-[var(--icon-green-text)]" />}
-                  title="Prescribed Medications"
-                  count={medicationsList.length}
-                  countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
-                  action={canAddEntries && <AddBtn onClick={() => setModalType('medication')} label="Prescribe" />}
-                >
-                  {medicationsList.length === 0
-                    ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
-                    : (
-                      <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
-                        {medicationsList.map((med: any) => (
-                          <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
-                            <TdPrimary>
-                              {med.name}
-                              {med.instructions && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{med.instructions}</p>}
-                            </TdPrimary>
-                            <Td>{med.dosage || '—'}</Td>
-                            <Td>
-                              {med.frequency || '—'}
-                              {(med.duration || med.route) && (
-                                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
-                                  {[med.duration, med.route].filter(Boolean).join(' · ')}
-                                </p>
-                              )}
-                            </Td>
-                            <Td>{med.quantity ?? '—'}</Td>
-                            <Td><StatusBadge status={med.status} /></Td>
-                            <Td>
-                              {canAddEntries && med.status === 'prescribed'
-                                ? <DelBtn onClick={() => handleDeleteItem('medication', med.id)} />
-                                : med.status === 'dispensed'
-                                  ? <CheckCircle className="w-3.5 h-3.5 text-[var(--icon-green-text)]" />
-                                  : null}
-                            </Td>
-                          </tr>
-                        ))}
-                      </Table>
-                    )}
-                </SectionCard>
-
-                <SectionCard
-                  icon={<CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                  title="Dispensed History"
-                  count={dispensedMeds.length}
-                  countColor="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]"
-                >
-                  {dispensedMeds.length === 0
-                    ? <EmptyState icon={<CheckCircle className="w-9 h-9" />} label="No medications dispensed yet" />
-                    : (
-                      <Table heads={['Medication', 'Qty', 'Unit Cost', 'Total', 'Dispensed']}
-                        colWidths={['32%', '10%', '16%', '16%', '26%']}>
-                        {dispensedMeds.map((med: any) => {
-                          const unitCost = Number(med.dispensedUnitCost ?? med.unitCost ?? 0);
-                          const qty = Number(med.quantity ?? 0);
-                          return (
-                            <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
-                              <TdPrimary>
-                                {med.name}
-                                {(med.dosage || med.frequency) && (
-                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
-                                    {[med.dosage, med.frequency].filter(Boolean).join(' · ')}
-                                  </p>
-                                )}
-                              </TdPrimary>
-                              <Td>{qty || '—'}</Td>
-                              <Td>GHS {unitCost.toFixed(2)}</Td>
-                              <Td className="font-semibold text-[var(--text-primary)]">GHS {(unitCost * qty).toFixed(2)}</Td>
-                              <Td>
-                                <p>{med.dispensedAt ? new Date(med.dispensedAt).toLocaleString() : '—'}</p>
-                                {med.User_Medication_dispensedByIdToUser?.fullName && (
-                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{med.User_Medication_dispensedByIdToUser.fullName}</p>
-                                )}
-                              </Td>
-                            </tr>
-                          );
-                        })}
-                      </Table>
-                    )}
-                </SectionCard>
-              </div>
-              )}
-
               {/* ── SCANS: the request beside the radiology report ───── */}
-              {activeTab === 'orders' && orderTab === 'scans' && (
+              {activeTab === 'orders' && (
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
                 <SectionCard
@@ -2356,6 +2196,124 @@ export default function MedicalEntries() {
                 </SectionCard>
               </div>
               )}
+
+              {/* ── DIAGNOSIS + PROCEDURES ────────────────────────────── */}
+              <div className="grid grid-cols-1 gap-4">
+
+                {/* Diagnosis */}
+                {activeTab === 'clinical' && (
+                <SectionCard
+                  icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                  title="Diagnosis (ICD-10)"
+                  count={diagnosesList.length}
+                  action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
+                >
+                  {diagnosesList.length === 0
+                    ? <EmptyState icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" />
+                    : (
+                      <Table heads={['Diagnosis', 'ICD-10', 'Type', 'By', 'Date', '']}>
+                        {diagnosesList.map((item: any) => {
+                          const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
+                          const cfg: Record<string, { label: string; cls: string }> = {
+                            provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
+                            primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                            additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+                          };
+                          const c = cfg[t] ?? cfg.additional;
+                          return (
+                            <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                              <TdPrimary>
+                                {item.diagnosis?.name || item.Diagnosis?.name || '—'}
+                                {item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}
+                              </TdPrimary>
+                              <Td className="font-mono">{item.icdCode || item.diagnosis?.icdCode || item.Diagnosis?.icdCode || '—'}</Td>
+                              <Td><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></Td>
+                              <Td>{item.user?.fullName || item.createdBy?.fullName || '—'}</Td>
+                              <Td>{new Date(item.createdAt).toLocaleDateString()}</Td>
+                              <Td>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</Td>
+                            </tr>
+                          );
+                        })}
+                      </Table>
+                    )}
+                </SectionCard>
+                )}
+
+                {/* Procedures: the schedule beside the recorded outcome */}
+                {activeTab === 'orders' && (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <SectionCard
+                    icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />}
+                    title="Procedures & Scheduling"
+                    count={proceduresList.length}
+                    countColor="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
+                    action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}
+                  >
+                    {proceduresList.length === 0
+                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
+                      : (
+                        <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', '']}>
+                          {proceduresList.map((proc: any) => (
+                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
+                                {(proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName) && (
+                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                    {proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName}
+                                  </p>
+                                )}
+                              </TdPrimary>
+                              <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
+                              <Td><StatusBadge status={proc.status} /></Td>
+                              <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
+                              <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
+                            </tr>
+                          ))}
+                        </Table>
+                      )}
+                  </SectionCard>
+
+                  <SectionCard
+                    icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
+                    title="Procedure Results"
+                    count={proceduresList.filter((p: any) => p.status === 'completed').length}
+                    countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
+                    maxH="max-h-80"
+                  >
+                    {proceduresList.filter((p: any) => p.status === 'completed').length === 0
+                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No completed procedures yet" />
+                      : (
+                        <Table heads={['Procedure', 'Outcome & Complications', 'Notes']}
+                          colWidths={['26%', '34%', '40%']}>
+                          {proceduresList.filter((p: any) => p.status === 'completed').map((proc: any) => (
+                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
+                                <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">
+                                  {proc.performedAt ? new Date(proc.performedAt).toLocaleString() : proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}
+                                  {proc.User_Procedure_performedByIdToUser?.fullName && ` · ${proc.User_Procedure_performedByIdToUser.fullName}`}
+                                </p>
+                              </TdPrimary>
+                              <Td className="whitespace-pre-wrap">
+                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">Outcome</span>
+                                <p>{proc.outcome || '—'}</p>
+                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] mt-1 block">Complications</span>
+                                <p>{proc.complications || 'None recorded'}</p>
+                              </Td>
+                              <Td className="whitespace-pre-wrap">
+                                {proc.postOperativeNotes || proc.notes || '—'}
+                                {proc.intraOperativeNotes && (
+                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1 whitespace-pre-wrap">{proc.intraOperativeNotes}</p>
+                                )}
+                              </Td>
+                            </tr>
+                          ))}
+                        </Table>
+                      )}
+                  </SectionCard>
+                </div>
+                )}
+              </div>
 
               {/* ── GENERAL INFO ──────────────────────────────────────── */}
               {activeTab === 'clinical' && (

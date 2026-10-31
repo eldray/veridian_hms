@@ -274,7 +274,7 @@ export class EncounterRepository extends BaseRepository<Attendance, CreateEncoun
           familyHistories: { select: { id: true, relation: true, condition: true, notes: true } },
         } },
         CounterClient: { select: { id: true, name: true, ageYears: true, phone: true, registeredPatientId: true } },
-        AttendanceDiagnosis: { include: { Diagnosis: true }, orderBy: { date: 'desc' } },
+        AttendanceDiagnosis: { include: { Diagnosis: true, User: { select: { fullName: true } } }, orderBy: { date: 'desc' } },
         Vitals: { orderBy: { recordedAt: 'desc' }, take: 5 },
         Medication: { include: { StockItem: { select: { id: true, name: true, currentStock: true, unitOfMeasure: true } }, User_Medication_prescribedByIdToUser: { select: { fullName: true } }, User_Medication_dispensedByIdToUser: { select: { fullName: true } } } },
         LabTest: { include: { LabTestTemplate: true, ServiceCatalog: { select: { id: true, name: true, code: true } }, User_LabTest_performedByIdToUser: { select: { fullName: true } }, User_LabTest_verifiedByIdToUser: { select: { fullName: true } } }, orderBy: { requestedAt: 'desc' } },
@@ -3070,7 +3070,12 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       total: processedItems.length,
       pending: processedItems.filter((i: any) => i.status === 'pending_doctor').length,
       reviewed: processedItems.filter((i: any) => i.hasMedicalNotesToday).length,
-      buckets: bucketsOf(processedItems),
+      // "To do" is only the visits still waiting for a consultation; the pending query also
+      // carries reviewed visits so the queue can show them under its Reviewed tab, and counting
+      // those as outstanding work made the tab disagree with the list it opens.
+      buckets: bucketsOf(view === 'pending'
+        ? processedItems.filter((i: any) => i.status === 'pending_doctor')
+        : processedItems),
       data: processedItems,
     };
   }

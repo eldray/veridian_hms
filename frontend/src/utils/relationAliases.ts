@@ -17,10 +17,12 @@ const RELATION_ALIASES: Record<string, string> = {
   ServiceCatalog: 'serviceCatalog',
   Vitals: 'vitals',
   AttendanceDiagnosis: 'attendanceDiagnosis',
+  Diagnosis: 'diagnosis',
   Bed: 'bed',
   Ward: 'ward',
   Referral: 'referral',
   StockItem: 'stockItem',
+  User: 'user',
   // Named user relations lose the capital U on the way out as well.
   User_LabTest_performedByIdToUser: 'user_LabTest_performedByIdToUser',
   User_LabTest_verifiedByIdToUser: 'user_LabTest_verifiedByIdToUser',
