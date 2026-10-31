@@ -2370,111 +2370,129 @@ export default function MedicalEntries() {
               )}
             </div>
 
-            {/* RIGHT SIDEBAR */}
-            <div className="w-72 xl:w-80 flex-shrink-0 sticky top-20">
+            {/* RIGHT SIDEBAR — clinical workspace */}
+            <aside className="w-80 xl:w-[26rem] flex-shrink-0 sticky top-20">
               <div
                 className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
-                style={{
-                  height: 'calc(100vh - 100px)',
-                  boxShadow: 'var(--shadow-sm)',
-                }}
+                style={{ height: 'calc(100vh - 100px)', boxShadow: 'var(--shadow-sm)' }}
               >
-                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0 overflow-y-auto" style={{ maxHeight: '34%', scrollbarWidth: 'thin' }}>
-                  <ClinicalNotesSummary
-                    impression={assessment}
-                    onEdit={() => setClinicalNotesOpen(true)}
-                    editDisabled={!canAddEntries || isClinicalFinalized}
-                  />
-                </div>
-                {/* ── PHYSICIAN NOTES ── */}
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-                  <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-primary)]">Physician Notes</span>
-                </div>
-
-                {/* Logged notes list */}
-                <div
-                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
-                  style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-                >
-                  {physicianNotes.length > 0 ? (
-                    [...physicianNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
-                    ))
-                  ) : (
-                    <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No physician notes yet</p>
-                  )}
-                </div>
-
-                {/* Physician notes input */}
-                {canAddEntries && (
-                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                    <textarea
-                      value={physicianNoteText}
-                      onChange={e => setPhysicianNoteText(e.target.value)}
-                      rows={3}
-                      placeholder="Add physician note…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                      focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                    />
-                    <button
-                      onClick={handleSavePhysicianNote}
-                      disabled={!physicianNoteText.trim()}
-                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40 transition-all"
-                    >
-                      Add Note
-                    </button>
+                <div className="px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center justify-between flex-shrink-0">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[var(--text-primary)]">Clinical workspace</p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">Notes and clinical updates for this attendance</p>
                   </div>
-                )}
-
-                {/* ── DIVIDER ── */}
-                <div className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] border-t border-b border-[var(--border-color)] flex-shrink-0">
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
-                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-[var(--text-tertiary)]">
-                    <FileText className="w-3 h-3" /> Treatment Plan
+                  <span className={`ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-semibold ${isClinicalFinalized ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'}`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                    {isClinicalFinalized ? 'Finalized' : 'In progress'}
                   </span>
-                  <div className="flex-1 h-px bg-[var(--border-color)]" />
                 </div>
 
-                {/* Logged treatment notes */}
-                <div
-                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
-                  style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
-                >
-                  {treatmentNotes.length > 0 ? (
-                    [...treatmentNotes].reverse().map((note, i) => (
-                      <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
-                    ))
-                  ) : (
-                    <p className="text-center text-[10px] text-[var(--text-tertiary)] pt-6">No treatment notes yet</p>
-                  )}
-                </div>
-
-                {/* Treatment plan input */}
-                {canAddEntries && (
-                  <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                    <textarea
-                      value={treatmentNoteDraft}
-                      onChange={e => setTreatmentNoteDraft(e.target.value)}
-                      rows={3}
-                      placeholder="Add treatment note…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                      focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                      text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all"
-                    />
+                <section className="p-3 border-b border-[var(--border-color)] flex-shrink-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">Clinical impression</span>
+                    </div>
                     <button
-                      onClick={handleSaveTreatmentNote}
-                      className="mt-2 w-full py-1.5 rounded-lg text-xs font-semibold
-                      bg-[var(--icon-cyan-text)] text-white hover:opacity-90 transition-all"
+                      type="button"
+                      onClick={() => setClinicalNotesOpen(true)}
+                      disabled={!canAddEntries || isClinicalFinalized}
+                      className="text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:underline disabled:opacity-40 disabled:no-underline"
                     >
-                      Add Note
+                      Review / Edit
                     </button>
                   </div>
-                )}
+                  <div className="max-h-32 overflow-y-auto">
+                    <ClinicalNotesSummary
+                      impression={assessment}
+                      onEdit={() => setClinicalNotesOpen(true)}
+                      editDisabled={!canAddEntries || isClinicalFinalized}
+                    />
+                  </div>
+                </section>
+
+                <section className="flex flex-col flex-1 min-h-0">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">Physician notes</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-[9px] font-bold">{physicianNotes.length}</span>
+                    </div>
+                  </div>
+                  <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+                    {physicianNotes.length > 0 ? (
+                      [...physicianNotes].reverse().map((note, i) => (
+                        <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      ))
+                    ) : (
+                      <EmptyState icon={<ClipboardList className="w-8 h-8" />} label="No physician notes recorded for this attendance" />
+                    )}
+                  </div>
+                  {canAddEntries && !isClinicalFinalized && (
+                    <div className="p-3 border-t border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+                      <label className="block text-[10px] font-semibold text-[var(--text-secondary)] mb-1.5">New physician note</label>
+                      <textarea
+                        value={physicianNoteText}
+                        onChange={e => setPhysicianNoteText(e.target.value)}
+                        rows={3}
+                        placeholder="Record consultation findings, review, or progress…"
+                        className="w-full px-3 py-2 text-xs bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-y text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          type="button"
+                          onClick={handleSavePhysicianNote}
+                          disabled={!physicianNoteText.trim()}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-40"
+                        >
+                          Save physician note
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
+
+                <section className="flex flex-col border-t border-[var(--border-color)] flex-shrink-0" style={{ maxHeight: '38%' }}>
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-[var(--icon-purple-text)]" />
+                      <span className="text-[11px] font-semibold text-[var(--text-primary)]">Treatment updates</span>
+                      <span className="px-1.5 py-0.5 rounded-full bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] text-[9px] font-bold">{treatmentNotes.length}</span>
+                    </div>
+                  </div>
+                  <div className="overflow-y-auto p-3 space-y-2" style={{ minHeight: 0 }}>
+                    {treatmentNotes.length > 0 ? (
+                      [...treatmentNotes].reverse().map((note, i) => (
+                        <NoteCard key={i} author={note.author} date={note.date} text={note.text} />
+                      ))
+                    ) : (
+                      <p className="text-center text-[10px] text-[var(--text-tertiary)] py-4">No treatment updates recorded</p>
+                    )}
+                  </div>
+                  {canAddEntries && !isClinicalFinalized && (
+                    <div className="px-3 pb-3">
+                      <textarea
+                        value={treatmentNoteDraft}
+                        onChange={e => setTreatmentNoteDraft(e.target.value)}
+                        rows={2}
+                        placeholder="Add a treatment progress update…"
+                        className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-y text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
+                      />
+                      <div className="flex justify-end mt-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveTreatmentNote}
+                          disabled={!treatmentNoteDraft.trim()}
+                          className="px-3 py-1.5 rounded-lg text-[10px] font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] disabled:opacity-40"
+                        >
+                          Save treatment update
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </section>
               </div>
-            </div>
+            </aside>
           </div>
         </>
       ) : selectedPatientId && !selectedAttendanceId ? (
