@@ -33,6 +33,8 @@ export function createEncounterRoutes(prisma: PrismaClient): Router {
   router.get('/worklist/scans', controller.getRadiologyWorklist);
   router.get('/worklist/procedures', controller.getProceduresWorklist);
   router.get('/worklist/maternal', controller.getMaternalWorklist);
+  // Closed visits still carrying an unanswered lab, scan or procedure — the warning tab.
+  router.get('/worklist/outstanding', controller.getOutstandingWorklist);
   router.get('/worklist/summary', controller.getWorklistSummary);
 
   // STATS

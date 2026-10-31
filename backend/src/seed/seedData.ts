@@ -2,7 +2,7 @@
 import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
-import { seedTestData } from './testSeed.js';
+import { seedTestData, hasNonDemoPatients } from './testSeed.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -52,10 +52,11 @@ const saveSeedingStatus = (status: SeedingStatus) => {
 
 // Helper to check if database already has real data
 const checkDatabaseHasData = async (): Promise<boolean> => {
-  const patientCount = await prisma.patient.count();
-  // Any registered patient means this database may contain facility data.
-  // Diagnosis/reference counts are not evidence that it is safe to insert demo patients.
-  return patientCount > 0;
+  // Ask the same question the demo writers ask: is there a patient that is not one of the
+  // demo folder numbers? "Any patient at all" blocked a re-run on a database that contains
+  // nothing but the dataset the previous run wrote, so re-seeding silently did nothing -
+  // while a genuine facility record still blocks demo data exactly as before.
+  return hasNonDemoPatients();
 };
 
 // Helper to handle errors and continue seeding with retry logic
@@ -75,6 +76,19 @@ const safeSeed = async (
 
   try {
     const result = await seedFn();
+
+    // A seed step may report failure by RETURNING `{ success: false }` instead of throwing
+    // — demo seeding disabled (ENABLE_SEEDING=false), production safety, missing
+    // prerequisites. Marking that as `true` made .seed_status.json claim demo data had been
+    // written when nothing had, so the disabled guard looked like a successful seed.
+    if (result?.success === false) {
+      const reason = result.message || 'Seed step reported failure';
+      console.error(`❌ ${name} reported failure: ${reason}`);
+      status[stepKey] = false;
+      saveSeedingStatus(status);
+      return { success: false, error: reason, data: result };
+    }
+
     console.log(`✅ ${name}: successful`);
     // Update status on success
     status[stepKey] = true;
@@ -105,7 +119,7 @@ export const seedDatabase = async (force: boolean = false) => {
   const hasRealData = await checkDatabaseHasData();
 
   if (hasRealData) {
-    console.log('✅ Existing patient data detected; skipping demo/test data seeding regardless of force mode.');
+    console.log('✅ Patient data that is not part of the demo dataset detected; skipping demo/test data seeding regardless of force mode.');
     console.log('🛡️ Force mode never overrides the populated-database safety guard.');
     console.log('🔄 Reconciling missing clinical diagnosis reference data only...');
     try {
@@ -183,12 +197,12 @@ export const seedDatabase = async (force: boolean = false) => {
     console.log('   - Admissions');
     console.log('   - Appointments');
     console.log('   - Notifications');
+    if (force) console.log('   - Force mode: the demo dataset from the previous run is deleted and written again');
 
     const testResult = await safeSeed('Test Data', () => seedTestData(force), force, 'testData', status);
     results.testData = testResult;
     if (!testResult.success) results.errors.push(`Test data: ${testResult.error || 'failed'}`);
 
-    // ========== STEP 5: MATERNITY DATA ==========
     // ========== SUMMARY ==========
     console.log('\n==================================================');
     if (results.errors.length > 0) {
@@ -203,10 +217,16 @@ export const seedDatabase = async (force: boolean = false) => {
     }
 
     console.log('\nSummary:');
-    console.log(`   Core Data         : ${results.coreData?.success ? '✅ seeded' : (results.coreData?.data?.skipped ? '⏭️ already existed' : '❌ failed')}`);
-    console.log(`   Diagnosis Links   : ${results.diagnosisLinks?.success ? '✅ created' : (results.diagnosisLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
-    console.log(`   Procedure Links   : ${results.procedureLinks?.success ? '✅ created' : (results.procedureLinks?.data?.skipped ? '⏭️ already done' : '❌ failed')}`);
-    console.log(`   Test Data         : ${results.testData?.success ? '✅ seeded' : (results.testData?.data?.skipped ? '⏭️ already exists' : '❌ failed')}`);
+    // A step that skipped is not a step that wrote, so report the skip before the success.
+    const describe = (result: any, verb: string) =>
+      result?.data?.skipped ? '⏭️ already existed, nothing written' : result?.success ? `✅ ${verb}` : '❌ failed';
+    console.log(`   Core Data         : ${describe(results.coreData, 'seeded')}`);
+    console.log(`   Diagnosis Links   : ${describe(results.diagnosisLinks, 'created')}`);
+    console.log(`   Procedure Links   : ${describe(results.procedureLinks, 'created')}`);
+    console.log(`   Test Data         : ${describe(results.testData, 'seeded')}`);
+    if (results.testData?.data?.skipped) {
+      console.log('   ℹ️ The demo dataset is already in this database. To write it again: npm run seed -- --force');
+    }
 
     // Save final status
     saveSeedingStatus(status);

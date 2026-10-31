@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useNotificationStore } from '../store/notificationStore';
 import { useAuthStore } from '../store/authStore';
+import { isAdminLike, ALL_ROLES } from '../config/access';
 import { useSettingsStore } from '../store/settingsStore';
 import { useUserStore } from '../store/userStore'; 
 import { useToast } from '../store/toastStore';
@@ -22,7 +23,9 @@ type NotificationPriority = 'low' | 'medium' | 'high' | 'urgent';
 interface User { id: string; fullName: string; role: string; email?: string; isActive?: boolean; }
 
 const ROLE_CONFIG: Record<string, { icon: React.ReactNode; bg: string; text: string }> = {
+  super_admin: { icon: <Shield className="w-3 h-3" />,    bg: 'bg-[var(--icon-red-bg)]',    text: 'text-[var(--icon-red-text)]'    },
   admin:      { icon: <Crown className="w-3 h-3" />,       bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' },
+  hr_officer: { icon: <Users className="w-3 h-3" />,       bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]'   },
   doctor:     { icon: <Stethoscope className="w-3 h-3" />, bg: 'bg-[var(--icon-cyan-bg)]',   text: 'text-[var(--icon-cyan-text)]'   },
   nurse:      { icon: <Activity className="w-3 h-3" />,    bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]'  },
   midwife:    { icon: <Activity className="w-3 h-3" />,    bg: 'bg-[var(--icon-green-bg)]',  text: 'text-[var(--icon-green-text)]'  },
@@ -87,7 +90,7 @@ const AdminMessageModal: React.FC<{
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [searchTerm, setSearchTerm]     = useState('');
 
-  const allRoles = ['admin','doctor','nurse','midwife','pharmacist','accounts','lab_tech','sonographer','records'];
+  const allRoles = ALL_ROLES;
   const filteredUsers = (users || []).filter(u =>
     u.fullName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     u.role?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -376,7 +379,7 @@ export default function Notifications() {
   const [showClearAllConfirm, setShowClearAllConfirm]     = useState(false);
   const [isDeleting, setIsDeleting]               = useState(false);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = isAdminLike(user?.role);
 
   useEffect(() => { if (isAdmin) getAllUsers(); }, [isAdmin]);
   useEffect(() => { loadData(); }, []);
@@ -457,7 +460,7 @@ export default function Notifications() {
   const handleSendMessage = async (data: any) => {
     setIsSending(true);
     try {
-      const allRoles = ['admin','doctor','nurse','midwife','pharmacist','accounts','lab_tech','sonographer','records'];
+      const allRoles = ALL_ROLES;
       if (data.sendTo === 'all') {
         await sendRoleNotification({ roles: allRoles, ...data });
         success('Sent', 'Message broadcast to all users');

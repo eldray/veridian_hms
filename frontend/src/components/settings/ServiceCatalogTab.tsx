@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { confirmDialog } from '../../context/ConfirmDialog';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { useAuthStore } from '../../store/authStore';
+import { isAdminLike } from '../../config/access';
 import { useToast } from '../../store/toastStore';
 import { getServiceNHISMedicinePolicy, updateServiceNHISMedicinePolicy } from '../../api';
 import {
@@ -627,7 +628,7 @@ export default function ServiceCatalogTab() {
               {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load All'}
             </button>
             
-            {user?.role === 'admin' && (
+            {isAdminLike(user?.role) && (
               <button
                 onClick={() => setShowForm(true)}
                 className="flex items-center gap-2 px-4 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"
@@ -781,7 +782,7 @@ export default function ServiceCatalogTab() {
                       </div>
                     </div>
                     
-                    {user?.role === 'admin' && (
+                    {isAdminLike(user?.role) && (
                       <div className="flex border-t border-[var(--border-color)] divide-x divide-[var(--border-color)]">
                         <button 
                           onClick={(e) => { e.stopPropagation(); handleEdit(service); }}

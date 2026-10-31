@@ -30,6 +30,7 @@ import {
   ClinicalAssessmentSummary,
   type ClinicalAssessmentValue,
 } from '../components/medical-entries/ClinicalAssessmentModal';
+import { ClinicalNotesModal, ClinicalNotesSummary } from '../components/medical-entries/ClinicalNotesModal';
 import { useAdmissionStore } from '../store/admissionStore';
 
 import {
@@ -37,11 +38,7 @@ import {
   Scissors, Scan, FileText, Activity, AlertCircle, Plus, Trash2,
   Hospital, User, Calendar, DollarSign, Heart, Thermometer,
   Wind, Droplets, Gauge, Weight, Ruler, CheckCircle, XCircle,
-<<<<<<< HEAD
   Printer, History, Eye, Edit, ClipboardList, Microscope, Image,
-=======
-  Printer, History, Eye, Edit, ClipboardList, Microscope, Image, Users,
->>>>>>> refs/remotes/origin/main
   ArrowRight, ChevronDown, ChevronUp, AlertTriangle, Moon, Sun, Bed, Package, Send,
 } from 'lucide-react';
 
@@ -666,6 +663,7 @@ export default function MedicalEntries() {
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [modalType, setModalType] = useState<ModalType>(null);
   const [assessmentOpen, setAssessmentOpen] = useState(false);
+  const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
   const [editingConsumable, setEditingConsumable] = useState<any | null>(null);
 
@@ -844,6 +842,35 @@ export default function MedicalEntries() {
   const requestedScans = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
   const completedScans = scansList.filter(s => s.status === 'completed');
 
+  // Finalising is a signature, and the server refuses it until the record is complete. The same
+  // requirements are worked out here from the on-page draft so the clinician sees what is missing
+  // before pressing the button, rather than only after it fails.
+  const vitalRows: any[] = (currentAttendance as any)?.Vitals?.length
+    ? (currentAttendance as any).Vitals
+    : (latestVitals ? [latestVitals] : []);
+  const hasVitalValue = (field: string) => vitalRows.some((row: any) => row?.[field] !== null && row?.[field] !== undefined && row?.[field] !== '');
+  const hasStructuredNotes = (values?: Record<string, string>) =>
+    !!values && Object.values(values).some((value) => typeof value === 'string' && value.trim());
+  const recordedAllergies = (selectedPatient as any)?.allergies || (currentAttendance as any)?.Patient?.allergies || [];
+
+  const finalizeGaps: string[] = [];
+  if (!presentedComplaints.trim()) finalizeGaps.push('presenting complaint');
+  if (!hpc.trim()) finalizeGaps.push('history of presenting complaint');
+  if (!assessment.trim()) finalizeGaps.push('clinical assessment');
+  if (!treatmentPlan.trim()) finalizeGaps.push('management plan');
+  if (!clinicalOutcome) finalizeGaps.push('clinical outcome at end of visit');
+  if (!(currentAttendance as any)?.providerId && !user?.id) finalizeGaps.push('responsible clinician');
+  const missingVitals = ([['blood pressure', 'bloodPressure'], ['temperature', 'temperature'],
+    ['pulse', 'pulse'], ['respiratory rate', 'respiration']] as const)
+    .filter(([, field]) => !hasVitalValue(field)).map(([label]) => label);
+  if (missingVitals.length) finalizeGaps.push(`vitals (${missingVitals.join(', ')})`);
+  if (!hasStructuredNotes(reviewOfSystems)) finalizeGaps.push('structured review of systems');
+  if (!physicalExam.trim()) finalizeGaps.push('narrative physical examination');
+  if (!hasStructuredNotes(physicalExamStructured)) finalizeGaps.push('structured physical examination');
+  if (allergyReviewStatus === 'not_reviewed') finalizeGaps.push('allergy review');
+  if (allergyReviewStatus === 'no_known_allergies' && recordedAllergies.length > 0) finalizeGaps.push('allergy reconciliation with the recorded allergies');
+  if (allergyReviewStatus === 'allergies_present' && !allergyReviewNotes.trim() && recordedAllergies.length === 0) finalizeGaps.push('allergy details / reaction');
+
   const handleClearSelection = async () => {
     if (treatmentNoteDraft.trim() && !(await confirmDialog({ title: 'Discard progress note?', message: 'The progress note you are typing has not been saved. Leave this patient record and discard it?', confirmText: 'Discard', type: 'warning' }))) return;
     setSelectedPatientId(''); setSelectedAttendanceId('');
@@ -889,7 +916,7 @@ export default function MedicalEntries() {
       });
       success('Saved', 'Clinical information updated');
       await getAttendance(selectedAttendanceId);
-    } catch (err: any) { toastError('Save failed', err.message); }
+    } catch (err: any) { toastError('Save failed', err?.response?.data?.message || err.message); }
   };
 
   const handleFinalizeClinical = async () => {
@@ -912,7 +939,10 @@ export default function MedicalEntries() {
       success('Clinical record finalized', 'The clinical assessment has been signed and finalized.');
       await getAttendance(selectedAttendanceId);
     } catch (err: any) {
-      toastError('Cannot finalize clinical record', err.message || 'Complete all required clinical sections first.');
+      // Axios turns a 400 into "Request failed with status code 400"; the reason the record was
+      // rejected only exists in the response body.
+      toastError('Cannot finalize clinical record',
+        err?.response?.data?.message || err.message || 'Complete all required clinical sections first.');
     }
   };
 
@@ -1699,6 +1729,12 @@ export default function MedicalEntries() {
             {/* LEFT — Main content */}
             <div className="flex-1 min-w-0 space-y-4">
 
+              {/* The assessment and the safety/outcome review are two halves of one consultation
+                  record, so they sit beside each other instead of pushing each other down. */}
+              <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+
+              <div className="min-w-0 space-y-4">
+
               {/* Group 1: clinical history and examination */}
               <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
                 <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
@@ -1722,39 +1758,23 @@ export default function MedicalEntries() {
                 editDisabled={!canAddEntries || isClinicalFinalized}
               />
                 </div>
-<<<<<<< HEAD
-=======
-                {/* Right sub-col */}
-                <div className="space-y-3">
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                       <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]"><Stethoscope className="w-3 h-3" /> Physical Examination</label>
-                       <button type="button" onClick={() => setClinicalModal('physicalExam')} disabled={!canAddEntries || isClinicalFinalized}
-                         className="inline-flex items-center gap-1 rounded-md border border-[var(--border-color)] px-2 py-1 text-[10px] font-semibold text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] disabled:opacity-50">
-                         <ClipboardList className="w-3 h-3" /> Structured PE
-                       </button>
-                     </div>
-                    <textarea value={physicalExam} onChange={e => setPhysicalExam(e.target.value)} rows={3}
-                      disabled={!canAddEntries || isClinicalFinalized}
-                      placeholder="Physical examination findings…"
-                      className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg
-                        focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] resize-none
-                        text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] transition-all" />
-                    {Object.values(physicalExamStructured).some(value => String(value || '').trim()) && (
-                      <p className="mt-2 text-[10px] text-[var(--text-secondary)]">Structured findings recorded: {Object.entries(physicalExamStructured).filter(([, value]) => String(value || '').trim()).map(([key, value]) => `${key.replace(/_/g, ' ')}: ${value}`).join(' · ')}</p>
-                    )}
-                  </div>
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
-                    <label className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">
-                      <Clock className="w-3 h-3" /> ODQ (Onset · Duration · Quality)
-                    </label>
-                    <ODQInput value={odq} onChange={setOdq} disabled={!canAddEntries || isClinicalFinalized} />
-                  </div>
-                </div>
-              </div>
-                </div>
->>>>>>> refs/remotes/origin/main
               </section>
+
+              {/* Consumables are supplies consumed by the examination and orders, not a workflow
+                  stage of their own, so they ride under the history instead of claiming a section. */}
+              <SectionCard
+                icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                title="Consumables Used"
+                count={consumableUses.length}
+                maxH="max-h-60"
+                action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
+              >
+                <ConsumableUsesPanel uses={consumableUses}
+                  onEdit={canAddEntries ? use => { setEditingConsumable(use); setModalType('consumable'); } : undefined}
+                  onDelete={canAddEntries ? deleteConsumableUse : undefined} />
+              </SectionCard>
+
+              </div>
 
               {/* Group 2: allergy safety and outcome */}
               <section className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
@@ -1786,10 +1806,21 @@ export default function MedicalEntries() {
                   <option value="">Not recorded</option><option value="improved">Improved</option><option value="stable">Stable</option><option value="unchanged">Unchanged</option><option value="deteriorated">Deteriorated</option><option value="deceased">Deceased</option><option value="unknown">Unknown / unable to assess</option>
                 </select>
               </div>
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Management Plan</label>
+                <textarea value={treatmentPlan} onChange={e => setTreatmentPlan(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
+                  placeholder="What was done and what happens next…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none" />
+              </div>
 
               {/* Save clinical */}
               {canAddEntries && (
-                <div className="flex justify-end gap-2">
+                <div className="space-y-2">
+                  {!isClinicalFinalized && finalizeGaps.length > 0 && (
+                    <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[10px] leading-relaxed text-amber-800">
+                      <span className="font-bold uppercase tracking-wider">Still needed to sign</span> — {finalizeGaps.join(', ')}
+                    </p>
+                  )}
+                  <div className="flex justify-end gap-2">
                   <button type="button" onClick={handleFinalizeClinical}
                     disabled={Boolean((currentAttendance as any)?.finalizedAt)}
                     className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold border border-emerald-600 text-emerald-700 disabled:opacity-50">
@@ -1802,18 +1833,21 @@ export default function MedicalEntries() {
                   >
                     <CheckCircle className="w-3.5 h-3.5" /> Save Clinical Info
                   </button>
+                  </div>
                 </div>
               )}
 
                 </div>
               </section>
 
+              </div>
+
               {/* Group 3: diagnoses and orders */}
               <div className="flex items-center gap-2 px-1 pt-1">
                 <div className="h-5 w-1 rounded-full bg-[var(--icon-cyan-text)]" />
                 <div>
                   <h3 className="text-xs font-bold text-[var(--text-primary)]">Diagnoses, Investigations & Treatment Orders</h3>
-                  <p className="text-[10px] text-[var(--text-tertiary)]">Diagnoses, laboratory tests, scans, procedures, medications and consumables for this attendance</p>
+                  <p className="text-[10px] text-[var(--text-tertiary)]">Diagnoses, laboratory tests, scans, procedures and medications for this attendance</p>
                 </div>
               </div>
 
@@ -2019,17 +2053,6 @@ export default function MedicalEntries() {
                 </SectionCard>
               </div>
 
-              <SectionCard
-                icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                title="Consumables Used"
-                count={consumableUses.length}
-                action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
-              >
-                <ConsumableUsesPanel uses={consumableUses}
-                  onEdit={canAddEntries ? use => { setEditingConsumable(use); setModalType('consumable'); } : undefined}
-                  onDelete={canAddEntries ? deleteConsumableUse : undefined} />
-              </SectionCard>
-
               {/* ── SCANS ─────────────────────────────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
@@ -2164,18 +2187,11 @@ export default function MedicalEntries() {
                 }}
               >
                 <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0 overflow-y-auto" style={{ maxHeight: '34%', scrollbarWidth: 'thin' }}>
-                  <ClinicalAssessmentSummary
-                    value={assessmentValue}
-                    title="Clinical notes"
+                  <ClinicalNotesSummary
                     impression={assessment}
-                    onEdit={() => setAssessmentOpen(true)}
+                    onEdit={() => setClinicalNotesOpen(true)}
                     editDisabled={!canAddEntries || isClinicalFinalized}
                   />
-                </div>
-                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] flex-shrink-0">
-                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Clinical Impression</label>
-                  <textarea value={assessment} onChange={e => setAssessment(e.target.value)} rows={3} disabled={!canAddEntries || isClinicalFinalized}
-                    placeholder="Working or final clinical impression…" className="w-full px-3 py-2 text-xs bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] disabled:opacity-60" />
                 </div>
                 {/* ── PHYSICIAN NOTES ── */}
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
@@ -2286,6 +2302,14 @@ export default function MedicalEntries() {
         onSave={saveAssessment}
       />
 
+      <ClinicalNotesModal
+        isOpen={clinicalNotesOpen}
+        onClose={() => setClinicalNotesOpen(false)}
+        value={assessment}
+        readOnly={!canAddEntries || isClinicalFinalized}
+        onSave={setAssessment}
+      />
+
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries}
@@ -2298,6 +2322,7 @@ export default function MedicalEntries() {
         userId={user?.id} userName={user?.fullName} />
       <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries}
+        allergies={recordedAllergies}
         userId={user?.id} userName={user?.fullName} />
       <ConsumableModal isOpen={modalType === 'consumable'} onClose={() => { setModalType(null); setEditingConsumable(null); }} onSuccess={afterConsumableUse}
         encounterId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} existingUse={editingConsumable} />

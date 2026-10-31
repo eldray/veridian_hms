@@ -48,11 +48,7 @@ export default function ProcessPayment() {
   const navigate = useNavigate();
   const { billId } = useParams<{ billId: string }>();
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
-<<<<<<< HEAD
   const { patients, currentPatient, fetchPatient } = usePatientStore();
-=======
-  const { patients, getPatients } = usePatientStore();
->>>>>>> refs/remotes/origin/main
   const { user, hasRole } = useAuthStore();
   const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
   const { success, error: toastError } = useToast();
@@ -452,15 +448,9 @@ export default function ProcessPayment() {
         {/* Right Column - Payment Form */}
         <div className="lg:col-span-1">
           {canProcessPayment ? (
-<<<<<<< HEAD
           <form onSubmit={handleSubmit} className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6 space-y-6 sticky top-6">
             <h2 className="text-lg font-bold text-[var(--text-primary)] flex items-center gap-2">
               <DollarSign className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-=======
-          <form onSubmit={handleSubmit} className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-white/20 p-6 space-y-6 sticky top-6">
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <DollarSign className="w-5 h-5" />
->>>>>>> refs/remotes/origin/main
               Payment Details
             </h2>
 
@@ -574,11 +564,7 @@ export default function ProcessPayment() {
             </div>
           </form>
           ) : (
-<<<<<<< HEAD
             <div className="rounded-2xl border border-[var(--border-color)] border-l-4 border-l-[var(--icon-yellow-text)] bg-[var(--bg-card)] p-6 text-sm text-[var(--text-secondary)]">
-=======
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
->>>>>>> refs/remotes/origin/main
               You have read-only access to this bill. Only authorised accounts, records, or administrator staff can record payments.
             </div>
           )}

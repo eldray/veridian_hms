@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useUserStore } from '../../store/userStore';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../store/toastStore';
+import { describeApiError } from '../../utils/apiError';
 import { 
   Search, Plus, User, Mail, Phone, Shield, Edit, Ban, Activity, 
   Loader, AlertCircle, Clock, Calendar, FileText, CheckCircle, 
@@ -199,8 +200,8 @@ export default function UserManagementTab() {
       setShowApprovalModal(false);
       setSelectedLeaveId(null);
       await loadLeaves();
-    } catch (err) {
-      toastError('Error', 'Failed to approve leave request');
+    } catch (err: any) {
+      toastError('Leave not approved', describeApiError(err, 'The leave request could not be approved.'));
     }
   };
 
@@ -213,8 +214,8 @@ export default function UserManagementTab() {
       setSelectedLeaveId(null);
       setRejectionReason('');
       await loadLeaves();
-    } catch (err) {
-      toastError('Error', 'Failed to reject leave request');
+    } catch (err: any) {
+      toastError('Leave not rejected', describeApiError(err, 'The leave request could not be rejected.'));
     }
   };
 

@@ -96,6 +96,16 @@ export const config = {
     ENABLED: process.env.HUBTEL_ENABLED === 'true',
   },
 
+  // CLAIM-it (NHIS claims adjudication and billing server, installed per facility)
+  //
+  // Only the master switch lives here. The host and the credentials are read from process.env at
+  // the point of use by ClaimItClient, because a token request carries them in its query string -
+  // keeping them out of any object that gets logged, exported or printed is the point.
+  claimit: {
+    // When false, claims are prepared and downloaded as XML but never sent to NHIS.
+    ENABLED: process.env.CLAIMIT_ENABLED === 'true',
+  },
+
   // Backup
   backup: {
     ENABLED: process.env.BACKUP_ENABLED === 'true',

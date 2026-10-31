@@ -392,8 +392,20 @@ export default function PatientRegistration() {
 
   const handleBasicInfoSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formData.surname || !formData.otherNames || !formData.gender || !formData.dateOfBirth || !formData.contact || !formData.address) {
-      toastError('Required', 'Please fill all required fields');
+    // Name the boxes that are still blank. "Please fill all required fields" left the clerk
+    // scrolling the form hunting for the one field they missed.
+    const missingRequired = ([
+      ['surname', 'Surname'],
+      ['otherNames', 'Other names'],
+      ['gender', 'Gender'],
+      ['dateOfBirth', 'Date of birth'],
+      ['contact', 'Contact number'],
+      ['address', 'Address'],
+    ] as const)
+      .filter(([key]) => !String(formData[key] || '').trim())
+      .map(([, label]) => label);
+    if (missingRequired.length > 0) {
+      toastError('Cannot register yet', `Fill in ${missingRequired.join(', ')} before saving.`);
       return;
     }
     if ((paymentData.paymentMode === 'nhis' || paymentData.paymentMode === 'private_insurance')

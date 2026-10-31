@@ -6,13 +6,29 @@ import { useMedicalServicesStore } from '../../store/medicalServicesStore';
 import { usePatientStore } from '../../store/patientStore';
 import { useAuthStore } from '../../store/authStore';
 import { canAccessPage } from '../../config/access';
+import { confirmDialog } from '../../context/ConfirmDialog';
 import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
 import { useStockStore } from '../../store/stockStore';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
-import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown } from 'lucide-react';
+import {
+  ClaimItHeldBack, ClaimItStatusNote, ClaimItSubmissionHistory,
+} from '../../components/claims/ClaimItUI';
+import {
+  deleteClaimFromClaimIt,
+  getClaimClaimItSubmissions,
+  getClaimItStatus,
+  submitClaimToClaimIt,
+  type ClaimItBlockedClaim,
+  type ClaimItStatus,
+  type ClaimItSubmissionResult,
+  type ClaimItSubmissionRow,
+} from '../../api';
+import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown, Send } from 'lucide-react';
 import { mapAttendanceToNHIS, normalizeNHISAttendanceCode } from '../../utils/nhisAttendanceMapping';
+import { nhisNumberError, sanitizeNhisInput } from '../../utils/nhisNumber';
+import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -827,8 +843,11 @@ export default function EditNHISClaim() {
   const { updatePatient } = usePatientStore();
   // Correcting the member record writes to /api/patients, which is limited to the
   // patient-management roles; accounts staff edit the claim itself, not the register.
-  const { user } = useAuthStore();
+  const { user, hasRole } = useAuthStore();
   const canEditMember = canAccessPage(user?.role, 'patients');
+  // Sending to CLAIM-it is the payer submission, so it follows the same admin/accounts gate
+  // the backend routes use; a doctor reads the claim but does not push it.
+  const canSendToClaimIt = hasRole(['admin', 'accounts']);
   const { getDiagnoses } = useMedicalServicesStore();
   const { tariffs, fetchTariffs } = useGDRGTariffStore();
 
@@ -879,6 +898,13 @@ export default function EditNHISClaim() {
   const closeModal = () => { setActiveModal(null); setEditing(null); };
   const [isSavingMember, setIsSavingMember] = useState(false);
 
+  // CLAIM-it: what the payer's server is configured to do, and what it answered about this claim.
+  const [claimitStatus, setClaimItStatus] = useState<ClaimItStatus | null>(null);
+  const [claimitHistory, setClaimItHistory] = useState<ClaimItSubmissionRow[]>([]);
+  const [claimitHistoryError, setClaimItHistoryError] = useState<string | null>(null);
+  const [claimitHeld, setClaimItHeld] = useState<ClaimItBlockedClaim[]>([]);
+  const [claimitBusy, setClaimItBusy] = useState(false);
+
   const isDraft = currentClaim?.status === 'draft';
   const isFinalized = currentClaim?.status === 'finalized';
   const availableGDRGs = tariffs || [];
@@ -890,6 +916,27 @@ export default function EditNHISClaim() {
       fetchTariffs();
     }
   }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getClaimItStatus().then(status => { if (!cancelled) setClaimItStatus(status); }).catch(() => { if (!cancelled) setClaimItStatus(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  // A draft has never been on the payer's side, so there is nothing to read back.
+  useEffect(() => {
+    if (!id || !isFinalized) return;
+    let cancelled = false;
+    setClaimItHistoryError(null);
+    getClaimClaimItSubmissions(id)
+      .then(result => { if (!cancelled) setClaimItHistory(result.submissions ?? []); })
+      .catch((err: any) => {
+        if (cancelled) return;
+        setClaimItHistory([]);
+        setClaimItHistoryError(describeApiError(err, 'The CLAIM-it history for this claim could not be read.'));
+      });
+    return () => { cancelled = true; };
+  }, [id, isFinalized]);
 
   useEffect(() => {
     if (!currentClaim || isInitialized.current) return;
@@ -1133,6 +1180,13 @@ export default function EditNHISClaim() {
       toastError('Error', 'Patient ID not found');
       return;
     }
+    // A blank member number is legal here (the claim then runs on the CCC code), but a typed one
+    // must reach the server as 8 or 10 digits or the patient update is rejected.
+    const memberNumberError = nhisNumberError(memberFormData.nhisNumber);
+    if (memberNumberError) {
+      toastError('Check the form', memberNumberError);
+      return;
+    }
     setIsSavingMember(true);
     try {
       await updatePatient(patientId, {
@@ -1155,7 +1209,7 @@ export default function EditNHISClaim() {
       setIsEditingMember(false);
       await getInsuranceClaim(id!);
     } catch (error: any) {
-      toastError('Update Failed', error.message || 'Could not update member details');
+      toastError(describeApiErrorTitle(error, 'Update Failed'), describeApiError(error, 'The member details could not be updated.'));
     } finally {
       setIsSavingMember(false);
     }
@@ -1272,6 +1326,69 @@ export default function EditNHISClaim() {
     }
   };
 
+  const refreshClaimItHistory = async () => {
+    if (!id) return;
+    try {
+      const result = await getClaimClaimItSubmissions(id);
+      setClaimItHistory(result.submissions ?? []);
+      setClaimItHistoryError(null);
+    } catch (err: any) {
+      setClaimItHistoryError(describeApiError(err, 'The CLAIM-it history for this claim could not be read.'));
+    }
+  };
+
+  /**
+   * Push this claim to the NHIS claims server.
+   *
+   * The answer is per claim, so the message shown is CLAIM-it's own line for it — "rejected, the CCC
+   * is not registered" — not a generic "submission failed".
+   */
+  const handleSendToClaimIt = async () => {
+    setClaimItBusy(true);
+    setClaimItHeld([]);
+    try {
+      const result: ClaimItSubmissionResult = await submitClaimToClaimIt(id!);
+      const title =
+        result.outcome === 'passed' ? 'Sent to CLAIM-it'
+        : result.outcome === 'warned' ? 'Accepted with warnings'
+        : result.outcome === 'error' ? 'Rejected by CLAIM-it'
+        : 'Outcome not confirmed';
+      if (result.outcome === 'error' || result.outcome === 'unknown') toastError(title, result.message);
+      else success(title, result.message);
+      await refreshClaimItHistory();
+    } catch (err: any) {
+      // A 400 from the pre-flight check carries one reason per field; list them instead of hiding
+      // them in a toast the operator reads once.
+      const reasons = err?.response?.data?.details;
+      if (Array.isArray(reasons) && reasons.length > 0) {
+        setClaimItHeld([{ claimId: id!, claimNumber: String(currentClaim?.claimNumber ?? ''), reasons }]);
+      }
+      toastError(describeApiErrorTitle(err, 'Not sent to CLAIM-it'), describeApiError(err, 'The claim could not be sent to CLAIM-it.'));
+    } finally {
+      setClaimItBusy(false);
+    }
+  };
+
+  const handleWithdrawFromClaimIt = async () => {
+    const okToWithdraw = await confirmDialog({
+      title: 'Withdraw this claim from CLAIM-it?',
+      message: 'CLAIM-it will delete the claim it holds under this number. The claim stays in this app; anything already adjudicated against it at NHIS is not undone.',
+      confirmText: 'Withdraw',
+      type: 'danger',
+    });
+    if (!okToWithdraw) return;
+    setClaimItBusy(true);
+    try {
+      const result = await deleteClaimFromClaimIt(id!);
+      success('Withdrawn from CLAIM-it', result.message);
+      await refreshClaimItHistory();
+    } catch (err: any) {
+      toastError(describeApiErrorTitle(err, 'Not withdrawn'), describeApiError(err, 'CLAIM-it could not delete this claim.'));
+    } finally {
+      setClaimItBusy(false);
+    }
+  };
+
   if (isLoading && !currentClaim) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center">
@@ -1311,7 +1428,7 @@ export default function EditNHISClaim() {
           {isEditingMember ? (
             <>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-4">
-                <UField className="md:col-span-3" label="Member No / HIN" value={memberFormData.nhisNumber} onChange={v => setMemberFormData({ ...memberFormData, nhisNumber: v })} />
+                <UField className="md:col-span-3" label="Member No / HIN" value={memberFormData.nhisNumber} placeholder="8 digits, or 00 + 8 digits, or blank" error={nhisNumberError(memberFormData.nhisNumber) ?? undefined} onChange={v => setMemberFormData({ ...memberFormData, nhisNumber: sanitizeNhisInput(v) })} />
                 <UField label="Surname" value={memberFormData.surname} onChange={v => setMemberFormData({ ...memberFormData, surname: v })} />
                 <UField label="Other Names" value={memberFormData.otherNames} onChange={v => setMemberFormData({ ...memberFormData, otherNames: v })} />
                 <UField label="Folder No." value={memberFormData.folderNumber} onChange={v => setMemberFormData({ ...memberFormData, folderNumber: v })} />
@@ -1573,6 +1690,40 @@ export default function EditNHISClaim() {
             </div>
           </div>
         </ClaimCard>
+
+        {isFinalized && (
+          <ClaimCard
+            title="CLAIM-it submission"
+            action={canSendToClaimIt ? (
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleSendToClaimIt}
+                  disabled={claimitBusy}
+                  className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 disabled:opacity-50 flex items-center gap-1"
+                >
+                  <Send className="w-3 h-3" /> {claimitBusy ? 'Sending…' : 'Send to CLAIM-it'}
+                </button>
+                {claimitHistory.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleWithdrawFromClaimIt}
+                    disabled={claimitBusy}
+                    className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 disabled:opacity-50"
+                  >
+                    Withdraw
+                  </button>
+                )}
+              </span>
+            ) : undefined}
+          >
+            <ClaimItStatusNote status={claimitStatus} />
+            {claimitHeld.length > 0 && <ClaimItHeldBack held={claimitHeld} />}
+            {claimitHistoryError
+              ? <p className="text-[12px] text-red-600 mt-2">{claimitHistoryError}</p>
+              : <div className="mt-2"><ClaimItSubmissionHistory submissions={claimitHistory} /></div>}
+          </ClaimCard>
+        )}
 
         {isFinalized ? (
           <div className="flex justify-end gap-3 bg-white px-5 py-4 border-t border-gray-200">

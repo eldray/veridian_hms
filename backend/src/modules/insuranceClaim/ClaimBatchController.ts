@@ -2,17 +2,20 @@ import { Response } from 'express';
 import { BaseController } from '../../shared/base/BaseController';
 import { ClaimBatchService } from './ClaimBatchService';
 import { ClaimPrintService } from './ClaimPrintService';
+import { ClaimItSubmissionService } from './claimit/ClaimItSubmissionService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import prisma from '../../core/database/prisma.client';
 
 export class ClaimBatchController extends BaseController {
   private service: ClaimBatchService;
   private printService: ClaimPrintService;
+  private claimit: ClaimItSubmissionService;
 
   constructor() {
     super();
     this.service = new ClaimBatchService(prisma);
     this.printService = new ClaimPrintService(prisma);
+    this.claimit = new ClaimItSubmissionService(prisma);
   }
 
   // ==========================================
@@ -138,6 +141,38 @@ export class ClaimBatchController extends BaseController {
     const html = await this.printService.renderBatchHtml(req.params.id);
     res.set('Content-Type', 'text/html; charset=utf-8');
     return res.send(html);
+  });
+
+  // ==========================================
+  // CLAIM-it (NHIS only)
+  // ==========================================
+
+  /**
+   * Send the batch's ready claims in one request.
+   *
+   * `onlyFailed` re-sends after corrections without re-submitting claims CLAIM-it already accepted,
+   * which is what would turn a retry into a duplicate on the payer's side.
+   */
+  submitToClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const onlyFailed = req.body?.onlyFailed === true || String(req.body?.onlyFailed) === 'true';
+    const result = await this.claimit.submitBatch(req.params.id, req.user!.id, { onlyFailed });
+    return this.ok(res, result, result.message);
+  });
+
+  /** The latest CLAIM-it answer for every claim in the batch. */
+  claimitSubmissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.listBatchSubmissions(req.params.id);
+    return this.ok(res, result, 'CLAIM-it submissions retrieved');
+  });
+
+  /**
+   * Withdraw the whole period from CLAIM-it.
+   *
+   * DELETE so the write audit records it as a deletion, which is what it is on the payer's side.
+   */
+  deleteFromClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.deleteBatchFromClaimIt(req.params.id);
+    return this.ok(res, result, result.message);
   });
 }
 

@@ -5,6 +5,7 @@ import { InsuranceClaimService } from './InsuranceClaimService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { ClaimPrintService } from './ClaimPrintService';
 import { NHISClaimXMLBuilder } from './xml/NHISClaimXMLBuilder';
+import { ClaimItSubmissionService, claimItClient } from './claimit/ClaimItSubmissionService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import prisma from '../../core/database/prisma.client';
 
@@ -13,6 +14,7 @@ export class InsuranceClaimController extends BaseController {
   private repo: InsuranceClaimRepository;
   private xmlBuilder: NHISClaimXMLBuilder;
   private printService: ClaimPrintService;
+  private claimit: ClaimItSubmissionService;
 
   constructor() {
     super();
@@ -20,6 +22,7 @@ export class InsuranceClaimController extends BaseController {
     this.repo = new InsuranceClaimRepository(prisma);
     this.xmlBuilder = new NHISClaimXMLBuilder();
     this.printService = new ClaimPrintService(prisma);
+    this.claimit = new ClaimItSubmissionService(prisma);
   }
 
   listClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -300,6 +303,47 @@ export class InsuranceClaimController extends BaseController {
   getClaimsSummary = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const summary = await this.service.getClaimsSummary({ insuranceType: req.query.insuranceType as any });
     return this.ok(res, summary, 'Claims summary retrieved');
+  });
+
+  /**
+   * What CLAIM-it setup looks like from the app's side, with no secrets in the answer.
+   */
+  claimitStatus = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    return this.ok(res, claimItClient.getReadiness(), 'CLAIM-it status retrieved');
+  });
+
+  /**
+   * Handshake only: fetches a token and writes nothing to the claims database.
+   *
+   * A failure is returned as data rather than thrown, because "which of the three things is wrong"
+   * is the answer the person configuring this needs, not a red toast.
+   */
+  claimitTestConnection = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const result = await claimItClient.testConnection();
+    return this.ok(res, result, result.ok ? 'CLAIM-it connection verified' : 'CLAIM-it connection failed');
+  });
+
+  /** Send one finalized NHIS claim to CLAIM-it and return its own line of the import report. */
+  submitClaimToClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.submitClaim(req.params.claimId, req.user!.id);
+    return this.ok(res, result, result.message);
+  });
+
+  /**
+   * Withdraw a claim from CLAIM-it.
+   *
+   * Asked for explicitly: leaving a wrong claim on the payer's side is cheaper than silently
+   * deleting a batch, so there is no bulk delete behind a list button.
+   */
+  deleteClaimFromClaimIt = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.deleteClaimFromClaimIt(req.params.claimId);
+    return this.ok(res, result, result.message);
+  });
+
+  /** Every CLAIM-it attempt recorded for one claim, newest first. */
+  claimitClaimSubmissions = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.claimit.listClaimSubmissions(req.params.claimId);
+    return this.ok(res, result, 'CLAIM-it submissions retrieved');
   });
 }
 

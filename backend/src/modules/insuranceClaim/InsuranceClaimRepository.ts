@@ -2,6 +2,41 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { money, monthRange, toNum } from '../../utils/reportDates';
 
+/**
+ * Everything a claim needs to be turned into a payer document: the encounter's clinical records
+ * behind the itemised lines, and the lines themselves with the GDRG tariff and diagnosis attached.
+ *
+ * Single-claim and batch reads share this so a batch cannot submit a claim in a looser shape than
+ * the one the single-claim route would have built.
+ */
+const CLAIM_DETAIL_INCLUDE = {
+  InsuranceProvider: true,
+  Patient: true,
+  // Include the encounter's clinical sub-records so claim forms can
+  // auto-populate diagnoses / investigations / medicines / procedures.
+  Attendance: {
+    include: {
+      AttendanceDiagnosis: { include: { Diagnosis: true } },
+      LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
+      Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
+      Medication: { include: { StockItem: true, ServiceCatalog: true } },
+      Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
+      referral: true,
+      Admission: true,
+    }
+  },
+  Bill: true,
+  CorporateAccount: true,
+  // The itemised lines ARE the claim: the XML builder, the print view and the CLAIM-it payload
+  // all read claim.items, and without them a claim downloads as "has no itemized lines" and
+  // prints an empty table with a zero total. `gdrgTariff` and `diagnosis` are what the payer's
+  // GDRG code and ICD-10 come from.
+  items: {
+    orderBy: { itemNumber: 'asc' },
+    include: { gdrgTariff: true, diagnosis: true },
+  },
+} as const;
+
 export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
     super(prisma, 'insuranceClaim');
@@ -44,25 +79,17 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   async findByIdWithDetails(id: string) {
     return this.getModel().findUnique({
       where: { id },
-      include: {
-        InsuranceProvider: true,
-        Patient: true,
-        // Include the encounter's clinical sub-records so claim forms can
-        // auto-populate diagnoses / investigations / medicines / procedures.
-        Attendance: {
-          include: {
-            AttendanceDiagnosis: { include: { Diagnosis: true } },
-            LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
-            Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
-            Medication: { include: { StockItem: true, ServiceCatalog: true } },
-            Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
-            referral: true,
-            Admission: true,
-          }
-        },
-        Bill: true,
-        CorporateAccount: true
-      }
+      include: CLAIM_DETAIL_INCLUDE,
+    });
+  }
+
+  /** The same detail as one claim, for a whole batch at once, in claim-number order. */
+  async findClaimsForSubmission(claimIds: string[]) {
+    if (!claimIds.length) return [];
+    return this.prisma.insuranceClaim.findMany({
+      where: { id: { in: claimIds } },
+      include: CLAIM_DETAIL_INCLUDE,
+      orderBy: { claimNumber: 'asc' },
     });
   }
 

@@ -259,17 +259,16 @@ const SummaryLine: React.FC<{ label: string; text: string }> = ({ label, text })
 
 export const ClinicalAssessmentSummary: React.FC<{
   value: ClinicalAssessmentValue;
-  impression?: string;
   title?: string;
   onEdit?: () => void;
   editDisabled?: boolean;
-}> = ({ value, impression, title = 'History & Examination', onEdit, editDisabled }) => {
+}> = ({ value, title = 'History & Examination', onEdit, editDisabled }) => {
   const complaints = value.complaints.split(',').map((c) => c.trim()).filter(Boolean);
   const review = summarise(value.reviewOfSystems);
   const examinationStructured = summarise(value.physicalExamStructured);
   const hasAnything =
     complaints.length > 0 || value.history.trim() || value.odq.trim() ||
-    value.examination.trim() || review || examinationStructured || (impression || '').trim();
+    value.examination.trim() || review || examinationStructured;
 
   return (
     <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3.5">
@@ -304,7 +303,6 @@ export const ClinicalAssessmentSummary: React.FC<{
           {value.examination.trim() && <SummaryLine label="Examination" text={value.examination} />}
           {review && <SummaryLine label="Review of systems" text={review} />}
           {examinationStructured && <SummaryLine label="Structured findings" text={examinationStructured} />}
-          {(impression || '').trim() && <SummaryLine label="Impression" text={impression || ''} />}
         </div>
       )}
     </div>

@@ -1243,6 +1243,7 @@ export default function DispensePatient() {
           attendanceId={attendance.id}
           stockItems={stockItems}
           canAdd={!!canDispense}
+          allergies={patient?.allergies}
           userId={user?.id}
           userName={user?.fullName}
         />

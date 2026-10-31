@@ -1,9 +1,10 @@
 // src/components/medical-entries/modals/MedicationModal.tsx
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { X, Search, Pill, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Search, Pill, AlertCircle, CheckCircle, ShieldAlert } from 'lucide-react';
 import { useAttendanceStore } from '../../../store/attendanceStore';
 import { useMedicalServicesStore } from '../../../store/medicalServicesStore';
 import { useToast } from '../../../store/toastStore';
+import { findContraindications, isBlocked, type AllergenClash } from '../../../data/allergens';
 
 interface MedicationModalProps {
   isOpen: boolean;
@@ -13,6 +14,8 @@ interface MedicationModalProps {
   stockItems: any[];
   canAdd: boolean;
   userId?: string;
+  /** The patient's recorded allergies. This is a UI gate: the API still accepts the line. */
+  allergies?: Array<{ allergen?: string | null; reaction?: string | null; severity?: string | null }> | null;
 }
 
 function useDebounced<T>(value: T, delay = 150): T {
@@ -46,7 +49,7 @@ const ROUTES = [
 ];
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
-  isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd,
+  isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMed, setSelectedMed] = useState<any>(null);
@@ -122,6 +125,23 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     ).slice(0, 40);
   }, [medicationStockItems, debouncedSearch]);
 
+  // Only the visible candidates are checked. The catalog is ~66 classes x every pattern, so
+  // running it over all ~690 stocked items on each keystroke would be needless work.
+  const blockedCandidateIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const m of filteredMeds) {
+      if (isBlocked(findContraindications(allergies, m.name))) ids.add(m.id);
+    }
+    return ids;
+  }, [filteredMeds, allergies]);
+
+  const selectedClashes: AllergenClash[] = useMemo(
+    () => (selectedMed ? findContraindications(allergies, selectedMed.name) : []),
+    [selectedMed, allergies],
+  );
+  const blockingClashes = selectedClashes.filter(c => c.level === 'contraindicated');
+  const cautionClashes = selectedClashes.filter(c => c.level === 'caution');
+
   const handleSelect = (m: any) => {
     setSelectedMed(m);
     setSearchTerm(m.name);
@@ -149,6 +169,10 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
     if (!selectedServiceCatalog) { error('No pricing', 'This medication has no pricing configured.'); return; }
     if (!dosage.trim()) { error('Missing dosage', 'Please enter the dosage.'); return; }
     if (!frequency) { error('Missing frequency', 'Please select a frequency.'); return; }
+    if (isBlocked(selectedClashes)) {
+      error('Allergy conflict', 'This drug clashes with an allergy recorded for this patient.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -240,6 +264,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                   const out = m.currentStock === 0;
                   const low = m.currentStock > 0 && m.currentStock < (m.reorderLevel || 50);
                   const noPricing = !medicationServiceCatalogs.some(sc => sc.stockItemId === m.id);
+                  const blocked = blockedCandidateIds.has(m.id);
                   const displayName = [m.name, m.strength].filter(Boolean).join(' ');
                   return (
                     <button
@@ -265,6 +290,11 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                           >
                             {m.currentStock} in stock
                           </span>
+                          {blocked && (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--icon-red-text)]">
+                              <ShieldAlert className="w-3 h-3" /> Allergy conflict
+                            </span>
+                          )}
                           {noPricing && (
                             <span className="text-[10px] text-[var(--icon-red-text)]">No pricing</span>
                           )}
@@ -290,7 +320,7 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
           {selectedMed && (
             <div
               className={`rounded-lg p-3 border ${
-                !hasPricing
+                !hasPricing || blockingClashes.length > 0
                   ? 'border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)]'
                   : isOutOfStock
                   ? 'border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)]'
@@ -336,6 +366,45 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
                   Low stock — only {selectedMed.currentStock} units available.
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Allergy clash: a direct class match blocks, a cross-reactive class only warns */}
+          {selectedMed && blockingClashes.length > 0 && (
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--icon-red-text)', background: 'var(--icon-red-bg)' }}>
+              <p className="flex items-center gap-1.5 text-xs font-bold text-[var(--icon-red-text)]">
+                <ShieldAlert className="w-4 h-4 shrink-0" />
+                Contraindicated with this patient&apos;s allergies
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {blockingClashes.map((c, i) => (
+                  <li key={`${c.allergen.id}-${c.recordedAs}-${i}`} className="text-[11px] text-[var(--text-primary)]">
+                    <span className="font-semibold">{c.allergen.name}</span>
+                    <span className="text-[var(--text-secondary)]"> — recorded as “{c.recordedAs}”</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[10px] text-[var(--text-secondary)]">
+                Prescribing this item is blocked. Choose a drug from another class, or correct the
+                allergy list on the patient record if this entry is wrong.
+              </p>
+            </div>
+          )}
+
+          {selectedMed && blockingClashes.length === 0 && cautionClashes.length > 0 && (
+            <div className="rounded-lg border p-3" style={{ borderColor: 'var(--icon-yellow-text)', background: 'var(--icon-yellow-bg)' }}>
+              <p className="text-xs font-bold text-[var(--icon-yellow-text)]">Possible cross-reaction</p>
+              <ul className="mt-1.5 space-y-1">
+                {cautionClashes.map((c, i) => (
+                  <li key={`${c.allergen.id}-${c.recordedAs}-${i}`} className="text-[11px] text-[var(--text-primary)]">
+                    <span className="font-semibold">{c.allergen.name}</span>
+                    <span className="text-[var(--text-secondary)]"> — can cross-react with “{c.recordedAs}”</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-2 text-[10px] text-[var(--text-secondary)]">
+                Not a contraindication, so prescribing stays available. Confirm the reaction history before dispensing.
+              </p>
             </div>
           )}
 
@@ -431,11 +500,13 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={!canEdit || !dosage.trim() || !frequency || isSubmitting}
+            disabled={!canEdit || !dosage.trim() || !frequency || isSubmitting || blockingClashes.length > 0}
             className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2"
           >
             {isSubmitting
               ? <><div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Prescribing…</>
+              : blockingClashes.length > 0
+              ? <>Blocked by allergy</>
               : <>Prescribe medication</>}
           </button>
         </div>

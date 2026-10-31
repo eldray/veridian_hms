@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useUserStore } from '../store/userStore';
+import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
   ChevronLeft, Save, User as UserIcon, Briefcase, DollarSign,
@@ -294,6 +295,9 @@ export default function UserDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { user: currentUser } = useAuthStore();
+  // Mirrors UserEditModal: only a super administrator may hand out (or keep) the top role.
+  const canManageSuperAdmin = currentUser?.role === 'super_admin';
 
   const {
     getFullProfile, updateFullProfile, currentFullProfile, isLoading,
@@ -481,6 +485,11 @@ export default function UserDetail() {
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Role</label>
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                  {/* Without this option a super administrator's record shows as "Admin" here,
+                      and the next save silently demotes them. */}
+                  {(canManageSuperAdmin || userForm.role === 'super_admin') && (
+                    <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>
+                  )}
                   <option value="admin">Admin</option>
                   <option value="hr_officer">HR Officer</option>
                   <option value="doctor">Doctor</option>

@@ -4,6 +4,8 @@ import { useNotificationStore } from '../store/notificationStore';
 import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { Send, Users, Bell, AlertCircle } from 'lucide-react';
+import { ALL_ROLES } from '../config/access';
+import { describeApiError } from '../utils/apiError';
 
 export const AdminNotificationPanel: React.FC = () => {
   const { sendBulkNotification, sendRoleNotification, triggerLowStockCheck, triggerAppointmentReminders } = useNotificationStore();
@@ -19,7 +21,7 @@ export const AdminNotificationPanel: React.FC = () => {
   const [type, setType] = useState<'info' | 'success' | 'warning' | 'error' | 'system'>('info');
   const [isSending, setIsSending] = useState(false);
 
-  const roles = ['admin', 'doctor', 'nurse', 'midwife', 'pharmacist', 'accounts', 'lab_tech', 'records'];
+  const roles: string[] = ALL_ROLES;
 
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
@@ -62,8 +64,8 @@ export const AdminNotificationPanel: React.FC = () => {
       setMessage('');
       setSelectedUserIds([]);
       setSelectedRoles([]);
-    } catch (err) {
-      error('Send Failed', 'Could not send notification');
+    } catch (err: any) {
+      error('Notification not sent', describeApiError(err, 'The notification could not be sent.'));
     } finally {
       setIsSending(false);
     }
@@ -73,8 +75,8 @@ export const AdminNotificationPanel: React.FC = () => {
     try {
       const result = await triggerLowStockCheck();
       success('Low Stock Check', `Sent ${result.data?.sent || 0} alerts for ${result.data?.items?.length || 0} low stock items`);
-    } catch (err) {
-      error('Check Failed', 'Could not trigger low stock check');
+    } catch (err: any) {
+      error('Check not run', describeApiError(err, 'The low stock check could not be run.'));
     }
   };
 
@@ -82,8 +84,8 @@ export const AdminNotificationPanel: React.FC = () => {
     try {
       const result = await triggerAppointmentReminders();
       success('Reminders Sent', `Sent ${result.data?.remindersSent || 0} appointment reminders`);
-    } catch (err) {
-      error('Send Failed', 'Could not send reminders');
+    } catch (err: any) {
+      error('Reminders not sent', describeApiError(err, 'The appointment reminders could not be sent.'));
     }
   };
 

@@ -10,6 +10,7 @@ import {
   BulkUpdateDTO
 } from './ScanTemplateTypes';
 import { parsePage, parsePageSize } from '../../shared/pagination';
+import { createErrorResponse } from '../../shared/types/ApiResponse';
 
 /**
  * Async handler wrapper to catch promise rejections
@@ -67,7 +68,7 @@ export class ScanTemplateController {
     asyncHandler(async (req: Request, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
       }
 
       const data: CreateScanTemplateDTO = req.body;
@@ -94,7 +95,7 @@ export class ScanTemplateController {
     asyncHandler(async (req: Request, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
+        return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
       }
 
       const { id } = req.params;

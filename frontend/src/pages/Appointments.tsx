@@ -8,6 +8,7 @@ import { useToast } from '../store/toastStore';
 import { useNavigate } from 'react-router-dom';
 import Select from 'react-select';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import { describeApiError } from '../utils/apiError';
 
 import {
   Plus,
@@ -271,15 +272,21 @@ export default function Appointments() {
   // ✅ Handle successful attendance creation
   const handleAttendanceSuccess = async (attendance: any) => {
     setShowAttendanceModal(false);
-    
-    // Update appointment status to completed
-    await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
-    
-    success('Converted', 'Appointment converted to attendance successfully');
-    
+
+    // The attendance is saved by now, so a failed status update must not strand the clerk away
+    // from the record they just created. Say which half did not happen, then still open it.
+    try {
+      if (selectedAppointmentForAttendance?.id) {
+        await updateAppointmentStatus(selectedAppointmentForAttendance.id, 'completed');
+      }
+      success('Converted', 'Appointment converted to attendance successfully');
+    } catch (err: any) {
+      error('Attendance created', `The appointment is still marked as booked - ${describeApiError(err, 'its status could not be updated')}.`);
+    }
+
     // Navigate to the attendance details
     navigate(`/dashboard/attendance/${attendance.id}`);
-    
+
     // Refresh data
     await loadData();
     setSelectedAppointmentForAttendance(null);
@@ -341,8 +348,8 @@ export default function Appointments() {
         await deleteAppointment(id);
         success('Appointment Deleted', 'Appointment deleted successfully');
         await loadData();
-      } catch (err) {
-        error('Delete Failed', 'Failed to delete appointment');
+      } catch (err: any) {
+        error('Delete Failed', describeApiError(err, 'The appointment could not be deleted.'));
       }
     }
   };
@@ -352,8 +359,8 @@ export default function Appointments() {
       await updateAppointmentStatus(id, status);
       success('Status Updated', `Appointment ${status.replace('_', ' ')}`);
       await loadData();
-    } catch (err) {
-      error('Update Failed', 'Failed to update appointment status');
+    } catch (err: any) {
+      error('Update Failed', describeApiError(err, 'The appointment status could not be updated.'));
     }
   };
 
@@ -362,8 +369,8 @@ export default function Appointments() {
       await checkInAppointment(id);
       success('Checked In', 'Patient checked in successfully');
       await loadData();
-    } catch (err) {
-      error('Check-in Failed', 'Failed to check in patient');
+    } catch (err: any) {
+      error('Check-in Failed', describeApiError(err, 'The patient could not be checked in.'));
     }
   };
 

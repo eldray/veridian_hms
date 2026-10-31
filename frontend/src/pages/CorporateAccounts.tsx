@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
+import { isAdminLike } from '../config/access';
 import { useToast } from '../store/toastStore';
 import { useNavigate, useParams } from 'react-router-dom';
 import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
@@ -353,7 +354,7 @@ export default function CorporateAccounts() {
               <UserPlus className="w-4 h-4" />
               Add Employee
             </button>
-            {user?.role === 'admin' && (
+            {isAdminLike(user?.role) && (
               <button
                 onClick={() => editAccount(currentAccount)}
                 className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium"
@@ -873,7 +874,7 @@ export default function CorporateAccounts() {
         </div>
         
         <div className="flex items-center gap-2">
-          {user?.role === 'admin' && (
+          {isAdminLike(user?.role) && (
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm font-medium"
@@ -1212,7 +1213,7 @@ export default function CorporateAccounts() {
                 )}
               </div>
 
-              {user?.role === 'admin' && (
+              {isAdminLike(user?.role) && (
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
                   <button
                     onClick={(e) => { e.stopPropagation(); editAccount(account); }}
@@ -1245,7 +1246,7 @@ export default function CorporateAccounts() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Financial</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Employees</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
-                  {user?.role === 'admin' && (
+                  {isAdminLike(user?.role) && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
@@ -1320,7 +1321,7 @@ export default function CorporateAccounts() {
                         {account.isActive ? 'Active' : 'Inactive'}
                       </span>
                     </td>
-                    {user?.role === 'admin' && (
+                    {isAdminLike(user?.role) && (
                       <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                         <div className="flex gap-2">
                           <button

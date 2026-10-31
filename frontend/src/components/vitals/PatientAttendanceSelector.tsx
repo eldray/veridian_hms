@@ -84,6 +84,30 @@ const getPatientPaymentMode = (patient: any): string => {
   return normalized?.paymentMode || '';
 };
 
+/**
+ * The visit a clinician is working on now has to be the one the picker opens on, so an open visit
+ * outranks the whole history no matter when it started: today's visit first, then a patient still
+ * admitted, then a visit nobody ever closed, then the archive newest-first. A missing or unreadable
+ * date cannot claim the front of the list — it sorts last within its own group.
+ */
+const attendanceRank = (attendance: any, now: Date = new Date()): number => {
+  const status = String(attendance?.status || '');
+  if (status !== 'pending' && status !== 'admitted') return 3;
+  const at = new Date(attendance?.dateTime ?? '');
+  if (attendance?.dateTime && !Number.isNaN(at.getTime()) && at.toDateString() === now.toDateString()) return 0;
+  return status === 'admitted' ? 1 : 2;
+};
+
+const attendanceTimeKey = (attendance: any): number => {
+  const ms = new Date(attendance?.dateTime || attendance?.createdAt || '').getTime();
+  return Number.isNaN(ms) ? -Infinity : ms;
+};
+
+const compareAttendances = (a: any, b: any): number => {
+  const byRank = attendanceRank(a) - attendanceRank(b);
+  return byRank !== 0 ? byRank : attendanceTimeKey(b) - attendanceTimeKey(a);
+};
+
 export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps> = ({
   patients,
   attendances,
@@ -185,7 +209,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
         : linkedPatient;
       return String(linkedPatientId || '') === selectedPatientId;
     })
-    .sort((a, b) => new Date(b.dateTime || b.createdAt).getTime() - new Date(a.dateTime || a.createdAt).getTime()),
+    .sort(compareAttendances),
     [attendances, selectedPatientId]);
 
   const getStatusIcon = (status: string) => {
@@ -201,7 +225,16 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
     return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
   };
 
-  // Auto-select most recent attendance
+  /** The box must never read as blank: an older record without a minted number falls back to its date. */
+  const attendanceLabel = (attendance: any): string =>
+    attendance?.attendanceNumber
+    || (attendance?.dateTime || attendance?.createdAt
+      ? new Date(attendance.dateTime || attendance.createdAt).toLocaleString()
+      : 'Visit');
+
+  // Auto-select the visit that is open now, not merely the one that started most recently:
+  // a patient admitted last month is still this week's work, while a closed visit from this
+  // morning is already somebody's archive.
   useEffect(() => {
     if (autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId) {
       onAttendanceSelect(String(patientAttendances[0].id || patientAttendances[0]._id));
@@ -352,7 +385,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
           {autoSelectMostRecent && selectedPatientId && patientAttendances.length > 0 && !selectedAttendanceId && (
             <span className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1 ml-2">
               <Sparkles className="w-3 h-3" />
-              Auto-selecting latest...
+              Auto-selecting the open visit...
             </span>
           )}
         </label>
@@ -368,7 +401,7 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
             <input
               ref={attendanceInputRef}
               type="text"
-              value={selectedAttendanceId ? patientAttendances.find(a => String(a.id || a._id) === selectedAttendanceId)?.attendanceNumber || '' : ''}
+              value={selectedAttendanceId ? attendanceLabel(patientAttendances.find(a => String(a.id || a._id) === selectedAttendanceId)) : ''}
               onFocus={() => setShowAttendanceDropdown(true)}
               placeholder={patientAttendances.length > 0 ? "Select a visit..." : "No visits found"}
               readOnly
@@ -412,8 +445,13 @@ export const PatientAttendanceSelector: React.FC<PatientAttendanceSelectorProps>
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-[var(--text-primary)]">
-                              {att.attendanceNumber}
+                              {attendanceLabel(att)}
                             </span>
+                            {attendanceRank(att) < 3 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] text-[10px] font-medium">
+                                Open now
+                              </span>
+                            )}
                             {getStatusIcon(att.status)}
                             <span className="text-xs text-[var(--text-secondary)]">
                               {getStatusText(att.status)}

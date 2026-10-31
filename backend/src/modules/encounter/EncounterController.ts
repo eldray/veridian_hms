@@ -4,7 +4,77 @@ import { BaseController } from '../../shared/base/BaseController';
 import { EncounterService } from './EncounterService';
 import { AuthRequest } from '../../middleware/authMiddleware';
 import { createPaginatedResponse } from '../../shared/types/ApiResponse';
-import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddMedicationDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO } from './EncounterTypes';
+import { CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, AddMedicationDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO, WorklistQuery } from './EncounterTypes';
+import { ValidationError } from '../../utils/errors';
+
+const WORKLIST_VIEWS = ['pending', 'completed', 'outstanding'];
+
+/**
+ * A date typed into a filter is a clinic day, not an instant. Ghana is UTC+0 all year, so the day
+ * is bounded in UTC and `2026-10-30` means that whole day rather than its first second.
+ */
+const dayBounds = (value: string, edge: 'start' | 'end'): Date | null => {
+  const parts = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim());
+  if (parts) {
+    const startOfDay = Date.UTC(Number(parts[1]), Number(parts[2]) - 1, Number(parts[3]));
+    if (Number.isNaN(startOfDay)) return null;
+    return edge === 'start' ? new Date(startOfDay) : new Date(startOfDay + 86_400_000 - 1);
+  }
+  const instant = new Date(value);
+  return Number.isNaN(instant.getTime()) ? null : instant;
+};
+
+export const parseWorklistQuery = (query: Record<string, any> = {}): WorklistQuery => {
+  const rawView = typeof query.view === 'string' ? query.view.trim().toLowerCase() : '';
+  if (rawView && !WORKLIST_VIEWS.includes(rawView)) {
+    throw new ValidationError(
+      `Unknown worklist view "${rawView}". Use pending, completed or outstanding.`,
+      [{ field: 'view', message: 'Use pending, completed or outstanding.', code: 'invalid_view' }],
+    );
+  }
+
+  const single = typeof query.date === 'string' ? query.date.trim() : '';
+  const rawFrom = typeof query.dateFrom === 'string' ? query.dateFrom.trim() : '';
+  const rawTo = typeof query.dateTo === 'string' ? query.dateTo.trim() : '';
+
+  let dateFrom: Date | null = null;
+  let dateTo: Date | null = null;
+
+  if (single && (rawFrom || rawTo)) {
+    throw new ValidationError(
+      'Send either date or dateFrom/dateTo for a worklist, not both.',
+      [{ field: 'date', message: 'Pick one way to set the range.', code: 'conflicting_dates' }],
+    );
+  }
+
+  const read = (value: string, edge: 'start' | 'end', field: string): Date => {
+    const parsed = dayBounds(value, edge);
+    if (!parsed) {
+      throw new ValidationError(
+        `"${value}" is not a date the worklist can use. Expected a day like 2026-10-30.`,
+        [{ field, message: 'Expected a date like 2026-10-30.', code: 'invalid_date' }],
+      );
+    }
+    return parsed;
+  };
+
+  if (single) {
+    dateFrom = read(single, 'start', 'date');
+    dateTo = read(single, 'end', 'date');
+  } else {
+    if (rawFrom) dateFrom = read(rawFrom, 'start', 'dateFrom');
+    if (rawTo) dateTo = read(rawTo, 'end', 'dateTo');
+    if (dateFrom && dateTo && dateFrom.getTime() > dateTo.getTime()) {
+      throw new ValidationError(
+        'The worklist start date is after its end date.',
+        [{ field: 'dateFrom', message: 'Choose a start date before the end date.', code: 'inverted_range' }],
+      );
+    }
+  }
+
+  return { view: (rawView || undefined) as WorklistQuery['view'], dateFrom, dateTo };
+};
+
 
 export class EncounterController extends BaseController {
   private service: EncounterService;
@@ -338,13 +408,18 @@ export class EncounterController extends BaseController {
   });
 
   getVitalsWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getVitalsWorklist();
+    const worklist = await this.service.getVitalsWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Vitals worklist retrieved');
   });
 
   getMedicalWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getMedicalWorklist();
+    const worklist = await this.service.getMedicalWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Medical worklist retrieved');
+  });
+
+  getOutstandingWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const worklist = await this.service.getOutstandingResultsWorklist(parseWorklistQuery(req.query));
+    return this.ok(res, worklist, 'Outstanding results worklist retrieved');
   });
 
   getLabWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {

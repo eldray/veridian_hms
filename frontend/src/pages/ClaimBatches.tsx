@@ -7,11 +7,26 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
-import { getCorporateAccounts, type BatchEligibility, type PeriodClaimRow } from '../api';
+import { useAuthStore } from '../store/authStore';
+import { confirmDialog } from '../context/ConfirmDialog';
+import { describeApiError } from '../utils/apiError';
+import { ClaimItBatchOutcomes, ClaimItHeldBack, ClaimItOutcomeBadge, ClaimItStatusNote } from '../components/claims/ClaimItUI';
+import {
+  getBatchClaimItSubmissions,
+  getClaimItStatus,
+  getCorporateAccounts,
+  submitBatchToClaimIt,
+  deleteBatchFromClaimIt,
+  type BatchEligibility,
+  type ClaimItBatchResult,
+  type ClaimItStatus,
+  type ClaimItSubmissionRow,
+  type PeriodClaimRow,
+} from '../api';
 import type { CorporateAccount } from '../types';
 import {
   ArrowLeft, RefreshCw, Plus, Trash2, Eye, Download, CheckCircle,
-  Clock, FileText, Calendar, DollarSign, Layers,
+  Clock, FileText, Calendar, DollarSign, Layers, Send,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Search, Loader, Printer, XCircle, Link as LinkIcon,
 } from 'lucide-react';
@@ -61,6 +76,11 @@ const periodName = (year: number, month: number) => `${MONTH_NAMES[month - 1]} $
 export default function ClaimBatches() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
+  const { hasRole } = useAuthStore();
+  // Matches the routes: accounts and admin may submit, and only an administrator may ask CLAIM-it
+  // to delete a whole period.
+  const canSendToClaimIt = hasRole(['admin', 'accounts']);
+  const canWithdrawPeriod = hasRole(['admin']);
 
   const {
     batches,
@@ -114,6 +134,22 @@ export default function ClaimBatches() {
   const [eligible, setEligible] = useState<BatchEligibility | null>(null);
   const [eligibleLoading, setEligibleLoading] = useState(false);
   const [eligibleError, setEligibleError] = useState<string | null>(null);
+
+  // CLAIM-it: the payer's answer per batch, kept on the screen until the operator moves on.
+  const [claimitStatus, setClaimItStatus] = useState<ClaimItStatus | null>(null);
+  const [claimitBusy, setClaimItBusy] = useState<string | null>(null);
+  const [claimitResult, setClaimItResult] = useState<ClaimItBatchResult | null>(null);
+  const [claimitHistory, setClaimItHistory] = useState<Array<{ claimId: string; claimNumber: string; submission: ClaimItSubmissionRow | null }>>([]);
+  const [claimitError, setClaimItError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Which CLAIM-it host is configured, and whether sending is switched on at all.
+    let cancelled = false;
+    getClaimItStatus()
+      .then(status => { if (!cancelled) setClaimItStatus(status); })
+      .catch(() => { if (!cancelled) setClaimItStatus(null); });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     getInsuranceProviders().catch(() => undefined);
@@ -255,6 +291,9 @@ export default function ClaimBatches() {
     try {
       const b = await getClaimBatch(id);
       setViewing(b as unknown as BatchRow);
+      setClaimItResult(null);
+      setClaimItError(null);
+      await loadClaimItHistory(id, (b as unknown as BatchRow)?.insuranceType);
     } catch (e: any) {
       toastError('View failed', e?.message || 'Could not load batch');
     }
@@ -307,6 +346,77 @@ export default function ClaimBatches() {
       toastError('Delete failed', e?.response?.data?.message || e?.message);
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  const loadClaimItHistory = async (batchId: string, insuranceType?: string) => {
+    if (insuranceType && insuranceType !== 'nhis') {
+      setClaimItHistory([]);
+      return;
+    }
+    try {
+      const result = await getBatchClaimItSubmissions(batchId);
+      setClaimItHistory(result.claims ?? []);
+      setClaimItError(null);
+    } catch (e: any) {
+      setClaimItHistory([]);
+      setClaimItError(describeApiError(e, 'The CLAIM-it history for this batch could not be read.'));
+    }
+  };
+
+  /**
+   * Push the batch to the NHIS claims server in one request.
+   *
+   * `onlyFailed` re-sends after corrections without re-submitting the claims CLAIM-it already took,
+   * which is what would duplicate them on the payer's side.
+   */
+  const handleSendBatch = async (batch: BatchRow, options: { onlyFailed?: boolean } = {}) => {
+    try {
+      setClaimItBusy(batch.id);
+      setClaimItError(null);
+      const result = await submitBatchToClaimIt(batch.id, options);
+      setClaimItResult(result);
+      await loadClaimItHistory(batch.id, batch.insuranceType);
+      const title =
+        result.totals.failed || result.totals.unknown
+          ? 'CLAIM-it did not take every claim'
+          : result.totals.sent === 0 ? 'Nothing was sent' : 'Sent to CLAIM-it';
+      if (result.totals.failed || result.totals.unknown || result.totals.sent === 0) {
+        toastError(title, result.message);
+      } else {
+        success(title, result.message);
+      }
+    } catch (e: any) {
+      setClaimItError(describeApiError(e, 'The batch could not be sent to CLAIM-it.'));
+      toastError('Not sent to CLAIM-it', describeApiError(e, 'The batch could not be sent to CLAIM-it.'));
+    } finally {
+      setClaimItBusy(null);
+    }
+  };
+
+  /**
+   * Ask CLAIM-it to delete the whole month.
+   *
+   * This is wider than the batch: the payer removes every NHIS claim it holds for that period,
+   * including claims this app never sent, so it is admin-only and asks for the number back.
+   */
+  const handleWithdrawPeriod = async (batch: BatchRow) => {
+    const confirmed = await confirmDialog({
+      title: `Delete ${periodName(batch.periodYear, batch.periodMonth)} from CLAIM-it?`,
+      message: 'CLAIM-it will delete every NHIS claim it holds for this month, not only the claims in this batch, and anything already adjudicated against them is not restored. This cannot be undone from the app.',
+      confirmText: 'Delete the period',
+      type: 'danger',
+    });
+    if (!confirmed) return;
+    try {
+      setClaimItBusy(batch.id);
+      const result = await deleteBatchFromClaimIt(batch.id);
+      success('Period withdrawn', result.message);
+      await loadClaimItHistory(batch.id, batch.insuranceType);
+    } catch (e: any) {
+      toastError('Not withdrawn', describeApiError(e, 'CLAIM-it could not delete this period.'));
+    } finally {
+      setClaimItBusy(null);
     }
   };
 
@@ -644,6 +754,16 @@ export default function ClaimBatches() {
                             <Download className="w-3.5 h-3.5" />
                           </button>
                         )}
+                        {b.insuranceType === 'nhis' && canSendToClaimIt && (
+                          <button
+                            onClick={() => handleSendBatch(b)}
+                            disabled={claimitBusy === b.id}
+                            title="Send to CLAIM-it"
+                            className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg disabled:opacity-50"
+                          >
+                            {claimitBusy === b.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          </button>
+                        )}
                         <button onClick={() => handlePrint(b.id)} title="Print" className="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg">
                           <Printer className="w-3.5 h-3.5" />
                         </button>
@@ -936,6 +1056,72 @@ export default function ClaimBatches() {
                     </p>
                   )}
               </div>
+
+              {viewing.insuranceType === 'nhis' && (
+                <div className="pt-3 border-t">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <h4 className="text-sm font-semibold text-[var(--text-primary)]">CLAIM-it</h4>
+                    {canSendToClaimIt && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleSendBatch(viewing)}
+                          disabled={claimitBusy === viewing.id}
+                          className="px-3 py-1.5 rounded-lg bg-green-100 text-green-800 hover:bg-green-600 hover:text-white text-xs flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {claimitBusy === viewing.id ? <Loader className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                          Send {viewing.totalClaims} claims
+                        </button>
+                        <button
+                          onClick={() => handleSendBatch(viewing, { onlyFailed: true })}
+                          disabled={claimitBusy === viewing.id}
+                          title="Re-send only the claims CLAIM-it rejected or could not confirm"
+                          className="px-3 py-1.5 rounded-lg bg-amber-100 text-amber-800 hover:bg-amber-500 hover:text-white text-xs disabled:opacity-50"
+                        >
+                          Retry rejected
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-2">
+                    <ClaimItStatusNote status={claimitStatus} />
+                    {claimitError && <p className="text-xs text-red-600 mt-1">{claimitError}</p>}
+                  </div>
+
+                  {claimitResult && claimitResult.batchId === viewing.id && (
+                    <div className="mt-3 border border-[var(--border-color)] p-3 bg-[var(--bg-main)]">
+                      <p className="text-xs text-[var(--text-primary)]">{claimitResult.message}</p>
+                      <ClaimItHeldBack held={claimitResult.notReady} />
+                      <ClaimItBatchOutcomes results={claimitResult.results} />
+                    </div>
+                  )}
+
+                  {!claimitResult && claimitHistory.some(row => row.submission) && (
+                    <ul className="mt-2 space-y-1">
+                      {claimitHistory
+                        .filter(row => row.submission)
+                        .map(row => (
+                          <li key={row.claimId} className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
+                            <ClaimItOutcomeBadge outcome={row.submission!.outcome} />
+                            <span className="text-[var(--text-primary)]">{row.claimNumber}</span>
+                            <span>attempt {row.submission!.attemptNo}</span>
+                            {row.submission!.payerCost != null && <span>CLAIM-it cost {Number(row.submission!.payerCost).toFixed(2)}</span>}
+                          </li>
+                        ))}
+                    </ul>
+                  )}
+
+                  {canWithdrawPeriod && claimitHistory.some(row => row.submission) && (
+                    <button
+                      onClick={() => handleWithdrawPeriod(viewing)}
+                      disabled={claimitBusy === viewing.id}
+                      className="mt-3 text-xs text-red-600 underline disabled:opacity-50"
+                    >
+                      Delete this month from CLAIM-it
+                    </button>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-3 pt-3 border-t flex-wrap">
                 {viewing.insuranceType === 'nhis' && (

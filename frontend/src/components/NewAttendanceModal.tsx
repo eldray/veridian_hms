@@ -6,6 +6,7 @@ import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useToast } from '../store/toastStore';
+import { describeApiError } from '../utils/apiError';
 import { X, Save, User, CheckCircle, CreditCard, Tag, Shield, Building, AlertCircle, Calendar, Clock, FileText, Stethoscope } from 'lucide-react';
 import type { AttendanceType, PaymentMode, AttendanceStatus } from '../types';
 import ComplaintInput from './ComplaintInput';
@@ -228,19 +229,9 @@ export default function NewAttendanceModal({
         onSuccess(result);
       }, 1500);
     } catch (err: any) {
-      let errorMessage = 'Failed to save attendance';
-
-      if (err.response?.data) {
-        const serverError = err.response.data;
-        errorMessage = serverError.message || serverError.error || errorMessage;
-        if (serverError.errors) {
-          console.error('Validation errors:', serverError.errors);
-        }
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
-      error('Save Failed', errorMessage);
+      // An update goes through the attendance store, which re-throws a plain Error, so the field
+      // list is not on `err.response` here - the reason is already in the message.
+      error('Save Failed', describeApiError(err, 'Failed to save attendance'));
     }
   };
 

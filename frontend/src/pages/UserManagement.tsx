@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import UserEditModal from '../components/UserEditModal';
 import UserRegistrationModal from '../components/UserRegistrationModal';
 import type { User } from '../types';
+import { describeApiError } from '../utils/apiError';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -378,8 +379,8 @@ export default function UserManagement() {
       await updateUser(editingUser.id, userData);
       setEditingUser(null);
       success('User Updated', `${userData.fullName || editingUser.fullName} updated`);
-    } catch (err) {
-      toastError('Update Failed', 'Could not update user');
+    } catch (err: any) {
+      toastError('User not updated', describeApiError(err, 'The user could not be updated.'));
     }
   };
 
@@ -389,8 +390,8 @@ export default function UserManagement() {
       await deactivateUser(deactivatingUser.id);
       setDeactivatingUser(null);
       success('User Deactivated', `${deactivatingUser.fullName} deactivated`);
-    } catch (err) {
-      toastError('Deactivation Failed', 'Could not deactivate user');
+    } catch (err: any) {
+      toastError('User not deactivated', describeApiError(err, 'The user could not be deactivated.'));
     }
   };
 

@@ -592,6 +592,17 @@ export class UserService extends BaseService {
     // Fetch previous state for audit
     const before = await this.repository.findFullProfile(userId);
 
+    // This path writes the same User row as updateUser, so it needs that method's
+    // super-admin protections too: without them an admin or hr_officer could rename a
+    // super administrator, redirect their email, or demote them to another role.
+    const target = await this.repository.findById(userId);
+    if (!target) throw new Error('User not found');
+    const targetRole = String(target.role).toLowerCase();
+    const actorRole = String(actor.role).toLowerCase();
+    if (targetRole === 'super_admin' && actorRole !== 'super_admin') {
+      throw new Error('Only super admins can modify a super-admin account');
+    }
+
     if (payload.user && Object.keys(payload.user).length > 0) {
       const userUpdate: any = {};
       for (const [k, v] of Object.entries(payload.user)) {
@@ -599,7 +610,7 @@ export class UserService extends BaseService {
         if (!isAdminLike && !this.SELF_EDITABLE_USER_FIELDS.includes(k)) continue;
 
         // Nobody but super_admin can escalate role to super_admin
-        if (k === 'role' && v === 'super_admin' && actor.role !== 'super_admin') continue;
+        if (k === 'role' && String(v).toLowerCase() === 'super_admin' && actorRole !== 'super_admin') continue;
 
         if (k === 'departmentId') {
           if (!isAdminLike) continue;

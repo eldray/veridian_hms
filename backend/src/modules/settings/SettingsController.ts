@@ -1,6 +1,7 @@
 import { hasValidNHISToken } from './nhis-eligibility.service';
 import { Request, Response } from 'express';
 import { validationResult } from 'express-validator';
+import { createErrorResponse } from '../../shared/types/ApiResponse';
 import * as settingsService from './SettingsService';
 import * as nhisEligibilityService from './nhis-eligibility.service';
 
@@ -34,7 +35,7 @@ export const updateHospitalDetails = async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
     }
 
     const { name, address, phone, email, imageUrl } = req.body;
@@ -100,7 +101,7 @@ export const updateNHISApiConfig = async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
     }
 
     const {
@@ -171,7 +172,7 @@ export const verifyNHISEligibility = async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
     }
 
     const { policyNumber } = req.body;
@@ -187,7 +188,7 @@ export const bulkVerifyNHISEligibility = async (req: Request, res: Response) => 
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
     }
 
     const { policyNumbers } = req.body;
@@ -211,7 +212,7 @@ export const generateCCC = async (req: Request, res: Response) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ success: false, errors: errors.array() });
+      return res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
     }
 
     const { policyNumber, encounterId, totalAmount } = req.body;

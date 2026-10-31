@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
 import { useToast } from '../store/toastStore';
 import { Search, User, Mail, Send, X, Users } from 'lucide-react';
+import { describeApiError } from '../utils/apiError';
 
 interface UserMessageModalProps {
   isOpen: boolean;
@@ -73,8 +74,8 @@ export const UserMessageModal: React.FC<UserMessageModalProps> = ({
       setMessage('');
       setSelectedUser(null);
       onClose();
-    } catch (err) {
-      toastError('Send Failed', 'Could not send message');
+    } catch (err: any) {
+      toastError('Message not sent', describeApiError(err, 'The message could not be sent.'));
     } finally {
       setIsSending(false);
     }

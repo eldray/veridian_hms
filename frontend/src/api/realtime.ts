@@ -41,6 +41,12 @@ let hasConnectedBefore = false;
 let abort: AbortController | null = null;
 let pollTimer: number | null = null;
 let backoff = 2000;
+// Which connectLoop() call owns the connection right now. A loop that is sleeping between
+// reconnect attempts wakes into `running = true` again after a remount restarted the stream,
+// and would then open a second /events connection beside it. Each stream holds one of the six
+// sockets the browser allows per host, so a leaked one is enough to stall unrelated reads
+// until they hit the Axios timeout.
+let loopGeneration = 0;
 
 const allHandlers = () => {
   const all = new Set<Handler>();
@@ -113,7 +119,9 @@ function stopPolling() {
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 async function connectLoop() {
-  while (running) {
+  const generation = ++loopGeneration;
+  const ownsLoop = () => running && generation === loopGeneration;
+  while (ownsLoop()) {
     abort = new AbortController();
     // Watchdog: the server pings every 25 s. A half-dead connection (sleep, Wi-Fi drop, busy server)
     // never errors, it just goes silent, and the app then looks frozen until a reload. Cut it and reconnect.
@@ -163,6 +171,12 @@ async function connectLoop() {
       /* dropped or aborted: fall through to the reconnect wait */
     }
     window.clearInterval(watchdog);
+    if (!ownsLoop()) {
+      // Superseded by a newer stream. Close this attempt if it is still the tracked one and
+      // return: the newer loop owns `connected`, the backoff and the reconnect schedule now.
+      if (mine === abort) { abort?.abort(); abort = null; }
+      return;
+    }
     connected = false;
     if (!running) return;
     startPolling();
@@ -178,15 +192,38 @@ function onVisibilityChange() {
   catchUp.forEach(schedule);
 }
 
+// Navigating unmounts the old screen a beat before the new one subscribes. Closing the stream
+// inside that gap drops announcements for data the new screen has not fetched yet, and every
+// reopen spends another /events connection - one of the six sockets a browser allows per host.
+const CLOSE_GRACE_MS = 5_000;
+let closeTimer: number | null = null;
+
+function clearCloseTimer() {
+  if (closeTimer === null) return;
+  window.clearTimeout(closeTimer);
+  closeTimer = null;
+}
+
 function start() {
+  clearCloseTimer(); // a screen came back before the grace period expired
   if (running) return;
   running = true;
   document.addEventListener('visibilitychange', onVisibilityChange);
   void connectLoop();
 }
 
+function scheduleStop() {
+  if (closeTimer !== null) return;
+  closeTimer = window.setTimeout(() => {
+    closeTimer = null;
+    if (subscribers.size === 0) stop();
+  }, CLOSE_GRACE_MS);
+}
+
 function stop() {
+  clearCloseTimer();
   running = false;
+  loopGeneration++; // a loop sleeping between attempts must not reconnect on behalf of a stopped stream
   connected = false;
   abort?.abort();
   abort = null;
@@ -218,7 +255,7 @@ export function subscribeToChanges(topics: string[], handler: Handler): () => vo
     stale.delete(handler);
     lastRunAt.delete(handler);
     inFlight.delete(handler);
-    if (subscribers.size === 0) stop();
+    if (subscribers.size === 0) scheduleStop();
   };
 }
 

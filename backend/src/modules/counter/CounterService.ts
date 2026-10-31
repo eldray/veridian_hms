@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
-import { ConflictError, ValidationError } from '../../utils/errors';
+import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { EncounterRepository } from '../encounter/EncounterRepository';
 import { EncounterService } from '../encounter/EncounterService';
 import { BillService } from '../bill/BillService';
@@ -71,7 +71,14 @@ export class CounterService extends BaseService {
     // The visit screen reads the encounter through the same projection, so the counter
     // page shows the same orders, results and bills it would show at the desk.
     const detail = await this.encounters.findById(id);
-    return { ...(detail ?? ticket), CounterClient: ticket.CounterClient, Patient: ticket.Patient };
+    return {
+      ...(detail ?? ticket),
+      CounterClient: ticket.CounterClient,
+      Patient: ticket.Patient,
+      // The encounter projection omits the staff row, but the bench needs to know who
+      // opened the ticket before it takes money from the customer.
+      openedBy: (ticket as any).User_Attendance_createdByIdToUser?.fullName ?? null,
+    };
   }
 
   /** Every ticket write: prove it is a counter ticket and that it is still open. */
@@ -150,7 +157,22 @@ export class CounterService extends BaseService {
    */
   async raiseBill(ticketId: string, userId: string) {
     await this.requireOpenTicket(ticketId);
-    const bill = await this.bills.generateFromEncounter(ticketId, userId);
+    let bill: any;
+    try {
+      bill = await this.bills.generateFromEncounter(ticketId, userId);
+    } catch (err: any) {
+      // The bill repository signals its own refusals with plain Errors, which the global
+      // handler reports as an anonymous 500 ("Internal server error") in production. The
+      // desk is standing at the counter with a customer, so name the reason instead.
+      const message = String(err?.message || '');
+      if (/No billable items/i.test(message)) {
+        throw new ConflictError('Nothing is billable yet — hand an item over, file a result or render a service before raising the bill.');
+      }
+      if (/legacy bill/i.test(message)) throw new ConflictError(message);
+      if (/No valid active cash price/i.test(message)) throw new ValidationError(message);
+      if (/not found/i.test(message) && !err?.statusCode) throw new NotFoundError('Counter ticket', ticketId);
+      throw err;
+    }
     this.logInfo('Counter bill raised', { ticketId, billId: (bill as any)?.id });
     return bill;
   }

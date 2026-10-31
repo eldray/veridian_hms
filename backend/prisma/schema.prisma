@@ -1213,6 +1213,7 @@ model InsuranceClaim {
 
   items InsuranceClaimItem[]
   trackingEvents InsuranceClaimTrackingEvent[]
+  claimitSubmissions ClaimItSubmission[]
 
   batch   ClaimBatch? @relation(fields: [batchId], references: [id])
   batchId String?     @map("batch_id")
@@ -1251,6 +1252,58 @@ model InsuranceClaimTrackingEvent {
   @@map("insurance_claim_tracking_events")
 }
 
+/// What CLAIM-it answered about one claim, once per attempt.
+enum ClaimItOutcome {
+  passed
+  warned
+  error
+  unknown
+
+  @@map("ClaimItOutcome")
+}
+
+/// One submission of a claim to the CLAIM-it claims server, and the answer it gave.
+model ClaimItSubmission {
+  id String @id @default(cuid())
+
+  /// Which claim, and - when sent as part of a batch - which batch carried it.
+  claimId String
+  batchId String?
+  /// 1 for the first send of a claim, then one higher per attempt. CLAIM-it keeps a claim under the
+  /// number we sent it, so a re-send replaces it there; this is the record of every try.
+  attemptNo Int @default(1)
+
+  outcome ClaimItOutcome
+
+  /// The claim exactly as it left this building. When the payer's figure is disputed, this is the
+  /// evidence of what was actually submitted, not what the database looks like today.
+  payload Json
+  /// CLAIM-it's own `code / info / help` lines, flattened: [{ level: "error" | "warning", code, info, help }]
+  issues  Json  @default("[]")
+
+  /// CLAIM-it re-prices the claim from its GDRG tariffs; it does not accept our line prices.
+  /// `payerCost` is what it computed, `initialCost` what the claim stood at in its database before.
+  payerCost     Decimal? @db.Decimal(15, 2)
+  initialCost   Decimal? @db.Decimal(15, 2)
+  reportSummary Json?
+
+  responseMs    Int?
+  /// Our correlation id for the outbound call, to line this row up with the server's log.
+  requestId     String?
+  submittedById String
+  createdAt     DateTime @default(now())
+
+  claim       InsuranceClaim @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  batch       ClaimBatch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  submittedBy User           @relation("ClaimItSubmission_submittedBy", fields: [submittedById], references: [id])
+
+  @@unique([claimId, attemptNo])
+  @@index([claimId, createdAt])
+  @@index([batchId])
+  @@index([outcome])
+  @@map("claimit_submissions")
+}
+
 model ClaimBatch {
   id                  String        @id @default(cuid())
   batchNumber         String        @unique
@@ -1277,6 +1330,8 @@ model ClaimBatch {
   finalizedBy       User?              @relation("Batch_finalizedBy", fields: [finalizedById], references: [id])
   insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
   corporateAccount  CorporateAccount?  @relation(fields: [corporateAccountId], references: [id])
+
+  claimitSubmissions ClaimItSubmission[]
 
   @@unique([insuranceType, insuranceProviderId, corporateAccountId, periodYear, periodMonth])
   @@index([periodYear, periodMonth])
@@ -2256,6 +2311,7 @@ model User {
   InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_createdByIdToUser")
   InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_updatedByIdToUser")
   claimTrackingEvents InsuranceClaimTrackingEvent[] @relation("ClaimTrackingEvent_recordedBy")
+  claimitSubmissions  ClaimItSubmission[]           @relation("ClaimItSubmission_submittedBy")
   Invoice                                         Invoice[]
   LabTest_LabTest_createdByIdToUser               LabTest[]                 @relation("LabTest_createdByIdToUser")
   LabTest_LabTest_performedByIdToUser             LabTest[]                 @relation("LabTest_performedByIdToUser")

@@ -3,6 +3,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { X, Search, Stethoscope, AlertCircle, Star, Clock, Plus, CheckCircle } from 'lucide-react';
 import { useAttendanceStore } from '../../../store/attendanceStore';
 import { useToast } from '../../../store/toastStore';
+import { describeApiError, describeApiErrorTitle } from '../../../utils/apiError';
 
 interface DiagnosisModalProps {
   isOpen: boolean;
@@ -79,7 +80,7 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
   const debouncedSearch = useDebounced(searchTerm, 150);
 
   const { addDiagnosis } = useAttendanceStore();
-  const { success, error } = useToast();
+  const { success, error, info } = useToast();
 
   useEffect(() => {
     if (!isOpen) return;
@@ -141,7 +142,15 @@ export const DiagnosisModal: React.FC<DiagnosisModalProps> = ({
       clearSelection();
       onSuccess();
     } catch (err: any) {
-      error('Add failed', err.response?.data?.message || err.message || 'Could not add diagnosis');
+      // A duplicate means the row is already on this visit. Refresh so the list shows it,
+      // rather than leaving the panel looking as though nothing had been saved.
+      if (err?.response?.status === 409) {
+        info('Already recorded', `${selectedDiagnosis.name} is already on this visit.`);
+        clearSelection();
+        onSuccess();
+        return;
+      }
+      error(describeApiErrorTitle(err, 'Add failed'), describeApiError(err, 'The diagnosis could not be added.'));
     } finally {
       setIsSubmitting(false);
     }

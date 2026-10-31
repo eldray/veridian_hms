@@ -1,1 +1,0 @@
-ALTER TABLE "StockTransferItem" ADD COLUMN "batchAllocations" JSONB;

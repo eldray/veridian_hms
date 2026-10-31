@@ -26,7 +26,10 @@ export const createDocumentRoutes = () => {
 
   // Document retrieval routes
   router.get('/entity/:entityType/:entityId', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.getDocumentsByEntity);
-  router.get('/:id/download', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'pharmacist', 'accounts']), documentController.downloadDocument);
+  // The sonographer may generate a result sheet (POST /lab-result above names them), so the
+  // download has to accept them too — otherwise the print button creates a document the
+  // desk cannot open and the file is only ever visible as a 403.
+  router.get('/:id/download', requireRole(['admin', 'records', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'pharmacist', 'accounts']), documentController.downloadDocument);
 
   // Document template routes
   router.get('/templates', requireRole(['admin', 'records']), documentController.getDocumentTemplates);

@@ -228,7 +228,7 @@ export class MomoPaymentService {
   async getStatus(intentId: string, userId: string, role?: string) {
     let intent = await this.prisma.momoPaymentIntent.findUnique({ where: { id: intentId } });
     if (!intent) throw Object.assign(new Error('MoMo payment attempt not found.'), { statusCode: 404 });
-    if (intent.initiatedById !== userId && !['admin', 'accounts'].includes(String(role || '').toLowerCase())) {
+    if (intent.initiatedById !== userId && !['super_admin', 'admin', 'accounts'].includes(String(role || '').toLowerCase())) {
       throw Object.assign(new Error('You are not authorised to view this payment attempt.'), { statusCode: 403 });
     }
 

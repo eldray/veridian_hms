@@ -4,6 +4,7 @@ import { confirmDialog } from '../context/ConfirmDialog';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
+import { isAdminLike } from '../config/access';
 import { useToast } from '../store/toastStore';
 import {
   Plus,
@@ -366,7 +367,7 @@ export default function InsuranceProviders() {
             <Shield className="w-4 h-4" />
             Insurance Claims
           </button>
-          {user?.role === 'admin' && (
+          {isAdminLike(user?.role) && (
             <div className="relative">
               <button
                 onClick={() => setShowAddDropdown(!showAddDropdown)}
@@ -896,7 +897,7 @@ export default function InsuranceProviders() {
                 )}
               </div>
 
-              {user?.role === 'admin' && (
+              {isAdminLike(user?.role) && (
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
                   <button
                     onClick={() => handleEdit(provider)}
@@ -928,7 +929,7 @@ export default function InsuranceProviders() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Contact</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
-                  {user?.role === 'admin' && (
+                  {isAdminLike(user?.role) && (
                     <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
                   )}
                 </tr>
@@ -1005,7 +1006,7 @@ export default function InsuranceProviders() {
                         </span>
                       </div>
                     </td>
-                    {user?.role === 'admin' && (
+                    {isAdminLike(user?.role) && (
                       <td className="px-6 py-4">
                         <div className="flex gap-2">
                           <button

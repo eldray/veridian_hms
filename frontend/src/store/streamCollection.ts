@@ -16,9 +16,9 @@
 import { API_PAGE_SIZE, fetchAllPages } from '../api';
 
 const DEFAULT_TTL_MS = 30_000;
-// The renderer allows 4 concurrent GETs; streaming 3 at a time walks the pages fast
-// while leaving a slot free for whatever the user just clicked.
-const DEFAULT_CONCURRENCY = 3;
+// A whole-collection walk runs in the gate's background lane, which is 2 requests wide;
+// queueing more only adds waiters that sit idle while interactive reads go first.
+const DEFAULT_CONCURRENCY = 2;
 const DEFAULT_MAX_ITEMS = 10_000;
 
 interface CacheEntry {

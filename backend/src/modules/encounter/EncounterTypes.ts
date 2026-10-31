@@ -77,12 +77,30 @@ export interface BaseWorklistItem {
   // null for a counter ticket, which is served by name instead of by patient folder.
   patientId: string | null;
   attendanceId: string;
+  // The visit number is what a clinician reads out ("ATT-10042") and what a paper file is
+  // searched by; the folder number identifies the patient. A queue row needs both.
+  attendanceNumber: string;
+  attendanceDateTime?: string;
   patient: { name: string; age: number | null; gender: string | null; folderNumber: string | null; isCounter?: boolean; };
   location?: { ward?: string; bed?: string; };
   waitTime: number;
   priority: 'routine' | 'urgent' | 'stat';
   status: string;
   encounterCategory: string;
+}
+
+/**
+ * Which end of the queue a worklist request is asking for.
+ *  pending     - visits still open: today's work first, then inpatients, then anything overdue
+ *  completed   - visits closed today (wider with a date filter), so a desk can review finished work
+ *  outstanding - visits closed while a lab, scan or procedure is still unanswered
+ */
+export type WorklistView = 'pending' | 'completed' | 'outstanding';
+
+export interface WorklistQuery {
+  view?: WorklistView;
+  dateFrom?: Date | null;
+  dateTo?: Date | null;
 }
 
 export interface AddDiagnosisDTO {

@@ -178,11 +178,7 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
       case 'diagnoses': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records']);
       case 'lab-tests': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'records', 'accounts']);
       case 'procedures': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'records', 'accounts']);
-<<<<<<< HEAD
       case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'sonographer', 'accounts']);
-=======
-      case 'scans': return hasRole(['admin', 'doctor', 'nurse', 'midwife', 'lab_tech', 'accounts']);
->>>>>>> refs/remotes/origin/main
     }
   };
   const firstReadableTab = (['diagnoses', 'lab-tests', 'procedures', 'scans'] as ActiveTab[]).find(canReadTab) ?? 'diagnoses';
@@ -499,22 +495,6 @@ export default function MedicalServicesManagement({ initialTab = 'diagnoses' }: 
     { id: 'scans' as ActiveTab, label: 'Scans', icon: Scan, color: 'orange', count: totalCounts.scans },
   ];
   const visibleTabs = tabs.filter(tab => canReadTab(tab.id));
-<<<<<<< HEAD
-=======
-
-  // Only request datasets the current role is permitted to read.
-  useEffect(() => {
-    const loadInitialData = async () => {
-      await Promise.all([
-        ...(canReadTab('diagnoses') ? [getDiagnoses({ limit: 1000 })] : []),
-        ...(canReadTab('lab-tests') ? [getLabTestTemplates({ limit: 1000 })] : []),
-        ...(canReadTab('procedures') ? [getProcedureTemplates({ limit: 1000 })] : []),
-        ...(canReadTab('scans') ? [getScanTemplates({ limit: 1000 })] : []),
-      ]);
-    };
-    void loadInitialData();
-  }, []);
->>>>>>> refs/remotes/origin/main
 
   const filteredData = getFilteredData();
   const isLoading = getIsLoading();

@@ -58,8 +58,8 @@ export const ClaimCard: React.FC<{ title: string; action?: React.ReactNode; clas
 /** Label above, value below, dotted underline – like the NHIA inputs. */
 export const UField: React.FC<{
   label: string; value: string; onChange?: (v: string) => void; type?: string; disabled?: boolean; placeholder?: string;
-  icon?: 'search' | 'calendar'; hint?: string; className?: string;
-}> = ({ label, value, onChange, type = 'text', disabled, placeholder, icon, hint, className = '' }) => (
+  icon?: 'search' | 'calendar'; hint?: string; error?: string; className?: string;
+}> = ({ label, value, onChange, type = 'text', disabled, placeholder, icon, hint, error, className = '' }) => (
   <div className={className}>
     <label className="block text-[11px] text-[var(--text-secondary)] mb-0.5">{label}</label>
     <div className={`flex items-center border-b border-dotted ${disabled ? 'border-[var(--border-color)]' : 'border-[var(--text-tertiary)]'}`}>
@@ -74,7 +74,11 @@ export const UField: React.FC<{
       {icon === 'search' && <Search className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />}
       {icon === 'calendar' && <Calendar className="w-3.5 h-3.5 text-[var(--text-secondary)]" />}
     </div>
-    {hint && <p className="text-[11px] text-[var(--text-secondary)] mt-1">{hint}</p>}
+    {error ? (
+      <p className="text-[11px] text-red-500 mt-1">{error}</p>
+    ) : hint ? (
+      <p className="text-[11px] text-[var(--text-secondary)] mt-1">{hint}</p>
+    ) : null}
   </div>
 );
 

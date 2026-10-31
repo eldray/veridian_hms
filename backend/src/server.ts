@@ -158,7 +158,7 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  const { status, message } = toHttpError(error);
+  const { status, message, details } = toHttpError(error);
   // Expected client errors (404, 400, 409 ...) are not worth a stack trace in the log
   if (status >= 500) console.error(`🚨 [${req.id}] Global error handler:`, error);
   else console.warn(`⚠️  [${req.id}] ${req.method} ${req.originalUrl.split('?')[0]} -> ${status}: ${message}`);
@@ -167,6 +167,8 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   res.status(status).json({
     success: false,
     message,
+    // Field-level reasons, so a form can say "Birth weight is required" instead of "Save failed".
+    ...(details ? { details } : {}),
     requestId: req.id,
     ...(process.env.NODE_ENV === 'development' && status >= 500 && { stack: error.stack })
   });

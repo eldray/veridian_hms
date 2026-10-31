@@ -10,17 +10,18 @@ const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
 // ✅ Resolve a real system actor for auto-generated bills.
 // Bill.createdById is a REQUIRED foreign key to User, so a literal 'system'
-// string violates the FK constraint. Attribute system bills to an admin user.
+// string violates the FK constraint. Attribute system bills to an administrator.
+// Super admins count: an installed database may only have the `superadmin` account.
 let cachedSystemUserId: string | null = null;
 const getSystemUserId = async (): Promise<string> => {
   if (cachedSystemUserId) return cachedSystemUserId;
   const admin = await prisma.user.findFirst({
-    where: { role: 'admin', isActive: true },
+    where: { role: { in: ['admin', 'super_admin'] }, isActive: true },
     orderBy: { createdAt: 'asc' },
     select: { id: true }
   });
   if (!admin) {
-    throw new Error('No active admin user found to attribute system-generated ward-charge bills to');
+    throw new Error('No active administrator found to attribute system-generated ward-charge bills to');
   }
   cachedSystemUserId = admin.id;
   return cachedSystemUserId;

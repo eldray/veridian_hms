@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { X, Hospital, Baby, AlertTriangle, Plus, Trash2, FileText } from 'lucide-react';
 import { useDeliveryStore } from '../../store/deliveryStore';
 import { useToast } from '../../store/toastStore';
+import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
 
 interface NewbornData {
   id?: string;
@@ -160,8 +161,31 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     setNewborns(updated);
   };
 
+  // A blank newborn outcome or weight makes the database reject the whole record, and the
+  // midwife used to see only "Error". Name the missing field before the request is sent.
+  const findMissingFields = (): string[] => {
+    const missing: string[] = [];
+    if (!formData.deliveryDate) missing.push('Delivery date');
+    if (!formData.deliveryType) missing.push('Mode of delivery');
+    if (!formData.deliveryOutcome) missing.push('Delivery outcome');
+    if (!formData.maternalOutcome) missing.push('Maternal outcome');
+    if (formData.maternalDeathsAudited && !formData.auditNotes.trim()) missing.push('Maternal death audit notes');
+    newborns.forEach((baby) => {
+      const label = newborns.length > 1 ? `Newborn ${baby.order}` : 'Newborn';
+      if (!baby.outcome) missing.push(`${label} outcome`);
+      if (!Number(Number(baby.birthWeight)) || Number(baby.birthWeight) <= 0) missing.push(`${label} weight`);
+      if (!baby.gender) missing.push(`${label} sex`);
+    });
+    return missing;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const missing = findMissingFields();
+    if (missing.length > 0) {
+      toastError('Check the form', `${missing.join(', ')} ${missing.length > 1 ? 'are' : 'is'} not given.`);
+      return;
+    }
     setLoading(true);
     try {
       const data = {
@@ -212,7 +236,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Delivery save error:', err);
-      toastError('Error', err.response?.data?.message || err.message);
+      toastError(describeApiErrorTitle(err, 'Not saved'), describeApiError(err, 'The delivery record could not be saved.'));
     } finally {
       setLoading(false);
     }

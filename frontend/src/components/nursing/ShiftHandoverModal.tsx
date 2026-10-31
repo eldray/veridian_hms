@@ -5,6 +5,7 @@ import {
   AlertTriangle, FileText, Moon, Sun, Sunrise
 } from 'lucide-react';
 import { getPatientName } from '../../utils/patient';
+import { describeApiError } from '../../utils/apiError';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
   const [handoverNotes, setHandoverNotes] = useState('');
   const [checkedTasks, setCheckedTasks]   = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting]   = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const toggleTask = (patientId: string, taskId: string) => {
     const key = `${patientId}::${taskId}`;
@@ -163,6 +165,7 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSaveError('');
     try {
       await onComplete({
         notes: handoverNotes,
@@ -174,6 +177,9 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
       });
       handlePrint();
       onClose();
+    } catch (err: any) {
+      // Closing on a failed write would tell the nurse the handover was recorded when it was not.
+      setSaveError(describeApiError(err, 'The handover could not be recorded.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -333,6 +339,11 @@ export const ShiftHandoverModal: React.FC<ShiftHandoverModalProps> = ({
         </div>
 
         {/* ── Footer ───────────────────────────────────────────────────────── */}
+        {saveError ? (
+          <div role="alert" className="px-6 py-3 border-t border-[var(--border-color)] bg-[var(--icon-red-bg)] text-sm text-[var(--icon-red-text)]">
+            {saveError}
+          </div>
+        ) : null}
         <div className="flex items-center gap-3 px-6 py-4 border-t border-[var(--border-color)] bg-[var(--bg-main)] rounded-b-xl flex-shrink-0">
           <button
             onClick={onClose}

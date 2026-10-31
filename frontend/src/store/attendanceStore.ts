@@ -1,5 +1,6 @@
 // stores/attendanceStore.ts - COMPLETE FIXED VERSION (Single copy)
 import { create } from 'zustand';
+import { describeApiError } from '../utils/apiError';
 
 // Only the most recently requested visit/list request may replace shared store data.
 let attendanceFetchSequence = 0;
@@ -461,15 +462,9 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
         responseData: error.response?.data
       });
       
-      // ✅ Extract detailed error message from response
-      let errorMessage = error.message || 'Failed to update attendance';
-      if (error.response?.data?.errors) {
-        // Handle validation errors array
-        const validationErrors = error.response.data.errors;
-        errorMessage = validationErrors.map((err: any) => err.msg).join(', ');
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
+      // Name what the API rejected. Reading only `errors[].msg` - the shape one validator used to
+      // return - produced an empty message, so a refused update reported nothing at all.
+      const errorMessage = describeApiError(error, 'Failed to update attendance');
       
       set({ 
         error: errorMessage, 

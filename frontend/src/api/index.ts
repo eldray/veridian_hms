@@ -1,5 +1,7 @@
 // src/api/index.ts - COMPLETE CONSOLIDATED VERSION (FIXED)
-import api from './api';
+import api, { runBulk } from './api';
+
+export { runBulk };
 import type {
   Patient, PatientAllergy, InsuranceProvider,
   StockItem, StockTransaction, Ward, Bed, User,
@@ -290,6 +292,16 @@ export interface FetchAllPagesOptions<T> {
  * returns an array or { data: [...], pagination: { total } }.
  */
 export async function fetchAllPages<T = any>(
+  fetchPage: (params: any) => Promise<any>,
+  params: any = {},
+  options: FetchAllPagesOptions<T> = {}
+): Promise<T[]> {
+  // Queued as background work: the walk's own page requests must not be the reason a
+  // single read the user is waiting for gets abandoned at the queue ceiling.
+  return runBulk(() => walkAllPages<T>(fetchPage, params, options));
+}
+
+async function walkAllPages<T = any>(
   fetchPage: (params: any) => Promise<any>,
   params: any = {},
   options: FetchAllPagesOptions<T> = {}
@@ -1321,6 +1333,126 @@ export const downloadBatchXml = (batchId: string): Promise<void> =>
 /** Batch summary print (any type) — open the authenticated print-ready HTML view. */
 export const printClaimBatch = (batchId: string): Promise<void> =>
   openAuthenticatedPrintView(`/insurance-claims/batches/${batchId}/print`);
+
+// ──────────────────────────────────────────────
+// CLAIM-it (the NHIS claims server)
+// ──────────────────────────────────────────────
+// Sending is switched on per facility with CLAIMIT_ENABLED on the backend. Until it is, everything
+// here refuses to dispatch and says why; the XML download keeps working as the manual route.
+
+export type ClaimItOutcome = 'passed' | 'warned' | 'error' | 'unknown';
+
+export interface ClaimItIssue {
+  level: 'error' | 'warning';
+  code: string;
+  info: string;
+  help: string;
+}
+
+export interface ClaimItStatus {
+  enabled: boolean;
+  configured: boolean;
+  baseUrl: string;
+  format: 'xml' | 'json';
+  message: string;
+}
+
+export interface ClaimItReportCounters {
+  reportDate?: string;
+  timeTaken?: string;
+  passedClaims?: number;
+  failedClaims?: number;
+  warnedClaims?: number;
+  savedClaims?: number;
+  totalCost?: number;
+}
+
+export interface ClaimItSubmissionResult {
+  submissionId: string | null;
+  claimId: string;
+  claimNumber: string;
+  outcome: ClaimItOutcome;
+  attemptNo: number;
+  cost: string | null;
+  initCost: string | null;
+  errors: ClaimItIssue[];
+  warnings: ClaimItIssue[];
+  batch: ClaimItReportCounters;
+  message: string;
+}
+
+/** A claim the backend would not put on the wire, with the fields that stop it. */
+export interface ClaimItBlockedClaim {
+  claimId: string;
+  claimNumber: string;
+  reasons: Array<{ field?: string; message?: string; code?: string }>;
+}
+
+export interface ClaimItBatchResult {
+  batchId: string;
+  batchNumber: string;
+  totals: {
+    claims: number;
+    sent: number;
+    passed: number;
+    warned: number;
+    failed: number;
+    unknown: number;
+    notReady: number;
+    alreadyAccepted: number;
+  };
+  results: ClaimItSubmissionResult[];
+  notReady: ClaimItBlockedClaim[];
+  message: string;
+}
+
+export interface ClaimItSubmissionRow {
+  id: string;
+  claimId: string;
+  claimNumber?: string | null;
+  batchId: string | null;
+  attemptNo: number;
+  outcome: ClaimItOutcome;
+  issues: ClaimItIssue[];
+  payerCost: string | null;
+  initialCost: string | null;
+  reportSummary: (ClaimItReportCounters & { transportError?: string; rawResponse?: string }) | null;
+  responseMs: number | null;
+  requestId: string | null;
+  submittedBy: string | null;
+  createdAt: string;
+}
+
+export const getClaimItStatus = (): Promise<ClaimItStatus> =>
+  api.get('/insurance-claims/claimit/status').then(r => r.data?.data ?? r.data);
+
+export const testClaimItConnection = (): Promise<{ ok: boolean; message: string }> =>
+  api.post('/insurance-claims/claimit/test-connection').then(r => r.data?.data ?? r.data);
+
+/** Send one finalized claim. A 400 carries `details` naming the field that is missing. */
+export const submitClaimToClaimIt = (claimId: string): Promise<ClaimItSubmissionResult> =>
+  api.post(`/insurance-claims/${claimId}/submit-claimit`).then(r => r.data?.data ?? r.data);
+
+export const getClaimClaimItSubmissions = (claimId: string): Promise<{ claimNumber: string; submissions: ClaimItSubmissionRow[] }> =>
+  api.get(`/insurance-claims/${claimId}/claimit-submissions`).then(r => r.data?.data ?? r.data);
+
+/** Withdraw one claim from the CLAIM-it database, referenced by its claim number. */
+export const deleteClaimFromClaimIt = (claimId: string): Promise<{ claimNumber: string; message: string }> =>
+  api.delete(`/insurance-claims/${claimId}/claimit`).then(r => r.data?.data ?? r.data);
+
+/** One request for the whole batch; `onlyFailed` skips claims CLAIM-it already accepted. */
+export const submitBatchToClaimIt = (batchId: string, options: { onlyFailed?: boolean } = {}): Promise<ClaimItBatchResult> =>
+  api.post(`/insurance-claims/batches/${batchId}/submit-claimit`, { onlyFailed: options.onlyFailed === true }).then(r => r.data?.data ?? r.data);
+
+export const getBatchClaimItSubmissions = (batchId: string): Promise<{
+  batchNumber: string;
+  claims: Array<{ claimId: string; claimNumber: string; submission: ClaimItSubmissionRow | null }>;
+  totals: { submitted: number; passed: number; warned: number; failed: number; unknown: number };
+}> => api.get(`/insurance-claims/batches/${batchId}/claimit-submissions`).then(r => r.data?.data ?? r.data);
+
+/** Asks CLAIM-it to delete every NHIS claim it holds for the batch's month, not just the ones sent. */
+export const deleteBatchFromClaimIt = (batchId: string): Promise<{ batchNumber: string; period: string; message: string }> =>
+  api.delete(`/insurance-claims/batches/${batchId}/claimit`).then(r => r.data?.data ?? r.data);
 
 // ──────────────────────────────────────────────
 // Removed (backend no longer exposes them):
@@ -4258,6 +4390,10 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   // Claim Batches
   generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
   downloadBatchXml, printClaimBatch,
+
+  // CLAIM-it (NHIS claims server)
+  getClaimItStatus, testClaimItConnection, submitClaimToClaimIt, getClaimClaimItSubmissions, deleteClaimFromClaimIt,
+  submitBatchToClaimIt, getBatchClaimItSubmissions, deleteBatchFromClaimIt,
 
   // Corporate Accounts
   getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount,

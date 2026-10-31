@@ -1,6 +1,7 @@
 import { validationResult, ValidationChain } from 'express-validator';
 import { Request, Response, NextFunction } from 'express';
 import { logSecurityEvent } from './logger.js';
+import { toFieldDetails, withReasons } from './httpError';
 
 export const validate = (validations: ValidationChain[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -23,14 +24,13 @@ export const validate = (validations: ValidationChain[]) => {
     });
 
     // Extract error messages
-    const extractedErrors = errors.array().map((err: any) => ({
-      field: err.path,
-      message: err.msg
-    }));
+    const extractedErrors = toFieldDetails(errors.array() as any[]);
 
+    // Screens show `message`, so lead with the first reason: a bare "Validation failed" leaves the
+    // clerk with no idea which box they skipped, even though the reason is in `errors`.
     return res.status(400).json({
       success: false,
-      message: 'Validation failed',
+      message: withReasons('Validation failed', extractedErrors),
       errors: extractedErrors
     });
   };

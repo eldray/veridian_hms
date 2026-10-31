@@ -5,6 +5,7 @@ import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { getAllUsers } from '../api';
+import { describeApiError } from '../utils/apiError';
 import AsyncSelect from 'react-select/async';
 import {
   Plus, Search, Building, Users, Edit, Trash2, RefreshCw,
@@ -175,7 +176,7 @@ const { user, hasRole } = useAuthStore();
       }
       closeForm();
       await loadData();
-    } catch { error('Save Failed', 'Failed to save department'); }
+    } catch (err: any) { error('Save Failed', describeApiError(err, 'The department could not be saved.')); }
   };
 
   const closeForm = () => {
@@ -192,7 +193,7 @@ const { user, hasRole } = useAuthStore();
   const handleDelete = async (id: string) => {
     if (!(await confirmDialog({ title: 'Delete department', message: 'Delete this department? This cannot be undone.', confirmText: 'Delete' }))) return;
     try { await deleteDepartment(id); success('Deleted', 'Department removed'); await loadData(); }
-    catch { error('Delete Failed', 'Failed to delete department'); }
+    catch (err: any) { error('Delete Failed', describeApiError(err, 'The department could not be deleted.')); }
   };
 
   const openHeadModal = async (dept: any) => {

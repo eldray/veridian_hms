@@ -68,6 +68,8 @@ export class DepartmentService {
 
   // Helper to check if user role matches department type
   private isRoleMatchForDepartment(userRole: string, departmentType: string): boolean {
+    // The system owner may head any department; the map below only constrains specialist roles.
+    if (userRole === 'super_admin') return true;
     const roleMatches: Record<string, string[]> = {
       'medical': ['doctor', 'admin'],
       'nursing': ['nurse', 'admin'],

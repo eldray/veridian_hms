@@ -13,6 +13,7 @@ import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
 import { NursingDashboardStats } from '../components/nursing/NursingDashboardStats';
 import { getPatientName } from '../utils/patient';
+import { describeApiError } from '../utils/apiError';
 import { getLatestVitals } from '../api';
 import { getFrequencyInfo, isDoseDue } from '../utils/frequencyUtils';
 import {
@@ -351,11 +352,23 @@ export default function Nursing() {
       `Tasks completed this shift: ${Object.values(data.completedTasks).filter(Boolean).length}`,
     ].filter(Boolean).join('\n');
 
-    const promises = admissions
-      .filter((a) => !a.dischargeDate)
-      .map((a) => addDailyNote(a.id, { notes: notesText, noteType: 'handover' }).catch(() => {}));
+    const targets = admissions.filter((a) => !a.dischargeDate);
+    const results = await Promise.allSettled(
+      targets.map((a) => addDailyNote(a.id, { notes: notesText, noteType: 'handover' })),
+    );
+    const failures = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
 
-    await Promise.allSettled(promises);
+    // A handover that reached some beds is not "recorded for all patients", so say which it missed
+    // and let the modal keep the notes on screen for a retry.
+    if (failures.length > 0) {
+      const reason = describeApiError(failures[0].reason, 'the note could not be written');
+      throw new Error(
+        failures.length === targets.length
+          ? `The handover was not recorded for any patient - ${reason}.`
+          : `The handover reached ${targets.length - failures.length} of ${targets.length} patients - ${reason} for the rest.`,
+      );
+    }
+
     success('Handover saved', 'Shift handover recorded for all patients');
     setShowHandoverModal(false);
   };

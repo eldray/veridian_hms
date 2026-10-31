@@ -2,13 +2,20 @@
 import { Prisma, PrismaClient } from '@prisma/client';
 
 // Separate counters for different sequences
-let patientCounter = 1000;      // PATIENT SEQUENCE - increments per new patient
-let attendanceCounter = 1000;   // ATTENDANCE SEQUENCE - increments per visit (any type)
-let receiptCounter = 1000;      // RECEIPT SEQUENCE - increments per payment
-let referralCounter = 1000;     // REFERRAL SEQUENCE - independent
-let appointmentCounter = 1000;  // APPOINTMENT SEQUENCE - independent
-let requisitionCounter = 1000;  // REQUISITION SEQUENCE - independent (was a 6-digit timestamp that repeats every ~17 minutes)
-let transferCounter = 1000;     // STOCK TRANSFER SEQUENCE - independent (same problem)
+// Every sequence starts at NUMBER_BASE and is printed with at least NUMBER_WIDTH digits, so a
+// number always looks like "10001" rather than "2001". padStart is a MINIMUM width, not a cap:
+// once a sequence passes 99999 it simply prints six digits, so it can never run out.
+const NUMBER_BASE = 10000;
+const NUMBER_WIDTH = 5;
+const padNumber = (value: number): string => String(value).padStart(NUMBER_WIDTH, '0');
+
+let patientCounter = NUMBER_BASE;      // PATIENT SEQUENCE - increments per new patient
+let attendanceCounter = NUMBER_BASE;   // ATTENDANCE SEQUENCE - increments per visit (any type)
+let receiptCounter = NUMBER_BASE;      // RECEIPT SEQUENCE - increments per payment
+let referralCounter = NUMBER_BASE;     // REFERRAL SEQUENCE - independent
+let appointmentCounter = NUMBER_BASE;  // APPOINTMENT SEQUENCE - independent
+let requisitionCounter = NUMBER_BASE;  // REQUISITION SEQUENCE - independent (was a 6-digit timestamp that repeats every ~17 minutes)
+let transferCounter = NUMBER_BASE;     // STOCK TRANSFER SEQUENCE - independent (same problem)
 
 /**
  * A place where numbers from one counter are stored.
@@ -132,14 +139,14 @@ export class CounterService {
   // PATIENT NUMBER
   // ============================================
   nextPatientNumber(): string {
-    return `${++patientCounter}`;
+    return padNumber(++patientCounter);
   }
 
   // ============================================
   // ATTENDANCE NUMBER (MASTER SEQUENCE)
   // ============================================
   nextAttendanceNumber(): string {
-    return `${++attendanceCounter}`;
+    return padNumber(++attendanceCounter);
   }
 
   getCurrentAttendanceNumber(): number {
@@ -175,14 +182,15 @@ export class CounterService {
   // RECEIPT NUMBER (independent sequential)
   // ============================================
   nextReceiptNumber(): string {
-    return `RCP-${++receiptCounter}`;
+    return `RCP-${padNumber(++receiptCounter)}`;
   }
 
   // ============================================
   // REFERRAL NUMBER (independent)
   // ============================================
+  // Carries the REF- prefix the existing referral rows already use.
   nextReferralNumber(): string {
-    return `${++referralCounter}`;
+    return `REF-${padNumber(++referralCounter)}`;
   }
 
   // For external referrals (already have number)
@@ -194,46 +202,46 @@ export class CounterService {
   // APPOINTMENT NUMBER (independent)
   // ============================================
   nextAppointmentNumber(): string {
-    return `${++appointmentCounter}`;
+    return padNumber(++appointmentCounter);
   }
 
   // ============================================
   // ADDITIONAL SEQUENCE GENERATORS
   // ============================================
   nextBillNumber(): string {
-    return `BILL-${++attendanceCounter}`;
+    return `BILL-${padNumber(++attendanceCounter)}`;
   }
 
   nextProformaNumber(): string {
-    return `PRO-${++attendanceCounter}`;
+    return `PRO-${padNumber(++attendanceCounter)}`;
   }
 
   nextAdmissionNumber(): string {
-    return `ADM-${++attendanceCounter}`;
+    return `ADM-${padNumber(++attendanceCounter)}`;
   }
 
   nextBatchNumber(): string {
-    return `BATCH-${++receiptCounter}`;
+    return `BATCH-${padNumber(++receiptCounter)}`;
   }
 
   nextNHISClaimNumber(): string {
-    return `NHIS-${++attendanceCounter}`;
+    return `NHIS-${padNumber(++attendanceCounter)}`;
   }
 
   nextPrivateClaimNumber(): string {
-    return `PRIV-${++attendanceCounter}`;
+    return `PRIV-${padNumber(++attendanceCounter)}`;
   }
 
   nextCorporateClaimNumber(): string {
-    return `CORP-${++attendanceCounter}`;
+    return `CORP-${padNumber(++attendanceCounter)}`;
   }
 
   nextRequisitionNumber(): string {
-    return `REQ-${++requisitionCounter}`;
+    return `REQ-${padNumber(++requisitionCounter)}`;
   }
 
   nextTransferNumber(): string {
-    return `TRN-${++transferCounter}`;
+    return `TRN-${padNumber(++transferCounter)}`;
   }
 
   // ============================================

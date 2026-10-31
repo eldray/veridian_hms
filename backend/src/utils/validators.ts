@@ -125,7 +125,7 @@ export const registerValidator: ValidationChain[] = [
   
   body('role')
     .optional()
-    .isIn(['admin', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer'])
+    .isIn(['super_admin', 'admin', 'hr_officer', 'doctor', 'nurse', 'midwife', 'records', 'lab_tech', 'pharmacist', 'accounts', 'sonographer'])
     .withMessage('Invalid role')
 ];
 

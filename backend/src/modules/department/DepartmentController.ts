@@ -9,6 +9,7 @@ import { PrismaClient } from '@prisma/client';
 import { DepartmentService } from './DepartmentService';
 import { CreateDepartmentDTO, UpdateDepartmentDTO, DepartmentFilters } from './DepartmentTypes';
 import { AuthRequest } from '../../middleware/authMiddleware';
+import { createErrorResponse } from '../../shared/types/ApiResponse';
 
 export class DepartmentController {
   private service: DepartmentService;
@@ -95,10 +96,7 @@ export class DepartmentController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
           return;
         }
 
@@ -155,10 +153,7 @@ export class DepartmentController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
           return;
         }
 
@@ -317,10 +312,7 @@ export class DepartmentController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
           return;
         }
 
@@ -413,10 +405,7 @@ export class DepartmentController {
       try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
-          res.status(400).json({
-            success: false,
-            errors: errors.array()
-          });
+          res.status(400).json(createErrorResponse('Validation failed', errors.array() as any[], 400));
           return;
         }
 

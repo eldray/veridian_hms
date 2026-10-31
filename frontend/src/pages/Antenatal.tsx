@@ -441,6 +441,12 @@ export default function Antenatal() {
   const selectedPatient = patients.find(p => getEntityId(p) === selectedPatientId)
     || (currentAttendance as any)?.Patient || null;
   const canAddEntries = currentAttendance ? canAddMedicalEntries(currentAttendance) : false;
+  // The patients list does not carry the allergies relation, so the encounter's own patient
+  // payload is what actually has them. Reading only the list entry would leave the allergy
+  // block switched off here without saying so.
+  const recordedAllergies = (selectedPatient as any)?.allergies
+    || (currentAttendance as any)?.patient?.allergies
+    || [];
   const hasActiveBooking = currentRecord?.isActive === true && currentRecord?.isCompleted === false;
 const attendanceType = currentAttendance?.attendanceType;
 
@@ -976,6 +982,46 @@ useEffect(() => {
     { key: 'vitals' as TabKey, label: 'Vitals', icon: <Activity className="w-3.5 h-3.5" />, count: undefined, always: true },
   ];
 
+  // Delivery, ANC and postnatal visits open on their own tab, and that tab used to be the only
+  // thing on it — so a diagnosis recorded during a delivery was saved but nowhere to be seen,
+  // and staff added it a second time. The card therefore renders on every clinical tab.
+  const diagnosisCard = (
+    <SectionCard
+      icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+      title="Diagnosis (ICD-10)" count={diagnosesList.length}
+      action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
+    >
+      {diagnosesList.length === 0 ? <EmptySlate icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" /> : (
+        <table className="w-full text-xs">
+          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+            <tr><TH>Diagnosis</TH><TH>ICD-10</TH><TH>Type</TH><TH>By</TH><TH>Date</TH><TH></TH></tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--border-color)]">
+            {diagnosesList.map((item: any) => {
+              const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
+              const cfg: Record<string, { label: string; cls: string }> = {
+                provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
+                primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
+                additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
+              };
+              const c = cfg[t] ?? cfg.additional;
+              return (
+                <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <TDp>{item.Diagnosis?.name}{item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}</TDp>
+                  <TD className="font-mono">{item.Diagnosis?.icdCode || '—'}</TD>
+                  <TD><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></TD>
+                  <TD>{item.createdBy?.fullName || '—'}</TD>
+                  <TD>{new Date(item.createdAt).toLocaleDateString()}</TD>
+                  <TD>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</TD>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </SectionCard>
+  );
+
   const paymentCls = currentAttendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
     : currentAttendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
       : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
@@ -1265,40 +1311,7 @@ useEffect(() => {
               {activeTab === 'clinical' && (
                 <div className="p-4 space-y-4">
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    <SectionCard
-                      icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                      title="Diagnosis (ICD-10)" count={diagnosesList.length}
-                      action={canAddEntries && <AddBtn onClick={() => setModalType('diagnosis')} label="Add" />}
-                    >
-                      {diagnosesList.length === 0 ? <EmptySlate icon={<Stethoscope className="w-9 h-9" />} label="No diagnoses added" /> : (
-                        <table className="w-full text-xs">
-                          <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>Diagnosis</TH><TH>ICD-10</TH><TH>Type</TH><TH>By</TH><TH>Date</TH><TH></TH></tr>
-                          </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
-                            {diagnosesList.map((item: any) => {
-                              const t = item.diagnosisType || (item.primary ? 'primary' : 'additional');
-                              const cfg: Record<string, { label: string; cls: string }> = {
-                                provisional: { label: 'Provisional', cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' },
-                                primary: { label: 'Primary', cls: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' },
-                                additional: { label: 'Additional', cls: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' },
-                              };
-                              const c = cfg[t] ?? cfg.additional;
-                              return (
-                                <tr key={item.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                  <TDp>{item.Diagnosis?.name}{item.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{item.notes}</p>}</TDp>
-                                  <TD className="font-mono">{item.Diagnosis?.icdCode || '—'}</TD>
-                                  <TD><span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${c.cls}`}>{c.label}</span></TD>
-                                  <TD>{item.createdBy?.fullName || '—'}</TD>
-                                  <TD>{new Date(item.createdAt).toLocaleDateString()}</TD>
-                                  <TD>{canAddEntries && <DelBtn onClick={() => handleDeleteItem('diagnosis', item.id)} />}</TD>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      )}
-                    </SectionCard>
+                    {diagnosisCard}
 
                     <SectionCard icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />} title="Procedures"
                       count={proceduresList.length} countCls="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
@@ -1641,6 +1654,8 @@ useEffect(() => {
                       ))}
                     </div>
                   )}
+
+                  {diagnosisCard}
                 </div>
               )}
 
@@ -1691,12 +1706,14 @@ useEffect(() => {
                         ))}
                       </div>}
                   </SectionCard>
+
+                  {diagnosisCard}
                 </div>
               )}
 
               {/* ── POSTNATAL TAB ── */}
               {activeTab === 'postnatal' && (
-                <div className="p-4">
+                <div className="p-4 space-y-4">
                   <SectionCard icon={<Heart className="w-4 h-4 text-[var(--icon-cyan-text)]" />} title="Postnatal Examinations"
                     count={postnatalRecords.filter((p: any) => p.attendanceId === selectedAttendanceId).length}
                     action={<AddBtn onClick={() => { setEditingPostnatal(null); setShowPostnatalModal(true); }} label="Add" />}
@@ -1729,6 +1746,8 @@ useEffect(() => {
                         ))}
                       </div>}
                   </SectionCard>
+
+                  {diagnosisCard}
                 </div>
               )}
 
@@ -1891,7 +1910,7 @@ useEffect(() => {
       <DiagnosisModal isOpen={modalType === 'diagnosis'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} diagnoses={diagnoses} canAdd={canAddEntries} userId={user?.id} />
       <LabTestModal isOpen={modalType === 'lab'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} labTests={labTestTemplates} canAdd={canAddEntries} userId={user?.id} />
       <ProcedureModal isOpen={modalType === 'procedure'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} procedures={procedureTemplates} canAdd={canAddEntries} userId={user?.id} />
-      <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} userId={user?.id} />
+      <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} allergies={recordedAllergies} userId={user?.id} />
       <ScanModal isOpen={modalType === 'scan'} onClose={() => setModalType(null)} onSuccess={afterModal} attendanceId={selectedAttendanceId} scans={scanTemplates} canAdd={canAddEntries} userId={user?.id} />
 
       {showANCVisitModal && selectedBookingId && selectedAttendanceId && (

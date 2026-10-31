@@ -9,7 +9,7 @@ import { releaseBedForAttendance } from '../bed/bedOccupancy';
 import { 
   CreateEncounterDTO, UpdateEncounterDTO, AddDiagnosisDTO, AddVitalsDTO, 
   AddPrescriptionDTO, AddLabTestDTO, AddScanDTO, AddProcedureDTO, AddServiceDTO,
-  CreateAdmissionDTO, AddDailyNoteDTO, DetentionPatientFilters, ConvertDetentionToIPDDTO
+  CreateAdmissionDTO, AddDailyNoteDTO, DetentionPatientFilters, ConvertDetentionToIPDDTO, WorklistQuery
 } from './EncounterTypes';
 
 /** Worklists are identical for every user. One result is shared for a few seconds; the cache is
@@ -802,13 +802,23 @@ export class EncounterService extends BaseService {
   async convertDaycaseToIPD(id: string, data: any, userId: string) { return this.createFormalAdmission({ ...data, attendanceId: id }, userId); }
 
   // Worklists
-  async getVitalsWorklist() { return cached('worklist:vitals', WORKLIST_CACHE_MS, () => this.repository.getVitalsWorklist()); }
-  async getMedicalWorklist() { return cached('worklist:medical', WORKLIST_CACHE_MS, () => this.repository.getMedicalWorklist()); }
+  // The cache key has to carry the view and the date range: two clinicians, one on today's
+  // pending queue and one on last Tuesday's completed work, must not be served each other's rows.
+  private worklistCacheKey(name: string, query: WorklistQuery = {}) {
+    const view = query.view || 'pending';
+    const from = query.dateFrom ? query.dateFrom.toISOString().slice(0, 10) : '';
+    const to = query.dateTo ? query.dateTo.toISOString().slice(0, 10) : '';
+    return `worklist:${name}:${view}:${from}:${to}`;
+  }
+
+  async getVitalsWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('vitals', query), WORKLIST_CACHE_MS, () => this.repository.getVitalsWorklist(query)); }
+  async getMedicalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('medical', query), WORKLIST_CACHE_MS, () => this.repository.getMedicalWorklist(query)); }
+  async getOutstandingResultsWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('outstanding', query), WORKLIST_CACHE_MS, () => this.repository.getOutstandingResultsWorklist(query)); }
   async getLabWorklist() { return cached('worklist:lab', WORKLIST_CACHE_MS, () => this.repository.getLabWorklist()); }
   async getPharmacyWorklist() { return cached('worklist:pharmacy', WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist()); }
   async getRadiologyWorklist() { return cached('worklist:scans', WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist()); }
   async getProceduresWorklist() { return cached('worklist:procedures', WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist()); }
-  async getMaternalWorklist() { return cached('worklist:maternal', WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist()); }
+  async getMaternalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('maternal', query), WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist(query)); }
   // Shown on every dashboard/sidebar: computed at most once every 15 s however many users ask
   async getWorklistSummary() {
     return cached('worklist:summary', 15_000, () => this.computeWorklistSummary());

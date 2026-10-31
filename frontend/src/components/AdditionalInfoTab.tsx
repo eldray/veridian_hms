@@ -20,6 +20,7 @@ import type {
   PatientMedicalHistory,
   PatientSurgicalHistory,
 } from '../types';
+import AllergenInput from './AllergenInput';
 
 interface AdditionalInfoTabProps {
   additionalInfo: AdditionalInfo;
@@ -492,7 +493,7 @@ function MedicalSection({
         >
           {clinicalHistory.allergies.map((allergy, index) => (
             <div key={allergy.id || `allergy-${index}`} className="grid grid-cols-1 md:grid-cols-2 gap-2 rounded-lg border p-3" style={{ borderColor: 'var(--border-color)' }}>
-              <input aria-label="Allergen" value={allergy.allergen} onChange={(e) => updateAllergy(index, { allergen: e.target.value })} placeholder="Allergen (e.g. penicillin)" className={inputCls} />
+              <AllergenInput value={allergy.allergen} onChange={(v) => updateAllergy(index, { allergen: v })} />
               <input aria-label="Allergic reaction" value={allergy.reaction || ''} onChange={(e) => updateAllergy(index, { reaction: e.target.value })} placeholder="Reaction" className={inputCls} />
               <select aria-label="Allergy severity" value={allergy.severity || ''} onChange={(e) => updateAllergy(index, { severity: e.target.value as PatientAllergy['severity'] })} className={inputCls}>
                 <option value="">Severity not known</option>

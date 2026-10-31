@@ -8,7 +8,8 @@ import {
   deletePatient as apiDeletePatient,
   uploadPatientImage as apiUploadPatientImage,
   uploadPatientImageBase64 as apiUploadPatientImageBase64,
-  API_PAGE_SIZE
+  API_PAGE_SIZE,
+  runBulk
 } from '../api';
 import type { Patient, Pagination, PatientFilters } from '../types';
 
@@ -176,7 +177,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
 
         // Remaining pages load in the background, 4 requests at a time.
         set({ isLoadingMore: true });
-        void (async () => {
+        void runBulk(async () => {
           try {
             const totalPages = Math.ceil(total / API_PAGE_SIZE);
             for (let start = 2; start <= totalPages; start += 4) {
@@ -195,7 +196,7 @@ export const usePatientStore = create<PatientState>((set, get) => ({
           } finally {
             if (generation === loadGeneration) set({ isLoadingMore: false });
           }
-        })();
+        });
       } catch (error: unknown) {
         console.error('❌ Failed to load patients:', error);
         const errorMessage = (error as any).response?.data?.message || (error as Error).message || 'Failed to load patients';

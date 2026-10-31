@@ -155,7 +155,7 @@ export class NotificationService extends BaseService {
     accounts.forEach(a => notificationsData.push({ userId: a.id, title: 'Admission - Bill Required', message: `Please create admission bill for patient ${patientFullName}`, type: 'billing', priority: 'high', actionType: 'admission_billing', actionId: admissionId }));
 
     // Get admins
-    const admins = await this.prisma.user.findMany({ where: { role: 'admin', isActive: true }, select: { id: true } });
+    const admins = await this.prisma.user.findMany({ where: { role: { in: ['admin', 'super_admin'] }, isActive: true }, select: { id: true } });
     admins.forEach(a => notificationsData.push({ userId: a.id, title: '📋 New Patient Admission', message: `${patientFullName} (${p?.folderNumber}) admitted to ${wardName}.`, type: 'system', priority: 'medium', actionType: 'admission', actionId: admissionId }));
 
     if (notificationsData.length > 0) {
@@ -180,7 +180,7 @@ export class NotificationService extends BaseService {
       notificationsData.push({ userId: labTest.createdById, title: 'Lab Results Ready', message: `Results for ${testName} for patient ${patientFullName} are now available`, type: 'clinical', priority: 'medium', actionType: 'lab_result', actionId: labTestId });
     }
 
-    const admins = await this.prisma.user.findMany({ where: { role: 'admin', isActive: true }, select: { id: true } });
+    const admins = await this.prisma.user.findMany({ where: { role: { in: ['admin', 'super_admin'] }, isActive: true }, select: { id: true } });
     admins.forEach(a => notificationsData.push({ userId: a.id, title: '🔬 Lab Results Available', message: `${testName} results ready for ${patientFullName} (${p?.folderNumber})`, type: 'system', priority: 'low', actionType: 'lab_result', actionId: labTestId }));
 
     if (notificationsData.length > 0) {
@@ -243,7 +243,7 @@ export class NotificationService extends BaseService {
     const msg = `${lowStockItems.length} medications below reorder level:\n\n${itemList}`;
 
     const staff = await this.prisma.user.findMany({ 
-      where: { role: { in: ['pharmacist', 'admin'] }, isActive: true }, 
+      where: { role: { in: ['pharmacist', 'admin', 'super_admin'] }, isActive: true }, 
       select: { id: true } 
     });
 

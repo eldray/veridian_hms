@@ -1,6 +1,7 @@
 // components/CreateEditModal.tsx - COMPLETE FIXED VERSION
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import { describeApiError } from '../utils/apiError';
 
 interface CreateEditModalProps {
   type: 'diagnoses' | 'lab-tests' | 'procedures' | 'scans';
@@ -200,6 +201,7 @@ const DEFAULT_SPECIMEN_TYPES = ['blood', 'urine', 'stool', 'csf', 'sputum', 'flu
 export default function CreateEditModal({ type, item, onSave, onClose, metadata }: CreateEditModalProps) {
   const [formData, setFormData] = useState(defaultFormData[type]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const morbidityGroups = metadata?.morbidityGroups?.length ? metadata.morbidityGroups : FULL_MORBIDITY_GROUPS;
   const labCategories = metadata?.labCategories?.length ? metadata.labCategories : DEFAULT_LAB_CATEGORIES;
@@ -247,8 +249,12 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setSaveError('');
     try {
       await onSave(formData);
+    } catch (err: any) {
+      // Without this the spinner simply stops and the record is silently not saved.
+      setSaveError(describeApiError(err, 'The change could not be saved.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -604,7 +610,13 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
         
         <form onSubmit={handleSubmit} className="p-6">
           {renderForm()}
-          
+
+          {saveError ? (
+            <div role="alert" className="mt-6 rounded-lg bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
+              {saveError}
+            </div>
+          ) : null}
+
           <div className="flex gap-3 justify-end pt-6 mt-4 border-t border-[var(--border-color)]">
             <button 
               type="button" 

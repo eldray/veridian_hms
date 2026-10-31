@@ -137,6 +137,17 @@ export const NAV_GROUP_ORDER = ['Core', 'Clinical', 'Diagnostics', 'Pharmacy', '
 const ADMIN_ROLES: Role[] = ['admin', 'super_admin'];
 const byKey = new Map<PageKey, PageDef>(PAGES.map(p => [p.key, p]));
 
+/**
+ * The two administrator roles, for per-button gates that are narrower than a whole page.
+ *
+ * Prefer `hasRole` from the auth store — it already implies `super_admin`. This exists for
+ * the sites that compare `user.role` directly, which historically spelled only `'admin'`
+ * and silently locked the super administrator out of their own controls.
+ */
+export function isAdminLike(role: string | undefined): boolean {
+  return !!role && ADMIN_ROLES.includes(role as Role);
+}
+
 export function canAccessPage(role: string | undefined, key: PageKey): boolean {
   if (!role) return false;
   if (ADMIN_ROLES.includes(role as Role)) return true;

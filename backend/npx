@@ -10,10 +10,12 @@ npx prisma studio	View/edit database data visually
 # 1. Stop your server (Ctrl+C)
 
 # 2. Reset and drop everything
-npx prisma@6 migrate reset --force --skip-seed
+npx prisma migrate reset --force --skip-seed
 
 # 3. Push the schema fresh
 npx prisma db push --force-reset
+
+git pull --no-rebase origin main   # or: git pull --rebase origin main
 
 # 4. Generate Prisma client
 npx prisma generate

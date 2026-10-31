@@ -19,6 +19,7 @@ import { useToast } from '../store/toastStore';
 import type { PaymentMode, InsuranceDetails, InsuranceProvider } from '../types';
 import { useCorporateStore, type CorporateAccount } from '../store/corporateStore';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { isNhisNumberValid, nhisNumberError, sanitizeNhisInput } from '../utils/nhisNumber';
 import NewAttendanceModal from './NewAttendanceModal';
 
 interface PaymentModeTabProps {
@@ -328,6 +329,10 @@ export default function PaymentModeTab({
     if (!getCoverageDuration(safeInsurance.startDate, safeInsurance.endDate)?.active)
       return false;
     if (paymentMode === 'private_insurance' && !safeInsurance.providerId)
+      return false;
+    // An NHIS number of the wrong length cannot be claimed with, so do not let the form
+    // present itself as complete.
+    if (paymentMode === 'nhis' && !isNhisNumberValid(safeInsurance.insuranceNumber))
       return false;
     return true;
   };
@@ -859,18 +864,23 @@ function NHISForm({
   handleAddAttendance,
   activeMode,
 }: any) {
+  const error = nhisNumberError(safeInsurance.insuranceNumber);
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       <FormRow>
-        <FormField label="Insurance number *">
+        <FormField label="NHIS number *">
           <input
             type="text"
             required
+            inputMode="numeric"
             value={safeInsurance.insuranceNumber}
-            onChange={(e) => updateInsuranceField('insuranceNumber', e.target.value)}
-            placeholder="e.g. NHIS-00123456"
-            style={inputStyle}
+            onChange={(e) => updateInsuranceField('insuranceNumber', sanitizeNhisInput(e.target.value))}
+            placeholder="8 digits, or 00 + 8 digits"
+            style={{ ...inputStyle, borderColor: error ? '#dc2626' : undefined }}
           />
+          {error && (
+            <p style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{error}</p>
+          )}
         </FormField>
         <FormField label="Provider name">
           <input

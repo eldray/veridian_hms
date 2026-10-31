@@ -47,6 +47,26 @@ export const createClaimBatchRoutes = () => {
     requireRole(['admin', 'accounts']),
     claimBatchController.finalizeBatch,
   );
+
+  // CLAIM-it submission for a whole batch. `submit-claimit` is a POST so the write audit records it
+  // as a submission; the delete uses the DELETE verb for the same reason.
+  router.post(
+    '/:id/submit-claimit',
+    requireRole(['admin', 'accounts']),
+    claimBatchController.submitToClaimIt,
+  );
+  router.get(
+    '/:id/claimit-submissions',
+    requireRole(['admin', 'accounts', 'records']),
+    claimBatchController.claimitSubmissions,
+  );
+  // Deletes every NHIS claim CLAIM-it holds for this batch's period, not only the ones sent here.
+  router.delete(
+    '/:id/claimit',
+    requireRole(['admin']),
+    claimBatchController.deleteFromClaimIt,
+  );
+
   router.delete(
     '/:id',
     requireRole(['admin', 'accounts']),

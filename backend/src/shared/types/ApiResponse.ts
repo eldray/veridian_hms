@@ -3,8 +3,11 @@
  * Enterprise-grade response format for all API endpoints
  */
 
+import { toFieldDetails, withReasons } from '../../utils/httpError';
+
 export interface ValidationError {
-  field: string;
+  /** The form field the reason belongs to; absent when the error is not tied to one box. */
+  field?: string;
   message: string;
   code?: string;
 }
@@ -77,10 +80,16 @@ export const createErrorResponse = (
   message: string,
   errors?: ValidationError[],
   status?: number
-): ApiResponse<null> & { status?: number } => ({
-  success: false,
-  errors,
-  message,
-  timestamp: new Date().toISOString(),
-  status
-});
+): ApiResponse<null> & { status?: number } => {
+  // Controllers pass either hand-built { field, message } items or express-validator's raw
+  // { msg, path, value } items. Screens read `message`, so normalise the items and let the first
+  // reason carry the response - "Validation failed" on its own is not something staff can fix.
+  const details = toFieldDetails(errors as any[] | null);
+  return {
+    success: false,
+    ...(details.length > 0 ? { errors: details as ValidationError[] } : {}),
+    message: withReasons(String(message || ''), details),
+    timestamp: new Date().toISOString(),
+    status
+  };
+};

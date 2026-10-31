@@ -17,6 +17,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as bcrypt from 'bcryptjs';
 import { fileURLToPath } from 'url';
+import { upsertRbac } from './rbac.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -566,7 +567,28 @@ export const seedCoreData = async (force: boolean = false) => {
 
     console.log('🔧 Proceeding with core data seeding...');
 
-    // ── STEP 1: Admin user ────────────────────────────────────
+    // ── STEP 1: Administrator accounts ────────────────────────
+    // super_admin outranks admin: it is the only role holding `users.manage`, so it is the
+    // only account that can manage users and roles. bootstrap.ts replaces both default
+    // passwords on a first-run install; `update: { isActive: true }` keeps re-seeding from
+    // overwriting a password an operator already changed.
+    const superAdminUser = await prisma.user.upsert({
+      where: { username: 'superadmin' },
+      create: {
+        username: 'superadmin',
+        password: hashPassword('superadmin123'),
+        fullName: 'Super Administrator',
+        role: UserRole.super_admin,
+        seniority: Seniority.PRINCIPAL,
+        email: 'superadmin@hospital.com',
+        phone: '+233244111110',
+        licenseNumber: 'SUPERADMIN-001',
+        isActive: true,
+      },
+      update: { isActive: true },
+    });
+    console.log('✅ Super admin user created/verified');
+
     const adminUser = await prisma.user.upsert({
       where: { username: 'admin' },
       create: {
@@ -584,6 +606,16 @@ export const seedCoreData = async (force: boolean = false) => {
     });
     console.log('✅ Admin user created/verified');
     const adminId = adminUser.id;
+
+    // ── STEP 1b: RBAC catalogue ───────────────────────────────
+    // Installed databases used to have no Role/Permission rows at all, so every
+    // permission-based guard fell through to the enum role. Seed the same matrix the demo
+    // seed uses, so `users.manage` belongs to super_admin alone from the very first boot.
+    await upsertRbac(prisma, {
+      [superAdminUser.username]: 'super_admin',
+      [adminUser.username]: 'admin',
+    });
+    console.log('✅ RBAC roles and permissions configured');
 
     // ── STEP 2: Hospital ──────────────────────────────────────
     await prisma.hospital.upsert({
@@ -993,16 +1025,21 @@ export const seedCoreData = async (force: boolean = false) => {
         const stockItem = stockItemMap.get(drugCode);
         if (!stockItem) continue;
 
+        // A row can opt out with "isNHISCovered": false - used for formulations that are stocked here
+        // but no longer appear on the current NHIS list, so they must bill as cash, never as a claim.
+        const covered = reference.isNHISCovered !== false;
         const rawTariff = Number(reference.insurancePrice ?? reference.unitPrice ?? 0);
-        const tariffPrice = Number.isFinite(rawTariff) && rawTariff > 0 ? rawTariff : null;
+        const tariffPrice = covered && Number.isFinite(rawTariff) && rawTariff > 0 ? rawTariff : null;
         const suppliedAuth = typeof reference.nhisRequiresAuth === 'boolean'
           ? reference.nhisRequiresAuth
           : undefined;
         const rawEffectiveFrom = typeof reference.effectiveFrom === 'string' ? new Date(reference.effectiveFrom) : null;
         const effectiveFrom = rawEffectiveFrom && Number.isFinite(rawEffectiveFrom.getTime()) ? rawEffectiveFrom : undefined;
         const rawLevel = typeof reference.prescribingLevel === 'string' ? reference.prescribingLevel.trim().toUpperCase() : '';
-        const suppliedLevel = allowedPrescribingLevels.has(rawLevel) ? rawLevel : undefined;
-        if (rawLevel && !suppliedLevel) {
+        // A retired row still carries its old prescribing level in the JSON for review, but an uncovered
+        // rule must not advertise one - it would read as current NHIS policy for a code NHIA no longer funds.
+        const suppliedLevel = covered && allowedPrescribingLevels.has(rawLevel) ? rawLevel : undefined;
+        if (covered && rawLevel && !suppliedLevel) {
           console.warn(`⚠️ Ignoring invalid NHIS prescribing level "${rawLevel}" for ${drugCode}; expected A, M, B1, B2, C, D, or SM.`);
         }
 
@@ -1016,7 +1053,7 @@ export const seedCoreData = async (force: boolean = false) => {
           create: {
             stockItemId: stockItem.id,
             insuranceProviderId: nhisProvider.id,
-            isCovered: true,
+            isCovered: covered,
             authorizationRequired: suppliedAuth ?? null,
             prescribingLevel: suppliedLevel ?? null,
             tariffPrice,
@@ -1025,10 +1062,14 @@ export const seedCoreData = async (force: boolean = false) => {
             effectiveFrom: effectiveFrom ?? null,
           },
           update: {
-            isCovered: true,
+            isCovered: covered,
             ...(suppliedAuth !== undefined ? { authorizationRequired: suppliedAuth } : {}),
-            ...(suppliedLevel !== undefined ? { prescribingLevel: suppliedLevel } : {}),
-            ...(tariffPrice !== null ? { tariffPrice } : {}),
+            // Coverage off also clears the level, so a retired code cannot keep an old one on re-seed.
+            ...(covered
+              ? (suppliedLevel !== undefined ? { prescribingLevel: suppliedLevel } : {})
+              : { prescribingLevel: null }),
+            // Coverage off means no tariff to quote: clear it instead of leaving an old claim price.
+            ...(covered ? (tariffPrice !== null ? { tariffPrice } : {}) : { tariffPrice: null }),
             sourceFile: 'backend/src/data/nhismedicines.json',
             ...(typeof reference.sourceVersion === 'string' ? { sourceVersion: reference.sourceVersion } : {}),
             ...(effectiveFrom ? { effectiveFrom } : {}),

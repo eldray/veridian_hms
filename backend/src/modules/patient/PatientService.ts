@@ -39,6 +39,23 @@ export class PatientService extends BaseService {
     if (errors.length > 0) throw new ValidationError('Validation failed', errors);
   }
 
+  // A GHSS membership number is 8 digits, or those same 8 digits written in a 10-digit field
+  // with a "00" prefix. Enforce here as well as on the form, because claims and the counter
+  // bench can both write this field.
+  private validateNhisNumber(data: { nhisNumber?: string | null }): void {
+    const value = String(data.nhisNumber ?? '').trim();
+    if (!value) return;
+    if (!/^\d+$/.test(value)) {
+      throw new ValidationError('NHIS number must be digits only', [{ field: 'nhisNumber', message: 'NHIS number must be digits only - no letters, spaces or dashes', code: 'INVALID_FORMAT' }]);
+    }
+    if (value.length === 8) return;
+    if (value.length === 10 && /^00\d{8}$/.test(value)) return;
+    if (value.length !== 8 && value.length !== 10) {
+      throw new ValidationError(`NHIS number must be 8 or 10 digits, not ${value.length}`, [{ field: 'nhisNumber', message: 'NHIS number must be 8 or 10 digits', code: 'INVALID_FORMAT' }]);
+    }
+    throw new ValidationError('A 10-digit NHIS number must start with 00', [{ field: 'nhisNumber', message: 'A 10-digit NHIS number is the 8-digit number with a 00 prefix', code: 'INVALID_FORMAT' }]);
+  }
+
   private async checkDuplicates(data: CreatePatientDTO, excludeId?: string): Promise<void> {
     if (data.nhisNumber) {
       const existing = await this.repository.findByNHISNumber(data.nhisNumber);
@@ -147,6 +164,7 @@ export class PatientService extends BaseService {
   async createPatient(data: CreatePatientDTO) {
     this.logInfo('Creating new patient', { nhisNumber: data.nhisNumber, paymentMode: data.paymentMode });
     this.validateCreateData(data);
+    this.validateNhisNumber(data);
     this.validateClinicalHistory(data);
     await this.checkDuplicates(data);
     const corporateAccount = await this.validateCorporateData(data);
@@ -240,6 +258,7 @@ export class PatientService extends BaseService {
 
   async updatePatient(id: string, data: UpdatePatientDTO): Promise<Patient> {
     this.logInfo('Updating patient', { id });
+    this.validateNhisNumber(data);
     this.validateClinicalHistory(data);
     await this.getPatientById(id);
     await this.checkDuplicates(data as CreatePatientDTO, id);

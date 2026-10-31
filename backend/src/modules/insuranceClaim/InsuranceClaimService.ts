@@ -92,7 +92,8 @@ export class InsuranceClaimService extends BaseService {
 
       // ✅ FIXED: Decimal math
       const totalAmount = claims.reduce((sum, c) => sum + toNumber(c.totalClaimAmount), 0);
-      const batchNumber = `BATCH-${getCounterService().nextBatchNumber()}`;
+      // nextBatchNumber() already returns "BATCH-<n>" - do not prefix it again
+      const batchNumber = getCounterService().nextBatchNumber();
 
       const batch = await tx.claimBatch.create({
         data: { batchNumber, insuranceType: targetType as any, insuranceProviderId: providerId, corporateAccountId, periodYear, periodMonth, totalClaims: claims.length, description, totalAmount, status: 'generated', createdById: userId, claims: { connect: claimIds.map(id => ({ id })) } },

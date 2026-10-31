@@ -39,12 +39,14 @@ async function main() {
   await seedDiagnosisGDRGLinks();
   await seedProcedureGDRGLinks();
 
-  // Replace the seed's well-known default password with the one chosen during setup
+  // Replace the seed's well-known default passwords with the one chosen during setup.
+  // Both accounts must be covered: leaving superadmin on its seeded default would put the
+  // highest-privilege account on a known password in a production database.
   const updated = await prisma.user.updateMany({
-    where: { username: 'admin' },
+    where: { username: { in: ['superadmin', 'admin'] } },
     data: { password: bcrypt.hashSync(adminPassword, 10), isActive: true },
   });
-  if (updated.count === 0) throw new Error('Administrator account was not created by the seed');
+  if (updated.count < 2) throw new Error('Administrator accounts were not created by the seed');
 
   console.log('BOOTSTRAP: done');
 }
