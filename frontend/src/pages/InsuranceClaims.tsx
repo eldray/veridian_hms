@@ -232,7 +232,12 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
   // Pagination
   const totalPages = Math.ceil(filteredClaims.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedClaims = filteredClaims.slice(startIndex, startIndex + itemsPerPage);
+  const payerSortedClaims = activeTab === 'nhis' ? filteredClaims : [...filteredClaims].sort((a: any, b: any) => {
+    const payerA = (a.corporateAccount?.companyName || a.insuranceProvider?.name || '').toLocaleLowerCase();
+    const payerB = (b.corporateAccount?.companyName || b.insuranceProvider?.name || '').toLocaleLowerCase();
+    return payerA.localeCompare(payerB) || String(a.claimNumber || '').localeCompare(String(b.claimNumber || ''));
+  });
+  const paginatedClaims = payerSortedClaims.slice(startIndex, startIndex + itemsPerPage);
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
