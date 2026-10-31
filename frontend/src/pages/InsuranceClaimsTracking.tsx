@@ -89,7 +89,8 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
   const periodGroups = useMemo(() => {
     const groups = new Map<string, { label: string; payer: string; claims: ClaimRow[]; claimed: number; gdrg: number; medications: number; labs: number; services: number; paid: number; outstanding: number }>();
     for (const claim of claims) {
-      const date = claim.finalizedAt ? new Date(claim.finalizedAt) : new Date();
+      const periodDate = claim.attendance?.dateTime || claim.finalizedAt;
+      const date = periodDate ? new Date(periodDate) : new Date();
       const monthKey = date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
       const label = date.toLocaleDateString('en-GH', { month: 'long', year: 'numeric' });
       const payer = family === 'nhis' ? '' : (claim.corporateAccount?.companyName || claim.insuranceProvider?.name || 'Unassigned payer');
