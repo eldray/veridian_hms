@@ -533,7 +533,20 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedClaims.map((claim: any) => (
+                  {paginatedClaims.map((claim: any, index: number) => {
+                    const payerGroup = activeTab === 'corporate'
+                      ? (claim.corporateAccount?.companyName || 'Unassigned company')
+                      : (claim.insuranceProvider?.name || 'Unassigned provider');
+                    const previous = paginatedClaims[index - 1];
+                    const previousGroup = activeTab === 'corporate'
+                      ? (previous?.corporateAccount?.companyName || 'Unassigned company')
+                      : (previous?.insuranceProvider?.name || 'Unassigned provider');
+                    const showGroup = activeTab !== 'nhis' && payerGroup !== previousGroup;
+                    return (
+                    <>
+                    {showGroup && <tr key={`group-${payerGroup}`} className="bg-[var(--bg-subtle)]">
+                      <td colSpan={activeTab === 'nhis' ? 9 : 10} className="px-4 py-2 font-semibold text-[var(--text-primary)]">{payerGroup}</td>
+                    </tr>}
                     <tr key={claim.id} className={TR}>
                       <td className={TD_MONO}>{claim.claimNumber}</td>
                       <td className={TD}>{getPatientFullName(claim.patient)}</td>
@@ -619,7 +632,8 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    </>
+                  );})}
                 </tbody>
               </table>
             </div>
