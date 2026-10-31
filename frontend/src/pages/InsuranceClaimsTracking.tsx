@@ -61,11 +61,19 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await getInsuranceClaimsTracking({
-        limit: 100, search: search.trim() || undefined, insuranceType: type,
-      });
-      const payload = response?.data?.data ?? response?.data;
-      setClaims(Array.isArray(payload) ? payload : payload?.data || []);
+      const filters = { limit: 100, search: search.trim() || undefined, insuranceType: type };
+      const firstResponse = await getInsuranceClaimsTracking({ ...filters, page: 1 });
+      const firstPayload = firstResponse?.data?.data ?? firstResponse?.data ?? firstResponse;
+      const firstRows = Array.isArray(firstPayload) ? firstPayload : firstPayload?.data || [];
+      const pageCount = Math.max(1, Number(firstPayload?.pagination?.pages || 1));
+      const allRows = [...firstRows];
+      for (let page = 2; page <= pageCount; page += 1) {
+        const pageResponse = await getInsuranceClaimsTracking({ ...filters, page });
+        const pagePayload = pageResponse?.data?.data ?? pageResponse?.data ?? pageResponse;
+        const pageRows = Array.isArray(pagePayload) ? pagePayload : pagePayload?.data || [];
+        allRows.push(...pageRows);
+      }
+      setClaims(allRows);
     } catch (err: any) {
       toastError('Could not load claims tracking', err?.response?.data?.message || err?.message || 'Please try again.');
     } finally { setLoading(false); }
