@@ -191,6 +191,18 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
     finalizedAmount: summary?.finalized?.totalAmount || 0,
   };
 
+  const getClaimItemTotals = (claim: any) => {
+    const totals = { gdrg: 0, services: 0, labs: 0, medications: 0 };
+    for (const item of claim.items ?? []) {
+      const amount = Number(item.lineTotal ?? 0);
+      if (item.itemCategory === 'gdrg') totals.gdrg += amount;
+      else if (item.itemCategory === 'medicine') totals.medications += amount;
+      else if (item.itemCategory === 'investigation') totals.labs += amount;
+      else if (item.itemCategory === 'service' || item.itemCategory === 'procedure') totals.services += amount;
+    }
+    return totals;
+  };
+
   // Filter claims by search and status
   const filteredClaims = currentClaims.filter((claim: any) => {
     const matchesSearch =
@@ -511,9 +523,9 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                     <th className={TH}>Patient</th>
                     <th className={TH}>Folder #</th>
                     <th className={TH}>Attendance #</th>
-                    <th className={TH}>{activeTab === 'corporate' ? 'Corporate account' : 'Provider'}</th>
+                    {activeTab !== 'nhis' && <th className={TH}>{activeTab === 'corporate' ? 'Corporate account' : 'Provider'}</th>}
                     <th className={TH}>Status</th>
-                    <th className={cn(TH, 'text-right')}>Claim amount</th>
+                    <th className={cn(TH, 'text-right')}>{activeTab === 'nhis' ? 'GDRG / medications / total' : 'Services / labs / medications / total'}</th>
                     <th className={cn(TH, 'text-right')}>Approved</th>
                     <th className={cn(TH, 'text-right')}>Paid</th>
                     <th className={TH}>Submitted</th>
@@ -527,15 +539,30 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                       <td className={TD}>{getPatientFullName(claim.patient)}</td>
                       <td className={TD_MONO}>{claim.Patient?.folderNumber || claim.patient?.folderNumber || '—'}</td>
                       <td className={TD_MONO}>{claim.Attendance?.attendanceNumber || claim.attendance?.attendanceNumber || '—'}</td>
-                      <td className={TD}>
+                      {activeTab !== 'nhis' && <td className={TD}>
                         {activeTab === 'corporate'
                           ? claim.corporateAccount?.companyName || '—'
                           : claim.insuranceProvider?.name || '—'}
-                      </td>
+                      </td>}
                       <td className={TD}>
                         <Badge tone={statusTone(claim.status)} dot size="sm">{humanStatus(claim.status)}</Badge>
                       </td>
-                      <td className={cn(TD, 'text-right font-medium')}>GHS {claim.totalClaimAmount?.toFixed(2)}</td>
+                      <td className={cn(TD, 'text-right')}>
+                        {(() => {
+                          const t = getClaimItemTotals(claim);
+                          return activeTab === 'nhis' ? (
+                            <div className="min-w-[190px]">
+                              <div className="text-xs text-[var(--text-secondary)]">GDRG {t.gdrg.toFixed(2)} · Meds {t.medications.toFixed(2)}</div>
+                              <div className="font-semibold">GHS {Number(claim.totalClaimAmount ?? 0).toFixed(2)}</div>
+                            </div>
+                          ) : (
+                            <div className="min-w-[230px]">
+                              <div className="text-xs text-[var(--text-secondary)]">Svc {t.services.toFixed(2)} · Labs {t.labs.toFixed(2)} · Meds {t.medications.toFixed(2)}</div>
+                              <div className="font-semibold">GHS {Number(claim.totalClaimAmount ?? 0).toFixed(2)}</div>
+                            </div>
+                          );
+                        })()}
+                      </td>
                       <td className={cn(TD, 'text-right')}>
                         {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
                       </td>
