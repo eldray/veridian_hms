@@ -1287,6 +1287,7 @@ export interface PeriodClaimRow {
   claimNumber: string;
   status: 'draft' | 'finalized';
   amount: number;
+  itemTotals?: { gdrg: number; medications: number; labs: number; services: number };
   visitDate: string | null;
   attendanceNumber: string | null;
   folderNumber: string | null;
@@ -1303,6 +1304,10 @@ export interface PeriodClaims {
   totals: {
     claims: number;
     amount: number;
+    gdrg: number;
+    medications: number;
+    labs: number;
+    services: number;
     byStatus: Record<string, { count: number; amount: number }>;
     batchable: { count: number; amount: number };
   };
