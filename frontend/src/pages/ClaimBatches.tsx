@@ -574,6 +574,24 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
         />
       </div>
 
+      {filterType !== 'nhis' && (totals as any)?.byPayer?.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">Monthly totals by {filterType === 'corporate' ? 'company' : 'insurer'}</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {(totals as any).byPayer.map((payer: any) => (
+              <Card key={payer.payer} title={payer.payer} description={payer.claims + ' claims'}>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div><div className="text-xs text-[var(--text-secondary)]">Services</div><strong>{money(payer.services)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Labs</div><strong>{money(payer.labs)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Medications</div><strong>{money(payer.medications)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Total</div><strong>{money(payer.amount)}</strong></div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* The month's claims */}
       <Card
         title={`Claims in ${periodName(periodYear, periodMonth)}`}
