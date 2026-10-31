@@ -431,6 +431,27 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       };
     }
 
+    const payerGroups = new Map<string, { payer: string; claims: number; amount: number; gdrg: number; medications: number; labs: number; services: number }>();
+    for (const claim of categoryClaims as any[]) {
+      const payer = type === 'nhis' ? 'NHIS' : (claim.corporateAccount?.companyName || claim.insuranceProvider?.name || 'Unassigned payer');
+      const key = payer.toLocaleLowerCase();
+      if (!payerGroups.has(key)) payerGroups.set(key, { payer, claims: 0, amount: 0, gdrg: 0, medications: 0, labs: 0, services: 0 });
+      const group = payerGroups.get(key)!;
+      group.claims += 1;
+      for (const item of claim.items ?? []) {
+        const amount = Number(item.lineTotal ?? 0);
+        group.amount += amount;
+        if (item.itemCategory === 'gdrg') group.gdrg += amount;
+        else if (item.itemCategory === 'medicine') group.medications += amount;
+        else if (item.itemCategory === 'investigation') group.labs += amount;
+        else if (item.itemCategory === 'service' || item.itemCategory === 'procedure') group.services += amount;
+      }
+    }
+    const payerTotals = Array.from(payerGroups.values()).map(group => ({
+      ...group, amount: money(group.amount), gdrg: money(group.gdrg), medications: money(group.medications),
+      labs: money(group.labs), services: money(group.services),
+    })).sort((a, b) => a.payer.localeCompare(b.payer));
+
     const categoryTotals = { gdrg: 0, medications: 0, labs: 0, services: 0 };
     const getItemTotals = (items: any[]) => {
       const result = { ...categoryTotals };
@@ -477,6 +498,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         medications: money(categoryTotals.medications),
         labs: money(categoryTotals.labs),
         services: money(categoryTotals.services),
+        byPayer: payerTotals,
         byStatus: statusTotals,
         batchable: { count: batchable._count._all, amount: money(batchable._sum.totalClaimAmount) },
       },
