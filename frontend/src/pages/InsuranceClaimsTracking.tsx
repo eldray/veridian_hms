@@ -19,6 +19,7 @@ type ClaimRow = {
   // This screen reads the raw API envelope, whose relation keys arrive camelCase; the insurance
   // store re-cases its claims to Prisma's names, so the two must not be conflated here.
   insuranceProvider?: { name?: string; type?: string };
+  corporateAccount?: { companyName?: string };
   patient?: { folderNumber?: string; surname?: string; otherNames?: string };
   attendance?: { attendanceNumber?: string; dateTime?: string };
   trackingEvents: TrackingEvent[];
