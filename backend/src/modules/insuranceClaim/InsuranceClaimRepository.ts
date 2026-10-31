@@ -417,6 +417,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       this.prisma.insuranceClaim.findMany({
         where,
         select: {
+          totalClaimAmount: true,
           items: { select: { itemCategory: true, lineTotal: true } },
           CorporateAccount: { select: { companyName: true } },
           InsuranceProvider: { select: { name: true, type: true } },
@@ -442,9 +443,9 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       if (!payerGroups.has(key)) payerGroups.set(key, { payer, claims: 0, amount: 0, gdrg: 0, medications: 0, labs: 0, services: 0 });
       const group = payerGroups.get(key)!;
       group.claims += 1;
+      group.amount += Number(claim.totalClaimAmount ?? 0);
       for (const item of claim.items ?? []) {
         const amount = Number(item.lineTotal ?? 0);
-        group.amount += amount;
         if (item.itemCategory === 'gdrg') group.gdrg += amount;
         else if (item.itemCategory === 'medicine') group.medications += amount;
         else if (item.itemCategory === 'investigation') group.labs += amount;
