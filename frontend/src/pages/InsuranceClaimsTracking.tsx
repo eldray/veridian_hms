@@ -79,6 +79,26 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
     return acc;
   }, { claimed: 0, paid: 0, outstanding: 0 }), [claims]);
 
+  const periodGroups = useMemo(() => {
+    const groups = new Map<string, { label: string; claims: ClaimRow[]; claimed: number; gdrg: number; medications: number; labs: number; services: number; paid: number; outstanding: number }>();
+    for (const claim of claims) {
+      const date = claim.finalizedAt ? new Date(claim.finalizedAt) : new Date();
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+      const label = date.toLocaleDateString('en-GH', { month: 'long', year: 'numeric' });
+      if (!groups.has(key)) groups.set(key, { label, claims: [], claimed: 0, gdrg: 0, medications: 0, labs: 0, services: 0, paid: 0, outstanding: 0 });
+      const group = groups.get(key)!;
+      group.claims.push(claim);
+      group.claimed += Number(claim.totalClaimAmount || 0);
+      group.gdrg += Number(claim.itemTotals?.gdrg || 0);
+      group.medications += Number(claim.itemTotals?.medications || 0);
+      group.labs += Number(claim.itemTotals?.labs || 0);
+      group.services += Number(claim.itemTotals?.services || 0);
+      group.paid += Number(claim.tracking?.totalPaid || 0);
+      group.outstanding += Number(claim.tracking?.outstanding || 0);
+    }
+    return Array.from(groups.entries()).sort((a, b) => b[0].localeCompare(a[0])).map(([, group]) => group);
+  }, [claims]);
+
   const openRecord = (claim: ClaimRow) => {
     setSelected(claim);
     setEventType('submission');
@@ -137,6 +157,30 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
       </div>
 
       <SearchInput value={search} onChange={setSearch} placeholder="Search claim, patient folder or insurer…" />
+
+      {periodGroups.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)]">{family === 'nhis' ? 'Monthly NHIS summaries' : 'Monthly payer summaries'}</h2>
+          {periodGroups.map(group => (
+            <div key={group.label} className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><strong>{group.label}</strong><span className="text-xs text-[var(--text-secondary)]">{group.claims.length} claims</span></div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                {family === 'nhis' ? <>
+                  <div><div className="text-xs text-[var(--text-secondary)]">GDRG</div><strong>{money(group.gdrg)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Medications</div><strong>{money(group.medications)}</strong></div>
+                </> : <>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Services</div><strong>{money(group.services)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Labs</div><strong>{money(group.labs)}</strong></div>
+                  <div><div className="text-xs text-[var(--text-secondary)]">Medications</div><strong>{money(group.medications)}</strong></div>
+                </>}
+                <div><div className="text-xs text-[var(--text-secondary)]">Total claimed</div><strong>{money(group.claimed)}</strong></div>
+                <div><div className="text-xs text-[var(--text-secondary)]">Paid / allocated</div><strong className="text-[var(--icon-green-text)]">{money(group.paid)}</strong></div>
+                <div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(group.outstanding)}</strong></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className={TABLE_SHELL}>
         {loading ? <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-secondary)]"><Loader2 className="animate-spin" size={20} /> Loading claims…</div> :
