@@ -23,9 +23,26 @@ import {
   removeCounterSaleItem, removeCounterScanOrder, searchCounterClients, searchCounterPatients,
 } from '../api';
 import {
-  AlertCircle, AlertTriangle, CheckCircle2, ClipboardList, DollarSign, FlaskConical, Loader,
+  AlertCircle, AlertTriangle, CheckCircle2, ClipboardList, DollarSign, FlaskConical,
   Plus, Printer, RefreshCw, Scan, Search, Store, User, UserPlus, X,
 } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  cn,
+  humanStatus,
+  INPUT,
+  PageHeader,
+  SearchInput,
+  SELECT,
+  statusTone,
+  TD,
+  TH,
+  TH_ROW,
+  TR,
+  type Accent,
+  type BadgeTone,
+} from '../components/ui';
 
 const unwrap = (response: any): any[] => {
   if (Array.isArray(response)) return response;
@@ -83,38 +100,22 @@ const identityOf = (ticket: any) => {
   return { label: 'Unnamed customer', detail: '—', phone: '—', kind: 'walk_in' as const, client, patient };
 };
 
-const statusTone: Record<string, string> = {
-  pending: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-  draft: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-  requested: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-  prescribed: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-  in_progress: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-  partial: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-  admitted: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-  dispensed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  administered: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  completed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  paid: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  discharged: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  referred: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-  cancelled: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-  absconded: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
+// The only ticket statuses Badge's STATUS_TONES does not carry: keep their
+// local colours here rather than editing the shared primitive (rule R13).
+const LOCAL_TONES: Record<string, Accent> = {
+  requested: 'yellow',
+  prescribed: 'yellow',
+  administered: 'green',
 };
 
-const pillClass = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize';
+const ticketTone = (value: any): BadgeTone => {
+  const key = label(value).toLowerCase();
+  return LOCAL_TONES[key] ?? statusTone(key);
+};
 
-function Badge({ value }: { value: any }) {
-  const text = label(value) || 'unknown';
-  return <span className={`${pillClass} ${statusTone[text] || 'bg-[var(--bg-main)] text-[var(--text-primary)]'}`}>{text}</span>;
-}
+const ticketLabel = (value: any): string => (value ? humanStatus(value) : 'unknown');
 
 const shell = 'bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl shadow-sm';
-const input = 'w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all disabled:opacity-60';
-const primaryButton = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all disabled:opacity-50';
-const quietButton = 'flex items-center gap-2 px-4 py-2 rounded-lg text-sm bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-50';
-const dangerButton = 'flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white transition-all disabled:opacity-50';
-const iconButton = 'p-2 rounded-lg bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white transition-all disabled:opacity-50';
-const tableHeadCell = 'px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase';
 
 type Tab = 'sell' | 'orders' | 'bill';
 
@@ -461,32 +462,36 @@ export default function Counter() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <Store className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Counter</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Walk-in sales, lab and scan requests for customers outside the patient register</p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-              {totalTickets} ticket(s){debouncedQuery ? ` matching “${debouncedQuery}”` : ''} · a ticket is a visit of its own: it orders, results, hands over stock and raises a bill without a folder number.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => loadTickets(debouncedQuery)} disabled={!!working || loadingList} className={quietButton}>
-            <RefreshCw className={`w-4 h-4 ${loadingList || working === 'Open ticket' ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button onClick={() => { setIdentitySearchError(null); setShowNewTicket(true); }} className={primaryButton}>
-            <UserPlus className="w-4 h-4" /> New ticket
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Counter"
+        subtitle="Walk-in sales, lab and scan requests for customers outside the patient register"
+        icon={Store}
+        accent="cyan"
+        meta={(
+          <>
+            {totalTickets} ticket(s){debouncedQuery ? ` matching “${debouncedQuery}”` : ''} · a ticket is a visit of its own: it orders, results, hands over stock and raises a bill without a folder number.
+          </>
+        )}
+        actions={(
+          <>
+            <Button
+              variant="secondary"
+              icon={RefreshCw}
+              loading={loadingList || working === 'Open ticket'}
+              disabled={!!working || loadingList}
+              onClick={() => loadTickets(debouncedQuery)}
+            >
+              Refresh
+            </Button>
+            <Button variant="soft" accent="cyan" icon={UserPlus} onClick={() => { setIdentitySearchError(null); setShowNewTicket(true); }}>
+              New ticket
+            </Button>
+          </>
+        )}
+      />
 
       {listError && (
-        <div role="alert" className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>Could not load the counter tickets: {listError}</span>
         </div>
@@ -501,15 +506,11 @@ export default function Counter() {
             </h2>
           </div>
           <div className="p-4 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-              <input
-                className={`${input} pl-10`}
-                placeholder="Search by name, phone or ticket number"
-                value={ticketQuery}
-                onChange={(e) => setTicketQuery(e.target.value)}
-              />
-            </div>
+            <SearchInput
+              value={ticketQuery}
+              onChange={setTicketQuery}
+              placeholder="Search by name, phone or ticket number"
+            />
 
             {loadingList ? (
               <div className="space-y-2">
@@ -532,7 +533,7 @@ export default function Counter() {
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-medium text-[var(--text-primary)] truncate">{identityOf(row).label}</span>
-                          <Badge value={row.status} />
+                          <Badge tone={ticketTone(row.status)} dot size="sm">{ticketLabel(row.status)}</Badge>
                         </div>
                         <div className="text-xs text-[var(--text-secondary)] flex items-center gap-2 mt-0.5">
                           <span>#{row.attendanceNumber}</span>
@@ -547,10 +548,9 @@ export default function Counter() {
                   ))}
                 </ul>
                 {hasNext ? (
-                  <button onClick={loadMoreTickets} disabled={loadingMore} className={`${quietButton} w-full justify-center`}>
-                    {loadingMore ? <Loader className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  <Button variant="secondary" fullWidth loading={loadingMore} icon={Search} onClick={loadMoreTickets}>
                     Load older tickets
-                  </button>
+                  </Button>
                 ) : null}
               </>
             )}
@@ -560,15 +560,15 @@ export default function Counter() {
         {/* Workspace */}
         <section className="space-y-4 min-w-0">
           {detailError && !ticket ? (
-            <div role="alert" className={`${shell} p-4 flex items-start gap-2 border-red-200`}>
-              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-red-600" />
+            <div role="alert" className={cn(shell, 'p-4 flex items-start gap-2 border-[var(--icon-red-text)]')}>
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-[var(--icon-red-text)]" />
               <div>
-                <p className="text-sm font-medium text-red-700">This ticket could not be opened</p>
-                <p className="text-sm text-red-700 mt-0.5">{detailError}</p>
+                <p className="text-sm font-medium text-[var(--icon-red-text)]">This ticket could not be opened</p>
+                <p className="text-sm text-[var(--icon-red-text)] mt-0.5">{detailError}</p>
                 {selectedId ? (
-                  <button onClick={() => loadTicket(selectedId)} className={`${quietButton} mt-2`} disabled={!!working}>
-                    <RefreshCw className="w-4 h-4" /> Try again
-                  </button>
+                  <Button variant="secondary" icon={RefreshCw} className="mt-2" disabled={!!working} onClick={() => loadTicket(selectedId)}>
+                    Try again
+                  </Button>
                 ) : null}
               </div>
             </div>
@@ -610,7 +610,7 @@ export default function Counter() {
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <Badge value={ticket.status} />
+                    <Badge tone={ticketTone(ticket.status)} dot size="sm">{ticketLabel(ticket.status)}</Badge>
                     {identity.kind === 'walk_in' && identity.client && !identity.client.registeredPatientId && canRegister ? (
                       <p className="text-xs text-[var(--text-secondary)] mt-2">Not in the register — link them in “Bill” if they register.</p>
                     ) : null}
@@ -622,7 +622,7 @@ export default function Counter() {
                   </p>
                 ) : null}
                 {detailError || catalogError ? (
-                  <div role="alert" className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div role="alert" className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-3 py-2 text-sm text-[var(--icon-red-text)]">
                     <AlertCircle className="h-4 w-4 shrink-0" /> {detailError || catalogError}
                   </div>
                 ) : null}
@@ -661,14 +661,14 @@ export default function Counter() {
                     <div className="p-4 space-y-2">
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_120px] gap-2">
                         <input
-                          className={input}
+                          className={cn(INPUT, 'w-full')}
                           placeholder="Type the item name (min. 2 letters)"
                           value={drugSearch}
                           onChange={(e) => setDrugSearch(e.target.value)}
                           disabled={!isOpen || !canSell}
                         />
                         <input
-                          className={input}
+                          className={cn(INPUT, 'w-full')}
                           type="number" min={1} step={1}
                           value={drugQty}
                           onChange={(e) => setDrugQty(e.target.value)}
@@ -684,9 +684,9 @@ export default function Counter() {
                                 {row?.stockItem?.strength ? <span className="text-xs text-[var(--text-secondary)]"> {row.stockItem.strength}</span> : null}
                                 <span className="text-xs text-[var(--text-secondary)]"> · {row.code || 'no code'} · {money(row?.pricing?.[0]?.cashPrice)}</span>
                               </span>
-                              <button className={quietButton} onClick={() => addDrug(row)} disabled={!!working || !isOpen || !canSell}>
-                                <Plus className="w-4 h-4" /> Add
-                              </button>
+                              <Button variant="secondary" icon={Plus} onClick={() => addDrug(row)} disabled={!!working || !isOpen || !canSell}>
+                                Add
+                              </Button>
                             </li>
                           ))}
                         </ul>
@@ -708,13 +708,14 @@ export default function Counter() {
                     <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] rounded-t-xl flex items-center justify-between">
                       <h3 className="text-sm font-semibold text-[var(--text-primary)]">Basket ({medications.length})</h3>
                       {canPrintPrescription && hasDispensed ? (
-                        <button
-                          className={quietButton}
+                        <Button
+                          variant="secondary"
+                          icon={Printer}
                           onClick={() => print('Print labels', 'Labels not printed', () => generatePrescription(ticket.id), `counter_${ticket.attendanceNumber}_labels`)}
                           disabled={!!working}
                         >
-                          <Printer className="w-4 h-4" /> Print dispensed labels
-                        </button>
+                          Print dispensed labels
+                        </Button>
                       ) : null}
                     </div>
                     {medications.length === 0 ? (
@@ -722,30 +723,32 @@ export default function Counter() {
                     ) : (
                       <div className="overflow-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <thead className={TH_ROW}>
                             <tr>
-                              <th className={tableHeadCell}>Item</th>
-                              <th className={tableHeadCell}>Qty</th>
-                              <th className={tableHeadCell}>Status</th>
-                              <th className={`${tableHeadCell} text-center`}>Actions</th>
+                              <th className={TH}>Item</th>
+                              <th className={cn(TH, 'text-right')}>Qty</th>
+                              <th className={TH}>Status</th>
+                              <th className={cn(TH, 'text-center')}>Actions</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
+                          <tbody>
                             {medications.map((med) => {
                               const cancellable = isOpen && med.status === 'prescribed';
                               return (
-                                <tr key={med.id} className="text-[var(--text-primary)]">
-                                  <td className="px-4 py-3">
+                                <tr key={med.id} className={TR}>
+                                  <td className={cn(TD, 'whitespace-normal')}>
                                     {med.name}
                                     {med?.stockItem?.currentStock != null ? <span className="text-xs text-[var(--text-secondary)]"> · {med.stockItem.currentStock} in stock</span> : null}
                                   </td>
-                                  <td className="px-4 py-3">{med.quantity}</td>
-                                  <td className="px-4 py-3"><Badge value={med.status} /></td>
-                                  <td className="px-4 py-3">
+                                  <td className={cn(TD, 'text-right')}>{med.quantity}</td>
+                                  <td className={TD}><Badge tone={ticketTone(med.status)} dot size="sm">{ticketLabel(med.status)}</Badge></td>
+                                  <td className={TD}>
                                     <div className="flex items-center justify-end gap-2">
                                       {med.status === 'prescribed' && canDispense && isOpen ? (
-                                        <button
-                                          className={quietButton}
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          icon={CheckCircle2}
                                           disabled={!!working}
                                           onClick={() => confirmThen(
                                             {
@@ -757,12 +760,15 @@ export default function Counter() {
                                             () => run('Hand over', () => dispenseCounterItem(ticket.id, med.id, med.quantity), { failureTitle: 'Not handed over', successTitle: 'Handed over', successMessage: `${med.name} is out of stock and ready for the customer.` }),
                                           )}
                                         >
-                                          <CheckCircle2 className="w-4 h-4" /> Hand over
-                                        </button>
+                                          Hand over
+                                        </Button>
                                       ) : null}
                                       {cancellable && canCancelItem ? (
-                                        <button
-                                          className={iconButton}
+                                        <Button
+                                          variant="dangerSoft"
+                                          iconOnly
+                                          icon={X}
+                                          aria-label="Cancel line"
                                           title="Cancel this line"
                                           disabled={!!working}
                                           onClick={() => confirmThen(
@@ -774,9 +780,7 @@ export default function Counter() {
                                             },
                                             () => run('Cancel item', () => removeCounterSaleItem(ticket.id, med.id), { failureTitle: 'Item not cancelled', successTitle: 'Item cancelled', successMessage: `${med.name} is off the ticket.` }),
                                           )}
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
+                                        />
                                       ) : null}
                                       {med.status === 'dispensed' || med.status === 'administered' ? (
                                         <span className="text-xs text-[var(--text-secondary)]">stock left the shelf — return it through the pharmacy</span>
@@ -804,8 +808,8 @@ export default function Counter() {
                     </div>
                     <div className="p-4 space-y-2">
                       <div className="grid grid-cols-1 md:grid-cols-[1fr_160px] gap-2">
-                        <input className={input} placeholder="Type the test name (min. 2 letters)" value={labSearch} onChange={(e) => setLabSearch(e.target.value)} disabled={!isOpen || !canSell} />
-                        <select className={input} value={priority} onChange={(e) => setPriority(e.target.value)} disabled={!isOpen || !canSell}>
+                        <input className={cn(INPUT, 'w-full')} placeholder="Type the test name (min. 2 letters)" value={labSearch} onChange={(e) => setLabSearch(e.target.value)} disabled={!isOpen || !canSell} />
+                        <select className={cn(SELECT, 'w-full')} value={priority} onChange={(e) => setPriority(e.target.value)} disabled={!isOpen || !canSell}>
                           <option value="routine">Routine</option>
                           <option value="urgent">Urgent</option>
                           <option value="stat">Stat</option>
@@ -816,14 +820,15 @@ export default function Counter() {
                           {labResults.slice(0, 12).map((row) => (
                             <li key={row.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--bg-main)]">
                               <span className="text-sm text-[var(--text-primary)]">{row?.labTestTemplate?.name || row.name}<span className="text-xs text-[var(--text-secondary)]"> · {row.code || 'no code'}</span></span>
-                              <button
-                                className={quietButton}
+                              <Button
+                                variant="secondary"
+                                icon={Plus}
                                 disabled={!!working || !isOpen || !canSell}
                                 onClick={() => run('Request test', () => addCounterLabOrder(ticket.id, { serviceCatalogId: row.id, priority }), { failureTitle: 'Test not requested' })
                                   .then((done) => { if (done) { setLabSearch(''); setLabResults([]); } })}
                               >
-                                <Plus className="w-4 h-4" /> Request
-                              </button>
+                                Request
+                              </Button>
                             </li>
                           ))}
                         </ul>
@@ -838,20 +843,21 @@ export default function Counter() {
                       <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Scan className="w-4 h-4" /> Request a scan</h3>
                     </div>
                     <div className="p-4 space-y-2">
-                      <input className={input} placeholder="Type the study name (min. 2 letters)" value={scanSearch} onChange={(e) => setScanSearch(e.target.value)} disabled={!isOpen || !canSell} />
+                      <input className={cn(INPUT, 'w-full')} placeholder="Type the study name (min. 2 letters)" value={scanSearch} onChange={(e) => setScanSearch(e.target.value)} disabled={!isOpen || !canSell} />
                       {scanResults.length > 0 ? (
                         <ul className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-lg overflow-hidden">
                           {scanResults.slice(0, 12).map((row) => (
                             <li key={row.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-[var(--bg-main)]">
                               <span className="text-sm text-[var(--text-primary)]">{row?.scanTemplate?.name || row.name}<span className="text-xs text-[var(--text-secondary)]"> · {row.code || 'no code'}</span></span>
-                              <button
-                                className={quietButton}
+                              <Button
+                                variant="secondary"
+                                icon={Plus}
                                 disabled={!!working || !isOpen || !canSell}
                                 onClick={() => run('Request scan', () => addCounterScanOrder(ticket.id, { serviceCatalogId: row.id, priority: priority === 'stat' ? 'urgent' : priority }), { failureTitle: 'Scan not requested' })
                                   .then((done) => { if (done) { setScanSearch(''); setScanResults([]); } })}
                               >
-                                <Plus className="w-4 h-4" /> Request
-                              </button>
+                                Request
+                              </Button>
                             </li>
                           ))}
                         </ul>
@@ -866,14 +872,15 @@ export default function Counter() {
                     <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)] rounded-t-xl flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-sm font-semibold text-[var(--text-primary)]">Orders on this ticket ({labs.length + scans.length})</h3>
                       {canPrintResults ? (
-                        <button
-                          className={quietButton}
+                        <Button
+                          variant="secondary"
+                          icon={Printer}
                           disabled={!!working || !hasResults}
                           title={hasResults ? 'Prints the lab and scan sheet for this ticket' : 'Nothing has been reported yet'}
                           onClick={() => print('Print results', 'Results not printed', () => generateLabResult(ticket.id), `counter_${ticket.attendanceNumber}_results`)}
                         >
-                          <Printer className="w-4 h-4" /> Print result sheet
-                        </button>
+                          Print result sheet
+                        </Button>
                       ) : null}
                     </div>
                     {labs.length === 0 && scans.length === 0 ? (
@@ -881,15 +888,15 @@ export default function Counter() {
                     ) : (
                       <div className="overflow-auto">
                         <table className="w-full text-sm">
-                          <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <thead className={TH_ROW}>
                             <tr>
-                              <th className={tableHeadCell}>Order</th>
-                              <th className={tableHeadCell}>Type</th>
-                              <th className={tableHeadCell}>Status</th>
-                              <th className={`${tableHeadCell} text-center`}>Actions</th>
+                              <th className={TH}>Order</th>
+                              <th className={TH}>Type</th>
+                              <th className={TH}>Status</th>
+                              <th className={cn(TH, 'text-center')}>Actions</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-[var(--border-color)]">
+                          <tbody>
                             {[
                               ...labs.map((order: any) => ({ ...order, kind: 'Lab test', icon: FlaskConical, nameLabel: order?.labTestTemplate?.name || order?.serviceCatalog?.name || 'Lab test' })),
                               ...scans.map((study: any) => ({ ...study, kind: 'Scan', icon: Scan, nameLabel: study?.scanTemplate?.name || study?.serviceCatalog?.name || study.scanType || 'Scan' })),
@@ -897,20 +904,23 @@ export default function Counter() {
                               const Icon = order.icon;
                               const cancellable = isOpen && CANCELLABLE_ORDER_STATUSES.includes(String(order.status));
                               return (
-                                <tr key={`${order.kind}-${order.id}`} className="text-[var(--text-primary)]">
-                                  <td className="px-4 py-3">
+                                <tr key={`${order.kind}-${order.id}`} className={TR}>
+                                  <td className={cn(TD, 'whitespace-normal')}>
                                     <span className="flex items-center gap-2">
                                       <Icon className="w-4 h-4 text-[var(--text-secondary)] shrink-0" />
                                       {order.nameLabel}
                                     </span>
                                   </td>
-                                  <td className="px-4 py-3 text-[var(--text-secondary)]">{order.kind}</td>
-                                  <td className="px-4 py-3"><Badge value={order.status} /></td>
-                                  <td className="px-4 py-3">
+                                  <td className={cn(TD, 'text-[var(--text-secondary)]')}>{order.kind}</td>
+                                  <td className={TD}><Badge tone={ticketTone(order.status)} dot size="sm">{ticketLabel(order.status)}</Badge></td>
+                                  <td className={TD}>
                                     <div className="flex items-center justify-end gap-2">
                                       {cancellable && canCancelOrder ? (
-                                        <button
-                                          className={iconButton}
+                                        <Button
+                                          variant="dangerSoft"
+                                          iconOnly
+                                          icon={X}
+                                          aria-label="Cancel order"
                                           title="Cancel this order"
                                           disabled={!!working}
                                           onClick={() => confirmThen(
@@ -926,9 +936,7 @@ export default function Counter() {
                                               { failureTitle: 'Order not cancelled', successTitle: 'Order cancelled', successMessage: `${order.nameLabel} is off the ticket.` },
                                             ),
                                           )}
-                                        >
-                                          <X className="w-4 h-4" />
-                                        </button>
+                                        />
                                       ) : null}
                                       {order.status === 'completed' || order.status === 'cancelled' ? (
                                         <span className="text-xs text-[var(--text-secondary)]">{order.status === 'completed' ? 'reported — print the result sheet above' : 'already cancelled'}</span>
@@ -971,13 +979,15 @@ export default function Counter() {
                     {!bill ? (
                       <>
                         <p className="text-sm text-[var(--text-secondary)]">No bill has been raised for this ticket yet.</p>
-                        <button
-                          className={primaryButton}
+                        <Button
+                          variant="soft"
+                          accent="cyan"
+                          icon={DollarSign}
                           onClick={() => run('Raise bill', () => raiseCounterBill(ticket.id), { failureTitle: 'Bill not raised', successTitle: 'Bill raised', successMessage: 'The counter can now be paid at accounts.' })}
                           disabled={!!working || !isOpen || !canSell}
                         >
-                          <DollarSign className="w-4 h-4" /> Raise the bill
-                        </button>
+                          Raise the bill
+                        </Button>
                         <p className="text-xs text-[var(--text-secondary)]">
                           Pricing uses the tariff in force on the day of the visit, the same rule every other bill follows.
                         </p>
@@ -989,34 +999,37 @@ export default function Counter() {
                           <dt className="text-[var(--text-secondary)]">Total</dt><dd className="text-[var(--text-primary)]">{money(bill.totalAmount)}</dd>
                           <dt className="text-[var(--text-secondary)]">Paid</dt><dd className="text-[var(--text-primary)]">{money(bill.paidAmount)}</dd>
                           <dt className="text-[var(--text-secondary)]">Balance</dt><dd className="text-[var(--text-primary)] font-semibold">{money(bill.balance)}</dd>
-                          <dt className="text-[var(--text-secondary)]">Status</dt><dd><Badge value={bill.status} /></dd>
+                          <dt className="text-[var(--text-secondary)]">Status</dt><dd><Badge tone={ticketTone(bill.status)} dot size="sm">{ticketLabel(bill.status)}</Badge></dd>
                         </dl>
                         <div className="flex flex-wrap gap-2 pt-1">
                           {canTakePayment && balance > 0 ? (
-                            <button className={primaryButton} onClick={() => navigate(`/dashboard/billing/${bill.id}/payment`)}>
-                              <DollarSign className="w-4 h-4" /> Take payment at accounts
-                            </button>
+                            <Button variant="soft" accent="cyan" icon={DollarSign} onClick={() => navigate(`/dashboard/billing/${bill.id}/payment`)}>
+                              Take payment at accounts
+                            </Button>
                           ) : null}
                           {canPrintMoneyDoc ? (
                             <>
-                              <button
-                                className={quietButton}
+                              <Button
+                                variant="secondary"
+                                icon={Printer}
                                 disabled={!!working}
                                 onClick={() => print('Print statement', 'Statement not printed', () => generateBillStatement(bill.id), `counter_${bill.billNumber}_statement`)}
                               >
-                                <Printer className="w-4 h-4" /> Print statement
-                              </button>
-                              <button
-                                className={quietButton}
+                                Print statement
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                icon={Printer}
                                 disabled={!!working}
                                 onClick={() => print('Print receipt', 'Receipt not printed', () => generateReceipt(bill.id), `counter_${bill.billNumber}_receipt`)}
                               >
-                                <Printer className="w-4 h-4" /> Print receipt
-                              </button>
+                                Print receipt
+                              </Button>
                             </>
                           ) : null}
-                          <button
-                            className={quietButton}
+                          <Button
+                            variant="secondary"
+                            icon={RefreshCw}
                             disabled={!!working}
                             onClick={() => run('Re-check bill', async () => {
                               const response = await getCounterBill(ticket.id);
@@ -1024,17 +1037,18 @@ export default function Counter() {
                               return response;
                             }, { failureTitle: 'Bill not re-checked', successTitle: 'Bill re-checked', successMessage: 'The numbers shown are the ones accounts has.' })}
                           >
-                            <RefreshCw className="w-4 h-4" /> Re-check the bill
-                          </button>
+                            Re-check the bill
+                          </Button>
                           {isOpen ? (
-                            <button
-                              className={quietButton}
+                            <Button
+                              variant="secondary"
+                              icon={DollarSign}
                               disabled={!!working}
                               title="Adds anything handed over or reported since the bill was raised, and recomputes the total"
                               onClick={() => run('Update bill', () => raiseCounterBill(ticket.id), { failureTitle: 'Bill not updated', successTitle: 'Bill updated', successMessage: 'New items are on the bill and the balance is recomputed.' })}
                             >
-                              <DollarSign className="w-4 h-4" /> Add what is new to the bill
-                            </button>
+                              Add what is new to the bill
+                            </Button>
                           ) : null}
                         </div>
                         {balance > 0 && !canTakePayment ? (
@@ -1050,8 +1064,9 @@ export default function Counter() {
 
                     {isOpen && canSell ? (
                       <div className="pt-3 border-t border-[var(--border-color)]">
-                        <button
-                          className={dangerButton}
+                        <Button
+                          variant="dangerSoft"
+                          icon={CheckCircle2}
                           disabled={!!working}
                           onClick={() => confirmThen(
                             {
@@ -1063,8 +1078,8 @@ export default function Counter() {
                             () => run('Close ticket', () => closeCounterTicket(ticket.id), { failureTitle: 'Ticket not closed', successTitle: 'Ticket closed', successMessage: `${identity.label}'s visit is finished.` }),
                           )}
                         >
-                          <CheckCircle2 className="w-4 h-4" /> Close this ticket
-                        </button>
+                          Close this ticket
+                        </Button>
                       </div>
                     ) : null}
 
@@ -1168,7 +1183,7 @@ function NewTicketDialog({
       <div ref={panelRef} className={`${shell} p-5 w-full max-w-lg max-h-[90vh] overflow-auto`}>
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold text-[var(--text-primary)]">Who is at the counter?</h2>
-          <button className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition-all" onClick={onClose} aria-label="Close"><X className="w-4 h-4" /></button>
+          <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={onClose} />
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
           {([['new', 'New name'], ['existing', 'Returning'], ['patient', 'Registered patient']] as const).map(([key, text]) => (
@@ -1184,10 +1199,10 @@ function NewTicketDialog({
 
         {identityMode === 'new' ? (
           <div className="space-y-3">
-            <input ref={firstFieldRef} className={input} placeholder="Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input ref={firstFieldRef} className={cn(INPUT, 'w-full')} placeholder="Name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <div className="grid grid-cols-2 gap-2">
-              <input className={input} type="number" min={0} max={120} placeholder="Age (optional)" value={form.ageYears} onChange={(e) => setForm({ ...form, ageYears: e.target.value })} />
-              <input className={input} placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+              <input className={cn(INPUT, 'w-full')} type="number" min={0} max={120} placeholder="Age (optional)" value={form.ageYears} onChange={(e) => setForm({ ...form, ageYears: e.target.value })} />
+              <input className={cn(INPUT, 'w-full')} placeholder="Phone (optional)" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             </div>
             <p className="text-xs text-[var(--text-secondary)]">Only the name is needed. Nothing is invented for them — no folder number, no date of birth.</p>
           </div>
@@ -1197,7 +1212,7 @@ function NewTicketDialog({
 
         {identityMode === 'existing' ? (
           <div className="space-y-3">
-            <input className={input} placeholder="Search the counter book by name or phone" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
+            <input className={cn(INPUT, 'w-full')} placeholder="Search the counter book by name or phone" value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} />
             <ul className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-lg overflow-hidden max-h-56 overflow-y-auto">
               {clientMatches.map((client) => (
                 <li key={client.id}>
@@ -1214,7 +1229,7 @@ function NewTicketDialog({
 
         {identityMode === 'patient' ? (
           <div className="space-y-3">
-            <input className={input} placeholder="Search the register by name, folder or phone" value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} />
+            <input className={cn(INPUT, 'w-full')} placeholder="Search the register by name, folder or phone" value={patientSearch} onChange={(e) => setPatientSearch(e.target.value)} />
             <ul className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-lg overflow-hidden max-h-56 overflow-y-auto">
               {patientMatches.map((patient) => (
                 <li key={patient.id}>
@@ -1230,19 +1245,17 @@ function NewTicketDialog({
         ) : null}
 
         {searchError ? (
-          <div role="alert" className="mt-3 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-3 py-2 text-sm text-[var(--icon-red-text)]">
             <AlertCircle className="h-4 w-4 shrink-0" /> {searchError} An empty list here may be this failure, not a missing name.
           </div>
         ) : null}
 
         <div className="mt-3">
-          <input className={input} placeholder="What are they here for? (optional)" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
+          <input className={cn(INPUT, 'w-full')} placeholder="What are they here for? (optional)" value={form.reason} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <button className={quietButton} onClick={onClose}>Cancel</button>
-          <button className={primaryButton} onClick={onSubmit} disabled={busy}>
-            {busy ? <Loader className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />} Open ticket
-          </button>
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button variant="soft" accent="cyan" icon={UserPlus} loading={busy} onClick={onSubmit}>Open ticket</Button>
         </div>
       </div>
     </div>
@@ -1294,7 +1307,7 @@ function RegisterLink({ clientId, onDone }: { clientId: string; onDone: () => vo
   return (
     <div className="mt-2 space-y-2">
       <input
-        className={input}
+        className={cn(INPUT, 'w-full')}
         placeholder="Folder name, number or phone"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -1302,7 +1315,7 @@ function RegisterLink({ clientId, onDone }: { clientId: string; onDone: () => vo
       <ul className="divide-y divide-[var(--border-color)] border border-[var(--border-color)] rounded-lg overflow-hidden max-h-40 overflow-y-auto">
         {searchError ? (
           <li className="px-3 py-2">
-            <span role="alert" className="flex items-center gap-2 text-sm text-red-700">
+            <span role="alert" className="flex items-center gap-2 text-sm text-[var(--icon-red-text)]">
               <AlertCircle className="h-4 w-4 shrink-0" /> {searchError}
             </span>
           </li>

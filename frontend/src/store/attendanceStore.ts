@@ -1,6 +1,7 @@
 // stores/attendanceStore.ts - COMPLETE FIXED VERSION (Single copy)
 import { create } from 'zustand';
 import { describeApiError } from '../utils/apiError';
+import { withRelationAliases } from '../utils/relationAliases';
 
 // Only the most recently requested visit/list request may replace shared store data.
 let attendanceFetchSequence = 0;
@@ -282,6 +283,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
       } else if (response.data && Array.isArray(response.data)) {
         attendances = response.data;
       }
+      attendances = withRelationAliases(attendances);
 
       if (requestSequence === attendanceListFetchSequence) {
         set({
@@ -324,7 +326,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiGetAttendance(id);
-      const attendance = response.data || response;
+      const attendance = withRelationAliases(response.data || response);
       set((state) => requestSequence === attendanceFetchSequence
         ? { currentAttendance: attendance, isLoading: false, error: null }
         : state);
@@ -342,7 +344,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     if (!id || id === 'undefined' || id === 'null') return null;
     try {
       const response = await apiGetAttendance(id);
-      const fresh = (response.data || response) as Attendance;
+      const fresh = withRelationAliases((response.data || response) as Attendance);
       if (!fresh || !(fresh as any).id) return null;
       set((state) => {
         const index = state.attendances.findIndex((a) => a.id === fresh.id);
@@ -364,7 +366,7 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiCreateAttendance(data);
-      const newAttendance = response.attendance || response.data || response;
+      const newAttendance = withRelationAliases(response.attendance || response.data || response);
       set((state) => ({
         attendances: [newAttendance, ...state.attendances],
         currentAttendance: newAttendance,

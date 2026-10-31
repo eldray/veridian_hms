@@ -46,6 +46,8 @@ const getEntityId = (entity: { id?: string; _id?: string } | null): string | und
   entity?._id || entity?.id;
 
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'consumable' | null;
+type EntryTab = 'clinical' | 'orders';
+type OrderTab = 'medications' | 'consumables' | 'labs' | 'scans' | 'procedures';
 
 // ─── Reusable section card ───────────────────────────────────────────────────
 const SectionCard: React.FC<{
@@ -102,6 +104,41 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
   );
 };
 
+// ─── Lab result flag ──────────────────────────────────────────────────────────
+// Stored results keep the value and the reference range but not the flag that was shown when the
+// result was entered, so the badge is derived from the same numbers the lab used.
+const labFlag = (value: any, normalRange?: string | null): string => {
+  if (value === '' || value === null || value === undefined || !normalRange) return '';
+  const numeric = Number(value);
+  if (Number.isNaN(numeric)) return '';
+  const text = String(normalRange).replace(/[–—]/g, '-');
+  // Ranges are stored as "4.0-11.0", but upper/lower bounds appear as "<5.0" / ">40".
+  const bound = text.match(/^([<>])\s*(-?\d+(?:\.\d+)?)/);
+  if (bound) {
+    const limit = Number(bound[2]);
+    return bound[1] === '<'
+      ? (numeric < limit ? 'NL' : 'HIGH')
+      : (numeric > limit ? 'NL' : 'LOW');
+  }
+  const range = text.match(/(-?\d+(?:\.\d+)?)\s*-\s*(-?\d+(?:\.\d+)?)/);
+  if (!range) return '';
+  const low = Number(range[1]);
+  const high = Number(range[2]);
+  if (numeric < low) return 'LOW';
+  if (numeric > high) return 'HIGH';
+  return 'NL';
+};
+
+const FlagPill: React.FC<{ flag: string }> = ({ flag }) => {
+  if (!flag) return <span className="text-[var(--text-tertiary)]">—</span>;
+  const cls = flag === 'HIGH'
+    ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
+    : flag === 'LOW'
+      ? 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'
+      : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
+  return <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${cls}`}>{flag}</span>;
+};
+
 // ─── Add button ───────────────────────────────────────────────────────────────
 const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
   <button
@@ -125,12 +162,15 @@ const DelBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 );
 
 // ─── Table shell ──────────────────────────────────────────────────────────────
-const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads, children }) => (
-  <table className="w-full text-xs">
+// Results cards sit two-up, so long prose columns get explicit widths and a fixed
+// layout; without them the browser squeezes findings into a sliver.
+const Table: React.FC<{ heads: string[]; colWidths?: string[]; children: React.ReactNode }> = ({ heads, colWidths, children }) => (
+  <table className={`w-full text-xs ${colWidths ? 'table-fixed' : ''}`}>
     <thead className="sticky top-0 z-10 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
       <tr>
-        {heads.map(h => (
-          <th key={h} className="px-3 py-2 text-left font-semibold text-[var(--text-tertiary)] whitespace-nowrap">{h}</th>
+        {heads.map((h, i) => (
+          <th key={`${h}-${i}`} style={colWidths?.[i] ? { width: colWidths[i] } : undefined}
+            className="px-3 py-2 text-left font-semibold text-[var(--text-tertiary)] whitespace-nowrap">{h}</th>
         ))}
       </tr>
     </thead>
@@ -139,11 +179,11 @@ const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads
 );
 
 const Td: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <td className={`px-3 py-2 text-[var(--text-secondary)] ${className}`}>{children}</td>
+  <td className={`px-3 py-2 text-[var(--text-secondary)] break-words ${className}`}>{children}</td>
 );
 
 const TdPrimary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <td className="px-3 py-2 text-[var(--text-primary)] font-medium">{children}</td>
+  <td className="px-3 py-2 text-[var(--text-primary)] font-medium break-words">{children}</td>
 );
 
 // ─── Scan result modal ────────────────────────────────────────────────────────
@@ -662,6 +702,19 @@ export default function MedicalEntries() {
   const [physicianNoteText, setPhysicianNoteText] = useState('');
   const [physicianNotes, setPhysicianNotes] = useState<{ author: string; date: string; text: string }[]>([]);
   const [modalType, setModalType] = useState<ModalType>(null);
+  // The consultation is read in two panels — the note and the orders it produces, each order
+  // showing its own request and results — the same shape as the antenatal workspace. The tab
+  // survives a refresh through the URL hash so a handoff to pharmacy or the lab can point at it.
+  const [activeTab, setActiveTab] = useState<EntryTab>(() => {
+    const hash = window.location.hash.replace('#', '');
+    return hash === 'orders' ? 'orders' : 'clinical';
+  });
+  const [orderTab, setOrderTab] = useState<OrderTab>('medications');
+
+  const selectTab = (tab: EntryTab) => {
+    setActiveTab(tab);
+    window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#${tab}`);
+  };
   const [assessmentOpen, setAssessmentOpen] = useState(false);
   const [clinicalNotesOpen, setClinicalNotesOpen] = useState(false);
   const [consumableUses, setConsumableUses] = useState<any[]>([]);
@@ -780,7 +833,20 @@ export default function MedicalEntries() {
   useEffect(() => {
     if (!requestedEntry || !selectedAttendanceId) return;
     const openable: ModalType[] = ['diagnosis', 'lab', 'procedure', 'medication', 'scan', 'consumable'];
-    if (openable.includes(requestedEntry as ModalType)) setModalType(requestedEntry as ModalType);
+    if (openable.includes(requestedEntry as ModalType)) {
+      setModalType(requestedEntry as ModalType);
+      // Open the panel that owns the thing being added, so the modal does not float over a tab
+      // where its records are invisible.
+      const orderTabFor: Record<string, OrderTab> = {
+        medication: 'medications', consumable: 'consumables',
+        lab: 'labs', scan: 'scans', procedure: 'procedures',
+      };
+      if (requestedEntry === 'diagnosis') selectTab('clinical');
+      else if (orderTabFor[requestedEntry]) {
+        selectTab('orders');
+        setOrderTab(orderTabFor[requestedEntry]);
+      }
+    }
     const remaining = new URLSearchParams(searchParams);
     remaining.delete('entry');
     setSearchParams(remaining, { replace: true });
@@ -841,6 +907,9 @@ export default function MedicalEntries() {
   const dispensedMeds = medicationsList.filter(m => m.status === 'dispensed');
   const requestedScans = scansList.filter(s => s.status === 'requested' || s.status === 'scheduled');
   const completedScans = scansList.filter(s => s.status === 'completed');
+
+  const openOrderCount = labTestsList.length + requestedScans.length + proceduresList.length
+    + medicationsList.filter((m: any) => m.status === 'prescribed').length + consumableUses.length;
 
   // Finalising is a signature, and the server refuses it until the record is complete. The same
   // requirements are worked out here from the on-page draft so the clinician sees what is missing
@@ -1729,8 +1798,36 @@ export default function MedicalEntries() {
             {/* LEFT — Main content */}
             <div className="flex-1 min-w-0 space-y-4">
 
+              {/* Tab bar — the consultation reads as two panels: the note, and the orders it
+                  produces. Each order pairs its request with the results that came back. */}
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="flex items-center border-b border-[var(--border-color)] px-1">
+                  <div className="flex overflow-x-auto">
+                    {[
+                      { key: 'clinical' as EntryTab, label: 'Clinical', icon: <Stethoscope className="w-3.5 h-3.5" />, count: diagnosesList.length },
+                      { key: 'orders' as EntryTab, label: 'Orders', icon: <ClipboardList className="w-3.5 h-3.5" />, count: openOrderCount },
+                    ].map(tab => {
+                      const isActive = activeTab === tab.key;
+                      return (
+                        <button key={tab.key} onClick={() => selectTab(tab.key)}
+                          className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
+                            ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
+                            : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)]'
+                            }`}>
+                          {tab.icon}{tab.label}
+                          {tab.count > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">{tab.count}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
               {/* The assessment and the safety/outcome review are two halves of one consultation
                   record, so they sit beside each other instead of pushing each other down. */}
+              {activeTab === 'clinical' && (
               <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
 
               <div className="min-w-0 space-y-4">
@@ -1759,20 +1856,6 @@ export default function MedicalEntries() {
               />
                 </div>
               </section>
-
-              {/* Consumables are supplies consumed by the examination and orders, not a workflow
-                  stage of their own, so they ride under the history instead of claiming a section. */}
-              <SectionCard
-                icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
-                title="Consumables Used"
-                count={consumableUses.length}
-                maxH="max-h-60"
-                action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
-              >
-                <ConsumableUsesPanel uses={consumableUses}
-                  onEdit={canAddEntries ? use => { setEditingConsumable(use); setModalType('consumable'); } : undefined}
-                  onDelete={canAddEntries ? deleteConsumableUse : undefined} />
-              </SectionCard>
 
               </div>
 
@@ -1841,21 +1924,60 @@ export default function MedicalEntries() {
               </section>
 
               </div>
+              )}
 
-              {/* Group 3: diagnoses and orders */}
-              <div className="flex items-center gap-2 px-1 pt-1">
-                <div className="h-5 w-1 rounded-full bg-[var(--icon-cyan-text)]" />
-                <div>
-                  <h3 className="text-xs font-bold text-[var(--text-primary)]">Diagnoses, Investigations & Treatment Orders</h3>
-                  <p className="text-[10px] text-[var(--text-tertiary)]">Diagnoses, laboratory tests, scans, procedures and medications for this attendance</p>
+              {/* ── ORDERS: one panel per order type ────────────────────── */}
+              {activeTab === 'orders' && (
+              <>
+              <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+                <div className="flex items-center border-b border-[var(--border-color)] px-1">
+                  <div className="flex overflow-x-auto">
+                    {[
+                      { key: 'medications' as OrderTab, label: 'Medications', icon: <Pill className="w-3.5 h-3.5" />, count: medicationsList.length },
+                      { key: 'consumables' as OrderTab, label: 'Consumables', icon: <Package className="w-3.5 h-3.5" />, count: consumableUses.length },
+                      { key: 'labs' as OrderTab, label: 'Labs', icon: <FlaskConical className="w-3.5 h-3.5" />, count: labTestsList.length },
+                      { key: 'scans' as OrderTab, label: 'Scans', icon: <Scan className="w-3.5 h-3.5" />, count: scansList.length },
+                      { key: 'procedures' as OrderTab, label: 'Procedures', icon: <Scissors className="w-3.5 h-3.5" />, count: proceduresList.length },
+                    ].map(tab => {
+                      const isActive = orderTab === tab.key;
+                      return (
+                        <button key={tab.key} onClick={() => setOrderTab(tab.key)}
+                          className={`flex items-center gap-1.5 px-3 py-2.5 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${isActive
+                            ? 'border-[var(--icon-cyan-text)] text-[var(--icon-cyan-text)]'
+                            : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)]'
+                            }`}>
+                          {tab.icon}{tab.label}
+                          {tab.count > 0 && (
+                            <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">{tab.count}</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
-              {/* The existing diagnosis, lab, procedure, medication, scan and consumable panels remain in place. */}
-              {/* ── INVESTIGATIONS ─────────────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Consumables are stock issued against the visit; the Add button opens the same
+                  order modal as a prescription, so both can be entered from one place. */}
+              {orderTab === 'consumables' && (
+                <SectionCard
+                  icon={<Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
+                  title="Consumables Used"
+                  count={consumableUses.length}
+                  maxH="max-h-96"
+                  action={canAddEntries && <AddBtn onClick={() => { setEditingConsumable(null); setModalType('consumable'); }} label="Add consumable" />}
+                >
+                  <ConsumableUsesPanel uses={consumableUses}
+                    onEdit={canAddEntries ? use => { setEditingConsumable(use); setModalType('consumable'); } : undefined}
+                    onDelete={canAddEntries ? deleteConsumableUse : undefined} />
+                </SectionCard>
+              )}
+              </>
+              )}
+              {/* ── LABS: the request beside the results that came back ── */}
+              {activeTab === 'orders' && orderTab === 'labs' && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-                {/* Requested lab tests */}
                 <SectionCard
                   icon={<FlaskConical className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                   title="Investigations Requested"
@@ -1869,10 +1991,10 @@ export default function MedicalEntries() {
                     : (
                       <Table heads={['Test', 'Priority', 'Status', 'Date', '']}>
                         {labTestsList.map((t: any) => (
-                          <tr key={t.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                          <tr key={t.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                             <TdPrimary>
                               {t.ServiceCatalog?.name || t.LabTestTemplate?.name || t.name || 'Lab test'}
-                              {t.notes && <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 line-clamp-1">{t.notes}</p>}
+                              {t.notes && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{t.notes}</p>}
                             </TdPrimary>
                             <Td>
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${t.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
@@ -1889,7 +2011,6 @@ export default function MedicalEntries() {
                     )}
                 </SectionCard>
 
-                {/* Lab results */}
                 <SectionCard
                   icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
                   title="Investigation Results"
@@ -1897,29 +2018,67 @@ export default function MedicalEntries() {
                   countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
                   maxH="max-h-80"
                 >
-                  {/* ... keep your existing lab results rendering ... */}
                   {labTestsList.filter((t: any) => t.status === 'completed').length === 0
                     ? <EmptyState icon={<FlaskConical className="w-9 h-9" />} label="No results available yet" />
                     : (
-                      <Table heads={['Test / Parameter', 'Result', 'Range', 'Flag', 'Date']}>
-                        {labTestsList.filter((t: any) => t.status === 'completed').map((test: any) => (
-                          <tr key={test.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{test.ServiceCatalog?.name || test.LabTestTemplate?.name || test.name || 'Lab test'}</TdPrimary>
-                            <Td>{typeof test.result === 'object' ? JSON.stringify(test.result) : (test.result || '—')}</Td>
-                            <Td>{test.normalRange || '—'}</Td>
-                            <Td><StatusBadge status={test.status} /></Td>
-                            <Td>{test.completedAt ? new Date(test.completedAt).toLocaleDateString() : '—'}</Td>
-                          </tr>
-                        ))}
+                      <Table heads={['Parameter', 'Result', 'Unit', 'Reference', 'Flag']}
+                        colWidths={['36%', '14%', '12%', '24%', '14%']}>
+                        {labTestsList.filter((t: any) => t.status === 'completed').map((test: any) => {
+                          const params: any[] = Array.isArray(test.result?.parameters) ? test.result.parameters : [];
+                          const rows = params.length > 0
+                            ? params
+                            : [{
+                                name: 'Result',
+                                value: test.result && typeof test.result === 'object' ? (test.result.value ?? '—') : (test.result ?? '—'),
+                                unit: test.units,
+                                normalRange: test.normalRange,
+                              }];
+                          return (
+                            <React.Fragment key={test.id}>
+                              {/* One banner per test: name, request note, summary and who ran it,
+                                  so the parameter rows stay readable in a half-width card. */}
+                              <tr className="bg-[var(--bg-main)]">
+                                <td colSpan={5} className="px-3 py-2">
+                                  <p className="text-[var(--text-primary)] font-semibold">
+                                    {test.ServiceCatalog?.name || test.LabTestTemplate?.name || test.name || 'Lab test'}
+                                  </p>
+                                  {test.notes && (
+                                    <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{test.notes}</p>
+                                  )}
+                                  {test.result?.summary && (
+                                    <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{test.result.summary}</p>
+                                  )}
+                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1">
+                                    {test.completedAt ? new Date(test.completedAt).toLocaleString() : '—'}
+                                    {test.User_LabTest_performedByIdToUser?.fullName && ` · ${test.User_LabTest_performedByIdToUser.fullName}`}
+                                  </p>
+                                </td>
+                              </tr>
+                              {rows.map((param: any, idx: number) => (
+                                <tr key={`${test.id}-${idx}`} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                                  <Td className="text-[var(--text-primary)]">{param.name || '—'}</Td>
+                                  <Td className="font-mono font-semibold text-[var(--text-primary)]">
+                                    {param.value === '' || param.value === null || param.value === undefined ? '—' : String(param.value)}
+                                  </Td>
+                                  <Td>{param.unit || test.units || '—'}</Td>
+                                  <Td>{param.normalRange || test.normalRange || '—'}</Td>
+                                  <Td><FlagPill flag={param.flag || labFlag(param.value, param.normalRange || test.normalRange)} /></Td>
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          );
+                        })}
                       </Table>
                     )}
                 </SectionCard>
               </div>
+              )}
 
               {/* ── DIAGNOSIS + PROCEDURES ────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4">
 
                 {/* Diagnosis */}
+                {activeTab === 'clinical' && (
                 <SectionCard
                   icon={<Stethoscope className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                   title="Diagnosis (ICD-10)"
@@ -1955,38 +2114,88 @@ export default function MedicalEntries() {
                       </Table>
                     )}
                 </SectionCard>
+                )}
 
-                {/* Procedures */}
-                <SectionCard
-                  icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />}
-                  title="Procedures & Scheduling"
-                  count={proceduresList.length}
-                  countColor="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
-                  action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}
-                >
-                  {proceduresList.length === 0
-                    ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
-                    : (
-                      <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', 'By', '']}>
-                        {proceduresList.map((proc: any) => (
-                          <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}</TdPrimary>
-                            <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
-                            <Td><StatusBadge status={proc.status} /></Td>
-                            <Td className="max-w-[120px] truncate">{proc.notes || '—'}</Td>
-                            <Td>{proc.requestedBy || user?.fullName || '—'}</Td>
-                            <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
-                          </tr>
-                        ))}
-                      </Table>
-                    )}
-                </SectionCard>
+                {/* Procedures: the schedule beside the recorded outcome */}
+                {activeTab === 'orders' && orderTab === 'procedures' && (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <SectionCard
+                    icon={<Scissors className="w-4 h-4 text-[var(--icon-orange-text)]" />}
+                    title="Procedures & Scheduling"
+                    count={proceduresList.length}
+                    countColor="bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]"
+                    action={canAddEntries && <AddBtn onClick={() => setModalType('procedure')} label="Schedule" />}
+                  >
+                    {proceduresList.length === 0
+                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No procedures scheduled" />
+                      : (
+                        <Table heads={['Procedure', 'Scheduled', 'Status', 'Notes', '']}>
+                          {proceduresList.map((proc: any) => (
+                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
+                                {(proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName) && (
+                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                    {proc.User_Procedure_performedByIdToUser?.fullName || proc.createdBy?.fullName}
+                                  </p>
+                                )}
+                              </TdPrimary>
+                              <Td>{proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}</Td>
+                              <Td><StatusBadge status={proc.status} /></Td>
+                              <Td className="whitespace-pre-wrap">{proc.notes || '—'}</Td>
+                              <Td>{canAddEntries && proc.status === 'scheduled' && <DelBtn onClick={() => handleDeleteItem('procedure', proc.id)} />}</Td>
+                            </tr>
+                          ))}
+                        </Table>
+                      )}
+                  </SectionCard>
+
+                  <SectionCard
+                    icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
+                    title="Procedure Results"
+                    count={proceduresList.filter((p: any) => p.status === 'completed').length}
+                    countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
+                    maxH="max-h-80"
+                  >
+                    {proceduresList.filter((p: any) => p.status === 'completed').length === 0
+                      ? <EmptyState icon={<Scissors className="w-9 h-9" />} label="No completed procedures yet" />
+                      : (
+                        <Table heads={['Procedure', 'Outcome & Complications', 'Notes']}
+                          colWidths={['26%', '34%', '40%']}>
+                          {proceduresList.filter((p: any) => p.status === 'completed').map((proc: any) => (
+                            <tr key={proc.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {proc.ServiceCatalog?.name || proc.ProcedureTemplate?.name || proc.name}
+                                <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">
+                                  {proc.performedAt ? new Date(proc.performedAt).toLocaleString() : proc.scheduledDate ? new Date(proc.scheduledDate).toLocaleString() : '—'}
+                                  {proc.User_Procedure_performedByIdToUser?.fullName && ` · ${proc.User_Procedure_performedByIdToUser.fullName}`}
+                                </p>
+                              </TdPrimary>
+                              <Td className="whitespace-pre-wrap">
+                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">Outcome</span>
+                                <p>{proc.outcome || '—'}</p>
+                                <span className="text-[10px] font-semibold text-[var(--text-tertiary)] mt-1 block">Complications</span>
+                                <p>{proc.complications || 'None recorded'}</p>
+                              </Td>
+                              <Td className="whitespace-pre-wrap">
+                                {proc.postOperativeNotes || proc.notes || '—'}
+                                {proc.intraOperativeNotes && (
+                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-1 whitespace-pre-wrap">{proc.intraOperativeNotes}</p>
+                                )}
+                              </Td>
+                            </tr>
+                          ))}
+                        </Table>
+                      )}
+                  </SectionCard>
+                </div>
+                )}
               </div>
 
-              {/* ── MEDICATIONS ───────────────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* ── MEDICATIONS: prescription beside the dispensed record ── */}
+              {activeTab === 'orders' && orderTab === 'medications' && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-                {/* Prescribed */}
                 <SectionCard
                   icon={<Pill className="w-4 h-4 text-[var(--icon-green-text)]" />}
                   title="Prescribed Medications"
@@ -1997,13 +2206,23 @@ export default function MedicalEntries() {
                   {medicationsList.length === 0
                     ? <EmptyState icon={<Pill className="w-9 h-9" />} label="No medications prescribed" />
                     : (
-                      <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status', '']}>
+                      <Table heads={['Medication', 'Dosage', 'Frequency', 'Qty', 'Status', '']}>
                         {medicationsList.map((med: any) => (
-                          <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{med.name}</TdPrimary>
+                          <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                            <TdPrimary>
+                              {med.name}
+                              {med.instructions && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{med.instructions}</p>}
+                            </TdPrimary>
                             <Td>{med.dosage || '—'}</Td>
-                            <Td>{med.frequency || '—'}</Td>
-                            <Td>{med.duration || '—'}</Td>
+                            <Td>
+                              {med.frequency || '—'}
+                              {(med.duration || med.route) && (
+                                <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">
+                                  {[med.duration, med.route].filter(Boolean).join(' · ')}
+                                </p>
+                              )}
+                            </Td>
+                            <Td>{med.quantity ?? '—'}</Td>
                             <Td><StatusBadge status={med.status} /></Td>
                             <Td>
                               {canAddEntries && med.status === 'prescribed'
@@ -2018,59 +2237,69 @@ export default function MedicalEntries() {
                     )}
                 </SectionCard>
 
-                {/* Dispensed history */}
                 <SectionCard
                   icon={<CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />}
                   title="Dispensed History"
                   count={dispensedMeds.length}
+                  countColor="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]"
                 >
                   {dispensedMeds.length === 0
-                    ? (
-                      <div className="flex flex-col items-center justify-center py-10 gap-1">
-                        <div className="opacity-20"><CheckCircle className="w-9 h-9" /></div>
-                        <p className="text-xs text-[var(--text-tertiary)]">No medications dispensed yet</p>
-                        {medicationsList.filter(m => m.status === 'prescribed').length > 0 && (
-                          <p className="text-[11px] text-[var(--icon-yellow-text)]">
-                            {medicationsList.filter(m => m.status === 'prescribed').length} awaiting dispensing
-                          </p>
-                        )}
-                      </div>
-                    )
+                    ? <EmptyState icon={<CheckCircle className="w-9 h-9" />} label="No medications dispensed yet" />
                     : (
-                      <Table heads={['Medication', 'Qty', 'Unit Cost', 'Total', 'Dispensed', 'By']}>
-                        {dispensedMeds.map((med: any) => (
-                          <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{med.name}</TdPrimary>
-                            <Td>{med.quantity}</Td>
-                            <Td>GHS {(med.unitCost || 0).toFixed(2)}</Td>
-                            <Td>GHS {((med.unitCost || 0) * med.quantity).toFixed(2)}</Td>
-                            <Td>{med.dispensedAt ? new Date(med.dispensedAt).toLocaleString() : '—'}</Td>
-                            <Td>{med.dispensedBy?.fullName || '—'}</Td>
-                          </tr>
-                        ))}
+                      <Table heads={['Medication', 'Qty', 'Unit Cost', 'Total', 'Dispensed']}
+                        colWidths={['32%', '10%', '16%', '16%', '26%']}>
+                        {dispensedMeds.map((med: any) => {
+                          const unitCost = Number(med.dispensedUnitCost ?? med.unitCost ?? 0);
+                          const qty = Number(med.quantity ?? 0);
+                          return (
+                            <tr key={med.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                              <TdPrimary>
+                                {med.name}
+                                {(med.dosage || med.frequency) && (
+                                  <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                    {[med.dosage, med.frequency].filter(Boolean).join(' · ')}
+                                  </p>
+                                )}
+                              </TdPrimary>
+                              <Td>{qty || '—'}</Td>
+                              <Td>GHS {unitCost.toFixed(2)}</Td>
+                              <Td className="font-semibold text-[var(--text-primary)]">GHS {(unitCost * qty).toFixed(2)}</Td>
+                              <Td>
+                                <p>{med.dispensedAt ? new Date(med.dispensedAt).toLocaleString() : '—'}</p>
+                                {med.User_Medication_dispensedByIdToUser?.fullName && (
+                                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{med.User_Medication_dispensedByIdToUser.fullName}</p>
+                                )}
+                              </Td>
+                            </tr>
+                          );
+                        })}
                       </Table>
                     )}
                 </SectionCard>
               </div>
+              )}
 
-              {/* ── SCANS ─────────────────────────────────────────────── */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* ── SCANS: the request beside the radiology report ───── */}
+              {activeTab === 'orders' && orderTab === 'scans' && (
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
 
-                {/* Requested scans */}
                 <SectionCard
                   icon={<Scan className="w-4 h-4 text-[var(--icon-purple-text)]" />}
                   title="Scans Requested"
-                  count={requestedScans.length}
+                  count={scansList.length}
                   countColor="bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]"
                   action={canAddEntries && <AddBtn onClick={() => setModalType('scan')} label="Request" />}
                 >
-                  {requestedScans.length === 0
+                  {scansList.length === 0
                     ? <EmptyState icon={<Scan className="w-9 h-9" />} label="No scans requested" />
                     : (
                       <Table heads={['Scan', 'Body Part', 'Priority', 'Status', 'Requested', '']}>
-                        {requestedScans.map((scan: any) => (
-                          <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                            <TdPrimary>{scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}</TdPrimary>
+                        {scansList.map((scan: any) => (
+                          <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
+                            <TdPrimary>
+                              {scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}
+                              {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
+                            </TdPrimary>
                             <Td>{scan.bodyPart || '—'}</Td>
                             <Td>
                               <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${scan.priority === 'stat' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' :
@@ -2087,27 +2316,32 @@ export default function MedicalEntries() {
                     )}
                 </SectionCard>
 
-                {/* Scan results */}
                 <SectionCard
                   icon={<CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />}
                   title="Scan Results"
                   count={completedScans.length}
                   countColor="bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]"
+                  maxH="max-h-80"
                 >
                   {completedScans.length === 0
                     ? <EmptyState icon={<Microscope className="w-9 h-9" />} label="No scan results yet" />
                     : (
-                      <Table heads={['Scan', 'Findings', 'Impression', 'Completed', '']}>
+                      <Table heads={['Scan', 'Findings', 'Impression', '']}
+                        colWidths={['24%', '40%', '32%', '4%']}>
                         {completedScans.map((scan: any) => (
-                          <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                          <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                             <TdPrimary>
                               {scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}
-                              {scan.bodyPart && <p className="text-[10px] text-[var(--text-tertiary)]">{scan.bodyPart}</p>}
+                              {scan.bodyPart && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">{scan.bodyPart}</p>}
+                              {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
+                              <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">
+                                {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
+                                {scan.User_Scan_performedByIdToUser?.fullName && ` · ${scan.User_Scan_performedByIdToUser.fullName}`}
+                              </p>
                             </TdPrimary>
-                            <Td className="max-w-[150px] truncate">{scan.findings || '—'}</Td>
-                            <Td className="max-w-[150px] truncate">{scan.impression || '—'}</Td>
-                            <Td>{scan.completedAt ? new Date(scan.completedAt).toLocaleDateString() : '—'}</Td>
-                            <Td>
+                            <Td className="whitespace-pre-wrap">{scan.findings || scan.result || '—'}</Td>
+                            <Td className="whitespace-pre-wrap">{scan.impression || '—'}</Td>
+                            <Td className="px-1">
                               {canAddEntries && (
                                 <button onClick={() => setScanResultFor(scan)}
                                   className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)] transition-all">
@@ -2121,8 +2355,10 @@ export default function MedicalEntries() {
                     )}
                 </SectionCard>
               </div>
+              )}
 
               {/* ── GENERAL INFO ──────────────────────────────────────── */}
+              {activeTab === 'clinical' && (
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
                   <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -2173,15 +2409,14 @@ export default function MedicalEntries() {
                   ))}
                 </div>
               </div>
+              )}
             </div>
 
             {/* RIGHT SIDEBAR */}
-            <div className="w-72 xl:w-80 flex-shrink-0">
+            <div className="w-72 xl:w-80 flex-shrink-0 sticky top-20">
               <div
                 className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
                 style={{
-                  position: 'sticky',
-                  top: '80px',
                   height: 'calc(100vh - 100px)',
                   boxShadow: 'var(--shadow-sm)',
                 }}
@@ -2201,7 +2436,7 @@ export default function MedicalEntries() {
 
                 {/* Logged notes list */}
                 <div
-                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
                   style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
                 >
                   {physicianNotes.length > 0 ? (
@@ -2247,7 +2482,7 @@ export default function MedicalEntries() {
 
                 {/* Logged treatment notes */}
                 <div
-                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                  className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
                   style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
                 >
                   {treatmentNotes.length > 0 ? (
@@ -2323,9 +2558,11 @@ export default function MedicalEntries() {
       <MedicationModal isOpen={modalType === 'medication'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries}
         allergies={recordedAllergies}
+        onSwitchToConsumable={() => { setEditingConsumable(null); setModalType('consumable'); }}
         userId={user?.id} userName={user?.fullName} />
       <ConsumableModal isOpen={modalType === 'consumable'} onClose={() => { setModalType(null); setEditingConsumable(null); }} onSuccess={afterConsumableUse}
-        encounterId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} existingUse={editingConsumable} />
+        encounterId={selectedAttendanceId} stockItems={stockItems} canAdd={canAddEntries} existingUse={editingConsumable}
+        onSwitchToPrescription={() => { setEditingConsumable(null); setModalType('medication'); }} />
       <ScanModal isOpen={modalType === 'scan'} onClose={() => setModalType(null)} onSuccess={afterModal}
         attendanceId={selectedAttendanceId} scans={scanTemplates} canAdd={canAddEntries}
         userId={user?.id} userName={user?.fullName} />

@@ -4,6 +4,7 @@ import { X, Search, Package, AlertCircle, CheckCircle } from 'lucide-react';
 import { recordEncounterConsumableUse, updateEncounterConsumableUse } from '../../../api';
 import { useToast } from '../../../store/toastStore';
 import { useAuthStore } from '../../../store/authStore';
+import { OrderModeToggle } from '../OrderModeToggle';
 
 // Match backend batch rules: a lot remains usable through its expiry calendar day (UTC).
 const startOfUtcDayTimestamp = (): number => {
@@ -20,6 +21,8 @@ interface ConsumableModalProps {
   stockItems: any[];
   canAdd: boolean;
   existingUse?: any | null;
+  /** Swap the form back to a prescription without leaving the order flow. */
+  onSwitchToPrescription?: () => void;
 }
 
 /** Debounce hook — returns the debounced value of `value` after `delay` ms. */
@@ -40,6 +43,7 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
   stockItems,
   canAdd,
   existingUse = null,
+  onSwitchToPrescription,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState('');
@@ -245,6 +249,15 @@ export const ConsumableModal: React.FC<ConsumableModalProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+          {onSwitchToPrescription && !existingUse && (
+            <div className="space-y-2">
+              <OrderModeToggle mode="consumable" onChange={() => onSwitchToPrescription()} />
+              <p className="text-[10px] text-[var(--text-tertiary)]">
+                Consumables are stock issued against this visit, not a pharmacy dispensation.
+              </p>
+            </div>
+          )}
+
           {/* Consumable search */}
           <div>
             <label htmlFor="consumable-search" className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">

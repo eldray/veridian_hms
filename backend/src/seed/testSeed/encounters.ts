@@ -135,7 +135,9 @@ export const seedEncounters = async (
       insuranceProviderId: insuranceProviderId ?? undefined,
       corporateAccountId: corporate?.accountId ?? undefined,
       corporateEmployeeId: corporate?.employeeId ?? undefined,
-      attendanceType: att.attendanceType as AttendanceType,
+      // A ticket without a patient is a counter sale (lab, scan, pharmacy), never a clinical
+      // consultation; the app's CounterRepository writes walk_in and GHS returns rely on it.
+      attendanceType: (patientId ? att.attendanceType : 'walk_in') as AttendanceType,
       dateTime: att.dateTime,
       paymentMode: att.paymentMode,
       // A claim is only generated from a covered visit, so the CCC has to be there.

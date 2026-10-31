@@ -6,27 +6,49 @@ import { useDepartmentStore } from '../store/departmentStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  Plus, 
-  Search, 
-  Package, 
-  AlertTriangle, 
-  Edit, 
-  Trash2, 
+  Plus,
+  Package,
+  AlertTriangle,
+  Edit,
+  Trash2,
   RefreshCw,
   FileText,
   ClipboardList,
   History,
   TrendingUp,
-  Calendar,
   Grid,
   List,
-  ArrowLeft,
   X,
-  CheckCircle,
-  Clock
+  Warehouse
 } from 'lucide-react';
-import { useNavigate, Link } from 'react-router-dom';
-import type { StockItem } from '../types';
+import { useNavigate } from 'react-router-dom';
+import {
+  Badge,
+  Button,
+  Card,
+  cn,
+  FilterSelect,
+  INPUT,
+  LinkButton,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  SELECT,
+  StatCard,
+  TABLE_SHELL,
+  TD,
+  TH,
+  TH_ROW,
+  TR,
+} from '../components/ui';
+import type { BadgeTone } from '../components/ui';
+
+/**
+ * The shape the stock store actually hands back. `../types` declares a stricter,
+ * Prisma-shaped `StockItem`, and the two are not assignable to each other, so the
+ * page annotates against its data source instead.
+ */
+type StockItem = ReturnType<typeof useStockStore.getState>['stockItems'][number];
 
 export default function StockManagement() {
   const {
@@ -38,7 +60,6 @@ export default function StockManagement() {
     createStockTransaction,
     allocateStockToDepartment,
     getLowStockItems,
-    lowStockAlerts,
     isLoading
   } = useStockStore();
   const { user, hasRole } = useAuthStore();
@@ -119,14 +140,6 @@ export default function StockManagement() {
     } catch (err) {
       console.error('Failed to load stock data:', err);
       toastError('Load failed', 'Could not load stock data');
-    }
-  };
-
-  const loadStockItems = async () => {
-    try {
-      await getStockItems();
-    } catch {
-      toastError('Load failed', 'Could not load stock items');
     }
   };
 
@@ -220,13 +233,15 @@ export default function StockManagement() {
     e.preventDefault();
     if (!selectedItem) return;
     try {
+      // The API records the issuing/receiving department; the store's local
+      // StockTransaction type has not caught up, so only the payload is cast.
       await createStockTransaction({
         stockItemId: selectedItem.id,
         ...transactionData,
         quantity: transactionData.transactionType === 'adjustment' && transactionData.adjustmentDirection === 'decrease' ? -Math.abs(transactionData.quantity) : transactionData.quantity,
         departmentId: transactionData.departmentId || (user as any)?.departmentId || undefined,
         ...(transactionData.transactionType === 'write_off' ? { batchNumber: transactionData.batchNumber.trim() } : {})
-      });
+      } as Parameters<typeof createStockTransaction>[0]);
       success('Recorded', 'Transaction completed successfully');
       setShowTransactionForm(false);
       setSelectedItem(null);
@@ -254,7 +269,7 @@ export default function StockManagement() {
 
   const handleEdit = (item: StockItem) => {
     setEditingItem(item);
-    const currentPrice = item.ServiceCatalog?.[0]?.pricing?.[0];
+    const currentPrice = (item as any).ServiceCatalog?.[0]?.pricing?.[0];
     const priceText = (v: unknown) => (currentPrice && v !== undefined && v !== null ? String(Number(v)) : '');
     setFormData({
       name: item.name,
@@ -345,15 +360,17 @@ export default function StockManagement() {
 
   const isLowStock = (item: StockItem) => getRelevantStockQuantity(item) <= item.reorderLevel;
 
-  const getStockStatusBadge = (item: StockItem) => {
+  // Stock levels are not workflow statuses, so Badge's status map does not cover them;
+  // the page keeps the tone here and Badge keeps the shape.
+  const getStockStatusBadge = (item: StockItem): { label: string; tone: BadgeTone } => {
     const quantity = getRelevantStockQuantity(item);
     if (quantity === 0) {
-      return { label: 'OUT OF STOCK', color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' };
+      return { label: 'OUT OF STOCK', tone: 'red' };
     }
     if (isLowStock(item)) {
-      return { label: 'LOW STOCK', color: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400' };
+      return { label: 'LOW STOCK', tone: 'yellow' };
     }
-    return { label: 'IN STOCK', color: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' };
+    return { label: 'IN STOCK', tone: 'green' };
   };
 
   // Balances are the source of truth; currentStock remains the synchronized aggregate cache.
@@ -390,108 +407,36 @@ export default function StockManagement() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header with Back Button */}
-      <div className="flex items-center justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg hover:bg-[var(--bg-main)] transition-all"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-          
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Stock Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Track inventory and manage stock levels</p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-3">
-          <Link
-            to="/dashboard/invoices"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <FileText className="w-4 h-4" />
-            Invoices
-          </Link>
-          <Link
-            to="/dashboard/requisitions"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <ClipboardList className="w-4 h-4" />
-            Requisitions
-          </Link>
-          <Link
-            to="/dashboard/transactions"
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <History className="w-4 h-4" />
-            Transactions
-          </Link>
-          
-          {isAdmin && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Add Item
-            </button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Stock Management"
+        subtitle="Track inventory and manage stock levels"
+        icon={Warehouse}
+        accent="blue"
+        onBack={() => navigate(-1)}
+        actions={(
+          <>
+            <LinkButton to="/dashboard/invoices" icon={FileText}>Invoices</LinkButton>
+            <LinkButton to="/dashboard/requisitions" icon={ClipboardList}>Requisitions</LinkButton>
+            <LinkButton to="/dashboard/transactions" icon={History}>Transactions</LinkButton>
+            {isAdmin && (
+              <Button variant="soft" icon={Plus} onClick={() => setShowForm(true)}>Add Item</Button>
+            )}
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[var(--text-secondary)]">Total Items</p>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">{stockItems.length}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[var(--text-secondary)]">Low Stock Items</p>
-              <p className="text-2xl font-bold text-[var(--icon-yellow-text)]">{lowStockItems.length}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[var(--icon-yellow-bg)] flex items-center justify-center">
-              <AlertTriangle className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[var(--text-secondary)]">Categories</p>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">{getUniqueCategories().length}</p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[var(--icon-purple-bg)] flex items-center justify-center">
-              <Grid className="w-5 h-5 text-[var(--icon-purple-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-[var(--text-secondary)]">Total Value</p>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">
-                ${stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0).toFixed(0)}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-[var(--icon-green-bg)] flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-          </div>
-        </div>
+        <StatCard label="Total Items" value={stockItems.length} icon={Package} />
+        <StatCard label="Low Stock Items" value={lowStockItems.length} icon={AlertTriangle} accent="yellow" />
+        <StatCard label="Categories" value={getUniqueCategories().length} icon={Grid} accent="purple" />
+        <StatCard
+          label="Total Value"
+          size="money"
+          icon={TrendingUp}
+          accent="green"
+          value={`$${stockItems.reduce((sum, item) => sum + (item.costPrice * item.currentStock), 0).toFixed(0)}`}
+        />
       </div>
 
       {/* Low Stock Alert Banner */}
@@ -507,55 +452,57 @@ export default function StockManagement() {
                 {lowStockItems.map(i => i.name).join(', ')}
               </p>
             </div>
-            <button
+            <Button
+              variant="soft"
+              accent="yellow"
+              size="sm"
+              className="ml-auto"
               onClick={() => setFilterStatus('low-stock')}
-              className="ml-auto px-3 py-1 text-xs font-medium text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-all"
             >
               View All
-            </button>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Search, Filters & Controls */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 relative">
-            <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Search by name, description, or code..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-            />
-          </div>
-          
-          <select
+          <SearchInput
+            className="flex-1"
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search by name, description, or code..."
+          />
+
+          <FilterSelect
+            aria-label="Filter by category"
             value={filterCategory}
-            onChange={e => setFilterCategory(e.target.value)}
-            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm min-w-[140px]"
-          >
-            <option value="all">All Categories</option>
-            {getUniqueCategories().map(c => (
-              <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-            ))}
-          </select>
-          
-          <select
+            onChange={setFilterCategory}
+            className="min-w-[140px]"
+            options={[
+              { value: 'all', label: 'All Categories' },
+              ...getUniqueCategories().map(c => ({ value: c, label: c.charAt(0).toUpperCase() + c.slice(1) }))
+            ]}
+          />
+
+          <FilterSelect
+            aria-label="Filter by stock status"
             value={filterStatus}
-            onChange={e => setFilterStatus(e.target.value)}
-            className="px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm min-w-[130px]"
-          >
-            <option value="all">All Status</option>
-            <option value="low-stock">Low Stock</option>
-            <option value="in-stock">In Stock</option>
-          </select>
-          
+            onChange={setFilterStatus}
+            className="min-w-[130px]"
+            options={[
+              { value: 'all', label: 'All Status' },
+              { value: 'low-stock', label: 'Low Stock' },
+              { value: 'in-stock', label: 'In Stock' }
+            ]}
+          />
+
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 p-1 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg">
             <button
               onClick={() => setViewMode('grid')}
+              aria-label="Grid view"
               className={`p-1.5 rounded-md transition-all ${
                 viewMode === 'grid' 
                   ? 'bg-[var(--icon-cyan-text)] text-white' 
@@ -566,6 +513,7 @@ export default function StockManagement() {
             </button>
             <button
               onClick={() => setViewMode('line')}
+              aria-label="List view"
               className={`p-1.5 rounded-md transition-all ${
                 viewMode === 'line' 
                   ? 'bg-[var(--icon-cyan-text)] text-white' 
@@ -576,24 +524,18 @@ export default function StockManagement() {
             </button>
           </div>
 
-          <button
-            onClick={loadAllData}
-            disabled={isLoading}
-            className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
+          <Button icon={RefreshCw} loading={isLoading} onClick={loadAllData}>Refresh</Button>
         </div>
 
         {/* Items Per Page Selector */}
         <div className="flex items-center justify-between mt-4 pt-3 border-t border-[var(--border-color)]">
           <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-            <span>Show:</span>
+            <span id="stock-items-per-page-label">Show:</span>
             <select
+              aria-labelledby="stock-items-per-page-label"
               value={itemsPerPage}
               onChange={(e) => handleItemsPerPageChange(Number(e.target.value))}
-              className="px-2 py-1 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded focus:ring-1 focus:ring-[var(--icon-cyan-text)] text-xs"
+              className={cn(SELECT, 'py-1 text-xs')}
             >
               <option value={6}>6</option>
               <option value={9}>9</option>
@@ -603,14 +545,8 @@ export default function StockManagement() {
             </select>
             <span>per page</span>
           </div>
-
-          {/* Results Count */}
-          <div className="text-sm text-[var(--text-secondary)]">
-            Showing {filteredItems.length === 0 ? 0 : startIndex + 1}-
-            {Math.min(endIndex, filteredItems.length)} of {filteredItems.length} items
-          </div>
         </div>
-      </div>
+      </Card>
 
       {/* Stock Items Display */}
       {/* The list streams in page by page: show skeletons only until the first rows exist,
@@ -649,8 +585,8 @@ export default function StockManagement() {
           ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-12 text-center shadow-sm border border-[var(--border-color)]">
-          <Package className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
+        <Card className="py-10 text-center">
+          <Package className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
           <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">No items found</h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4">
             {searchTerm || filterCategory !== 'all' || filterStatus !== 'all'
@@ -658,15 +594,11 @@ export default function StockManagement() {
               : 'Get started by adding your first stock item'}
           </p>
           {isAdmin && !searchTerm && filterCategory === 'all' && filterStatus === 'all' && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
+            <Button variant="soft" icon={Plus} onClick={() => setShowForm(true)}>
               Add First Item
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : viewMode === 'grid' ? (
         // Grid View
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -675,9 +607,10 @@ export default function StockManagement() {
             return (
               <div
                 key={item.id}
-                className={`bg-[var(--bg-card)] rounded-xl border transition-all hover:shadow-md ${
-                  isLowStock(item) ? 'border-[var(--icon-yellow-text)]' : 'border-[var(--border-color)]'
-                }`}
+                className={cn(
+                  'bg-[var(--bg-card)] rounded-xl border transition-all hover:shadow-md',
+                  isLowStock(item) ? 'border-[var(--icon-yellow-text)]' : 'border-[var(--border-color)]',
+                )}
               >
                 <div className="p-4">
                   <div className="flex items-start justify-between mb-3">
@@ -691,14 +624,10 @@ export default function StockManagement() {
                       </div>
                       <div>
                         <h3 className="font-semibold text-[var(--text-primary)] text-sm">{item.name}</h3>
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
-                          {item.category}
-                        </span>
+                        <Badge>{item.category}</Badge>
                       </div>
                     </div>
-                    <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusBadge.color}`}>
-                      {statusBadge.label}
-                    </span>
+                    <Badge tone={statusBadge.tone} dot size="sm">{statusBadge.label}</Badge>
                   </div>
 
                   <div className="space-y-2 text-sm mb-4">
@@ -747,42 +676,50 @@ export default function StockManagement() {
 
                   {isAdmin && (
                     <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                      <button
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
                         onClick={() => {
                           setSelectedItem(item);
                           setShowTransactionForm(true);
                         }}
-                        className="flex-1 py-2 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all text-xs font-medium"
                       >
                         Stock In/Out
-                      </button>
+                      </Button>
                       {canAllocateStock && (
-                        <button
+                        <Button
+                          variant="soft"
+                          accent="green"
+                          size="sm"
+                          className="flex-1"
                           onClick={() => {
                             setSelectedItem(item);
                             setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
                             setShowAllocationForm(true);
                           }}
-                          className="flex-1 py-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all text-xs font-medium"
                         >
                           Allocate
-                        </button>
+                        </Button>
                       )}
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        icon={Edit}
+                        aria-label={`Edit ${item.name}`}
+                        className="text-[var(--icon-green-text)]"
                         onClick={() => handleEdit(item)}
-                        className="p-2 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
-                        title="Edit"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
+                      />
                       {canDelete && (
-                        <button
+                        <Button
+                          variant="dangerSoft"
+                          size="sm"
+                          iconOnly
+                          icon={Trash2}
+                          aria-label={`Delete ${item.name}`}
                           onClick={() => handleDelete(item.id)}
-                          className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                        />
                       )}
                     </div>
                   )}
@@ -793,180 +730,135 @@ export default function StockManagement() {
         </div>
       ) : (
         // List View
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-[var(--border-color)] text-xs font-semibold text-[var(--text-secondary)] bg-[var(--bg-main)]">
-            <div className="col-span-4">Item</div>
-            <div className="col-span-2 text-center">Category</div>
-            <div className="col-span-2 text-center">Department / Hospital Total</div>
-            <div className="col-span-1 text-center">Reorder</div>
-            <div className="col-span-1 text-center">Cost</div>
-            <div className="col-span-2 text-center">Actions</div>
-          </div>
-          <div className="divide-y divide-[var(--border-color)]">
-            {paginatedItems.map(item => {
-              const statusBadge = getStockStatusBadge(item);
-              return (
-                <div
-                  key={item.id}
-                  className={`grid grid-cols-12 gap-4 px-4 py-3 items-center ${
-                    isLowStock(item) ? 'bg-[var(--icon-yellow-bg)]' : ''
-                  }`}
-                >
-                  <div className="col-span-4">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                        isLowStock(item) ? 'bg-[var(--icon-yellow-bg)]' : 'bg-[var(--icon-cyan-bg)]'
-                      }`}>
-                        <Package className={`w-3.5 h-3.5 ${
-                          isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-cyan-text)]'
-                        }`} />
-                      </div>
-                      <div>
-                        <p className="font-medium text-[var(--text-primary)] text-sm">{item.name}</p>
-                        {item.strength && (
-                          <p className="text-xs text-[var(--text-tertiary)]">{item.strength}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="col-span-2 text-center">
-                    <span className="text-xs px-2 py-1 rounded-full bg-[var(--bg-main)] text-[var(--text-secondary)]">
-                      {item.category}
-                    </span>
-                  </div>
-                  <div className="col-span-2 text-center">
-                    <div className="text-xs text-[var(--text-secondary)]">This department</div>
-                    <div className="font-semibold text-sm text-[var(--text-primary)]">
-                      {getInventoryBreakdown(item).currentDepartment === null ? '—' : getInventoryBreakdown(item).currentDepartment}
-                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
-                    </div>
-                    <div className="text-xs text-[var(--text-secondary)] mt-1">Hospital total</div>
-                    <div className="font-bold text-sm text-[var(--icon-cyan-text)]">
-                      {getInventoryBreakdown(item).hospitalTotal}
-                      <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
-                    </div>
-                    {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
-                      <details className="mt-1 text-left">
-                        <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By location</summary>
-                        {getInventoryBreakdown(item).departments.map(d => (
-                          <div key={d.id} className="flex justify-between gap-2 text-xs mt-1">
-                            <span>{d.name}</span><span>{d.quantity}</span>
+        <div className={TABLE_SHELL}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Item</th>
+                  <th className={cn(TH, 'text-center')}>Category</th>
+                  <th className={cn(TH, 'text-center')}>Department / Hospital Total</th>
+                  <th className={cn(TH, 'text-right')}>Reorder</th>
+                  <th className={cn(TH, 'text-right')}>Cost</th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedItems.map(item => {
+                  return (
+                    <tr key={item.id} className={cn(TR, isLowStock(item) && 'bg-[var(--icon-yellow-bg)]')}>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        <div className="flex items-center gap-3">
+                          <div className={cn(
+                            'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
+                            isLowStock(item) ? 'bg-[var(--icon-yellow-bg)]' : 'bg-[var(--icon-cyan-bg)]',
+                          )}>
+                            <Package className={cn('w-3.5 h-3.5', isLowStock(item) ? 'text-[var(--icon-yellow-text)]' : 'text-[var(--icon-cyan-text)]')} />
                           </div>
-                        ))}
-                      </details>
-                    )}
-                  </div>
-                  <div className="col-span-1 text-center">
-                    <span className="text-sm text-[var(--text-primary)]">{item.reorderLevel}</span>
-                  </div>
-                  <div className="col-span-1 text-center">
-                    <span className="text-sm font-medium">₵{(item.costPrice || 0).toFixed(2)}</span>
-                  </div>
-                  <div className="col-span-2 text-center">
-                    {isAdmin && (
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedItem(item);
-                            setShowTransactionForm(true);
-                          }}
-                          className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all"
-                          title="Stock In/Out"
-                        >
-                          <TrendingUp className="w-3.5 h-3.5" />
-                        </button>
-                        {canAllocateStock && (
-                          <button
-                            onClick={() => {
-                              setSelectedItem(item);
-                              setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
-                              setShowAllocationForm(true);
-                            }}
-                            className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
-                            title="Allocate unassigned stock"
-                          >
-                            <Package className="w-3.5 h-3.5" />
-                          </button>
+                          <div>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{item.name}</p>
+                            {item.strength && (
+                              <p className="text-xs text-[var(--text-tertiary)]">{item.strength}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <Badge>{item.category}</Badge>
+                      </td>
+                      <td className={cn(TD, 'text-center whitespace-normal')}>
+                        <div className="text-xs text-[var(--text-secondary)]">This department</div>
+                        <div className="font-semibold text-sm text-[var(--text-primary)]">
+                          {getInventoryBreakdown(item).currentDepartment === null ? '—' : getInventoryBreakdown(item).currentDepartment}
+                          <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                        </div>
+                        <div className="text-xs text-[var(--text-secondary)] mt-1">Hospital total</div>
+                        <div className="font-bold text-sm text-[var(--icon-cyan-text)]">
+                          {getInventoryBreakdown(item).hospitalTotal}
+                          <span className="text-xs text-[var(--text-tertiary)] ml-1">{item.unitOfMeasure}</span>
+                        </div>
+                        {hasRole(['admin', 'super_admin']) && getInventoryBreakdown(item).departments.length > 0 && (
+                          <details className="mt-1 text-left">
+                            <summary className="cursor-pointer text-xs text-[var(--icon-cyan-text)]">By location</summary>
+                            {getInventoryBreakdown(item).departments.map(d => (
+                              <div key={d.id} className="flex justify-between gap-2 text-xs mt-1">
+                                <span>{d.name}</span><span>{d.quantity}</span>
+                              </div>
+                            ))}
+                          </details>
                         )}
-                        <button
-                          onClick={() => handleEdit(item)}
-                          className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-all"
-                          title="Edit"
-                        >
-                          <Edit className="w-3.5 h-3.5" />
-                        </button>
-                        {canDelete && (
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-all"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                      </td>
+                      <td className={cn(TD, 'text-right')}>{item.reorderLevel}</td>
+                      <td className={cn(TD, 'text-right font-medium')}>₵{(item.costPrice || 0).toFixed(2)}</td>
+                      <td className={cn(TD, 'text-center')}>
+                        {isAdmin && (
+                          <div className="flex items-center justify-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              icon={TrendingUp}
+                              aria-label={`Stock in/out for ${item.name}`}
+                              className="text-[var(--icon-cyan-text)]"
+                              onClick={() => {
+                                setSelectedItem(item);
+                                setShowTransactionForm(true);
+                              }}
+                            />
+                            {canAllocateStock && (
+                              <Button
+                                variant="soft"
+                                accent="green"
+                                size="sm"
+                                iconOnly
+                                icon={Package}
+                                aria-label={`Allocate unassigned stock for ${item.name}`}
+                                onClick={() => {
+                                  setSelectedItem(item);
+                                  setAllocationData({ quantity: 0, departmentId: departments[0]?.id || '' });
+                                  setShowAllocationForm(true);
+                                }}
+                              />
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              icon={Edit}
+                              aria-label={`Edit ${item.name}`}
+                              className="text-[var(--icon-green-text)]"
+                              onClick={() => handleEdit(item)}
+                            />
+                            {canDelete && (
+                              <Button
+                                variant="dangerSoft"
+                                size="sm"
+                                iconOnly
+                                icon={Trash2}
+                                aria-label={`Delete ${item.name}`}
+                                onClick={() => handleDelete(item.id)}
+                              />
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Pagination Controls */}
-      {filteredItems.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="text-sm text-[var(--text-secondary)]">
-            Page {currentPage} of {totalPages}
-          </div>
-          
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              Previous
-            </button>
-            
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => handlePageChange(pageNum)}
-                  className={`min-w-[32px] h-8 rounded-lg text-sm font-medium transition-all ${
-                    currentPage === pageNum
-                      ? 'bg-[var(--icon-cyan-text)] text-white'
-                      : 'border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                  }`}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-            
-            <button
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      )}
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredItems.length}
+        noun="items"
+        onChange={handlePageChange}
+      />
 
       {/* Add/Edit Modal - Updated with all schema fields */}
       {showForm && (
@@ -976,12 +868,7 @@ export default function StockManagement() {
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 {editingItem ? 'Edit Stock Item' : 'Add New Stock Item'}
               </h2>
-              <button
-                onClick={handleCancel}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close form" onClick={handleCancel} />
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
@@ -993,7 +880,7 @@ export default function StockManagement() {
                     required 
                     value={formData.name}
                     onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    className={cn(INPUT, 'w-full')}
                   />
                 </div>
 
@@ -1004,7 +891,7 @@ export default function StockManagement() {
                     placeholder="Leave blank to auto-generate"
                     value={formData.drugCode}
                     onChange={e => setFormData({ ...formData, drugCode: e.target.value.toUpperCase() })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    className={cn(INPUT, 'w-full')}
                   />
                 </div>
 
@@ -1013,7 +900,7 @@ export default function StockManagement() {
                   <select 
                     value={formData.category}
                     onChange={e => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    className={cn(SELECT, 'w-full')}
                   >
                     {getUniqueCategories().map(c => (
                       <option key={c} value={c}>
@@ -1031,7 +918,7 @@ export default function StockManagement() {
                     placeholder="e.g., Tablet, Bottle, Box"
                     value={formData.unitOfMeasure}
                     onChange={e => setFormData({ ...formData, unitOfMeasure: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 
@@ -1042,7 +929,7 @@ export default function StockManagement() {
                     placeholder="e.g., 500mg, 10ml"
                     value={formData.strength}
                     onChange={e => setFormData({ ...formData, strength: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 
@@ -1054,7 +941,7 @@ export default function StockManagement() {
                     required 
                     value={formData.reorderLevel} 
                     onChange={e => setFormData({ ...formData, reorderLevel: parseInt(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 
@@ -1067,7 +954,7 @@ export default function StockManagement() {
                     required 
                     value={formData.costPrice} 
                     onChange={e => setFormData({ ...formData, costPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                    className={cn(INPUT, 'w-full')}
                   />
                 </div>
 
@@ -1092,7 +979,7 @@ export default function StockManagement() {
                           min="0"
                           value={formData[key]}
                           onChange={e => setFormData({ ...formData, [key]: e.target.value })}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                          className={cn(INPUT, 'w-full')}
                         />
                       </div>
                     ))}
@@ -1106,7 +993,7 @@ export default function StockManagement() {
                     placeholder="Supplier name"
                     value={formData.supplier}
                     onChange={e => setFormData({ ...formData, supplier: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 
@@ -1117,7 +1004,7 @@ export default function StockManagement() {
                     placeholder="Batch/Lot number"
                     value={formData.batchNumber}
                     onChange={e => setFormData({ ...formData, batchNumber: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 
@@ -1127,7 +1014,7 @@ export default function StockManagement() {
                     type="date" 
                     value={formData.expiryDate}
                     onChange={e => setFormData({ ...formData, expiryDate: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
               </div>
@@ -1138,7 +1025,7 @@ export default function StockManagement() {
                   rows={3} 
                   value={formData.description}
                   onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 
+                  className={cn(INPUT, 'w-full resize-none')} 
                   placeholder="Optional description"
                 />
               </div>
@@ -1166,19 +1053,12 @@ export default function StockManagement() {
               </div>
               
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button 
-                  type="button" 
-                  onClick={handleCancel}
-                  className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
-                >
+                <Button type="button" variant="secondary" className="flex-1" onClick={handleCancel}>
                   Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-5 py-2.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
-                >
+                </Button>
+                <Button type="submit" variant="soft" className="flex-1">
                   {editingItem ? 'Update Item' : 'Create Item'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1191,9 +1071,7 @@ export default function StockManagement() {
           <div className="bg-[var(--bg-card)] rounded-xl w-full max-w-md" onClick={e => e.stopPropagation()}>
             <div className="border-b border-[var(--border-color)] px-6 py-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-[var(--text-primary)]">Allocate Unassigned Stock</h2>
-              <button onClick={() => setShowAllocationForm(false)} className="p-1.5 rounded-lg hover:bg-[var(--bg-main)]">
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close allocation form" onClick={() => setShowAllocationForm(false)} />
             </div>
             <form onSubmit={handleAllocationSubmit} className="p-6 space-y-4">
               <div className="bg-[var(--bg-main)] rounded-lg p-3">
@@ -1207,7 +1085,7 @@ export default function StockManagement() {
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Receiving department *</label>
                 <select required value={allocationData.departmentId} onChange={e => setAllocationData({ ...allocationData, departmentId: e.target.value })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                  className={cn(SELECT, 'w-full')}>
                   <option value="">Choose department</option>
                   {departments.filter((d: any) => d.isActive !== false).map((d: any) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
@@ -1215,11 +1093,11 @@ export default function StockManagement() {
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Quantity to allocate *</label>
                 <input type="number" min="1" step="1" required value={allocationData.quantity || ''} onChange={e => setAllocationData({ ...allocationData, quantity: Number(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm" />
+                  className={cn(INPUT, 'w-full')} />
               </div>
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button type="button" onClick={() => setShowAllocationForm(false)} className="flex-1 px-5 py-2.5 border border-[var(--border-color)] rounded-lg text-sm">Cancel</button>
-                <button type="submit" className="flex-1 px-5 py-2.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg text-sm font-medium">Allocate Stock</button>
+                <Button type="button" variant="secondary" className="flex-1" onClick={() => setShowAllocationForm(false)}>Cancel</Button>
+                <Button type="submit" variant="soft" accent="green" className="flex-1">Allocate Stock</Button>
               </div>
             </form>
           </div>
@@ -1234,12 +1112,7 @@ export default function StockManagement() {
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 Stock Transaction
               </h2>
-              <button
-                onClick={handleTransactionCancel}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close transaction form" onClick={handleTransactionCancel} />
             </div>
             
             <form onSubmit={handleTransactionSubmit} className="p-6 space-y-4">
@@ -1255,7 +1128,7 @@ export default function StockManagement() {
                   required 
                   value={transactionData.transactionType}
                   onChange={e => setTransactionData({ ...transactionData, transactionType: e.target.value as any })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                  className={cn(SELECT, 'w-full')}
                 >
                   <option value="purchase">Purchase (Add Stock)</option>
                   <option value="sale">Sale (Remove Stock)</option>
@@ -1268,7 +1141,7 @@ export default function StockManagement() {
               {transactionData.transactionType === 'adjustment' && (
                 <div>
                   <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Adjustment Direction *</label>
-                  <select required value={transactionData.adjustmentDirection} onChange={e => setTransactionData({ ...transactionData, adjustmentDirection: e.target.value as 'increase' | 'decrease' })} className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm">
+                  <select required value={transactionData.adjustmentDirection} onChange={e => setTransactionData({ ...transactionData, adjustmentDirection: e.target.value as 'increase' | 'decrease' })} className={cn(SELECT, 'w-full')}>
                     <option value="increase">Increase stock</option>
                     <option value="decrease">Decrease stock</option>
                   </select>
@@ -1280,7 +1153,7 @@ export default function StockManagement() {
                 <select
                   value={transactionData.departmentId}
                   onChange={e => setTransactionData({ ...transactionData, departmentId: e.target.value })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                  className={cn(SELECT, 'w-full')}
                 >
                   <option value="">Choose department</option>
                   {departments.filter((d: any) => d.isActive !== false).map((d: any) => (
@@ -1299,7 +1172,7 @@ export default function StockManagement() {
                     value={transactionData.batchNumber}
                     onChange={e => setTransactionData({ ...transactionData, batchNumber: e.target.value })}
                     placeholder="Enter the exact affected batch number"
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
+                    className={cn(INPUT, 'w-full')}
                   />
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">For batch-tracked stock, enter the exact affected batch number. Expired or inactive batches can be written off for reconciliation.</p>
                 </div>
@@ -1313,7 +1186,7 @@ export default function StockManagement() {
                   required 
                   value={transactionData.quantity} 
                   onChange={e => setTransactionData({ ...transactionData, quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                  className={cn(INPUT, 'w-full')} 
                 />
               </div>
               
@@ -1324,7 +1197,7 @@ export default function StockManagement() {
                   placeholder="e.g., PO-123, INV-456"
                   value={transactionData.reference}
                   onChange={e => setTransactionData({ ...transactionData, reference: e.target.value })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                  className={cn(INPUT, 'w-full')} 
                 />
               </div>
               
@@ -1337,25 +1210,18 @@ export default function StockManagement() {
                   required={['write_off', 'adjustment'].includes(transactionData.transactionType)}
                   value={transactionData.notes}
                   onChange={e => setTransactionData({ ...transactionData, notes: e.target.value })}
-                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 
+                  className={cn(INPUT, 'w-full resize-none')} 
                   placeholder="Optional notes"
                 />
               </div>
               
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button 
-                  type="button" 
-                  onClick={handleTransactionCancel}
-                  className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
-                >
+                <Button type="button" variant="secondary" className="flex-1" onClick={handleTransactionCancel}>
                   Cancel
-                </button>
-                <button 
-                  type="submit"
-                  className="flex-1 px-5 py-2.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium"
-                >
+                </Button>
+                <Button type="submit" variant="soft" className="flex-1">
                   Record Transaction
-                </button>
+                </Button>
               </div>
             </form>
           </div>

@@ -3,6 +3,7 @@ import { seedCoreData, seedDiagnosisReferenceData } from './coreSeed.js';
 import { seedDiagnosisGDRGLinks } from './diagnosisGdrgLink.js';
 import { seedProcedureGDRGLinks } from './procedureGdrgLink.js';
 import { seedTestData, hasNonDemoPatients } from './testSeed.js';
+import { initCounterService } from '../services/CounterService.js';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -19,7 +20,7 @@ interface SeedingStatus {
 const SEED_STATUS_FILE = '.seed_status.json';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
+import { fileURLToPath, pathToFileURL } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -112,6 +113,10 @@ export const seedDatabase = async (force: boolean = false) => {
   console.log('🏥 Starting comprehensive database initialization...');
   console.log('==================================================');
   console.log(`🔧 Force mode: ${force ? 'ENABLED (continue after seed-step errors; production-data safeguards remain active)' : 'DISABLED (fail fast on seed-step errors)'}`);
+
+  // Bill/claim numbering goes through getCounterService(); without this the standalone
+  // seed throws "CounterService not initialized" on every bill and writes none.
+  await initCounterService(prisma);
 
   // Keep demo/test-data seeding separate from reference-data maintenance.
   // A populated facility database must not receive demo patients, but it should
@@ -258,7 +263,7 @@ export const seedDatabase = async (force: boolean = false) => {
 };
 
 // Run directly if this file is executed
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const force = process.argv.includes('--force');
   const reset = process.argv.includes('--reset');
 

@@ -6,7 +6,9 @@ import { BaseRepository } from '../../shared/base/BaseRepository';
 // GHS returns count clinical attendances of registered patients. A counter ticket (walk_in)
 // has no patient record, no age at attendance and no diagnosis, so it must not enter any
 // return: it would both inflate the attendance counts and crash on the missing Patient row.
-const EXCLUDE_COUNTER_TICKETS = { attendanceType: { not: 'walk_in' as any } };
+// patientId is the binding guard, not attendanceType: rows have been written without a
+// patient yet carrying a clinical type, and they still reached groupBy({ patientId: { in: [null] } }).
+const EXCLUDE_COUNTER_TICKETS = { attendanceType: { not: 'walk_in' as any }, patientId: { not: null } };
 
 export class GHSReportRepository extends BaseRepository<any, any, any> {
   constructor(prisma: PrismaClient) {
@@ -98,7 +100,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
 
     // Counter tickets are excluded above, so every attendance left names a patient.
-    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
+    // The filter keeps that true for rows written before the exclusion existed.
+    const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
       where: { patientId: { in: patientIds }, dateTime: { lt: startDate }, status: { not: 'cancelled' } },
@@ -331,7 +334,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
 
     // Counter tickets are excluded above, so every attendance left names a patient.
-    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
+    // The filter keeps that true for rows written before the exclusion existed.
+    const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
@@ -371,7 +375,8 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
     });
 
     // Counter tickets are excluded above, so every attendance left names a patient.
-    const patientIds = [...new Set(attendances.map(a => a.patientId))] as string[];
+    // The filter keeps that true for rows written before the exclusion existed.
+    const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],

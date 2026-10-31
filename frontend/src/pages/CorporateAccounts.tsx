@@ -6,15 +6,17 @@ import { useAuthStore } from '../store/authStore';
 import { isAdminLike } from '../config/access';
 import { useToast } from '../store/toastStore';
 import { useNavigate, useParams } from 'react-router-dom';
-import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
+import InsuranceTabs from '../components/InsuranceTabs';
+import {
+  Badge, Button, Card, cn, INPUT, SELECT, PageHeader, SearchInput, Segmented, StatCard,
+  TH, TH_ROW, TD, TD_MONO, TR, TABLE_SHELL,
+} from '../components/ui';
 import {
   Plus,
-  Search,
   Edit,
   Trash2,
   Briefcase,
   Building,
-  CheckCircle,
   XCircle,
   RefreshCw,
   Grid3X3,
@@ -22,23 +24,14 @@ import {
   Phone,
   Mail,
   User,
-  ArrowLeft,
   Power,
   PowerOff,
   Users,
   DollarSign,
-  CreditCard,
   Wallet,
   Calendar,
-  MapPin,
-  AlertCircle,
   UserPlus,
-  UserCheck,
-  UserX,
-  Eye,
-  Download,
-  FileText,
-  Settings
+  FileText
 } from 'lucide-react';
 
 export default function CorporateAccounts() {
@@ -63,7 +56,6 @@ export default function CorporateAccounts() {
     removeCorporateEmployee,
     getCorporateStatistics,
     generateMonthlyBill,
-    getMonthlyBills,
     isLoading,
     clearCurrentAccount
   } = useCorporateStore();
@@ -318,107 +310,45 @@ export default function CorporateAccounts() {
   // If viewing a single account (detail view)
   if (accountId && currentAccount) {
     return (
-      <div className="space-y-6 p-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => {
-                clearCurrentAccount();
-                navigate('/dashboard/corporate-accounts');
-              }}
-              className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all"
-            >
-              <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
-            </button>
-            <div className="w-12 h-12 bg-[var(--icon-indigo-bg)] rounded-xl flex items-center justify-center">
-              <Briefcase className="w-6 h-6 text-[var(--icon-indigo-text)]" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-[var(--text-primary)]">{currentAccount.companyName}</h1>
-              <p className="text-sm text-[var(--text-secondary)]">Corporate Account Management</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowBillingModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors text-sm font-medium"
-            >
-              <FileText className="w-4 h-4" />
-              Generate Monthly Bill
-            </button>
-            <button
-              onClick={() => setShowEmployeeForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-sm font-medium"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Employee
-            </button>
-            {isAdminLike(user?.role) && (
-              <button
-                onClick={() => editAccount(currentAccount)}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm font-medium"
-              >
-                <Edit className="w-4 h-4" />
-                Edit Account
-              </button>
-            )}
-            <button
-              onClick={() => loadAccount(accountId)}
-              className="p-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
-            >
-              <RefreshCw className="w-4 h-4 text-[var(--text-secondary)]" />
-            </button>
-          </div>
-        </div>
+      <div className="space-y-6 p-6 text-[var(--text-primary)]">
+        <PageHeader
+          title={currentAccount.companyName}
+          subtitle="Corporate account — staff, credit and monthly invoices"
+          icon={Briefcase}
+          accent="indigo"
+          onBack={() => {
+            clearCurrentAccount();
+            navigate('/dashboard/insurance/corporate/accounts');
+          }}
+          actions={(
+            <>
+              <Button variant="secondary" icon={FileText} onClick={() => setShowBillingModal(true)}>Generate bill</Button>
+              {isAdminLike(user?.role) && (
+                <Button variant="secondary" icon={Edit} onClick={() => editAccount(currentAccount)}>Edit account</Button>
+              )}
+              <Button variant="soft" accent="green" icon={UserPlus} onClick={() => setShowEmployeeForm(true)}>Add employee</Button>
+              <Button variant="secondary" iconOnly icon={RefreshCw} aria-label="Reload account" onClick={() => loadAccount(accountId)} />
+            </>
+          )}
+        />
 
         {/* Account Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[var(--text-secondary)]">Credit Limit</span>
-              <Wallet className="w-5 h-5 text-[var(--icon-indigo-text)]" />
-            </div>
-            <div className="text-2xl font-bold text-[var(--text-primary)]">GHS {currentAccount.creditLimit.toLocaleString()}</div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">Monthly credit limit</div>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[var(--text-secondary)]">Current Balance</span>
-              <DollarSign className={`w-5 h-5 ${currentAccount.currentBalance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`} />
-            </div>
-            <div className={`text-2xl font-bold ${currentAccount.currentBalance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>
-              GHS {currentAccount.currentBalance.toLocaleString()}
-            </div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">Outstanding balance</div>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[var(--text-secondary)]">Employees</span>
-              <Users className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div className="text-2xl font-bold text-[var(--text-primary)]">{currentEmployees.length}</div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">Active employees</div>
-          </div>
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm text-[var(--text-secondary)]">Payment Terms</span>
-              <Calendar className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-            </div>
-            <div className="text-2xl font-bold text-[var(--text-primary)]">{currentAccount.paymentTerms} days</div>
-            <div className="text-xs text-[var(--text-tertiary)] mt-1">To pay invoice</div>
-          </div>
+          <StatCard label="Credit limit" size="money" icon={Wallet} accent="indigo" hint="Monthly credit limit" value={`GHS ${currentAccount.creditLimit.toLocaleString()}`} />
+          <StatCard
+            label="Current balance"
+            size="money"
+            icon={DollarSign}
+            accent={currentAccount.currentBalance > 0 ? 'red' : 'green'}
+            hint="Outstanding balance"
+            value={`GHS ${currentAccount.currentBalance.toLocaleString()}`}
+          />
+          <StatCard label="Employees" icon={Users} accent="cyan" hint="Active employees" value={currentEmployees.length} />
+          <StatCard label="Payment terms" icon={Calendar} accent="yellow" hint="Days to pay an invoice" value={`${currentAccount.paymentTerms} days`} />
         </div>
 
         {/* Account Details Card */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="px-6 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Building className="w-4 h-4" />
-              Account Details
-            </h2>
-          </div>
-          <div className="p-6">
+        <Card title="Account details" icon={Building}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-3">
                 <div>
@@ -459,67 +389,56 @@ export default function CorporateAccounts() {
                 )}
                 <div>
                   <p className="text-xs text-[var(--text-secondary)] uppercase tracking-wider">Status</p>
-                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold mt-1 ${
-                    currentAccount.isActive 
-                      ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' 
-                      : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                  }`}>
-                    {currentAccount.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-                    {currentAccount.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                  <div className="mt-1">
+                    <Badge tone={currentAccount.isActive ? 'green' : 'neutral'} dot size="sm">
+                      {currentAccount.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+        </Card>
 
         {/* Employees List */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="px-6 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)] flex items-center justify-between">
-            <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Users className="w-4 h-4" />
-              Employees ({currentEmployees.length})
-            </h2>
-            <button
-              onClick={() => setShowEmployeeForm(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
-            >
-              <UserPlus className="w-4 h-4" />
-              Add Employee
-            </button>
-          </div>
-          
+        <Card
+          title={`Employees (${currentEmployees.length})`}
+          icon={Users}
+          accent="green"
+          padded={false}
+          actions={<Button size="sm" variant="soft" accent="green" icon={UserPlus} onClick={() => setShowEmployeeForm(true)}>Add employee</Button>}
+        >
           {currentEmployees.length === 0 ? (
             <div className="p-8 text-center">
               <Users className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
               <p className="text-[var(--text-secondary)]">No employees added yet</p>
-              <button
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={UserPlus}
+                className="mt-3"
                 onClick={() => setShowEmployeeForm(true)}
-                className="mt-3 text-sm text-[var(--icon-cyan-text)] hover:underline"
               >
                 Add your first employee
-              </button>
+              </Button>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <thead className={TH_ROW}>
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Employee ID</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Department/Position</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
+                    <th className={cn(TH, 'px-6')}>Employee ID</th>
+                    <th className={cn(TH, 'px-6')}>Name</th>
+                    <th className={cn(TH, 'px-6')}>Department/Position</th>
+                    <th className={cn(TH, 'px-6')}>Contact</th>
+                    <th className={cn(TH, 'px-6')}>Status</th>
+                    <th className={cn(TH, 'px-6')}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
+                <tbody>
                   {currentEmployees.map((employee) => (
-                    <tr key={employee.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                      <td className="px-6 py-4">
-                        <span className="font-mono text-sm text-[var(--text-primary)]">{employee.employeeId}</span>
-                      </td>
-                      <td className="px-6 py-4">
+                    <tr key={employee.id} className={TR}>
+                      <td className={cn(TD_MONO, 'px-6 py-4')}>{employee.employeeId}</td>
+                      <td className={cn(TD, 'px-6 py-4')}>
                         <div>
                           <div className="font-medium text-[var(--text-primary)]">{employee.firstName} {employee.lastName}</div>
                           {employee.otherNames && (
@@ -527,13 +446,13 @@ export default function CorporateAccounts() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className={cn(TD, 'px-6 py-4')}>
                         <div>
                           {employee.department && <div className="text-sm text-[var(--text-primary)]">{employee.department}</div>}
                           {employee.position && <div className="text-xs text-[var(--text-secondary)]">{employee.position}</div>}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className={cn(TD, 'px-6 py-4')}>
                         <div className="space-y-1 text-sm">
                           {employee.phone && (
                             <div className="flex items-center gap-1 text-[var(--text-secondary)]">
@@ -549,32 +468,31 @@ export default function CorporateAccounts() {
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                          employee.isActive 
-                            ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' 
-                            : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                        }`}>
-                          {employee.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                      <td className={cn(TD, 'px-6 py-4')}>
+                        <Badge tone={employee.isActive ? 'green' : 'neutral'} dot size="sm">
                           {employee.isActive ? 'Active' : 'Inactive'}
-                        </span>
+                        </Badge>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className={cn(TD, 'px-6 py-4')}>
                         <div className="flex gap-2">
-                          <button
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            iconOnly
+                            icon={Edit}
+                            className="text-[var(--icon-blue-text)]"
+                            aria-label="Edit employee"
                             onClick={() => editEmployee(employee)}
-                            className="p-1.5 text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
-                            title="Edit Employee"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            iconOnly
+                            icon={Trash2}
+                            aria-label="Remove employee"
+                            className="text-[var(--icon-red-text)]"
                             onClick={() => handleRemoveEmployee(employee.id, `${employee.firstName} ${employee.lastName}`)}
-                            className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition"
-                            title="Remove Employee"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          />
                         </div>
                       </td>
                     </tr>
@@ -583,7 +501,7 @@ export default function CorporateAccounts() {
               </table>
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Employee Form Modal */}
         {showEmployeeForm && (
@@ -596,109 +514,104 @@ export default function CorporateAccounts() {
                     {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
                   </h2>
                 </div>
-                <button
-                  onClick={resetEmployeeForm}
-                  className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
-                >
-                  <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-                </button>
+                <Button variant="ghost" iconOnly icon={XCircle} aria-label="Close" onClick={resetEmployeeForm} />
               </div>
               
               <form onSubmit={editingEmployee ? handleUpdateEmployee : handleAddEmployee} className="space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Employee ID *</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Employee ID *</label>
                     <input
                       type="text"
                       required
                       value={employeeData.employeeId}
                       onChange={(e) => setEmployeeData({ ...employeeData, employeeId: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                       placeholder="e.g., EMP-001"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">First Name *</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">First Name *</label>
                     <input
                       type="text"
                       required
                       value={employeeData.firstName}
                       onChange={(e) => setEmployeeData({ ...employeeData, firstName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Last Name *</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Last Name *</label>
                     <input
                       type="text"
                       required
                       value={employeeData.lastName}
                       onChange={(e) => setEmployeeData({ ...employeeData, lastName: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Other Names</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Other Names</label>
                     <input
                       type="text"
                       value={employeeData.otherNames}
                       onChange={(e) => setEmployeeData({ ...employeeData, otherNames: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Department</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Department</label>
                     <input
                       type="text"
                       value={employeeData.department}
                       onChange={(e) => setEmployeeData({ ...employeeData, department: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                       placeholder="e.g., Sales, IT, HR"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Position</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Position</label>
                     <input
                       type="text"
                       value={employeeData.position}
                       onChange={(e) => setEmployeeData({ ...employeeData, position: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                       placeholder="e.g., Manager, Officer"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phone</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Phone</label>
                     <input
                       type="tel"
                       value={employeeData.phone}
                       onChange={(e) => setEmployeeData({ ...employeeData, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Email</label>
                     <input
                       type="email"
                       value={employeeData.email}
                       onChange={(e) => setEmployeeData({ ...employeeData, email: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Date of Birth</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Date of Birth</label>
                     <input
                       type="date"
                       value={employeeData.dateOfBirth}
                       onChange={(e) => setEmployeeData({ ...employeeData, dateOfBirth: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Gender</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Gender</label>
                     <select
                       value={employeeData.gender}
                       onChange={(e) => setEmployeeData({ ...employeeData, gender: e.target.value as 'male' | 'female' | 'other' })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(SELECT, 'w-full')}
                     >
                       <option value="">Select Gender</option>
                       <option value="male">Male</option>
@@ -707,18 +620,18 @@ export default function CorporateAccounts() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Enrollment Date</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Enrollment Date</label>
                     <input
                       type="date"
                       value={employeeData.enrollmentDate}
                       onChange={(e) => setEmployeeData({ ...employeeData, enrollmentDate: e.target.value })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Status</label>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-2">
                       <input
@@ -742,19 +655,8 @@ export default function CorporateAccounts() {
                 </div>
 
                 <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border-color)]">
-                  <button
-                    type="button"
-                    onClick={resetEmployeeForm}
-                    className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-sm font-medium"
-                  >
-                    {editingEmployee ? 'Update Employee' : 'Add Employee'}
-                  </button>
+                  <Button variant="secondary" onClick={resetEmployeeForm}>Cancel</Button>
+                  <Button type="submit" variant="soft" accent="green">{editingEmployee ? 'Update Employee' : 'Add Employee'}</Button>
                 </div>
               </form>
             </div>
@@ -770,21 +672,16 @@ export default function CorporateAccounts() {
                   <FileText className="w-6 h-6 text-[var(--icon-purple-text)]" />
                   <h2 className="text-xl font-bold text-[var(--text-primary)]">Generate Monthly Bill</h2>
                 </div>
-                <button
-                  onClick={() => setShowBillingModal(false)}
-                  className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
-                >
-                  <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-                </button>
+                <Button variant="ghost" iconOnly icon={XCircle} aria-label="Close" onClick={() => setShowBillingModal(false)} />
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Month *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Month *</label>
                   <select
                     value={billingData.month}
                     onChange={(e) => setBillingData({ ...billingData, month: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(SELECT, 'w-full')}
                   >
                     <option value={1}>January</option>
                     <option value={2}>February</option>
@@ -801,7 +698,7 @@ export default function CorporateAccounts() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Year *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Year *</label>
                   <input
                     type="number"
                     min={2020}
@@ -809,36 +706,26 @@ export default function CorporateAccounts() {
                     required
                     value={billingData.year}
                     onChange={(e) => setBillingData({ ...billingData, year: parseInt(e.target.value) })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
                   <input
                     type="number"
                     min={0}
                     max={100}
                     value={billingData.discountPercentage}
                     onChange={(e) => setBillingData({ ...billingData, discountPercentage: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                   />
                   <p className="text-xs text-[var(--text-tertiary)] mt-1">Optional: Apply discount to monthly bill</p>
                 </div>
               </div>
 
               <div className="flex gap-3 justify-end pt-6 border-t border-[var(--border-color)] mt-6">
-                <button
-                  onClick={() => setShowBillingModal(false)}
-                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleGenerateMonthlyBill}
-                  className="px-4 py-2.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors text-sm font-medium"
-                >
-                  Generate Bill
-                </button>
+                <Button variant="secondary" onClick={() => setShowBillingModal(false)}>Cancel</Button>
+                <Button variant="soft" accent="purple" onClick={handleGenerateMonthlyBill}>Generate Bill</Button>
               </div>
             </div>
           </div>
@@ -849,89 +736,46 @@ export default function CorporateAccounts() {
 
   // List View (all corporate accounts)
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-12 h-12 bg-[var(--icon-indigo-bg)] rounded-xl flex items-center justify-center">
-            <Briefcase className="w-6 h-6 text-[var(--icon-indigo-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Corporate Accounts</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Manage corporate clients and their employees</p>
-            {statistics && (
-              <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                {statistics.activeAccounts} active accounts • {statistics.totalEmployees} employees • GHS {statistics.totalOutstanding.toFixed(2)} outstanding
-              </p>
+    <div className="space-y-5 p-4 md:p-6 text-[var(--text-primary)]">
+      <PageHeader
+        title="Corporate accounts"
+        subtitle="Employers that bill the facility for their staff — credit limits, members and monthly invoices."
+        meta={statistics
+          ? `${statistics.activeAccounts} active accounts • ${statistics.totalEmployees} employees • GHS ${statistics.totalOutstanding.toFixed(2)} outstanding`
+          : undefined}
+        icon={Briefcase}
+        accent="indigo"
+        backTo="/dashboard"
+        tabs={<InsuranceTabs family="corporate" section="accounts" />}
+        actions={(
+          <>
+            {isAdminLike(user?.role) && (
+              <Button variant="soft" accent="indigo" icon={Plus} onClick={() => setShowForm(true)}>
+                New account
+              </Button>
             )}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          {isAdminLike(user?.role) && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              New Corporate Account
-            </button>
-          )}
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      {/* Section navigation */}
-      <InsuranceSectionTabs active="corporate" />
+            <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>Refresh</Button>
+          </>
+        )}
+      />
 
       {/* Filters and View Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by company name, contact person, email, phone..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2.5 border rounded-lg transition ${
-              viewMode === 'grid'
-                ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]'
-                : 'bg-[var(--bg-main)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-            }`}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2.5 border rounded-lg transition ${
-              viewMode === 'list'
-                ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]'
-                : 'bg-[var(--bg-main)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-            }`}
-          >
-            <List className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search by company name, contact person, email or phone…"
+        />
+        <Segmented
+          aria-label="Account layout"
+          accent="indigo"
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { value: 'grid', label: 'Grid', icon: Grid3X3 },
+            { value: 'list', label: 'List', icon: List },
+          ]}
+        />
       </div>
 
       {/* Account Form Modal */}
@@ -945,44 +789,39 @@ export default function CorporateAccounts() {
                   {editingAccount ? 'Edit Corporate Account' : 'New Corporate Account'}
                 </h2>
               </div>
-              <button
-                onClick={resetForm}
-                className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
-              >
-                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" iconOnly icon={XCircle} aria-label="Close" onClick={resetForm} />
             </div>
             
             <form onSubmit={editingAccount ? handleUpdateAccount : handleCreateAccount} className="space-y-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Company Name *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Company Name *</label>
                   <input
                     type="text"
                     required
                     value={formData.companyName}
                     onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Company name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Registration Number</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Registration Number</label>
                   <input
                     type="text"
                     value={formData.registrationNumber}
                     onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Business registration number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Tax ID</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Tax ID</label>
                   <input
                     type="text"
                     value={formData.taxId}
                     onChange={(e) => setFormData({ ...formData, taxId: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Tax/VAT number"
                   />
                 </div>
@@ -990,45 +829,45 @@ export default function CorporateAccounts() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Contact Person *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Contact Person *</label>
                   <input
                     type="text"
                     required
                     value={formData.contactPerson}
                     onChange={(e) => setFormData({ ...formData, contactPerson: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Contact person name"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Email *</label>
                   <input
                     type="email"
                     required
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="contact@company.com"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phone *</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Phone *</label>
                   <input
                     type="tel"
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Phone number"
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Address</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Address</label>
                   <textarea
                     value={formData.address}
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     rows={2}
-                    className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                    className={cn(INPUT, 'w-full')}
                     placeholder="Company address"
                   />
                 </div>
@@ -1041,37 +880,37 @@ export default function CorporateAccounts() {
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Credit Limit (GHS)</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Credit Limit (GHS)</label>
                     <input
                       type="number"
                       min="0"
                       step="1000"
                       value={formData.creditLimit}
                       onChange={(e) => setFormData({ ...formData, creditLimit: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">Maximum monthly credit</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Payment Terms (days)</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Payment Terms (days)</label>
                     <input
                       type="number"
                       min="0"
                       value={formData.paymentTerms}
                       onChange={(e) => setFormData({ ...formData, paymentTerms: parseInt(e.target.value) || 30 })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">Days to pay invoice</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
+                    <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
                     <input
                       type="number"
                       min="0"
                       max="100"
                       value={formData.discountPercentage}
                       onChange={(e) => setFormData({ ...formData, discountPercentage: parseFloat(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
+                      className={cn(INPUT, 'w-full')}
                     />
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">Early payment discount</p>
                   </div>
@@ -1079,7 +918,7 @@ export default function CorporateAccounts() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
+                <label className="block text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-1.5">Status</label>
                 <div className="flex items-center gap-4">
                   <label className="flex items-center gap-2">
                     <input
@@ -1103,19 +942,8 @@ export default function CorporateAccounts() {
               </div>
 
               <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border-color)]">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2.5 bg-[var(--icon-indigo-bg)] text-[var(--icon-indigo-text)] rounded-lg hover:bg-[var(--icon-indigo-text)] hover:text-white transition-colors text-sm font-medium"
-                >
-                  {editingAccount ? 'Update Account' : 'Create Account'}
-                </button>
+                <Button variant="secondary" onClick={resetForm}>Cancel</Button>
+                <Button type="submit" variant="soft" accent="indigo">{editingAccount ? 'Update Account' : 'Create Account'}</Button>
               </div>
             </form>
           </div>
@@ -1146,18 +974,18 @@ export default function CorporateAccounts() {
           ))}
         </div>
       ) : filteredAccounts.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
+        <Card padded={false} className="p-8 text-center">
           <Briefcase className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
           <p className="text-[var(--text-secondary)]">No corporate accounts found</p>
           <p className="text-[var(--text-tertiary)] text-sm mt-1">Create your first corporate account</p>
-        </div>
+        </Card>
       ) : viewMode === 'grid' ? (
         // Grid View
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {filteredAccounts.map((account) => (
             <div 
               key={account.id} 
-              onClick={() => navigate(`/dashboard/corporate-accounts/${account.id}`)}
+              onClick={() => navigate(`/dashboard/insurance/corporate/accounts/${account.id}`)}
               className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow cursor-pointer"
             >
               <div className="flex items-start justify-between mb-4">
@@ -1167,13 +995,11 @@ export default function CorporateAccounts() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-[var(--text-primary)] text-sm">{account.companyName}</h3>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium mt-1 ${
-                      account.isActive 
-                        ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' 
-                        : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                    }`}>
-                      {account.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="mt-1">
+                      <Badge tone={account.isActive ? 'green' : 'neutral'} dot>
+                        {account.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
                   </div>
                 </div>
                 <div className="text-right">
@@ -1215,20 +1041,24 @@ export default function CorporateAccounts() {
 
               {isAdminLike(user?.role) && (
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                  <button
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={Edit}
+                    className="flex-1"
                     onClick={(e) => { e.stopPropagation(); editAccount(account); }}
-                    className="flex-1 py-1.5 text-[var(--icon-blue-text)] border border-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-bg)] transition text-xs flex items-center justify-center gap-1"
                   >
-                    <Edit className="w-3.5 h-3.5" />
                     Edit
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={account.isActive ? 'dangerSoft' : 'secondary'}
+                    icon={account.isActive ? PowerOff : Power}
+                    className="flex-1"
                     onClick={(e) => { e.stopPropagation(); handleToggleAccountStatus(account); }}
-                    className="flex-1 py-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition text-xs flex items-center justify-center gap-1"
                   >
-                    {account.isActive ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                     {account.isActive ? 'Deactivate' : 'Activate'}
-                  </button>
+                  </Button>
                 </div>
               )}
             </div>
@@ -1236,29 +1066,29 @@ export default function CorporateAccounts() {
         </div>
       ) : (
         // List View
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className={TABLE_SHELL}>
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <thead className={TH_ROW}>
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Financial</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Employees</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
+                  <th className={cn(TH, 'px-6')}>Company</th>
+                  <th className={cn(TH, 'px-6')}>Contact</th>
+                  <th className={cn(TH, 'px-6')}>Financial</th>
+                  <th className={cn(TH, 'px-6')}>Employees</th>
+                  <th className={cn(TH, 'px-6')}>Status</th>
                   {isAdminLike(user?.role) && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
+                    <th className={cn(TH, 'px-6')}>Actions</th>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
+              <tbody>
                 {filteredAccounts.map((account) => (
                   <tr 
                     key={account.id} 
-                    onClick={() => navigate(`/dashboard/corporate-accounts/${account.id}`)}
-                    className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
+                    onClick={() => navigate(`/dashboard/insurance/corporate/accounts/${account.id}`)}
+                    className={cn(TR, 'cursor-pointer')}
                   >
-                    <td className="px-6 py-4">
+                    <td className={cn(TD, 'px-6 py-4')}>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-lg bg-[var(--icon-indigo-bg)] flex items-center justify-center">
                           <Briefcase className="w-5 h-5 text-[var(--icon-indigo-text)]" />
@@ -1271,7 +1101,7 @@ export default function CorporateAccounts() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={cn(TD, 'px-6 py-4')}>
                       <div className="space-y-1 text-sm">
                         <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                           <User className="w-3.5 h-3.5" />
@@ -1287,7 +1117,7 @@ export default function CorporateAccounts() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={cn(TD, 'px-6 py-4')}>
                       <div className="space-y-1">
                         <div className="text-sm">
                           <span className="text-[var(--text-secondary)]">Credit Limit:</span>
@@ -1305,39 +1135,30 @@ export default function CorporateAccounts() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className={cn(TD, 'px-6 py-4')}>
                       <div className="flex items-center gap-2">
                         <Users className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         <span className="text-lg font-semibold text-[var(--text-primary)]">{account._count?.employees || 0}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
-                        account.isActive 
-                          ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' 
-                          : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                      }`}>
-                        {account.isActive ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                    <td className={cn(TD, 'px-6 py-4')}>
+                      <Badge tone={account.isActive ? 'green' : 'neutral'} dot size="sm">
                         {account.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      </Badge>
                     </td>
                     {isAdminLike(user?.role) && (
-                      <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => editAccount(account)}
-                            className="p-1.5 text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition"
-                            title="Edit Account"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
+                      <td className={cn(TD, 'px-6 py-4 text-right')} onClick={(e) => e.stopPropagation()}>
+                        <div className="inline-flex gap-1.5">
+                          <Button size="xs" variant="ghost" iconOnly icon={Edit} aria-label="Edit account" onClick={() => editAccount(account)} />
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={account.isActive ? PowerOff : Power}
+                            aria-label={account.isActive ? 'Deactivate account' : 'Activate account'}
+                            className={account.isActive ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}
                             onClick={() => handleToggleAccountStatus(account)}
-                            className="p-1.5 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition"
-                            title={account.isActive ? 'Deactivate' : 'Activate'}
-                          >
-                            {account.isActive ? <PowerOff className="w-4 h-4" /> : <Power className="w-4 h-4" />}
-                          </button>
+                          />
                         </div>
                       </td>
                     )}

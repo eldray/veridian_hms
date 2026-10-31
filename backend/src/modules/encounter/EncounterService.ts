@@ -808,16 +808,17 @@ export class EncounterService extends BaseService {
     const view = query.view || 'pending';
     const from = query.dateFrom ? query.dateFrom.toISOString().slice(0, 10) : '';
     const to = query.dateTo ? query.dateTo.toISOString().slice(0, 10) : '';
-    return `worklist:${name}:${view}:${from}:${to}`;
+    const types = (query.attendanceTypes ?? []).slice().sort().join('+');
+    return `worklist:${name}:${view}:${from}:${to}:${types}`;
   }
 
   async getVitalsWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('vitals', query), WORKLIST_CACHE_MS, () => this.repository.getVitalsWorklist(query)); }
   async getMedicalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('medical', query), WORKLIST_CACHE_MS, () => this.repository.getMedicalWorklist(query)); }
   async getOutstandingResultsWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('outstanding', query), WORKLIST_CACHE_MS, () => this.repository.getOutstandingResultsWorklist(query)); }
-  async getLabWorklist() { return cached('worklist:lab', WORKLIST_CACHE_MS, () => this.repository.getLabWorklist()); }
-  async getPharmacyWorklist() { return cached('worklist:pharmacy', WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist()); }
-  async getRadiologyWorklist() { return cached('worklist:scans', WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist()); }
-  async getProceduresWorklist() { return cached('worklist:procedures', WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist()); }
+  async getLabWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('lab', query), WORKLIST_CACHE_MS, () => this.repository.getLabWorklist(query)); }
+  async getPharmacyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('pharmacy', query), WORKLIST_CACHE_MS, () => this.repository.getPharmacyWorklist(query)); }
+  async getRadiologyWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('scans', query), WORKLIST_CACHE_MS, () => this.repository.getRadiologyWorklist(query)); }
+  async getProceduresWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('procedures', query), WORKLIST_CACHE_MS, () => this.repository.getProceduresWorklist(query)); }
   async getMaternalWorklist(query: WorklistQuery = {}) { return cached(this.worklistCacheKey('maternal', query), WORKLIST_CACHE_MS, () => this.repository.getMaternalWorklist(query)); }
   // Shown on every dashboard/sidebar: computed at most once every 15 s however many users ask
   async getWorklistSummary() {

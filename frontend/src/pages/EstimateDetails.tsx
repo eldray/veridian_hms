@@ -9,18 +9,19 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { getPatientName } from '../utils/patient';
 import { openPrintWindow } from '../utils/pdfGenerator';
 import {
-  ArrowLeft, Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
+  Send, CheckCircle, XCircle, FileText, Printer, Receipt, Loader, Briefcase,
   Pencil, Trash2,
 } from 'lucide-react';
+import {
+  Badge, Button, cn, humanStatus, PageHeader, statusTone, TABLE_SHELL, TD, TH, TH_ROW, TR,
+} from '../components/ui';
 
-const STATUS_STYLES: Record<EstimateStatus, string> = {
-  DRAFT: 'bg-[var(--bg-main)] text-[var(--text-secondary)]',
-  SENT: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-  APPROVED: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-  REJECTED: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-  CONVERTED: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-  EXPIRED: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
-};
+// SENT and CONVERTED are not in Badge's STATUS_TONES, so the colours this page
+// committed to for those two are kept locally; everything else uses statusTone().
+const estimateBadgeTone = (status: EstimateStatus) =>
+  status === 'SENT' ? 'cyan'
+    : status === 'CONVERTED' ? 'purple'
+      : statusTone(status);
 
 export default function EstimateDetails() {
   const { id } = useParams();
@@ -109,13 +110,18 @@ export default function EstimateDetails() {
   };
 
   if (isLoading && !est) {
-    return <div className="p-10 flex items-center justify-center text-[var(--text-tertiary)]"><Loader className="w-5 h-5 animate-spin mr-2" /> Loading estimate…</div>;
+    return (
+      <div className="p-6 text-[var(--text-primary)]">
+        <PageHeader title="Estimate" icon={FileText} accent="cyan" backTo="/dashboard/estimates" />
+        <div className="p-10 flex items-center justify-center text-[var(--text-tertiary)]"><Loader className="w-5 h-5 animate-spin mr-2" /> Loading estimate…</div>
+      </div>
+    );
   }
   if (!est) {
     return (
       <div className="p-10 text-center">
         <p className="text-[var(--text-secondary)]">Estimate not found.</p>
-        <button onClick={() => navigate('/dashboard/estimates')} className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg text-sm">Back to Estimates</button>
+        <Button variant="primary" className="mt-4" onClick={() => navigate('/dashboard/estimates')}>Back to Estimates</Button>
       </div>
     );
   }
@@ -123,97 +129,86 @@ export default function EstimateDetails() {
   return (
     <div className="space-y-6 p-6 text-[var(--text-primary)]">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/dashboard/estimates')} className="p-2 hover:bg-[var(--bg-main)] rounded-xl">
-            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-12 h-12 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <FileText className="w-6 h-6 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)] flex items-center gap-2">
-              {est.referenceNumber}
-              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_STYLES[est.status]}`}>{est.status}</span>
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)]">{est.patient ? getPatientName(est.patient) : 'Walk-in client'} • {est.patient?.folderNumber || '—'}</p>
-            {est.corporateAccount && (
-              <p className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1 mt-0.5"><Briefcase className="w-3 h-3" /> {est.corporateAccount.companyName}</p>
+      <PageHeader
+        title={(
+          <>
+            {est.referenceNumber}{' '}
+            <Badge tone={estimateBadgeTone(est.status)} dot size="sm">{humanStatus(est.status)}</Badge>
+          </>
+        )}
+        subtitle={`${est.patient ? getPatientName(est.patient) : 'Walk-in client'} • ${est.patient?.folderNumber || '—'}`}
+        meta={est.corporateAccount ? (
+          <span className="inline-flex items-center gap-1 text-[var(--icon-cyan-text)]"><Briefcase className="w-3 h-3" /> {est.corporateAccount.companyName}</span>
+        ) : undefined}
+        icon={FileText}
+        accent="cyan"
+        backTo="/dashboard/estimates"
+        actions={(
+          <>
+            <Button variant="secondary" icon={Printer} onClick={handlePrint}>Print</Button>
+            {est.status === 'DRAFT' && (
+              <>
+                <Button variant="secondary" icon={Pencil} onClick={() => navigate(`/dashboard/estimates/${est.id}/edit`)}>Edit</Button>
+                <Button
+                  variant="dangerSoft"
+                  icon={Trash2}
+                  loading={busy}
+                  onClick={() => run(async () => {
+                    if (!(await confirmDialog({ title: 'Delete draft estimate', message: 'Delete this draft estimate?', confirmText: 'Delete' }))) return;
+                    await removeEstimate(est.id);
+                    navigate('/dashboard/estimates');
+                  }, 'Estimate deleted')}
+                >
+                  Delete
+                </Button>
+                <Button variant="primary" icon={Send} loading={busy} onClick={() => run(() => sendEstimate(id!), 'Estimate sent')}>Send</Button>
+              </>
             )}
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]">
-            <Printer className="w-4 h-4" /> Print
-          </button>
-          {est.status === 'DRAFT' && (
-            <>
-              <button onClick={() => navigate(`/dashboard/estimates/${est.id}/edit`)} className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm text-[var(--text-primary)]">
-                <Pencil className="w-4 h-4" /> Edit
-              </button>
-              <button disabled={busy} onClick={() => run(async () => {
-                if (!(await confirmDialog({ title: 'Delete draft estimate', message: 'Delete this draft estimate?', confirmText: 'Delete' }))) return;
-                await removeEstimate(est.id);
-                navigate('/dashboard/estimates');
-              }, 'Estimate deleted')} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white text-sm disabled:opacity-50 transition-colors">
-                <Trash2 className="w-4 h-4" /> Delete
-              </button>
-            </>
-          )}
-          {est.status === 'DRAFT' && (
-            <button disabled={busy} onClick={() => run(() => sendEstimate(id!), 'Estimate sent')} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm disabled:opacity-50">
-              <Send className="w-4 h-4" /> Send
-            </button>
-          )}
-          {est.status === 'SENT' && (
-            <>
-              <button disabled={busy} onClick={() => run(() => acceptEstimate(id!), 'Estimate accepted')} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-text)] text-white rounded-lg hover:opacity-90 text-sm disabled:opacity-50">
-                <CheckCircle className="w-4 h-4" /> Accept
-              </button>
-              <button disabled={busy} onClick={handleReject} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-red-text)] text-white rounded-lg hover:opacity-90 text-sm disabled:opacity-50">
-                <XCircle className="w-4 h-4" /> Reject
-              </button>
-            </>
-          )}
-          {/* No "convert to bill" action: a bill has to carry what was actually
-              rendered (labs resulted, drugs dispensed), which a quote never saw.
-              Estimates that were converted before still link to their bill. */}
-          {est.status === 'CONVERTED' && est.bill && (
-            <button onClick={() => navigate(`/dashboard/billing/${est.bill!.id}/payment`)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 text-sm">
-              <Receipt className="w-4 h-4" /> View Bill {est.bill.billNumber}
-            </button>
-          )}
-        </div>
-      </div>
+            {est.status === 'SENT' && (
+              <>
+                <Button variant="soft" accent="green" icon={CheckCircle} loading={busy} onClick={() => run(() => acceptEstimate(id!), 'Estimate accepted')}>Accept</Button>
+                <Button variant="danger" icon={XCircle} loading={busy} onClick={handleReject}>Reject</Button>
+              </>
+            )}
+            {/* No "convert to bill" action: a bill has to carry what was actually
+                rendered (labs resulted, drugs dispensed), which a quote never saw.
+                Estimates that were converted before still link to their bill. */}
+            {est.status === 'CONVERTED' && est.bill && (
+              <Button variant="primary" icon={Receipt} onClick={() => navigate(`/dashboard/billing/${est.bill!.id}/payment`)}>View Bill {est.bill.billNumber}</Button>
+            )}
+          </>
+        )}
+      />
 
       {/* Items */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-[var(--bg-main)] text-left text-xs font-medium text-[var(--text-secondary)] uppercase">
-            <tr>
-              <th className="px-4 py-3">Description</th>
-              <th className="px-4 py-3 text-center">Qty</th>
-              <th className="px-4 py-3 text-right">Unit (GHS)</th>
-              <th className="px-4 py-3 text-right">VAT</th>
-              <th className="px-4 py-3 text-right">Total (GHS)</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {(est.items || []).map((it) => (
-              <tr key={it.id}>
-                <td className="px-4 py-3 text-[var(--text-primary)]">{it.description}{it.serviceCatalog?.code ? <span className="text-[var(--text-tertiary)] text-xs"> ({it.serviceCatalog.code})</span> : null}</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{it.quantity}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-primary)]">{fmt(it.unitPrice)}</td>
-                <td className="px-4 py-3 text-right text-[var(--text-primary)]">{fmt(it.vatAmount)}</td>
-                <td className="px-4 py-3 text-right font-medium text-[var(--text-primary)]">{fmt(it.totalPrice)}</td>
+      <div className={TABLE_SHELL}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className={TH_ROW}>
+              <tr>
+                <th className={TH}>Description</th>
+                <th className={cn(TH, 'text-center')}>Qty</th>
+                <th className={cn(TH, 'text-right')}>Unit (GHS)</th>
+                <th className={cn(TH, 'text-right')}>VAT</th>
+                <th className={cn(TH, 'text-right')}>Total (GHS)</th>
               </tr>
-            ))}
-            {(!est.items || est.items.length === 0) && (
-              <tr><td colSpan={5} className="px-4 py-8 text-center text-[var(--text-tertiary)]">No line items</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(est.items || []).map((it) => (
+                <tr key={it.id} className={TR}>
+                  <td className={cn(TD, 'whitespace-normal')}>{it.description}{it.serviceCatalog?.code ? <span className="text-[var(--text-tertiary)] text-xs"> ({it.serviceCatalog.code})</span> : null}</td>
+                  <td className={cn(TD, 'text-center')}>{it.quantity}</td>
+                  <td className={cn(TD, 'text-right')}>{fmt(it.unitPrice)}</td>
+                  <td className={cn(TD, 'text-right')}>{fmt(it.vatAmount)}</td>
+                  <td className={cn(TD, 'text-right font-medium')}>{fmt(it.totalPrice)}</td>
+                </tr>
+              ))}
+              {(!est.items || est.items.length === 0) && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-[var(--text-tertiary)]">No line items</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Totals */}

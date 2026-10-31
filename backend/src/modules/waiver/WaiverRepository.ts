@@ -25,7 +25,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       where, page, limit: Math.min(limit, 1000), orderBy: { createdAt: 'desc' },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } } // ✅ FIXED: Aligned with schema
       }
@@ -53,7 +53,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
       }
@@ -67,7 +67,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
         data: { status: 'approved', amountApproved, approvedById, approvedAt: new Date(), rejectionReason: null },
         include: {
           patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-          bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+          bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
           requestedBy: { select: { id: true, fullName: true, username: true } },
           approvedBy: { select: { id: true, fullName: true, username: true } }
         }
@@ -103,7 +103,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       data: { status: 'rejected', approvedById, approvedAt: new Date(), rejectionReason },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true } },
         approvedBy: { select: { id: true, fullName: true, username: true } }
       }
@@ -152,7 +152,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       where: { billId }, orderBy: { createdAt: 'desc' },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
       }
@@ -164,7 +164,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       where: { patientId }, orderBy: { createdAt: 'desc' },
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, paidAmount: true, balance: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true, role: true } },
         approvedBy: { select: { id: true, fullName: true, username: true, role: true } }
       }
@@ -176,7 +176,7 @@ export class WaiverRepository extends BaseRepository<any, any, any> {
       where: { id }, data,
       include: {
         patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
-        bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        bill: { select: { id: true, billNumber: true, totalAmount: true, Attendance: { select: { attendanceNumber: true } } } },
         requestedBy: { select: { id: true, fullName: true, username: true } }
       }
     });

@@ -7,20 +7,17 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useDepartmentStore } from '../store/departmentStore';
 import { useWardStore } from '../store/wardStore';
-import { 
-  Plus, 
-  Search, 
-  FileText, 
-  Edit, 
-  Trash2, 
+import {
+  Plus,
+  Search,
+  FileText,
+  Edit,
+  Trash2,
   RefreshCw,
-  ArrowLeft,
   Download,
   Eye,
   Filter,
   X,
-  ChevronLeft,
-  ChevronRight,
   Package,
   Building,
   Calendar,
@@ -31,6 +28,10 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Button, cn, INPUT, PageHeader, Pagination, SearchInput, SELECT, StatCard,
+  TABLE_SHELL, TD, TD_MONO, TD_MUTED, TH, TH_ROW, TR,
+} from '../components/ui';
 
 interface InvoiceItem {
   id?: string;
@@ -213,7 +214,7 @@ export default function InvoiceManagement() {
   } = useStockStore();
   const { departments, getDepartments } = useDepartmentStore();
   const { wards, getWards } = useWardStore();
-  const { user, hasRole } = useAuthStore();
+  const { hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
 
@@ -581,112 +582,42 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Purchase Invoices</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              Manage supplier purchases and stock updates
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={exportToCSV}
-            disabled={sortedInvoices.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium"
-          >
-            <Download className="w-4 h-4" />
-            Export CSV
-          </button>
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium ${
-              showFilters || hasActiveFilters
-                ? 'bg-[var(--icon-cyan-text)] text-white' 
-                : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            )}
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
+      <PageHeader
+        title="Purchase Invoices"
+        subtitle="Manage supplier purchases and stock updates"
+        icon={FileText}
+        accent="yellow"
+        onBack={() => navigate(-1)}
+        actions={(
+          <>
+            <Button variant="soft" accent="green" icon={Download} disabled={sortedInvoices.length === 0} onClick={exportToCSV}>
+              Export CSV
+            </Button>
+            <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>Refresh</Button>
+            <Button
+              variant={showFilters || hasActiveFilters ? 'soft' : 'secondary'}
+              accent="cyan"
+              icon={Filter}
+              onClick={() => setShowFilters(!showFilters)}
             >
-              <Plus className="w-4 h-4" />
-              New Invoice
-            </button>
-          )}
-        </div>
-      </div>
+              Filters
+              {hasActiveFilters && <span className="ml-1 w-2 h-2 bg-[var(--icon-red-text)] rounded-full"></span>}
+            </Button>
+            {isAdmin && (
+              <Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>
+                New Invoice
+              </Button>
+            )}
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Total Invoices</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{summaryStats.totalInvoices}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Total Spent</p>
-              <p className="text-xl font-bold text-[var(--icon-green-text)]">
-                ${summaryStats.totalSpent.toFixed(2)}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
-              <Building className="w-5 h-5 text-[var(--icon-purple-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Suppliers</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{summaryStats.uniqueSuppliers}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Items Purchased</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{summaryStats.totalItems}</p>
-            </div>
-          </div>
-        </div>
+        <StatCard label="Total Invoices" icon={FileText} accent="cyan" value={summaryStats.totalInvoices} />
+        <StatCard label="Total Spent" size="money" icon={DollarSign} accent="green" value={`$${summaryStats.totalSpent.toFixed(2)}`} />
+        <StatCard label="Suppliers" icon={Building} accent="purple" value={summaryStats.uniqueSuppliers} />
+        <StatCard label="Items Purchased" icon={Package} accent="yellow" value={summaryStats.totalItems} />
       </div>
 
       {/* Filters Panel */}
@@ -697,12 +628,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               <Filter className="w-4 h-4" />
               Filter Invoices
             </h3>
-            <button
-              onClick={() => setShowFilters(false)}
-              className="p-1 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-            >
-              <X className="w-4 h-4 text-[var(--text-secondary)]" />
-            </button>
+            <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close filters" onClick={() => setShowFilters(false)} />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -711,7 +637,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               <select
                 value={supplierFilter}
                 onChange={e => setSupplierFilter(e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                className={cn(SELECT, 'w-full')}
               >
                 <option value="all">All Suppliers</option>
                 {getUniqueSuppliers().map(supplier => (
@@ -721,12 +647,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
             </div>
             
             <div className="flex items-end gap-2">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
-              >
-                Clear Filters
-              </button>
+              <Button variant="secondary" onClick={clearFilters}>Clear Filters</Button>
             </div>
           </div>
         </div>
@@ -734,17 +655,13 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
 
       {/* Search and Items Per Page */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by invoice number or supplier..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-          />
-        </div>
-        
+        <SearchInput
+          className="flex-1"
+          placeholder="Search by invoice number or supplier..."
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--text-secondary)]">Show:</span>
           <select
@@ -753,7 +670,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+            className={cn(SELECT)}
           >
             <option value={10}>10</option>
             <option value={25}>25</option>
@@ -763,13 +680,6 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
           <span className="text-sm text-[var(--text-secondary)]">per page</span>
         </div>
       </div>
-
-      {/* Results Count */}
-      {sortedInvoices.length > 0 && (
-        <div className="text-sm text-[var(--text-secondary)]">
-          Showing {startIndex + 1} to {Math.min(endIndex, sortedInvoices.length)} of {sortedInvoices.length} invoices
-        </div>
-      )}
 
       {/* Invoices Table */}
       {isLoading ? (
@@ -798,118 +708,96 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               : 'Get started by creating your first purchase invoice'}
           </p>
           {hasActiveFilters ? (
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <X className="w-4 h-4" />
-              Clear All Filters
-            </button>
+            <Button variant="soft" accent="cyan" icon={X} onClick={clearFilters}>Clear All Filters</Button>
           ) : isAdmin && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
-              Create First Invoice
-            </button>
+            <Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>Create First Invoice</Button>
           )}
         </div>
       ) : (
         <>
-          <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+          <div className={TABLE_SHELL}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <thead className={TH_ROW}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Invoice #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Supplier</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Received At</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Date</th>
-                    <th className="px-4 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Total Amount</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Items</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Created By</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
+                    <th className={TH}>Invoice #</th>
+                    <th className={TH}>Supplier</th>
+                    <th className={TH}>Received At</th>
+                    <th className={TH}>Date</th>
+                    <th className={cn(TH, 'text-right')}>Total Amount</th>
+                    <th className={cn(TH, 'text-center')}>Items</th>
+                    <th className={TH}>Created By</th>
+                    <th className={cn(TH, 'text-center')}>Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
+                <tbody>
                   {paginatedInvoices.map(invoice => (
-                    <tr key={invoice.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-mono font-medium text-[var(--text-primary)]">
-                          {invoice.invoiceNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+                    <tr key={invoice.id} className={TR}>
+                      <td className={TD_MONO}>{invoice.invoiceNumber}</td>
+                      <td className={TD}>
                         <div className="flex items-center gap-2">
                           <Building className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                          <span className="text-sm text-[var(--text-primary)]">{invoice.supplierName}</span>
+                          <span className="text-[var(--text-primary)]">{invoice.supplierName}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-[var(--text-secondary)]">
-                          {invoice.receivedAtWard?.wardName || invoice.receivedAtDepartment?.name || '—'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+                      <td className={TD_MUTED}>{invoice.receivedAtWard?.wardName || invoice.receivedAtDepartment?.name || '—'}</td>
+                      <td className={TD}>
                         <div className="flex items-center gap-2">
                           <Calendar className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                          <span className="text-sm text-[var(--text-secondary)]">
-                            {new Date(invoice.invoiceDate).toLocaleDateString()}
-                          </span>
+                          <span className="text-[var(--text-secondary)]">{new Date(invoice.invoiceDate).toLocaleDateString()}</span>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <span className="text-sm font-bold text-[var(--icon-green-text)]">
-                          ${invoice.totalAmount.toFixed(2)}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className={cn(TD, 'text-right font-bold text-[var(--icon-green-text)]')}>${invoice.totalAmount.toFixed(2)}</td>
+                      <td className={cn(TD, 'text-center')}>
                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
                           <Package className="w-3 h-3" />
                           {invoice.InvoiceItem?.length || 0} items
                         </span>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-[var(--text-secondary)]">
-                          {invoice.User?.fullName || 'Unknown'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
+                      <td className={TD_MUTED}>{invoice.User?.fullName || 'Unknown'}</td>
+                      <td className={cn(TD, 'text-center')}>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={Eye}
+                            className="text-[var(--icon-cyan-text)]"
+                            aria-label="View details"
                             onClick={() => {
                               setSelectedInvoice(invoice);
                               setShowDetailModal(true);
                             }}
-                            className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-colors"
-                            title="View Details"
-                          >
-                            <Eye className="w-3.5 h-3.5" />
-                          </button>
-                          <button
+                          />
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={Printer}
+                            className="text-[var(--icon-purple-text)]"
+                            aria-label="Print invoice"
                             onClick={() => printInvoice(invoice)}
-                            className="p-1.5 text-[var(--icon-purple-text)] border border-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-bg)] transition-colors"
-                            title="Print"
-                          >
-                            <Printer className="w-3.5 h-3.5" />
-                          </button>
+                          />
                           {isAdmin && (
                             <>
-                              <button
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                iconOnly
+                                icon={Edit}
+                                className="text-[var(--icon-yellow-text)]"
+                                aria-label="Edit invoice"
                                 onClick={() => handleEdit(invoice)}
-                                className="p-1.5 text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-bg)] transition-colors"
-                                title="Edit"
-                              >
-                                <Edit className="w-3.5 h-3.5" />
-                              </button>
-                              <button
+                              />
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                iconOnly
+                                icon={Trash2}
+                                className="text-[var(--icon-red-text)]"
+                                aria-label="Delete invoice"
                                 onClick={() => handleDelete(invoice.id)}
-                                className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-colors"
-                                title="Delete"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              />
                             </>
                           )}
                         </div>
@@ -921,59 +809,14 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="text-sm text-[var(--text-secondary)]">
-                Page {currentPage} of {totalPages}
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${
-                        currentPage === pageNum
-                          ? 'bg-[var(--icon-cyan-text)] text-white'
-                          : 'border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={sortedInvoices.length}
+            noun="invoices"
+            onChange={handlePageChange}
+          />
         </>
       )}
 
@@ -988,15 +831,16 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               <h2 className="text-lg font-bold text-[var(--text-primary)]">
                 {editingInvoice ? 'Edit Invoice' : 'Create Purchase Invoice'}
               </h2>
-              <button
+              <Button
+                variant="ghost"
+                iconOnly
+                icon={X}
+                aria-label="Close"
                 onClick={() => {
                   setShowForm(false);
                   resetForm();
                 }}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              />
             </div>
             
             <form onSubmit={handleSubmit} className="p-6 space-y-5">
@@ -1013,7 +857,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                     placeholder="INV-001"
                     value={formData.invoiceNumber}
                     onChange={e => setFormData({ ...formData, invoiceNumber: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
+                    className={cn(INPUT, 'w-full disabled:opacity-75')} 
                   />
                 </div>
                 <div>
@@ -1026,7 +870,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                     placeholder="Supplier Name"
                     value={formData.supplierName}
                     onChange={e => setFormData({ ...formData, supplierName: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
                 <div>
@@ -1038,7 +882,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                       value={formData.receivingLocationType}
                       disabled={!!editingInvoice}
                       onChange={e => setFormData({ ...formData, receivingLocationType: e.target.value as 'department' | 'ward', receivedAtDepartmentId: '', receivedAtWardId: '' })}
-                      className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                      className={cn(SELECT, 'w-full disabled:opacity-75')}
                     >
                       <option value="department">Department / Store</option>
                       <option value="ward">Ward</option>
@@ -1049,7 +893,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                         disabled={!!editingInvoice}
                         value={formData.receivedAtDepartmentId}
                         onChange={e => setFormData({ ...formData, receivedAtDepartmentId: e.target.value })}
-                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                        className={cn(SELECT, 'w-full disabled:opacity-75')}
                       >
                         <option value="">Select department...</option>
                         {departments.map(dept => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
@@ -1060,7 +904,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                         disabled={!!editingInvoice}
                         value={formData.receivedAtWardId}
                         onChange={e => setFormData({ ...formData, receivedAtWardId: e.target.value })}
-                        className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm disabled:opacity-75"
+                        className={cn(SELECT, 'w-full disabled:opacity-75')}
                       >
                         <option value="">Select ward...</option>
                         {wards.filter(ward => ward.isActive).map(ward => <option key={ward.id} value={ward.id}>{ward.wardName}</option>)}
@@ -1077,7 +921,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                     required 
                     value={formData.invoiceDate}
                     onChange={e => setFormData({ ...formData, invoiceDate: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" 
+                    className={cn(INPUT, 'w-full')} 
                   />
                 </div>
               </div>
@@ -1087,14 +931,9 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="font-semibold text-[var(--text-primary)] text-sm">Invoice Items *</h3>
                   {!editingInvoice && (
-                    <button
-                      type="button"
-                      onClick={addInvoiceItem}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all"
-                    >
-                      <Plus className="w-3 h-3" />
+                    <Button size="sm" variant="outline" icon={Plus} onClick={addInvoiceItem}>
                       Add Item
-                    </button>
+                    </Button>
                   )}
                 </div>
 
@@ -1139,7 +978,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                           disabled={!!editingInvoice}
                           value={item.quantity}
                           onChange={e => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
+                          className={cn(INPUT, 'w-full disabled:opacity-75')} 
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -1154,7 +993,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                           disabled={!!editingInvoice}
                           value={item.unitCost}
                           onChange={e => updateInvoiceItem(index, 'unitCost', parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
+                          className={cn(INPUT, 'w-full disabled:opacity-75')} 
                         />
                       </div>
                       <div className="md:col-span-2">
@@ -1167,7 +1006,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                           disabled={!!editingInvoice}
                           value={item.batchNumber}
                           onChange={e => updateInvoiceItem(index, 'batchNumber', e.target.value)}
-                          className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
+                          className={cn(INPUT, 'w-full disabled:opacity-75')} 
                         />
                       </div>
                       <div className="md:col-span-2 flex gap-2">
@@ -1180,17 +1019,19 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                             disabled={!!editingInvoice}
                             value={item.expiryDate}
                             onChange={e => updateInvoiceItem(index, 'expiryDate', e.target.value)}
-                            className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm disabled:opacity-75 disabled:cursor-not-allowed disabled:bg-[var(--bg-main)]" 
+                            className={cn(INPUT, 'w-full disabled:opacity-75')} 
                           />
                         </div>
                         {!editingInvoice && formData.invoiceItems.length > 1 && (
-                          <button
-                            type="button"
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            iconOnly
+                            icon={Trash2}
+                            aria-label="Remove item"
+                            className="text-[var(--icon-red-text)] self-end"
                             onClick={() => removeInvoiceItem(index)}
-                            className="p-2 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-colors self-end"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          />
                         )}
                       </div>
                     </div>
@@ -1216,7 +1057,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                     rows={3}
                     value={formData.notes}
                     onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                    className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none" 
+                    className={cn(INPUT, 'w-full resize-none')} 
                   />
                 </div>
                 <div className="bg-[var(--bg-main)] rounded-lg p-4 border border-[var(--border-color)]">
@@ -1236,23 +1077,25 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               </div>
 
               <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button 
-                  type="button" 
+                <Button
+                  variant="secondary"
+                  className="flex-1"
                   onClick={() => {
                     setShowForm(false);
                     resetForm();
                   }}
-                  className="flex-1 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
                 >
                   Cancel
-                </button>
-                <button 
+                </Button>
+                <Button
                   type="submit"
+                  variant="soft"
+                  accent="cyan"
+                  className="flex-1"
                   disabled={formData.invoiceItems.length === 0}
-                  className="flex-1 px-5 py-2.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-medium"
                 >
                   {editingInvoice ? 'Update Invoice' : 'Create Invoice'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
@@ -1268,12 +1111,7 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Invoice Details</h2>
                 <p className="text-xs text-[var(--text-secondary)] font-mono">{selectedInvoice.invoiceNumber}</p>
               </div>
-              <button
-                onClick={() => setShowDetailModal(false)}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => setShowDetailModal(false)} />
             </div>
             
             <div className="p-6 space-y-5">
@@ -1306,25 +1144,25 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
                 <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Invoice Items</h3>
                 <div className="border border-[var(--border-color)] rounded-lg overflow-hidden">
                   <table className="w-full text-sm">
-                    <thead className="bg-[var(--bg-main)]">
+                    <thead className={TH_ROW}>
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs text-[var(--text-secondary)]">Item</th>
-                        <th className="px-4 py-2 text-center text-xs text-[var(--text-secondary)]">Quantity</th>
-                        <th className="px-4 py-2 text-right text-xs text-[var(--text-secondary)]">Unit Cost</th>
-                        <th className="px-4 py-2 text-right text-xs text-[var(--text-secondary)]">Total</th>
-                        <th className="px-4 py-2 text-left text-xs text-[var(--text-secondary)]">Batch #</th>
+                        <th className={TH}>Item</th>
+                        <th className={cn(TH, 'text-center')}>Quantity</th>
+                        <th className={cn(TH, 'text-right')}>Unit Cost</th>
+                        <th className={cn(TH, 'text-right')}>Total</th>
+                        <th className={TH}>Batch #</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--border-color)]">
+                    <tbody>
                       {selectedInvoice.InvoiceItem?.map((item, idx) => (
-                        <tr key={idx}>
-                          <td className="px-4 py-2 text-[var(--text-primary)]">{getStockItemName(item.stockItemId)}</td>
-                          <td className="px-4 py-2 text-center text-[var(--text-primary)]">{item.quantity} {getStockItemUnit(item.stockItemId)}</td>
-                          <td className="px-4 py-2 text-right text-[var(--text-primary)]">${item.unitCost.toFixed(2)}</td>
-                          <td className="px-4 py-2 text-right font-medium text-[var(--icon-green-text)]">
+                        <tr key={idx} className={TR}>
+                          <td className={cn(TD, 'whitespace-normal')}>{getStockItemName(item.stockItemId)}</td>
+                          <td className={cn(TD, 'text-center')}>{item.quantity} {getStockItemUnit(item.stockItemId)}</td>
+                          <td className={cn(TD, 'text-right')}>${item.unitCost.toFixed(2)}</td>
+                          <td className={cn(TD, 'text-right font-medium text-[var(--icon-green-text)]')}>
                             ${(item.quantity * item.unitCost).toFixed(2)}
                           </td>
-                          <td className="px-4 py-2 text-[var(--text-secondary)]">{item.batchNumber || '—'}</td>
+                          <td className={TD_MUTED}>{item.batchNumber || '—'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1352,19 +1190,8 @@ const isAdmin = hasRole(['super_admin', 'admin', 'pharmacist']);
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-color)]">
-                <button
-                  onClick={() => printInvoice(selectedInvoice)}
-                  className="px-5 py-2.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-all text-sm font-medium"
-                >
-                  <Printer className="w-4 h-4 inline mr-2" />
-                  Print
-                </button>
-                <button
-                  onClick={() => setShowDetailModal(false)}
-                  className="px-5 py-2.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-                >
-                  Close
-                </button>
+                <Button variant="soft" accent="purple" icon={Printer} onClick={() => printInvoice(selectedInvoice)}>Print</Button>
+                <Button variant="soft" accent="cyan" onClick={() => setShowDetailModal(false)}>Close</Button>
               </div>
             </div>
           </div>

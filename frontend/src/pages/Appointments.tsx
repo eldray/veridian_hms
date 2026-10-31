@@ -11,21 +11,20 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import { describeApiError } from '../utils/apiError';
 
 import {
+  Badge, Button, Card, cn, Field, FilterSelect, humanStatus, INPUT, PageHeader, Pagination,
+  SearchInput, Segmented, SELECT, StatCard, TABLE_SHELL, TD, TH, TH_ROW, TR,
+  type BadgeTone,
+} from '../components/ui';
+
+import {
   Plus,
-  Search,
   Calendar,
-  Clock,
   User,
-  Stethoscope,
-  Building,
   Edit,
   Trash2,
   RefreshCw,
   CheckCircle,
-  XCircle,
-  ArrowLeft,
-  ChevronLeft,
-  ChevronRight
+  XCircle
 } from 'lucide-react';
 
 type DateFilterType = 'today' | 'tomorrow' | 'week' | 'custom';
@@ -387,16 +386,17 @@ export default function Appointments() {
     });
   };
 
-  const getStatusColor = (status: string) => {
+  // Badge's shared STATUS_TONES does not know this page's appointment enum
+  // (scheduled / confirmed / checked_in / no_show), so the tones stay local.
+  const getStatusTone = (status: string): BadgeTone => {
     switch (status) {
-      case 'scheduled': return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]';
-      case 'confirmed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-      case 'checked_in': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
-      case 'in_progress': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-      case 'completed': return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
-      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
-      case 'no_show': return 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
+      case 'scheduled': return 'blue';
+      case 'confirmed': return 'green';
+      case 'checked_in': return 'purple';
+      case 'in_progress': return 'yellow';
+      case 'cancelled': return 'red';
+      case 'no_show': return 'orange';
+      default: return 'neutral';
     }
   };
 
@@ -489,147 +489,123 @@ export default function Appointments() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-            <Calendar className="w-6 h-6 text-[var(--icon-purple-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Appointment Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Schedule and manage patient appointments</p>
-            <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-              {filteredAppointments.length} appointment(s) • {stats.today} today
-            </p>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/dashboard/attendance')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm"
-          >
-            <User className="w-4 h-4" />
-            Attendance
-          </button>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            New Appointment
-          </button>
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Appointment Management"
+        subtitle="Schedule and manage patient appointments"
+        meta={`${filteredAppointments.length} appointment(s) • ${stats.today} today`}
+        icon={Calendar}
+        accent="purple"
+        backTo="/dashboard"
+        actions={(
+          <>
+            <Button variant="secondary" icon={User} onClick={() => navigate('/dashboard/attendance')}>
+              Attendance
+            </Button>
+            <Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>
+              New Appointment
+            </Button>
+            <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--text-primary)]">{stats.total}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Total Appointments</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-blue-text)]">{stats.scheduled}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Scheduled</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-green-text)]">{stats.confirmed}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Confirmed</div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="text-2xl font-bold text-[var(--icon-purple-text)]">{stats.today}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-1">Today</div>
-        </div>
+        <StatCard label="Total Appointments" value={stats.total} />
+        <StatCard label="Scheduled" value={stats.scheduled} accent="blue" />
+        <StatCard label="Confirmed" value={stats.confirmed} accent="green" />
+        <StatCard label="Today" value={stats.today} accent="purple" />
       </div>
 
       {/* Date Filter Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
             <span className="text-sm font-medium text-[var(--text-primary)]">Show:</span>
           </div>
           
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={() => { setDateFilter('today'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'today' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
-              Today
-            </button>
-            <button onClick={() => { setDateFilter('tomorrow'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'tomorrow' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
-              Tomorrow
-            </button>
-            <button onClick={() => { setDateFilter('week'); setShowDatePicker(false); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'week' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
-              Next 7 Days
-            </button>
-            <button onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }} className={`px-3 py-1.5 text-sm rounded-lg transition-all ${dateFilter === 'custom' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'}`}>
-              Custom
-            </button>
-          </div>
+          <Segmented
+            aria-label="Appointment date range"
+            value={dateFilter}
+            onChange={(range) => { setDateFilter(range); setShowDatePicker(range === 'custom'); }}
+            options={[
+              { value: 'today', label: 'Today' },
+              { value: 'tomorrow', label: 'Tomorrow' },
+              { value: 'week', label: 'Next 7 Days' },
+              { value: 'custom', label: 'Custom' },
+            ]}
+          />
 
           {showDatePicker && dateFilter === 'custom' && (
             <div className="flex items-center gap-3 ml-auto">
-              <input type="date" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]" />
+              <input type="date" aria-label="Custom range start" value={customStartDate} onChange={(e) => setCustomStartDate(e.target.value)} className={INPUT} />
               <span className="text-[var(--text-secondary)]">to</span>
-              <input type="date" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]" />
+              <input type="date" aria-label="Custom range end" value={customEndDate} onChange={(e) => setCustomEndDate(e.target.value)} className={INPUT} />
             </div>
           )}
           
           <div className="text-xs text-[var(--text-secondary)] ml-auto">Showing: {getDateFilterDisplay()}</div>
         </div>
-      </div>
+      </Card>
 
       {/* Search and Filters */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex-1 w-full sm:max-w-sm relative">
-            <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-            <input type="text" placeholder="Search by patient or clinician..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm" />
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-sm"
+            placeholder="Search by patient or clinician..."
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
 
           <div className="flex items-center gap-3">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
-              <option value="all">All Status</option>
-              <option value="scheduled">Scheduled</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="checked_in">Checked In</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-              <option value="cancelled">Cancelled</option>
-              <option value="no_show">No Show</option>
-            </select>
+            <FilterSelect
+              aria-label="Filter by status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: 'all', label: 'All Status' },
+                { value: 'scheduled', label: 'Scheduled' },
+                { value: 'confirmed', label: 'Confirmed' },
+                { value: 'checked_in', label: 'Checked In' },
+                { value: 'in_progress', label: 'In Progress' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'cancelled', label: 'Cancelled' },
+                { value: 'no_show', label: 'No Show' },
+              ]}
+            />
 
-            <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
-              <option value="all">All Types</option>
-              <option value="consultation">Consultation</option>
-              <option value="follow_up">Follow Up</option>
-              <option value="procedure">Procedure</option>
-              <option value="antenatal">Antenatal</option>
-              <option value="postnatal">Postnatal</option>
-              <option value="vaccination">Vaccination</option>
-              <option value="lab_test">Lab Test</option>
-              <option value="scan">Scan</option>
-            </select>
+            <FilterSelect
+              aria-label="Filter by type"
+              value={typeFilter}
+              onChange={setTypeFilter}
+              options={[
+                { value: 'all', label: 'All Types' },
+                { value: 'consultation', label: 'Consultation' },
+                { value: 'follow_up', label: 'Follow Up' },
+                { value: 'procedure', label: 'Procedure' },
+                { value: 'antenatal', label: 'Antenatal' },
+                { value: 'postnatal', label: 'Postnatal' },
+                { value: 'vaccination', label: 'Vaccination' },
+                { value: 'lab_test', label: 'Lab Test' },
+                { value: 'scan', label: 'Scan' },
+              ]}
+            />
 
-            <select value={itemsPerPage} onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }} className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
-              <option value={10}>10 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={50}>50 per page</option>
-            </select>
+            <FilterSelect
+              aria-label="Rows per page"
+              value={String(itemsPerPage)}
+              onChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}
+              options={[
+                { value: '10', label: '10 per page' },
+                { value: '20', label: '20 per page' },
+                { value: '50', label: '50 per page' },
+              ]}
+            />
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Appointments Table */}
       {/* A refresh keeps the current rows on screen; skeletons only stand in for the first paint. */}
@@ -644,140 +620,105 @@ export default function Appointments() {
           ))}
         </div>
       ) : filteredAppointments.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
+        <Card padded={false} className="p-8 text-center">
           <Calendar className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
           <p className="text-[var(--text-secondary)] mb-2">{searchTerm || statusFilter !== 'all' || typeFilter !== 'all' ? 'No appointments found' : 'No appointments scheduled yet'}</p>
           <p className="text-[var(--text-tertiary)] text-sm mb-4">Get started by creating your first appointment</p>
-          <button onClick={() => setShowForm(true)} className="inline-flex items-center gap-2 text-[var(--icon-blue-text)] hover:text-[var(--icon-blue-text)] font-medium text-sm transition-colors">
-            <Plus className="w-4 h-4" />
+          <Button variant="soft" accent="blue" icon={Plus} onClick={() => setShowForm(true)}>
             Schedule First Appointment
-          </button>
-        </div>
+          </Button>
+        </Card>
       ) : (
         <>
-          <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Clinician</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Department</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {paginatedAppointments.map((apt) => {
-                  const patient = findPatient(apt);
-                  const patientName = patient ? getPatientName(patient) : 'Unknown';
-                  
-                  return (
-                    <tr key={apt.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-[var(--text-primary)] text-sm">{patientName}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || 'No Folder'}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm text-[var(--text-primary)]">{apt.clinician?.fullName || '—'}</p>
-                          <p className="text-xs text-[var(--text-secondary)] capitalize">{apt.clinicianRole || '—'}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="text-sm text-[var(--text-primary)]">{apt.department?.name || '—'}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">
-                          <p className="font-medium text-[var(--text-primary)]">{new Date(apt.appointmentDate).toLocaleDateString()}</p>
-                          <p className="text-[var(--text-secondary)] text-xs">{apt.appointmentTime}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getTypeColor(apt.type)}`}>{apt.type.replace('_', ' ').toUpperCase()}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(apt.status)}`}>{apt.status.replace('_', ' ').toUpperCase()}</span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
-                          {apt.status === 'scheduled' && (
-                            <button onClick={() => handleStatusUpdate(apt.id, 'confirmed')} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors" title="Confirm">
-                              <CheckCircle className="w-4 h-4" />
-                            </button>
-                          )}
-                          {apt.status === 'confirmed' && !apt.checkedIn && (
-                            <button onClick={() => handleCheckIn(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] rounded-lg transition-colors" title="Check In">
-                              <User className="w-4 h-4" />
-                            </button>
-                          )}
-                          {apt.status === 'checked_in' && (
-                            <button onClick={() => handleConvertToAttendance(apt)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] rounded-lg transition-colors" title="Convert to Attendance">
-                              <Calendar className="w-4 h-4" />
-                            </button>
-                          )}
-                          {canEditAppointment(apt) && apt.status !== 'completed' && apt.status !== 'cancelled' && (
-                            <button onClick={() => handleEdit(apt)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] rounded-lg transition-colors" title="Edit">
-                              <Edit className="w-4 h-4" />
-                            </button>
-                          )}
-                          {hasRole(['admin']) && (
-                            <button onClick={() => handleDelete(apt.id)} className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors" title="Delete">
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAppointments.length)} of {filteredAppointments.length} appointment records
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => goToPage(currentPage - 1)} disabled={currentPage === 1} className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
+          <div className={TABLE_SHELL}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className={TH_ROW}>
+                  <tr>
+                    <th className={TH}>Patient</th>
+                    <th className={TH}>Clinician</th>
+                    <th className={TH}>Department</th>
+                    <th className={TH}>Date & Time</th>
+                    <th className={TH}>Type</th>
+                    <th className={TH}>Status</th>
+                    <th className={cn(TH, 'text-center')}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedAppointments.map((apt) => {
+                    const patient = findPatient(apt);
+                    const patientName = patient ? getPatientName(patient) : 'Unknown';
+                    
                     return (
-                      <button key={pageNum} onClick={() => goToPage(pageNum)} className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${currentPage === pageNum ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'}`}>
-                        {pageNum}
-                      </button>
+                      <tr key={apt.id} className={TR}>
+                        <td className={cn(TD, 'whitespace-normal')}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-[var(--text-primary)] text-sm">{patientName}</p>
+                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || 'No Folder'}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className={cn(TD, 'whitespace-normal')}>
+                          <div>
+                            <p className="text-sm text-[var(--text-primary)]">{apt.clinician?.fullName || '—'}</p>
+                            <p className="text-xs text-[var(--text-secondary)] capitalize">{apt.clinicianRole || '—'}</p>
+                          </div>
+                        </td>
+                        <td className={cn(TD, 'whitespace-normal')}>
+                          <span className="text-sm text-[var(--text-primary)]">{apt.department?.name || '—'}</span>
+                        </td>
+                        <td className={TD}>
+                          <div className="text-sm">
+                            <p className="font-medium text-[var(--text-primary)]">{new Date(apt.appointmentDate).toLocaleDateString()}</p>
+                            <p className="text-[var(--text-secondary)] text-xs">{apt.appointmentTime}</p>
+                          </div>
+                        </td>
+                        <td className={TD}>
+                          {/* Appointment types include pink and teal, which Badge has no tone for, so the tint stays local. */}
+                          <span className={cn('inline-flex px-2 py-1 text-xs font-medium rounded-full', getTypeColor(apt.type))}>{apt.type.replace('_', ' ').toUpperCase()}</span>
+                        </td>
+                        <td className={TD}>
+                          <Badge tone={getStatusTone(apt.status)} dot size="sm">{humanStatus(apt.status)}</Badge>
+                        </td>
+                        <td className={TD}>
+                          <div className="flex items-center justify-center gap-1">
+                            {apt.status === 'scheduled' && (
+                              <Button size="sm" variant="ghost" iconOnly icon={CheckCircle} aria-label="Confirm" className="hover:text-[var(--icon-green-text)]" onClick={() => handleStatusUpdate(apt.id, 'confirmed')} />
+                            )}
+                            {apt.status === 'confirmed' && !apt.checkedIn && (
+                              <Button size="sm" variant="ghost" iconOnly icon={User} aria-label="Check In" className="hover:text-[var(--icon-purple-text)]" onClick={() => handleCheckIn(apt.id)} />
+                            )}
+                            {apt.status === 'checked_in' && (
+                              <Button size="sm" variant="ghost" iconOnly icon={Calendar} aria-label="Convert to Attendance" className="hover:text-[var(--icon-green-text)]" onClick={() => handleConvertToAttendance(apt)} />
+                            )}
+                            {canEditAppointment(apt) && apt.status !== 'completed' && apt.status !== 'cancelled' && (
+                              <Button size="sm" variant="ghost" iconOnly icon={Edit} aria-label="Edit" className="hover:text-[var(--icon-blue-text)]" onClick={() => handleEdit(apt)} />
+                            )}
+                            {hasRole(['admin']) && (
+                              <Button size="sm" variant="ghost" iconOnly icon={Trash2} aria-label="Delete" className="hover:text-[var(--icon-red-text)]" onClick={() => handleDelete(apt.id)} />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
                     );
                   })}
-                  <button onClick={() => goToPage(currentPage + 1)} disabled={currentPage === totalPages} className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredAppointments.length}
+            noun="appointments"
+            onChange={goToPage}
+          />
         </>
       )}
 
@@ -797,15 +738,12 @@ export default function Appointments() {
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl shadow-lg border border-[var(--border-color)] max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold text-[var(--text-primary)]">{editingAppointment ? 'Edit Appointment' : 'Schedule New Appointment'}</h2>
-              <button onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }} className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition">
-                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-              </button>
+              <Button variant="ghost" iconOnly icon={XCircle} aria-label="Close" onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }} />
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Patient *</label>
+                <Field label="Patient" required>
                   <Select 
                     options={patientOptions} 
                     value={selectedPatientLabel} 
@@ -816,9 +754,8 @@ export default function Appointments() {
                     styles={selectStyles} 
                     noOptionsMessage={() => "No patients found"} 
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Clinician (Doctor/Nurse/Midwife) *</label>
+                </Field>
+                <Field label="Clinician (Doctor/Nurse/Midwife)" required>
                   <Select 
                     options={clinicianOptions} 
                     value={selectedClinicianLabel} 
@@ -835,29 +772,25 @@ export default function Appointments() {
                       Department: {selectedClinicianLabel.departmentName || 'Not assigned'}
                     </p>
                   )}
-                </div>
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Title *</label>
-                <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" placeholder="Appointment title" />
+              <Field label="Title" required>
+                <input type="text" required value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} className={cn(INPUT, 'w-full')} placeholder="Appointment title" />
+              </Field>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Date" required>
+                  <input type="date" required value={formData.appointmentDate} onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })} className={cn(INPUT, 'w-full')} />
+                </Field>
+                <Field label="Time" required>
+                  <input type="time" required value={formData.appointmentTime} onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })} className={cn(INPUT, 'w-full')} />
+                </Field>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Date *</label>
-                  <input type="date" required value={formData.appointmentDate} onChange={(e) => setFormData({ ...formData, appointmentDate: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Time *</label>
-                  <input type="time" required value={formData.appointmentTime} onChange={(e) => setFormData({ ...formData, appointmentTime: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Type *</label>
-                  <select required value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm">
+                <Field label="Type" required>
+                  <select required value={formData.type} onChange={(e) => setFormData({ ...formData, type: e.target.value })} className={cn(SELECT, 'w-full')}>
                     <option value="consultation">Consultation</option>
                     <option value="follow_up">Follow Up</option>
                     <option value="procedure">Procedure</option>
@@ -868,25 +801,23 @@ export default function Appointments() {
                     <option value="scan">Scan</option>
                     <option value="other">Other</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Duration (minutes)</label>
-                  <input type="number" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
-                </div>
+                </Field>
+                <Field label="Duration (minutes)">
+                  <input type="number" value={formData.duration} onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) })} className={cn(INPUT, 'w-full')} />
+                </Field>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-secondary)] mb-2">Description</label>
-                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} className="w-full px-3 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm resize-none" placeholder="Appointment description or notes" />
-              </div>
+              <Field label="Description">
+                <textarea value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} rows={3} className={cn(INPUT, 'w-full', 'resize-none')} placeholder="Appointment description or notes" />
+              </Field>
 
               <div className="flex gap-3 justify-end pt-4">
-                <button type="button" onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }} className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm">
+                <Button variant="secondary" onClick={() => { setShowForm(false); setEditingAppointment(null); resetForm(); }}>
                   Cancel
-                </button>
-                <button type="submit" className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-all font-medium text-sm">
+                </Button>
+                <Button type="submit" variant="soft" accent="blue">
                   {editingAppointment ? 'Update' : 'Schedule'} Appointment
-                </button>
+                </Button>
               </div>
             </form>
           </div>

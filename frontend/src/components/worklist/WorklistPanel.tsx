@@ -1,11 +1,12 @@
 // components/WorklistPanel.tsx
 import React, { useEffect } from 'react';
 import { useLiveRefresh } from '../../api/realtime';
-import { useWorklistStore } from '../../store/worklistStore';
+import { useWorklistStore, supportsWorklistViews } from '../../store/worklistStore';
+import { WorklistViewControls } from './WorklistViewControls';
 import type { DepartmentType, WorklistItem } from '../../types/worklist';
-import { 
-  Users, AlertCircle, Clock, CheckCircle, 
-  TrendingUp, Activity, Pill, FileText, 
+import {
+  Users, AlertCircle, Clock, CheckCircle,
+  TrendingUp, Activity, Pill, FileText,
   Scissors, Thermometer, Stethoscope, X,
   RefreshCw
 } from 'lucide-react';
@@ -21,7 +22,9 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
   onSelectPatient,
   onClose
 }) => {
-  const { worklistItems, stats, isLoading, error, fetchWorklist, selectItem, selectedItem } = useWorklistStore();
+  const {
+    worklistItems, stats, isLoading, error, fetchWorklist, selectItem, selectedItem, view
+  } = useWorklistStore();
 
   useEffect(() => {
     fetchWorklist(department);
@@ -31,6 +34,8 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
   // refreshes this queue within a couple of seconds, without a spinner.
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist(department, { silent: true }));
 
+  const hasViewTabs = supportsWorklistViews(department);
+
   const getDepartmentIcon = () => {
     switch (department) {
       case 'vitals': return Thermometer;
@@ -39,6 +44,7 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
       case 'pharmacy': return Pill;
       case 'scans': return FileText;
       case 'theatre': return Scissors;
+      case 'maternal': return Users;
       default: return Users;
     }
   };
@@ -50,7 +56,8 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
       lab: 'Lab Requests',
       pharmacy: 'Prescriptions to Fill',
       scans: 'Scan Requests',
-      theatre: "Today's Surgeries"
+      theatre: "Today's Surgeries",
+      maternal: 'Maternity Queue'
     };
     return titles[department];
   };
@@ -101,6 +108,13 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
           </button>
         </div>
 
+        {/* Queue tabs and date filter — only the visit queues have them */}
+        {hasViewTabs && (
+          <div className="px-6 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+            <WorklistViewControls department={department} />
+          </div>
+        )}
+
         {/* Stats Bar */}
         <div className="px-6 py-3 bg-[var(--bg-main)] border-b border-[var(--border-color)] grid grid-cols-3 gap-4">
           <div className="text-center">
@@ -131,9 +145,21 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
         {!error && worklistItems.length === 0 && (
           <div className="flex-1 flex items-center justify-center p-8">
             <div className="text-center">
-              <CheckCircle className="w-16 h-16 text-[var(--icon-green-text)] mx-auto mb-4" />
-              <h3 className="text-lg font-medium mb-2">All Caught Up!</h3>
-              <p className="text-[var(--text-secondary)]">No pending tasks in this department</p>
+              {view === 'outstanding' ? (
+                <>
+                  <AlertCircle className="w-16 h-16 text-[var(--icon-green-text)] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Nothing left unanswered</h3>
+                  <p className="text-[var(--text-secondary)]">No closed visit is still waiting on a lab, scan or procedure result</p>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-16 h-16 text-[var(--icon-green-text)] mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">All Caught Up!</h3>
+                  <p className="text-[var(--text-secondary)]">
+                    {view === 'completed' ? 'Nothing closed in this window' : 'No pending tasks in this department'}
+                  </p>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -172,61 +198,81 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                           </span>
                         )}
                       </div>
-                      
+
+                      {/* Which record this is: the folder identifies the patient, the attendance
+                          number identifies the visit being worked on. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2 text-xs font-mono text-[var(--text-secondary)]">
+                        <span>Folder: <span className="text-[var(--text-primary)]">{item.patient?.folderNumber || '—'}</span></span>
+                        <span>Attendance: <span className="text-[var(--text-primary)]">{item.attendanceNumber || '—'}</span></span>
+                        {view === 'pending' && item.queueRank === 2 && (
+                          <span className="px-1.5 py-0.5 rounded-full bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] font-sans">Overdue — visit never closed</span>
+                        )}
+                      </div>
+
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm text-[var(--text-secondary)]">
                         <div>Age: <span className="font-medium text-[var(--text-primary)]">{item.patient?.age || 'N/A'}</span></div>
                         <div>Gender: <span className="font-medium capitalize">{item.patient?.gender || 'N/A'}</span></div>
-                        
-                        {item.wardName && (
+
+                        {(item as any).location?.ward && (
                           <div className="col-span-2">
-                            Ward: <span className="font-medium text-[var(--text-primary)]">{item.wardName}</span>
-                            {item.bedNumber && <span className="ml-2">Bed: {item.bedNumber}</span>}
+                            Ward: <span className="font-medium text-[var(--text-primary)]">{(item as any).location.ward}</span>
+                            {(item as any).location.bed && <span className="ml-2">Bed: {(item as any).location.bed}</span>}
                           </div>
                         )}
-                        
+
                         {department === 'lab' && item.testCount && (
                           <div className="col-span-2">
                             Tests: <span className="font-medium text-[var(--text-primary)]">{item.testCount} pending</span>
                           </div>
                         )}
-                        
+
                         {department === 'pharmacy' && item.itemCount && (
                           <div className="col-span-2">
                             Medications: <span className="font-medium text-[var(--text-primary)]">{item.itemCount} items</span>
                           </div>
                         )}
-                        
+
                         {department === 'scans' && item.scanType && (
                           <div className="col-span-2">
                             Scan: <span className="font-medium text-[var(--text-primary)]">{item.scanType}</span>
                             {item.bodyPart && <span className="ml-2">- {item.bodyPart}</span>}
                           </div>
                         )}
-                        
+
                         {department === 'theatre' && item.procedureName && (
                           <div className="col-span-2">
                             Procedure: <span className="font-medium text-[var(--text-primary)]">{item.procedureName}</span>
                           </div>
                         )}
-                        
+
+                        {view === 'outstanding' && (item as any).outstanding?.length > 0 && (
+                          <div className="col-span-2">
+                            Still unanswered:{' '}
+                            <span className="font-medium text-[var(--text-primary)]">
+                              {(item as any).outstanding.map((o: any) => `${o.kind}: ${o.name}`).join(', ')}
+                            </span>
+                          </div>
+                        )}
+
                         {item.diagnosis && (
                           <div className="col-span-2">
                             Diagnosis: <span className="font-medium text-[var(--text-primary)]">{item.diagnosis}</span>
                           </div>
                         )}
                       </div>
-                      
+
                       {item.waitTime !== undefined && item.waitTime > 0 && (
                         <div className="mt-2 text-xs text-[var(--icon-orange-text)]">
                           Waiting: {Math.floor(item.waitTime / 60)}h {item.waitTime % 60}m
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="ml-4 flex flex-col items-end space-y-2">
                       <TrendingUp className="w-5 h-5 text-[var(--text-tertiary)]" />
                       <span className="text-xs text-[var(--text-secondary)]">
-                        {item.admittedAt ? new Date(item.admittedAt).toLocaleDateString() : 
+                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleDateString() :
+                         item.admittedAt ? new Date(item.admittedAt).toLocaleDateString() :
                          item.requestedAt ? new Date(item.requestedAt).toLocaleDateString() :
                          item.scheduledDate ? new Date(item.scheduledDate).toLocaleDateString() : 'N/A'}
                       </span>

@@ -7,6 +7,7 @@ import { useHospitalStore } from '../store/hospitalStore';
 import { useThemeStore } from '../store/themeStore';
 import { useLiveRefresh } from '../api/realtime';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+import { QuickAccessFab } from '../components/QuickAccessFab';
 import { navGroupsFor } from '../config/access';
 import {
   LogOut, Menu, X, User, ChevronDown, Settings, Bell, Heart,
@@ -514,7 +515,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       <div className="flex" style={{ paddingTop: `${TOPBAR_H}px` }}>
 
         <aside
-          className={`fixed left-0 bottom-0 z-30 ${sidebarWidth} flex flex-col border-r transition-all duration-300 ease-in-out ${
+          className={`fixed left-0 bottom-0 z-[45] ${sidebarWidth} flex flex-col border-r transition-all duration-300 ease-in-out ${
             sidebarOpen ? 'translate-x-0' : '-translate-x-full'
           } lg:translate-x-0`}
           style={{
@@ -667,6 +668,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
 
       {/* ═══════════ MODALS ═══════════ */}
+      <QuickAccessFab />
       <ConfirmationModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}

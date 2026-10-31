@@ -2,15 +2,30 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useStockStore } from '../store/stockStore';
-import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  ArrowLeft, Package, TrendingUp, AlertTriangle, Calendar,
+  Package, TrendingUp, AlertTriangle, Calendar,
   DollarSign, Building, FileText, RefreshCw, BarChart3,
   Printer, Boxes, Clock, CheckCircle, ChevronDown, ChevronUp,
-  ArrowUpRight, ArrowDownRight, Search, X, Sparkles,
+  ArrowUpRight, ArrowDownRight, X, Sparkles,
   FileSpreadsheet, ArrowRight, Play, Filter
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+import {
+  Button,
+  Card,
+  cn,
+  INPUT,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  StatCard,
+  TABLE_SHELL,
+  TD,
+  TH,
+  TH_ROW,
+  TR,
+} from '../components/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & Config
@@ -26,7 +41,7 @@ interface ReportConfig {
   id: ReportType;
   name: string;
   description: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
+  icon: LucideIcon;
   accent: AccentKey;
   supportsDateRange: boolean;
   supportsPeriod: boolean;
@@ -52,55 +67,16 @@ const ACCENT: Record<AccentKey, { bg: string; text: string; border: string }> = 
   red:    { bg: 'var(--icon-red-bg)',    text: 'var(--icon-red-text)',    border: 'var(--icon-red-text)' },
 };
 
-const cardStyle: React.CSSProperties = {
-  background: 'var(--bg-card)',
-  borderColor: 'var(--border-color)',
-  boxShadow: 'var(--shadow-sm)',
+/** Column alignment as classes, so tables share one idiom instead of inline styles. */
+const ALIGN: Record<'left' | 'center' | 'right', string> = {
+  left: 'text-left',
+  center: 'text-center',
+  right: 'text-right',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Reusable pieces (compact)
 // ─────────────────────────────────────────────────────────────────────────────
-
-function StatTile({
-  label, value, accent, icon: Icon,
-}: {
-  label: string;
-  value: React.ReactNode;
-  accent: AccentKey;
-  icon?: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-}) {
-  const a = ACCENT[accent];
-  return (
-    <div
-      className="rounded-lg px-3 py-2.5 border relative overflow-hidden transition-all hover:shadow-md group"
-      style={cardStyle}
-    >
-      <div
-        className="absolute top-0 left-0 w-1 h-full opacity-60 group-hover:opacity-100 transition-opacity"
-        style={{ background: a.text }}
-      />
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] font-semibold uppercase tracking-wider mb-0.5 truncate" style={{ color: 'var(--text-tertiary)' }}>
-            {label}
-          </p>
-          <p className="text-base font-bold truncate" style={{ color: a.text }}>
-            {value}
-          </p>
-        </div>
-        {Icon && (
-          <div
-            className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0"
-            style={{ background: a.bg }}
-          >
-            <Icon className="w-3 h-3" style={{ color: a.text }} />
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 
 function ReportTable({
   caption, columns, rows, empty, searchable = false, pageSize = 0,
@@ -145,14 +121,14 @@ function ReportTable({
 
   if (rows.length === 0) {
     return (
-      <div className="text-center py-8 rounded-lg border border-dashed" style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}>
-        <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2" style={{ background: 'var(--bg-card)' }}>
-          <Package className="w-5 h-5 opacity-40" style={{ color: 'var(--text-tertiary)' }} />
+      <div className="text-center py-8 rounded-lg border border-dashed border-[var(--border-color)] bg-[var(--bg-main)]">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 bg-[var(--bg-card)]">
+          <Package className="w-5 h-5 opacity-40 text-[var(--text-tertiary)]" />
         </div>
-        <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text-secondary)' }}>
+        <p className="text-xs font-semibold mb-0.5 text-[var(--text-secondary)]">
           {empty || 'No data available'}
         </p>
-        <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+        <p className="text-[10px] text-[var(--text-tertiary)]">
           Try adjusting your filters or date range
         </p>
       </div>
@@ -162,40 +138,27 @@ function ReportTable({
   return (
     <div className="space-y-2">
       {searchable && rows.length > 5 && (
-        <div className="relative">
-          <Search className="w-3 h-3 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--text-tertiary)' }} />
-          <input
-            type="text"
-            placeholder="Search table..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-7 pr-7 py-1.5 rounded-md border text-[11px] focus:outline-none focus:ring-2 transition-all"
-            style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-          />
-          {search && (
-            <button
-              onClick={() => setSearch('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-black/5"
-              aria-label="Clear search"
-            >
-              <X className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
-            </button>
-          )}
-        </div>
+        <SearchInput
+          className="max-w-xs"
+          value={search}
+          onChange={setSearch}
+          placeholder="Search table..."
+        />
       )}
-      <div className="overflow-x-auto rounded-lg border" style={{ borderColor: 'var(--border-color)' }}>
+      <div className={cn(TABLE_SHELL, 'overflow-x-auto')}>
         <table className="w-full text-xs">
           <caption className="sr-only">{caption}</caption>
-          <thead className="sticky top-0 z-10" style={{ background: 'var(--bg-main)' }}>
+          <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
             <tr>
               {columns.map((c) => (
                 <th
                   key={c.key}
                   scope="col"
-                  className={`px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
-                    c.sortable ? 'cursor-pointer select-none hover:opacity-80' : ''
-                  }`}
-                  style={{ color: 'var(--text-tertiary)', textAlign: c.align || 'left' }}
+                  className={cn(
+                    TH,
+                    ALIGN[c.align ?? 'left'],
+                    c.sortable && 'cursor-pointer select-none hover:opacity-80',
+                  )}
                   onClick={() => c.sortable && handleSort(c.key)}
                 >
                   <span className="inline-flex items-center gap-1">
@@ -210,20 +173,9 @@ function ReportTable({
           </thead>
           <tbody>
             {shownRows.map((row, idx) => (
-              <tr
-                key={idx}
-                className="transition-colors"
-                style={{
-                  borderTop: '1px solid var(--border-color)',
-                  background: idx % 2 === 0 ? 'transparent' : 'var(--bg-main)',
-                }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--icon-cyan-bg)')}
-                onMouseLeave={(e) =>
-                  (e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'var(--bg-main)')
-                }
-              >
+              <tr key={idx} className={TR}>
                 {columns.map((c) => (
-                  <td key={c.key} className="px-2.5 py-2" style={{ textAlign: c.align || 'left', color: 'var(--text-primary)' }}>
+                  <td key={c.key} className={cn(TD, 'whitespace-normal', ALIGN[c.align ?? 'left'])}>
                     {row[c.key]}
                   </td>
                 ))}
@@ -232,19 +184,19 @@ function ReportTable({
           </tbody>
         </table>
       </div>
-      {pageSize > 0 && sortedRows.length > pageSize && (
-        <div className="flex items-center justify-between text-[11px]" style={{ color: 'var(--text-tertiary)' }}>
-          <span>Showing {(curPage - 1) * pageSize + 1}–{Math.min(curPage * pageSize, sortedRows.length)} of {sortedRows.length.toLocaleString()}</span>
-          <span className="flex items-center gap-2">
-            <button disabled={curPage <= 1} onClick={() => setPage(curPage - 1)} className="px-2 py-1 rounded-md border disabled:opacity-40" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>Prev</button>
-            <span>Page {curPage} of {pages}</span>
-            <button disabled={curPage >= pages} onClick={() => setPage(curPage + 1)} className="px-2 py-1 rounded-md border disabled:opacity-40" style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}>Next</button>
-          </span>
-        </div>
+      {pageSize > 0 && (
+        <Pagination
+          page={curPage}
+          totalPages={pages}
+          itemsPerPage={pageSize}
+          totalItems={sortedRows.length}
+          noun="rows"
+          onChange={setPage}
+        />
       )}
       {searchable && search && (
-        <p className="text-[10px] text-center" style={{ color: 'var(--text-tertiary)' }}>
-          Showing <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>{sortedRows.length}</span> of {rows.length} rows
+        <p className="text-[10px] text-center text-[var(--text-tertiary)]">
+          Showing <span className="font-semibold text-[var(--text-secondary)]">{sortedRows.length}</span> of {rows.length} rows
         </p>
       )}
     </div>
@@ -283,7 +235,6 @@ function SectionHeader({
 
 export default function StockReports() {
   const navigate = useNavigate();
-  const { hasRole } = useAuthStore();
   const { success, error: toastError } = useToast();
   const {
     getStockValueSummary, getExpiryReport, getMovementSummary,
@@ -300,8 +251,6 @@ export default function StockReports() {
 
   const configRef = useRef<HTMLDivElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-
-  const isAdmin = hasRole(['admin', 'pharmacist', 'accounts']);
 
   const activeConfig = useMemo(
     () => (selectedReport ? REPORT_CONFIGS.find((r) => r.id === selectedReport)! : null),
@@ -946,63 +895,25 @@ export default function StockReports() {
   const busy = generating || (isLoading && !reportData);
 
   return (
-    <div className="space-y-3 p-3 sm:p-4" style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
+    <div className="space-y-3 p-3 sm:p-4 bg-[var(--bg-main)] min-h-screen">
 
-      {/* ═══════════ Header ═══════════ */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate(-1)}
-            aria-label="Go back"
-            className="p-1.5 rounded-lg transition-all hover:scale-105"
-            style={{ color: 'var(--text-secondary)', background: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-base font-bold flex items-center gap-1.5" style={{ color: 'var(--text-primary)' }}>
-              <BarChart3 className="w-4 h-4" style={{ color: 'var(--icon-cyan-text)' }} />
-              Stock Reports
-            </h1>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Pick a report, configure filters, then generate
-            </p>
-          </div>
-        </div>
-
-        {reportData && (
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={generateReport}
-              disabled={busy}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:shadow-sm disabled:opacity-50"
-              style={{ ...cardStyle, color: 'var(--text-primary)' }}
-            >
-              <RefreshCw className={`w-3 h-3 ${busy ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-            <button
-              onClick={exportToCSV}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:shadow-sm"
-              style={{ ...cardStyle, color: 'var(--text-primary)' }}
-            >
-              <FileSpreadsheet className="w-3 h-3" style={{ color: 'var(--icon-green-text)' }} />
-              CSV
-            </button>
-            <button
-              onClick={printReport}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-all hover:shadow-sm"
-              style={{ ...cardStyle, color: 'var(--text-primary)' }}
-            >
-              <Printer className="w-3 h-3" style={{ color: 'var(--icon-purple-text)' }} />
-              Print
-            </button>
-          </div>
+      <PageHeader
+        title="Stock Reports"
+        subtitle="Pick a report, configure filters, then generate"
+        icon={BarChart3}
+        accent="cyan"
+        onBack={() => navigate(-1)}
+        actions={reportData && (
+          <>
+            <Button size="sm" icon={RefreshCw} loading={busy} onClick={generateReport}>Refresh</Button>
+            <Button size="sm" icon={FileSpreadsheet} onClick={exportToCSV}>CSV</Button>
+            <Button size="sm" icon={Printer} onClick={printReport}>Print</Button>
+          </>
         )}
-      </div>
+      />
 
       {/* ═══════════ Report picker ═══════════ */}
-      <div className="rounded-lg border p-3" style={cardStyle}>
+      <Card>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {REPORT_CONFIGS.map((report) => {
             const isActive = selectedReport === report.id;
@@ -1025,14 +936,14 @@ export default function StockReports() {
                     className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full flex items-center justify-center shadow-sm"
                     style={{ background: a.text }}
                   >
-                    <CheckCircle className="w-3 h-3" style={{ color: '#fff' }} />
+                    <CheckCircle className="w-3 h-3 text-white" />
                   </div>
                 )}
                 <div
                   className="w-7 h-7 rounded-md flex items-center justify-center mb-1.5"
                   style={{ background: isActive ? a.text : a.bg }}
                 >
-                  <Icon className="w-3.5 h-3.5" style={{ color: isActive ? '#fff' : a.text }} />
+                  <Icon className={cn('w-3.5 h-3.5', isActive && 'text-white')} style={{ color: isActive ? undefined : a.text }} />
                 </div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="font-semibold text-[12px] truncate" style={{ color: isActive ? a.text : 'var(--text-primary)' }}>
@@ -1052,71 +963,53 @@ export default function StockReports() {
             );
           })}
         </div>
-      </div>
+      </Card>
 
       {/* ═══════════ Configure & Generate ═══════════ */}
       {activeConfig && (
-        <div ref={configRef} className="rounded-lg border p-3" style={cardStyle}>
-          <div className="flex items-center gap-2 mb-2.5">
-            <div
-              className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-              style={{ background: ACCENT[activeConfig.accent].bg }}
-            >
-              <activeConfig.icon className="w-3.5 h-3.5" style={{ color: ACCENT[activeConfig.accent].text }} />
-            </div>
-            <h2 className="text-[13px] font-bold" style={{ color: 'var(--text-primary)' }}>
-              {activeConfig.name} Report
-            </h2>
-          </div>
+        <div ref={configRef}>
+        <Card title={`${activeConfig.name} Report`} icon={activeConfig.icon} accent={activeConfig.accent}>
 
           {/* Filters */}
           {(activeConfig.supportsDateRange || activeConfig.supportsPeriod) && (
-            <div className="rounded-lg border p-2.5 mb-2.5" style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
+            <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 mb-2.5">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 {activeConfig.supportsDateRange && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
                       Date
                     </span>
-                    <div className="flex items-center gap-0.5 rounded-md p-0.5 border"
-                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <input
                         type="date"
                         value={dateRange.startDate}
                         onChange={(e) => setDateRange((p) => ({ ...p, startDate: e.target.value }))}
                         aria-label="Start date"
-                        className="px-1.5 py-0.5 rounded text-[11px] border-0 bg-transparent focus:outline-none"
-                        style={{ color: 'var(--text-primary)', width: '108px' }}
+                        className={cn(INPUT, 'py-1 text-xs w-[140px]')}
                       />
-                      <span className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>→</span>
+                      <span className="text-[10px] text-[var(--text-tertiary)]">→</span>
                       <input
                         type="date"
                         value={dateRange.endDate}
                         onChange={(e) => setDateRange((p) => ({ ...p, endDate: e.target.value }))}
                         aria-label="End date"
-                        className="px-1.5 py-0.5 rounded text-[11px] border-0 bg-transparent focus:outline-none"
-                        style={{ color: 'var(--text-primary)', width: '108px' }}
+                        className={cn(INPUT, 'py-1 text-xs w-[140px]')}
                       />
                     </div>
                     {(dateRange.startDate || dateRange.endDate) && (
-                      <button
-                        onClick={() => setDateRange({ startDate: '', endDate: '' })}
-                        className="text-[10px] font-medium hover:underline flex items-center gap-0.5"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
-                        <X className="w-2.5 h-2.5" /> Clear
-                      </button>
+                      <Button variant="ghost" size="xs" icon={X} onClick={() => setDateRange({ startDate: '', endDate: '' })}>
+                        Clear
+                      </Button>
                     )}
                   </div>
                 )}
 
                 {activeConfig.supportsPeriod && (
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'var(--text-tertiary)' }}>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">
                       Period
                     </span>
-                    <div className="flex items-center gap-0.5 rounded-md p-0.5 border"
-                      style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+                    <div className="flex items-center gap-0.5 rounded-md p-0.5 border border-[var(--border-color)] bg-[var(--bg-card)]">
                       {[
                         { value: 'week', label: '7d' },
                         { value: 'month', label: '30d' },
@@ -1145,99 +1038,84 @@ export default function StockReports() {
           )}
 
           {/* Generate CTA */}
-          <button
+          <Button
+            variant="primary"
+            fullWidth
+            loading={busy}
+            icon={Play}
+            iconRight={busy ? undefined : ArrowRight}
             onClick={generateReport}
-            disabled={busy}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-            style={{
-              background: busy ? 'var(--bg-main)' : 'var(--icon-cyan-text)',
-              color: busy ? 'var(--text-secondary)' : '#fff',
-            }}
           >
-            {busy ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
-                Generating {activeConfig.name.toLowerCase()}…
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" fill="currentColor" />
-                {reportData ? `Regenerate ${activeConfig.name}` : `Generate ${activeConfig.name}`}
-                <ArrowRight className="w-4 h-4" />
-              </>
-            )}
-          </button>
+            {busy
+              ? `Generating ${activeConfig.name.toLowerCase()}…`
+              : reportData ? `Regenerate ${activeConfig.name}` : `Generate ${activeConfig.name}`}
+          </Button>
 
           {reportError && (
-            <div className="mt-2.5 rounded-lg p-2.5 border flex items-start gap-2"
-              style={{ background: 'var(--icon-red-bg)', borderColor: 'var(--border-color)' }}>
-              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: 'var(--icon-red-text)' }} />
-              <p className="text-[11px]" style={{ color: 'var(--icon-red-text)' }}>{reportError}</p>
+            <div className="mt-2.5 rounded-lg p-2.5 border border-[var(--border-color)] bg-[var(--icon-red-bg)] flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-[var(--icon-red-text)]" />
+              <p className="text-[11px] text-[var(--icon-red-text)]">{reportError}</p>
             </div>
           )}
+        </Card>
         </div>
       )}
 
       {/* ═══════════ Results ═══════════ */}
       <div ref={resultsRef}>
         {reportData && activeConfig && (
-          <div className="rounded-lg border overflow-hidden" style={cardStyle}>
-            <div className="px-4 py-3 border-b flex items-start justify-between gap-3 flex-wrap"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}>
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: ACCENT[activeConfig.accent].bg }}>
-                  <activeConfig.icon className="w-4 h-4" style={{ color: ACCENT[activeConfig.accent].text }} />
-                </div>
-                <div>
-                  <h2 className="text-[13px] font-semibold" style={{ color: 'var(--text-primary)' }}>
-                    {activeConfig.name} Report
-                  </h2>
-                  <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: 'var(--text-tertiary)' }}>
-                    <Clock className="w-2.5 h-2.5" />
-                    Generated {generatedAt ? generatedAt.toLocaleString() : new Date().toLocaleString()}
-                  </p>
-                  {appliedFilters.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                      <Filter className="w-2.5 h-2.5" style={{ color: 'var(--text-tertiary)' }} />
-                      {appliedFilters.map((chip, i) => (
-                        <span
-                          key={i}
-                          className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium"
-                          style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
-                        >
-                          {chip}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
+          <Card
+            title={`${activeConfig.name} Report`}
+            icon={activeConfig.icon}
+            accent={activeConfig.accent}
+            description={(
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" />
+                Generated {generatedAt ? generatedAt.toLocaleString() : new Date().toLocaleString()}
+              </span>
+            )}
+          >
+            {appliedFilters.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap mb-3">
+                <Filter className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
+                {appliedFilters.map((chip, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]"
+                  >
+                    {chip}
+                  </span>
+                ))}
               </div>
-            </div>
+            )}
 
-            <div className="p-4">
-              {summaryTiles.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
-                  {summaryTiles.map((tile, i) => (
-                    <StatTile key={i} label={tile.label} value={tile.value} accent={tile.accent} icon={tile.icon} />
-                  ))}
-                </div>
-              )}
-              {renderReportBody()}
-            </div>
-          </div>
+            {summaryTiles.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 mb-4">
+                {summaryTiles.map((tile, i) => (
+                  <StatCard
+                    key={i}
+                    label={tile.label}
+                    value={tile.value}
+                    icon={tile.icon}
+                    accent={tile.accent}
+                    size={String(tile.value).startsWith('₵') ? 'money' : 'count'}
+                  />
+                ))}
+              </div>
+            )}
+            {renderReportBody()}
+          </Card>
         )}
 
         {!reportData && !busy && !activeConfig && (
-          <div className="rounded-lg p-10 text-center border border-dashed" style={{ ...cardStyle, borderStyle: 'dashed' }}>
-            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3"
-              style={{ background: 'var(--icon-cyan-bg)' }}>
-              <Sparkles className="w-6 h-6" style={{ color: 'var(--icon-cyan-text)' }} />
+          <div className="rounded-lg p-10 text-center border border-dashed border-[var(--border-color)] bg-[var(--bg-card)]">
+            <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3 bg-[var(--icon-cyan-bg)]">
+              <Sparkles className="w-6 h-6 text-[var(--icon-cyan-text)]" />
             </div>
-            <h3 className="text-sm font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+            <h3 className="text-sm font-semibold mb-1 text-[var(--text-primary)]">
               Start by picking a report above
             </h3>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-xs text-[var(--text-secondary)]">
               Click any card to begin.
             </p>
           </div>

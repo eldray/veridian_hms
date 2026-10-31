@@ -1,4 +1,6 @@
 {
+  "source": "NHIA Tariffs Operation Manual V2022 (April 2022)",
+  "effectiveFrom": "2022-04-01",
   "gdrgTariffs": [
     {
       "gdrgCode": "ASUR01A",

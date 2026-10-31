@@ -54,6 +54,15 @@ interface Referral {
     gender: string;
     contact: string;
   };
+  // The visit the referral was raised from — shown beside the folder so the desk knows which
+  // encounter is being referred without opening it.
+  attendance?: {
+    id: string;
+    attendanceNumber: string;
+    dateTime?: string;
+    attendanceType?: string;
+    encounterCategory?: string;
+  } | null;
   createdBy?: { fullName: string; role: string };
 }
 
@@ -661,6 +670,7 @@ export default function Referrals() {
         r.patient?.surname?.toLowerCase().includes(q) ||
         r.patient?.otherNames?.toLowerCase().includes(q) ||
         r.patient?.folderNumber?.toLowerCase().includes(q) ||
+        r.attendance?.attendanceNumber?.toLowerCase().includes(q) ||
         r.referredToFacility?.toLowerCase().includes(q) ||
         r.referredFromFacility?.toLowerCase().includes(q),
       );
@@ -998,7 +1008,7 @@ export default function Referrals() {
             <table className="w-full text-sm">
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
-                  {['Ref No.', 'Patient', 'Type', 'To / From', 'Urgency', 'Status', 'Date', 'Actions'].map(h => (
+                  {['Ref No.', 'Patient', 'Folder #', 'Attendance #', 'Type', 'To / From', 'Urgency', 'Status', 'Date', 'Actions'].map(h => (
                     <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
@@ -1024,9 +1034,18 @@ export default function Referrals() {
                           <p className="font-medium text-sm text-[var(--text-primary)] truncate">
                             {ref.patient?.surname} {ref.patient?.otherNames}
                           </p>
-                          <p className="text-[10px] text-[var(--text-tertiary)] font-mono">{ref.patient?.folderNumber}</p>
                         </div>
                       </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs text-[var(--text-primary)]">
+                        {ref.patient?.folderNumber || '—'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="font-mono text-xs text-[var(--text-primary)]">
+                        {ref.attendance?.attendanceNumber || '—'}
+                      </span>
                     </td>
                     <td className="px-4 py-3"><TypeBadge type={ref.referralType} /></td>
                     <td className="px-4 py-3 max-w-[200px]">
@@ -1152,6 +1171,15 @@ export default function Referrals() {
                     </span>
                     <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
                       {ref.referralNumber}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-[var(--text-tertiary)] flex items-center gap-1">
+                      <Hash className="w-3 h-3" /> Attendance #
+                    </span>
+                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
+                      {ref.attendance?.attendanceNumber || '—'}
                     </span>
                   </div>
 

@@ -101,6 +101,8 @@ export interface WorklistQuery {
   view?: WorklistView;
   dateFrom?: Date | null;
   dateTo?: Date | null;
+  /** Narrow an attendance queue to specific visit types; the maternal queue only wants its own. */
+  attendanceTypes?: string[];
 }
 
 export interface AddDiagnosisDTO {

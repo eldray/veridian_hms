@@ -1,90 +1,74 @@
-// src/pages/ScansWaitingList.tsx - SIMPLIFIED using worklistStore only
-
-import { useLiveRefresh } from '../api/realtime';
-import React, { useState, useEffect, useMemo } from 'react';
+// src/pages/Scans.tsx — Scans queue on the shared UI primitives
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
+import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
 import {
-  ChevronLeft,
-  Scan,
-  RefreshCw,
-  Clock,
-  CheckCircle,
+  AlertCircle,
   AlertTriangle,
-  User,
-  Activity,
-  Search,
-  Users,
-  Eye,
   Bed,
+  CheckCircle,
+  Clock,
+  Eye,
   FileText,
   History,
-  Play,
-  CheckSquare,
-  ArrowRight
+  RefreshCw,
+  Scan,
+  User,
+  Users,
 } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  humanStatus,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  StatCard,
+  statusTone,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+  cn,
+  type BadgeTone,
+} from '../components/ui';
 
-// Stats Card Component
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: React.ElementType;
-  color: string;
-  bg: string;
-  onClick?: () => void;
-}
-
-const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
-  <div 
-    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
-    onClick={onClick}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
-      </div>
-      <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 ${color}`} />
-      </div>
-    </div>
-    {onClick && (
-      <div className="mt-2 flex justify-end">
-        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-          Enter <ArrowRight className="w-3 h-3" />
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-// Priority Badge Component
-const PriorityBadge = ({ priority }: { priority: string }) => {
-  switch (priority) {
-    case 'stat':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">STAT</span>;
-    case 'urgent':
-      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Urgent</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-xs font-medium">Routine</span>;
-  }
+const PRIORITY_TONES: Record<string, BadgeTone> = {
+  stat: 'red',
+  urgent: 'orange',
 };
 
-// Status Badge for scans
-const getScanStatusBadge = (status: string) => {
-  switch (status) {
-    case 'requested':
-      return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Requested</span>;
-    case 'in_progress':
-      return <span className="px-2 py-0.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-full text-xs font-medium">In Progress</span>;
-    case 'completed':
-      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>;
-    case 'cancelled':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Cancelled</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{status}</span>;
+const PRIORITY_LABELS: Record<string, string> = {
+  stat: 'STAT',
+  urgent: 'URGENT',
+};
+
+const scanName = (scan: any) => scan.templateName || scan.scanType || 'Scan';
+
+const pendingScans = (item: any) =>
+  (item.scans || []).filter((scan: any) => scan.status === 'requested' || scan.status === 'in_progress');
+
+const completedScans = (item: any) =>
+  (item.scans || [])
+    .filter((scan: any) => scan.status === 'completed')
+    .sort((a: any, b: any) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime());
+
+const ProgressBadge = ({ requested, inProgress, completed }: { requested: number; inProgress: number; completed: number }) => {
+  const total = requested + inProgress + completed;
+  const pending = requested + inProgress;
+
+  if (pending === 0) {
+    return <Badge tone="green" dot size="sm">All Completed</Badge>;
   }
+  if (completed === 0) {
+    return <Badge tone="yellow" dot size="sm">{pending} Pending</Badge>;
+  }
+  return <Badge tone="blue" dot size="sm">{completed}/{total} Completed</Badge>;
 };
 
 export default function ScansWaitingList() {
@@ -96,11 +80,8 @@ export default function ScansWaitingList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
-  // ✅ ONLY use worklistStore
-  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
-  // Live queue: refreshes within a couple of seconds when a visit, request or result changes
+  const { worklistItems, fetchWorklist, view, isLoading: worklistLoading, error: worklistError } = useWorklistStore();
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('scans', { silent: true }));
 
   const loadData = async () => {
@@ -108,6 +89,11 @@ export default function ScansWaitingList() {
       setRefreshing(true);
       setIsLoading(true);
       await fetchWorklist('scans');
+      const error = useWorklistStore.getState().error;
+      if (error) {
+        toastError('Load failed', error);
+        return;
+      }
       success('Data loaded', 'Scans ready');
     } catch (err: any) {
       toastError('Load failed', err.message || 'Could not load data');
@@ -121,72 +107,90 @@ export default function ScansWaitingList() {
     loadData();
   }, []);
 
-  // ✅ Directly use worklistItems - they already have status flags
-  // For scans: hasResults flag determines if scan is completed
-  const pendingScans = useMemo(() => {
-    return worklistItems.filter(item => !item.hasResults && item.status !== 'completed');
-  }, [worklistItems]);
-
-  const recentScans = useMemo(() => {
-    return worklistItems.filter(item => item.hasResults || item.status === 'completed');
-  }, [worklistItems]);
-
-  // Filter based on search and active tab
+  // The server returns the queue for the active view, so no status split happens here.
   const filteredScans = useMemo(() => {
-    const source = activeTab === 'pending' ? pendingScans : recentScans;
-    if (!searchQuery) return source;
+    if (!searchQuery) return worklistItems;
     const lower = searchQuery.toLowerCase();
-    return source.filter(scan =>
-      scan.patient?.name?.toLowerCase().includes(lower) ||
-      scan.patient?.folderNumber?.toLowerCase().includes(lower)
+    return worklistItems.filter((item: any) =>
+      item.patient?.name?.toLowerCase().includes(lower) ||
+      item.patient?.folderNumber?.toLowerCase().includes(lower) ||
+      (item.attendanceNumber || '').toLowerCase().includes(lower) ||
+      (item.scans || []).some((scan: any) => scanName(scan).toLowerCase().includes(lower)),
     );
-  }, [pendingScans, recentScans, searchQuery, activeTab]);
+  }, [worklistItems, searchQuery]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredScans.length / itemsPerPage);
   const paginatedScans = filteredScans.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
-  // Reset page when tab changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [view, searchQuery]);
 
-  // Stats
+  const isDone = view === 'completed';
+  const isOutstanding = view === 'outstanding';
+
   const stats = {
-    pendingScans: pendingScans.length,
-    inProgress: pendingScans.filter(s => s.status === 'in_progress').length,
-    patientsWaiting: pendingScans.length,
-    urgent: pendingScans.filter(s => s.priority === 'urgent').length,
-    stat: pendingScans.filter(s => s.priority === 'stat').length,
-    recentScans: recentScans.length
+    patients: filteredScans.length,
+    openScans: filteredScans.reduce(
+      (sum, item: any) => sum + (item.requestedCount || 0) + (item.inProgressCount || 0),
+      0,
+    ),
+    completedScans: filteredScans.reduce((sum, item: any) => sum + (item.completedCount || 0), 0),
+    urgent: filteredScans.filter((item: any) => item.priority === 'urgent' || item.priority === 'stat').length,
   };
 
-  const handleScanClick = (scan: any) => {
-    navigate(`/dashboard/scans/${scan.patientId}`, {
+  const queueTitle = isDone
+    ? `Scans Completed (${filteredScans.length} patients)`
+    : isOutstanding
+      ? `Awaiting Results — Closed Visits (${filteredScans.length} patients)`
+      : `Scans Waiting List (${filteredScans.length} patients)`;
+
+  const handleScanClick = (item: any) => {
+    navigate(`/dashboard/scans/${item.patientId}`, {
       state: {
         patient: {
-          id: scan.patientId,
-          name: scan.patient?.name,
-          folderNumber: scan.patient?.folderNumber,
-          age: scan.patient?.age,
-          gender: scan.patient?.gender
+          id: item.patientId,
+          name: item.patient?.name,
+          folderNumber: item.patient?.folderNumber,
+          age: item.patient?.age,
+          gender: item.patient?.gender,
         },
-        attendanceId: scan.attendanceId,
-        scanId: scan.id,
-        scan: scan
-      }
+        attendanceId: item.attendanceId,
+        scanId: (pendingScans(item)[0] || completedScans(item)[0])?.id,
+        scan: item,
+        fromWaitingList: true,
+      },
     });
   };
 
+  const queueHeader = (
+    <PageHeader
+      title="Scans Management"
+      subtitle="Scan waiting list and reported scan results"
+      icon={Scan}
+      accent="indigo"
+      backTo="/dashboard"
+      actions={(
+        <>
+          <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/scans/entry')}>
+            Enter Results
+          </Button>
+          <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+        </>
+      )}
+    />
+  );
+
   if (isLoading || worklistLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Scans Queue...</h2>
+      <div className="space-y-6 p-6">
+        {queueHeader}
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
+          <div className="w-12 h-12 border-4 border-[var(--icon-indigo-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-[var(--text-secondary)]">Loading Scans Queue…</p>
         </div>
       </div>
     );
@@ -194,329 +198,226 @@ export default function ScansWaitingList() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center">
-            <Scan className="w-5 h-5 text-indigo-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Scans Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">View waiting list and enter scan results</p>
-          </div>
+      {queueHeader}
+
+      {worklistError && (
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Could not load the scans waiting list: {worklistError}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Patients" value={stats.patients} icon={Users} accent="indigo" />
+        <StatCard label="Open Scans" value={stats.openScans} icon={Scan} accent="purple" />
+        <StatCard label="Completed Scans" value={stats.completedScans} icon={CheckCircle} accent="green" />
+        <StatCard label="Urgent / STAT" value={stats.urgent} icon={AlertTriangle} accent="red" />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <StatCard 
-          title="Pending Scans" 
-          value={stats.pendingScans} 
-          icon={Scan}
-          color="text-indigo-600"
-          bg="bg-indigo-100"
-          onClick={() => navigate('/dashboard/scans')}
+      <Card>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by patient name, folder number, or scan…"
         />
-        <StatCard 
-          title="In Progress" 
-          value={stats.inProgress} 
-          icon={Activity}
-          color="text-purple-600"
-          bg="bg-purple-100"
-          onClick={() => navigate('/dashboard/scans')}
-        />
-        <StatCard 
-          title="Patients Waiting" 
-          value={stats.patientsWaiting} 
-          icon={Users}
-          color="text-cyan-600"
-          bg="bg-cyan-100"
-          onClick={() => navigate('/dashboard/scans')}
-        />
-        <StatCard 
-          title="Urgent/STAT" 
-          value={stats.urgent + stats.stat} 
-          icon={AlertTriangle}
-          color="text-red-600"
-          bg="bg-red-100"
-          onClick={() => navigate('/dashboard/scans')}
-        />
-        <StatCard 
-          title="Recent Scans" 
-          value={stats.recentScans} 
-          icon={History}
-          color="text-green-600"
-          bg="bg-green-100"
-          onClick={() => navigate('/dashboard/scans')}
-        />
-      </div>
+      </Card>
 
-      {/* Search Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            placeholder="Search by patient name or folder number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all text-sm"
-          />
-        </div>
-      </div>
+      {/* To do, completed, and the scans still owed on visits already closed */}
+      <Card>
+        <WorklistViewControls department="scans" />
+      </Card>
 
-      {/* TABS - Pending vs Recent */}
-      <div className="border-b border-[var(--border-color)]">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'pending'
-                ? 'text-indigo-600 border-b-2 border-indigo-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pending Scans
-              {pendingScans.length > 0 && (
-                <span className="bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] px-2 py-0.5 rounded-full text-xs">
-                  {pendingScans.length}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('recent')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'recent'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Recent Scans (Today)
-              {recentScans.length > 0 && (
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                  {recentScans.length}
-                </span>
-              )}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Table View */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {activeTab === 'pending' ? (
-              <>
-                <FileText className="w-4 h-4 text-indigo-600" />
-                Scans Waiting List ({filteredScans.length} scans)
-              </>
-            ) : (
-              <>
-                <History className="w-4 h-4 text-green-600" />
-                Recent Scans Completed Today ({filteredScans.length} scans)
-              </>
-            )}
-          </h2>
-        </div>
-        
+      <Card
+        title={queueTitle}
+        icon={isDone ? History : Scan}
+        accent={isDone ? 'green' : 'purple'}
+        padded={false}
+      >
         {filteredScans.length === 0 ? (
           <div className="p-8 text-center">
-            {activeTab === 'pending' ? (
+            {worklistError ? (
+              <>
+                <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3 opacity-75" />
+                <p className="text-[var(--text-secondary)]">Scans waiting list unavailable</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
+              </>
+            ) : isDone ? (
+              <>
+                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No scans completed in the last 72 hours</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Reported scans will appear here</p>
+              </>
+            ) : isOutstanding ? (
+              <>
+                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No closed visit is owing a scan report</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Scans requested before discharge have all been reported</p>
+              </>
+            ) : (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No pending scans</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All scans have been completed</p>
               </>
-            ) : (
-              <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
-                <p className="text-[var(--text-secondary)]">No scans completed today</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">Complete scans to see them here</p>
-              </>
             )}
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Scan Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Requested At' : 'Completed At'}
-                    </th>
-                    {activeTab === 'pending' && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Priority</th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Wait Time' : 'Radiologist'}
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginatedScans.map((scan) => (
-                    <tr 
-                      key={scan.id} 
-                      className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
-                      onClick={() => handleScanClick(scan)}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Visit date</th>
+                  <th className={TH}>Location</th>
+                  <th className={cn(TH, 'text-center')}>Progress</th>
+                  <th className={TH}>Scans</th>
+                  <th className={TH}>{isDone ? 'Completed' : 'Next Scan'}</th>
+                  {!isDone && <th className={TH}>Priority</th>}
+                  <th className={TH}>{isDone ? 'Status' : isOutstanding ? 'Visit status' : 'Waiting'}</th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedScans.map((item: any) => {
+                  const pending = pendingScans(item);
+                  const done = completedScans(item);
+                  const requested = item.requestedCount || 0;
+                  const inProgress = item.inProgressCount || 0;
+                  const completed = item.completedCount || 0;
+                  const next = pending[0] ?? null;
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className={cn(TR, 'cursor-pointer')}
+                      onClick={() => handleScanClick(item)}
                     >
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-indigo-600" />
+                          <div className="w-8 h-8 bg-[var(--icon-indigo-bg)] rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-[var(--icon-indigo-text)]" />
                           </div>
                           <div>
-                            <p className="font-medium text-[var(--text-primary)] text-sm">
-                              {scan.patient?.name}
-                            </p>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{item.patient?.name}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {scan.patient?.age} years • {scan.patient?.gender}
+                              {item.patient?.age} years • {item.patient?.gender}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-[var(--text-primary)]">
-                          {scan.patient?.folderNumber}
-                        </span>
+                      <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
+                      <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
+                      <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
+                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
                           <Bed className="w-3.5 h-3.5" />
-                          <span>{scan.location?.bed || '—'}</span>
-                          {scan.location?.ward && <span className="text-xs">({scan.location.ward})</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getScanStatusBadge(scan.status)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <span className="text-xs font-medium text-[var(--text-primary)]">
-                            {scan.scanType}
-                          </span>
-                          {scan.bodyPart && (
-                            <span className="text-[10px] text-[var(--text-tertiary)] block">
-                              {scan.bodyPart}
-                            </span>
+                          <span>{item.location?.ward || item.location?.bed || 'OPD'}</span>
+                          {item.location?.bed && item.location?.ward && (
+                            <span className="text-xs">({item.location.bed})</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <div className="text-xs">
-                          {activeTab === 'pending' ? (
-                            new Date(scan.requestedAt).toLocaleString()
+                      <td className={cn(TD, 'text-center')}>
+                        <ProgressBadge requested={requested} inProgress={inProgress} completed={completed} />
+                      </td>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        <p className="text-sm text-[var(--text-primary)]">
+                          {item.scanCount || 0} scan{(item.scanCount || 0) === 1 ? '' : 's'}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-tertiary)]">
+                          {requested} pending · {inProgress} in progress · {completed} completed
+                        </p>
+                      </td>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        {!isDone ? (
+                          next ? (
+                            <div className="text-xs">
+                              <p className="font-medium text-[var(--text-primary)]">{scanName(next)}</p>
+                              <p className="text-[var(--text-secondary)]">
+                                {next.status === 'in_progress' ? 'In progress' : 'Requested'}{' '}
+                                {next.requestedAt ? new Date(next.requestedAt).toLocaleDateString() : ''}
+                              </p>
+                            </div>
                           ) : (
-                            scan.resultEnteredAt 
-                              ? new Date(scan.resultEnteredAt).toLocaleTimeString()
-                              : '—'
-                          )}
-                        </div>
+                            <span className="text-xs text-[var(--text-secondary)]">—</span>
+                          )
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            {done.slice(0, 2).map((scan: any) => (
+                              <div key={scan.id} className="text-xs">
+                                <span className="font-medium">{scanName(scan)}</span>
+                                <span className="text-[var(--text-tertiary)] ml-1">
+                                  ({scan.completedAt ? new Date(scan.completedAt).toLocaleTimeString() : '—'})
+                                </span>
+                              </div>
+                            ))}
+                            {done.length > 2 && (
+                              <span className="text-xs text-[var(--text-tertiary)]">+{done.length - 2} more</span>
+                            )}
+                            {done.length === 0 && <span className="text-xs text-[var(--text-secondary)]">—</span>}
+                          </div>
+                        )}
                       </td>
-                      {activeTab === 'pending' && (
-                        <td className="px-4 py-3">
-                          <PriorityBadge priority={scan.priority} />
+                      {!isDone && (
+                        <td className={TD}>
+                          <Badge tone={PRIORITY_TONES[item.priority] ?? 'blue'} dot size="sm">
+                            {PRIORITY_LABELS[item.priority] ?? 'ROUTINE'}
+                          </Badge>
                         </td>
                       )}
-                      <td className="px-4 py-3">
-                        {activeTab === 'pending' ? (
-                          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>
-                              {Math.floor(scan.waitTime / 60)}h {scan.waitTime % 60}m
-                            </span>
+                      <td className={TD}>
+                        {isDone ? (
+                          <Badge tone={statusTone(item.status)} dot size="sm">{humanStatus(item.status)}</Badge>
+                        ) : isOutstanding ? (
+                          <div className="space-y-1">
+                            <Badge tone={statusTone(item.attendanceStatus)} dot size="sm">
+                              {humanStatus(item.attendanceStatus)}
+                            </Badge>
+                            <p className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                              <Clock className="w-3 h-3" />
+                              owing {Math.floor((item.waitTime || 0) / 60)}h {(item.waitTime || 0) % 60}m
+                            </p>
                           </div>
                         ) : (
-                          <span className="text-xs text-[var(--text-secondary)]">
-                            {scan.performedBy || '—'}
+                          <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                            <Clock className="w-3.5 h-3.5" />
+                            {Math.floor((item.waitTime || 0) / 60)}h {(item.waitTime || 0) % 60}m
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleScanClick(scan); }}
-                          className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
-                            activeTab === 'pending'
-                              ? 'bg-[var(--icon-cyan-text)] text-white hover:opacity-90'
-                              : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white'
-                          }`}
+                      <td className={cn(TD, 'text-center')}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          accent={isDone ? 'blue' : isOutstanding ? 'orange' : 'indigo'}
+                          icon={isDone ? FileText : Eye}
+                          className="mx-auto"
+                          onClick={(e) => { e.stopPropagation(); handleScanClick(item); }}
                         >
-                          {activeTab === 'pending' ? (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              Process
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="w-3 h-3" />
-                              View Report
-                            </>
-                          )}
-                        </button>
+                          {isDone ? 'View Report' : isOutstanding ? 'Enter Result' : 'Process'}
+                        </Button>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredScans.length)} of {filteredScans.length}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Card>
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredScans.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
     </div>
   );
 }

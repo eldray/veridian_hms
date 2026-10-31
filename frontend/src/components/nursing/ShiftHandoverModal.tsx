@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   X, Send, Printer, CheckCircle, Clock, User,
-  AlertTriangle, FileText, Moon, Sun, Sunrise
+  Moon, Sun, Sunrise
 } from 'lucide-react';
 import { getPatientName } from '../../utils/patient';
 import { describeApiError } from '../../utils/apiError';
@@ -11,7 +11,7 @@ import { describeApiError } from '../../utils/apiError';
 
 interface HandoverPatient {
   id: string;
-  patientId: string;
+  patientId?: string | null; // null for counter-ticket walk-ins without a folder
   patientName?: string;
   patient?: any;            // raw patient object — getPatientName prefers this
   bedNumber?: string;

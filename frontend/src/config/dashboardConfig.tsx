@@ -153,7 +153,7 @@ export const STAT_CATALOG: Record<StatKey, StatMeta> = {
     value: (s) => s.pendingBills,
   },
   pendingClaims: {
-    to: '/dashboard/insurance-claims', label: 'Pending Claims', sub: 'Awaiting process',
+    to: '/dashboard/insurance', label: 'Pending Claims', sub: 'Awaiting process',
     Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)',
     value: (s) => s.pendingClaims,
   },
@@ -280,7 +280,7 @@ export const STAT_CATALOG: Record<StatKey, StatMeta> = {
     value: (s) => fmtCcy(s.todayCollections),
   },
   outstandingClaims: {
-    to: '/dashboard/insurance-claims?status=submitted', label: 'Outstanding', sub: 'Claims unpaid',
+    to: '/dashboard/insurance/nhis/claims', label: 'Outstanding', sub: 'Claims unpaid',
     Icon: Shield, bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)',
     value: (s) => s.outstandingClaims,
   },
@@ -295,7 +295,7 @@ export const STAT_CATALOG: Record<StatKey, StatMeta> = {
     value: (s) => s.expiringEstimates,
   },
   corporateOutstanding: {
-    to: '/dashboard/corporate-accounts', label: 'Corporate Due', sub: 'Outstanding',
+    to: '/dashboard/insurance/corporate/accounts', label: 'Corporate Due', sub: 'Outstanding',
     Icon: Briefcase, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)',
     value: (s) => fmtCcy(s.corporateOutstanding),
   },
@@ -446,7 +446,7 @@ export const QUICK_ACTIONS: Record<string, QuickAction> = {
   lab: { icon: FlaskConical, label: 'Laboratory', path: '/dashboard/laboratory', bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
   scans: { icon: ScanLine, label: 'Scans', path: '/dashboard/scans', bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
   requisitions: { icon: ClipboardList, label: 'Requisitions', path: '/dashboard/requisitions', bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)' },
-  claims: { icon: Shield, label: 'Claims', path: '/dashboard/insurance-claims', bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
+  claims: { icon: Shield, label: 'Claims', path: '/dashboard/insurance', bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
   reports: { icon: BarChart3, label: 'Reports', path: '/dashboard/reports', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },
   appointments: { icon: Activity, label: 'Appointments', path: '/dashboard/appointments', bg: 'var(--icon-cyan-bg)', color: 'var(--icon-cyan-text)' },
   nursing: { icon: Syringe, label: 'Nursing', path: '/dashboard/nursing', bg: 'var(--icon-red-bg)', color: 'var(--icon-red-text)' },

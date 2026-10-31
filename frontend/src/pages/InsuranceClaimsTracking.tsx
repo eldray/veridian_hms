@@ -1,10 +1,11 @@
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, Banknote, Clock3, FileCheck2, Loader2,
-  Plus, RefreshCw, Search, Send, ShieldCheck, X,
+  Plus, RefreshCw, Send, X,
 } from 'lucide-react';
 import { getInsuranceClaimsTracking, recordInsuranceClaimTrackingEvent } from '../api';
-import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
+import InsuranceTabs, { INSURANCE_FAMILIES, type InsuranceFamily } from '../components/InsuranceTabs';
+import { Badge, Button, cn, Field, FilterSelect, INPUT, TD_MONO, PageHeader, TABLE_SHELL, TH, TH_ROW, TD, TR, SearchInput } from '../components/ui';
 import { useToast } from '../store/toastStore';
 
 type TrackingEvent = {
@@ -15,21 +16,35 @@ type TrackingEvent = {
 };
 type ClaimRow = {
   id: string; claimNumber: string; totalClaimAmount: number | string; finalizedAt?: string | null;
-  InsuranceProvider?: { name?: string; type?: string };
-  Patient?: { folderNumber?: string; surname?: string; otherNames?: string };
-  Attendance?: { attendanceNumber?: string; dateTime?: string };
+  // This screen reads the raw API envelope, whose relation keys arrive camelCase; the insurance
+  // store re-cases its claims to Prisma's names, so the two must not be conflated here.
+  insuranceProvider?: { name?: string; type?: string };
+  patient?: { folderNumber?: string; surname?: string; otherNames?: string };
+  attendance?: { attendanceNumber?: string; dateTime?: string };
   trackingEvents: TrackingEvent[];
   tracking: { totalPaid: number; outstanding: number; latestStatus: string };
 };
 const money = (value: unknown) => new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', maximumFractionDigits: 2 }).format(Number(value || 0));
 const titleCase = (value?: string | null) => (value || 'Not submitted').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
 
-export default function InsuranceClaimsTracking() {
+/** Same contract the API module declares, kept in sync by deriving it from the call itself. */
+type TrackingEventInput = Parameters<typeof recordInsuranceClaimTrackingEvent>[1];
+
+/** The API's `insuranceType` filter for each payer family tab. */
+const FAMILY_PARAM: Record<InsuranceFamily, string> = {
+  nhis: 'nhis',
+  private: 'private',
+  corporate: 'corporate',
+};
+
+export default function InsuranceClaimsTracking({ family }: { family: InsuranceFamily }) {
   const { success, error: toastError } = useToast();
   const [claims, setClaims] = useState<ClaimRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [type, setType] = useState('all');
+  // The payer family is the tab bar's job now, so this screen no longer offers a
+  // fourth "all types" view that would mix three payers in one ledger.
+  const type = FAMILY_PARAM[family];
   const [selected, setSelected] = useState<ClaimRow | null>(null);
   const [eventType, setEventType] = useState<'submission' | 'adjudication' | 'payment'>('submission');
   const [status, setStatus] = useState('submitted');
@@ -45,7 +60,7 @@ export default function InsuranceClaimsTracking() {
     setLoading(true);
     try {
       const response = await getInsuranceClaimsTracking({
-        params: { limit: 100, search: search.trim() || undefined, insuranceType: type === 'all' ? undefined : type },
+        limit: 100, search: search.trim() || undefined, insuranceType: type,
       });
       const payload = response?.data?.data ?? response?.data;
       setClaims(Array.isArray(payload) ? payload : payload?.data || []);
@@ -88,7 +103,7 @@ export default function InsuranceClaimsTracking() {
     }
     setSaving(true);
     try {
-      const body: Record<string, unknown> = { eventType, notes: notes.trim() || undefined };
+      const body: TrackingEventInput = { eventType, notes: notes.trim() || undefined };
       if (eventType === 'submission') Object.assign(body, { payerReference: payerReference.trim(), submissionDate });
       if (eventType === 'adjudication') Object.assign(body, { status, payerReference: payerReference.trim() || undefined });
       if (eventType === 'payment') Object.assign(body, { amount: Number(amount), paymentReference: paymentReference.trim(), paymentMethod, payerReference: payerReference.trim() || undefined });
@@ -101,18 +116,18 @@ export default function InsuranceClaimsTracking() {
     } finally { setSaving(false); }
   };
 
+  const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
+
   return (
     <div className="p-4 md:p-6 space-y-5 text-[var(--text-primary)]">
-      <InsuranceSectionTabs active="tracking" />
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--text-primary)]">Insurance Claims Tracking</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Track payer submissions, adjudication decisions, remittances and outstanding claim balances.</p>
-        </div>
-        <button onClick={() => void load()} className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-4 py-2 text-sm font-medium hover:bg-[var(--bg-main)]" disabled={loading}>
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
-        </button>
-      </div>
+      <PageHeader
+        title={`${familyMeta.label} · Claims tracking`}
+        subtitle="Payer submissions, adjudication decisions, remittances and outstanding claim balances."
+        icon={familyMeta.icon}
+        accent={familyMeta.accent}
+        actions={<Button icon={RefreshCw} loading={loading} onClick={() => void load()}>Refresh</Button>}
+        tabs={<InsuranceTabs family={family} section="tracking" />}
+      />
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <SummaryCard label="Total claimed" value={money(totals.claimed)} icon={<FileCheck2 size={20} />} />
@@ -120,31 +135,26 @@ export default function InsuranceClaimsTracking() {
         <SummaryCard label="Still outstanding" value={money(totals.outstanding)} icon={<Clock3 size={20} />} />
       </div>
 
-      <div className="flex flex-col md:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search claim, patient folder or insurer…" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] py-2.5 pl-10 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]" />
-        </div>
-        <select value={type} onChange={e => setType(e.target.value)} className="rounded-lg border border-[var(--border-color)] px-3 py-2.5 text-sm bg-[var(--bg-card)]">
-          <option value="all">All payer types</option><option value="nhis">NHIS</option><option value="private">Private insurance</option><option value="corporate">Corporate</option>
-        </select>
-      </div>
+      <SearchInput value={search} onChange={setSearch} placeholder="Search claim, patient folder or insurer…" />
 
-      <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] overflow-hidden">
+      <div className={TABLE_SHELL}>
         {loading ? <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-secondary)]"><Loader2 className="animate-spin" size={20} /> Loading claims…</div> :
         claims.length === 0 ? <div className="py-16 text-center"><AlertCircle size={28} className="mx-auto text-[var(--text-tertiary)] mb-2" /><p className="font-medium text-[var(--text-primary)]">No finalized claims found</p><p className="text-sm text-[var(--text-secondary)] mt-1">Finalize a claim first; it will appear here for submission and payment tracking.</p></div> :
         <div className="overflow-x-auto"><table className="w-full text-sm text-left">
-          <thead className="bg-[var(--bg-main)] text-xs uppercase text-[var(--text-secondary)]"><tr>
-            <th className="px-4 py-3">Claim / Patient</th><th className="px-4 py-3">Payer</th><th className="px-4 py-3">Claim amount</th><th className="px-4 py-3">Paid</th><th className="px-4 py-3">Outstanding</th><th className="px-4 py-3">Tracking status</th><th className="px-4 py-3">Activity</th>
+          <thead className={TH_ROW}><tr>
+            <th className={TH}>Claim</th><th className={TH}>Patient</th><th className={TH}>Folder #</th><th className={TH}>Attendance #</th><th className={TH}>Payer</th><th className={TH}>Claim amount</th><th className={TH}>Paid</th><th className={TH}>Outstanding</th><th className={TH}>Tracking status</th><th className={TH}>Activity</th>
           </tr></thead>
-          <tbody className="divide-y divide-[var(--border-color)]">{claims.map(claim => <tr key={claim.id} className="hover:bg-[var(--bg-main)]">
-            <td className="px-4 py-3"><div className="font-semibold text-[var(--text-primary)]">{claim.claimNumber}</div><div className="text-[var(--text-secondary)]">{[claim.Patient?.surname, claim.Patient?.otherNames].filter(Boolean).join(' ') || 'Unknown patient'}</div><div className="text-xs text-[var(--text-tertiary)]">{claim.Patient?.folderNumber || claim.Attendance?.attendanceNumber || ''}</div></td>
-            <td className="px-4 py-3"><div className="font-medium">{claim.InsuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.InsuranceProvider?.type)}</div></td>
-            <td className="px-4 py-3 whitespace-nowrap">{money(claim.totalClaimAmount)}</td>
-            <td className="px-4 py-3 whitespace-nowrap text-[var(--icon-green-text)]">{money(claim.tracking?.totalPaid)}</td>
-            <td className="px-4 py-3 whitespace-nowrap font-medium">{money(claim.tracking?.outstanding)}</td>
-            <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${claim.tracking?.latestStatus === 'paid' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : claim.tracking?.latestStatus === 'rejected' ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' : 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'}`}>{titleCase(claim.tracking?.latestStatus)}</span></td>
-            <td className="px-4 py-3"><button onClick={() => openRecord(claim)} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"><Plus size={14} /> Record activity</button><div className="mt-1 text-xs text-[var(--text-secondary)]">{claim.trackingEvents?.length || 0} events</div></td>
+          <tbody>{claims.map(claim => <tr key={claim.id} className={TR}>
+            <td className={TD}><div className="font-semibold text-[var(--text-primary)]">{claim.claimNumber}</div></td>
+            <td className={TD}><div className="text-[var(--text-secondary)]">{[claim.patient?.surname, claim.patient?.otherNames].filter(Boolean).join(' ') || 'Unknown patient'}</div></td>
+            <td className={TD_MONO}>{claim.patient?.folderNumber || '—'}</td>
+            <td className={TD_MONO}>{claim.attendance?.attendanceNumber || '—'}</td>
+            <td className={TD}><div className="font-medium">{claim.insuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.insuranceProvider?.type)}</div></td>
+            <td className={TD}>{money(claim.totalClaimAmount)}</td>
+            <td className={cn(TD, 'text-[var(--icon-green-text)]')}>{money(claim.tracking?.totalPaid)}</td>
+            <td className={cn(TD, 'font-medium')}>{money(claim.tracking?.outstanding)}</td>
+            <td className={TD}><Badge dot size="sm" tone={claim.tracking?.latestStatus === 'paid' ? 'green' : claim.tracking?.latestStatus === 'rejected' ? 'red' : 'orange'}>{titleCase(claim.tracking?.latestStatus)}</Badge></td>
+            <td className={TD}><Button size="sm" variant="primary" icon={Plus} onClick={() => openRecord(claim)}>Record activity</Button><div className="mt-1 text-xs text-[var(--text-secondary)]">{claim.trackingEvents?.length || 0} events</div></td>
           </tr>)}</tbody>
         </table></div>}
       </div>
@@ -152,17 +162,28 @@ export default function InsuranceClaimsTracking() {
 
       {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onMouseDown={e => { if (e.target === e.currentTarget && !saving) setSelected(null); }}>
         <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
-          <div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4"><div><h2 className="text-lg font-bold">Record claim activity</h2><p className="text-sm text-[var(--text-secondary)]">{selected.claimNumber} · {selected.InsuranceProvider?.name}</p></div><button onClick={() => setSelected(null)} disabled={saving} className="rounded-lg p-1.5 hover:bg-[var(--bg-main)]"><X size={20} /></button></div>
+          <div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4"><div><h2 className="text-lg font-bold">Record claim activity</h2><p className="text-sm text-[var(--text-secondary)]">{selected.claimNumber} · {selected.insuranceProvider?.name}</p></div><Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => setSelected(null)} disabled={saving} /></div>
           <div className="p-5">
             <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg bg-[var(--bg-main)] p-3 text-sm"><div><div className="text-xs text-[var(--text-secondary)]">Claimed</div><strong>{money(selected.totalClaimAmount)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Paid</div><strong className="text-[var(--icon-green-text)]">{money(selected.tracking?.totalPaid)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(selected.tracking?.outstanding)}</strong></div></div>
             <form onSubmit={submitEvent} className="space-y-4">
-              <label className="block text-sm font-medium text-[var(--text-primary)]">Activity type<select value={eventType} onChange={e => setEventType(e.target.value as any)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2.5"><option value="submission">Record submission</option><option value="adjudication">Update payer decision</option><option value="payment">Record payment</option></select></label>
-              {eventType === 'submission' && <><Field label="Payer / submission reference *" value={payerReference} onChange={setPayerReference} placeholder="Batch or portal reference" /><Field label="Submission date" value={submissionDate} onChange={setSubmissionDate} type="date" /></>}
-              {eventType === 'adjudication' && <><label className="block text-sm font-medium text-[var(--text-primary)]">Payer decision<select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2.5"><option value="acknowledged">Acknowledged</option><option value="under_review">Under review</option><option value="queried">Queried / needs correction</option><option value="approved">Approved</option><option value="partially_approved">Partially approved</option><option value="rejected">Rejected</option></select></label><Field label="Payer reference (optional)" value={payerReference} onChange={setPayerReference} placeholder="Remittance or query reference" /></>}
-              {eventType === 'payment' && <><Field label="Amount received (GHS) *" value={amount} onChange={setAmount} type="number" placeholder="0.00" /><Field label="Unique payment / remittance reference *" value={paymentReference} onChange={setPaymentReference} placeholder="Bank advice or remittance number" /><label className="block text-sm font-medium text-[var(--text-primary)]">Payment method<select value={paymentMethod} onChange={e => setPaymentMethod(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2.5"><option value="bank_transfer">Bank transfer</option><option value="cheque">Cheque</option><option value="mobile_money">Mobile money</option><option value="other">Other</option></select></label><Field label="Payer remittance reference (optional)" value={payerReference} onChange={setPayerReference} placeholder="Advice number" /></>}
-              <label className="block text-sm font-medium text-[var(--text-primary)]">Notes (optional)<textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2.5" placeholder="Queries, deductions, follow-up details or receipt notes" /></label>
+              <Field label="Activity type">
+                <FilterSelect
+                  className="w-full"
+                  value={eventType}
+                  onChange={(v) => setEventType(v as TrackingEventInput['eventType'])}
+                  options={[
+                    { value: 'submission', label: 'Record submission' },
+                    { value: 'adjudication', label: 'Update payer decision' },
+                    { value: 'payment', label: 'Record payment' },
+                  ]}
+                />
+              </Field>
+              {eventType === 'submission' && <><Field label="Payer / submission reference" required><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Batch or portal reference" className={cn(INPUT, 'w-full')} /></Field><Field label="Submission date"><input type="date" value={submissionDate} onChange={e => setSubmissionDate(e.target.value)} className={cn(INPUT, 'w-full')} /></Field></>}
+              {eventType === 'adjudication' && <><Field label="Payer decision"><FilterSelect className="w-full" value={status} onChange={setStatus} options={[{ value: 'acknowledged', label: 'Acknowledged' }, { value: 'under_review', label: 'Under review' }, { value: 'queried', label: 'Queried / needs correction' }, { value: 'approved', label: 'Approved' }, { value: 'partially_approved', label: 'Partially approved' }, { value: 'rejected', label: 'Rejected' }]} /></Field><Field label="Payer reference (optional)"><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Remittance or query reference" className={cn(INPUT, 'w-full')} /></Field></>}
+              {eventType === 'payment' && <><Field label="Amount received (GHS)" required><input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={cn(INPUT, 'w-full')} /></Field><Field label="Unique payment / remittance reference" required hint="A duplicate reference is rejected by the payer ledger."><input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="Bank advice or remittance number" className={cn(INPUT, 'w-full')} /></Field><Field label="Payment method"><FilterSelect className="w-full" value={paymentMethod} onChange={setPaymentMethod} options={[{ value: 'bank_transfer', label: 'Bank transfer' }, { value: 'cheque', label: 'Cheque' }, { value: 'mobile_money', label: 'Mobile money' }, { value: 'other', label: 'Other' }]} /></Field><Field label="Payer remittance reference (optional)"><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Advice number" className={cn(INPUT, 'w-full')} /></Field></>}
+              <Field label="Notes (optional)"><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Queries, deductions, follow-up details or receipt notes" className={cn(INPUT, 'w-full')} /></Field>
               {selected.trackingEvents?.length > 0 && <div><h3 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Previous activity</h3><div className="max-h-40 space-y-2 overflow-y-auto">{selected.trackingEvents.slice().reverse().map(ev => <div key={ev.id} className="rounded-lg border border-[var(--border-color)] p-3 text-xs"><div className="flex justify-between gap-2"><strong>{titleCase(ev.eventType)}{ev.status ? ` · ${titleCase(ev.status)}` : ''}</strong><span className="text-[var(--text-secondary)]">{new Date(ev.createdAt).toLocaleDateString()}</span></div>{ev.amount != null && <div className="mt-1">{money(ev.amount)} · {ev.paymentReference}</div>}{ev.payerReference && <div className="mt-1 text-[var(--text-secondary)]">Reference: {ev.payerReference}</div>}{ev.notes && <p className="mt-1 text-[var(--text-secondary)]">{ev.notes}</p>}</div>)}</div></div>}
-              <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-4"><button type="button" onClick={() => setSelected(null)} disabled={saving} className="rounded-lg border border-[var(--border-color)] px-4 py-2 text-sm hover:bg-[var(--bg-main)]">Cancel</button><button type="submit" disabled={saving} className="inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />} Save activity</button></div>
+              <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-4"><Button onClick={() => setSelected(null)} disabled={saving}>Cancel</Button><Button type="submit" variant="primary" icon={Send} loading={saving}>Save activity</Button></div>
             </form>
           </div>
         </div>
@@ -173,7 +194,4 @@ export default function InsuranceClaimsTracking() {
 
 function SummaryCard({ label, value, icon }: { label: string; value: string; icon: ReactNode }) {
   return <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4"><div className="flex items-center justify-between text-[var(--text-secondary)]"><span className="text-sm">{label}</span>{icon}</div><div className="mt-2 text-xl font-bold text-[var(--text-primary)]">{value}</div></div>;
-}
-function Field({ label, value, onChange, type = 'text', placeholder }: { label: string; value: string; onChange: (value: string) => void; type?: string; placeholder?: string }) {
-  return <label className="block text-sm font-medium text-[var(--text-primary)]">{label}<input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} min={type === 'number' ? '0.01' : undefined} step={type === 'number' ? '0.01' : undefined} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></label>;
 }

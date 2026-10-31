@@ -1,93 +1,71 @@
 // src/pages/MedicalWaitingList.tsx - SIMPLIFIED using worklistStore only
 
-import { useLiveRefresh } from '../api/realtime';
-import React, { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
+import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
 import {
-  ChevronLeft,
-  Stethoscope,
-  Users,
   AlertCircle,
-  Clock,
-  Search,
-  User,
-  Bed,
-  Activity,
   AlertTriangle,
+  Bed,
   CheckCircle,
-  RefreshCw,
-  Eye,
-  Thermometer,
-  Heart,
+  Clipboard,
   ClipboardList,
-  History,
+  Clock,
+  Eye,
   FileText,
-  Calendar,
-  ArrowRight
+  History,
+  RefreshCw,
+  User,
+  Users,
 } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  humanStatus,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  StatCard,
+  statusTone,
+  Tabs,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+  cn,
+  type BadgeTone,
+  type TabItem,
+} from '../components/ui';
 
-// Stats Card Component
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: any;
-  color: string;
-  bg: string;
-  onClick?: () => void;
-}
-
-const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
-  <div 
-    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
-    onClick={onClick}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
-      </div>
-      <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 ${color}`} />
-      </div>
-    </div>
-    {onClick && (
-      <div className="mt-2 flex justify-end">
-        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-          Enter <ArrowRight className="w-3 h-3" />
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-// Priority Badge
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case 'stat':
-    case 'critical':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">CRITICAL</span>;
-    case 'urgent':
-      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">URGENT</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">WAITING</span>;
-  }
+// This queue's own statuses and priorities are not part of Badge's shared maps, so the tone and
+// the wording they earn on screen stay here — the chip itself is always the shared Badge.
+const MEDICAL_STATUS: Record<string, { tone: BadgeTone; label: string }> = {
+  pending_doctor: { tone: 'yellow', label: 'Pending Review' },
+  reviewed: { tone: 'green', label: 'Reviewed' },
+  pending_vitals_first: { tone: 'blue', label: 'Awaiting Vitals' },
 };
 
-// Status Badge
-const getStatusBadge = (status: string) => {
-  switch (status) {
-    case 'pending_doctor':
-      return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Pending Review</span>;
-    case 'reviewed':
-      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Reviewed</span>;
-    case 'pending_vitals_first':
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Awaiting Vitals</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{status}</span>;
-  }
+const PRIORITY_TONES: Record<string, BadgeTone> = {
+  stat: 'red',
+  critical: 'red',
+  urgent: 'orange',
 };
+
+const PRIORITY_LABELS: Record<string, string> = {
+  stat: 'CRITICAL',
+  critical: 'CRITICAL',
+  urgent: 'URGENT',
+};
+
+const QUEUE_TABS: TabItem[] = [
+  { key: 'pending', label: 'Pending Review', icon: Clock },
+  { key: 'recent', label: 'Reviewed Today', icon: CheckCircle },
+];
 
 export default function MedicalWaitingList() {
   const navigate = useNavigate();
@@ -101,7 +79,7 @@ export default function MedicalWaitingList() {
   const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
   // ✅ ONLY use worklistStore
-  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  const { worklistItems, fetchWorklist, isLoading: worklistLoading, view } = useWorklistStore();
   // Live queue: refreshes within a couple of seconds when a visit, request or result changes
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('medical', { silent: true }));
 
@@ -133,17 +111,19 @@ export default function MedicalWaitingList() {
     return worklistItems.filter(item => item.hasMedicalNotesToday || item.status === 'reviewed');
   }, [worklistItems]);
 
-  // Filter based on search and active tab
+  // Filter based on search and active tab. The completed and awaiting-results queues are already
+  // narrowed by the server, so the review split only applies to the to-do queue.
   const filteredPatients = useMemo(() => {
-    const source = activeTab === 'pending' ? pendingPatients : recentPatients;
+    const source = view === 'pending' ? (activeTab === 'pending' ? pendingPatients : recentPatients) : worklistItems;
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
     return source.filter(patient =>
       patient.patient?.name?.toLowerCase().includes(lower) ||
       patient.patient?.folderNumber?.toLowerCase().includes(lower) ||
+      (patient.attendanceNumber || '').toLowerCase().includes(lower) ||
       patient.complaints?.toLowerCase().includes(lower)
     );
-  }, [pendingPatients, recentPatients, searchQuery, activeTab]);
+  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
@@ -181,12 +161,44 @@ export default function MedicalWaitingList() {
     });
   };
 
+  // One header for the whole screen, so the loading branch and the queue open identically.
+  const queueHeader = (
+    <PageHeader
+      title="Medical Consultation Queue"
+      subtitle="View waiting patients and start consultations"
+      icon={Clipboard}
+      accent="green"
+      backTo="/dashboard"
+      actions={(
+        <>
+          <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/medical-entries')}>
+            Medical Entries
+          </Button>
+          <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+        </>
+      )}
+      tabs={view === 'pending' && (
+        <Tabs
+          tabs={QUEUE_TABS.map(tab => ({
+            ...tab,
+            count: tab.key === 'pending' ? pendingPatients.length : recentPatients.length,
+          }))}
+          active={activeTab}
+          onChange={(key) => setActiveTab(key as 'pending' | 'recent')}
+          accent="green"
+          aria-label="Review status"
+        />
+      )}
+    />
+  );
+
   if (isLoading || worklistLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Medical Queue...</h2>
+      <div className="space-y-6 p-6">
+        {queueHeader}
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
+          <div className="w-12 h-12 border-4 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-[var(--text-secondary)]">Loading Medical Queue...</p>
         </div>
       </div>
     );
@@ -194,153 +206,70 @@ export default function MedicalWaitingList() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-            <Stethoscope className="w-5 h-5 text-[var(--icon-purple-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Medical Consultation Queue</h1>
-            <p className="text-sm text-[var(--text-secondary)]">View waiting patients and start consultations</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
+      {queueHeader}
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <StatCard 
-          title="Total Waiting" 
-          value={stats.total} 
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <StatCard
+          label="Total Waiting"
+          value={stats.total}
           icon={Users}
-          color="text-cyan-600"
-          bg="bg-cyan-100"
+          accent="cyan"
           onClick={() => navigate('/dashboard/consultations')}
         />
-        <StatCard 
-          title="Urgent" 
-          value={stats.urgent} 
+        <StatCard
+          label="Urgent"
+          value={stats.urgent}
           icon={AlertTriangle}
-          color="text-orange-600"
-          bg="bg-orange-100"
+          accent="orange"
           onClick={() => navigate('/dashboard/consultations')}
         />
-        <StatCard 
-          title="Critical" 
-          value={stats.critical} 
+        <StatCard
+          label="Critical"
+          value={stats.critical}
           icon={AlertCircle}
-          color="text-red-600"
-          bg="bg-red-100"
+          accent="red"
           onClick={() => navigate('/dashboard/consultations')}
         />
-        <StatCard 
-          title="Reviewed Today" 
-          value={stats.reviewed} 
+        <StatCard
+          label="Reviewed Today"
+          value={stats.reviewed}
           icon={CheckCircle}
-          color="text-green-600"
-          bg="bg-green-100"
+          accent="green"
           onClick={() => navigate('/dashboard/consultations')}
         />
-        <StatCard 
-          title="Recent Cases" 
-          value={stats.reviewed} 
+        <StatCard
+          label="Recent Cases"
+          value={stats.reviewed}
           icon={History}
-          color="text-purple-600"
-          bg="bg-purple-100"
+          accent="purple"
           onClick={() => navigate('/dashboard/consultations')}
         />
       </div>
 
       {/* Search Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            placeholder="Search by patient name, folder number, or complaints..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
-        </div>
-      </div>
+      <Card>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by patient name, folder number, or complaints..."
+        />
+      </Card>
 
-      {/* TABS - Pending vs Recent */}
-      <div className="border-b border-[var(--border-color)]">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'pending'
-                ? 'text-[var(--icon-purple-text)] border-b-2 border-[var(--icon-purple-text)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pending Review
-              {pendingPatients.length > 0 && (
-                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">
-                  {pendingPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('recent')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'recent'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Reviewed Today
-              {recentPatients.length > 0 && (
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                  {recentPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-        </div>
-      </div>
+      {/* Queue view: open visits, visits closed today, and visits closed with a result still owed */}
+      <Card>
+        <WorklistViewControls department="medical" />
+      </Card>
 
       {/* Table View */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {activeTab === 'pending' ? (
-              <>
-                <ClipboardList className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                Waiting List ({filteredPatients.length} patients)
-              </>
-            ) : (
-              <>
-                <History className="w-4 h-4 text-green-600" />
-                Recently Reviewed Today ({filteredPatients.length} patients)
-              </>
-            )}
-          </h2>
-        </div>
-        
+      <Card
+        title={activeTab === 'pending'
+          ? `Waiting List (${filteredPatients.length} patients)`
+          : `Recently Reviewed Today (${filteredPatients.length} patients)`}
+        icon={activeTab === 'pending' ? ClipboardList : History}
+        accent="green"
+        padded={false}
+      >
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
             {activeTab === 'pending' ? (
@@ -358,150 +287,126 @@ export default function MedicalWaitingList() {
             )}
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Complaints</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Priority' : 'Reviewed At'}
-                    </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Wait Time' : 'Doctor'}
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginatedPatients.map((patient) => (
-                    <tr 
-                      key={patient.id} 
-                      className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
-                      onClick={() => handleStartConsultation(patient)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-[var(--text-primary)] text-sm">
-                              {patient.patient?.name}
-                            </p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {patient.patient?.age} years • {patient.patient?.gender}
-                            </p>
-                          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Visit date</th>
+                  <th className={TH}>Location</th>
+                  <th className={TH}>Complaints</th>
+                  <th className={cn(TH, 'text-center')}>Status</th>
+                  <th className={TH}>
+                    {activeTab === 'pending' ? 'Priority' : 'Reviewed At'}
+                  </th>
+                  <th className={TH}>
+                    {activeTab === 'pending' ? 'Wait Time' : 'Doctor'}
+                  </th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedPatients.map((patient) => (
+                  <tr
+                    key={patient.id}
+                    className={cn(TR, 'cursor-pointer')}
+                    onClick={() => handleStartConsultation(patient)}
+                  >
+                    <td className={TD}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-[var(--text-primary)]">
-                          {patient.patient?.folderNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+                        <div>
+                          <p className="font-medium text-[var(--text-primary)] text-sm">
+                            {patient.patient?.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {patient.patient?.age} years • {patient.patient?.gender}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={TD_MONO}>{patient.patient?.folderNumber}</td>
+                    <td className={TD_MONO}>{patient.attendanceNumber || '—'}</td>
+                    <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
+                      {patient.attendanceDateTime ? new Date(patient.attendanceDateTime).toLocaleString() : '—'}
+                    </td>
+                    <td className={TD}>
+                      <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Bed className="w-3.5 h-3.5" />
+                        <span>{patient.location?.bed || 'OPD'}</span>
+                        {patient.location?.ward && <span className="text-xs">({patient.location.ward})</span>}
+                      </div>
+                    </td>
+                    <td className={cn(TD, 'whitespace-normal')}>
+                      <p className="text-sm text-[var(--text-primary)] max-w-xs truncate">
+                        {patient.complaints || '—'}
+                      </p>
+                    </td>
+                    <td className={cn(TD, 'text-center')}>
+                      <Badge tone={MEDICAL_STATUS[patient.status]?.tone ?? statusTone(patient.status)} dot size="sm">
+                        {MEDICAL_STATUS[patient.status]?.label ?? humanStatus(patient.status)}
+                      </Badge>
+                    </td>
+                    <td className={TD}>
+                      {activeTab === 'pending' ? (
+                        <Badge tone={PRIORITY_TONES[patient.priority] ?? 'green'} dot size="sm">
+                          {PRIORITY_LABELS[patient.priority] ?? 'WAITING'}
+                        </Badge>
+                      ) : (
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          {patient.reviewedAt
+                            ? new Date(patient.reviewedAt).toLocaleTimeString()
+                            : '—'}
+                        </div>
+                      )}
+                    </td>
+                    <td className={TD}>
+                      {activeTab === 'pending' ? (
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Bed className="w-3.5 h-3.5" />
-                          <span>{patient.location?.bed || 'OPD'}</span>
-                          {patient.location?.ward && <span className="text-xs">({patient.location.ward})</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-[var(--text-primary)] max-w-xs truncate">
-                          {patient.complaints || '—'}
-                        </p>
-                      </td>
-                      <td className="px-4 py-3">
-                        {getStatusBadge(patient.status)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {activeTab === 'pending' ? (
-                          getPriorityBadge(patient.priority)
-                        ) : (
-                          <div className="text-xs text-[var(--text-secondary)]">
-                            {patient.reviewedAt 
-                              ? new Date(patient.reviewedAt).toLocaleTimeString()
-                              : '—'}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {activeTab === 'pending' ? (
-                          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>
-                              {Math.floor(patient.waitTime / 60)}h {patient.waitTime % 60}m
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[var(--text-secondary)]">
-                            {patient.reviewedBy || '—'}
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>
+                            {Math.floor(patient.waitTime / 60)}h {patient.waitTime % 60}m
                           </span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleStartConsultation(patient); }}
-                          className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
-                            activeTab === 'pending'
-                              ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-700 hover:text-white'
-                          }`}
-                        >
-                          {activeTab === 'pending' ? (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              Start Consultation
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="w-3 h-3" />
-                              View Record
-                            </>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">
+                          {patient.reviewedBy || '—'}
+                        </span>
+                      )}
+                    </td>
+                    <td className={cn(TD, 'text-center')}>
+                      <Button
+                        size="sm"
+                        variant="soft"
+                        accent={activeTab === 'pending' ? 'green' : 'blue'}
+                        icon={activeTab === 'pending' ? Eye : FileText}
+                        className="mx-auto"
+                        onClick={(e) => { e.stopPropagation(); handleStartConsultation(patient); }}
+                      >
+                        {activeTab === 'pending' ? 'Start Consultation' : 'View Record'}
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Card>
+
+      {/* Pagination */}
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredPatients.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
     </div>
   );
 }

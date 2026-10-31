@@ -867,7 +867,8 @@ export const seedCoreData = async (force: boolean = false) => {
           const payload = {
             mdc,
             description: tariff.description || 'No description',
-            nhiaTariff: parseFloat(tariff.nhiaTariff) || 0,
+            // The dataset stores the price as tariffGhC; the app column is nhiaTariff.
+            nhiaTariff: parseFloat(tariff.nhiaTariff ?? tariff.tariffGhC) || 0,
             ageSplit: tariff.ageSplit || 'A',
             minAgeYears: tariff.minAgeYears ? parseInt(tariff.minAgeYears) : null,
             maxAgeYears: tariff.maxAgeYears ? parseInt(tariff.maxAgeYears) : null,
@@ -879,7 +880,13 @@ export const seedCoreData = async (force: boolean = false) => {
             attendanceTypes,
             isAntenatal: tariff.isAntenatal || false,
             isDelivery: tariff.isDelivery || false,
-            effectiveFrom: tariff.effectiveFrom ? new Date(tariff.effectiveFrom) : new Date(),
+            // This is the tariff schedule's validity, not the patient's NHIS membership expiry.
+            // Defaulting to the import time made every historical service date unpriced.
+            effectiveFrom: tariff.effectiveFrom
+              ? new Date(tariff.effectiveFrom)
+              : gdrgData.effectiveFrom
+                ? new Date(gdrgData.effectiveFrom)
+                : new Date(),
             effectiveTo: tariff.effectiveTo ? new Date(tariff.effectiveTo) : null,
             isActive: tariff.isActive ?? true,
             notes: tariff.notes || null,

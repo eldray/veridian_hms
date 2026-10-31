@@ -5,6 +5,7 @@ import { useAttendanceStore } from '../../../store/attendanceStore';
 import { useMedicalServicesStore } from '../../../store/medicalServicesStore';
 import { useToast } from '../../../store/toastStore';
 import { findContraindications, isBlocked, type AllergenClash } from '../../../data/allergens';
+import { OrderModeToggle } from '../OrderModeToggle';
 
 interface MedicationModalProps {
   isOpen: boolean;
@@ -16,6 +17,8 @@ interface MedicationModalProps {
   userId?: string;
   /** The patient's recorded allergies. This is a UI gate: the API still accepts the line. */
   allergies?: Array<{ allergen?: string | null; reaction?: string | null; severity?: string | null }> | null;
+  /** Swap the form to consumables without leaving the order flow. */
+  onSwitchToConsumable?: () => void;
 }
 
 function useDebounced<T>(value: T, delay = 150): T {
@@ -49,7 +52,7 @@ const ROUTES = [
 ];
 
 export const MedicationModal: React.FC<MedicationModalProps> = ({
-  isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies,
+  isOpen, onClose, onSuccess, attendanceId, stockItems, canAdd, allergies, onSwitchToConsumable,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMed, setSelectedMed] = useState<any>(null);
@@ -232,6 +235,10 @@ export const MedicationModal: React.FC<MedicationModalProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: 'thin' }}>
+          {onSwitchToConsumable && (
+            <OrderModeToggle mode="prescription" onChange={() => onSwitchToConsumable()} />
+          )}
+
           {/* Medication search */}
           <div>
             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">

@@ -11,19 +11,29 @@ import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { useNursingStore } from '../store/nursingStore';
 import { ShiftHandoverModal } from '../components/nursing/ShiftHandoverModal';
-import { NursingDashboardStats } from '../components/nursing/NursingDashboardStats';
 import { getPatientName } from '../utils/patient';
 import { describeApiError } from '../utils/apiError';
 import { getLatestVitals } from '../api';
-import { getFrequencyInfo, isDoseDue } from '../utils/frequencyUtils';
+import { isDoseDue } from '../utils/frequencyUtils';
 import {
-  ChevronLeft, RefreshCw, Users, Hospital, Bed,
-  Search, Activity, User, AlertTriangle, StickyNote,
-  ClipboardList, Send, ChevronRight, Building2,
-  Moon, Sun, Pill, LayoutGrid, List, X, Filter,
-  MapPin, Clock, Heart, Thermometer, Droplet,
-  Eye, TrendingUp, Stethoscope, Shield, FileText,
+  RefreshCw, Users, Hospital, Bed,
+  Activity, User, AlertTriangle,
+  ClipboardList, ClipboardCheck, Send, ChevronRight, Building2,
+  Moon, Sun, Pill, LayoutGrid, List,
+  Clock, Stethoscope,
 } from 'lucide-react';
+import {
+  Button,
+  Card,
+  FilterSelect,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  Segmented,
+  StatCard,
+  Tabs,
+  type TabItem,
+} from '../components/ui';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -109,6 +119,22 @@ const VitalPill: React.FC<{ label: string; value?: string | number; unit?: strin
 };
 
 type ViewMode = 'grid' | 'list';
+type CareGroup = 'ipd' | 'daycase' | 'observation';
+
+/** Mirrors PatientTypeBadge: day surgery wins, then observation, then formal IPD. */
+const patientGroup = (attendance: any, admission: any): CareGroup => {
+  if (attendance?.encounterCategory === 'daycase') return 'daycase';
+  const admissionType = admission?.admissionType || attendance?.admissionType;
+  if (admissionType === 'detention_observation') return 'observation';
+  return 'ipd';
+};
+
+const GROUP_TABS: TabItem<'all' | CareGroup>[] = [
+  { key: 'all', label: 'All patients', icon: Users },
+  { key: 'ipd', label: 'IPD', icon: Hospital },
+  { key: 'daycase', label: 'Day Surgery', icon: Sun },
+  { key: 'observation', label: 'Observation', icon: Moon },
+];
 
 // ─────────────────────────────────────────────
 // Hub
@@ -124,18 +150,19 @@ export default function Nursing() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [wardFilter, setWardFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<'all' | 'ipd' | 'daycase' | 'observation'>('all');
+  const [typeFilter, setTypeFilter] = useState<'all' | CareGroup>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12);
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('nursingViewMode');
     return (saved as ViewMode) || 'grid';
   });
-  const [showFilters, setShowFilters] = useState(false);
 
   const { attendances, getAttendances } = useAttendanceStore();
   const { patients } = usePatientStore(); // used only as a fallback for names; not loaded here
   const { admissions, getAdmissions, addDailyNote } = useAdmissionStore();
-  const { wards, getWards, getBeds } = useWardStore();
+  const { wards, beds, getWards, getBeds } = useWardStore();
   const { doses, tasks, fetchDoses, fetchTasks } = useNursingStore();
 
   const [vitalsByAtt, setVitalsByAtt] = useState<Record<string, any>>({});
@@ -234,6 +261,16 @@ export default function Nursing() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [inpatients.length]);
 
+  // ── Grouping ──
+  const groupCounts = useMemo(() => {
+    const counts: Record<'all' | CareGroup, number> = { all: inpatients.length, ipd: 0, daycase: 0, observation: 0 };
+    for (const attendance of inpatients) {
+      const admission = admissions.find((x) => x.attendanceId === getEntityId(attendance) && !x.dischargeDate);
+      counts[patientGroup(attendance, admission)]++;
+    }
+    return counts;
+  }, [inpatients, admissions]);
+
   // ── Filtered ──
   const filteredInpatients = useMemo(() => {
     return inpatients.filter((a) => {
@@ -241,24 +278,33 @@ export default function Nursing() {
 
       if (typeFilter !== 'all') {
         const adm = admissions.find((x) => x.attendanceId === getEntityId(a) && !x.dischargeDate);
-        const admType = adm?.admissionType || a.admissionType;
-        if (typeFilter === 'ipd' && a.encounterCategory !== 'ipd') return false;
-        if (typeFilter === 'daycase' && a.encounterCategory !== 'daycase') return false;
-        if (typeFilter === 'observation' && admType !== 'detention_observation') return false;
+        if (patientGroup(a, adm) !== typeFilter) return false;
       }
 
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       const p = findPatient(a);
       const name = p ? getPatientName(p).toLowerCase() : '';
+      // Encounters carry bedId, not a nested bed; resolve it from the loaded bed list.
+      const bedNumber = (beds.find((b: any) => b.id === a.bedId)?.bedNumber || '').toLowerCase();
       return (
         name.includes(q) ||
         (a.attendanceNumber || '').toLowerCase().includes(q) ||
         (p?.folderNumber || '').toLowerCase().includes(q) ||
-        (a.Bed?.bedNumber || a.bed?.bedNumber || '').toLowerCase().includes(q)
+        bedNumber.includes(q)
       );
     });
-  }, [inpatients, wardFilter, typeFilter, searchQuery, admissions, findPatient]);
+  }, [inpatients, wardFilter, typeFilter, searchQuery, admissions, findPatient, beds]);
+
+  const totalPages = Math.ceil(filteredInpatients.length / itemsPerPage);
+  const paginatedInpatients = filteredInpatients.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [typeFilter, wardFilter, searchQuery]);
 
   // ── Dashboard stats ──
   const dashboardStats = useMemo(() => {
@@ -291,19 +337,14 @@ export default function Nursing() {
 
     return {
       admittedCount: inpatients.length,
-      ipdCount: inpatients.filter((a) =>
-        a.encounterCategory === 'ipd' &&
-        admissions.find((x) => x.attendanceId === getEntityId(a))?.admissionType !== 'detention_observation',
-      ).length,
-      detentionCount: inpatients.filter((a) =>
-        admissions.find((x) => x.attendanceId === getEntityId(a))?.admissionType === 'detention_observation',
-      ).length,
-      daySurgeryCount: inpatients.filter((a) => a.encounterCategory === 'daycase').length,
+      ipdCount: groupCounts.ipd,
+      detentionCount: groupCounts.observation,
+      daySurgeryCount: groupCounts.daycase,
       pendingDischarges: admissions.filter((a) => !a.dischargeDate && a.status === 'admitted').length,
       medicationsDueToday: medsDue,
       criticalAlerts,
     };
-  }, [inpatients, admissions, doses, vitalsByAtt]);
+  }, [inpatients, admissions, doses, vitalsByAtt, groupCounts]);
 
   // ── Per-patient badges ──
   const patientBadges = useMemo(() => {
@@ -435,238 +476,90 @@ export default function Nursing() {
 
   return (
     <div className="space-y-5 p-4 sm:p-5">
-      {/* ── Header ── */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-teal-600 rounded-xl flex items-center justify-center shadow-sm shadow-teal-500/20">
-            <Stethoscope className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Nursing Station</h1>
-            <p className="text-xs text-[var(--text-secondary)]">
-              {dashboardStats.admittedCount} active patient{dashboardStats.admittedCount !== 1 ? 's' : ''}
-              {dashboardStats.criticalAlerts > 0 && (
-                <span className="ml-2 inline-flex items-center gap-1 text-red-600 font-semibold">
-                  <AlertTriangle className="w-3 h-3" />
-                  {dashboardStats.criticalAlerts} critical
-                </span>
-              )}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate('/dashboard/wards')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors"
-          >
-            <Building2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Wards</span>
-          </button>
-          <button
-            onClick={() => navigate('/dashboard/admissions')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <Hospital className="w-4 h-4" />
-            <span className="hidden sm:inline">Admissions</span>
-          </button>
-          <button
-            onClick={() => setShowHandoverModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-semibold bg-orange-600 text-white hover:bg-orange-700 transition-colors shadow-sm shadow-orange-600/20"
-          >
-            <Send className="w-4 h-4" />
-            <span className="hidden sm:inline">Shift Handover</span>
-          </button>
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Nursing Station"
+        subtitle="Inpatient board grouped by care setting"
+        meta={`${dashboardStats.admittedCount} active patient${dashboardStats.admittedCount !== 1 ? 's' : ''}${dashboardStats.criticalAlerts > 0 ? ` • ${dashboardStats.criticalAlerts} critical` : ''}`}
+        icon={Stethoscope}
+        accent="cyan"
+        backTo="/dashboard"
+        actions={(
+          <>
+            <Button variant="soft" accent="blue" icon={Building2} onClick={() => navigate('/dashboard/wards')}>Wards</Button>
+            <Button variant="secondary" icon={Hospital} onClick={() => navigate('/dashboard/admissions')}>Admissions</Button>
+            <Button variant="soft" accent="orange" icon={Send} onClick={() => setShowHandoverModal(true)}>Shift Handover</Button>
+            <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+          </>
+        )}
+        tabs={(
+          <Tabs
+            tabs={GROUP_TABS.map(tab => ({ ...tab, count: groupCounts[tab.key] }))}
+            active={typeFilter}
+            onChange={setTypeFilter}
+            accent="cyan"
+            aria-label="Inpatient grouping"
+          />
+        )}
+      />
 
       {/* ── Stats ── */}
-      <NursingDashboardStats stats={dashboardStats} />
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+        <StatCard
+          label="Total Admitted"
+          value={dashboardStats.admittedCount}
+          icon={Users}
+          accent="cyan"
+          hint={`${dashboardStats.ipdCount} IPD · ${dashboardStats.detentionCount} obs · ${dashboardStats.daySurgeryCount} day`}
+        />
+        <StatCard label="Formal IPD" value={dashboardStats.ipdCount} icon={Hospital} accent="blue" onClick={() => navigate('/dashboard/admissions')} />
+        <StatCard label="Under Observation" value={dashboardStats.detentionCount} icon={Moon} accent="orange" />
+        <StatCard label="Day Surgery" value={dashboardStats.daySurgeryCount} icon={Sun} accent="yellow" />
+        <StatCard label="Meds Due Now" value={dashboardStats.medicationsDueToday} icon={Pill} accent="purple" />
+        <StatCard label="Pending Discharge" value={dashboardStats.pendingDischarges} icon={ClipboardCheck} accent="green" onClick={() => navigate('/dashboard/admissions')} />
+        <StatCard
+          label="Critical Alerts"
+          value={dashboardStats.criticalAlerts}
+          icon={AlertTriangle}
+          accent={dashboardStats.criticalAlerts > 0 ? 'red' : undefined}
+          hint="Abnormal vitals"
+        />
+      </div>
 
       {/* ── Filters Toolbar ── */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] shadow-sm">
-        <div className="p-3">
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-              <input
-                type="text"
-                placeholder="Search by name, folder, bed, or attendance number…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Desktop filters */}
-            <div className="hidden lg:flex items-center gap-2">
-              <select
-                value={wardFilter}
-                onChange={(e) => setWardFilter(e.target.value)}
-                className="px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500"
-              >
-                <option value="all">All wards</option>
-                {wards.map((w: any) => (
-                  <option key={w.id} value={w.id}>{w.wardName}</option>
-                ))}
-              </select>
-
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as any)}
-                className="px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-teal-500"
-              >
-                <option value="all">All types</option>
-                <option value="ipd">IPD</option>
-                <option value="daycase">Day Surgery</option>
-                <option value="observation">Observation</option>
-              </select>
-
-              {/* View Toggle */}
-              <div className="flex items-center bg-[var(--bg-main)] rounded-lg p-1 border border-[var(--border-color)]">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'grid'
-                      ? 'bg-[var(--bg-card)] text-teal-700 shadow-sm'
-                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                  }`}
-                  title="Grid View"
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  Grid
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'list'
-                      ? 'bg-[var(--bg-card)] text-teal-700 shadow-sm'
-                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                  }`}
-                  title="List View"
-                >
-                  <List className="w-4 h-4" />
-                  List
-                </button>
-              </div>
-            </div>
-
-            {/* Mobile filter toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden flex items-center justify-center gap-2 px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-              {activeFiltersCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-teal-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Mobile filters expanded */}
-          {showFilters && (
-            <div className="lg:hidden mt-3 pt-3 border-t border-[var(--border-color)] space-y-3">
-              <select
-                value={wardFilter}
-                onChange={(e) => setWardFilter(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-              >
-                <option value="all">All wards</option>
-                {wards.map((w: any) => (
-                  <option key={w.id} value={w.id}>{w.wardName}</option>
-                ))}
-              </select>
-              <select
-                value={typeFilter}
-                onChange={(e) => setTypeFilter(e.target.value as any)}
-                className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]"
-              >
-                <option value="all">All types</option>
-                <option value="ipd">IPD</option>
-                <option value="daycase">Day Surgery</option>
-                <option value="observation">Observation</option>
-              </select>
-              <div className="flex items-center bg-[var(--bg-main)] rounded-lg p-1 border border-[var(--border-color)]">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'grid' ? 'bg-[var(--bg-card)] text-teal-700 shadow-sm' : 'text-[var(--text-tertiary)]'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" /> Grid
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'list' ? 'bg-[var(--bg-card)] text-teal-700 shadow-sm' : 'text-[var(--text-tertiary)]'
-                  }`}
-                >
-                  <List className="w-4 h-4" /> List
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Active filter chips */}
+      <Card>
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-center">
+          <SearchInput
+            className="flex-1"
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by name, folder, bed, or attendance number…"
+          />
+          <FilterSelect
+            value={wardFilter}
+            onChange={setWardFilter}
+            options={[
+              { value: 'all', label: 'All wards' },
+              ...wards.map((w: any) => ({ value: w.id, label: w.wardName })),
+            ]}
+            aria-label="Filter by ward"
+          />
+          <Segmented
+            options={[
+              { value: 'grid', label: 'Grid', icon: LayoutGrid },
+              { value: 'list', label: 'List', icon: List },
+            ]}
+            value={viewMode}
+            onChange={setViewMode}
+            accent="cyan"
+            aria-label="Board layout"
+          />
           {activeFiltersCount > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-color)] flex-wrap">
-              <span className="text-xs text-[var(--text-tertiary)] font-medium">Active:</span>
-              {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded-md text-xs font-medium">
-                  Search: "{searchQuery}"
-                  <button onClick={() => setSearchQuery('')} className="hover:text-teal-900">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              {wardFilter !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded-md text-xs font-medium">
-                  Ward: {wards.find((w: any) => w.id === wardFilter)?.wardName || wardFilter}
-                  <button onClick={() => setWardFilter('all')} className="hover:text-teal-900">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              {typeFilter !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-teal-50 text-teal-700 rounded-md text-xs font-medium capitalize">
-                  Type: {typeFilter}
-                  <button onClick={() => setTypeFilter('all')} className="hover:text-teal-900">
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              )}
-              <span className="ml-auto text-xs text-[var(--text-tertiary)]">
-                {filteredInpatients.length} of {inpatients.length}
-              </span>
-            </div>
+            <span className="text-xs text-[var(--text-tertiary)] whitespace-nowrap">
+              {filteredInpatients.length} of {inpatients.length} shown
+            </span>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* ── Patient Cards ── */}
       {filteredInpatients.length === 0 ? (
@@ -684,13 +577,13 @@ export default function Nursing() {
       ) : viewMode === 'grid' ? (
         /* ============ GRID VIEW ============ */
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filteredInpatients.map((att) => {
+          {paginatedInpatients.map((att) => {
             const id = getEntityId(att);
             const patient = findPatient(att);
             const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
             const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
             const name = patient ? getPatientName(patient) : 'Unknown Patient';
-            const bedNumber = att.Bed?.bedNumber || att.bed?.bedNumber;
+            const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
             const age = patient?.dateOfBirth
               ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
               : null;
@@ -719,6 +612,8 @@ export default function Nursing() {
                     <p className="text-sm font-bold text-[var(--text-primary)] truncate">{name}</p>
                     <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5 flex-wrap">
                       <span className="font-mono">#{patient?.folderNumber || '—'}</span>
+                      <span className="opacity-40">·</span>
+                      <span className="font-mono">{att.attendanceNumber || '—'}</span>
                       {bedNumber && (
                         <>
                           <span className="opacity-40">·</span>
@@ -826,13 +721,13 @@ export default function Nursing() {
           </div>
 
           <div className="divide-y divide-[var(--border-color)]">
-            {filteredInpatients.map((att) => {
+            {paginatedInpatients.map((att) => {
               const id = getEntityId(att);
               const patient = findPatient(att);
               const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
               const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
               const name = patient ? getPatientName(patient) : 'Unknown Patient';
-              const bedNumber = att.Bed?.bedNumber || att.bed?.bedNumber;
+              const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
               const ward = wards.find((w: any) => w.id === att.wardId);
               const age = patient?.dateOfBirth
                 ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
@@ -861,6 +756,8 @@ export default function Nursing() {
                       <p className="text-sm font-bold text-[var(--text-primary)] truncate">{name}</p>
                       <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] mt-0.5">
                         <span className="font-mono">#{patient?.folderNumber || '—'}</span>
+                        <span className="opacity-40">·</span>
+                        <span className="font-mono">{att.attendanceNumber || '—'}</span>
                         <span className="opacity-40">·</span>
                         <span>{patient?.gender === 'male' ? '♂' : patient?.gender === 'female' ? '♀' : '·'}</span>
                         {age != null && <span>{age}y</span>}
@@ -940,6 +837,15 @@ export default function Nursing() {
         </div>
       )}
 
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredInpatients.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
+
       {/* Handover modal */}
       <ShiftHandoverModal
         isOpen={showHandoverModal}
@@ -948,13 +854,14 @@ export default function Nursing() {
         patients={filteredInpatients.map((a) => {
           const p = findPatient(a);
           const id = getEntityId(a);
+          const admission = admissions.find((x) => x.attendanceId === id && !x.dischargeDate);
           return {
             id: id,
             patientId: a.patientId,
             patient: p,
             patientName: p ? getPatientName(p) : 'Unknown',
-            bedNumber: a.Bed?.bedNumber || a.bed?.bedNumber,
-            admissionType: a.admissionType,
+            bedNumber: beds.find((b: any) => b.id === a.bedId)?.bedNumber,
+            admissionType: admission?.admissionType,
             encounterCategory: a.encounterCategory,
             tasks: tasks.filter((t) => t.attendanceId === id) as any,
           };

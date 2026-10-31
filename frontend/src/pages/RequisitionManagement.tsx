@@ -10,19 +10,14 @@ import { useWardStore } from '../store/wardStore';
 import { useToast } from '../store/toastStore';
 import {
   Plus,
-  Search,
   ClipboardList,
-  Edit,
   Trash2,
   RefreshCw,
-  ArrowLeft,
-  CheckCircle,
   XCircle,
   Clock,
   Eye,
   Filter,
   X,
-  ChevronLeft,
   ChevronRight,
   AlertCircle,
   Package,
@@ -34,6 +29,27 @@ import {
   Building2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Badge,
+  Button,
+  Card,
+  cn,
+  FilterSelect,
+  humanStatus,
+  INPUT,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  SELECT,
+  StatCard,
+  statusTone,
+  TABLE_SHELL,
+  TD,
+  TH,
+  TH_ROW,
+  TR,
+} from '../components/ui';
+import type { BadgeTone } from '../components/ui';
 
 interface RequisitionItem {
   id?: string;
@@ -209,7 +225,10 @@ export default function RequisitionManagement() {
   };
 
   // Filter requisitions
-  const filteredRequisitions = (requisitions || []).filter(requisition => {
+  // The stock store declares its own narrower `Requisition` (no supplier relation, no
+  // requester user), but the API returns both — the page's interface is the wider one,
+  // so the list is read through it. Purely a type-level cast; the data is untouched.
+  const filteredRequisitions = ((requisitions || []) as unknown as Requisition[]).filter(requisition => {
     const matchesSearch =
       requisition.requisitionNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       requisition.purpose?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -366,69 +385,15 @@ export default function RequisitionManagement() {
     return item?.name || 'Unknown Item';
   };
 
-  const getStatusConfig = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return {
-          bg: 'bg-[var(--icon-gray-bg)]',
-          text: 'text-[var(--icon-gray-text)]',
-          border: 'border-[var(--icon-gray-text)]',
-          label: 'Draft',
-          icon: Clock
-        };
-      case 'submitted':
-        return {
-          bg: 'bg-[var(--icon-blue-bg)]',
-          text: 'text-[var(--icon-blue-text)]',
-          border: 'border-[var(--icon-blue-text)]',
-          label: 'Submitted',
-          icon: Send
-        };
-      case 'approved':
-        return {
-          bg: 'bg-[var(--icon-green-bg)]',
-          text: 'text-[var(--icon-green-text)]',
-          border: 'border-[var(--icon-green-text)]',
-          label: 'Approved',
-          icon: CheckCheck
-        };
-      case 'fulfilled':
-        return {
-          bg: 'bg-[var(--icon-cyan-bg)]',
-          text: 'text-[var(--icon-cyan-text)]',
-          border: 'border-[var(--icon-cyan-text)]',
-          label: 'Fulfilled',
-          icon: Truck
-        };
-      case 'cancelled':
-        return {
-          bg: 'bg-[var(--icon-red-bg)]',
-          text: 'text-[var(--icon-red-text)]',
-          border: 'border-[var(--icon-red-text)]',
-          label: 'Cancelled',
-          icon: XCircle
-        };
-      default:
-        return {
-          bg: 'bg-[var(--bg-main)]',
-          text: 'text-[var(--text-secondary)]',
-          border: 'border-[var(--border-color)]',
-          label: status,
-          icon: Clock
-        };
-    }
-  };
-
-  const getUrgencyConfig = (urgency: string) => {
+  /**
+   * Urgency is not a workflow status, so `statusTone` has no mapping for it and the
+   * tones stay here. "Routine" reads as a neutral chip.
+   */
+  const getUrgencyTone = (urgency: string): BadgeTone => {
     switch (urgency) {
-      case 'routine':
-        return { bg: 'bg-[var(--icon-gray-bg)]', text: 'text-[var(--icon-gray-text)]', label: 'Routine' };
-      case 'urgent':
-        return { bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]', label: 'Urgent' };
-      case 'emergency':
-        return { bg: 'bg-[var(--icon-red-bg)]', text: 'text-[var(--icon-red-text)]', label: 'Emergency' };
-      default:
-        return { bg: 'bg-[var(--bg-main)]', text: 'text-[var(--text-secondary)]', label: urgency };
+      case 'urgent': return 'yellow';
+      case 'emergency': return 'red';
+      default: return 'neutral';
     }
   };
 
@@ -438,7 +403,6 @@ export default function RequisitionManagement() {
   const isSupplierSide = (r: Requisition) =>
     hasRole(['admin']) || (r.supplyingDepartmentId ? user?.departmentId === r.supplyingDepartmentId : isAdmin);
 
-  const canEdit = (requisition: Requisition) => requisition.status === 'draft' && requisition.requestedById === user?.id;
   const canSubmit = (requisition: Requisition) => requisition.status === 'draft' && isRequesterSide(requisition);
   const canApprove = (requisition: Requisition) => requisition.status === 'submitted' && isSupplierSide(requisition);
   const canFulfill = (requisition: Requisition) => requisition.status === 'approved' && isSupplierSide(requisition);
@@ -475,217 +439,151 @@ export default function RequisitionManagement() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Requisitions</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              Manage internal stock requests and approvals
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium ${showFilters || hasActiveFilters
-                ? 'bg-[var(--icon-cyan-text)] text-white'
-                : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white'
-              }`}
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {hasActiveFilters && (
-              <span className="ml-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            )}
-          </button>
-          <button
-            onClick={() => { resetForm(); setShowForm(true); }}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-          >
-            <Plus className="w-4 h-4" />
-            New Requisition
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Requisitions"
+        subtitle="Manage internal stock requests and approvals"
+        icon={ClipboardList}
+        accent="blue"
+        onBack={() => navigate(-1)}
+        actions={(
+          <>
+            <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>
+              Refresh
+            </Button>
+            <Button
+              variant={showFilters || hasActiveFilters ? 'soft' : 'outline'}
+              icon={Filter}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-1 w-2 h-2 bg-[var(--icon-red-text)] rounded-full" aria-hidden="true" />
+              )}
+            </Button>
+            <Button variant="soft" icon={Plus} onClick={() => { resetForm(); setShowForm(true); }}>
+              New Requisition
+            </Button>
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-gray-bg)] rounded-lg flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-[var(--icon-gray-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Total</p>
-              <p className="text-xl font-bold text-[var(--text-primary)]">{requisitions?.length || 0}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-blue-bg)] rounded-lg flex items-center justify-center">
-              <Send className="w-5 h-5 text-[var(--icon-blue-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Submitted</p>
-              <p className="text-xl font-bold text-[var(--icon-blue-text)]">
-                {requisitions?.filter(r => r.status === 'submitted').length || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-              <CheckCheck className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Approved</p>
-              <p className="text-xl font-bold text-[var(--icon-green-text)]">
-                {requisitions?.filter(r => r.status === 'approved').length || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <Truck className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Fulfilled</p>
-              <p className="text-xl font-bold text-[var(--icon-cyan-text)]">
-                {requisitions?.filter(r => r.status === 'fulfilled').length || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center">
-              <XCircle className="w-5 h-5 text-[var(--icon-red-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Cancelled</p>
-              <p className="text-xl font-bold text-[var(--icon-red-text)]">
-                {requisitions?.filter(r => r.status === 'cancelled').length || 0}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatCard label="Total" value={requisitions?.length || 0} icon={ClipboardList} />
+        <StatCard
+          label="Submitted"
+          value={requisitions?.filter(r => r.status === 'submitted').length || 0}
+          icon={Send}
+          accent="blue"
+        />
+        <StatCard
+          label="Approved"
+          value={requisitions?.filter(r => r.status === 'approved').length || 0}
+          icon={CheckCheck}
+          accent="green"
+        />
+        <StatCard
+          label="Fulfilled"
+          value={requisitions?.filter(r => r.status === 'fulfilled').length || 0}
+          icon={Truck}
+          accent="cyan"
+        />
+        <StatCard
+          label="Cancelled"
+          value={requisitions?.filter(r => r.status === 'cancelled').length || 0}
+          icon={XCircle}
+          accent="red"
+        />
       </div>
 
       {/* Filters Panel */}
       {showFilters && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-5 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between mb-4 pb-3 border-b border-[var(--border-color)]">
-            <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-              <Filter className="w-4 h-4" />
-              Filter Requisitions
-            </h3>
-            <button
+        <Card
+          title="Filter Requisitions"
+          icon={Filter}
+          actions={(
+            <Button
+              variant="ghost"
+              size="sm"
+              iconOnly
+              icon={X}
+              aria-label="Hide filters"
               onClick={() => setShowFilters(false)}
-              className="p-1 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-            >
-              <X className="w-4 h-4 text-[var(--text-secondary)]" />
-            </button>
-          </div>
-
+            />
+          )}
+        >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Status</label>
-              <select
+              <FilterSelect
+                aria-label="Filter by status"
+                className="w-full"
                 value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="all">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="submitted">Submitted</option>
-                <option value="approved">Approved</option>
-                <option value="fulfilled">Fulfilled</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
+                onChange={setStatusFilter}
+                options={[
+                  { value: 'all', label: 'All Statuses' },
+                  { value: 'draft', label: 'Draft' },
+                  { value: 'submitted', label: 'Submitted' },
+                  { value: 'approved', label: 'Approved' },
+                  { value: 'fulfilled', label: 'Fulfilled' },
+                  { value: 'cancelled', label: 'Cancelled' },
+                ]}
+              />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Urgency</label>
-              <select
+              <FilterSelect
+                aria-label="Filter by urgency"
+                className="w-full"
                 value={urgencyFilter}
-                onChange={e => setUrgencyFilter(e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="all">All Urgencies</option>
-                <option value="routine">Routine</option>
-                <option value="urgent">Urgent</option>
-                <option value="emergency">Emergency</option>
-              </select>
+                onChange={setUrgencyFilter}
+                options={[
+                  { value: 'all', label: 'All Urgencies' },
+                  { value: 'routine', label: 'Routine' },
+                  { value: 'urgent', label: 'Urgent' },
+                  { value: 'emergency', label: 'Emergency' },
+                ]}
+              />
             </div>
 
             <div className="flex items-end gap-2">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
-              >
+              <Button variant="secondary" onClick={clearFilters}>
                 Clear Filters
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Search and Items Per Page */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by requisition number, purpose, or department..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-          />
-        </div>
+      <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+        <SearchInput
+          className="flex-1"
+          placeholder="Search by requisition number, purpose, or department..."
+          value={searchTerm}
+          onChange={setSearchTerm}
+        />
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--text-secondary)]">Show:</span>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
+          <FilterSelect
+            aria-label="Requisitions per page"
+            value={String(itemsPerPage)}
+            onChange={(value) => {
+              setItemsPerPage(Number(value));
               setCurrentPage(1);
             }}
-            className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-          >
-            <option value={10}>10</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+            options={[
+              { value: '10', label: '10' },
+              { value: '25', label: '25' },
+              { value: '50', label: '50' },
+              { value: '100', label: '100' },
+            ]}
+          />
           <span className="text-sm text-[var(--text-secondary)]">per page</span>
         </div>
       </div>
-
-      {/* Results Count */}
-      {sortedRequisitions.length > 0 && (
-        <div className="text-sm text-[var(--text-secondary)]">
-          Showing {startIndex + 1} to {Math.min(endIndex, sortedRequisitions.length)} of {sortedRequisitions.length} requisitions
-        </div>
-      )}
 
       {/* Requisitions Table */}
       {isLoading ? (
@@ -704,7 +602,7 @@ export default function RequisitionManagement() {
           ))}
         </div>
       ) : sortedRequisitions.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-12 text-center border border-[var(--border-color)]">
+        <Card className="py-12 text-center">
           <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4">
             <ClipboardList className="w-8 h-8 text-[var(--text-tertiary)]" />
           </div>
@@ -715,308 +613,263 @@ export default function RequisitionManagement() {
               : 'Get started by creating your first requisition'}
           </p>
           {hasActiveFilters ? (
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <X className="w-4 h-4" />
+            <Button variant="soft" icon={X} onClick={clearFilters}>
               Clear All Filters
-            </button>
+            </Button>
           ) : (
-            <button
-              onClick={() => { resetForm(); setShowForm(true); }}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <Plus className="w-4 h-4" />
+            <Button variant="soft" icon={Plus} onClick={() => { resetForm(); setShowForm(true); }}>
               Create First Requisition
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : (
         <>
-<div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full">
-      <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-        <tr>
-          <th className="px-3 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Req #</th>
-          <th className="px-3 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Requested By</th>
-          <th className="px-3 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Requester → Supplier</th>
-          <th className="px-3 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Urgency</th>
-          <th className="px-3 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Status</th>
-          <th className="px-3 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Required By</th>
-          <th className="px-3 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Items</th>
-          <th className="px-3 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Created</th>
-          <th className="px-3 py-3 text-right text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Total</th>
-          <th className="px-3 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider whitespace-nowrap">Actions</th>
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-[var(--border-color)]">
-        {paginatedRequisitions.map(requisition => {
-          const statusConfig = getStatusConfig(requisition.status);
-          const urgencyConfig = getUrgencyConfig(requisition.urgency);
-          const StatusIcon = statusConfig.icon;
+          <div className={TABLE_SHELL}>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={TH_ROW}>
+                  <tr>
+                    <th className={TH}>Req #</th>
+                    <th className={TH}>Requested By</th>
+                    <th className={TH}>Requester → Supplier</th>
+                    <th className={cn(TH, 'text-center')}>Urgency</th>
+                    <th className={cn(TH, 'text-center')}>Status</th>
+                    <th className={TH}>Required By</th>
+                    <th className={cn(TH, 'text-center')}>Items</th>
+                    <th className={TH}>Created</th>
+                    <th className={cn(TH, 'text-right')}>Total</th>
+                    <th className={cn(TH, 'text-center')}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginatedRequisitions.map(requisition => {
+                    // Requester / supplier labels
+                    const requesterLabel =
+                      requisition.departments?.name ||
+                      requisition.ward?.wardName ||
+                      '—';
+                    const supplierLabel =
+                      requisition.supplyingDepartment?.name ||
+                      'Not set';
 
-          // Requester / supplier labels
-          const requesterLabel =
-            requisition.departments?.name ||
-            requisition.ward?.wardName ||
-            '—';
-          const supplierLabel =
-            requisition.supplyingDepartment?.name ||
-            'Not set';
+                    // Required-by status
+                    let requiredBy: Date | null = null;
+                    if (requisition.requiredDate) {
+                      const d = new Date(requisition.requiredDate);
+                      if (!isNaN(d.getTime())) requiredBy = d;
+                    }
+                    const overdue =
+                      !!requiredBy &&
+                      requiredBy < new Date() &&
+                      requisition.status !== 'fulfilled' &&
+                      requisition.status !== 'cancelled';
 
-          // Required-by status
-          let requiredBy: Date | null = null;
-          if (requisition.requiredDate) {
-            const d = new Date(requisition.requiredDate);
-            if (!isNaN(d.getTime())) requiredBy = d;
-          }
-          const overdue =
-            !!requiredBy &&
-            requiredBy < new Date() &&
-            requisition.status !== 'fulfilled' &&
-            requisition.status !== 'cancelled';
+                    // Item count + best-effort total
+                    const itemCount = requisition.RequisitionItem?.length || 0;
+                    const totalValue = (requisition.RequisitionItem || []).reduce((sum, it: any) => {
+                      const qty = Number(it.quantityApproved ?? it.quantityRequested ?? 0);
+                      const unit = Number(it.unitCost ?? it.StockItem?.costPrice ?? 0);
+                      return sum + (Number.isFinite(qty) && Number.isFinite(unit) ? qty * unit : 0);
+                    }, 0);
+                    const hasTotal = (requisition.RequisitionItem || []).some(
+                      (it: any) => it.unitCost != null || it.StockItem?.costPrice != null
+                    );
 
-          // Item count + best-effort total
-          const itemCount = requisition.RequisitionItem?.length || 0;
-          const totalValue = (requisition.RequisitionItem || []).reduce((sum, it: any) => {
-            const qty = Number(it.quantityApproved ?? it.quantityRequested ?? 0);
-            const unit = Number(it.unitCost ?? it.StockItem?.costPrice ?? 0);
-            return sum + (Number.isFinite(qty) && Number.isFinite(unit) ? qty * unit : 0);
-          }, 0);
-          const hasTotal = (requisition.RequisitionItem || []).some(
-            (it: any) => it.unitCost != null || it.StockItem?.costPrice != null
-          );
+                    return (
+                      <tr key={requisition.id} className={TR}>
 
-          return (
-            <tr key={requisition.id} className="hover:bg-[var(--bg-main)] transition-colors">
+                        {/* Req # + purpose subtitle */}
+                        <td className={cn(TD, 'align-top')}>
+                          <div className="font-mono font-semibold whitespace-nowrap">
+                            {requisition.requisitionNumber}
+                          </div>
+                          {requisition.purpose && (
+                            <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5 max-w-[200px] truncate" title={requisition.purpose}>
+                              {requisition.purpose}
+                            </div>
+                          )}
+                        </td>
 
-              {/* Req # + purpose subtitle */}
-              <td className="px-3 py-3 align-top">
-                <div className="text-sm font-mono font-semibold text-[var(--text-primary)] whitespace-nowrap">
-                  {requisition.requisitionNumber}
-                </div>
-                {requisition.purpose && (
-                  <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5 max-w-[200px] truncate" title={requisition.purpose}>
-                    {requisition.purpose}
-                  </div>
-                )}
-              </td>
+                        {/* Requested by + requester department/ward */}
+                        <td className={cn(TD, 'align-top')}>
+                          <div className="flex items-center gap-2">
+                            <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" />
+                            <span className="font-medium truncate max-w-[160px]">
+                              {requisition.User_Requisition_requestedByIdToUser?.fullName || 'Unknown'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5 truncate max-w-[180px]">
+                            {requesterLabel}
+                          </div>
+                        </td>
 
-              {/* Requested by + requester department/ward */}
-              <td className="px-3 py-3 align-top">
-                <div className="flex items-center gap-2">
-                  <User className="w-3.5 h-3.5 text-[var(--text-tertiary)] shrink-0" />
-                  <span className="text-sm font-medium text-[var(--text-primary)] truncate max-w-[160px]">
-                    {requisition.User_Requisition_requestedByIdToUser?.fullName || 'Unknown'}
-                  </span>
-                </div>
-                <div className="text-[11px] text-[var(--text-tertiary)] mt-0.5 truncate max-w-[180px]">
-                  {requesterLabel}
-                </div>
-              </td>
+                        {/* Requester → Supplier chips */}
+                        <td className={cn(TD, 'align-top')}>
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--bg-main)] border border-[var(--border-color)] text-[11px] text-[var(--text-primary)] max-w-[130px]">
+                              <Building2 className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
+                              <span className="truncate">{requesterLabel}</span>
+                            </span>
+                            <ChevronRight className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-[11px] font-semibold max-w-[140px]">
+                              <Package className="w-3 h-3 shrink-0" />
+                              <span className="truncate">{supplierLabel}</span>
+                            </span>
+                          </div>
+                        </td>
 
-              {/* Requester → Supplier chips */}
-              <td className="px-3 py-3 align-top">
-                <div className="flex items-center gap-1.5 whitespace-nowrap">
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--bg-main)] border border-[var(--border-color)] text-[11px] text-[var(--text-primary)] max-w-[130px]">
-                    <Building2 className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
-                    <span className="truncate">{requesterLabel}</span>
-                  </span>
-                  <ChevronRight className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
-                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] text-[11px] font-semibold max-w-[140px]">
-                    <Package className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{supplierLabel}</span>
-                  </span>
-                </div>
-              </td>
+                        {/* Urgency */}
+                        <td className={cn(TD, 'align-top text-center')}>
+                          <Badge tone={getUrgencyTone(requisition.urgency)} size="sm">{humanStatus(requisition.urgency)}</Badge>
+                        </td>
 
-              {/* Urgency */}
-              <td className="px-3 py-3 text-center align-top">
-                <span className={`inline-flex px-2.5 py-1 text-xs font-bold rounded-full capitalize ${urgencyConfig.bg} ${urgencyConfig.text}`}>
-                  {urgencyConfig.label}
-                </span>
-              </td>
+                        {/* Status */}
+                        <td className={cn(TD, 'align-top text-center')}>
+                          <Badge tone={statusTone(requisition.status)} dot size="sm">{humanStatus(requisition.status)}</Badge>
+                        </td>
 
-              {/* Status */}
-              <td className="px-3 py-3 text-center align-top">
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-full ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}>
-                  <StatusIcon className="w-3 h-3" />
-                  {statusConfig.label}
-                </span>
-              </td>
+                        {/* Required by */}
+                        <td className={cn(TD, 'align-top')}>
+                          {requiredBy ? (
+                            <div className="flex items-center gap-1.5 whitespace-nowrap">
+                              <Calendar className={cn('w-3 h-3 shrink-0', overdue ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]')} />
+                              <span className={cn(overdue ? 'text-[var(--icon-red-text)] font-semibold' : 'text-[var(--text-secondary)]')}>
+                                {requiredBy.toLocaleDateString()}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-[var(--text-tertiary)]">—</span>
+                          )}
+                        </td>
 
-              {/* Required by */}
-              <td className="px-3 py-3 align-top">
-                {requiredBy ? (
-                  <div className="flex items-center gap-1.5 whitespace-nowrap">
-                    <Calendar className={`w-3 h-3 shrink-0 ${overdue ? 'text-[var(--icon-red-text)]' : 'text-[var(--text-tertiary)]'}`} />
-                    <span className={`text-sm ${overdue ? 'text-[var(--icon-red-text)] font-semibold' : 'text-[var(--text-secondary)]'}`}>
-                      {requiredBy.toLocaleDateString()}
-                    </span>
-                  </div>
-                ) : (
-                  <span className="text-xs text-[var(--text-tertiary)]">—</span>
-                )}
-              </td>
+                        {/* Items */}
+                        <td className={cn(TD, 'align-top text-center')}>
+                          <span className="font-medium">
+                            {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                          </span>
+                        </td>
 
-              {/* Items */}
-              <td className="px-3 py-3 text-center align-top">
-                <span className="text-sm font-medium text-[var(--text-primary)] whitespace-nowrap">
-                  {itemCount} {itemCount === 1 ? 'item' : 'items'}
-                </span>
-              </td>
+                        {/* Created */}
+                        <td className={cn(TD, 'align-top')}>
+                          <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <Clock className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
+                            <span className="text-[var(--text-secondary)]">
+                              {new Date(requisition.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </td>
 
-              {/* Created */}
-              <td className="px-3 py-3 align-top">
-                <div className="flex items-center gap-1.5 whitespace-nowrap">
-                  <Clock className="w-3 h-3 text-[var(--text-tertiary)] shrink-0" />
-                  <span className="text-sm text-[var(--text-secondary)]">
-                    {new Date(requisition.createdAt).toLocaleDateString()}
-                  </span>
-                </div>
-              </td>
+                        {/* Total (best effort — shows "—" if no per-item cost is available) */}
+                        <td className={cn(TD, 'align-top text-right')}>
+                          {hasTotal && totalValue > 0 ? (
+                            <span className="font-semibold">
+                              GHS {totalValue.toFixed(2)}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[var(--text-tertiary)]">—</span>
+                          )}
+                        </td>
 
-              {/* Total (best effort — shows "—" if no per-item cost is available) */}
-              <td className="px-3 py-3 text-right align-top">
-                {hasTotal && totalValue > 0 ? (
-                  <span className="text-sm font-semibold text-[var(--text-primary)] whitespace-nowrap">
-                    GHS {totalValue.toFixed(2)}
-                  </span>
-                ) : (
-                  <span className="text-xs text-[var(--text-tertiary)]">—</span>
-                )}
-              </td>
+                        {/* Actions */}
+                        <td className={cn(TD, 'align-top')}>
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* View Details */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              iconOnly
+                              icon={Eye}
+                              className="text-[var(--icon-cyan-text)]"
+                              title="View Details"
+                              aria-label={`View details for ${requisition.requisitionNumber}`}
+                              onClick={() => { openDetails(requisition); }}
+                            />
 
-              {/* Actions */}
-              <td className="px-3 py-3 align-top">
-                <div className="flex items-center justify-center gap-1.5">
-                  {/* View Details */}
-                  <button
-                    onClick={() => { openDetails(requisition); }}
-                    className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-colors"
-                    title="View Details"
-                  >
-                    <Eye className="w-3.5 h-3.5" />
-                  </button>
+                            {/* Submit (Draft only) */}
+                            {canSubmit(requisition) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                icon={Send}
+                                className="text-[var(--icon-blue-text)]"
+                                title="Submit for Approval"
+                                aria-label={`Submit ${requisition.requisitionNumber} for approval`}
+                                onClick={() => handleStatusUpdate(requisition.id, 'submitted')}
+                              />
+                            )}
 
-                  {/* Submit (Draft only) */}
-                  {canSubmit(requisition) && (
-                    <button
-                      onClick={() => handleStatusUpdate(requisition.id, 'submitted')}
-                      className="p-1.5 text-[var(--icon-blue-text)] border border-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-bg)] transition-colors"
-                      title="Submit for Approval"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                            {/* Approve (Submitted only) */}
+                            {canApprove(requisition) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                icon={CheckCheck}
+                                className="text-[var(--icon-green-text)]"
+                                title="Approve"
+                                aria-label={`Approve ${requisition.requisitionNumber}`}
+                                onClick={() => handleStatusUpdate(requisition.id, 'approved')}
+                              />
+                            )}
 
-                  {/* Approve (Submitted only) */}
-                  {canApprove(requisition) && (
-                    <button
-                      onClick={() => handleStatusUpdate(requisition.id, 'approved')}
-                      className="p-1.5 text-[var(--icon-green-text)] border border-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-bg)] transition-colors"
-                      title="Approve"
-                    >
-                      <CheckCheck className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                            {/* Fulfill (Approved only) */}
+                            {canFulfill(requisition) && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                icon={Truck}
+                                className="text-[var(--icon-cyan-text)]"
+                                title="Fulfill"
+                                aria-label={`Fulfill ${requisition.requisitionNumber}`}
+                                onClick={() => handleStatusUpdate(requisition.id, 'fulfilled')}
+                              />
+                            )}
 
-                  {/* Fulfill (Approved only) */}
-                  {canFulfill(requisition) && (
-                    <button
-                      onClick={() => handleStatusUpdate(requisition.id, 'fulfilled')}
-                      className="p-1.5 text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-colors"
-                      title="Fulfill"
-                    >
-                      <Truck className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                            {/* Cancel */}
+                            {(canSubmit(requisition) || canApprove(requisition)) && (
+                              <Button
+                                size="sm"
+                                variant="dangerSoft"
+                                iconOnly
+                                icon={XCircle}
+                                title="Cancel"
+                                aria-label={`Cancel ${requisition.requisitionNumber}`}
+                                onClick={() => handleStatusUpdate(requisition.id, 'cancelled')}
+                              />
+                            )}
 
-                  {/* Cancel */}
-                  {(canSubmit(requisition) || canApprove(requisition)) && (
-                    <button
-                      onClick={() => handleStatusUpdate(requisition.id, 'cancelled')}
-                      className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-colors"
-                      title="Cancel"
-                    >
-                      <XCircle className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-
-                  {/* Delete */}
-                  {canDelete(requisition) && (
-                    <button
-                      onClick={() => handleDelete(requisition.id)}
-                      className="p-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition-colors"
-                      title="Delete"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
-    </table>
-  </div>
-</div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="text-sm text-[var(--text-secondary)]">
-                Page {currentPage} of {totalPages}
-              </div>
-
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${currentPage === pageNum
-                          ? 'bg-[var(--icon-cyan-text)] text-white'
-                          : 'border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                        }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+                            {/* Delete */}
+                            {canDelete(requisition) && (
+                              <Button
+                                size="sm"
+                                variant="dangerSoft"
+                                iconOnly
+                                icon={Trash2}
+                                title="Delete"
+                                aria-label={`Delete ${requisition.requisitionNumber}`}
+                                onClick={() => handleDelete(requisition.id)}
+                              />
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
+
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={sortedRequisitions.length}
+            noun="requisitions"
+            onChange={handlePageChange}
+          />
         </>
       )}
 
@@ -1037,12 +890,14 @@ export default function RequisitionManagement() {
                   Fill the four steps below to raise a stock request
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                icon={X}
+                aria-label="Close form"
                 onClick={() => setShowForm(false)}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              />
             </div>
 
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
@@ -1069,13 +924,13 @@ export default function RequisitionManagement() {
                   </span>
                 </div>
                 {formData.urgency !== 'routine' && (
-                  <span className={`ml-auto inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold ${formData.urgency === 'emergency'
-                      ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]'
-                      : 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]'
-                    }`}>
+                  <Badge
+                    className="ml-auto"
+                    tone={formData.urgency === 'emergency' ? 'red' : 'yellow'}
+                  >
                     <AlertCircle className="w-3 h-3" />
                     {formData.urgency === 'emergency' ? 'EMERGENCY' : 'URGENT'}
-                  </span>
+                  </Badge>
                 )}
               </div>
 
@@ -1124,7 +979,7 @@ export default function RequisitionManagement() {
                           required
                           value={formData.requestingDepartmentId}
                           onChange={e => setFormData({ ...formData, requestingDepartmentId: e.target.value })}
-                          className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                          className={cn(SELECT, 'w-full')}
                         >
                           <option value="">Select department…</option>
                           {departments.map(dept => (
@@ -1137,7 +992,7 @@ export default function RequisitionManagement() {
                         required
                         value={formData.requestingWardId}
                         onChange={e => setFormData({ ...formData, requestingWardId: e.target.value })}
-                        className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                        className={cn(SELECT, 'w-full')}
                       >
                         <option value="">Select ward…</option>
                         {wards.map(ward => (
@@ -1161,7 +1016,7 @@ export default function RequisitionManagement() {
                       required
                       value={formData.supplyingDepartmentId}
                       onChange={e => changeSupplier(e.target.value)}
-                      className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                      className={cn(SELECT, 'w-full')}
                     >
                       <option value="">Select supplying department / store…</option>
                       {supplierOptions.map(dept => (
@@ -1188,15 +1043,15 @@ export default function RequisitionManagement() {
                         </span>
                       )}
                     </div>
-                    <button
-                      type="button"
-                      onClick={addRequisitionItem}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      icon={Plus}
                       disabled={!formData.supplyingDepartmentId}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-[var(--icon-cyan-text)] border border-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                      onClick={addRequisitionItem}
                     >
-                      <Plus className="w-3 h-3" />
                       Add item
-                    </button>
+                    </Button>
                   </div>
 
                   <div className="pl-8 space-y-3">
@@ -1231,14 +1086,16 @@ export default function RequisitionManagement() {
                                 </span>
                               )}
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => removeRequisitionItem(index)}
-                              className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-colors shrink-0"
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              iconOnly
+                              icon={Trash2}
+                              className="text-[var(--text-tertiary)] hover:bg-[var(--icon-red-bg)] hover:text-[var(--icon-red-text)]"
                               title="Remove item"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                              aria-label={`Remove item ${displayIndex || index + 1}`}
+                              onClick={() => removeRequisitionItem(index)}
+                            />
                           </div>
 
                           {/* Item body */}
@@ -1267,7 +1124,7 @@ export default function RequisitionManagement() {
                                     </div>
                                     {meta.context === 'menu' && (
                                       <div className="text-right text-[11px] shrink-0">
-                                        <div className={o.supplierQty > 0 ? 'text-green-600 font-semibold' : 'text-red-500 font-semibold'}>
+                                        <div className={cn('font-semibold', o.supplierQty > 0 ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]')}>
                                           {supplierName}: {o.supplierQty}
                                         </div>
                                         <div className="opacity-70">You: {o.requesterQty}</div>
@@ -1305,8 +1162,7 @@ export default function RequisitionManagement() {
                                     required
                                     value={item.quantityRequested}
                                     onChange={e => updateRequisitionItem(index, { quantityRequested: parseInt(e.target.value) || 0 })}
-                                    className={`flex-1 px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm ${over ? 'border-[var(--icon-red-text)]' : 'border-[var(--border-color)]'
-                                      }`}
+                                    className={cn(INPUT, 'flex-1', over && 'border-[var(--icon-red-text)]')}
                                   />
                                   <span className="text-xs text-[var(--text-secondary)] whitespace-nowrap min-w-[40px]">
                                     {picked?.unitOfMeasure || '—'}
@@ -1323,7 +1179,7 @@ export default function RequisitionManagement() {
                                   placeholder="e.g. For Ward 3 deliveries this week"
                                   value={item.purpose}
                                   onChange={e => updateRequisitionItem(index, { purpose: e.target.value })}
-                                  className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
+                                  className={cn(INPUT, 'w-full')}
                                 />
                               </div>
                             </div>
@@ -1408,7 +1264,7 @@ export default function RequisitionManagement() {
                           placeholder="e.g. Replenishment for delivery ward"
                           value={formData.purpose}
                           onChange={e => setFormData({ ...formData, purpose: e.target.value })}
-                          className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                          className={cn(INPUT, 'w-full')}
                         />
                       </div>
                       <div>
@@ -1416,7 +1272,7 @@ export default function RequisitionManagement() {
                         <select
                           value={formData.urgency}
                           onChange={e => setFormData({ ...formData, urgency: e.target.value as any })}
-                          className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                          className={cn(SELECT, 'w-full')}
                         >
                           <option value="routine">Routine</option>
                           <option value="urgent">Urgent</option>
@@ -1433,7 +1289,7 @@ export default function RequisitionManagement() {
                         type="date"
                         value={formData.requiredDate}
                         onChange={e => setFormData({ ...formData, requiredDate: e.target.value })}
-                        className="w-full md:w-64 px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                        className={cn(INPUT, 'w-full md:w-64')}
                       />
                     </div>
 
@@ -1446,7 +1302,7 @@ export default function RequisitionManagement() {
                         placeholder="Any additional information or special instructions…"
                         value={formData.notes}
                         onChange={e => setFormData({ ...formData, notes: e.target.value })}
-                        className="w-full px-3 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm resize-none"
+                        className={cn(INPUT, 'w-full resize-none')}
                       />
                     </div>
                   </div>
@@ -1461,20 +1317,20 @@ export default function RequisitionManagement() {
                   {formData.purpose ? 'Purpose set' : 'Purpose required'}
                 </div>
                 <div className="flex gap-3 ml-auto">
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
                     onClick={() => { setShowForm(false); resetForm(); }}
-                    className="px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
                   >
                     Cancel
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="submit"
+                    variant="soft"
                     disabled={pickedItemCount === 0}
-                    className="px-5 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all text-sm font-semibold"
                   >
                     Create Requisition
-                  </button>
+                  </Button>
                 </div>
               </div>
             </form>
@@ -1493,12 +1349,14 @@ export default function RequisitionManagement() {
                 <h2 className="text-lg font-bold text-[var(--text-primary)]">Requisition Details</h2>
                 <p className="text-xs text-[var(--text-secondary)] font-mono">{selectedRequisition.requisitionNumber}</p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                icon={X}
+                aria-label="Close details"
                 onClick={() => setShowDetailModal(false)}
-                className="p-1.5 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              />
             </div>
 
             <div className="p-6 space-y-5">

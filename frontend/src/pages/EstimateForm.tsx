@@ -2,13 +2,14 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Plus, Save, Trash2, FileText, Search, X,
+  Plus, Save, Trash2, FileText, Search, X,
   User as UserIcon, Building2, ChevronDown, Check,
 } from 'lucide-react';
 import { getCorporateAccounts, getPatient, getPatients, getServiceCatalog } from '../api';
 import { useEstimatesStore } from '../store/estimatesStore';
 import { MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { useToast } from '../store/toastStore';
+import { Button, Card, cn, INPUT, PageHeader, SELECT } from '../components/ui';
 
 // ─────────────────────────────────────────────
 // Types & helpers
@@ -560,50 +561,40 @@ export default function EstimateForm() {
 
   if (isLoading) {
     return (
-      <div className="p-10 text-center text-sm text-[var(--text-secondary)]">
-        Loading estimate form…
+      <div className="p-6 text-[var(--text-primary)]">
+        <PageHeader
+          title={editing ? 'Edit Estimate' : 'New Estimate'}
+          subtitle="Create a draft proforma invoice from priced services."
+          icon={FileText}
+          accent="cyan"
+          backTo="/dashboard/estimates"
+        />
+        <div className="p-10 text-center text-sm text-[var(--text-secondary)]">
+          Loading estimate form…
+        </div>
       </div>
     );
   }
 
-  const inputClass =
-    'mt-1 w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all';
-
   return (
     <form onSubmit={save} className="space-y-6 p-6">
       {/* ── Header ── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => navigate('/dashboard/estimates')}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-            <FileText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">
-              {editing ? 'Edit Estimate' : 'New Estimate'}
-            </h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Create a draft proforma invoice from priced services.
-            </p>
-          </div>
-        </div>
-        <button
-          disabled={isSaving}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50"
-        >
-          <Save className="w-4 h-4" />
-          {isSaving ? 'Saving…' : 'Save Draft'}
-        </button>
-      </div>
+      <PageHeader
+        title={editing ? 'Edit Estimate' : 'New Estimate'}
+        subtitle="Create a draft proforma invoice from priced services."
+        icon={FileText}
+        accent="cyan"
+        backTo="/dashboard/estimates"
+        actions={(
+          <Button type="submit" variant="soft" accent="cyan" icon={Save} disabled={isSaving}>
+            {isSaving ? 'Saving…' : 'Save Draft'}
+          </Button>
+        )}
+      />
 
       {/* ── Header card: patient, corporate, validity, discount ── */}
-      <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 grid gap-4 md:grid-cols-2">
+      <Card>
+        <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
             <UserIcon className="w-3.5 h-3.5 inline mr-1" /> Patient (optional)
@@ -650,7 +641,7 @@ export default function EstimateForm() {
             min="1"
             value={validityDays}
             onChange={(e) => setValidityDays(Number(e.target.value))}
-            className={inputClass}
+            className={cn(INPUT, 'w-full')}
           />
         </div>
 
@@ -664,24 +655,22 @@ export default function EstimateForm() {
             step="0.01"
             value={discount}
             onChange={(e) => setDiscount(Number(e.target.value))}
-            className={inputClass}
+            className={cn(INPUT, 'w-full')}
           />
         </div>
-      </section>
+        </div>
+      </Card>
 
       {/* ── Line items ── */}
-      <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-[var(--text-primary)]">Line Items</h2>
-          <button
-            type="button"
-            onClick={() => setItems([...items, emptyItem()])}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
-          >
-            <Plus className="w-3.5 h-3.5" /> Add Item
-          </button>
-        </div>
-
+      <Card
+        title="Line Items"
+        actions={(
+          <Button size="sm" variant="soft" accent="cyan" icon={Plus} onClick={() => setItems([...items, emptyItem()])}>
+            Add Item
+          </Button>
+        )}
+      >
+        <div className="space-y-4">
         {items.map((item, index) => (
           <div
             key={item.id || index}
@@ -702,7 +691,7 @@ export default function EstimateForm() {
               <input
                 value={item.description}
                 onChange={(e) => updateItem(index, { description: e.target.value })}
-                className="mt-1 w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                className={cn(INPUT, 'w-full mt-1')}
                 placeholder="Description"
                 required
               />
@@ -715,7 +704,7 @@ export default function EstimateForm() {
               <select
                 value={item.pricingBasis}
                 onChange={(e) => setPricingBasis(index, e.target.value)}
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                className={cn(SELECT, 'w-full')}
               >
                 <option value="cash">Cash</option>
                 <option value="nhis">NHIS</option>
@@ -733,7 +722,7 @@ export default function EstimateForm() {
                 min="1"
                 value={item.quantity}
                 onChange={(e) => updateItem(index, { quantity: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                className={cn(INPUT, 'w-full')}
               />
             </div>
 
@@ -747,7 +736,7 @@ export default function EstimateForm() {
                 step="0.01"
                 value={item.unitPrice}
                 onChange={(e) => updateItem(index, { unitPrice: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                className={cn(INPUT, 'w-full')}
               />
             </div>
 
@@ -761,19 +750,19 @@ export default function EstimateForm() {
                 step="0.01"
                 value={item.vatRate}
                 onChange={(e) => updateItem(index, { vatRate: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                className={cn(INPUT, 'w-full')}
               />
             </div>
 
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              iconOnly
+              icon={Trash2}
+              aria-label="Remove item"
+              className="mt-6 text-[var(--icon-red-text)]"
               disabled={items.length === 1}
               onClick={() => setItems(items.filter((_, i) => i !== index))}
-              className="mt-6 p-2 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-              title="Remove item"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            />
           </div>
         ))}
 
@@ -800,10 +789,12 @@ export default function EstimateForm() {
             </div>
           </div>
         </div>
-      </section>
+        </div>
+      </Card>
 
       {/* ── Notes and terms ── */}
-      <section className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-5 grid gap-4 md:grid-cols-2">
+      <Card>
+        <div className="grid gap-4 md:grid-cols-2">
         <div>
           <label className="block text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider mb-1">
             Notes
@@ -811,7 +802,7 @@ export default function EstimateForm() {
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all resize-none min-h-24"
+            className={cn(INPUT, 'w-full resize-none min-h-24')}
           />
         </div>
         <div>
@@ -821,10 +812,11 @@ export default function EstimateForm() {
           <textarea
             value={termsAndConditions}
             onChange={(e) => setTermsAndConditions(e.target.value)}
-            className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all resize-none min-h-24"
+            className={cn(INPUT, 'w-full resize-none min-h-24')}
           />
         </div>
-      </section>
+        </div>
+      </Card>
     </form>
   );
 }

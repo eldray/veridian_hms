@@ -609,17 +609,26 @@ ${claimsXml}
       if (!gdrgLink) throw new ValidationError(`No G-DRG tariff is mapped to the primary diagnosis "${pd.Diagnosis?.name ?? pd.diagnosisId}". Map it in G-DRG settings or choose a mapped diagnosis.`);
 
       const age = this.calculateAgeInYears(att.Patient.dateOfBirth, att.dateTime);
-      const split = age >= 12 ? 'A' : 'C';
-      const base = gdrgLink.gdrgTariff.gdrgCode.slice(0, -1);
-      const finalCode = base + split;
-      const tariff = await tx.gDRGTariff.findFirst({
+      // G-DRG codes end in the age band (AAAANNA) and not every family publishes a child
+      // code, so resolve the band against the rows that exist instead of synthesising
+      // "MEDI31C" for a family that only provides MEDI31A.
+      const linkedTariff = gdrgLink.gdrgTariff;
+      const base = linkedTariff.gdrgCode.slice(0, -1);
+      const family = await tx.gDRGTariff.findMany({
         where: {
-          gdrgCode: finalCode,
+          gdrgCode: { in: [`${base}A`, `${base}C`] },
           isActive: true,
           effectiveFrom: { lte: servicePolicyDate },
           OR: [{ effectiveTo: null }, { effectiveTo: { gt: servicePolicyDate } }],
         },
       });
+      const tariff =
+        family.find((row) =>
+          (row.minAgeYears === null || age >= row.minAgeYears) &&
+          (row.maxAgeYears === null || age <= row.maxAgeYears)) ??
+        family.find((row) => row.id === linkedTariff.id) ??
+        (family.length === 1 ? family[0] : null);
+      const finalCode = tariff?.gdrgCode ?? linkedTariff.gdrgCode;
       if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
         throw new ValidationError(`NHIS claim G-DRG "${finalCode}" has no valid active tariff for the service date ${servicePolicyDate.toISOString().slice(0, 10)}.`);
       }

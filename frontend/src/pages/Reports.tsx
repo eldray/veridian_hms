@@ -4,10 +4,10 @@ import { useReportsStore } from '../store/reportsStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  BarChart3, Users, DollarSign, FileText, Calendar,
-  Download, Activity, Clock, Baby, Heart,
+  Users, DollarSign, FileText, Calendar,
+  Download, Activity, Clock, Baby, Heart, TrendingUp,
   PieChart, UserCheck, Shield, AlertTriangle, Droplet, RefreshCw,
-  ArrowLeft, Hospital, ListOrdered,
+  Hospital, ListOrdered,ArrowLeft ,BarChart3,
   FileSpreadsheet, ClipboardList,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,21 @@ import FormAReportView from '../components/reports/ANCReportView';
 import GenericReportPage from '../components/reports/GenericReportPage';
 import { SHELL_REPORT_BY_KEY, shellReportsForGroup } from '../config/reportRegistry';
 import { REPORT_EXPORT_ROLES, type ReportShape } from '../components/reports/reportShell';
+import {
+  Badge,
+  Button,
+  Card,
+  FilterSelect,
+  INPUT,
+  PageHeader,
+  StatCard,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+  cn,
+} from '../components/ui';
 
 const AGE_GROUPS = [
   '<28d', '1-11m', '1-4', '5-9', '10-14', '15-17',
@@ -45,48 +60,9 @@ const GHS_REPORT_ROLES = ['admin', 'doctor', 'nurse', 'midwife', 'records', 'acc
 type ReportsTab = ReportShape['group'];
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
-
-const StatCard = ({ label, value, icon: Icon, color, subtext }: any) => (
-  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-    <div className="flex items-center gap-2.5 mb-3">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-[var(--icon-${color}-bg)]`}>
-        <Icon className={`w-4 h-4 text-[var(--icon-${color}-text)]`} />
-      </div>
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{label}</span>
-    </div>
-    <p className="text-2xl font-bold text-[var(--text-primary)] leading-none">
-      {typeof value === 'number' ? value.toLocaleString() : value}
-    </p>
-    {subtext && <p className="text-[11px] text-[var(--text-tertiary)] mt-1.5">{subtext}</p>}
-  </div>
-);
-
-const SectionCard = ({ title, icon: Icon, subtitle, action, children }: any) => (
-  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-    <div className="flex items-center justify-between px-5 py-3.5 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-      <div className="flex items-center gap-2">
-        <Icon className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-        <span className="text-xs font-semibold text-[var(--text-primary)]">{title}</span>
-        {subtitle && <span className="text-[11px] text-[var(--text-tertiary)]">· {subtitle}</span>}
-      </div>
-      {action}
-    </div>
-    <div className="overflow-x-auto">{children}</div>
-  </div>
-);
-
-const TH = ({ children, center }: { children: React.ReactNode; center?: boolean }) => (
-  <th className={`px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] whitespace-nowrap ${center ? 'text-center' : 'text-left'}`}>
-    {children}
-  </th>
-);
-
-// FIXED: removed invalid 'center' prop passing to <td> — handled via className instead
-const TD = ({ children, className = '', center }: { children: React.ReactNode; className?: string; center?: boolean }) => (
-  <td className={`px-3 py-2.5 text-xs text-[var(--text-secondary)] ${center ? 'text-center' : ''} ${className}`}>
-    {children}
-  </td>
-);
+// The tiles, section shells and table cells all come from components/ui now, so a figure, a
+// section heading and a column read the same on this screen as on every other one. The statutory
+// disease grids below keep their own dense, print-sized markup on purpose.
 
 const EmptyState = ({ message }: { message: string }) => (
   <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -251,39 +227,43 @@ export default function Reports() {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <StatCard label="Total Patients" value={report.summary?.totalPatients || 0} icon={Users}     color="cyan"  />
-          <StatCard label="New Patients"   value={report.summary?.newPatients    || 0} icon={UserCheck} color="green" />
-          <StatCard label="NHIS Patients"  value={report.summary?.nhisPatients   || 0} icon={Shield}   color="cyan"  />
-          <StatCard label="Pregnant Women" value={report.summary?.pregnantWomen  || 0} icon={Baby}     color="cyan"  />
+          <StatCard label="Total Patients" value={(report.summary?.totalPatients || 0).toLocaleString()} icon={Users}     accent="cyan"  />
+          <StatCard label="New Patients"   value={(report.summary?.newPatients    || 0).toLocaleString()} icon={UserCheck} accent="green" />
+          <StatCard label="NHIS Patients"  value={(report.summary?.nhisPatients   || 0).toLocaleString()} icon={Shield}    accent="cyan"  />
+          <StatCard label="Pregnant Women" value={(report.summary?.pregnantWomen  || 0).toLocaleString()} icon={Baby}      accent="cyan"  />
         </div>
-        <SectionCard title="Daily Patient Log" icon={ClipboardList} subtitle={`${dateRange.start} → ${dateRange.end}`}>
-          <div className="max-h-[560px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)] z-10">
-                <tr>
-                  {['Date','Patient No','NHIS No','Name','Age','Sex','Provisional Dx','Lab Tests','Drugs','NHIS'].map(h => <TH key={h}>{h}</TH>)}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {entries.slice(0, 100).map((e: any, i: number) => (
-                  <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <TD>{e.date}</TD>
-                    <TD className="font-mono text-[var(--text-primary)]">{e.patientNo}</TD>
-                    <TD className="font-mono">{e.nhisNo || '—'}</TD>
-                    <TD className="text-[var(--text-primary)]">{e.patientName}</TD>
-                    <TD>{e.age}</TD>
-                    <TD>{e.sex === 'male' ? 'M' : 'F'}</TD>
-                    <TD className="max-w-[180px] truncate">{e.provisionalDiagnosis || '—'}</TD>
-                    <TD className="max-w-[130px] truncate">{e.labTestsRequested || '—'}</TD>
-                    <TD className="max-w-[180px] truncate">{e.drugsPrescribed || '—'}</TD>
-                    <TD center>{e.isNHIS ? <span className="text-[var(--icon-green-text)] font-bold">Y</span> : <span className="text-[var(--text-tertiary)]">N</span>}</TD>
+        <Card title="Daily Patient Log" description={`${dateRange.start} → ${dateRange.end}`} icon={ClipboardList} padded={false}>
+          <div className="overflow-x-auto">
+            <div className="max-h-[560px] overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+              <table className="w-full text-xs">
+                <thead className={cn(TH_ROW, 'sticky top-0 z-10')}>
+                  <tr>
+                    {['Date','Patient No','NHIS No','Name','Age','Sex','Provisional Dx','Lab Tests','Drugs','NHIS'].map(h => <th key={h} className={TH}>{h}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {entries.slice(0, 100).map((e: any, i: number) => (
+                    <tr key={i} className={TR}>
+                      <td className={cn(TD, 'text-xs')}>{e.date}</td>
+                      <td className={cn(TD_MONO, 'text-xs')}>{e.patientNo}</td>
+                      <td className={cn(TD_MONO, 'text-xs')}>{e.nhisNo || '—'}</td>
+                      <td className={cn(TD, 'text-xs')}>{e.patientName}</td>
+                      <td className={cn(TD, 'text-xs')}>{e.age}</td>
+                      <td className={cn(TD, 'text-xs')}>{e.sex === 'male' ? 'M' : 'F'}</td>
+                      <td className={cn(TD, 'text-xs', 'max-w-[180px] truncate')}>{e.provisionalDiagnosis || '—'}</td>
+                      <td className={cn(TD, 'text-xs', 'max-w-[130px] truncate')}>{e.labTestsRequested || '—'}</td>
+                      <td className={cn(TD, 'text-xs', 'max-w-[180px] truncate')}>{e.drugsPrescribed || '—'}</td>
+                      <td className={cn(TD, 'text-xs', 'text-center')}>
+                        {e.isNHIS ? <span className="text-[var(--icon-green-text)] font-bold">Y</span> : <span className="text-[var(--text-tertiary)]">N</span>}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {entries.length > 100 && <p className="text-center text-[11px] text-[var(--text-tertiary)] py-2">Showing 100 of {entries.length}</p>}
           </div>
-          {entries.length > 100 && <p className="text-center text-[11px] text-[var(--text-tertiary)] py-2">Showing 100 of {entries.length}</p>}
-        </SectionCard>
+        </Card>
       </div>
     );
   };
@@ -296,49 +276,52 @@ export default function Reports() {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Attendances" value={t.totalAttendances||0} icon={Users}     color="cyan"   />
-          <StatCard label="New Cases"          value={t.new||0}             icon={UserCheck}  color="green"  />
-          <StatCard label="Re-Attendances"     value={t.old||0}             icon={Clock}      color="yellow" />
-          <StatCard label="Insured"            value={t.insured?.total||0}  icon={Shield}     color="cyan"   />
+          <StatCard label="Total Attendances" value={(t.totalAttendances||0).toLocaleString()} icon={Users}     accent="cyan"   />
+          <StatCard label="New Cases"          value={(t.new||0).toLocaleString()}             icon={UserCheck} accent="green"  />
+          <StatCard label="Re-Attendances"     value={(t.old||0).toLocaleString()}             icon={Clock}     accent="yellow" />
+          <StatCard label="Insured"            value={(t.insured?.total||0).toLocaleString()}  icon={Shield}    accent="cyan"   />
         </div>
-        <SectionCard title="Age Group Distribution" icon={Users}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr>
-                <TH>Age Group</TH>
-                <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Insured</th>
-                <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Non-Insured</th>
-                <TH center>New</TH><TH center>Old</TH>
-              </tr>
-              <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <th className="px-3 py-1.5" />
-                {['M','F','M','F'].map((l, i) => <th key={i} className="px-3 py-1.5 text-center text-[10px] text-[var(--text-tertiary)]">{l}</th>)}
-                <th className="px-3 py-1.5" /><th className="px-3 py-1.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {Object.entries(ag).map(([group, data]: [string, any]) => (
-                <tr key={group} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <TD className="text-[var(--text-primary)] font-medium">{group}</TD>
-                  <TD center>{data?.insured?.male||0}</TD>
-                  <TD center>{data?.insured?.female||0}</TD>
-                  <TD center>{data?.nonInsured?.male||0}</TD>
-                  <TD center>{data?.nonInsured?.female||0}</TD>
-                  <TD center>{data?.new||0}</TD>
-                  <TD center>{data?.old||0}</TD>
+        <Card title="Age Group Distribution" icon={Users} padded={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Age Group</th>
+                  <th colSpan={2} className={cn(TH, 'text-center')}>Insured</th>
+                  <th colSpan={2} className={cn(TH, 'text-center')}>Non-Insured</th>
+                  <th className={cn(TH, 'text-center')}>New</th>
+                  <th className={cn(TH, 'text-center')}>Old</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
-              <tr>
-                <td className="px-3 py-2.5 text-xs font-bold text-[var(--text-primary)]">TOTAL</td>
-                {[t.insured?.male||0,t.insured?.female||0,t.nonInsured?.male||0,t.nonInsured?.female||0,t.new||0,t.old||0].map((v,i) => (
-                  <td key={i} className="px-3 py-2.5 text-center text-xs font-bold text-[var(--text-primary)]">{v}</td>
+                <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <th className="px-3 py-1.5" />
+                  {['M','F','M','F'].map((l, i) => <th key={i} className="px-3 py-1.5 text-center text-[10px] text-[var(--text-tertiary)]">{l}</th>)}
+                  <th className="px-3 py-1.5" /><th className="px-3 py-1.5" />
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(ag).map(([group, data]: [string, any]) => (
+                  <tr key={group} className={TR}>
+                    <td className={cn(TD, 'text-xs', 'font-medium')}>{group}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.insured?.male||0}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.insured?.female||0}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.nonInsured?.male||0}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.nonInsured?.female||0}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.new||0}</td>
+                    <td className={cn(TD, 'text-xs', 'text-center')}>{data?.old||0}</td>
+                  </tr>
                 ))}
-              </tr>
-            </tfoot>
-          </table>
-        </SectionCard>
+              </tbody>
+              <tfoot className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                <tr>
+                  <td className={cn(TD, 'text-xs', 'font-bold')}>TOTAL</td>
+                  {[t.insured?.male||0,t.insured?.female||0,t.nonInsured?.male||0,t.nonInsured?.female||0,t.new||0,t.old||0].map((v,i) => (
+                    <td key={i} className={cn(TD, 'text-xs', 'font-bold', 'text-center')}>{v}</td>
+                  ))}
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </Card>
       </div>
     );
   };
@@ -353,13 +336,12 @@ export default function Reports() {
       if (rd) AGE_GROUPS.forEach(a => { if (rd[a]) { colTotals[a].male += rd[a].male||0; colTotals[a].female += rd[a].female||0; } });
     });
     return (
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden mb-5">
-        <div className="px-4 py-3 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-          <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">{title}</h3>
-        </div>
+      <Card title={title} padded={false} className="mb-5">
+        {/* The grid below is a line-for-line copy of the printed Form A return: every cell keeps
+            its own size, sticky column and border, so it is deliberately not table.ts-styled. */}
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
-            <thead className="bg-[var(--bg-main)] sticky top-0">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)] sticky top-0">
               <tr>
                 <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] sticky left-0 bg-[var(--bg-main)] z-10 min-w-[200px]">Disease / Condition</th>
                 {AGE_GROUPS.map(a => (
@@ -414,7 +396,7 @@ export default function Reports() {
             </tbody>
           </table>
         </div>
-      </div>
+      </Card>
     );
   };
 

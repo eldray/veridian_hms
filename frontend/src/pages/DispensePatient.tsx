@@ -10,22 +10,30 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ConsumableModal } from '../components/medical-entries/modals/ConsumableModal';
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
-import { deleteEncounterConsumableUse, getEncounterConsumableUses } from '../api';
+import { deleteEncounterConsumableUse, getEncounterConsumableUses, getPharmacyWorklist } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import { pickVisit } from '../utils/visitSelection';
 import {
-  ChevronLeft, Pill, CheckCircle, Package, Printer, RefreshCw,
+  Pill, CheckCircle, Package, Printer, RefreshCw,
   AlertCircle, User, X, Plus, FileText, Zap, History,
-  Calendar, Clock, MessageSquare, Stethoscope,
+  Calendar, Clock, MessageSquare,
 } from 'lucide-react';
 import SendDocumentModal from '../components/SendDocumentModal';
+import {
+  Badge, Button, Card, PageHeader, StatCard, cn,
+  humanStatus, statusTone, INPUT,
+  type BadgeTone,
+} from '../components/ui';
 
-const getEntityId = (entity: { id?: string; _id?: string } | null) =>
-  entity?.id || entity?._id;
+/** A visit is "the one to open" when it still owes the pharmacy a prescription to dispense. */
+const hasPrescribedWork = (visit: any): boolean =>
+  (visit?.Medication || []).some((med: any) => med?.status === 'prescribed');
 
 /** Safely coerce any value to a finite number. */
 const toNum = (v: any, fallback = 0): number => {
@@ -49,19 +57,18 @@ const formatTime = (d?: string | Date | null) => {
 };
 
 // ── Status badge ──────────────────────────────────────────────────────────────
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const map: Record<string, string> = {
-    prescribed:   'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-    dispensed:    'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    administered: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-    cancelled:    'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-  };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${map[status] || map.prescribed}`}>
-      {status?.charAt(0).toUpperCase() + status?.slice(1)}
-    </span>
-  );
+// 'prescribed' and 'administered' have no entry in Badge's STATUS_TONES, so this
+// page keeps a small local tone map for them; everything else (dispensed,
+// cancelled, pending, admitted, completed…) goes through statusTone().
+const LOCAL_STATUS_TONES: Record<string, BadgeTone> = {
+  prescribed: 'purple',
+  administered: 'cyan',
 };
+const StatusBadge: React.FC<{ status: string }> = ({ status }) => (
+  <Badge tone={LOCAL_STATUS_TONES[status] ?? statusTone(status)} dot size="sm">
+    {humanStatus(status)}
+  </Badge>
+);
 
 // ── Column label + value primitives ──────────────────────────────────────────
 const Col: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({
@@ -94,9 +101,7 @@ const DispenseModal: React.FC<{
             </div>
             <p className="text-sm font-bold text-[var(--text-primary)]">Confirm Dispense</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--border-color)] transition-all">
-            <X className="w-4 h-4" />
-          </button>
+          <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={onClose} />
         </div>
 
         <div className="p-5 space-y-4">
@@ -116,7 +121,7 @@ const DispenseModal: React.FC<{
               </button>
               <input type="number" value={quantity} min={1} max={max}
                 onChange={e => setQuantity(Math.min(Math.max(1, parseInt(e.target.value) || 1), max))}
-                className="w-20 text-center px-3 py-2 text-sm font-bold border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--icon-green-text)]" />
+                className={cn(INPUT, 'w-20 text-center font-bold')} />
               <button onClick={() => setQuantity(q => Math.min(max, q + 1))}
                 className="w-8 h-8 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-sm font-bold">
                 +
@@ -143,16 +148,16 @@ const DispenseModal: React.FC<{
           )}
 
           <div className="flex gap-2 pt-1">
-            <button onClick={onClose}
-              className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all">
+            <Button variant="secondary" className="flex-1" onClick={onClose}>
               Cancel
-            </button>
-            <button onClick={() => onConfirm(quantity)} disabled={isProcessing}
-              className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all">
-              {isProcessing
-                ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                : <><CheckCircle className="w-3.5 h-3.5" /> Dispense</>}
-            </button>
+            </Button>
+            <Button
+              variant="soft" accent="green" className="flex-1"
+              icon={CheckCircle} loading={isProcessing}
+              onClick={() => onConfirm(quantity)}
+            >
+              Dispense
+            </Button>
           </div>
         </div>
       </div>
@@ -193,10 +198,64 @@ export default function DispensePatient() {
   const [attendance, setAttendance] = useState<any>(null);
   const [prescriptions, setPrescriptions] = useState<any[]>([]);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
+  const [queueRows, setQueueRows] = useState<QueuedVisit[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  // Direct entry has no patient yet, and a pharmacist cannot search the patient
+  // directory, so the screen offers the same queue the dispensing list shows.
+  const loadQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const response: any = await getPharmacyWorklist();
+      const rows: any[] = response?.data?.data || [];
+      setQueueRows(rows.map((row) => {
+        const firstMed = Array.isArray(row.medications) && row.medications[0]
+          ? row.medications[0].name
+          : null;
+        return {
+          attendanceId: row.attendanceId,
+          patientId: row.patientId,
+          name: row.patient?.name || 'Unknown patient',
+          folderNumber: row.patient?.folderNumber,
+          age: row.patient?.age,
+          gender: row.patient?.gender,
+          attendanceNumber: row.attendanceNumber,
+          visitDate: row.attendanceDateTime,
+          detail: [
+            `${row.prescribedCount ?? 0} to dispense`,
+            row.prescriptionCount ? `${row.prescriptionCount} prescribed` : null,
+            firstMed,
+          ].filter(Boolean).join(' · '),
+          priority: row.priority,
+          waitMinutes: row.waitTime,
+        };
+      }));
+    } catch {
+      setQueueRows([]);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const openQueuedVisit = (row: QueuedVisit) => {
+    navigate(`/dashboard/dispense/${row.patientId}`, {
+      state: {
+        patient: {
+          id: row.patientId,
+          name: row.name,
+          folderNumber: row.folderNumber,
+          age: row.age,
+          gender: row.gender,
+        },
+        attendanceId: row.attendanceId,
+      },
+    });
+  };
 
   const loadData = async () => {
     setRefreshing(true);
     try {
+      if (!id && !(location.state as any)?.patient) await loadQueue();
       // The route names the patient, so ask for that patient's record and that
       // patient's visits. This screen used to download the whole patient register and
       // every live visit in the hospital before it could show one prescription list.
@@ -212,6 +271,11 @@ export default function DispensePatient() {
       void loadPatients().catch(() => undefined);
       let foundPatient: any = (location.state as any)?.patient || null;
       if (!foundPatient && id) foundPatient = await fetchPatient(id).catch(() => null);
+      // A row-click summary carries only the name and folder number; the banner also needs
+      // the date of birth and contact, so the full record is fetched when it is missing.
+      if (foundPatient?.id && !foundPatient.dateOfBirth) {
+        foundPatient = (await fetchPatient(foundPatient.id).catch(() => null)) || foundPatient;
+      }
       const patientAtts = foundPatient?.id
         ? await getAttendances({ patientId: foundPatient.id })
         : await getAttendances({ live: true, limit: 500 });
@@ -224,7 +288,7 @@ export default function DispensePatient() {
         const initId = (location.state as any)?.attendanceId;
         const pick = initId
           ? (patientAtts.find((a: any) => a.id === initId) || await getAttendance(initId).catch(() => null))
-          : [...patientAtts].sort((a, b) => new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime())[0];
+          : pickVisit(patientAtts, hasPrescribedWork);
         if (pick) {
           setSelectedAttendanceId(pick.id);
           setAttendance(pick);
@@ -470,84 +534,76 @@ export default function DispensePatient() {
     return age;
   };
 
-  const paymentCls = attendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
-    : attendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
-    : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
   const paymentLabel = attendance?.paymentMode === 'nhis' ? 'NHIS'
     : attendance?.paymentMode === 'private_insurance' ? 'Private Ins.' : 'Cash';
+  const paymentTone: BadgeTone = attendance?.paymentMode === 'nhis' ? 'green'
+    : attendance?.paymentMode === 'private_insurance' ? 'purple' : 'cyan';
+
+  const handleBack = () => (location.key === 'default' ? navigate('/dashboard/pharmacy') : navigate(-1));
 
   if (isLoading) return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-10 h-10 border-2 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-        <p className="text-sm text-[var(--text-secondary)]">Loading patient data…</p>
+    <div className="space-y-4">
+      <PageHeader title="Dispense Medications" icon={Pill} accent="green" onBack={handleBack} />
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-[var(--icon-green-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-[var(--text-secondary)]">Loading patient data…</p>
+        </div>
       </div>
     </div>
   );
 
-  if (!patient) return (
-    <div className="min-h-[60vh] flex items-center justify-center">
-      <div className="text-center bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-10">
-        <AlertCircle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3 opacity-60" />
-        <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Patient not found</p>
-        <p className="text-xs text-[var(--text-secondary)] mb-4">The patient record doesn't exist.</p>
-        <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
-          className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-          Back
-        </button>
+  // Direct entry starts without a patient until one is picked in the selector; only a
+  // patient named in the route that failed to load is an error.
+  if (!patient && id) return (
+    <div className="space-y-4">
+      <PageHeader title="Dispense Medications" icon={Pill} accent="green" onBack={handleBack} />
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-10">
+          <AlertCircle className="w-10 h-10 text-[var(--icon-red-text)] mx-auto mb-3 opacity-60" />
+          <p className="text-sm font-semibold text-[var(--text-primary)] mb-1">Patient not found</p>
+          <p className="text-xs text-[var(--text-secondary)] mb-4">The patient record doesn't exist.</p>
+          <Button variant="soft" accent="cyan" size="sm" onClick={handleBack}>Back</Button>
+        </div>
       </div>
     </div>
   );
 
-  const patientName = getPatientName(patient);
+  const patientName = patient ? getPatientName(patient) : '';
 
   return (
     <div className="space-y-4">
 
       {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => (location.key === 'default' ? navigate('/dashboard/dispense') : navigate(-1))}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
-            <ChevronLeft className="w-3.5 h-3.5" /> Waiting List
-          </button>
-          <div className="h-5 w-px bg-[var(--border-color)]" />
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[var(--icon-green-bg)] flex items-center justify-center">
-              <Pill className="w-4 h-4 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Dispense Medications</h1>
-              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">{patientName}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {canDispense && (
-            <button onClick={() => setIsPrescribeModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
-              <Plus className="w-3.5 h-3.5" /> Add Prescription
-            </button>
-          )}
-          {prescribedMeds.length > 0 && (
-            <button onClick={() => handlePrint()} disabled={printingId === 'all'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
-              <Printer className="w-3.5 h-3.5" /> Print All
-            </button>
-          )}
-          {prescribedMeds.length > 0 && (
-            <button onClick={() => setShowSendRx(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-green-200 text-green-700 hover:bg-green-50 transition-all">
-              <MessageSquare className="w-3.5 h-3.5" /> Send Rx
-            </button>
-          )}
-          <button onClick={loadData} disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Dispense Medications"
+        subtitle={patientName}
+        icon={Pill}
+        accent="green"
+        onBack={handleBack}
+        actions={(
+          <>
+            {canDispense && (
+              <Button variant="soft" accent="purple" size="sm" icon={Plus} onClick={() => setIsPrescribeModalOpen(true)}>
+                Add Prescription
+              </Button>
+            )}
+            {prescribedMeds.length > 0 && (
+              <Button size="sm" icon={Printer} disabled={printingId === 'all'} onClick={() => handlePrint()}>
+                Print All
+              </Button>
+            )}
+            {prescribedMeds.length > 0 && (
+              <Button variant="soft" accent="green" size="sm" icon={MessageSquare} onClick={() => setShowSendRx(true)}>
+                Send Rx
+              </Button>
+            )}
+            <Button size="sm" icon={RefreshCw} loading={refreshing} onClick={loadData}>
+              Refresh
+            </Button>
+          </>
+        )}
+      />
 
       <SendDocumentModal
         open={showSendRx}
@@ -563,24 +619,46 @@ export default function DispensePatient() {
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={pid => {
+        onPatientSelect={async pid => {
           setSelectedPatientId(pid);
           setAllAttendances([]);
           setSelectedAttendanceId('');
           setAttendance(null);
           setPrescriptions([]);
-          // Only the selected patient's visits are needed; the register-wide list is no
-          // longer held in the store.
-          void getAttendances({ patientId: pid })
-            .then(rows => setAllAttendances(rows || []))
-            .catch(() => setAllAttendances([]));
-          void fetchPatient(pid).then(p => setPatient(p)).catch(() => {});
+          // Resolve the patient before the visits: the picker auto-selects an open visit as
+          // soon as they arrive, and the banner renders that visit's patient details.
+          let resolved: any = null;
+          try { resolved = await fetchPatient(pid); } catch { /* fall back to the visit's own patient */ }
+          setPatient(resolved);
+          let rows: any[] = [];
+          try {
+            // Only the selected patient's visits are needed; the register-wide list is no
+            // longer held in the store.
+            rows = (await getAttendances({ patientId: pid })) || [];
+            setAllAttendances(rows);
+            if (!resolved) {
+              const visit = rows.find((a: any) => a.Patient || a.patient);
+              resolved = visit?.Patient ?? visit?.patient ?? null;
+              if (resolved) setPatient(resolved);
+            }
+          } catch {
+            setAllAttendances([]);
+          }
+          // Open the visit that still owes the pharmacy a prescription, not merely the
+          // most recent one; otherwise the screen opens on a visit with nothing to dispense.
+          const best = pickVisit(rows, hasPrescribedWork) as any;
+          if (best) {
+            setSelectedAttendanceId(best.id);
+            setAttendance(best);
+            setPrescriptions((best.Medication || []).filter((m: any) => ['prescribed', 'dispensed'].includes(m.status)));
+          }
         }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={() => { setSelectedAttendanceId(''); setAttendance(null); setPrescriptions([]); }}
       />
 
       {/* ── PATIENT BANNER ──────────────────────────────────────────────── */}
+      {patient && (
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
@@ -590,14 +668,20 @@ export default function DispensePatient() {
             <div>
               <h2 className="text-sm font-bold text-[var(--text-primary)]">{patientName}</h2>
               <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                {patient.folderNumber} · {calcAge(patient.dateOfBirth)}y · {patient.gender} · {patient.contact}
+                {[
+                  patient.folderNumber,
+                  // A queue-row summary carries the age but no date of birth.
+                  `${patient.age ?? (patient.dateOfBirth ? calcAge(patient.dateOfBirth) : '—')}y`,
+                  patient.gender,
+                  patient.contact,
+                ].filter(Boolean).join(' · ')}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {attendance && (
               <>
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${paymentCls}`}>{paymentLabel}</span>
+                <Badge tone={paymentTone} dot size="sm">{paymentLabel}</Badge>
                 <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
                   #{attendance.attendanceNumber || '—'}
                 </span>
@@ -611,6 +695,7 @@ export default function DispensePatient() {
           </div>
         </div>
       </div>
+      )}
 
       <AllergyBanner
         patientId={patient?.id || selectedPatientId}
@@ -629,71 +714,64 @@ export default function DispensePatient() {
       )}
 
       {!selectedAttendanceId && (
-        <div className="flex flex-col items-center justify-center gap-3 py-14 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <Calendar className="w-9 h-9 text-[var(--text-tertiary)] opacity-40" />
-          <p className="text-sm font-semibold text-[var(--text-primary)]">No visit selected</p>
-          <p className="text-xs text-[var(--text-tertiary)]">Select a visit above to view prescriptions</p>
-        </div>
+        <QueuedVisits
+          title="Dispensing queue"
+          description="Prescriptions waiting to be filled — pick a visit to dispense"
+          icon={Pill}
+          accent="green"
+          rows={queueRows}
+          loading={queueLoading}
+          emptyMessage="No prescriptions are waiting. Open the dispensing list to review dispensed history."
+          onOpen={openQueuedVisit}
+          onRefresh={loadData}
+          onViewAll={() => navigate('/dashboard/pharmacy')}
+        />
       )}
 
       {selectedAttendanceId && attendance && (
         <>
           {/* ── STATS STRIP ───────────────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'To dispense', value: pendingDispenseCount, icon: <Pill className="w-4 h-4 text-[var(--icon-purple-text)]" />, bg: 'bg-[var(--icon-purple-bg)]' },
-              { label: 'Dispensed', value: dispensedHistory.length, icon: <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />, bg: 'bg-[var(--icon-green-bg)]' },
-              { label: 'Total prescribed', value: prescribedMeds.length, icon: <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />, bg: 'bg-[var(--icon-cyan-bg)]' },
-            ].map(s => (
-              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-4 py-3 flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-lg ${s.bg} flex items-center justify-center flex-shrink-0`}>{s.icon}</div>
-                <div>
-                  <p className="text-xl font-bold text-[var(--text-primary)] leading-none">{s.value}</p>
-                  <p className="text-[10px] text-[var(--text-tertiary)] mt-0.5">{s.label}</p>
-                </div>
-              </div>
-            ))}
+            <StatCard label="To dispense" value={pendingDispenseCount} icon={Pill} accent="purple" />
+            <StatCard label="Dispensed" value={dispensedHistory.length} icon={CheckCircle} accent="green" />
+            <StatCard label="Total prescribed" value={prescribedMeds.length} icon={FileText} accent="cyan" />
           </div>
 
           {/* ═══════════════════════════════════════════════════════════
               PRESCRIBED MEDICATIONS — column-card grid
               ═══════════════════════════════════════════════════════════ */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-wrap">
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  Prescribed Medications
-                </span>
-                {prescribedMeds.length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]">
-                    {prescribedMeds.length}
-                  </span>
-                )}
-              </div>
-              {prescribedMeds.length > 0 && canDispense && readyToDispenseCount > 0 && (
-                <button
-                  onClick={handleBulkDispenseReady}
-                  disabled={bulkDispensing || !!dispensingId}
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
-                >
-                  {bulkDispensing
-                    ? <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    : <Zap className="w-3 h-3" />}
-                  Dispense Ready ({readyToDispenseCount})
-                </button>
-              )}
-            </div>
-
+          <Card
+            padded={false}
+            icon={Package}
+            accent="purple"
+            title={(
+              <span className="flex items-center gap-2">
+                Prescribed Medications
+                {prescribedMeds.length > 0 && <Badge tone="purple">{prescribedMeds.length}</Badge>}
+              </span>
+            )}
+            actions={prescribedMeds.length > 0 && canDispense && readyToDispenseCount > 0 ? (
+              <Button
+                size="sm"
+                variant="soft"
+                accent="green"
+                icon={Zap}
+                loading={bulkDispensing}
+                disabled={!!dispensingId}
+                onClick={handleBulkDispenseReady}
+              >
+                Dispense Ready ({readyToDispenseCount})
+              </Button>
+            ) : undefined}
+          >
             {prescribedMeds.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 gap-3">
                 <div className="opacity-20"><Package className="w-10 h-10" /></div>
                 <p className="text-xs text-[var(--text-tertiary)]">No pending prescriptions for this visit</p>
                 {canDispense && (
-                  <button onClick={() => setIsPrescribeModalOpen(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
-                    <Plus className="w-3.5 h-3.5" /> Add Prescription
-                  </button>
+                  <Button variant="soft" accent="purple" size="sm" icon={Plus} onClick={() => setIsPrescribeModalOpen(true)}>
+                    Add Prescription
+                  </Button>
                 )}
               </div>
             ) : (
@@ -754,17 +832,11 @@ export default function DispensePatient() {
                         {/* 4. Stock */}
                         <Col label="In Stock">
                           {noStock && !isDispensed ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
-                              <AlertCircle className="w-3 h-3" /> Out of stock
-                            </span>
+                            <Badge tone="red"><AlertCircle className="w-3 h-3" /> Out of stock</Badge>
                           ) : lowStock && !isDispensed ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]">
-                              <AlertCircle className="w-3 h-3" /> Low: {avail} / {needed}
-                            </span>
+                            <Badge tone="yellow"><AlertCircle className="w-3 h-3" /> Low: {avail} / {needed}</Badge>
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
-                              <CheckCircle className="w-3 h-3" /> {avail} {unit}
-                            </span>
+                            <Badge tone="green"><CheckCircle className="w-3 h-3" /> {avail} {unit}</Badge>
                           )}
                         </Col>
 
@@ -805,48 +877,50 @@ export default function DispensePatient() {
                           {isDispensed
                             ? <StatusBadge status="dispensed" />
                             : noStock
-                            ? <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
-                                Blocked
-                              </span>
+                            ? <Badge tone="red">Blocked</Badge>
                             : <StatusBadge status="prescribed" />}
                         </Col>
 
                         {/* 10. Actions */}
                         <Col label="Action">
                           <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => handlePrint(med)}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              iconOnly
+                              icon={Printer}
+                              aria-label="Print this prescription"
                               disabled={printingId === med.id}
-                              title="Print this prescription"
-                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-bg)] transition-all disabled:opacity-40"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
+                              onClick={() => handlePrint(med)}
+                            />
 
                             {canDispense && !isDispensed && hasStock && (
-                              <button
+                              <Button
+                                size="sm"
+                                variant="soft"
+                                accent="green"
+                                icon={Zap}
+                                loading={dispensingId === med.id}
+                                disabled={bulkDispensing}
                                 onClick={() => handleDispenseClick(med)}
-                                disabled={dispensingId === med.id || bulkDispensing}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
                               >
-                                {dispensingId === med.id
-                                  ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                  : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
-                              </button>
+                                Dispense
+                              </Button>
                             )}
                             {canDispense && !isDispensed && lowStock && (
-                              <button
-                                onClick={() => handleDispenseClick(med)}
+                              <Button
+                                size="sm"
+                                variant="soft"
+                                accent="yellow"
+                                icon={Zap}
                                 disabled={dispensingId === med.id || bulkDispensing}
-                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                                onClick={() => handleDispenseClick(med)}
                               >
-                                <Zap className="w-3.5 h-3.5" /> Partial
-                              </button>
+                                Partial
+                              </Button>
                             )}
                             {canDispense && !isDispensed && noStock && (
-                              <span className="text-[10px] font-semibold text-[var(--icon-red-text)] px-2 py-1 rounded-lg bg-[var(--icon-red-bg)]">
-                                Restock
-                              </span>
+                              <Badge tone="red" size="sm">Restock</Badge>
                             )}
                             {isDispensed && (
                               <span className="text-[10px] text-[var(--icon-green-text)] font-semibold px-2">✓ Done</span>
@@ -907,33 +981,42 @@ export default function DispensePatient() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handlePrint(med)}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={Printer}
                             disabled={printingId === med.id}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40"
+                            onClick={() => handlePrint(med)}
                           >
-                            <Printer className="w-3.5 h-3.5" /> Print
-                          </button>
+                            Print
+                          </Button>
 
                           {canDispense && !isDispensed && hasStock && (
-                            <button
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              accent="green"
+                              className="flex-1"
+                              icon={Zap}
+                              loading={dispensingId === med.id}
+                              disabled={bulkDispensing}
                               onClick={() => handleDispenseClick(med)}
-                              disabled={dispensingId === med.id || bulkDispensing}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-green-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
                             >
-                              {dispensingId === med.id
-                                ? <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                : <><Zap className="w-3.5 h-3.5" /> Dispense</>}
-                            </button>
+                              Dispense
+                            </Button>
                           )}
                           {canDispense && !isDispensed && lowStock && (
-                            <button
-                              onClick={() => handleDispenseClick(med)}
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              accent="yellow"
+                              className="flex-1"
+                              icon={Zap}
                               disabled={dispensingId === med.id || bulkDispensing}
-                              className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-yellow-text)] text-white hover:opacity-90 disabled:opacity-50 transition-all"
+                              onClick={() => handleDispenseClick(med)}
                             >
-                              <Zap className="w-3.5 h-3.5" /> Partial ({avail})
-                            </button>
+                              Partial ({avail})
+                            </Button>
                           )}
                           {canDispense && !isDispensed && noStock && (
                             <span className="flex-1 text-center text-xs font-semibold text-[var(--icon-red-text)] px-3 py-2 rounded-lg bg-[var(--icon-red-bg)]">
@@ -957,52 +1040,59 @@ export default function DispensePatient() {
                 })}
               </div>
             )}
-          </div>
+          </Card>
 
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-              <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">Consumables Used</span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{consumableUses.length}</span>
-              </div>
-              {canDispense && (
-                <button onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
-                  className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                  <Plus className="w-3 h-3" /> Add Consumable
-                </button>
-              )}
-            </div>
+          <Card
+            padded={false}
+            icon={Package}
+            accent="cyan"
+            title={(
+              <span className="flex items-center gap-2">
+                Consumables Used
+                <Badge tone="cyan">{consumableUses.length}</Badge>
+              </span>
+            )}
+            actions={canDispense ? (
+              <Button
+                size="sm"
+                variant="soft"
+                accent="cyan"
+                icon={Plus}
+                onClick={() => { setEditingConsumable(null); setIsConsumableModalOpen(true); }}
+              >
+                Add Consumable
+              </Button>
+            ) : undefined}
+          >
             <ConsumableUsesPanel uses={consumableUses}
               onEdit={canDispense ? use => { setEditingConsumable(use); setIsConsumableModalOpen(true); } : undefined}
               onDelete={canDispense ? handleDeleteConsumable : undefined} />
-          </div>
+          </Card>
 
           {/* ═══════════════════════════════════════════════════════════
               DISPENSED THIS VISIT — SAME column-card grid
               ═══════════════════════════════════════════════════════════ */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+          <Card
+            padded={false}
+            icon={History}
+            accent="green"
+            title={(
+              <span className="flex items-center gap-2">
+                Dispensed This Visit
+                <Badge tone="green">{dispensedHistory.length}</Badge>
+              </span>
+            )}
+            actions={dispensedHistory.length > 0 ? (
               <div className="flex items-center gap-2">
-                <History className="w-4 h-4 text-[var(--icon-green-text)]" />
-                <span className="text-xs font-semibold text-[var(--text-primary)]">
-                  Dispensed This Visit
+                <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">
+                  Total value
                 </span>
-                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">
-                  {dispensedHistory.length}
+                <span className="text-sm font-bold text-[var(--icon-green-text)]">
+                  GHS {dispensedTotal.toFixed(2)}
                 </span>
               </div>
-              {dispensedHistory.length > 0 && (
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">
-                    Total value
-                  </span>
-                  <span className="text-sm font-bold text-[var(--icon-green-text)]">
-                    GHS {dispensedTotal.toFixed(2)}
-                  </span>
-                </div>
-              )}
-            </div>
+            ) : undefined}
+          >
 
             {dispensedHistory.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
@@ -1113,14 +1203,15 @@ export default function DispensePatient() {
 
                           {/* 9. Action */}
                           <Col label="Action">
-                            <button
-                              onClick={() => handlePrint(med)}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              iconOnly
+                              icon={Printer}
+                              aria-label="Re-print dispensing receipt"
                               disabled={printingId === med.id}
-                              title="Re-print dispensing receipt"
-                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all disabled:opacity-40"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
+                              onClick={() => handlePrint(med)}
+                            />
                           </Col>
                         </div>
 
@@ -1178,13 +1269,15 @@ export default function DispensePatient() {
                             </Col>
                           </div>
 
-                          <button
-                            onClick={() => handlePrint(med)}
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={Printer}
                             disabled={printingId === med.id}
-                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all disabled:opacity-40"
+                            onClick={() => handlePrint(med)}
                           >
-                            <Printer className="w-3.5 h-3.5" /> Re-print
-                          </button>
+                            Re-print
+                          </Button>
                         </div>
                       </div>
                     );
@@ -1210,7 +1303,7 @@ export default function DispensePatient() {
                 </div>
               </>
             )}
-          </div>
+          </Card>
         </>
       )}
 

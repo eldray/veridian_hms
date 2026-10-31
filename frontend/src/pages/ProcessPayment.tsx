@@ -1,12 +1,11 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
-import { useNavigate, useParams, Link } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { 
-  ArrowLeft, 
   Save, 
   DollarSign, 
   CreditCard, 
@@ -21,6 +20,9 @@ import {
   CheckCircle,
   MessageSquare
 } from 'lucide-react';
+import {
+  Button, Card, cn, Field, INPUT, LinkButton, PageHeader, StatCard,
+} from '../components/ui';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
 import { generateReceipt, downloadDocument } from '../api';
@@ -269,18 +271,12 @@ export default function ProcessPayment() {
           <h2 className="text-xl font-bold text-[var(--text-primary)] mb-1">Bill Not Found</h2>
           <p className="text-[var(--text-secondary)] text-sm mb-5">The bill you're looking for doesn't exist.</p>
           <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => navigate('/dashboard/billing')}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all font-medium text-sm"
-            >
+            <Button variant="primary" onClick={() => navigate('/dashboard/billing')}>
               Back to Billing
-            </button>
-            <Link
-              to="/dashboard/billing"
-              className="inline-flex items-center gap-2 px-5 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] bg-[var(--bg-card)] rounded-lg hover:bg-[var(--bg-main)] transition-all font-medium text-sm"
-            >
+            </Button>
+            <LinkButton variant="secondary" to="/dashboard/billing">
               View All Bills
-            </Link>
+            </LinkButton>
           </div>
         </div>
       </div>
@@ -290,38 +286,23 @@ export default function ProcessPayment() {
   return (
     <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 bg-[var(--bg-main)] min-h-screen">
       {/* Header */}
-      <div className="bg-[var(--bg-card)] rounded-2xl p-6 shadow-sm border border-[var(--border-color)]">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => navigate('/dashboard/billing')}
-              className="p-2.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all duration-200"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-[var(--text-primary)]">Process Payment</h1>
-              <p className="text-[var(--text-secondary)] text-sm mt-0.5">Bill: {bill.billNumber}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSendReceipt(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
-            >
-              <MessageSquare className="w-4 h-4" />
-              Send Receipt
-            </button>
-            <Link
-              to="/dashboard/billing"
-              className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-all"
-            >
-              <BarChart3 className="w-4 h-4" />
+      <PageHeader
+        title="Process Payment"
+        subtitle={`Bill: ${bill.billNumber}`}
+        icon={DollarSign}
+        accent="yellow"
+        backTo="/dashboard/billing"
+        actions={(
+          <>
+            <LinkButton variant="secondary" icon={BarChart3} className="hidden sm:flex" to="/dashboard/billing">
               Billing Dashboard
-            </Link>
-          </div>
-        </div>
-      </div>
+            </LinkButton>
+            <Button variant="soft" accent="cyan" icon={MessageSquare} onClick={() => setShowSendReceipt(true)}>
+              Send Receipt
+            </Button>
+          </>
+        )}
+      />
 
       <SendDocumentModal
         open={showSendReceipt}
@@ -342,12 +323,7 @@ export default function ProcessPayment() {
         {/* Left Column - Bill Summary & Breakdown */}
         <div className="lg:col-span-2 space-y-6">
           {/* Bill Summary */}
-          <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6">
-            <h2 className="text-lg font-bold text-[var(--text-primary)] mb-5 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-              Bill Summary
-            </h2>
-            
+          <Card title="Bill Summary" icon={FileText}>
             {/* Patient & Bill Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
@@ -375,29 +351,9 @@ export default function ProcessPayment() {
 
             {/* Financial Summary */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-[var(--icon-green-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-secondary)]">TOTAL AMOUNT</span>
-                </div>
-                <p className="text-2xl font-bold text-[var(--text-primary)]">{formatCurrency(bill.totalAmount)}</p>
-              </div>
-              
-              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-secondary)]">AMOUNT PAID</span>
-                </div>
-                <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{formatCurrency(bill.paidAmount)}</p>
-              </div>
-              
-              <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-[var(--icon-red-text)]" />
-                  <span className="text-xs font-semibold text-[var(--text-secondary)]">BALANCE DUE</span>
-                </div>
-                <p className="text-2xl font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</p>
-              </div>
+              <StatCard label="TOTAL AMOUNT" size="money" value={formatCurrency(bill.totalAmount)} icon={DollarSign} />
+              <StatCard label="AMOUNT PAID" size="money" accent="cyan" value={formatCurrency(bill.paidAmount)} icon={CheckCircle} />
+              <StatCard label="BALANCE DUE" size="money" accent="red" value={formatCurrency(bill.balance)} icon={DollarSign} />
             </div>
 
             {/* Billing Breakdown */}
@@ -417,15 +373,11 @@ export default function ProcessPayment() {
                 </div>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Previous Payments */}
           {bill.payments && bill.payments.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-2xl shadow-sm border border-[var(--border-color)] p-6">
-              <h3 className="text-base font-bold text-[var(--text-primary)] mb-3 flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Payment History
-              </h3>
+            <Card title="Payment History" icon={Calendar}>
               <div className="space-y-2">
                 {bill.payments.map((payment) => (
                   <div key={payment.id} className="flex justify-between items-center bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
@@ -441,7 +393,7 @@ export default function ProcessPayment() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
 
@@ -455,10 +407,15 @@ export default function ProcessPayment() {
             </h2>
 
             {/* Amount */}
-            <div>
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                Payment Amount <span className="text-[var(--icon-red-text)]">*</span>
-              </label>
+            <Field
+              label="Payment Amount"
+              required
+              hint={(
+                <>
+                  Maximum: <span className="font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</span>
+                </>
+              )}
+            >
               <div className="relative">
                 <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-[var(--text-tertiary)] text-xs font-bold">{CURRENCY_CODE}</span>
                 <input
@@ -469,19 +426,13 @@ export default function ProcessPayment() {
                   required
                   value={amount}
                   onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
-                  className="w-full pl-11 pr-4 py-3.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base font-bold"
+                  className={cn(INPUT, 'w-full pl-11 pr-4 py-3.5 text-base font-bold')}
                 />
               </div>
-              <p className="text-xs text-[var(--text-secondary)] mt-2">
-                Maximum: <span className="font-bold text-[var(--icon-red-text)]">{formatCurrency(bill.balance)}</span>
-              </p>
-            </div>
+            </Field>
 
             {/* Payment Method */}
-            <div>
-              <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-3">
-                Payment Method <span className="text-[var(--icon-red-text)]">*</span>
-              </label>
+            <Field label="Payment Method" required>
               <div className="grid grid-cols-2 gap-3">
                 {paymentMethods.map((mode) => {
                   const Icon = mode.icon;
@@ -505,14 +456,15 @@ export default function ProcessPayment() {
                   );
                 })}
               </div>
-            </div>
+            </Field>
 
             {/* Mobile Money payer number: the backend initiates a real collection request. */}
             {paymentMethod === 'mobile_money' && (
-              <div>
-                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                  Mobile Money Number <span className="text-[var(--icon-red-text)]">*</span>
-                </label>
+              <Field
+                label="Mobile Money Number"
+                required
+                hint="A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success."
+              >
                 <input
                   type="tel"
                   inputMode="tel"
@@ -521,46 +473,45 @@ export default function ProcessPayment() {
                   onChange={(e) => setMomoPhone(e.target.value)}
                   required
                   placeholder="024 123 4567"
-                  className="w-full px-4 py-3 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base"
+                  className={cn(INPUT, 'w-full px-4 py-3 text-base')}
                 />
-                <p className="text-xs text-[var(--text-secondary)] mt-2">A payment approval prompt will be sent to this number. The bill is updated only after the provider confirms success.</p>
-              </div>
+              </Field>
             )}
 
             {/* Reference */}
             {(paymentMethod === 'card' || paymentMethod === 'bank_transfer' || paymentMethod === 'cheque') && (
-              <div>
-                <label className="block text-sm font-semibold text-[var(--text-secondary)] mb-2">
-                  Reference Number <span className="text-[var(--icon-red-text)]">*</span>
-                </label>
+              <Field label="Reference Number" required>
                 <input
                   type="text"
                   value={reference}
                   onChange={(e) => setReference(e.target.value)}
                   required
                   placeholder="Enter transaction reference"
-                  className="w-full px-4 py-3 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-base"
+                  className={cn(INPUT, 'w-full px-4 py-3 text-base')}
                 />
-              </div>
+              </Field>
             )}
 
             {/* Actions */}
             <div className="flex flex-col gap-3 pt-5 border-t border-[var(--border-color)]">
-              <button
+              <Button
                 type="submit"
-                disabled={isLoading || isSubmittingPayment}
-                className="flex items-center justify-center gap-2.5 px-7 py-3 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all duration-200 font-medium text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="primary"
+                size="md"
+                fullWidth
+                icon={Save}
+                loading={isLoading || isSubmittingPayment}
               >
-                <Save className="w-5 h-5" />
-                {isLoading || isSubmittingPayment ? 'Processing...' : 'Process Payment'}
-              </button>
-              <button
-                type="button"
+                Process Payment
+              </Button>
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
                 onClick={() => navigate('/dashboard/billing')}
-                className="px-7 py-3 border border-[var(--border-color)] text-[var(--text-primary)] bg-[var(--bg-card)] rounded-lg hover:bg-[var(--bg-main)] transition-all duration-200 font-medium text-base"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </form>
           ) : (

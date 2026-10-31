@@ -1,6 +1,6 @@
 // src/pages/Billing.tsx - COMPLETE CORRECTED VERSION
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useWaiverStore } from '../store/waiverStore';
 import { usePatientStore } from '../store/patientStore';
@@ -11,12 +11,16 @@ import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getBillingCollections, getBillingInvoice } from '../api';
 import { promptDialog } from '../context/PromptDialog';
 import {
-  Search, RefreshCw, FileText, DollarSign, CreditCard, Eye,
-  ChevronLeft, ChevronRight, Receipt, TrendingUp,
-  AlertCircle, CheckCircle, Clock, Shield, User, Calendar, X,
+  RefreshCw, FileText, DollarSign, CreditCard, Eye,
+  Receipt, TrendingUp,
+  CheckCircle, Clock, Shield, User, Calendar, X,
   Filter, Printer, Hospital, Gift, Loader2, Users, Layers
 } from 'lucide-react';
-import type { BillStatus, PaymentMode } from '../types';
+import {
+  Badge, Button, Card, cn, Field, humanStatus, INPUT, LinkButton, PageHeader, Pagination,
+  SearchInput, SELECT, StatCard, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR,
+} from '../components/ui';
+import type { PaymentMode } from '../types';
 import type { BillingCollectionItem, BillingCollectionsReport } from '../types/billing';
 
 type DateFilterType = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
@@ -66,26 +70,6 @@ const getPaymentModeLabel = (mode: PaymentMode) => {
     corporate: 'Corporate',
   };
   return modeMap[mode] || 'Cash';
-};
-
-const getStatusColor = (status: BillStatus) => {
-  switch (status) {
-    case 'paid': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-    case 'partial': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-    case 'pending': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
-    case 'draft': return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
-    case 'cancelled': return 'bg-[var(--bg-main)] text-[var(--text-tertiary)]';
-    default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
-  }
-};
-
-const getWaiverStatusColor = (status: string) => {
-  switch (status) {
-    case 'approved': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-    case 'rejected': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
-    case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-    default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
-  }
 };
 
 const getWaiverTypeLabel = (type: string) => {
@@ -508,17 +492,30 @@ const handlePrintStatement = async (billId: string) => {
     }
   };
 
+  // One header for this screen, reused by the loading branch so the title never jumps.
+  const pageHeader = (
+    <PageHeader
+      title="Billing Management"
+      subtitle="Manage patient bills, payments, waivers, and insurance claims"
+      meta={`${filteredBills.length} bill(s) · Total: ${formatCurrency(stats.totalAmount)} · Waivers: ${formatCurrency(stats.totalWaiverAmount)}`}
+      icon={DollarSign}
+      accent="yellow"
+      actions={(
+        <>
+          <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/estimates')}>
+            Estimates
+          </Button>
+          <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+        </>
+      )}
+    />
+  );
+
   // Loading skeleton
   if (isLoading && !refreshing && bills.length === 0 && waivers.length === 0) {
     return (
       <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="h-7 bg-[var(--bg-main)] rounded w-48 animate-pulse mb-2" />
-            <div className="h-4 bg-[var(--bg-main)] rounded w-64 animate-pulse" />
-          </div>
-          <div className="w-24 h-9 bg-[var(--bg-main)] rounded-lg animate-pulse" />
-        </div>
+        {pageHeader}
         <div className="grid grid-cols-5 gap-4">
           {[1, 2, 3, 4, 5].map(i => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 animate-pulse">
@@ -547,58 +544,19 @@ const handlePrintStatement = async (billId: string) => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Billing Management</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            Manage patient bills, payments, waivers, and insurance claims
-          </p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {filteredBills.length} bill(s) · Total: {formatCurrency(stats.totalAmount)} · Waivers: {formatCurrency(stats.totalWaiverAmount)}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/dashboard/estimates')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <FileText className="w-4 h-4" />
-            Estimates
-          </button>
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
+      {pageHeader}
 
       {/* Stat Cards */}
-      {activeTab !== 'collections' && <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        {[
-          { icon: FileText, label: 'Total Bills', value: stats.total, bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]' },
-          { icon: DollarSign, label: 'Collected', value: formatCurrency(stats.totalPaid), bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
-          { icon: CheckCircle, label: 'Paid Bills', value: stats.paidCount, bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
-          { icon: Clock, label: 'Pending', value: stats.pendingCount, bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]' },
-          { icon: TrendingUp, label: 'Outstanding', value: formatCurrency(stats.totalBalance), bg: 'bg-[var(--icon-red-bg)]', text: 'text-[var(--icon-red-text)]' },
-          { icon: Gift, label: 'Waivers', value: formatCurrency(stats.totalWaiverAmount), bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' },
-        ].map((stat, i) => (
-          <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                <stat.icon className={`w-5 h-5 ${stat.text}`} />
-              </div>
-              <div>
-                <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
-                <p className="text-xl font-bold text-[var(--text-primary)]">{stat.value}</p>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>}
+      {activeTab !== 'collections' && (
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <StatCard label="Total Bills" value={stats.total} icon={FileText} accent="cyan" />
+          <StatCard label="Collected" size="money" value={formatCurrency(stats.totalPaid)} icon={DollarSign} accent="green" />
+          <StatCard label="Paid Bills" value={stats.paidCount} icon={CheckCircle} accent="green" />
+          <StatCard label="Pending" value={stats.pendingCount} icon={Clock} accent="yellow" />
+          <StatCard label="Outstanding" size="money" value={formatCurrency(stats.totalBalance)} icon={TrendingUp} accent="red" />
+          <StatCard label="Waivers" size="money" value={formatCurrency(stats.totalWaiverAmount)} icon={Gift} accent="purple" />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-2 border-b border-[var(--border-color)]">
@@ -653,7 +611,7 @@ const handlePrintStatement = async (billId: string) => {
       </div>
 
       {/* Filters Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -688,25 +646,27 @@ const handlePrintStatement = async (billId: string) => {
             <div className="flex items-center gap-3 ml-auto flex-wrap">
               <input
                 type="date"
+                aria-label="Custom period start date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={cn(INPUT, 'w-auto')}
               />
               <span className="text-[var(--text-secondary)]">to</span>
               <input
                 type="date"
+                aria-label="Custom period end date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={cn(INPUT, 'w-auto')}
               />
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
 
       {/* Status Filter & Search */}
-      {activeTab !== 'collections' && <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      {activeTab !== 'collections' && <Card>
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm text-[var(--text-secondary)] flex items-center gap-1">
@@ -757,50 +717,28 @@ const handlePrintStatement = async (billId: string) => {
               </>
             )}
           </div>
-          <div className="flex-1 w-full sm:max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder={activeTab === 'bills'
-                  ? "Search by bill #, patient name, or folder number..."
-                  : "Search by patient name or reason..."}
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-sm placeholder-[var(--text-tertiary)]"
-              />
-            </div>
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-sm"
+            value={searchQuery}
+            onChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+            placeholder={activeTab === 'bills'
+              ? "Search by bill #, patient name, or folder number..."
+              : "Search by patient name or reason..."}
+          />
         </div>
-      </div>}
+      </Card>}
 
       {/* PAYMENT COLLECTIONS */}
       {activeTab === 'collections' && (
         <section className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {[
-              { label: 'Total Collected', value: formatCurrency(collectionsReport.totalAmount), icon: DollarSign, bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
-              { label: 'Receipts', value: collectionsReport.paymentCount, icon: Receipt, bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]' },
-              { label: 'Collectors', value: collectionSummaries.collectors.length, icon: Users, bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' }
-            ].map((stat) => (
-              <div key={stat.label} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)] flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${stat.bg}`}>
-                  <stat.icon className={`w-5 h-5 ${stat.text}`} />
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
-                  <p className="text-xl font-bold text-[var(--text-primary)]">{stat.value}</p>
-                </div>
-              </div>
-            ))}
+            <StatCard label="Total Collected" size="money" value={formatCurrency(collectionsReport.totalAmount)} icon={DollarSign} accent="green" />
+            <StatCard label="Receipts" value={collectionsReport.paymentCount} icon={Receipt} accent="cyan" />
+            <StatCard label="Collectors" value={collectionSummaries.collectors.length} icon={Users} accent="purple" />
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-                <Layers className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                Collected by Service Category
-              </h2>
+            <Card title="Collected by Service Category" icon={Layers}>
               {collectionSummaries.categories.length ? (
                 <div className="divide-y divide-[var(--border-color)]">
                   {collectionSummaries.categories.map(([category, amount]) => (
@@ -811,12 +749,8 @@ const handlePrintStatement = async (billId: string) => {
                   ))}
                 </div>
               ) : <p className="text-sm text-[var(--text-tertiary)]">No category totals for this period.</p>}
-            </div>
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2 mb-3">
-                <Users className="w-4 h-4 text-[var(--icon-purple-text)]" />
-                Collected by User
-              </h2>
+            </Card>
+            <Card title="Collected by User" icon={Users} accent="purple">
               {collectionSummaries.collectors.length ? (
                 <div className="divide-y divide-[var(--border-color)]">
                   {collectionSummaries.collectors.map(([collectorId, summary]) => {
@@ -830,26 +764,21 @@ const handlePrintStatement = async (billId: string) => {
                   })}
                 </div>
               ) : <p className="text-sm text-[var(--text-tertiary)]">No collections for this period.</p>}
-            </div>
+            </Card>
           </div>
 
-          <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-              <div>
-                <h2 className="font-semibold text-[var(--text-primary)]">Itemized Collections</h2>
-                <p className="text-xs text-[var(--text-secondary)] mt-1">Payment amounts are allocated proportionally across each bill's active service items.</p>
-              </div>
-              <div className="relative w-full sm:max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(event) => { setSearchQuery(event.target.value); setCurrentPage(1); }}
-                  placeholder="Search patient, bill, collector, or item..."
-                  className="w-full pl-10 pr-4 py-2 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg bg-[var(--bg-card)] text-sm placeholder-[var(--text-tertiary)]"
-                />
-              </div>
-            </div>
+          <Card
+            title="Itemized Collections"
+            description="Payment amounts are allocated proportionally across each bill's active service items."
+            actions={(
+              <SearchInput
+                className="w-full sm:max-w-sm"
+                value={searchQuery}
+                onChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+                placeholder="Search patient, bill, collector, or item..."
+              />
+            )}
+          >
             {collectionsLoading ? (
               <div className="py-12 flex items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading collections...
@@ -861,42 +790,44 @@ const handlePrintStatement = async (billId: string) => {
                 <p className="text-sm text-[var(--text-secondary)] mt-1">No payments were recorded for {getDateFilterDisplay().toLowerCase()}.</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                    <tr>
-                      {['Collected At', 'Receipt / Bill', 'Paid For', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
-                        <th key={heading} className={`px-3 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase whitespace-nowrap ${heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left'}`}>{heading}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-color)]">
-                    {paginatedCollectionRows.map(({ payment, item }: { payment: BillingCollectionsReport['payments'][number]; item: BillingCollectionItem }, index: number) => (
-                      <tr key={`${payment.id}-${item.id}-${index}`} className="hover:bg-[var(--bg-main)]">
-                        <td className="px-3 py-3 whitespace-nowrap text-[var(--text-secondary)]">{formatDate(payment.transactionDate)}</td>
-                        <td className="px-3 py-3 whitespace-nowrap">
-                          <p className="font-medium text-[var(--text-primary)]">{payment.reference || payment.id}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
-                        </td>
-                        <td className="px-3 py-3">
-                          <p className="font-medium text-[var(--text-primary)]">{payment.bill.customer.name}</p>
-                          <p className="text-xs text-[var(--text-secondary)]">
-                            {payment.bill.customer.reference || 'Walk-in (no folder)'}
-                          </p>
-                        </td>
-                        <td className="px-3 py-3 text-[var(--text-primary)]">{payment.collector.fullName || payment.collector.username}</td>
-                        <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{payment.paymentMethod.replace(/_/g, ' ')}</td>
-                        <td className="px-3 py-3 text-[var(--text-primary)]">{item.description}</td>
-                        <td className="px-3 py-3 capitalize text-[var(--text-secondary)]">{item.serviceCategory.replace(/_/g, ' ')}</td>
-                        <td className="px-3 py-3 text-right text-[var(--text-secondary)]">{item.quantity}</td>
-                        <td className="px-3 py-3 text-right font-semibold text-[var(--text-primary)]">{formatCurrency(item.amount)}</td>
+              <div className={TABLE_SHELL}>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className={TH_ROW}>
+                      <tr>
+                        {['Collected At', 'Receipt / Bill', 'Paid For', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
+                          <th key={heading} className={cn(TH, heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left')}>{heading}</th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {paginatedCollectionRows.map(({ payment, item }: { payment: BillingCollectionsReport['payments'][number]; item: BillingCollectionItem }, index: number) => (
+                        <tr key={`${payment.id}-${item.id}-${index}`} className={TR}>
+                          <td className={cn(TD, 'text-[var(--text-secondary)]')}>{formatDate(payment.transactionDate)}</td>
+                          <td className={TD_MONO}>
+                            <p className="font-medium text-[var(--text-primary)]">{payment.reference || payment.id}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
+                          </td>
+                          <td className={TD}>
+                            <p className="font-medium text-[var(--text-primary)]">{payment.bill.customer.name}</p>
+                            <p className="text-xs text-[var(--text-secondary)]">
+                              {payment.bill.customer.reference || 'Walk-in (no folder)'}
+                            </p>
+                          </td>
+                          <td className={TD}>{payment.collector.fullName || payment.collector.username}</td>
+                          <td className={cn(TD, 'capitalize text-[var(--text-secondary)]')}>{payment.paymentMethod.replace(/_/g, ' ')}</td>
+                          <td className={cn(TD, 'whitespace-normal')}>{item.description}</td>
+                          <td className={cn(TD, 'capitalize text-[var(--text-secondary)]')}>{item.serviceCategory.replace(/_/g, ' ')}</td>
+                          <td className={cn(TD, 'text-right text-[var(--text-secondary)]')}>{item.quantity}</td>
+                          <td className={cn(TD, 'text-right font-semibold')}>{formatCurrency(item.amount)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
-          </div>
+          </Card>
         </section>
       )}
 
@@ -904,7 +835,7 @@ const handlePrintStatement = async (billId: string) => {
       {activeTab === 'bills' && (
         <>
           {filteredBills.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
+            <Card className="text-center">
               <Receipt className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
                 {searchQuery ? 'No Bills Found' : 'No Billing Records'}
@@ -915,81 +846,79 @@ const handlePrintStatement = async (billId: string) => {
                   : `No billing records found for ${getDateFilterDisplay().toLowerCase()}.`}
               </p>
               {searchQuery ? (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all text-sm"
-                >
-                  <X className="w-4 h-4" />
-                  Clear Search
-                </button>
+                <Button variant="secondary" icon={X} onClick={() => setSearchQuery('')}>Clear Search</Button>
               ) : dateFilter !== 'month' ? (
-                <button
-                  onClick={() => setDateFilter('month')}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm"
-                >
-                  <Calendar className="w-4 h-4" />
+                <Button variant="soft" accent="cyan" icon={Calendar} onClick={() => setDateFilter('month')}>
                   View This Month's Bills
-                </button>
+                </Button>
               ) : null}
-            </div>
+            </Card>
           ) : (
-            <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+            <div className={TABLE_SHELL}>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <thead className={TH_ROW}>
                   <tr>
-                    {['Bill #', 'Patient', 'Date', 'Total', 'Paid', 'Waiver', 'Balance', 'Payment', 'Status', 'Actions'].map((h, i) => (
-                      <th key={h} className={`px-4 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase ${
-                        i >= 3 && i <= 6 ? 'text-right' : i === 9 ? 'text-center' : 'text-left'
-                      }`}>
-                        {h}
+                    {[
+                      { h: 'Bill #', a: 'text-left' },
+                      { h: 'Patient', a: 'text-left' },
+                      { h: 'Folder #', a: 'text-left' },
+                      { h: 'Attendance #', a: 'text-left' },
+                      { h: 'Date', a: 'text-left' },
+                      { h: 'Total', a: 'text-right' },
+                      { h: 'Paid', a: 'text-right' },
+                      { h: 'Waiver', a: 'text-right' },
+                      { h: 'Balance', a: 'text-right' },
+                      { h: 'Payment', a: 'text-left' },
+                      { h: 'Status', a: 'text-left' },
+                      { h: 'Actions', a: 'text-center' },
+                    ].map((col) => (
+                      <th key={col.h} className={cn(TH, col.a)}>
+                        {col.h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
+                <tbody>
                   {paginatedBills.map((bill) => {
                     const patient = getPatientFromBill(bill);
                     const patientName = getPatientName(patient);
                     const isWalkIn = !(bill.patientId || bill.Patient?.id || bill.patient?.id);
                     return (
-                      <tr key={bill.id} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
-                        <td className="px-4 py-3">
+                      <tr key={bill.id} className={TR}>
+                        <td className={TD_MONO}>
                           <p className="font-semibold text-[var(--text-primary)] text-sm">{bill.billNumber}</p>
                           {bill.claimNumber && (
                             <p className="text-xs text-[var(--text-secondary)]">Claim: {bill.claimNumber}</p>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
                               <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                             </div>
                             <div className="min-w-0">
                               <p className="font-semibold text-[var(--text-primary)] text-sm truncate">{patientName}</p>
-                              <p className="text-xs text-[var(--text-secondary)]">{patient?.folderNumber || (isWalkIn ? 'Walk-in customer' : 'No Folder')}</p>
+                              {isWalkIn && (
+                                <p className="text-xs text-[var(--text-secondary)]">Walk-in customer</p>
+                              )}
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="font-medium text-[var(--text-primary)] text-sm">
-                            {formatDate(bill.billDate || bill.createdAt)}
-                          </p>
+                        <td className={TD_MONO}>{patient?.folderNumber || '—'}</td>
+                        <td className={TD_MONO}>{bill.attendance?.attendanceNumber || '—'}</td>
+                        <td className={TD}>{formatDate(bill.billDate || bill.createdAt)}</td>
+                        <td className={cn(TD, 'text-right font-bold')}>{formatCurrency(bill.totalAmount)}</td>
+                        <td className={cn(TD, 'text-right font-medium text-[var(--icon-green-text)]')}>{formatCurrency(bill.paidAmount)}</td>
+                        <td className={cn(TD, 'text-right font-medium text-[var(--icon-purple-text)]')}>{formatCurrency(bill.waiverAmount)}</td>
+                        <td className={cn(
+                          TD,
+                          'text-right font-bold',
+                          bill.balance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]',
+                        )}>
+                          {formatCurrency(bill.balance)}
                         </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-bold text-[var(--text-primary)]">{formatCurrency(bill.totalAmount)}</p>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-medium text-[var(--icon-green-text)]">{formatCurrency(bill.paidAmount)}</p>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="font-medium text-[var(--icon-purple-text)]">{formatCurrency(bill.waiverAmount)}</p>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className={`font-bold ${bill.balance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>
-                            {formatCurrency(bill.balance)}
-                          </p>
-                        </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center gap-1.5 text-xs">
                             {getPaymentModeIcon(bill.paymentMode)}
                             <span className="font-medium text-[var(--text-secondary)]">
@@ -997,26 +926,28 @@ const handlePrintStatement = async (billId: string) => {
                             </span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(bill.status)}`}>
-                            {bill.status === 'paid' && <CheckCircle className="w-3 h-3 mr-1" />}
-                            {bill.status === 'pending' && <AlertCircle className="w-3 h-3 mr-1" />}
-                            {bill.status === 'partial' && <Clock className="w-3 h-3 mr-1" />}
-                            {bill.status === 'draft' && <FileText className="w-3 h-3 mr-1" />}
-                            {bill.status?.charAt(0).toUpperCase() + bill.status?.slice(1)}
-                          </span>
+                        <td className={TD}>
+                          <Badge tone={statusTone(bill.status)} dot size="sm">{humanStatus(bill.status)}</Badge>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center justify-center gap-2">
-                            <Link
+                            <LinkButton
+                              size="sm"
+                              variant="ghost"
+                              iconOnly
+                              icon={Eye}
+                              aria-label="View Patient Billing Items"
+                              className="text-[var(--icon-cyan-text)]"
                               to={`/dashboard/patients/${bill.patientId}/billing?billId=${encodeURIComponent(bill.id)}`}
-                              className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
-                              title="View Patient Billing Items"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </Link>
+                            />
                             {isAccountsStaff && bill.balance > 0 && (
-                              <button
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                icon={Gift}
+                                aria-label="Request Waiver"
+                                className="text-[var(--icon-purple-text)]"
                                 onClick={() => {
                                   setSelectedBillForWaiver(bill);
                                   setWaiverForm({ 
@@ -1026,29 +957,29 @@ const handlePrintStatement = async (billId: string) => {
                                   });
                                   setShowWaiverModal(true);
                                 }}
-                                className="p-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors"
-                                title="Request Waiver"
-                              >
-                                <Gift className="w-4 h-4" />
-                              </button>
+                              />
                             )}
                             {isAccountsStaff && bill.balance > 0 && (
-                              <Link
+                              <LinkButton
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                icon={DollarSign}
+                                aria-label="Process Payment"
+                                className="text-[var(--icon-green-text)]"
                                 to={`/dashboard/billing/${bill.id}/payment`}
-                                className="p-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
-                                title="Process Payment"
-                              >
-                                <DollarSign className="w-4 h-4" />
-                              </Link>
+                              />
                             )}
-                            <button
-                              onClick={() => handlePrintStatement(bill.id)}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              iconOnly
+                              icon={Printer}
+                              aria-label="Print Bill Statement"
+                              className="text-[var(--icon-yellow-text)]"
                               disabled={isDocLoading}
-                              className="p-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-colors disabled:opacity-50"
-                              title="Print Bill Statement"
-                            >
-                              <Printer className="w-4 h-4" />
-                            </button>
+                              onClick={() => handlePrintStatement(bill.id)}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -1056,6 +987,7 @@ const handlePrintStatement = async (billId: string) => {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -1066,29 +998,15 @@ const handlePrintStatement = async (billId: string) => {
         <>
           {/* Waiver Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            {[
-              { icon: Gift, label: 'Total Requests', value: waiverStatsData.total, bg: 'bg-[var(--icon-cyan-bg)]', text: 'text-[var(--icon-cyan-text)]' },
-              { icon: Clock, label: 'Pending', value: waiverStatsData.pending, bg: 'bg-[var(--icon-yellow-bg)]', text: 'text-[var(--icon-yellow-text)]' },
-              { icon: CheckCircle, label: 'Approved', value: waiverStatsData.approved, bg: 'bg-[var(--icon-green-bg)]', text: 'text-[var(--icon-green-text)]' },
-              { icon: X, label: 'Rejected', value: waiverStatsData.rejected, bg: 'bg-[var(--icon-red-bg)]', text: 'text-[var(--icon-red-text)]' },
-              { icon: DollarSign, label: 'Approved Amount', value: formatCurrency(waiverStatsData.totalApprovedAmount), bg: 'bg-[var(--icon-purple-bg)]', text: 'text-[var(--icon-purple-text)]' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 ${stat.bg} rounded-lg flex items-center justify-center`}>
-                    <stat.icon className={`w-5 h-5 ${stat.text}`} />
-                  </div>
-                  <div>
-                    <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
-                    <p className="text-xl font-bold text-[var(--text-primary)]">{stat.value}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <StatCard label="Total Requests" value={waiverStatsData.total} icon={Gift} accent="cyan" />
+            <StatCard label="Pending" value={waiverStatsData.pending} icon={Clock} accent="yellow" />
+            <StatCard label="Approved" value={waiverStatsData.approved} icon={CheckCircle} accent="green" />
+            <StatCard label="Rejected" value={waiverStatsData.rejected} icon={X} accent="red" />
+            <StatCard label="Approved Amount" size="money" value={formatCurrency(waiverStatsData.totalApprovedAmount)} icon={DollarSign} accent="purple" />
           </div>
 
           {filteredWaivers.length === 0 ? (
-            <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
+            <Card className="text-center">
               <Gift className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
               <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
                 {searchQuery || statusFilter !== 'all' ? 'No Waivers Found' : 'No Waiver Requests'}
@@ -1098,71 +1016,70 @@ const handlePrintStatement = async (billId: string) => {
                   ? 'No waivers match your search criteria.'
                   : 'No waiver requests have been submitted.'}
               </p>
-            </div>
+            </Card>
           ) : (
-            <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+            <div className={TABLE_SHELL}>
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <thead className={TH_ROW}>
                   <tr>
-                    {['Patient', 'Type', 'Reason', 'Requested', 'Approved', 'Status', 'Requested By', 'Actions'].map((h) => (
-                      <th key={h} className="px-4 py-3 text-xs font-semibold text-[var(--text-secondary)] uppercase text-left">
+                    {['Patient', 'Folder #', 'Attendance #', 'Type', 'Reason', 'Requested', 'Approved', 'Status', 'Requested By', 'Actions'].map((h) => (
+                      <th key={h} className={cn(TH, 'text-left')}>
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
+                <tbody>
                   {paginatedWaivers.map((waiver) => (
-                    <tr key={waiver.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                      <td className="px-4 py-3">
-                        <p className="font-semibold text-[var(--text-primary)] text-sm">
-                          {waiver.patient?.surname} {waiver.patient?.otherNames}
-                        </p>
-                        <p className="text-xs text-[var(--text-secondary)]">{waiver.patient?.folderNumber}</p>
+                    <tr key={waiver.id} className={TR}>
+                      <td className={cn(TD, 'font-semibold')}>
+                        {waiver.patient?.surname} {waiver.patient?.otherNames}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="px-2 py-1 text-xs rounded-full bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                          {getWaiverTypeLabel(waiver.waiverType)}
-                        </span>
+                      <td className={TD_MONO}>{waiver.patient?.folderNumber || '—'}</td>
+                      <td className={TD_MONO}>{waiver.bill?.attendance?.attendanceNumber || '—'}</td>
+                      <td className={TD}>
+                        <Badge tone="cyan" size="sm">{getWaiverTypeLabel(waiver.waiverType)}</Badge>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm text-[var(--text-primary)] truncate max-w-xs" title={waiver.reason}>
+                      <td className={cn(TD, 'whitespace-normal max-w-xs')}>
+                        <p className="truncate" title={waiver.reason}>
                           {waiver.reason}
                         </p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <p className="font-medium text-[var(--text-primary)]">{formatCurrency(waiver.amountRequested)}</p>
                         <p className="text-xs text-[var(--text-secondary)]">{new Date(waiver.createdAt).toLocaleDateString()}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         {waiver.status === 'approved' ? (
                           <p className="font-medium text-[var(--icon-green-text)]">{formatCurrency(waiver.amountApproved)}</p>
                         ) : (
                           <p className="text-[var(--text-tertiary)]">—</p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${getWaiverStatusColor(waiver.status)}`}>
-                          {waiver.status === 'approved' && <CheckCircle className="w-3 h-3 mr-1" />}
-                          {waiver.status === 'pending' && <Clock className="w-3 h-3 mr-1" />}
-                          {waiver.status === 'rejected' && <X className="w-3 h-3 mr-1" />}
-                          {waiver.status.charAt(0).toUpperCase() + waiver.status.slice(1)}
-                        </span>
+                      <td className={TD}>
+                        <Badge tone={statusTone(waiver.status)} dot size="sm">{humanStatus(waiver.status)}</Badge>
                         {waiver.rejectionReason && waiver.status === 'rejected' && (
                           <p className="text-xs text-[var(--icon-red-text)] mt-1 truncate max-w-xs" title={waiver.rejectionReason}>
                             {waiver.rejectionReason}
                           </p>
                         )}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <p className="text-sm text-[var(--text-primary)]">{waiver.requestedBy?.fullName}</p>
                         <p className="text-xs text-[var(--text-secondary)]">{new Date(waiver.createdAt).toLocaleDateString()}</p>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <div className="flex items-center gap-2">
                           {waiver.status === 'pending' && isAccountsStaff && (
                             <>
-                              <button
+                              <Button
+                                size="xs"
+                                variant="ghost"
+                                iconOnly
+                                icon={CheckCircle}
+                                aria-label="Approve"
+                                className="text-[var(--icon-green-text)]"
                                 onClick={async () => {
                                   const answer = await promptDialog({
                                     title: 'Approve waiver',
@@ -1183,33 +1100,33 @@ const handlePrintStatement = async (billId: string) => {
                                   }
                                   handleApproveWaiver(waiver.id, amount);
                                 }}
-                                className="p-1.5 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors"
-                                title="Approve"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                              </button>
-                              <button
+                              />
+                              <Button
+                                size="xs"
+                                variant="dangerSoft"
+                                iconOnly
+                                icon={X}
+                                aria-label="Reject"
                                 onClick={() => handleRejectWaiver(waiver.id)}
-                                className="p-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors"
-                                title="Reject"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
+                              />
                             </>
                           )}
-                          <Link
+                          <LinkButton
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={Eye}
+                            aria-label="View Bill"
+                            className="text-[var(--icon-cyan-text)]"
                             to={`/dashboard/patients/${waiver.patientId}/billing`}
-                            className="p-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
-                            title="View Bill"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
+                          />
                         </div>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
         </>
@@ -1217,62 +1134,28 @@ const handlePrintStatement = async (billId: string) => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="text-sm text-[var(--text-secondary)]">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, currentData.length)} of {currentData.length} items
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum: number;
-                if (totalPages <= 5) pageNum = i + 1;
-                else if (currentPage <= 3) pageNum = i + 1;
-                else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                else pageNum = currentPage - 2 + i;
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === pageNum
-                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-
-              <select
-                value={itemsPerPage}
-                onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                className="px-2 py-1.5 border border-[var(--border-color)] rounded-lg text-xs bg-[var(--bg-main)] text-[var(--text-primary)]"
-              >
-                <option value={5}>5 per page</option>
-                <option value={10}>10 per page</option>
-                <option value={20}>20 per page</option>
-                <option value={50}>50 per page</option>
-                <option value={100}>100 per page</option>
-              </select>
-            </div>
-          </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={currentData.length}
+            noun="items"
+            onChange={goToPage}
+            className="flex-1"
+          />
+          <select
+            aria-label="Rows per page"
+            value={itemsPerPage}
+            onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+            className={cn(SELECT, 'w-auto text-xs')}
+          >
+            <option value={5}>5 per page</option>
+            <option value={10}>10 per page</option>
+            <option value={20}>20 per page</option>
+            <option value={50}>50 per page</option>
+            <option value={100}>100 per page</option>
+          </select>
         </div>
       )}
 
@@ -1287,24 +1170,21 @@ const handlePrintStatement = async (billId: string) => {
                   Bill: {selectedBillForWaiver.billNumber} | Balance: {formatCurrency(selectedBillForWaiver.balance)}
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                iconOnly
+                icon={X}
+                aria-label="Close"
                 onClick={() => { setShowWaiverModal(false); setSelectedBillForWaiver(null); }}
-                className="p-1.5 hover:bg-[var(--bg-main)] rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5 text-[var(--text-secondary)]" />
-              </button>
+              />
             </div>
 
             <div className="p-5 space-y-4">
-              {/* Waiver Type */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                  Waiver Type <span className="text-[var(--icon-red-text)]">*</span>
-                </label>
+              <Field label="Waiver Type" required>
                 <select
                   value={waiverForm.waiverType}
                   onChange={(e) => setWaiverForm({ ...waiverForm, waiverType: e.target.value })}
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                  className={cn(SELECT, 'w-full')}
                 >
                   <option value="indigent">Indigent</option>
                   <option value="nhis_exempt">NHIS Exempt</option>
@@ -1312,13 +1192,9 @@ const handlePrintStatement = async (billId: string) => {
                   <option value="management_discretion">Management Discretion</option>
                   <option value="other">Other</option>
                 </select>
-              </div>
+              </Field>
 
-              {/* Amount Requested */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                  Amount Requested <span className="text-[var(--icon-red-text)]">*</span>
-                </label>
+              <Field label="Amount Requested" required hint={`Maximum: ${formatCurrency(selectedBillForWaiver.balance)}`}>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] text-sm">₵</span>
                   <input
@@ -1328,53 +1204,40 @@ const handlePrintStatement = async (billId: string) => {
                     max={selectedBillForWaiver.balance}
                     value={waiverForm.amountRequested}
                     onChange={(e) => setWaiverForm({ ...waiverForm, amountRequested: parseFloat(e.target.value) || 0 })}
-                    className="w-full pl-8 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all"
+                    className={cn(INPUT, 'w-full pl-8 pr-4')}
                   />
                 </div>
-                <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                  Maximum: {formatCurrency(selectedBillForWaiver.balance)}
-                </p>
-              </div>
+              </Field>
 
-              {/* Reason */}
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                  Reason <span className="text-[var(--icon-red-text)]">*</span>
-                </label>
+              <Field label="Reason" required>
                 <textarea
                   rows={3}
                   value={waiverForm.reason}
                   onChange={(e) => setWaiverForm({ ...waiverForm, reason: e.target.value })}
                   placeholder="Explain why this waiver is needed..."
-                  className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all resize-none"
+                  className={cn(INPUT, 'w-full resize-none')}
                 />
-              </div>
+              </Field>
             </div>
 
             <div className="border-t border-[var(--border-color)] p-4 flex gap-3">
-              <button
+              <Button
+                variant="soft"
+                accent="purple"
+                icon={Gift}
+                loading={submittingWaiver}
+                className="flex-1"
                 onClick={handleCreateWaiver}
-                disabled={submittingWaiver}
-                className="flex-1 px-4 py-2 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-lg hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {submittingWaiver ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    <Gift className="w-4 h-4" />
-                    Submit Request
-                  </>
-                )}
-              </button>
-              <button
+                Submit Request
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => { setShowWaiverModal(false); setSelectedBillForWaiver(null); }}
-                className="flex-1 px-4 py-2 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] hover:bg-[var(--bg-main)] transition-colors text-sm"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>

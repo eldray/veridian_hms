@@ -1,17 +1,21 @@
 // src/pages/Patients.tsx - FIXED VERSION
 import { getPatients } from '../api';
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
-import { 
-  Search, Grid, List, RefreshCw, Users, Calendar, 
-  Eye, Edit, ChevronLeft, ChevronRight, 
-  Plus, Phone, User, Trash2, Stethoscope,
-  CalendarDays, Clock, Filter, X, CreditCard
+import {
+  RefreshCw, Users, Calendar,
+  Eye, Edit,
+  Plus, Phone, User,
+  Trash2, Stethoscope,
+  Filter, X, CreditCard, Grid, List
 } from 'lucide-react';
+import {
+  Badge, Button, Card, FilterSelect, INPUT, LinkButton, PageHeader,
+  Pagination, SearchInput, Segmented, TABLE_SHELL, TD, TD_MUTED, TH, TH_ROW, TR
+} from '../components/ui';
 
 type DateFilterType = 'all' | 'today' | 'yesterday' | 'custom';
 
@@ -138,8 +142,7 @@ export default function Patients() {
 
   // Pagination - use sortedPatients
   const totalPages = Math.ceil(sortedPatients.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const paginatedPatients = sortedPatients.slice(startIndex, startIndex + itemsPerPage);
+  const paginatedPatients = sortedPatients.slice((currentPage - 1) * itemsPerPage, (currentPage - 1) * itemsPerPage + itemsPerPage);
 
   // Mirrors the patient API: everyone in requirePatientManagement may register,
   // only an administrator may delete a record.
@@ -184,12 +187,13 @@ export default function Patients() {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  const getPaymentModeColor = (paymentMode: string) => {
+  // Payment mode is not a workflow status, so Badge's STATUS_TONES has no entry for
+  // it; the tone stays local and only the chip surface comes from the shared Badge.
+  const getPaymentModeTone = (paymentMode: string) => {
     switch (paymentMode) {
-      case 'cash': return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
-      case 'nhis': return 'bg-green-50 text-green-700 border-green-200';
-      case 'private_insurance': return 'bg-purple-50 text-purple-700 border-purple-200';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
+      case 'nhis': return 'green' as const;
+      case 'private_insurance': return 'purple' as const;
+      default: return 'neutral' as const;
     }
   };
 
@@ -225,22 +229,42 @@ export default function Patients() {
 
   const stats = getFilterStats();
 
+  const header = (
+    <PageHeader
+      title="Patient Management"
+      subtitle="Manage patient records and medical history"
+      meta={(
+        <>
+          {stats.totalPatients} total patients • {stats.withAttendances} with visits
+          {isLoadingMore && (
+            <span className="ml-2 text-[var(--text-tertiary)]">
+              (loading all patients… {patients.length} of {pagination?.total ?? '?'})
+            </span>
+          )}
+        </>
+      )}
+      icon={Users}
+      accent="cyan"
+      actions={(
+        <>
+          <Button icon={RefreshCw} loading={refreshing} onClick={handleRefresh}>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+          {canRegister && (
+            <LinkButton variant="soft" accent="cyan" icon={Plus} to="/dashboard/patients/register">
+              Register Patient
+            </LinkButton>
+          )}
+        </>
+      )}
+    />
+  );
+
   // Loading State
   if (isLoading && !refreshing) {
     return (
       <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Management</h1>
-          </div>
-          <button
-            disabled
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm"
-          >
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Loading...
-          </button>
-        </div>
+        {header}
         <div className="space-y-4">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((i) => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
@@ -261,39 +285,7 @@ export default function Patients() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Management</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Manage patient records and medical history</p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {stats.totalPatients} total patients • {stats.withAttendances} with visits
-            {isLoadingMore && (
-              <span className="ml-2 text-[var(--text-tertiary)]">
-                (loading all patients… {patients.length} of {pagination?.total ?? '?'})
-              </span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canRegister && (
-            <Link
-              to="/dashboard/patients/register"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Register Patient
-            </Link>
-          )}
-          <button
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            {refreshing ? 'Refreshing...' : 'Refresh'}
-          </button>
-        </div>
-      </div>
+      {header}
 
       {/* Date Filter Bar */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
@@ -366,16 +358,18 @@ export default function Patients() {
             <div className="flex items-center gap-3 ml-auto">
               <input
                 type="date"
+                aria-label="Visits from date"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={INPUT}
               />
               <span className="text-[var(--text-secondary)]">to</span>
               <input
                 type="date"
+                aria-label="Visits to date"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={INPUT}
               />
             </div>
           )}
@@ -389,77 +383,64 @@ export default function Patients() {
       {/* Search and View Controls */}
       <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex-1 w-full sm:max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Search by patient name, folder number, contact..."
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-sm placeholder-[var(--text-tertiary)]"
-              />
-            </div>
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-sm"
+            value={searchQuery}
+            onChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+            placeholder="Search by patient name, folder number, contact..."
+          />
 
           <div className="flex items-center gap-3">
-            <div className="flex bg-[var(--bg-main)] rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('cards')}
-                className={`p-2 rounded transition-all duration-200 ${
-                  viewMode === 'cards' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-all duration-200 ${
-                  viewMode === 'list' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
+            <Segmented
+              aria-label="Patient layout"
+              accent="cyan"
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
+                { value: 'cards', label: 'Cards', icon: Grid },
+                { value: 'list', label: 'List', icon: List },
+              ]}
+            />
 
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
-            >
-              <option value={10}>10 per page</option>
-              <option value={15}>15 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={25}>25 per page</option>
-            </select>
+            <FilterSelect
+              aria-label="Rows per page"
+              value={String(itemsPerPage)}
+              onChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}
+              options={[
+                { value: '10', label: '10 per page' },
+                { value: '15', label: '15 per page' },
+                { value: '20', label: '20 per page' },
+                { value: '25', label: '25 per page' },
+              ]}
+            />
           </div>
         </div>
       </div>
 
       {/* Stats Banner */}
       {sortedPatients.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-sm font-semibold text-blue-800">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 Showing {paginatedPatients.length} of {sortedPatients.length} patient records
               </p>
               {searchQuery && (
-                <p className="text-xs text-blue-600 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Search results for: "{searchQuery}"
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
-              <span className="bg-blue-100 px-2 py-1 rounded border border-blue-200">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge tone={getPaymentModeTone('cash')} size="sm">
                 Cash: {sortedPatients.filter(p => p.paymentMode === 'cash').length}
-              </span>
-              <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
+              </Badge>
+              <Badge tone={getPaymentModeTone('nhis')} size="sm">
                 NHIS: {sortedPatients.filter(p => p.paymentMode === 'nhis').length}
-              </span>
-              <span className="bg-purple-100 px-2 py-1 rounded border border-purple-200">
+              </Badge>
+              <Badge tone={getPaymentModeTone('private_insurance')} size="sm">
                 Private: {sortedPatients.filter(p => p.paymentMode === 'private_insurance').length}
-              </span>
+              </Badge>
             </div>
           </div>
         </div>
@@ -467,7 +448,7 @@ export default function Patients() {
 
       {/* Empty State */}
       {sortedPatients.length === 0 && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
+        <Card padded={false} className="p-8 text-center">
           <Users className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
             {searchQuery ? 'No Patients Found' : `No ${getDateFilterLabel()}`}
@@ -483,23 +464,15 @@ export default function Patients() {
             }
           </p>
           {searchQuery ? (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all duration-200 font-semibold text-sm border border-[var(--border-color)]"
-            >
-              <X className="w-4 h-4" />
+            <Button icon={X} onClick={() => setSearchQuery('')}>
               Clear Search
-            </button>
+            </Button>
           ) : dateFilter !== 'all' && (
-            <button
-              onClick={() => setDateFilter('all')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
-            >
-              <Users className="w-4 h-4" />
+            <Button variant="soft" accent="cyan" icon={Users} onClick={() => setDateFilter('all')}>
               View All Patients
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Card View */}
@@ -520,27 +493,32 @@ export default function Patients() {
                       <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight">
                         {fullName}
                       </h3>
-                      <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border mt-1">
+                      <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border border-[var(--border-color)] mt-1 font-mono">
                         {patient.folderNumber || patientId.slice(0, 8)}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Link
+                    <LinkButton
+                      variant="soft"
+                      accent="yellow"
+                      size="xs"
+                      iconOnly
+                      icon={Edit}
+                      aria-label="Edit Patient"
+                      className="opacity-0 group-hover:opacity-100"
                       to={`/dashboard/patients/register?edit=true&id=${patientId}`}
-                      className="p-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
-                      title="Edit Patient"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                    </Link>
+                    />
                     {canDelete && (
-                      <button
+                      <Button
+                        variant="dangerSoft"
+                        size="xs"
+                        iconOnly
+                        icon={Trash2}
+                        aria-label="Delete Patient"
+                        className="opacity-0 group-hover:opacity-100"
                         onClick={() => setDeleteConfirm(patientId)}
-                        className="p-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
-                        title="Delete Patient"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      />
                     )}
                   </div>
                 </div>
@@ -552,9 +530,9 @@ export default function Patients() {
                   </div>
                   <div className="flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5 text-[var(--text-secondary)]" />
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
+                    <Badge tone={getPaymentModeTone(patient.paymentMode)}>
                       {getPaymentModeLabel(patient.paymentMode)}
-                    </span>
+                    </Badge>
                   </div>
                   <div className="flex items-center gap-2 text-[var(--text-tertiary)] text-xs">
                     <Calendar className="w-3.5 h-3.5" />
@@ -563,38 +541,48 @@ export default function Patients() {
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                  <Link
+                  <LinkButton
+                    variant="soft"
+                    accent="cyan"
+                    size="sm"
+                    icon={Eye}
+                    className="flex-1"
                     to={`/dashboard/patients/${patientId}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-medium text-xs"
                   >
-                    <Eye className="w-3.5 h-3.5" />
                     View
-                  </Link>
-                  <button
+                  </LinkButton>
+                  <Button
+                    variant="soft"
+                    accent="green"
+                    size="sm"
+                    icon={Stethoscope}
+                    className="flex-1"
                     onClick={() => handleAddAttendance(patientId)}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-all duration-200 font-medium text-xs"
                   >
-                    <Stethoscope className="w-3.5 h-3.5" />
                     Visit
-                  </button>
+                  </Button>
                 </div>
 
                 {deleteConfirm === patientId && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 text-xs font-medium mb-2">Delete {fullName}?</p>
+                  <div className="mt-3 p-3 bg-[var(--icon-red-bg)] border border-[var(--border-color)] rounded-lg">
+                    <p className="text-[var(--icon-red-text)] text-xs font-medium mb-2">Delete {fullName}?</p>
                     <div className="flex gap-2">
-                      <button
+                      <Button
+                        variant="danger"
+                        size="xs"
+                        className="flex-1"
                         onClick={() => handleDeletePatient(patientId)}
-                        className="flex-1 px-2 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
                       >
                         Delete
-                      </button>
-                      <button
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="xs"
+                        className="flex-1"
                         onClick={() => setDeleteConfirm(null)}
-                        className="flex-1 px-2 py-1.5 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 transition-colors"
                       >
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -606,19 +594,20 @@ export default function Patients() {
 
       {/* List View (DEFAULT) */}
       {sortedPatients.length > 0 && viewMode === 'list' && (
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
+        <div className={TABLE_SHELL}>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+            <thead className={TH_ROW}>
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment Mode</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Created</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Last Visit</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
+                <th className={TH}>Patient</th>
+                <th className={TH}>Contact</th>
+                <th className={TH}>Payment Mode</th>
+                <th className={TH}>Created</th>
+                <th className={TH}>Last Visit</th>
+                <th className={TH}>Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
+            <tbody>
               {paginatedPatients.map((patient) => {
                 const patientId = getPatientId(patient);
                 const fullName = getPatientFullName(patient);
@@ -628,8 +617,8 @@ export default function Patients() {
                 const createdDate = new Date(patient.createdAt || patient.registeredAt).toLocaleDateString();
                 
                 return (
-                  <tr key={patientId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
-                    <td className="px-4 py-3">
+                  <tr key={patientId} className={TR}>
+                    <td className={TD}>
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
                           <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
@@ -638,63 +627,70 @@ export default function Patients() {
                           <p className="font-semibold text-[var(--text-primary)] text-sm">
                             {fullName}
                           </p>
-                          <p className="text-xs text-[var(--text-secondary)]">
+                          <p className="text-xs text-[var(--text-secondary)] font-mono">
                             {patient.folderNumber || patientId.slice(0, 8)}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={TD}>
                       <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                         <Phone className="w-3.5 h-3.5" />
                         {patient.contact}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${getPaymentModeColor(patient.paymentMode)}`}>
+                    <td className={TD}>
+                      <Badge tone={getPaymentModeTone(patient.paymentMode)} size="sm">
                         {getPaymentModeLabel(patient.paymentMode)}
-                      </span>
+                      </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
+                    <td className={TD_MUTED}>
                       {createdDate}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className={TD}>
                       <div className="flex items-center gap-1.5 text-sm text-[var(--text-secondary)]">
                         <Calendar className="w-3.5 h-3.5" />
                         {lastVisit}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link
+                    <td className={TD}>
+                      <div className="flex items-center gap-1.5">
+                        <LinkButton
+                          variant="soft"
+                          accent="cyan"
+                          size="sm"
+                          iconOnly
+                          icon={Eye}
+                          aria-label="View Details"
                           to={`/dashboard/patients/${patientId}`}
-                          className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors duration-200"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                        <Link
+                        />
+                        <LinkButton
+                          variant="soft"
+                          accent="yellow"
+                          size="sm"
+                          iconOnly
+                          icon={Edit}
+                          aria-label="Edit Patient"
                           to={`/dashboard/patients/register?edit=true&id=${patientId}`}
-                          className="p-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-colors duration-200"
-                          title="Edit Patient"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </Link>
-                        <button
+                        />
+                        <Button
+                          variant="soft"
+                          accent="green"
+                          size="sm"
+                          iconOnly
+                          icon={Stethoscope}
+                          aria-label="Add Visit"
                           onClick={() => handleAddAttendance(patientId)}
-                          className="p-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors duration-200"
-                          title="Add Visit"
-                        >
-                          <Stethoscope className="w-4 h-4" />
-                        </button>
+                        />
                         {canDelete && (
-                          <button
+                          <Button
+                            variant="dangerSoft"
+                            size="sm"
+                            iconOnly
+                            icon={Trash2}
+                            aria-label="Delete Patient"
                             onClick={() => setDeleteConfirm(patientId)}
-                            className="p-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors duration-200"
-                            title="Delete Patient"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          />
                         )}
                       </div>
                     </td>
@@ -703,63 +699,20 @@ export default function Patients() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
       {/* Pagination */}
-      {sortedPatients.length > 0 && totalPages > 1 && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="text-sm text-[var(--text-secondary)]">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, sortedPatients.length)} of{' '}
-              {sortedPatients.length} patient records
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
-
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === pageNum
-                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
-
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </div>
+      {sortedPatients.length > 0 && (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          itemsPerPage={itemsPerPage}
+          totalItems={sortedPatients.length}
+          noun="patient records"
+          onChange={goToPage}
+        />
       )}
 
       {/* Modal */}

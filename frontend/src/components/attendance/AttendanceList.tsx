@@ -65,6 +65,8 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Patient</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Folder #</th>
+            <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Attendance #</th>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Date & Type</th>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Payment</th>
             <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase">Status</th>
@@ -88,11 +90,14 @@ export const AttendanceList: React.FC<AttendanceListProps> = ({
                       <p className="font-semibold text-gray-900 text-xs">
                         {patient?.fullName || `Patient ${attendance.patientId?.toString().slice(-6) || 'Unknown'}`}
                       </p>
-                      <p className="text-xs text-gray-500">
-                        {patient?.folderNumber || 'No Folder'}
-                      </p>
                     </div>
                   </div>
+                </td>
+                <td className="px-3 py-2 text-xs font-mono text-gray-700">
+                  {patient?.folderNumber || '—'}
+                </td>
+                <td className="px-3 py-2 text-xs font-mono text-gray-700">
+                  {attendance.attendanceNumber || '—'}
                 </td>
                 <td className="px-3 py-2">
                   <div className="text-xs">

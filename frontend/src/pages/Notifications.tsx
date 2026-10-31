@@ -9,12 +9,17 @@ import { useUserStore } from '../store/userStore';
 import { useToast } from '../store/toastStore';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
-  Search, Bell, Trash2, RefreshCw, Eye, CheckCircle,
+  Badge, Button, Card, cn, Field, FilterSelect, INPUT, PageHeader, SearchInput,
+  Segmented, StatCard,
+  type BadgeTone,
+} from '../components/ui';
+import {
+  Bell, Trash2, RefreshCw, Eye, CheckCircle,
   AlertCircle, AlertTriangle, Info, Calendar, DollarSign,
   Stethoscope, Send, Users, Shield, MessageSquare, X,
   Filter, Clock, ChevronRight, TrendingUp, Activity,
-  Crown, Syringe, UserCircle, Loader, User, BellOff,
-  CheckCheck, Zap, MoreHorizontal,
+  Crown, Syringe, Loader, User, BellOff,
+  CheckCheck, Zap,
 } from 'lucide-react';
 
 type NotificationType = 'info' | 'success' | 'warning' | 'error' | 'appointment' | 'billing' | 'clinical' | 'system';
@@ -47,11 +52,12 @@ const TYPE_CONFIG: Record<string, { icon: React.ReactNode; bg: string; color: st
   info:        { icon: <Info className="w-4 h-4" />,          bg: 'var(--bg-main)',        color: 'var(--text-secondary)',   label: 'Info'        },
 };
 
-const PRIORITY_CONFIG: Record<string, { bg: string; color: string; dot: string; label: string }> = {
-  urgent: { bg: 'var(--icon-red-bg)',    color: 'var(--icon-red-text)',    dot: 'bg-[var(--icon-red-text)]',    label: 'Urgent' },
-  high:   { bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)', dot: 'bg-[var(--icon-orange-text)]', label: 'High'   },
-  medium: { bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', dot: 'bg-[var(--icon-yellow-text)]', label: 'Medium' },
-  low:    { bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)',  dot: 'bg-[var(--icon-green-text)]',  label: 'Low'    },
+// Badge has no priority vocabulary, so the tone map stays with the priority it describes.
+const PRIORITY_CONFIG: Record<string, { tone: BadgeTone; label: string }> = {
+  urgent: { tone: 'red',    label: 'Urgent' },
+  high:   { tone: 'orange', label: 'High'   },
+  medium: { tone: 'yellow', label: 'Medium' },
+  low:    { tone: 'green',  label: 'Low'    },
 };
 
 const formatDate = (dateString: string) => {
@@ -68,12 +74,6 @@ const formatDate = (dateString: string) => {
   if (days < 7)   return `${days}d ago`;
   return date.toLocaleDateString();
 };
-
-const inputCls =
-  'w-full px-3 py-2 border border-[var(--border-color)] rounded-lg text-xs ' +
-  'bg-[var(--bg-main)] text-[var(--text-primary)] ' +
-  'placeholder:text-[var(--text-tertiary)] ' +
-  'focus:outline-none focus:ring-1 focus:ring-[var(--icon-cyan-text)] transition-all';
 
 // ── Admin Message Modal ───────────────────────────────────────────────────────
 const AdminMessageModal: React.FC<{
@@ -125,9 +125,7 @@ const AdminMessageModal: React.FC<{
               <p className="text-[10px] text-[var(--text-tertiary)]">Send to users or roles</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--border-color)] transition-all">
-            <X className="w-4 h-4" />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close broadcast message" onClick={onClose} />
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-4" style={{ scrollbarWidth: 'thin' }}>
@@ -169,11 +167,12 @@ const AdminMessageModal: React.FC<{
           {sendTo === 'users' && (
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-2">Select Users</p>
-              <div className="relative mb-2">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                <input type="text" placeholder="Search users…" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                  className={inputCls} style={{ paddingLeft: '2rem' }} />
-              </div>
+              <SearchInput
+                className="mb-2"
+                placeholder="Search users…"
+                value={searchTerm}
+                onChange={setSearchTerm}
+              />
               <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border-color)] divide-y divide-[var(--border-color)]" style={{ scrollbarWidth: 'thin' }}>
                 {isLoadingUsers ? (
                   <div className="flex justify-center py-6"><Loader className="w-5 h-5 animate-spin text-[var(--icon-cyan-text)]" /></div>
@@ -200,49 +199,54 @@ const AdminMessageModal: React.FC<{
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Type</p>
-              <select value={type} onChange={e => setType(e.target.value as NotificationType)} className={inputCls}>
-                <option value="info">Info</option>
-                <option value="success">Success</option>
-                <option value="warning">Warning</option>
-                <option value="error">Error</option>
-                <option value="system">System</option>
-              </select>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Priority</p>
-              <select value={priority} onChange={e => setPriority(e.target.value as NotificationPriority)} className={inputCls}>
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
-            </div>
+            <Field label="Type">
+              <FilterSelect
+                aria-label="Message type"
+                className="text-xs"
+                value={type}
+                onChange={(value) => setType(value as NotificationType)}
+                options={[
+                  { value: 'info', label: 'Info' },
+                  { value: 'success', label: 'Success' },
+                  { value: 'warning', label: 'Warning' },
+                  { value: 'error', label: 'Error' },
+                  { value: 'system', label: 'System' },
+                ]}
+              />
+            </Field>
+            <Field label="Priority">
+              <FilterSelect
+                aria-label="Message priority"
+                className="text-xs"
+                value={priority}
+                onChange={(value) => setPriority(value as NotificationPriority)}
+                options={[
+                  { value: 'low', label: 'Low' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'high', label: 'High' },
+                  { value: 'urgent', label: 'Urgent' },
+                ]}
+              />
+            </Field>
           </div>
 
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Title *</p>
+          <Field label="Title" required>
             <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="e.g. System maintenance notice…" className={inputCls} />
-          </div>
+              placeholder="e.g. System maintenance notice…" className={cn(INPUT, 'w-full text-xs')} />
+          </Field>
 
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Message *</p>
+          <Field label="Message" required>
             <textarea value={message} onChange={e => setMessage(e.target.value)} rows={4}
               placeholder="Write your message here…"
-              className={`${inputCls} resize-none`} />
-          </div>
+              className={cn(INPUT, 'w-full text-xs resize-none')} />
+          </Field>
         </div>
 
         <div className="flex gap-3 px-5 py-4 border-t border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
-          <button onClick={onClose} className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all">
-            Cancel
-          </button>
-          <button onClick={handleSubmit} disabled={isDisabled}
-            className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2 transition-all">
-            {isSending ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : <><Send className="w-3.5 h-3.5" />Send Message</>}
-          </button>
+          <Button variant="secondary" size="sm" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" size="sm" className="flex-1" icon={Send} loading={isSending} disabled={isDisabled} onClick={handleSubmit}>
+            Send Message
+          </Button>
         </div>
       </div>
     </div>
@@ -277,14 +281,11 @@ const NotificationDetailModal: React.FC<{
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: tc.color }}>{tc.label}</span>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${pc.dot}`} />
-                  <span className="text-[10px] text-[var(--text-tertiary)] font-semibold">{pc.label} priority</span>
+                  <Badge tone={pc.tone} dot size="xs">{pc.label} priority</Badge>
                 </div>
               </div>
             </div>
-            <button onClick={onClose} className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:bg-[var(--bg-main)] transition-all">
-              <X className="w-4 h-4" />
-            </button>
+            <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close notification" onClick={onClose} />
           </div>
 
           <h3 className="text-base font-bold text-[var(--text-primary)] mb-1">{notification.title}</h3>
@@ -311,23 +312,23 @@ const NotificationDetailModal: React.FC<{
 
           <div className="flex gap-2">
             {notification.actionUrl && (
-              <button onClick={() => { navigate(notification.actionUrl); onClose(); }}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-text)] text-white hover:opacity-90 flex items-center justify-center gap-1.5 transition-all">
-                <Eye className="w-3.5 h-3.5" /> View Details
-              </button>
+              <Button variant="primary" size="sm" icon={Eye} className="flex-1" onClick={() => { navigate(notification.actionUrl); onClose(); }}>
+                View Details
+              </Button>
             )}
             {!notification.isRead && (
-              <button onClick={onMarkAsRead}
-                className="flex-1 py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center justify-center gap-1.5 transition-all">
-                <CheckCheck className="w-3.5 h-3.5" /> Mark as Read
-              </button>
+              <Button variant="secondary" size="sm" icon={CheckCheck} className="flex-1" onClick={onMarkAsRead}>
+                Mark as Read
+              </Button>
             )}
-            <button onClick={onClose}
-              className={`py-2 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] transition-all ${
-                notification.actionUrl || !notification.isRead ? 'px-3' : 'flex-1'
-              }`}>
+            <Button
+              variant="secondary"
+              size="sm"
+              className={notification.actionUrl || !notification.isRead ? 'px-3' : 'flex-1'}
+              onClick={onClose}
+            >
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -499,87 +500,65 @@ export default function Notifications() {
     <div className="space-y-4">
 
       {/* ── HEADER ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-            <Bell className="w-4.5 h-4.5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Notifications</h1>
-            <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">
-              {unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          {isAdmin && (
-            <button onClick={() => setIsAdminModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] hover:bg-[var(--icon-purple-text)] hover:text-white transition-all">
-              <MessageSquare className="w-3.5 h-3.5" /> Broadcast
-            </button>
-          )}
-          {unreadCount > 0 && (
-            <button onClick={handleMarkAllAsRead}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all">
-              <CheckCheck className="w-3.5 h-3.5" /> Mark all read
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                {unreadCount}
-              </span>
-            </button>
-          )}
-          {readCount > 0 && (
-            <button onClick={() => setShowClearReadConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
-              <Trash2 className="w-3.5 h-3.5" /> Clear read
-            </button>
-          )}
-          {(notifications?.length || 0) > 0 && (
-            <button onClick={() => setShowClearAllConfirm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--border-color)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
-              <AlertTriangle className="w-3.5 h-3.5" /> Clear all
-            </button>
-          )}
-          <button onClick={loadData} disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Notifications"
+        subtitle={unreadCount > 0 ? `${unreadCount} unread alert${unreadCount > 1 ? 's' : ''}` : 'All caught up'}
+        icon={Bell}
+        accent="cyan"
+        actions={(
+          <>
+            {isAdmin && (
+              <Button size="sm" variant="soft" accent="purple" icon={MessageSquare} onClick={() => setIsAdminModalOpen(true)}>
+                Broadcast
+              </Button>
+            )}
+            {unreadCount > 0 && (
+              <Button size="sm" variant="secondary" icon={CheckCheck} onClick={handleMarkAllAsRead}>
+                Mark all read
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
+                  {unreadCount}
+                </span>
+              </Button>
+            )}
+            {readCount > 0 && (
+              <Button size="sm" variant="dangerSoft" icon={Trash2} onClick={() => setShowClearReadConfirm(true)}>
+                Clear read
+              </Button>
+            )}
+            {(notifications?.length || 0) > 0 && (
+              <Button size="sm" variant="dangerSoft" icon={AlertTriangle} onClick={() => setShowClearAllConfirm(true)}>
+                Clear all
+              </Button>
+            )}
+            <Button size="sm" icon={RefreshCw} loading={isLoading} onClick={loadData}>Refresh</Button>
+          </>
+        )}
+      />
 
       {/* ── STATS ROW ─────────────────────────────────────────────────────── */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[
-            { icon: Bell,          value: stats.total || 0,                           label: 'Total',       bg: 'var(--icon-cyan-bg)',   color: 'var(--icon-cyan-text)'   },
-            { icon: Zap,           value: stats.unread || 0,                          label: 'Unread',      bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)' },
-            { icon: CheckCircle,   value: (stats.total || 0) - (stats.unread || 0),   label: 'Read',        bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)'  },
-            { icon: TrendingUp,    value: stats.total ? `${Math.round(((stats.unread||0)/stats.total)*100)}%` : '0%', label: 'Unread rate', bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
-          ].map((s, i) => (
-            <div key={i} className="bg-[var(--bg-card)] rounded-xl p-3.5 border border-[var(--border-color)]" style={{ boxShadow: 'var(--shadow-sm)' }}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
-                  <s.icon className="w-4 h-4" style={{ color: s.color }} />
-                </div>
-                <div>
-                  <p className="text-lg font-bold text-[var(--text-primary)] leading-tight">{s.value}</p>
-                  <p className="text-[10px] text-[var(--text-tertiary)]">{s.label}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+          <StatCard label="Total" value={stats.total || 0} icon={Bell} accent="cyan" />
+          <StatCard label="Unread" value={stats.unread || 0} icon={Zap} accent="yellow" />
+          <StatCard label="Read" value={(stats.total || 0) - (stats.unread || 0)} icon={CheckCircle} accent="green" />
+          <StatCard
+            label="Unread rate"
+            value={stats.total ? `${Math.round(((stats.unread || 0) / stats.total) * 100)}%` : '0%'}
+            icon={TrendingUp}
+            accent="purple"
+          />
         </div>
       )}
 
       {/* ── SEARCH + FILTER BAR ───────────────────────────────────────────── */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3" style={{ boxShadow: 'var(--shadow-sm)' }}>
+      <Card className="p-3">
         <div className="flex gap-2 items-center flex-wrap">
           {/* Search */}
-          <div className="flex-1 min-w-[180px] relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-            <input type="text" placeholder="Search notifications…" value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)} className={inputCls} style={{ paddingLeft: '2rem' }} />
-          </div>
+          <SearchInput
+            placeholder="Search notifications…"
+            value={searchTerm}
+            onChange={setSearchTerm}
+          />
 
           {/* Read filter tabs */}
           <div className="flex gap-0.5 p-0.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
@@ -599,16 +578,15 @@ export default function Notifications() {
           </div>
 
           {/* Sort */}
-          <div className="flex gap-0.5 p-0.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
-            {(['date', 'priority'] as const).map(s => (
-              <button key={s} onClick={() => setSortBy(s)}
-                className={`px-2.5 py-1.5 rounded-md text-[11px] font-semibold capitalize transition-all ${
-                  sortBy === s ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}>
-                {s === 'date' ? 'Latest' : 'Priority'}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            aria-label="Sort notifications"
+            value={sortBy}
+            onChange={setSortBy}
+            options={[
+              { value: 'date', label: 'Latest' },
+              { value: 'priority', label: 'Priority' },
+            ]}
+          />
 
           {/* Filters toggle */}
           <button onClick={() => setShowFilters(!showFilters)}
@@ -624,27 +602,33 @@ export default function Notifications() {
 
         {showFilters && (
           <div className="grid grid-cols-2 gap-3 mt-3 pt-3 border-t border-[var(--border-color)]">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Type</p>
-              <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className={inputCls}>
-                <option value="all">All types</option>
-                {Object.entries(TYPE_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1.5">Priority</p>
-              <select value={priorityFilter} onChange={e => setPriorityFilter(e.target.value)} className={inputCls}>
-                <option value="all">All priorities</option>
-                {Object.entries(PRIORITY_CONFIG).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-            </div>
+            <Field label="Type">
+              <FilterSelect
+                aria-label="Filter by type"
+                className="text-xs"
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={[
+                  { value: 'all', label: 'All types' },
+                  ...Object.entries(TYPE_CONFIG).map(([k, v]) => ({ value: k, label: v.label })),
+                ]}
+              />
+            </Field>
+            <Field label="Priority">
+              <FilterSelect
+                aria-label="Filter by priority"
+                className="text-xs"
+                value={priorityFilter}
+                onChange={setPriorityFilter}
+                options={[
+                  { value: 'all', label: 'All priorities' },
+                  ...Object.entries(PRIORITY_CONFIG).map(([k, v]) => ({ value: k, label: v.label })),
+                ]}
+              />
+            </Field>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* ── NOTIFICATION LIST ─────────────────────────────────────────────── */}
       {/* A refresh keeps the current list on screen; skeletons only cover the first paint. */}
@@ -653,19 +637,21 @@ export default function Notifications() {
           {[1,2,3,4,5].map(i => <SkeletonRow key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] flex flex-col items-center justify-center py-16 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-[var(--bg-main)] flex items-center justify-center">
-            <BellOff className="w-7 h-7 text-[var(--text-tertiary)] opacity-40" />
+        <Card padded={false} className="py-16 px-4">
+          <div className="flex flex-col items-center justify-center gap-3 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[var(--bg-main)] flex items-center justify-center">
+              <BellOff className="w-7 h-7 text-[var(--text-tertiary)] opacity-40" />
+            </div>
+            <p className="text-sm font-semibold text-[var(--text-primary)]">
+              {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
+                ? 'No matching notifications' : 'All caught up'}
+            </p>
+            <p className="text-xs text-[var(--text-tertiary)]">
+              {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
+                ? 'Try adjusting your filters' : 'No new notifications at this time'}
+            </p>
           </div>
-          <p className="text-sm font-semibold text-[var(--text-primary)]">
-            {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
-              ? 'No matching notifications' : 'All caught up'}
-          </p>
-          <p className="text-xs text-[var(--text-tertiary)]">
-            {searchTerm || typeFilter !== 'all' || priorityFilter !== 'all' || readFilter !== 'all'
-              ? 'Try adjusting your filters' : 'No new notifications at this time'}
-          </p>
-        </div>
+        </Card>
       ) : (
         <div className="space-y-2">
           {filtered.map(notif => {
@@ -696,19 +682,11 @@ export default function Notifications() {
                         {notif.title}
                       </h3>
                       {/* Priority dot + label */}
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold"
-                        style={{ background: pc.bg, color: pc.color }}>
-                        <span className={`w-1 h-1 rounded-full ${pc.dot}`} />
-                        {pc.label}
-                      </span>
+                      <Badge tone={pc.tone} dot size="xs">{pc.label}</Badge>
                       {/* Type badge */}
-                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-medium border border-[var(--border-color)] text-[var(--text-tertiary)]">
-                        {tc.label}
-                      </span>
+                      <Badge size="xs">{tc.label}</Badge>
                       {isUnread && (
-                        <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">
-                          NEW
-                        </span>
+                        <Badge tone="cyan" size="xs">NEW</Badge>
                       )}
                     </div>
 
@@ -737,17 +715,13 @@ export default function Notifications() {
                   <div className="flex gap-1 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
                     onClick={e => e.stopPropagation()}>
                     {isUnread && (
-                      <button onClick={() => handleMarkAsRead(notif.id)}
-                        title="Mark as read"
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all">
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
+                      <Button size="sm" variant="ghost" iconOnly icon={Eye} aria-label="Mark as read"
+                        className="hover:text-[var(--icon-green-text)]"
+                        onClick={() => handleMarkAsRead(notif.id)} />
                     )}
-                    <button onClick={() => setShowDeleteConfirm({ id: notif.id, title: notif.title })}
-                      title="Delete"
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <Button size="sm" variant="ghost" iconOnly icon={Trash2} aria-label="Delete"
+                      className="hover:text-[var(--icon-red-text)]"
+                      onClick={() => setShowDeleteConfirm({ id: notif.id, title: notif.title })} />
                   </div>
                 </div>
               </div>

@@ -16,7 +16,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 import type { LucideIcon } from 'lucide-react';
 import {
-  Activity, ArrowLeftRight, Baby, BarChart3, BedDouble, Bell, Briefcase,
+  Activity, ArrowLeftRight, Baby, BarChart3, BedDouble, Bell,
   Building, Calendar, Clipboard, ClipboardList, DollarSign, FileText,
   Heart, HeartPulse, LayoutDashboard, Microscope, Package, Pill, Scan,
   ScrollText, Scissors, Send, Settings as SettingsIcon, Shield, Store, Stethoscope,
@@ -111,9 +111,15 @@ export const PAGES: PageDef[] = [
   // ── Revenue ────────────────────────────────────────────────────────────────
   { key: 'invoices', paths: ['/dashboard/invoices', '/dashboard/invoices/create'], patterns: ['/dashboard/invoices/:id'], roles: ['pharmacist', 'accounts'], label: 'Invoices', icon: FileText, group: 'Revenue' },
   { key: 'billing', paths: ['/dashboard/billing'], patterns: ['/dashboard/patients/:patientId/billing', '/dashboard/billing/:billId/payment'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Billing', icon: DollarSign, group: 'Revenue' },
-  { key: 'insurance_claims', paths: ['/dashboard/insurance-claims', '/dashboard/insurance-claims/tracking', '/dashboard/insurance-claims/batches'], patterns: ['/dashboard/insurance-claims/:id/edit', '/dashboard/insurance-claims/nhis/:id/edit', '/dashboard/insurance-claims/private/:id/edit', '/dashboard/insurance-claims/corporate/:id/edit'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Insurance', icon: Shield, group: 'Revenue' },
-  { key: 'insurance_providers', paths: ['/dashboard/insurance-providers'], roles: ['accounts'], label: 'Insurance Providers', icon: Shield, group: 'Revenue' },
-  { key: 'corporate', paths: ['/dashboard/corporate-accounts'], patterns: ['/dashboard/corporate-accounts/:id'], roles: ['accounts'], label: 'Corporate', icon: Briefcase, group: 'Revenue' },
+  // Insurance is a single sidebar entry. The payer family and the section live in the URL
+  // (/dashboard/insurance/<family>/<section>), so each tab is a deep link the guard can name.
+  { key: 'insurance_claims', paths: ['/dashboard/insurance', '/dashboard/insurance/nhis/claims', '/dashboard/insurance/nhis/batches', '/dashboard/insurance/nhis/tracking', '/dashboard/insurance/private/claims', '/dashboard/insurance/private/batches', '/dashboard/insurance/private/tracking', '/dashboard/insurance/corporate/claims', '/dashboard/insurance/corporate/batches', '/dashboard/insurance/corporate/tracking'], patterns: ['/dashboard/insurance/claims/:id/edit', '/dashboard/insurance/claims/nhis/:id/edit', '/dashboard/insurance/claims/private/:id/edit', '/dashboard/insurance/claims/corporate/:id/edit'], roles: ['accounts', 'doctor'], navRoles: ['accounts'], label: 'Insurance', icon: Shield, group: 'Revenue' },
+  // Guard-only entries: the insurance tab bar opens and hides these sections, and every path
+  // still has to resolve here or ProtectedRoute answers Access Denied. They are deliberately
+  // not folded into insurance_claims — that would hand doctors the providers and corporate
+  // screens, which the API keeps to accounts.
+  { key: 'insurance_providers', paths: ['/dashboard/insurance/nhis/providers', '/dashboard/insurance/private/providers'], roles: ['accounts'] },
+  { key: 'corporate', paths: ['/dashboard/insurance/corporate/accounts'], patterns: ['/dashboard/insurance/corporate/accounts/:id', '/dashboard/corporate-accounts/:id'], roles: ['accounts'] },
   { key: 'estimates', paths: ['/dashboard/estimates', '/dashboard/estimates/new'], patterns: ['/dashboard/estimates/:id', '/dashboard/estimates/:id/edit'], roles: ['accounts'], label: 'Estimates', icon: FileText, group: 'Revenue' },
   // Counter mirrors COUNTER_STAFF in backend/src/modules/counter/CounterRoutes.ts.
   // Doctors and nurses are deliberately absent: a consultation is opened from the visit

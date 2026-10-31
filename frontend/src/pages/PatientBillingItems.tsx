@@ -1,7 +1,7 @@
 // src/pages/PatientBillingItems.tsx - OPTIMIZED VERSION
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { usePatientStore } from '../store/patientStore';
@@ -10,18 +10,21 @@ import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanc
 import { useAuthStore } from '../store/authStore';
 import { canAccessPage } from '../config/access';
 import { useToast } from '../store/toastStore';
-import { useDocumentStore } from '../store/documentStore';
 import { openPrintWindow, generatePDF } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import { addServicesToEncounter } from '../api';
 import {
   ArrowLeft, Receipt, DollarSign, CreditCard, Eye, Printer,
-  ChevronLeft, ChevronRight, FileText, User, Calendar,
-  Shield, CheckCircle, Clock, AlertCircle, X, Search,
+  FileText, User, Calendar,
+  Shield, CheckCircle, AlertCircle, X,
   RefreshCw, TrendingUp, Wallet, Pill, Stethoscope,
   Microscope, Scan, Syringe, ClipboardList, Hospital,
   CheckSquare, Square, PlusCircle, Loader2
 } from 'lucide-react';
+import {
+  Badge, Button, Card, cn, Field, humanStatus, INPUT, LinkButton, PageHeader,
+  Pagination, SearchInput, SELECT, StatCard, statusTone, TD, TH, TH_ROW, TR,
+} from '../components/ui';
 
 interface BillLineItem {
   id: string;
@@ -148,8 +151,6 @@ export default function PatientBillingItems() {
   const attendances = useAttendanceStore((s) => s.attendances);
   const getAttendances = useAttendanceStore((s) => s.getAttendances);
 
-  const { generateReceipt } = useDocumentStore();
-
   const canMakePayment = hasRole(['admin', 'accounts']);
   const isCashPayment = selectedBill?.paymentMode === 'cash';
 
@@ -173,19 +174,6 @@ export default function PatientBillingItems() {
       });
     } catch {
       return 'Invalid Date';
-    }
-  }, []);
-
-  const getStatusColor = useCallback((status: string) => {
-    switch (status) {
-      case 'paid':
-        return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-      case 'partial':
-        return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-      case 'pending':
-        return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]';
-      default:
-        return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
     }
   }, []);
 
@@ -777,9 +765,24 @@ export default function PatientBillingItems() {
   }, [serviceCatalog, serviceSearchTerm]);
 
   // ===== Loading =====
+  const pageHeader = (
+    <PageHeader
+      title="Patient Billing Items"
+      subtitle={`View and manage all billable items for ${getPatientName(patient)}`}
+      meta={`${patientBills.length} bill(s) for the selected visit${selectedAttendance?.attendanceNumber ? ` (${selectedAttendance.attendanceNumber})` : ''}${selectedAttendance?.dateTime ? ` · ${formatDate(selectedAttendance.dateTime)}` : ''} · Folder: ${patient?.folderNumber}`}
+      icon={DollarSign}
+      accent="yellow"
+      onBack={goBack}
+      actions={(
+        <Button icon={RefreshCw} onClick={handleRefresh}>Refresh</Button>
+      )}
+    />
+  );
+
   if (isInitialLoad && (isLoading || isResolving)) {
     return (
       <div className="space-y-6 p-6">
+        {pageHeader}
         <div className="flex items-center gap-3 mb-4">
           <Loader2 className="w-6 h-6 animate-spin text-[var(--icon-cyan-text)]" />
           <p className="text-[var(--text-secondary)]">Loading patient billing data...</p>
@@ -825,21 +828,11 @@ export default function PatientBillingItems() {
           <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h3>
           <p className="text-[var(--text-secondary)] mb-4">Could not find patient with ID: {patientId}</p>
-          <div className="space-y-2">
-            <button
-              onClick={goBack}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all"
-            >
-              <ArrowLeft className="w-4 h-4" />
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Button variant="soft" accent="cyan" icon={ArrowLeft} onClick={goBack}>
               {routerLocation.key === 'default' ? 'Back to Billing' : 'Back'}
-            </button>
-            <button
-              onClick={handleRefresh}
-              className="inline-flex items-center gap-2 px-4 py-2 ml-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Retry
-            </button>
+            </Button>
+            <Button variant="secondary" icon={RefreshCw} onClick={handleRefresh}>Retry</Button>
           </div>
         </div>
       </div>
@@ -848,37 +841,7 @@ export default function PatientBillingItems() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <button
-              onClick={goBack}
-              className="text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              {routerLocation.key === 'default' ? 'Back to Billing' : 'Back'}
-            </button>
-          </div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Patient Billing Items</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">
-            View and manage all billable items for {getPatientName(patient)}
-          </p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {patientBills.length} bill(s) for the selected visit
-            {selectedAttendance?.attendanceNumber && ` (${selectedAttendance.attendanceNumber})`}
-            {selectedAttendance?.dateTime && ` · ${formatDate(selectedAttendance.dateTime)}`}
-            {' · '}Folder: {patient?.folderNumber}
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
-      </div>
+      {pageHeader}
 
       {/* Patient / attendance selector — consistent with Vitals and Medical Entries */}
       <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 shadow-sm">
@@ -923,7 +886,7 @@ export default function PatientBillingItems() {
 
       {/* Patient Info Card */}
       {patient && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+        <Card>
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
@@ -946,109 +909,84 @@ export default function PatientBillingItems() {
               </div>
             </div>
             {canViewPatientProfile && (
-              <Link
+              <LinkButton
                 to={`/dashboard/patients/${patient.id}`}
-                className="flex items-center gap-2 px-3 py-1.5 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-colors text-sm"
+                variant="secondary"
+                icon={Eye}
               >
-                <Eye className="w-4 h-4" />
                 View Profile
-              </Link>
+              </LinkButton>
             )}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Summary Stats */}
       {patientBills.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {[
-            {
-              icon: FileText,
-              label: 'Total Bills',
-              value: patientBills.length,
-              bg: 'bg-[var(--icon-cyan-bg)]',
-              text: 'text-[var(--icon-cyan-text)]',
-            },
-            {
-              icon: DollarSign,
-              label: 'Total Amount',
-              value: formatCurrency(
-                patientBills.reduce((s, b) => s + (b.totalAmount || 0), 0)
-              ),
-              bg: 'bg-[var(--icon-purple-bg)]',
-              text: 'text-[var(--icon-purple-text)]',
-            },
-            {
-              icon: Wallet,
-              label: 'Total Paid',
-              value: formatCurrency(
-                patientBills.reduce((s, b) => s + (b.paidAmount || 0), 0)
-              ),
-              bg: 'bg-[var(--icon-green-bg)]',
-              text: 'text-[var(--icon-green-text)]',
-            },
-            {
-              icon: TrendingUp,
-              label: 'Outstanding',
-              value: formatCurrency(
-                patientBills.reduce((s, b) => s + (b.balance || 0), 0)
-              ),
-              bg: 'bg-[var(--icon-red-bg)]',
-              text: 'text-[var(--icon-red-text)]',
-            },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-9 h-9 ${stat.bg} rounded-lg flex items-center justify-center`}
-                >
-                  <stat.icon className={`w-4 h-4 ${stat.text}`} />
-                </div>
-                <div>
-                  <p className="text-xs text-[var(--text-secondary)]">{stat.label}</p>
-                  <p className="text-lg font-bold text-[var(--text-primary)]">{stat.value}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+          <StatCard
+            label="Total Bills"
+            value={patientBills.length}
+            icon={FileText}
+            accent="cyan"
+          />
+          <StatCard
+            size="money"
+            label="Total Amount"
+            value={formatCurrency(
+              patientBills.reduce((s, b) => s + (b.totalAmount || 0), 0)
+            )}
+            icon={DollarSign}
+            accent="purple"
+          />
+          <StatCard
+            size="money"
+            label="Total Paid"
+            value={formatCurrency(
+              patientBills.reduce((s, b) => s + (b.paidAmount || 0), 0)
+            )}
+            icon={Wallet}
+            accent="green"
+          />
+          <StatCard
+            size="money"
+            label="Outstanding"
+            value={formatCurrency(
+              patientBills.reduce((s, b) => s + (b.balance || 0), 0)
+            )}
+            icon={TrendingUp}
+            accent="red"
+          />
         </div>
       )}
 
       {/* Search & Per-page */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex-1 w-full sm:max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => {
-                  setSearchQuery(e.target.value);
-                  setCurrentPage(1);
-                }}
-                placeholder="Search by bill number or status..."
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-sm placeholder:text-[var(--text-tertiary)]"
-              />
-            </div>
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-sm"
+            value={searchQuery}
+            onChange={(value) => {
+              setSearchQuery(value);
+              setCurrentPage(1);
+            }}
+            placeholder="Search by bill number or status..."
+          />
           <select
+            aria-label="Rows per page"
             value={itemsPerPage}
             onChange={(e) => {
               setItemsPerPage(Number(e.target.value));
               setCurrentPage(1);
             }}
-            className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
+            className={cn(SELECT, 'w-auto')}
           >
             <option value={5}>5 per page</option>
             <option value={10}>10 per page</option>
             <option value={20}>20 per page</option>
           </select>
         </div>
-      </div>
+      </Card>
 
       {/* Bills List */}
       {patientBills.length === 0 ? (
@@ -1063,13 +1001,14 @@ export default function PatientBillingItems() {
               : !selectedAttendanceId ? 'Choose the current or a previous attendance above to see its bills.' : 'This attendance has no associated bills yet.'}
           </p>
           {searchQuery && (
-            <button
+            <Button
+              variant="secondary"
+              className="mt-4"
+              icon={X}
               onClick={() => setSearchQuery('')}
-              className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all text-sm"
             >
-              <X className="w-4 h-4" />
               Clear Search
-            </button>
+            </Button>
           )}
         </div>
       ) : (
@@ -1080,10 +1019,7 @@ export default function PatientBillingItems() {
               const isLoadingThis = isLoadingItems && expandedBillId === bill.id;
 
               return (
-                <div
-                  key={bill.id}
-                  className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden"
-                >
+                <Card key={bill.id} padded={false}>
                   {/* Bill header row */}
                   <div
                     className="p-4 cursor-pointer hover:bg-[var(--bg-main)] transition-colors"
@@ -1097,34 +1033,22 @@ export default function PatientBillingItems() {
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-bold text-[var(--text-primary)]">{bill.billNumber}</p>
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full ${getStatusColor(
-                                bill.status
-                              )}`}
-                            >
-                              {bill.status === 'paid' && (
-                                <CheckCircle className="w-3 h-3 mr-1" />
-                              )}
-                              {bill.status === 'pending' && (
-                                <Clock className="w-3 h-3 mr-1" />
-                              )}
-                              {bill.status === 'partial' && (
-                                <AlertCircle className="w-3 h-3 mr-1" />
-                              )}
-                              {bill.status?.charAt(0).toUpperCase() +
-                                bill.status?.slice(1)}
-                            </span>
+                            <Badge tone={statusTone(bill.status)} dot size="sm">
+                              {humanStatus(bill.status)}
+                            </Badge>
                             {(bill.status === 'paid' || bill.status === 'partial') && (
-                              <button
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                iconOnly
+                                icon={Printer}
+                                aria-label="View Receipt"
+                                className="text-[var(--icon-cyan-text)]"
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   handleViewReceipt(bill.id);
                                 }}
-                                className="p-1.5 rounded-lg bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors"
-                                title="View Receipt"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                              </button>
+                              />
                             )}
                           </div>
                           <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-secondary)]">
@@ -1197,13 +1121,14 @@ export default function PatientBillingItems() {
                             selectedBill.status !== 'paid' &&
                             selectedBill.Attendance?.id && (
                               <div className="mb-4 flex justify-end">
-                                <button
+                                <Button
+                                  variant="soft"
+                                  accent="green"
+                                  icon={PlusCircle}
                                   onClick={() => setShowAddServiceModal(true)}
-                                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-sm"
                                 >
-                                  <PlusCircle className="w-4 h-4" />
                                   Add Miscellaneous Charge
-                                </button>
+                                </Button>
                               </div>
                             )}
 
@@ -1238,9 +1163,9 @@ export default function PatientBillingItems() {
 
                                 <div className="overflow-x-auto">
                                   <table className="w-full text-sm">
-                                    <thead className="bg-[var(--bg-card)]">
-                                      <tr className="border-b border-[var(--border-color)]">
-                                        <th className="px-3 py-2 w-8">
+                                    <thead className={TH_ROW}>
+                                      <tr>
+                                        <th className={cn(TH, 'w-8 text-center')}>
                                           {unpaidItems.length > 0 && (
                                             <button
                                               onClick={(e) => {
@@ -1257,48 +1182,46 @@ export default function PatientBillingItems() {
                                             </button>
                                           )}
                                         </th>
-                                        <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={TH}>
                                           Service
                                         </th>
-                                        <th className="px-3 py-2 text-center text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-center')}>
                                           Qty
                                         </th>
-                                        <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-right')}>
                                           Unit Price
                                         </th>
-                                        <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-right')}>
                                           Total
                                         </th>
                                         {!isCashPayment && (
                                           <>
-                                            <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                            <th className={cn(TH, 'text-right')}>
                                               Insurance
                                             </th>
-                                            <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                            <th className={cn(TH, 'text-right')}>
                                               Patient Pays
                                             </th>
                                           </>
                                         )}
-                                        <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-right')}>
                                           Paid
                                         </th>
-                                        <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-right')}>
                                           Balance
                                         </th>
-                                        <th className="px-3 py-2 text-center text-xs font-semibold text-[var(--text-secondary)]">
+                                        <th className={cn(TH, 'text-center')}>
                                           Status
                                         </th>
                                       </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-[var(--border-color)]">
+                                    <tbody>
                                       {items.map((item) => (
                                         <tr
                                           key={item.id}
-                                          className={`hover:bg-[var(--bg-main)] transition-colors ${
-                                            item.isFullyPaid ? 'opacity-60' : ''
-                                          }`}
+                                          className={cn(TR, item.isFullyPaid && 'opacity-60')}
                                         >
-                                          <td className="px-3 py-2">
+                                          <td className={cn(TD, 'text-center')}>
                                             {item.isFullyPaid ? (
                                               <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />
                                             ) : item.patientPayableAmount > 0 &&
@@ -1318,7 +1241,7 @@ export default function PatientBillingItems() {
                                               </button>
                                             ) : null}
                                           </td>
-                                          <td className="px-3 py-2">
+                                          <td className={cn(TD, 'whitespace-normal')}>
                                             <p className="text-sm text-[var(--text-primary)]">
                                               {item.description}
                                             </p>
@@ -1328,47 +1251,45 @@ export default function PatientBillingItems() {
                                               </p>
                                             )}
                                           </td>
-                                          <td className="px-3 py-2 text-center text-sm text-[var(--text-secondary)]">
+                                          <td className={cn(TD, 'text-center text-[var(--text-secondary)]')}>
                                             {item.quantity}
                                           </td>
-                                          <td className="px-3 py-2 text-right text-sm text-[var(--text-secondary)]">
+                                          <td className={cn(TD, 'text-right text-[var(--text-secondary)]')}>
                                             {formatCurrency(item.unitPrice)}
                                           </td>
-                                          <td className="px-3 py-2 text-right text-sm font-medium text-[var(--text-primary)]">
+                                          <td className={cn(TD, 'text-right font-medium')}>
                                             {formatCurrency(item.lineTotal)}
                                           </td>
                                           {!isCashPayment && (
                                             <>
-                                              <td className="px-3 py-2 text-right text-sm text-[var(--icon-green-text)]">
+                                              <td className={cn(TD, 'text-right text-[var(--icon-green-text)]')}>
                                                 {formatCurrency(
                                                   item.insuranceCoveredAmount
                                                 )}
                                               </td>
-                                              <td className="px-3 py-2 text-right text-sm font-bold text-[var(--icon-cyan-text)]">
+                                              <td className={cn(TD, 'text-right font-bold text-[var(--icon-cyan-text)]')}>
                                                 {formatCurrency(
                                                   item.patientPayableAmount
                                                 )}
                                               </td>
                                             </>
                                           )}
-                                          <td className="px-3 py-2 text-right text-sm text-[var(--icon-green-text)]">
+                                          <td className={cn(TD, 'text-right text-[var(--icon-green-text)]')}>
                                             {formatCurrency(item.paidAmount || 0)}
                                           </td>
-                                          <td className="px-3 py-2 text-right text-sm font-bold text-[var(--icon-red-text)]">
+                                          <td className={cn(TD, 'text-right font-bold text-[var(--icon-red-text)]')}>
                                             {formatCurrency(
                                               item.balance || item.patientPayableAmount
                                             )}
                                           </td>
-                                          <td className="px-3 py-2 text-center">
-                                            {item.isFullyPaid ? (
-                                              <span className="inline-flex items-center gap-1 text-xs text-[var(--icon-green-text)]">
-                                                <CheckCircle className="w-3 h-3" /> Paid
-                                              </span>
-                                            ) : (
-                                              <span className="inline-flex items-center gap-1 text-xs text-[var(--icon-red-text)]">
-                                                <AlertCircle className="w-3 h-3" /> Pending
-                                              </span>
-                                            )}
+                                          <td className={cn(TD, 'text-center')}>
+                                            <Badge
+                                              tone={item.isFullyPaid ? 'green' : 'red'}
+                                              dot
+                                              size="sm"
+                                            >
+                                              {item.isFullyPaid ? 'Paid' : 'Pending'}
+                                            </Badge>
                                           </td>
                                         </tr>
                                       ))}
@@ -1377,12 +1298,12 @@ export default function PatientBillingItems() {
                                       <tr className="border-t border-[var(--border-color)]">
                                         <td
                                           colSpan={5}
-                                          className="px-3 py-2 text-right font-semibold text-[var(--text-primary)]"
+                                          className={cn(TD, 'text-right font-semibold')}
                                         >
                                           Category Total:
                                         </td>
                                         {!isCashPayment && (
-                                          <td className="px-3 py-2 text-right text-sm text-[var(--icon-green-text)]">
+                                          <td className={cn(TD, 'text-right text-[var(--icon-green-text)]')}>
                                             {formatCurrency(
                                               items.reduce(
                                                 (s, i) => s + i.insuranceCoveredAmount,
@@ -1391,7 +1312,7 @@ export default function PatientBillingItems() {
                                             )}
                                           </td>
                                         )}
-                                        <td className="px-3 py-2 text-right font-bold text-[var(--icon-cyan-text)]">
+                                        <td className={cn(TD, 'text-right font-bold text-[var(--icon-cyan-text)]')}>
                                           {formatCurrency(
                                             items.reduce(
                                               (s, i) => s + i.patientPayableAmount,
@@ -1399,7 +1320,7 @@ export default function PatientBillingItems() {
                                             )
                                           )}
                                         </td>
-                                        <td className="px-3 py-2 text-right text-[var(--icon-green-text)]">
+                                        <td className={cn(TD, 'text-right text-[var(--icon-green-text)]')}>
                                           {formatCurrency(
                                             items.reduce(
                                               (s, i) => s + (i.paidAmount || 0),
@@ -1407,7 +1328,7 @@ export default function PatientBillingItems() {
                                             )
                                           )}
                                         </td>
-                                        <td className="px-3 py-2 text-right font-bold text-[var(--icon-red-text)]">
+                                        <td className={cn(TD, 'text-right font-bold text-[var(--icon-red-text)]')}>
                                           {formatCurrency(
                                             items.reduce(
                                               (s, i) =>
@@ -1446,24 +1367,21 @@ export default function PatientBillingItems() {
                                       </span>
                                     </div>
                                     <div className="flex gap-2 flex-wrap">
-                                      <button
-                                        onClick={selectAllUnpaid}
-                                        className="px-3 py-1.5 text-sm bg-[var(--bg-card)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-bg)] transition-colors border border-[var(--border-color)]"
-                                      >
+                                      <Button variant="outline" size="sm" onClick={selectAllUnpaid}>
                                         Select All Unpaid
-                                      </button>
-                                      <button
-                                        onClick={deselectAll}
-                                        className="px-3 py-1.5 text-sm bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-colors"
-                                      >
+                                      </Button>
+                                      <Button variant="ghost" size="sm" onClick={deselectAll}>
                                         Deselect All
-                                      </button>
-                                      <button
+                                      </Button>
+                                      <Button
+                                        variant="soft"
+                                        accent="green"
+                                        size="sm"
+                                        icon={DollarSign}
                                         onClick={handleOpenPaymentModal}
-                                        className="px-4 py-1.5 text-sm bg-[var(--icon-green-text)] text-white rounded-lg hover:bg-[var(--icon-green-text)] transition-opacity flex items-center gap-2"
                                       >
-                                        <DollarSign className="w-4 h-4" /> Make Payment
-                                      </button>
+                                        Make Payment
+                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1550,60 +1468,20 @@ export default function PatientBillingItems() {
                       ) : null}
                     </div>
                   )}
-                </div>
+                </Card>
               );
             })}
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {startIndex + 1} to{' '}
-                  {Math.min(startIndex + itemsPerPage, patientBills.length)} of{' '}
-                  {patientBills.length} bills
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => goToPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum: number;
-                    if (totalPages <= 5) pageNum = i + 1;
-                    else if (currentPage <= 3) pageNum = i + 1;
-                    else if (currentPage >= totalPages - 2)
-                      pageNum = totalPages - 4 + i;
-                    else pageNum = currentPage - 2 + i;
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => goToPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
-                  <button
-                    onClick={() => goToPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={patientBills.length}
+            onChange={goToPage}
+            noun="bills"
+          />
         </>
       )}
 
@@ -1613,29 +1491,27 @@ export default function PatientBillingItems() {
           <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto border border-[var(--border-color)]">
             <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] px-5 py-3 flex justify-between">
               <h3 className="font-bold text-lg">Add Miscellaneous Charge</h3>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                icon={X}
+                aria-label="Close"
                 onClick={() => {
                   setShowAddServiceModal(false);
                   setSelectedServices(new Set());
                   setServiceSearchTerm('');
                 }}
-                className="p-1 hover:bg-[var(--border-color)] rounded"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              />
             </div>
             <div className="p-4">
-              <div className="relative mb-4">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" />
-                <input
-                  type="text"
-                  placeholder="Search by service name or code..."
-                  value={serviceSearchTerm}
-                  onChange={(e) => setServiceSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm"
-                />
-              </div>
-              <div className="max-h-96 overflow-y-auto space-y-1 border rounded-lg">
+              <SearchInput
+                className="mb-4"
+                value={serviceSearchTerm}
+                onChange={setServiceSearchTerm}
+                placeholder="Search by service name or code..."
+              />
+              <div className="max-h-96 overflow-y-auto space-y-1 border border-[var(--border-color)] rounded-lg">
                 {servicesLoading ? (
                   <div className="text-center py-8">
                     <Loader2 className="w-6 h-6 animate-spin mx-auto" />
@@ -1675,26 +1551,30 @@ export default function PatientBillingItems() {
                 )}
               </div>
             </div>
-            <div className="border-t p-4 flex gap-3">
-              <button
+            <div className="border-t border-[var(--border-color)] p-4 flex gap-3">
+              <Button
+                variant="soft"
+                accent="green"
+                className="flex-1"
                 onClick={handleAddServices}
                 disabled={selectedServices.size === 0 || addingServices}
-                className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50"
+                loading={addingServices}
               >
                 {addingServices
                   ? 'Adding...'
                   : `Add ${selectedServices.size} Service(s)`}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => {
                   setShowAddServiceModal(false);
                   setSelectedServices(new Set());
                   setServiceSearchTerm('');
                 }}
-                className="flex-1 px-4 py-2 border rounded-lg"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1712,12 +1592,13 @@ export default function PatientBillingItems() {
                   </div>
                   <h2 className="text-lg font-bold text-[var(--text-primary)]">Process Payment</h2>
                 </div>
-                <button
+                <Button
+                  variant="ghost"
+                  iconOnly
+                  icon={X}
+                  aria-label="Close"
                   onClick={() => setIsPaymentModalOpen(false)}
-                  className="p-1.5 rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--border-color)] transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                />
               </div>
               <div className="space-y-4">
                 <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 border border-[var(--border-color)]">
@@ -1740,10 +1621,10 @@ export default function PatientBillingItems() {
                     ))}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                    Amount to Pay
-                  </label>
+                <Field
+                  label="Amount to Pay"
+                  hint={`Maximum: ${formatCurrency(selectedItemsTotal)}`}
+                >
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)] text-sm">
                       ₵
@@ -1756,13 +1637,10 @@ export default function PatientBillingItems() {
                       }
                       max={selectedItemsTotal}
                       step={0.01}
-                      className="w-full pl-8 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+                      className={cn(INPUT, 'w-full pl-8')}
                     />
                   </div>
-                  <p className="text-xs text-[var(--text-secondary)] mt-1">
-                    Maximum: {formatCurrency(selectedItemsTotal)}
-                  </p>
-                </div>
+                </Field>
                 <div>
                   <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                     Payment Method
@@ -1786,31 +1664,24 @@ export default function PatientBillingItems() {
                     )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                    Reference Number{' '}
-                    <span className="text-[var(--text-tertiary)] font-normal">(Optional)</span>
-                  </label>
+                <Field label="Reference Number" hint="Optional">
                   <input
                     type="text"
                     value={paymentReference}
                     onChange={(e) => setPaymentReference(e.target.value)}
                     placeholder="Transaction ID, Check No., etc."
-                    className="w-full px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all text-sm"
+                    className={cn(INPUT, 'w-full')}
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">
-                    Notes <span className="text-[var(--text-tertiary)] font-normal">(Optional)</span>
-                  </label>
+                </Field>
+                <Field label="Notes" hint="Optional">
                   <textarea
                     value={paymentNotes}
                     onChange={(e) => setPaymentNotes(e.target.value)}
                     rows={2}
                     placeholder="Additional payment notes..."
-                    className="w-full px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] transition-all resize-none text-sm"
+                    className={cn(INPUT, 'w-full resize-none')}
                   />
-                </div>
+                </Field>
                 <div className="bg-[var(--bg-main)] rounded-lg p-3 space-y-2 border border-[var(--border-color)]">
                   <div className="flex justify-between text-sm">
                     <span className="text-[var(--text-secondary)]">Total Selected Items:</span>
@@ -1832,31 +1703,27 @@ export default function PatientBillingItems() {
                   </div>
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button
+                  <Button
+                    variant="secondary"
+                    className="flex-1"
                     onClick={() => setIsPaymentModalOpen(false)}
-                    className="flex-1 px-4 py-2.5 border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] bg-[var(--bg-card)] hover:bg-[var(--bg-main)] transition-colors text-sm font-medium"
                   >
                     Cancel
-                  </button>
-                  <button
-                    onClick={handleProcessPayment}
+                  </Button>
+                  <Button
+                    variant="soft"
+                    accent="green"
+                    className="flex-1"
+                    icon={DollarSign}
+                    loading={isProcessingPayment}
                     disabled={
-                      isProcessingPayment ||
                       paymentAmount <= 0 ||
                       paymentAmount > selectedItemsTotal
                     }
-                    className="flex-1 px-4 py-2.5 bg-[var(--icon-green-text)] text-white rounded-lg hover:bg-[var(--icon-green-text)] transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm font-medium"
+                    onClick={handleProcessPayment}
                   >
-                    {isProcessingPayment ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Processing...
-                      </>
-                    ) : (
-                      <>
-                        <DollarSign className="w-4 h-4" /> Process Payment
-                      </>
-                    )}
-                  </button>
+                    {isProcessingPayment ? 'Processing...' : 'Process Payment'}
+                  </Button>
                 </div>
               </div>
             </div>

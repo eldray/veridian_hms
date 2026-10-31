@@ -4,7 +4,8 @@ import { Link } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import { getDashboardStats, getEncounters } from '../api';
-import { RefreshCw, AlertCircle, Calendar, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, AlertCircle, Calendar, X, ChevronDown, ChevronUp, LayoutDashboard } from 'lucide-react';
+import { Button, Card, cn, INPUT, PageHeader } from '../components/ui';
 
 import {
   getRoleDashboard, STAT_CATALOG, SENIORITY_CONFIG, EMPTY_STATS,
@@ -122,8 +123,8 @@ function DateToggle({
   return (
     <div className="relative flex items-center gap-1" ref={popRef}>
       <div
-        className="flex items-center gap-0.5 rounded-lg border p-0.5"
-        style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+        className="flex items-center gap-0.5 rounded-lg border border-[var(--border-color)] p-0.5"
+        style={{ background: 'var(--bg-main)' }}
       >
         {PRESETS.map(({ key, label }) => (
           <button
@@ -143,8 +144,8 @@ function DateToggle({
 
       {rangeLabel && (
         <div
-          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs"
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-[var(--border-color)] text-xs"
+          style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)' }}
         >
           <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--icon-cyan-text)' }} />
           <span style={{ color: 'var(--text-primary)' }}>{rangeLabel}</span>
@@ -153,19 +154,12 @@ function DateToggle({
 
       {showCustom && (
         <div
-          className="absolute top-full right-0 mt-2 z-50 rounded-xl border shadow-lg p-4 w-72"
-          style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}
+          className="absolute top-full right-0 mt-2 z-50 rounded-xl border border-[var(--border-color)] shadow-lg p-4 w-72"
+          style={{ background: 'var(--bg-card)' }}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Custom range</p>
-            <button
-              onClick={() => setShowCustom(false)}
-              aria-label="Close custom date range"
-              className="p-1 rounded transition-colors"
-              style={{ color: 'var(--text-tertiary)' }}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close custom date range" onClick={() => setShowCustom(false)} />
           </div>
 
           <div className="space-y-3">
@@ -178,8 +172,7 @@ function DateToggle({
                 value={draft.startDate}
                 max={draft.endDate || today()}
                 onChange={e => setDraft(d => ({ ...d, startDate: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                className={cn(INPUT, 'w-full text-xs focus:outline-none')}
               />
             </div>
             <div>
@@ -192,20 +185,21 @@ function DateToggle({
                 min={draft.startDate}
                 max={today()}
                 onChange={e => setDraft(d => ({ ...d, endDate: e.target.value }))}
-                className="w-full px-3 py-2 text-xs rounded-lg border focus:outline-none"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
+                className={cn(INPUT, 'w-full text-xs focus:outline-none')}
               />
             </div>
 
-            <div className="flex flex-wrap gap-1.5 pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
+            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-[var(--border-color)]">
               {[
                 { label: 'Last 7 days', days: 7 },
                 { label: 'Last 14 days', days: 14 },
                 { label: 'Last 30 days', days: 30 },
                 { label: 'Last 90 days', days: 90 },
               ].map(({ label, days }) => (
-                <button
+                <Button
                   key={days}
+                  size="xs"
+                  variant="secondary"
                   onClick={() => {
                     const end = new Date();
                     const start = new Date();
@@ -215,22 +209,20 @@ function DateToggle({
                       endDate: end.toISOString().split('T')[0],
                     });
                   }}
-                  className="px-2 py-1 text-[10px] rounded-md border transition-colors"
-                  style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
                 >
                   {label}
-                </button>
+                </Button>
               ))}
             </div>
 
-            <button
+            <Button
+              variant="primary"
+              fullWidth
               onClick={applyCustom}
               disabled={!draft.startDate || !draft.endDate || draft.startDate > draft.endDate}
-              className="w-full py-2 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
-              style={{ background: 'var(--icon-cyan-text)' }}
             >
               Apply range
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -332,8 +324,8 @@ function StatTabs({
 }) {
   return (
     <div
-      className="flex items-center gap-1 flex-wrap rounded-lg border p-0.5 flex-shrink-0"
-      style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
+      className="flex items-center gap-1 flex-wrap rounded-lg border border-[var(--border-color)] p-0.5 flex-shrink-0"
+      style={{ background: 'var(--bg-main)' }}
     >
       {groups.map(g => {
         const Icon = g.icon;
@@ -566,7 +558,7 @@ export default function Dashboard() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg-main)' }}>
-        <div className="text-center p-8 rounded-2xl border" style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)' }}>
+        <div className="text-center p-8 rounded-2xl border border-[var(--border-color)]" style={{ background: 'var(--bg-card)' }}>
           <AlertCircle className="w-14 h-14 mx-auto mb-4" style={{ color: 'var(--icon-cyan-text)' }} />
           <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>Session expired</h2>
           <p style={{ color: 'var(--text-secondary)' }}>Please log in to access the dashboard.</p>
@@ -634,50 +626,38 @@ export default function Dashboard() {
         className="lg:p-6"
       >
         {/* ── HEADER ───────────────────────────────────────────── */}
-        <div className="flex items-center justify-between gap-4 flex-wrap min-h-0">
-          <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                Dashboard Overview
-              </h1>
+        <PageHeader
+          className="min-h-0"
+          title={(
+            <span className="flex items-center gap-2 flex-wrap">
+              Dashboard
               {user.seniority && getSeniorityBadge(user.seniority)}
-            </div>
-            <p className="text-sm mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-              Welcome back, {user.fullName}
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <DateToggle preset={preset} dateRange={dateRange} onChange={handleDateChange} />
-            <button
-              onClick={loadData}
-              disabled={refreshing}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg border text-sm transition-all disabled:opacity-50"
-              style={{ background: 'var(--bg-card)', borderColor: 'var(--border-color)', color: 'var(--text-primary)' }}
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </div>
-        </div>
+            </span>
+          )}
+          subtitle={`Welcome back, ${user.fullName}`}
+          icon={LayoutDashboard}
+          accent="cyan"
+          actions={(
+            <>
+              <DateToggle preset={preset} dateRange={dateRange} onChange={handleDateChange} />
+              <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>
+                {refreshing ? 'Refreshing…' : 'Refresh'}
+              </Button>
+            </>
+          )}
+        />
 
         {/* ── ERROR BANNER (auto-height row, collapses to 0 when empty) ── */}
         {errors.length > 0 && (
           <div
-            className="flex items-center justify-between px-4 py-3 rounded-xl border min-h-0"
-            style={{ background: 'var(--icon-yellow-bg)', borderColor: 'var(--border-color)' }}
+            className="flex items-center justify-between px-4 py-3 rounded-xl border border-[var(--border-color)] min-h-0"
+            style={{ background: 'var(--icon-yellow-bg)' }}
           >
             <div className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4" style={{ color: 'var(--icon-yellow-text)' }} />
               <p className="text-sm" style={{ color: 'var(--icon-yellow-text)' }}>{errors.join(', ')}</p>
             </div>
-            <button
-              onClick={loadData}
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-white transition-opacity hover:opacity-80"
-              style={{ background: 'var(--icon-yellow-text)' }}
-            >
-              Retry
-            </button>
+            <Button size="sm" variant="soft" accent="yellow" onClick={loadData}>Retry</Button>
           </div>
         )}
 
@@ -714,8 +694,8 @@ export default function Dashboard() {
 
               {alertsAllClear && !isLoading ? (
                 <div
-                  className="rounded-xl border px-4 py-6 flex items-center gap-3 flex-shrink-0"
-                  style={{ background: 'var(--icon-green-bg)', borderColor: 'var(--border-color)' }}
+                  className="rounded-xl border border-[var(--border-color)] px-4 py-6 flex items-center gap-3 flex-shrink-0"
+                  style={{ background: 'var(--icon-green-bg)' }}
                 >
                   <span className="text-2xl">✅</span>
                   <div>
@@ -800,41 +780,27 @@ export default function Dashboard() {
 
         {/* ── QUICK ACTIONS (auto-height row) ─────────────────── */}
         {quickActions.length > 0 && (
-          <div
-            className="rounded-xl border min-h-0"
-            style={{
-              background: 'var(--bg-card)',
-              borderColor: 'var(--border-color)',
-              display: 'flex',
-              flexDirection: 'column',
-              overflow: 'hidden',
-              maxHeight: '22vh',
-            }}
+          <Card
+            title="Quick actions"
+            description="Frequent operations"
+            accent="cyan"
+            padded={false}
+            className="flex flex-col min-h-0 max-h-[22vh] [&>div:last-child]:flex-1 [&>div:last-child]:min-h-0 [&>div:last-child]:overflow-y-auto"
           >
             <div
-              className="px-5 py-3 border-b flex-shrink-0"
-              style={{ borderColor: 'var(--border-color)', background: 'var(--bg-main)' }}
-            >
-              <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Quick actions</p>
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>Frequent operations</p>
-            </div>
-            <div
-              className="p-4 min-h-0"
+              className="p-4 grid gap-3"
               style={{
-                overflowY: 'auto',
                 overscrollBehavior: 'contain',
                 scrollbarWidth: 'thin',
-                display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                gap: '0.75rem',
               }}
             >
               {quickActions.map(a => (
                 <Link
                   key={a.key}
                   to={a.path}
-                  className="flex flex-col items-center gap-2 p-3 rounded-xl border transition-all hover:shadow-sm"
-                  style={{ background: a.bg, borderColor: 'var(--border-color)', color: a.color }}
+                  className="flex flex-col items-center gap-2 p-3 rounded-xl border border-[var(--border-color)] transition-all hover:shadow-sm"
+                  style={{ background: a.bg, color: a.color }}
                 >
                   <a.icon className="w-5 h-5" style={{ color: a.color }} />
                   <span className="text-xs font-medium text-center leading-tight" style={{ color: a.color }}>
@@ -843,7 +809,7 @@ export default function Dashboard() {
                 </Link>
               ))}
             </div>
-          </div>
+          </Card>
         )}
       </div>
     </DashboardDateContext.Provider>

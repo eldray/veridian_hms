@@ -25,6 +25,7 @@
  */
 
 import { PrismaClient } from '@prisma/client';
+import { pathToFileURL } from 'url';
 
 const prisma = new PrismaClient();
 
@@ -702,7 +703,7 @@ seedProcedureGDRGLinks().catch(async (e) => {
 export { seedProcedureGDRGLinks };
 
 // Then call it (only when file is run directly)
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   seedProcedureGDRGLinks().catch(async (e) => {
     console.error('Fatal error:', e);
     await prisma.$disconnect();

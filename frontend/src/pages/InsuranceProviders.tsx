@@ -1,43 +1,57 @@
-// src/pages/InsuranceProviders.tsx - UPDATED WITH CORPORATE SUPPORT
-import { useEffect, useState } from 'react';
+// src/pages/InsuranceProviders.tsx
+import { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useInsuranceStore } from '../store/insuranceStore';
-import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
 import { isAdminLike } from '../config/access';
 import { useToast } from '../store/toastStore';
+import type { InsuranceProvider } from '../types';
 import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Shield,
   Building,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
+  Edit,
   Grid3X3,
   List,
-  Phone,
   Mail,
-  User,
-  ArrowLeft,
+  Phone,
+  Plus,
   Power,
   PowerOff,
-  Briefcase,
-  Users,
-  DollarSign,
-  CreditCard,
-  Wallet,
-  Calendar,
-  MapPin,
-  AlertCircle
+  RefreshCw,
+  Shield,
+  Trash2,
+  User,
+  X,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import InsuranceSectionTabs from '../components/InsuranceSectionTabs';
+import InsuranceTabs, { INSURANCE_FAMILIES, type InsuranceFamily } from '../components/InsuranceTabs';
+import {
+  accentVar,
+  Badge,
+  Button,
+  cn,
+  Field,
+  FilterSelect,
+  INPUT,
+  PageHeader,
+  SearchInput,
+  Segmented,
+  TD,
+  TH,
+  TH_ROW,
+  TR,
+} from '../components/ui';
 
-export default function InsuranceProviders() {
-  const navigate = useNavigate();
+type ProviderForm = {
+  name: string;
+  coveragePercentage: number;
+  isActive: boolean;
+  contactInfo: { phone: string; email: string; address: string; contactPerson: string };
+};
+
+/** The payer families this screen handles; corporate employers have their own accounts page. */
+type ProviderFamily = Exclude<InsuranceFamily, 'corporate'>;
+
+export default function InsuranceProviders({ family }: { family: ProviderFamily }) {
+  const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
   const { success, error: toastError } = useToast();
 
   const {
@@ -47,989 +61,490 @@ export default function InsuranceProviders() {
     updateInsuranceProvider,
     toggleInsuranceProviderStatus,
     deleteInsuranceProvider,
-    isLoading: insuranceLoading
+    isLoading,
   } = useInsuranceStore();
 
-  const {
-    corporateAccounts,
-    getCorporateAccounts,
-    createCorporateAccount,
-    updateCorporateAccount,
-    deactivateCorporateAccount,
-    getCorporateStatistics,
-    statistics: corporateStats,
-    isLoading: corporateLoading
-  } = useCorporateStore();
-
   const { user } = useAuthStore();
+  const canManage = isAdminLike(user?.role);
+
+  const blankForm = (): ProviderForm => ({
+    name: '',
+    coveragePercentage: family === 'nhis' ? 100 : 80,
+    isActive: true,
+    contactInfo: { phone: '', email: '', address: '', contactPerson: '' },
+  });
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all'); // 'all', 'nhis', 'private', 'corporate'
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('all');
-  const [showForm, setShowForm] = useState(false);
-  const [editingProvider, setEditingProvider] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [providerType, setProviderType] = useState<'nhis' | 'private' | 'corporate'>('private');
-  const [showAddDropdown, setShowAddDropdown] = useState(false);
-
-
-  // Form data for Insurance Providers (NHIS/Private)
-  const [formData, setFormData] = useState({
-    name: '',
-    type: 'private' as 'private' | 'nhis' | 'corporate',
-    coveragePercentage: 80,
-    isActive: true,
-    contactInfo: { 
-      phone: '', 
-      email: '', 
-      address: '', 
-      contactPerson: '' 
-    }
-  });
-
-  // Form data for Corporate Account
-  const [corporateFormData, setCorporateFormData] = useState({
-    companyName: '',
-    registrationNumber: '',
-    taxId: '',
-    contactPerson: '',
-    email: '',
-    phone: '',
-    address: '',
-    creditLimit: 0,
-    paymentTerms: 30,
-    discountPercentage: 0,
-    isActive: true
-  });
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<ProviderForm>(blankForm);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    void getInsuranceProviders();
+  }, [getInsuranceProviders]);
 
-  const loadData = async () => {
-    try {
-      await Promise.all([
-        getInsuranceProviders(),
-        getCorporateAccounts(),
-        getCorporateStatistics()
-      ]);
-      success('Data loaded', 'Insurance providers and corporate accounts ready');
-    } catch {
-      toastError('Load failed', 'Could not fetch data');
-    }
+  // This page belongs to one payer family; the tab bar above decides which one.
+  const familyProviders = useMemo(
+    () => providers.filter((p) => p.type === family),
+    [providers, family],
+  );
+
+  const contactOf = (provider: InsuranceProvider) => provider.contactInfo ?? {};
+
+  const filteredProviders = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase();
+    return familyProviders.filter((provider) => {
+      const contact = provider.contactInfo ?? {};
+      const matchesSearch =
+        !query ||
+        provider.name?.toLowerCase().includes(query) ||
+        contact.phone?.toLowerCase().includes(query) ||
+        contact.email?.toLowerCase().includes(query) ||
+        contact.contactPerson?.toLowerCase().includes(query);
+      const matchesStatus =
+        filterStatus === 'all' ||
+        (filterStatus === 'active' && provider.isActive) ||
+        (filterStatus === 'inactive' && !provider.isActive);
+      return matchesSearch && matchesStatus;
+    });
+  }, [familyProviders, searchTerm, filterStatus]);
+
+  const activeCount = familyProviders.filter((p) => p.isActive).length;
+
+  const openAddForm = () => {
+    setEditingId(null);
+    setFormData(blankForm());
+    setShowForm(true);
   };
 
-  // Combined list of all providers (Insurance + Corporate)
-  const allProviders = [
-    ...providers.map(p => ({ ...p, _type: 'insurance' as const })),
-    ...corporateAccounts.map(c => ({ 
-      id: c.id,
-      name: c.companyName,
-      type: 'corporate' as const,
-      coveragePercentage: 100,
-      isActive: c.isActive,
+  const openEditForm = (provider: InsuranceProvider) => {
+    const contact = provider.contactInfo ?? {};
+    setEditingId(provider.id);
+    setFormData({
+      name: provider.name ?? '',
+      coveragePercentage: Number(provider.coveragePercentage ?? 0),
+      isActive: provider.isActive !== false,
       contactInfo: {
-        contactPerson: c.contactPerson,
-        phone: c.phone,
-        email: c.email,
-        address: c.address
+        phone: contact.phone ?? '',
+        email: contact.email ?? '',
+        address: contact.address ?? '',
+        contactPerson: contact.contactPerson ?? '',
       },
-      corporateDetails: {
-        creditLimit: c.creditLimit,
-        currentBalance: c.currentBalance,
-        paymentTerms: c.paymentTerms,
-        discountPercentage: c.discountPercentage,
-        employeeCount: c._count?.employees || 0
-      },
-      _type: 'corporate' as const
-    }))
-  ];
-
-  const filteredProviders = allProviders.filter(provider => {
-    const matchesSearch =
-      provider.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.contactInfo?.phone?.includes(searchTerm) ||
-      provider.contactInfo?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      provider.contactInfo?.contactPerson?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesType = filterType === 'all' || provider.type === filterType;
-    const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && provider.isActive) ||
-      (filterStatus === 'inactive' && !provider.isActive);
-    
-    return matchesSearch && matchesType && matchesStatus;
-  });
+    });
+    setShowForm(true);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    try {
-      if (providerType === 'corporate') {
-        // Handle Corporate Account
-        if (editingProvider && editingProvider._type === 'corporate') {
-          await updateCorporateAccount(editingProvider.id, corporateFormData);
-          success('Corporate Account Updated', `${corporateFormData.companyName} updated successfully`);
-        } else {
-          await createCorporateAccount(corporateFormData);
-          success('Corporate Account Created', `${corporateFormData.companyName} added successfully`);
-        }
-      } else {
-        // Handle Insurance Provider (NHIS/Private)
-        if (editingProvider && editingProvider._type === 'insurance') {
-          await updateInsuranceProvider(editingProvider.id, formData);
-          success('Provider Updated', `${formData.name} updated successfully`);
-        } else {
-          await createInsuranceProvider(formData);
-          success('Provider Created', `${formData.name} added to providers`);
-        }
-      }
-      resetForm();
-      await loadData();
-    } catch (error: any) {
-      toastError('Save Failed', error?.message || 'Could not save provider');
-    }
-  };
-
-  const resetForm = () => {
-    setShowForm(false);
-    setEditingProvider(null);
-    setProviderType('private');
-    setFormData({
-      name: '',
-      type: 'private',
-      coveragePercentage: 80,
-      isActive: true,
-      contactInfo: { 
-        phone: '', 
-        email: '', 
-        address: '', 
-        contactPerson: '' 
-      }
-    });
-    setCorporateFormData({
-      companyName: '',
-      registrationNumber: '',
-      taxId: '',
-      contactPerson: '',
-      email: '',
-      phone: '',
-      address: '',
-      creditLimit: 0,
-      paymentTerms: 30,
-      discountPercentage: 0,
-      isActive: true
-    });
-  };
-
-  const handleEdit = (provider: any) => {
-    setEditingProvider(provider);
-    
-    if (provider.type === 'corporate') {
-      setProviderType('corporate');
-      setCorporateFormData({
-        companyName: provider.name,
-        registrationNumber: provider.corporateDetails?.registrationNumber || '',
-        taxId: provider.corporateDetails?.taxId || '',
-        contactPerson: provider.contactInfo?.contactPerson || '',
-        email: provider.contactInfo?.email || '',
-        phone: provider.contactInfo?.phone || '',
-        address: provider.contactInfo?.address || '',
-        creditLimit: provider.corporateDetails?.creditLimit || 0,
-        paymentTerms: provider.corporateDetails?.paymentTerms || 30,
-        discountPercentage: provider.corporateDetails?.discountPercentage || 0,
-        isActive: provider.isActive
-      });
-    } else {
-      setProviderType(provider.type);
-      setFormData({
-        name: provider.name,
-        type: provider.type,
-        coveragePercentage: provider.coveragePercentage,
-        isActive: provider.isActive,
-        contactInfo: provider.contactInfo || { 
-          phone: '', 
-          email: '', 
-          address: '', 
-          contactPerson: '' 
-        }
-      });
-    }
-    setShowForm(true);
-  };
-
-  const handleToggleStatus = async (provider: any) => {
-    const newStatus = !provider.isActive;
-    const action = newStatus ? 'activate' : 'deactivate';
-    
-    if (!(await confirmDialog({ title: 'Change provider status', message: `Are you sure you want to ${action} ${provider.name}?`, confirmText: newStatus ? 'Activate' : 'Deactivate', type: 'warning' }))) return;
-    
-    try {
-      if (provider.type === 'corporate') {
-        if (!newStatus) {
-          await deactivateCorporateAccount(provider.id);
-        } else {
-          await updateCorporateAccount(provider.id, { isActive: true });
-        }
-      } else {
-        await toggleInsuranceProviderStatus(provider.id);
-      }
-      success('Status Updated', `${provider.name} has been ${action}d`);
-      await loadData();
-    } catch (error: any) {
-      toastError('Update Failed', error?.message || 'Could not update provider status');
-    }
-  };
-
-  const handleDelete = async (provider: any) => {
-    if (!provider?.id) {
-      toastError('Delete Failed', 'Invalid provider ID');
+    if (!formData.name.trim()) {
+      toastError('Provider name required', 'Every provider record needs a name before it can be saved.');
       return;
     }
-    
-    if (!(await confirmDialog({ title: 'Delete provider', message: `Delete ${provider.name}? This cannot be undone.`, confirmText: 'Delete' }))) return;
-  
+    const payload = { ...formData, name: formData.name.trim(), type: family };
+    setSaving(true);
     try {
-      if (provider.type === 'corporate') {
-        await deactivateCorporateAccount(provider.id);
-        success('Corporate Account Deactivated', 'Account deactivated successfully');
+      if (editingId) {
+        await updateInsuranceProvider(editingId, payload);
+        success('Provider updated', `${payload.name} saved.`);
       } else {
-        await deleteInsuranceProvider(provider.id);
-        success('Provider Deleted', 'Insurance provider removed successfully');
+        await createInsuranceProvider(payload);
+        success('Provider added', `${payload.name} is now selectable on claims.`);
       }
-      await loadData();
+      setShowForm(false);
+      setEditingId(null);
+      await getInsuranceProviders();
     } catch (error: any) {
-      toastError('Delete Failed', error?.message || 'Could not remove provider');
+      toastError(
+        editingId ? 'Could not update provider' : 'Could not add provider',
+        error?.response?.data?.message || error?.message || 'Check the details and save again.',
+      );
+    } finally {
+      setSaving(false);
     }
   };
 
-  const openAddForm = (type: 'nhis' | 'private' | 'corporate') => {
-    setProviderType(type);
-    setEditingProvider(null);
-    setShowForm(true);
-  };
-
-  const getProviderIcon = (type: string) => {
-    switch (type) {
-      case 'nhis': return <Shield className="w-5.5 h-5.5 text-[var(--icon-green-text)]" />;
-      case 'corporate': return <Briefcase className="w-5.5 h-5.5 text-[var(--icon-indigo-text)]" />;
-      default: return <Building className="w-5.5 h-5.5 text-[var(--icon-blue-text)]" />;
+  const handleToggleStatus = async (provider: InsuranceProvider) => {
+    const action = provider.isActive ? 'deactivate' : 'activate';
+    const confirmed = await confirmDialog({
+      title: 'Change provider status',
+      message: `Are you sure you want to ${action} ${provider.name}? ${provider.isActive
+        ? 'Claims already raised against it are untouched.'
+        : 'Inactive providers cannot be selected on new claims.'}`,
+      confirmText: provider.isActive ? 'Deactivate' : 'Activate',
+      type: 'warning',
+    });
+    if (!confirmed) return;
+    try {
+      await toggleInsuranceProviderStatus(provider.id);
+      success('Status updated', `${provider.name} is now ${provider.isActive ? 'inactive' : 'active'}.`);
+      await getInsuranceProviders();
+    } catch (error: any) {
+      toastError('Could not change status', error?.response?.data?.message || error?.message || 'Please try again.');
     }
   };
 
-  const getProviderBg = (type: string) => {
-    switch (type) {
-      case 'nhis': return 'bg-[var(--icon-green-bg)]';
-      case 'corporate': return 'bg-[var(--icon-indigo-bg)]';
-      default: return 'bg-[var(--icon-blue-bg)]';
+  const handleDelete = async (provider: InsuranceProvider) => {
+    const confirmed = await confirmDialog({
+      title: 'Delete provider',
+      message: `Delete ${provider.name}? Claims already linked to it are kept, but the provider disappears from new claims.`,
+      confirmText: 'Delete',
+    });
+    if (!confirmed) return;
+    try {
+      await deleteInsuranceProvider(provider.id);
+      success('Provider deleted', `${provider.name} removed.`);
+      await getInsuranceProviders();
+    } catch (error: any) {
+      const reason = error?.response?.data?.message || error?.message || '';
+      toastError(
+        'Could not delete provider',
+        reason || 'This provider has records against it. Deactivate it instead of deleting.',
+      );
     }
   };
 
-  const getTypeBadge = (type: string) => {
-    switch (type) {
-      case 'nhis': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-      case 'corporate': return 'bg-[var(--icon-indigo-bg)] text-[var(--icon-indigo-text)]';
-      default: return 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]';
-    }
-  };
-
-  const isLoading = insuranceLoading || corporateLoading;
+  const FamilyIcon = family === 'nhis' ? Shield : Building;
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-main)] rounded-xl transition-all duration-200"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-12 h-12 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-            <Shield className="w-6 h-6 text-[var(--icon-purple-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Insurance & Corporate Providers</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Manage NHIS, private insurance, and corporate accounts</p>
-            {corporateStats && (
-              <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-                Corporate: {corporateStats.activeAccounts} active accounts • GHS {corporateStats.totalOutstanding.toFixed(2)} outstanding
-              </p>
+    <div className="space-y-5 p-4 md:p-6 text-[var(--text-primary)]">
+      <PageHeader
+        title={`${familyMeta.label} providers`}
+        subtitle={
+          family === 'nhis'
+            ? 'The national scheme — coverage, contact route and whether it is still usable on new claims.'
+            : 'Private insurers — cover percentages and who to chase for each scheme.'
+        }
+        meta={`${familyProviders.length} provider${familyProviders.length === 1 ? '' : 's'} · ${activeCount} active${filteredProviders.length !== familyProviders.length ? ` · ${filteredProviders.length} shown` : ''}`}
+        icon={FamilyIcon}
+        accent={familyMeta.accent}
+        backTo="/dashboard"
+        tabs={<InsuranceTabs family={family} section="providers" />}
+        actions={(
+          <>
+            {canManage && (
+              <Button variant="soft" accent={familyMeta.accent} icon={Plus} onClick={openAddForm}>
+                Add provider
+              </Button>
             )}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/dashboard/insurance-claims')}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm text-[var(--text-primary)]"
-          >
-            <Shield className="w-4 h-4" />
-            Insurance Claims
-          </button>
-          {isAdminLike(user?.role) && (
-            <div className="relative">
-              <button
-                onClick={() => setShowAddDropdown(!showAddDropdown)}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-sm font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                Add Provider
-              </button>
-              
-              {showAddDropdown && (
-                <div className="absolute right-0 mt-2 w-56 bg-[var(--bg-card)] rounded-lg shadow-lg border border-[var(--border-color)] z-50">
-                  <button
-                    onClick={() => { setShowAddDropdown(false); openAddForm('nhis'); }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-t-lg flex items-center gap-3 transition-colors"
-                  >
-                    <Shield className="w-4 h-4 text-[var(--icon-green-text)]" />
-                    <span>NHIS Provider</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowAddDropdown(false); openAddForm('private'); }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] flex items-center gap-3 transition-colors"
-                  >
-                    <Building className="w-4 h-4 text-[var(--icon-blue-text)]" />
-                    <span>Private Insurance</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowAddDropdown(false); openAddForm('corporate'); }}
-                    className="w-full px-4 py-2.5 text-left text-sm text-[var(--text-primary)] hover:bg-[var(--bg-main)] rounded-b-lg flex items-center gap-3 transition-colors"
-                  >
-                    <Briefcase className="w-4 h-4 text-[var(--icon-indigo-text)]" />
-                    <span>Corporate Account</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-          <button
-            onClick={loadData}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
+            <Button icon={RefreshCw} loading={isLoading} onClick={() => void getInsuranceProviders()}>
+              Refresh
+            </Button>
+          </>
+        )}
+      />
 
-      {/* Section navigation */}
-      <InsuranceSectionTabs active="providers" />
-
-      {/* Filters and View Controls */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by name, phone, email, contact person..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
-        </div>
-        
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-        >
-          <option value="all">All Types</option>
-          <option value="nhis">NHIS</option>
-          <option value="private">Private</option>
-          <option value="corporate">Corporate</option>
-        </select>
-
-        <select
+      <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+        <SearchInput
+          value={searchTerm}
+          onChange={setSearchTerm}
+          placeholder="Search by name, phone, email or contact person…"
+        />
+        <FilterSelect
+          aria-label="Provider status"
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value as any)}
-          className="px-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-        >
-          <option value="all">All Status</option>
-          <option value="active">Active Only</option>
-          <option value="inactive">Inactive Only</option>
-        </select>
-        
-        {/* View Mode Toggle */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setViewMode('grid')}
-            className={`p-2.5 border rounded-lg transition ${
-              viewMode === 'grid'
-                ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]'
-                : 'bg-[var(--bg-main)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-            }`}
-          >
-            <Grid3X3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => setViewMode('list')}
-            className={`p-2.5 border rounded-lg transition ${
-              viewMode === 'list'
-                ? 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] border-[var(--icon-blue-text)]'
-                : 'bg-[var(--bg-main)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-            }`}
-          >
-            <List className="w-4 h-4" />
-          </button>
-        </div>
+          onChange={(value) => setFilterStatus(value as 'all' | 'active' | 'inactive')}
+          options={[
+            { value: 'all', label: 'All statuses' },
+            { value: 'active', label: 'Active only' },
+            { value: 'inactive', label: 'Inactive only' },
+          ]}
+        />
+        <Segmented
+          aria-label="Provider layout"
+          accent={familyMeta.accent}
+          value={viewMode}
+          onChange={setViewMode}
+          options={[
+            { value: 'grid', label: 'Grid', icon: Grid3X3 },
+            { value: 'list', label: 'List', icon: List },
+          ]}
+        />
       </div>
 
-      {/* Form Modal */}
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl mt-8 mb-8 shadow-xl border border-[var(--border-color)]">
-            <div className="flex items-center justify-between mb-5">
-              <div className="flex items-center gap-2">
-                {providerType === 'corporate' ? (
-                  <Briefcase className="w-6 h-6 text-[var(--icon-indigo-text)]" />
-                ) : providerType === 'nhis' ? (
-                  <Shield className="w-6 h-6 text-[var(--icon-green-text)]" />
-                ) : (
-                  <Building className="w-6 h-6 text-[var(--icon-blue-text)]" />
-                )}
-                <h2 className="text-xl font-bold text-[var(--text-primary)]">
-                  {editingProvider ? 'Edit' : 'Add'} {providerType === 'corporate' ? 'Corporate Account' : providerType === 'nhis' ? 'NHIS Provider' : 'Private Insurance Provider'}
-                </h2>
-              </div>
-              <button
-                onClick={resetForm}
-                className="p-2 hover:bg-[var(--bg-main)] rounded-lg transition"
-              >
-                <XCircle className="w-5 h-5 text-[var(--text-secondary)]" />
-              </button>
+      {isLoading ? (
+        <div className={viewMode === 'grid' ? 'grid gap-4 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-3'}>
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 animate-pulse">
+              <div className="h-5 bg-[var(--bg-main)] rounded w-2/3 mb-3" />
+              <div className="h-3.5 bg-[var(--bg-main)] rounded w-1/3 mb-2" />
+              <div className="h-3.5 bg-[var(--bg-main)] rounded w-1/2" />
             </div>
-            
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {providerType === 'corporate' ? (
-                // Corporate Account Form
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Company Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={corporateFormData.companyName}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, companyName: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Company name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Registration Number</label>
-                      <input
-                        type="text"
-                        value={corporateFormData.registrationNumber}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, registrationNumber: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Business registration number"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Tax ID</label>
-                      <input
-                        type="text"
-                        value={corporateFormData.taxId}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, taxId: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Tax/VAT number"
-                      />
-                    </div>
+          ))}
+        </div>
+      ) : filteredProviders.length === 0 ? (
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-14 text-center">
+          <FamilyIcon className="w-12 h-12 mx-auto mb-3 text-[var(--text-tertiary)]" />
+          <p className="font-semibold text-[var(--text-primary)]">
+            {familyProviders.length === 0 ? `No ${familyMeta.label.toLowerCase()} providers yet` : 'No provider matches the search'}
+          </p>
+          <p className="text-sm text-[var(--text-secondary)] mt-1">
+            {familyProviders.length === 0
+              ? 'Add the scheme so its claims record who pays and how much of the bill it covers.'
+              : 'Clear the filters to see the full list.'}
+          </p>
+          {familyProviders.length === 0 && canManage && (
+            <Button className="mt-4" variant="soft" accent={familyMeta.accent} icon={Plus} onClick={openAddForm}>
+              Add provider
+            </Button>
+          )}
+        </div>
+      ) : viewMode === 'grid' ? (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {filteredProviders.map((provider) => {
+            const contact = contactOf(provider);
+            return (
+              <div
+                key={provider.id}
+                className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-4 flex flex-col gap-3 transition-shadow hover:shadow-md"
+              >
+                <div className="flex items-start gap-3 min-w-0">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: accentVar(familyMeta.accent, 'bg'), color: accentVar(familyMeta.accent, 'text') }}
+                  >
+                    <FamilyIcon className="w-5 h-5" />
                   </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Contact Person *</label>
-                      <input
-                        type="text"
-                        required
-                        value={corporateFormData.contactPerson}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, contactPerson: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Contact person name"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email *</label>
-                      <input
-                        type="email"
-                        required
-                        value={corporateFormData.email}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, email: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="contact@company.com"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phone *</label>
-                      <input
-                        type="tel"
-                        required
-                        value={corporateFormData.phone}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, phone: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Phone number"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Address</label>
-                      <textarea
-                        value={corporateFormData.address}
-                        onChange={(e) => setCorporateFormData({ ...corporateFormData, address: e.target.value })}
-                        rows={2}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Company address"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="border-t border-[var(--border-color)] pt-5">
-                    <h3 className="font-medium mb-3 text-[var(--text-primary)] flex items-center gap-2">
-                      <Wallet className="w-4 h-4" />
-                      Financial Settings
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={provider.name}>
+                      {provider.name}
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Credit Limit (GHS)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          step="1000"
-                          value={corporateFormData.creditLimit}
-                          onChange={(e) => setCorporateFormData({ ...corporateFormData, creditLimit: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        />
-                        <p className="text-xs text-[var(--text-tertiary)] mt-1">Maximum monthly credit</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Payment Terms (days)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={corporateFormData.paymentTerms}
-                          onChange={(e) => setCorporateFormData({ ...corporateFormData, paymentTerms: parseInt(e.target.value) || 30 })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        />
-                        <p className="text-xs text-[var(--text-tertiary)] mt-1">Days to pay invoice</p>
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Discount (%)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          max="100"
-                          value={corporateFormData.discountPercentage}
-                          onChange={(e) => setCorporateFormData({ ...corporateFormData, discountPercentage: parseFloat(e.target.value) || 0 })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        />
-                        <p className="text-xs text-[var(--text-tertiary)] mt-1">Early payment discount</p>
-                      </div>
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <Badge tone={provider.isActive ? 'green' : 'neutral'} dot>
+                        {provider.isActive ? 'Active' : 'Inactive'}
+                      </Badge>
+                      <Badge tone={familyMeta.accent}>{Number(provider.coveragePercentage ?? 0)}% covered</Badge>
                     </div>
                   </div>
+                  {canManage && (
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      iconOnly
+                      icon={provider.isActive ? PowerOff : Power}
+                      aria-label={provider.isActive ? `Deactivate ${provider.name}` : `Activate ${provider.name}`}
+                      className={provider.isActive ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}
+                      onClick={() => void handleToggleStatus(provider)}
+                    />
+                  )}
+                </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={corporateFormData.isActive === true}
-                          onChange={() => setCorporateFormData({ ...corporateFormData, isActive: true })}
-                          className="w-4 h-4 text-[var(--icon-green-text)]"
-                        />
-                        <span className="text-sm text-[var(--text-primary)]">Active</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={corporateFormData.isActive === false}
-                          onChange={() => setCorporateFormData({ ...corporateFormData, isActive: false })}
-                          className="w-4 h-4 text-[var(--icon-red-text)]"
-                        />
-                        <span className="text-sm text-[var(--text-primary)]">Inactive</span>
-                      </label>
+                <div className="space-y-1.5 text-xs">
+                  {contact.contactPerson && (
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <User className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{contact.contactPerson}</span>
                     </div>
-                  </div>
-                </>
-              ) : (
-                // Insurance Provider Form (NHIS/Private)
-                <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Name *</label>
-                      <input
-                        type="text"
-                        required
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Provider name"
-                      />
+                  )}
+                  {contact.phone && (
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{contact.phone}</span>
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Coverage % *</label>
-                      <input
-                        type="number"
-                        min="0"
-                        max="100"
-                        required
-                        value={formData.coveragePercentage}
-                        onChange={(e) => setFormData({ ...formData, coveragePercentage: parseInt(e.target.value) || 0 })}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                      />
+                  )}
+                  {contact.email && (
+                    <div className="flex items-center gap-2 text-[var(--text-secondary)]">
+                      <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span className="truncate">{contact.email}</span>
                     </div>
-                  </div>
+                  )}
+                  {contact.address && <p className="text-[var(--text-tertiary)] leading-snug">{contact.address}</p>}
+                  {!contact.contactPerson && !contact.phone && !contact.email && !contact.address && (
+                    <p className="text-[var(--text-tertiary)]">No contact details recorded yet.</p>
+                  )}
+                </div>
 
-                  <div className="border-t border-[var(--border-color)] pt-5">
-                    <h3 className="font-medium mb-3 text-[var(--text-primary)]">Contact Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Contact Person</label>
-                        <input
-                          type="text"
-                          value={formData.contactInfo.contactPerson}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            contactInfo: { ...formData.contactInfo, contactPerson: e.target.value }
-                          })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                          placeholder="Contact person name"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Phone</label>
-                        <input
-                          type="tel"
-                          value={formData.contactInfo.phone}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            contactInfo: { ...formData.contactInfo, phone: e.target.value }
-                          })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                          placeholder="Phone number"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Email</label>
-                        <input
-                          type="email"
-                          value={formData.contactInfo.email}
-                          onChange={(e) => setFormData({
-                            ...formData,
-                            contactInfo: { ...formData.contactInfo, email: e.target.value }
-                          })}
-                          className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                          placeholder="Email address"
-                        />
-                      </div>
-                    </div>
-                    <div className="mt-4">
-                      <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Address</label>
-                      <textarea
-                        value={formData.contactInfo.address}
-                        onChange={(e) => setFormData({
-                          ...formData,
-                          contactInfo: { ...formData.contactInfo, address: e.target.value }
-                        })}
-                        rows={2}
-                        className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
-                        placeholder="Full address"
-                      />
-                    </div>
+                {canManage && (
+                  <div className="flex gap-2 pt-2 mt-auto border-t border-[var(--border-color)]">
+                    <Button size="xs" variant="secondary" icon={Edit} className="flex-1" onClick={() => openEditForm(provider)}>
+                      Edit
+                    </Button>
+                    <Button size="xs" variant="dangerSoft" icon={Trash2} className="flex-1" onClick={() => void handleDelete(provider)}>
+                      Delete
+                    </Button>
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1.5">Status</label>
-                    <div className="flex items-center gap-4">
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={formData.isActive === true}
-                          onChange={() => setFormData({ ...formData, isActive: true })}
-                          className="w-4 h-4 text-[var(--icon-green-text)]"
-                        />
-                        <span className="text-sm text-[var(--text-primary)]">Active</span>
-                      </label>
-                      <label className="flex items-center gap-2">
-                        <input
-                          type="radio"
-                          checked={formData.isActive === false}
-                          onChange={() => setFormData({ ...formData, isActive: false })}
-                          className="w-4 h-4 text-[var(--icon-red-text)]"
-                        />
-                        <span className="text-sm text-[var(--text-primary)]">Inactive</span>
-                      </label>
-                    </div>
-                  </div>
-                </>
-              )}
-
-              <div className="flex gap-3 justify-end pt-4 border-t border-[var(--border-color)]">
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-4 py-2.5 text-[var(--text-secondary)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="px-4 py-2.5 bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-text)] hover:text-white transition-colors text-sm disabled:opacity-50"
-                >
-                  {isLoading ? 'Saving...' : (editingProvider ? 'Update' : 'Create')}
-                </button>
+                )}
               </div>
-            </form>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className={TH_ROW}>
+                  <th className={TH}>Provider</th>
+                  <th className={TH}>Coverage</th>
+                  <th className={TH}>Contact</th>
+                  <th className={TH}>Status</th>
+                  {canManage && <th className={cn(TH, 'text-right')}>Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {filteredProviders.map((provider) => {
+                  const contact = contactOf(provider);
+                  return (
+                    <tr key={provider.id} className={TR}>
+                      <td className={TD}>
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: accentVar(familyMeta.accent, 'bg'), color: accentVar(familyMeta.accent, 'text') }}
+                          >
+                            <FamilyIcon className="w-4 h-4" />
+                          </div>
+                          <span className="font-medium text-[var(--text-primary)]">{provider.name}</span>
+                        </div>
+                      </td>
+                      <td className={TD}>{Number(provider.coveragePercentage ?? 0)}%</td>
+                      <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-normal">
+                        {contact.contactPerson || '—'}
+                        {contact.phone && <div>{contact.phone}</div>}
+                        {contact.email && <div>{contact.email}</div>}
+                      </td>
+                      <td className={TD}>
+                        <Badge tone={provider.isActive ? 'green' : 'neutral'} dot size="sm">
+                          {provider.isActive ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </td>
+                      {canManage && (
+                        <td className={cn(TD, 'text-right')}>
+                          <div className="inline-flex gap-1.5">
+                            <Button
+                              size="xs"
+                              variant="ghost"
+                              iconOnly
+                              icon={provider.isActive ? PowerOff : Power}
+                              aria-label={provider.isActive ? 'Deactivate' : 'Activate'}
+                              className={provider.isActive ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}
+                              onClick={() => void handleToggleStatus(provider)}
+                            />
+                            <Button size="xs" variant="ghost" iconOnly icon={Edit} aria-label="Edit provider" onClick={() => openEditForm(provider)} />
+                            <Button size="xs" variant="dangerSoft" iconOnly icon={Trash2} aria-label="Delete provider" onClick={() => void handleDelete(provider)} />
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
 
-      {/* Providers Display */}
-      {isLoading ? (
-        <div className={viewMode === 'grid' 
-          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5" 
-          : "space-y-4"
-        }>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            viewMode === 'grid' ? (
-              <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
-                <div className="h-5 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div>
-                <div className="h-4 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div>
-                <div className="h-4 bg-[var(--bg-main)] rounded w-2/3"></div>
-              </div>
-            ) : (
-              <div key={i} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] animate-pulse">
-                <div className="flex items-center justify-between">
-                  <div className="h-5 bg-[var(--bg-main)] rounded w-1/4"></div>
-                  <div className="h-4 bg-[var(--bg-main)] rounded w-1/6"></div>
-                </div>
-              </div>
-            )
-          ))}
-        </div>
-      ) : filteredProviders.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center">
-          <Shield className="w-14 h-14 text-[var(--text-tertiary)] mx-auto mb-3" />
-          <p className="text-[var(--text-secondary)]">No providers found</p>
-          <p className="text-[var(--text-tertiary)] text-sm mt-1">Add your first provider to get started</p>
-        </div>
-      ) : viewMode === 'grid' ? (
-        // Grid View
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredProviders.map((provider) => (
-            <div key={`${provider._type}-${provider.id}`} className="bg-[var(--bg-card)] rounded-xl p-5 border border-[var(--border-color)] hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${getProviderBg(provider.type)}`}>
-                    {getProviderIcon(provider.type)}
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-[var(--text-primary)] text-sm">{provider.name}</h3>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium mt-1 ${getTypeBadge(provider.type)}`}>
-                      {provider.type.toUpperCase()}
-                    </span>
-                  </div>
-                </div>
-                {/* Toggle Status Button */}
-                <button
-                  onClick={() => handleToggleStatus(provider)}
-                  className={`p-2 rounded-lg transition-all ${
-                    provider.isActive 
-                      ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
-                      : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white'
-                  }`}
-                  title={provider.isActive ? 'Deactivate' : 'Activate'}
+      <p className="text-xs text-[var(--text-tertiary)]">
+        Coverage is the share of a bill this payer is expected to meet. It seeds a new claim and can still be
+        adjusted per claim when the payer settles less.
+      </p>
+
+      {showForm && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 overflow-y-auto">
+          <div className="w-full max-w-2xl my-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
+            <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--border-color)]">
+              <div className="flex items-center gap-3 min-w-0">
+                <div
+                  className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                  style={{ background: accentVar(familyMeta.accent, 'bg'), color: accentVar(familyMeta.accent, 'text') }}
                 >
-                  {provider.isActive ? <Power className="w-4 h-4" /> : <PowerOff className="w-4 h-4" />}
-                </button>
-              </div>
-
-              <div className="space-y-2 mb-4 text-xs">
-                {provider.type !== 'corporate' && (
-                  <div className="flex justify-between">
-                    <span className="text-[var(--text-secondary)]">Coverage:</span>
-                    <span className="font-medium text-[var(--text-primary)]">{provider.coveragePercentage}%</span>
-                  </div>
-                )}
-                
-                {provider.type === 'corporate' && provider.corporateDetails && (
-                  <>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-secondary)]">Credit Limit:</span>
-                      <span className="font-medium text-[var(--text-primary)]">GHS {provider.corporateDetails.creditLimit.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-secondary)]">Current Balance:</span>
-                      <span className={`font-medium ${provider.corporateDetails.currentBalance > 0 ? 'text-[var(--icon-red-text)]' : 'text-[var(--icon-green-text)]'}`}>
-                        GHS {provider.corporateDetails.currentBalance.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[var(--text-secondary)]">Employees:</span>
-                      <span className="font-medium text-[var(--text-primary)]">{provider.corporateDetails.employeeCount || 0}</span>
-                    </div>
-                  </>
-                )}
-                
-                {provider.contactInfo?.contactPerson && (
-                  <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <User className="w-3.5 h-3.5" />
-                    <span className="flex-1">{provider.contactInfo.contactPerson}</span>
-                  </div>
-                )}
-                
-                {provider.contactInfo?.phone && (
-                  <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <Phone className="w-3.5 h-3.5" />
-                    <span className="flex-1">{provider.contactInfo.phone}</span>
-                  </div>
-                )}
-                
-                {provider.contactInfo?.email && (
-                  <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                    <Mail className="w-3.5 h-3.5" />
-                    <span className="flex-1 truncate">{provider.contactInfo.email}</span>
-                  </div>
-                )}
-              </div>
-
-              {isAdminLike(user?.role) && (
-                <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                  <button
-                    onClick={() => handleEdit(provider)}
-                    className="flex-1 py-1.5 text-[var(--icon-blue-text)] border border-[var(--icon-blue-text)] rounded-lg hover:bg-[var(--icon-blue-bg)] transition text-xs flex items-center justify-center gap-1"
-                  >
-                    <Edit className="w-3.5 h-3.5" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(provider)}
-                    className="flex-1 py-1.5 text-[var(--icon-red-text)] border border-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-bg)] transition text-xs flex items-center justify-center gap-1"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </button>
+                  <FamilyIcon className="w-4 h-4" />
                 </div>
-              )}
+                <div className="min-w-0">
+                  <h2 className="text-base font-semibold text-[var(--text-primary)]">
+                    {editingId ? 'Edit provider' : 'Add provider'}
+                  </h2>
+                  <p className="text-xs text-[var(--text-secondary)]">{familyMeta.label}</p>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" iconOnly icon={X} aria-label="Close" disabled={saving} onClick={() => setShowForm(false)} />
             </div>
-          ))}
-        </div>
-      ) : (
-        // List View
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Provider</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Status</th>
-                  {isAdminLike(user?.role) && (
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wider">Actions</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
-                {filteredProviders.map((provider) => (
-                  <tr key={`${provider._type}-${provider.id}`} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${getProviderBg(provider.type)}`}>
-                          {getProviderIcon(provider.type)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-[var(--text-primary)]">{provider.name}</div>
-                          {provider.type === 'corporate' && provider.corporateDetails && (
-                            <div className="text-xs text-[var(--text-secondary)] flex items-center gap-2 mt-1">
-                              <Users className="w-3 h-3" />
-                              {provider.corporateDetails.employeeCount || 0} employees
-                              <span className="mx-1">•</span>
-                              <Wallet className="w-3 h-3" />
-                              Limit: GHS {provider.corporateDetails.creditLimit.toLocaleString()}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeBadge(provider.type)}`}>
-                        {provider.type.toUpperCase()}
-                      </span>
-                      {provider.type !== 'corporate' && (
-                        <div className="text-xs text-[var(--text-secondary)] mt-1">
-                          {provider.coveragePercentage}% coverage
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="space-y-1 text-sm">
-                        {provider.contactInfo?.contactPerson && (
-                          <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                            <User className="w-3.5 h-3.5" />
-                            {provider.contactInfo.contactPerson}
-                          </div>
-                        )}
-                        {provider.contactInfo?.phone && (
-                          <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                            <Phone className="w-3.5 h-3.5" />
-                            {provider.contactInfo.phone}
-                          </div>
-                        )}
-                        {provider.contactInfo?.email && (
-                          <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-                            <Mail className="w-3.5 h-3.5" />
-                            {provider.contactInfo.email}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleToggleStatus(provider)}
-                          className={`p-1.5 rounded-lg transition-all ${
-                            provider.isActive 
-                              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
-                              : 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] hover:bg-[var(--icon-red-text)] hover:text-white'
-                          }`}
-                          title={provider.isActive ? 'Deactivate' : 'Activate'}
-                        >
-                          {provider.isActive ? <Power className="w-3.5 h-3.5" /> : <PowerOff className="w-3.5 h-3.5" />}
-                        </button>
-                        <span className={`text-sm ${provider.isActive ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}`}>
-                          {provider.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </div>
-                    </td>
-                    {isAdminLike(user?.role) && (
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleEdit(provider)}
-                            className="text-[var(--icon-blue-text)] hover:text-[var(--icon-blue-text)] p-2 rounded-lg hover:bg-[var(--icon-blue-bg)] transition"
-                            title="Edit provider"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(provider)}
-                            className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] p-2 rounded-lg hover:bg-[var(--icon-red-bg)] transition"
-                            title="Delete provider"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+
+            <form onSubmit={handleSubmit} className="p-5 space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Field label="Provider name" required>
+                  <input
+                    className={cn(INPUT, 'w-full')}
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    placeholder={family === 'nhis' ? 'National Health Insurance and Welfare Scheme' : 'e.g. Metropolitan Health'}
+                  />
+                </Field>
+                <Field label="Coverage %" required hint="Share of the bill this payer settles.">
+                  <input
+                    className={cn(INPUT, 'w-full')}
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={formData.coveragePercentage}
+                    onChange={(e) => setFormData({ ...formData, coveragePercentage: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) })}
+                  />
+                </Field>
+              </div>
+
+              <div className="border-t border-[var(--border-color)] pt-4">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] mb-3">Contact</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Field label="Contact person">
+                    <input
+                      className={cn(INPUT, 'w-full')}
+                      value={formData.contactInfo.contactPerson}
+                      onChange={(e) => setFormData({ ...formData, contactInfo: { ...formData.contactInfo, contactPerson: e.target.value } })}
+                      placeholder="Claims officer"
+                    />
+                  </Field>
+                  <Field label="Phone">
+                    <input
+                      className={cn(INPUT, 'w-full')}
+                      type="tel"
+                      value={formData.contactInfo.phone}
+                      onChange={(e) => setFormData({ ...formData, contactInfo: { ...formData.contactInfo, phone: e.target.value } })}
+                      placeholder="024 000 0000"
+                    />
+                  </Field>
+                  <Field label="Email">
+                    <input
+                      className={cn(INPUT, 'w-full')}
+                      type="email"
+                      value={formData.contactInfo.email}
+                      onChange={(e) => setFormData({ ...formData, contactInfo: { ...formData.contactInfo, email: e.target.value } })}
+                      placeholder="claims@insurer.com"
+                    />
+                  </Field>
+                  <Field label="Status">
+                    <FilterSelect
+                      className="w-full"
+                      value={formData.isActive ? 'active' : 'inactive'}
+                      onChange={(value) => setFormData({ ...formData, isActive: value === 'active' })}
+                      options={[
+                        { value: 'active', label: 'Active — selectable on new claims' },
+                        { value: 'inactive', label: 'Inactive — hidden from new claims' },
+                      ]}
+                    />
+                  </Field>
+                  <Field label="Address" className="md:col-span-2">
+                    <textarea
+                      className={cn(INPUT, 'w-full')}
+                      rows={2}
+                      value={formData.contactInfo.address}
+                      onChange={(e) => setFormData({ ...formData, contactInfo: { ...formData.contactInfo, address: e.target.value } })}
+                      placeholder="Full address"
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4 border-t border-[var(--border-color)]">
+                <Button variant="secondary" disabled={saving} onClick={() => setShowForm(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="soft" accent={familyMeta.accent} loading={saving}>
+                  {editingId ? 'Save changes' : 'Add provider'}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}

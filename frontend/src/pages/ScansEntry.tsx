@@ -9,40 +9,50 @@ import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
 import { useHospitalStore } from '../store/hospitalStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
+import { getScansWorklist } from '../api';
 import { ScanResultForm } from '../components/scans/ScanResultForm';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
-  ChevronLeft, Scan, RefreshCw, AlertCircle, Plus, Clock,
+  Scan, RefreshCw, AlertCircle, Plus, Clock,
   CheckCircle, Activity, User, Calendar, X, Edit, Trash2,
-  Eye, Printer, Image as ImageIcon, MessageSquare,
+  Printer, Image as ImageIcon, MessageSquare,
   Play, FileText, Hash, Phone, AlertTriangle, Info,
   ChevronDown, ChevronRight, Stethoscope, Sparkles,
-  Maximize2, Minimize2,
+  Maximize2,
 } from 'lucide-react';
-
-const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
-  entity?.id || entity?._id;
+import {
+  Badge, Button, Card, PageHeader, StatCard,
+  TH, TH_ROW, TD, TD_MUTED, TR,
+  statusTone, humanStatus, cn,
+  type Accent,
+} from '../components/ui';
 
 const getScanDisplayName = (scan: any): string =>
   scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Unknown Scan';
 
+const OUTSTANDING_SCAN_STATUSES = new Set(['requested', 'in_progress']);
+
+/** A visit is "the one to open" when it still owes this department a scan. */
+const hasOutstandingScanWork = (visit: any): boolean =>
+  (visit?.Scan || []).some((scan: any) => OUTSTANDING_SCAN_STATUSES.has(String(scan?.status)));
+
 // ── Priority pill ──
-const PriorityPill: React.FC<{ priority: string }> = ({ priority }) => {
-  const map: Record<string, string> = {
-    stat:   'bg-red-100 text-red-700 border-red-200',
-    urgent: 'bg-orange-100 text-orange-700 border-orange-200',
-    routine:'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--border-color)]',
-  };
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${map[priority] || map.routine}`}>
-      {priority === 'stat' && <AlertTriangle className="w-2.5 h-2.5" />}
-      {priority?.toUpperCase() || 'ROUTINE'}
-    </span>
-  );
+const PRIORITY_TONES: Record<string, Accent> = {
+  stat: 'red',
+  urgent: 'orange',
+  routine: 'cyan',
 };
+const PriorityPill: React.FC<{ priority: string }> = ({ priority }) => (
+  <Badge tone={PRIORITY_TONES[priority] ?? 'cyan'}>
+    {priority === 'stat' && <AlertTriangle className="w-2.5 h-2.5" />}
+    {priority?.toUpperCase() || 'ROUTINE'}
+  </Badge>
+);
 
 // ── Result card ──
 const ScanResultDisplay: React.FC<{
@@ -76,12 +86,12 @@ const ScanResultDisplay: React.FC<{
       {/* Header row */}
       <div
         className={`px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer ${
-          expanded ? 'bg-indigo-50/40' : 'bg-[var(--bg-card)] hover:bg-indigo-50/30'
+          expanded ? 'bg-[var(--bg-main)]' : 'bg-[var(--bg-card)] hover:bg-[var(--bg-main)]'
         }`}
         onClick={() => setExpanded(v => !v)}
       >
-        <div className="w-9 h-9 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
-          <CheckCircle className="w-4 h-4 text-green-600" />
+        <div className="w-9 h-9 rounded-lg bg-[var(--icon-green-bg)] flex items-center justify-center flex-shrink-0">
+          <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" />
         </div>
 
         <div className="min-w-0 flex-1">
@@ -89,9 +99,7 @@ const ScanResultDisplay: React.FC<{
             <h4 className="font-semibold text-sm text-[var(--text-primary)] truncate">
               {getScanDisplayName(scan)}
             </h4>
-            <span className="inline-flex items-center gap-1 text-[10px] text-green-700 bg-green-50 border border-green-200 px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0">
-              Completed
-            </span>
+            <Badge tone="green" className="flex-shrink-0">Completed</Badge>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5 flex-wrap">
             {scan.bodyPart && (
@@ -108,7 +116,7 @@ const ScanResultDisplay: React.FC<{
             {imageCount > 0 && (
               <>
                 <span className="opacity-40">·</span>
-                <span className="inline-flex items-center gap-1 text-indigo-600 font-medium">
+                <span className="inline-flex items-center gap-1 text-[var(--icon-indigo-text)] font-medium">
                   <ImageIcon className="w-2.5 h-2.5" />
                   {imageCount} image{imageCount !== 1 ? 's' : ''}
                 </span>
@@ -118,29 +126,10 @@ const ScanResultDisplay: React.FC<{
         </div>
 
         <div className="flex items-center gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={onPrint}
-            disabled={printing}
-            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50 transition-all disabled:opacity-40"
-            title="Print"
-          >
-            <Printer className={`w-3.5 h-3.5 ${printing ? 'animate-pulse' : ''}`} />
-          </button>
-          <button
-            onClick={onSend}
-            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-            title="Send"
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
+          <Button variant="ghost" size="sm" iconOnly icon={Printer} onClick={onPrint} loading={printing} aria-label="Print" />
+          <Button variant="ghost" size="sm" iconOnly icon={MessageSquare} onClick={onSend} aria-label="Send" />
           {canEdit && (
-            <button
-              onClick={onEdit}
-              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-blue-600 hover:bg-blue-50 transition-all"
-              title="Edit"
-            >
-              <Edit className="w-3.5 h-3.5" />
-            </button>
+            <Button variant="ghost" size="sm" iconOnly icon={Edit} onClick={onEdit} aria-label="Edit" />
           )}
           <button
             onClick={() => setExpanded(v => !v)}
@@ -165,8 +154,8 @@ const ScanResultDisplay: React.FC<{
             </div>
           )}
           {scan.impression && (
-            <div className="bg-indigo-50/50 border border-indigo-100 rounded-lg p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-700 mb-1.5 flex items-center gap-1.5">
+            <div className="bg-[var(--icon-indigo-bg)] border border-[var(--border-color)] rounded-lg p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--icon-indigo-text)] mb-1.5 flex items-center gap-1.5">
                 <Sparkles className="w-3 h-3" /> Impression
               </p>
               <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap leading-relaxed">
@@ -191,16 +180,17 @@ const ScanResultDisplay: React.FC<{
               </p>
               <div className="flex flex-wrap gap-2">
                 {scan.imageUrls.map((url: string, idx: number) => (
-                  <button
+                  <Button
                     key={idx}
-                    type="button"
+                    variant="secondary"
+                    size="xs"
+                    icon={ImageIcon}
                     onClick={() => setPreviewImage(url)}
-                    className="group relative flex items-center gap-1.5 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 hover:border-indigo-400 rounded-lg px-2.5 py-1.5 bg-[var(--bg-card)] transition-all"
+                    className="group"
                   >
-                    <ImageIcon className="w-3 h-3" />
-                    <span className="font-medium">Image {idx + 1}</span>
+                    Image {idx + 1}
                     <Maximize2 className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </button>
+                  </Button>
                 ))}
               </div>
             </div>
@@ -221,15 +211,16 @@ const ScanResultDisplay: React.FC<{
           aria-label="Scan image preview"
           onClick={() => setPreviewImage(null)}
         >
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            iconOnly
+            icon={X}
             onClick={() => setPreviewImage(null)}
-            className="absolute right-4 top-4 rounded-full bg-white/90 p-2 text-gray-800 hover:bg-white"
             aria-label="Close image preview"
             autoFocus
-          >
-            <X className="h-5 w-5" />
-          </button>
+            className="absolute right-4 top-4"
+          />
           <img
             src={previewImage}
             alt="Scan"
@@ -241,6 +232,7 @@ const ScanResultDisplay: React.FC<{
     </div>
   );
 };
+
 
 // ── Section wrapper for scan groups ──
 const ScanSection: React.FC<{
@@ -298,6 +290,54 @@ export default function ScansEntry() {
   const [patient, setPatient] = useState<any>(null);
   const [attendance, setAttendance] = useState<any>(null);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
+  const [queueRows, setQueueRows] = useState<QueuedVisit[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  // Direct entry has no patient yet, and sonographers cannot search the patient
+  // directory, so the screen offers the same queue the waiting list shows instead.
+  const loadQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const response: any = await getScansWorklist();
+      const rows: any[] = response?.data?.data || [];
+      setQueueRows(rows.map((row) => ({
+        attendanceId: row.attendanceId,
+        patientId: row.patientId,
+        name: row.patient?.name || 'Unknown patient',
+        folderNumber: row.patient?.folderNumber,
+        age: row.patient?.age,
+        gender: row.patient?.gender,
+        attendanceNumber: row.attendanceNumber,
+        visitDate: row.attendanceDateTime,
+        detail: [
+          `${row.scanCount ?? 0} scan${row.scanCount === 1 ? '' : 's'} to report`,
+          row.inProgressCount ? `${row.inProgressCount} in progress` : null,
+          row.requestedCount ? `${row.requestedCount} requested` : null,
+        ].filter(Boolean).join(' · '),
+        priority: row.priority,
+        waitMinutes: row.waitTime,
+      })));
+    } catch {
+      setQueueRows([]);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const openQueuedVisit = (row: QueuedVisit) => {
+    navigate(`/dashboard/scans/${row.patientId}`, {
+      state: {
+        patient: {
+          id: row.patientId,
+          name: row.name,
+          folderNumber: row.folderNumber,
+          age: row.age,
+          gender: row.gender,
+        },
+        attendanceId: row.attendanceId,
+      },
+    });
+  };
 
   const loadData = async () => {
     try {
@@ -309,6 +349,8 @@ export default function ScansEntry() {
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
       const initialAttendanceId = location.state?.attendanceId;
+
+      if (!patientId) await loadQueue();
 
       if (patientId) {
         const patientAttendances = await getAttendances({ patientId });
@@ -323,13 +365,26 @@ export default function ScansEntry() {
           setSelectedPatientId(patientId);
         }
 
-        const target =
-          (initialAttendanceId && patientAttendances.find(a => a.id === initialAttendanceId)) ||
-          [...patientAttendances].sort((a, b) =>
-            new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-          )[0];
+        // A queued visit can be older than the patient's recent-visit window, so the
+        // attendance named by the queue row is fetched on its own if the list missed it.
+        let target: any = initialAttendanceId
+          ? patientAttendances.find(a => a.id === initialAttendanceId)
+          : undefined;
+        if (!target && initialAttendanceId) {
+          target = await getAttendance(initialAttendanceId).catch(() => null);
+          if (target && !patientAttendances.some(a => a.id === target.id)) {
+            setAllAttendances([target, ...patientAttendances]);
+          }
+        }
+        target = target || pickVisit(patientAttendances, hasOutstandingScanWork);
         if (target) {
           setSelectedAttendanceId(target.id);
+          // Without directory access the only patient record available is the one
+          // carried by the visit, and the screen still needs it to draw the header.
+          if (!foundPatient) {
+            const linked = target.Patient || target.patient || null;
+            if (linked) setPatient(linked);
+          }
           await getAttendance(target.id);
         }
       }
@@ -541,26 +596,29 @@ export default function ScansEntry() {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <div className="w-12 h-12 border-4 border-[var(--icon-purple-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Scans Data…</h2>
         </div>
       </div>
     );
   }
 
-  if (!patient) {
+  // Direct entry starts without a patient until one is picked in the selector;
+  // only a patient named in the route that failed to load is an error.
+  if (!patient && (id || (location.state as any)?.patient)) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+          <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3" />
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Patient Not Found</h2>
           <p className="text-[var(--text-secondary)]">The patient you're looking for doesn't exist.</p>
-          <button
+          <Button
+            variant="primary"
+            className="mt-4"
             onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
-            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all"
           >
             Back
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -572,67 +630,59 @@ export default function ScansEntry() {
   return (
     <div className="space-y-5 p-4 sm:p-6">
       {/* ── HEADER ── */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-sm ">
-            <Scan className="w-5 h-5 text-white" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Scans Management</h1>
-            <p className="text-xs text-[var(--text-secondary)] truncate">
-              {patientFullName} · {totalScans} scan{totalScans !== 1 ? 's' : ''}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setShowScanModal(true)}
-            disabled={!canAddEntries}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-semibold disabled:opacity-50 shadow-sm "
-          >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Request Scan</span>
-            <span className="sm:hidden">New</span>
-          </button>
-          <button
-            onClick={handlePrintAll}
-            disabled={completedScans.length === 0 || printingId === 'all'}
-            className="flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm font-medium"
-            title="Print all completed scans"
-          >
-            <Printer className={`w-4 h-4 ${printingId === 'all' ? 'animate-pulse' : ''}`} />
-            <span className="hidden sm:inline">Print All</span>
-            {completedScans.length > 0 && (
-              <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-main)] font-bold">
-                {completedScans.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
-            disabled={completedScans.length === 0}
-            className="p-2 rounded-lg border border-green-200 text-green-700 hover:bg-green-50 transition-all disabled:opacity-50"
-            title="Send all results"
-          >
-            <MessageSquare className="w-4 h-4" />
-          </button>
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Scans Management"
+        meta={`${patientFullName} · ${totalScans} scan${totalScans !== 1 ? 's' : ''}`}
+        icon={Scan}
+        accent="purple"
+        onBack={() => (location.key === 'default' ? navigate('/dashboard/scans') : navigate(-1))}
+        actions={(
+          <>
+            <Button
+              variant="ghost"
+              iconOnly
+              icon={RefreshCw}
+              loading={refreshing}
+              disabled={refreshing}
+              onClick={loadData}
+              aria-label="Refresh"
+            />
+            <Button
+              variant="secondary"
+              icon={Printer}
+              loading={printingId === 'all'}
+              disabled={completedScans.length === 0 || printingId === 'all'}
+              onClick={handlePrintAll}
+              title="Print all completed scans"
+            >
+              <span className="hidden sm:inline">Print All</span>
+              {completedScans.length > 0 && (
+                <span className="hidden sm:inline text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--bg-main)] font-bold">
+                  {completedScans.length}
+                </span>
+              )}
+            </Button>
+            <Button
+              variant="soft"
+              accent="green"
+              iconOnly
+              icon={MessageSquare}
+              disabled={completedScans.length === 0}
+              onClick={() => { setSendResultScan(null); setShowSendResult(true); }}
+              aria-label="Send all results"
+            />
+            <Button
+              variant="primary"
+              icon={Plus}
+              disabled={!canAddEntries}
+              onClick={() => setShowScanModal(true)}
+            >
+              <span className="hidden sm:inline">Request Scan</span>
+              <span className="sm:hidden">New</span>
+            </Button>
+          </>
+        )}
+      />
 
       {/* ── SEND MODAL ── */}
       <SendDocumentModal
@@ -645,42 +695,64 @@ export default function ScansEntry() {
 
       {/* ── PATIENT / ATTENDANCE SELECTOR ── */}
       <PatientAttendanceSelector
-        patients={[patient]}
+        patients={patient ? [patient, ...patients.filter(p => p.id !== patient.id)] : patients}
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={(patientId) => {
+        onPatientSelect={async (patientId) => {
           setSelectedPatientId(patientId);
-          setAllAttendances(attendances.filter(a => a.patientId === patientId));
           setSelectedAttendanceId('');
           setAttendance(null);
           setSelectedScan(null);
+          // Resolve the patient before the visits: the picker auto-selects an open visit as
+          // soon as they arrive, and the screen renders that visit's patient details.
+          let resolved: any = null;
+          try { resolved = await fetchPatient(patientId); } catch { /* fall back to the visit's own patient */ }
+          let visits: any[] = [];
+          try {
+            visits = await getAttendances({ patientId });
+            setAllAttendances(visits);
+            if (!resolved) {
+              const linked = visits.find((a: any) => a.Patient || a.patient);
+              resolved = linked?.Patient ?? linked?.patient ?? null;
+            }
+          } catch {
+            visits = attendances.filter(a => a.patientId === patientId);
+            setAllAttendances(visits);
+          }
+          if (resolved) setPatient(resolved);
+          // Open the visit that owes the department a scan, not merely the most recent one.
+          const best = pickVisit(visits, hasOutstandingScanWork);
+          if (best) setSelectedAttendanceId(best.id);
         }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={handleClearSelection}
       />
 
       {!selectedAttendanceId && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-10 text-center shadow-sm">
-          <div className="w-16 h-16 bg-yellow-50 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Calendar className="w-8 h-8 text-yellow-600" />
-          </div>
-          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Attendance Selected</h3>
-          <p className="text-sm text-[var(--text-secondary)] max-w-sm mx-auto">
-            Select an attendance from the dropdown above to manage scans for this patient.
-          </p>
-        </div>
+        <QueuedVisits
+          title="Scans queue"
+          description="Scans waiting for a result — pick a visit to start"
+          icon={Scan}
+          accent="purple"
+          rows={queueRows}
+          loading={queueLoading}
+          emptyMessage="No scans are waiting. Open the scans waiting list to review completed work."
+          onOpen={openQueuedVisit}
+          onRefresh={loadData}
+          onViewAll={() => navigate('/dashboard/scans')}
+        />
       )}
 
       {/* ── MAIN CONTENT ── */}
-      {selectedAttendanceId && attendance && (
+      {selectedAttendanceId && attendance && patient && (
         <>
           {/* Patient info bar */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
             <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-100 to-indigo-50 border border-indigo-200 flex items-center justify-center shadow-sm">
-                  <User className="w-5 h-5 text-indigo-600" />
+                <div className="w-11 h-11 rounded-xl bg-[var(--icon-indigo-bg)] border border-[var(--border-color)] flex items-center justify-center shadow-sm">
+                  <User className="w-5 h-5 text-[var(--icon-indigo-text)]" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -716,26 +788,22 @@ export default function ScansEntry() {
                     {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
                   </span>
                 </div>
-                <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                  attendance.status === 'pending' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
-                  attendance.status === 'completed' ? 'bg-green-50 text-green-700 border-green-200' :
-                  'bg-gray-50 text-gray-700 border-gray-200'
-                }`}>
-                  {attendance.status?.replace(/_/g, ' ')}
-                </span>
+                <Badge tone={statusTone(attendance.status)} dot size="sm">
+                  {humanStatus(attendance.status)}
+                </Badge>
               </div>
             </div>
           </div>
 
           {/* Status warning */}
           {!canUpdateScan && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+            <div className="bg-[var(--icon-yellow-bg)] border border-[var(--border-color)] rounded-xl p-4 flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-[var(--icon-yellow-text)] flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-yellow-800 font-medium">
+                <p className="text-sm text-[var(--icon-yellow-text)] font-medium">
                   Read-only view
                 </p>
-                <p className="text-xs text-yellow-700 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   This visit is <strong>{attendance.status}</strong>. Scans can be viewed but not processed.
                 </p>
               </div>
@@ -744,24 +812,9 @@ export default function ScansEntry() {
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3">
-            {[
-              { count: requestedScans.length, label: 'Pending', color: 'text-yellow-600', bg: 'bg-yellow-100', Icon: Clock },
-              { count: inProgressScans.length, label: 'In Progress', color: 'text-purple-600', bg: 'bg-purple-100', Icon: Activity },
-              { count: completedScans.length, label: 'Completed', color: 'text-green-600', bg: 'bg-green-100', Icon: CheckCircle },
-            ].map(s => {
-              const Icon = s.Icon;
-              return (
-                <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className={`w-9 h-9 ${s.bg} rounded-lg flex items-center justify-center`}>
-                      <Icon className={`w-4.5 h-4.5 ${s.color}`} />
-                    </div>
-                  </div>
-                  <p className={`text-2xl font-bold ${s.color} leading-tight`}>{s.count}</p>
-                  <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
-                </div>
-              );
-            })}
+            <StatCard label="Pending" value={requestedScans.length} icon={Clock} accent="yellow" />
+            <StatCard label="In Progress" value={inProgressScans.length} icon={Activity} accent="purple" />
+            <StatCard label="Completed" value={completedScans.length} icon={CheckCircle} accent="green" />
           </div>
 
           {/* Pending Scans */}

@@ -409,7 +409,7 @@ export function FinanceSummary({ stats, loading }: { stats: DashboardStats; load
   const tiles = [
     { label: "Today's Revenue", value: `₵${Number(stats.totalRevenue).toFixed(2)}`, Icon: Coins, bg: 'var(--icon-green-bg)', color: 'var(--icon-green-text)', to: '/dashboard/billing' },
     { label: 'Pending Bills', value: stats.pendingBills, Icon: FileText, bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)', to: '/dashboard/billing' },
-    { label: 'Pending Claims', value: stats.pendingClaims, Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', to: '/dashboard/insurance-claims' },
+    { label: 'Pending Claims', value: stats.pendingClaims, Icon: Shield, bg: 'var(--icon-yellow-bg)', color: 'var(--icon-yellow-text)', to: '/dashboard/insurance' },
   ];
   return (
     <PanelShell title="Finance Summary" subtitle="Today" Icon={Coins} iconColor="var(--icon-green-text)">

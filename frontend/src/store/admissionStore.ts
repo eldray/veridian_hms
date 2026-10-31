@@ -83,6 +83,8 @@ export interface Admission {
   patient?: any;
   ward?: any;
   bed?: any;
+  // The backend flattens the visit number onto the admission; the lists read it beside the folder.
+  attendanceNumber?: string;
 }
 
 export interface DaycasePatient {
@@ -244,6 +246,7 @@ const transformAdmission = (data: any): Admission => ({
   dischargeSummary: data.dischargeSummary,
   status: data.status,
   attendance: data.attendance,
+  attendanceNumber: data.attendanceNumber ?? data.attendance?.attendanceNumber,
   patient: data.patient,
   ward: data.ward,
   bed: data.bed
@@ -347,6 +350,7 @@ getAdmissions: async (filters = {}, options = {}) => {
         updatedAt: admissionData.updatedAt,
         status: admissionData.status,
         attendance: admissionData.attendance || item.attendance,
+        attendanceNumber: admissionData.attendanceNumber || admissionData.attendance?.attendanceNumber || item.attendance?.attendanceNumber,
         patient: admissionData.patient || item.patient,
         ward: admissionData.ward || item.ward,
         bed: admissionData.bed || item.bed

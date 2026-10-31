@@ -41,6 +41,9 @@ interface Waiver {
     billNumber: string;
     totalAmount: number;
     balance: number;
+    // A waiver discounts a bill and a bill belongs to one visit, so the visit number is what tells
+    // the desk which attendance was discounted.
+    attendance?: { attendanceNumber: string } | null;
   };
   requestedBy?: {
     fullName: string;

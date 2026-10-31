@@ -9,11 +9,27 @@ import { useToast } from '../store/toastStore';
 import { useLiveRefresh } from '../api/realtime';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import {
-  Search, Users, Hospital, Calendar, Clock, CheckCircle, X,
-  RefreshCw, FileText, Bed, Loader2, Eye, ChevronLeft, ChevronRight,
-  ClipboardList, Building2, Moon, Sun, ArrowRight, LogOut,
-  Hash, LayoutGrid, List, CircleDot, Filter, MapPin, Baby, Heart,
+  Hospital, Calendar, Clock, CheckCircle, X,
+  RefreshCw, FileText, Loader2, Eye,
+  Building2, Moon, Sun, ArrowRight, LogOut,
+  Hash, LayoutGrid, List, CircleDot, MapPin, Baby, Heart,
 } from 'lucide-react';
+import {
+  Button,
+  Card,
+  cn,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  Segmented,
+  StatCard,
+  Tabs,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+} from '../components/ui';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types & helpers
@@ -228,6 +244,24 @@ export default function Admissions() {
     () => new Map((patients || []).map((p: any) => [p.id, p] as [string, any])),
     [patients],
   );
+
+  // Admission rows come from the admissions API, whose relations are lower-cased
+  // (attendance.patient, admission.patient) on top of the copied patientName /
+  // folderNumber / wardName / bedNumber fields. Read every shape, so a row is
+  // never rendered as "Unknown Patient".
+  const rowPatient = (a: any) =>
+    a?.attendance?.Patient ||
+    a?.attendance?.patient ||
+    a?.patient ||
+    patientById.get(a?.attendance?.patientId || a?.patientId) ||
+    null;
+  const rowPatientName = (a: any) =>
+    rowPatient(a) ? getPatientName(rowPatient(a)) : (a?.patientName || 'Unknown Patient');
+  const rowFolderNumber = (a: any) => rowPatient(a)?.folderNumber || a?.folderNumber || '—';
+  const rowWardName = (a: any) =>
+    a?.attendance?.Ward?.wardName || a?.attendance?.ward?.wardName || a?.ward?.wardName || a?.wardName || '—';
+  const rowBedNumber = (a: any) =>
+    a?.attendance?.Bed?.bedNumber || a?.attendance?.bed?.bedNumber || a?.bed?.bedNumber || a?.bedNumber || '—';
   const { attendances, getAttendances } = useAttendanceStore();
   const { hasRole } = useAuthStore();
 
@@ -349,6 +383,7 @@ export default function Admissions() {
         createdAt: att.createdAt,
         updatedAt: att.updatedAt,
         attendance: att,
+        attendanceNumber: att.attendanceNumber,
         isDaySurgery: true,
         isVirtual: true,
         status: 'admitted',
@@ -396,6 +431,7 @@ export default function Admissions() {
         createdAt: att.createdAt,
         updatedAt: att.updatedAt,
         attendance: att,
+        attendanceNumber: att.attendanceNumber,
         isDaySurgery: false,
         isDetention: false,
         isVirtual: true,
@@ -414,7 +450,9 @@ export default function Admissions() {
     return [...formal, ...detentionList, ...uniqueDaySurgery, ...uniqueFromAttendances];
   }, [formalIPD, detention, virtualDaycaseAdmissions, attendances]);
 
-  const filteredAdmissions = useMemo(() => {
+  /** Date and search narrow the page; the status tab is applied afterwards so the
+   *  counters keep reporting the whole page instead of collapsing to the open tab. */
+  const searchedAdmissions = useMemo(() => {
     if (!allAdmissions.length) return [];
     const dateRange = getDateRange();
 
@@ -432,19 +470,15 @@ export default function Admissions() {
         if (admissionDate < dateRange.startDate || admissionDate > dateRange.endDate) return false;
       }
 
-      if (activeTab === 'active' && (isDischarged || isCancelled)) return false;
-      if (activeTab === 'discharged' && (!isDischarged || isCancelled)) return false;
-
       if (searchQuery) {
-        const patient =
-          admission.attendance?.Patient ||
-          patientById.get(admission.attendance?.patientId);
-        const fullName = patient ? getPatientName(patient) : '';
+        const patient = rowPatient(admission);
+        const fullName = rowPatientName(admission);
         const lower = searchQuery.toLowerCase();
         return (
           admission.admissionNumber?.toLowerCase().includes(lower) ||
+          admission.attendanceNumber?.toLowerCase().includes(lower) ||
           fullName.toLowerCase().includes(lower) ||
-          patient?.folderNumber?.toLowerCase().includes(lower) ||
+          (patient?.folderNumber || (admission as any).folderNumber || '')?.toLowerCase().includes(lower) ||
           admission.attendance?.complaints?.toLowerCase().includes(lower)
         );
       }
@@ -454,18 +488,27 @@ export default function Admissions() {
     return filtered.sort(
       (a, b) => new Date(b.admissionDate).getTime() - new Date(a.admissionDate).getTime(),
     );
-  }, [allAdmissions, patientById, searchQuery, getDateRange, activeTab]);
+  }, [allAdmissions, patientById, searchQuery, getDateRange]);
 
-  const activeAdmissions = filteredAdmissions.filter((a) => !a.dischargeDate);
-  const dischargedAdmissions = filteredAdmissions.filter((a) => a.dischargeDate);
-  const formalIPDCount = filteredAdmissions.filter(
-    (a) => a.displayType === 'formal_ipd' && !a.dischargeDate,
+  const isClosed = (a: any) => a.dischargeDate !== null || a.attendance?.status === 'discharged';
+  const isCancelled = (a: any) => a.status === 'cancelled';
+
+  const filteredAdmissions = useMemo(() => {
+    if (activeTab === 'active') return searchedAdmissions.filter((a) => !isClosed(a) && !isCancelled(a));
+    if (activeTab === 'discharged') return searchedAdmissions.filter((a) => isClosed(a) && !isCancelled(a));
+    return searchedAdmissions;
+  }, [searchedAdmissions, activeTab]);
+
+  const activeAdmissions = searchedAdmissions.filter((a) => !isClosed(a) && !isCancelled(a));
+  const dischargedAdmissions = searchedAdmissions.filter((a) => isClosed(a) && !isCancelled(a));
+  const formalIPDCount = searchedAdmissions.filter(
+    (a) => a.displayType === 'formal_ipd' && !isClosed(a) && !isCancelled(a),
   ).length;
-  const detentionCount = filteredAdmissions.filter(
-    (a) => a.displayType === 'detention' && !a.dischargeDate,
+  const detentionCount = searchedAdmissions.filter(
+    (a) => a.displayType === 'detention' && !isClosed(a) && !isCancelled(a),
   ).length;
-  const daySurgeryCount = filteredAdmissions.filter(
-    (a) => a.displayType === 'day_surgery' && !a.dischargeDate,
+  const daySurgeryCount = searchedAdmissions.filter(
+    (a) => a.displayType === 'day_surgery' && !isClosed(a) && !isCancelled(a),
   ).length;
 
   const totalPages = Math.ceil(filteredAdmissions.length / itemsPerPage);
@@ -598,358 +641,128 @@ export default function Admissions() {
   }
 
   return (
-    <div className="space-y-4 p-4 sm:p-6" style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
+    <div className="space-y-6 p-4 sm:p-6" style={{ background: 'var(--bg-main)', minHeight: '100vh' }}>
 
-      {/* ═══════════ Header ═══════════ */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: 'var(--icon-cyan-text)' }}
-          >
-            <Hospital className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
-              Patient Admissions
-            </h1>
-            <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-              Manage IPD admissions, observation cases, and day surgery patients
-            </p>
-            <p className="text-[10px] mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
-              {filteredAdmissions.length} total · {formalIPDCount} IPD · {detentionCount} Obs ·{' '}
-              {daySurgeryCount} Day Surgery · {dischargedAdmissions.length} Discharged
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Patient Admissions"
+        subtitle="Manage IPD admissions, observation cases, and day surgery patients"
+        meta={`${searchedAdmissions.length} total · ${formalIPDCount} IPD · ${detentionCount} Obs · ${daySurgeryCount} Day Surgery · ${dischargedAdmissions.length} Discharged`}
+        icon={Hospital}
+        accent="cyan"
+        backTo="/dashboard"
+        tabs={(
+          <Tabs<TabType>
+            tabs={[
+              { key: 'all', label: 'All', count: searchedAdmissions.length },
+              { key: 'active', label: 'Active', count: activeAdmissions.length },
+              { key: 'discharged', label: 'Discharged', count: dischargedAdmissions.length },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
+            aria-label="Admission status"
+          />
+        )}
+        actions={(
+          <>
+            <Button variant="secondary" icon={Building2} onClick={() => navigate('/dashboard/wards')}>
+              Ward Management
+            </Button>
+            <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+          </>
+        )}
+      />
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => navigate('/dashboard/wards')}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all"
-            style={{
-              background: 'var(--icon-purple-bg)',
-              color: 'var(--icon-purple-text)',
-            }}
-          >
-            <Building2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Ward Management</span>
-          </button>
-
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            aria-label="Refresh"
-            title="Refresh"
-            className="p-2 rounded-lg border transition-all disabled:opacity-50"
-            style={{ ...cardStyle, color: 'var(--text-secondary)' }}
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-        </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Active IPD" value={formalIPDCount} icon={Hospital} accent="green" />
+        <StatCard label="Observation" value={detentionCount} icon={Moon} accent="orange" />
+        <StatCard label="Day Surgery" value={daySurgeryCount} icon={Sun} accent="purple" />
+        <StatCard label="Discharged" value={dischargedAdmissions.length} icon={CheckCircle} accent="blue" />
       </div>
 
-      {/* ═══════════ Stats row (compact tiles) ═══════════ */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Active IPD',  value: formalIPDCount,              Icon: Hospital,    bg: 'var(--icon-green-bg)',  color: 'var(--icon-green-text)' },
-          { label: 'Observation', value: detentionCount,              Icon: Moon,        bg: 'var(--icon-orange-bg)', color: 'var(--icon-orange-text)' },
-          { label: 'Day Surgery', value: daySurgeryCount,             Icon: Sun,         bg: 'var(--icon-purple-bg)', color: 'var(--icon-purple-text)' },
-          { label: 'Discharged',  value: dischargedAdmissions.length, Icon: CheckCircle, bg: 'var(--bg-main)',        color: 'var(--text-secondary)' },
-        ].map((s) => {
-          const Icon = s.Icon;
-          return (
-            <div
-              key={s.label}
-              className="rounded-xl px-4 py-3.5 border transition-shadow"
-              style={cardStyle}
-            >
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                  {s.label}
-                </span>
-                <div
-                  className="w-8 h-8 rounded-lg flex items-center justify-center"
-                  style={{ background: s.bg }}
-                >
-                  <Icon className="w-4 h-4" style={{ color: s.color }} />
-                </div>
-              </div>
-              <p className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
-                {s.value}
-              </p>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* ═══════════ Tabs ═══════════ */}
-      <div
-        className="rounded-xl border p-1 flex gap-1"
-        style={cardStyle}
-      >
-        {[
-          { id: 'all',        label: 'All',        count: filteredAdmissions.length },
-          { id: 'active',     label: 'Active',     count: activeAdmissions.length },
-          { id: 'discharged', label: 'Discharged', count: dischargedAdmissions.length },
-        ].map((t) => {
-          const isActive = activeTab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setActiveTab(t.id as TabType)}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold transition-all"
-              style={
-                isActive
-                  ? { background: 'var(--icon-cyan-text)', color: '#fff', boxShadow: 'var(--shadow-sm)' }
-                  : { color: 'var(--text-secondary)', background: 'transparent' }
-              }
-            >
-              {t.label}
-              <span
-                className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={
-                  isActive
-                    ? { background: 'rgba(255,255,255,0.25)', color: '#fff' }
-                    : { background: 'var(--bg-main)', color: 'var(--text-secondary)' }
-                }
-              >
-                {t.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ═══════════ Toolbar ═══════════ */}
-      <div className="rounded-xl border" style={cardStyle}>
-        <div className="p-3">
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-                style={{ color: 'var(--text-tertiary)' }}
-              />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search by patient name, folder number, admission number…"
-                className="w-full pl-10 pr-9 py-2.5 text-sm rounded-lg border focus:outline-none focus:ring-2 transition-all"
-                style={inputStyle}
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  aria-label="Clear search"
-                  className="absolute right-3 top-1/2 -translate-y-1/2"
-                  style={{ color: 'var(--text-tertiary)' }}
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Desktop filters */}
-            <div className="hidden lg:flex items-center gap-2">
-              <Calendar className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-              <div
-                className="flex gap-1 rounded-lg p-1 border"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-              >
-                {[
-                  { id: 'today',     label: 'Today' },
-                  { id: 'yesterday', label: 'Yesterday' },
-                  { id: 'custom',    label: 'Custom' },
-                ].map((d) => (
-                  <button
-                    key={d.id}
-                    onClick={() => {
-                      setDateFilter(d.id as DateFilterType);
-                      setShowDatePicker(d.id === 'custom');
-                    }}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-                    style={
-                      dateFilter === d.id
-                        ? {
-                            background: 'var(--bg-card)',
-                            color: 'var(--icon-cyan-text)',
-                            boxShadow: 'var(--shadow-sm)',
-                          }
-                        : { color: 'var(--text-secondary)' }
-                    }
-                  >
-                    {d.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* View toggle */}
-              <div
-                className="flex items-center rounded-lg p-1 border"
-                style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-              >
-                {(['table', 'cards'] as ViewMode[]).map((mode) => {
-                  const Icon = mode === 'table' ? List : LayoutGrid;
-                  const isActive = viewMode === mode;
-                  return (
-                    <button
-                      key={mode}
-                      onClick={() => setViewMode(mode)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all"
-                      style={
-                        isActive
-                          ? {
-                              background: 'var(--bg-card)',
-                              color: 'var(--icon-cyan-text)',
-                              boxShadow: 'var(--shadow-sm)',
-                            }
-                          : { color: 'var(--text-tertiary)' }
-                      }
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {mode === 'table' ? 'Table' : 'Cards'}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Custom date range */}
-          {showDatePicker && dateFilter === 'custom' && (
-            <div
-              className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t"
-              style={{ borderColor: 'var(--border-color)' }}
-            >
-              <input
-                type="date"
-                value={customStartDate}
-                onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
-                style={inputStyle}
-              />
-              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                to
-              </span>
-              <input
-                type="date"
-                value={customEndDate}
-                onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
-                style={inputStyle}
-              />
-              <span className="ml-auto text-xs" style={{ color: 'var(--text-tertiary)' }}>
-                Showing:{' '}
-                <strong style={{ color: 'var(--text-primary)' }}>{getDateFilterDisplay()}</strong>
-              </span>
-            </div>
-          )}
-
-          {/* Mobile controls */}
-          <div
-            className="lg:hidden flex items-center gap-2 mt-3 pt-3 border-t flex-wrap"
-            style={{ borderColor: 'var(--border-color)' }}
-          >
-            <Calendar className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-            <div
-              className="flex gap-1 rounded-lg p-1 border flex-1"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-            >
-              {[
-                { id: 'today',     label: 'Today' },
-                { id: 'yesterday', label: 'Yest.' },
-                { id: 'custom',    label: 'Custom' },
-              ].map((d) => (
-                <button
-                  key={d.id}
-                  onClick={() => {
-                    setDateFilter(d.id as DateFilterType);
-                    setShowDatePicker(d.id === 'custom');
-                  }}
-                  className="flex-1 px-2 py-1.5 rounded-md text-[11px] font-medium transition-all"
-                  style={
-                    dateFilter === d.id
-                      ? {
-                          background: 'var(--bg-card)',
-                          color: 'var(--icon-cyan-text)',
-                          boxShadow: 'var(--shadow-sm)',
-                        }
-                      : { color: 'var(--text-secondary)' }
-                  }
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            <div
-              className="flex items-center rounded-lg p-1 border"
-              style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-            >
-              {(['table', 'cards'] as ViewMode[]).map((mode) => {
-                const Icon = mode === 'table' ? List : LayoutGrid;
-                const isActive = viewMode === mode;
-                return (
-                  <button
-                    key={mode}
-                    onClick={() => setViewMode(mode)}
-                    aria-label={mode === 'table' ? 'Table view' : 'Cards view'}
-                    className="px-2.5 py-1.5 rounded-md transition-all"
-                    style={
-                      isActive
-                        ? {
-                            background: 'var(--bg-card)',
-                            color: 'var(--icon-cyan-text)',
-                            boxShadow: 'var(--shadow-sm)',
-                          }
-                        : { color: 'var(--text-tertiary)' }
-                    }
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                  </button>
-                );
-              })}
-            </div>
+      <Card>
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+          <SearchInput
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder="Search by patient name, folder number, admission number…"
+          />
+          <div className="flex items-center gap-2 flex-wrap">
+            <Segmented<DateFilterType>
+              options={[
+                { value: 'today', label: 'Today' },
+                { value: 'yesterday', label: 'Yesterday' },
+                { value: 'custom', label: 'Custom' },
+              ]}
+              value={dateFilter}
+              onChange={(value) => {
+                setDateFilter(value);
+                setShowDatePicker(value === 'custom');
+              }}
+              aria-label="Admission date filter"
+            />
+            <Segmented<ViewMode>
+              options={[
+                { value: 'table', label: 'Table', icon: List },
+                { value: 'cards', label: 'Cards', icon: LayoutGrid },
+              ]}
+              value={viewMode}
+              onChange={setViewMode}
+              aria-label="View mode"
+            />
           </div>
         </div>
-      </div>
+
+        {showDatePicker && dateFilter === 'custom' && (
+          <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-[var(--border-color)]">
+            <input
+              type="date"
+              value={customStartDate}
+              onChange={(e) => setCustomStartDate(e.target.value)}
+              className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
+              style={inputStyle}
+            />
+            <span className="text-xs text-[var(--text-secondary)]">to</span>
+            <input
+              type="date"
+              value={customEndDate}
+              onChange={(e) => setCustomEndDate(e.target.value)}
+              className="px-3 py-2 text-xs rounded-lg border focus:outline-none focus:ring-2 transition-all"
+              style={inputStyle}
+            />
+            <span className="ml-auto text-xs text-[var(--text-tertiary)]">
+              Showing: <strong className="text-[var(--text-primary)]">{getDateFilterDisplay()}</strong>
+            </span>
+          </div>
+        )}
+      </Card>
 
       {/* ═══════════ List ═══════════ */}
       {filteredAdmissions.length === 0 ? (
-        <div className="rounded-xl p-12 text-center border" style={cardStyle}>
-          <div
-            className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-            style={{ background: 'var(--icon-cyan-bg)' }}
-          >
-            <Hospital className="w-8 h-8" style={{ color: 'var(--icon-cyan-text)' }} />
+        <Card>
+          <div className="py-10 text-center">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 bg-[var(--icon-cyan-bg)]">
+              <Hospital className="w-8 h-8 text-[var(--icon-cyan-text)]" />
+            </div>
+            <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">
+              {searchQuery ? 'No Admissions Found' : 'No Admissions Yet'}
+            </h3>
+            <p className="text-sm max-w-sm mx-auto text-[var(--text-secondary)]">
+              {searchQuery
+                ? 'No records match your search or filter criteria.'
+                : 'No patients are currently admitted or under observation for this period.'}
+            </p>
           </div>
-          <h3 className="text-base font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
-            {searchQuery ? 'No Admissions Found' : 'No Admissions Yet'}
-          </h3>
-          <p className="text-sm max-w-sm mx-auto" style={{ color: 'var(--text-secondary)' }}>
-            {searchQuery
-              ? 'No records match your search or filter criteria.'
-              : 'No patients are currently admitted or under observation for this period.'}
-          </p>
-        </div>
+        </Card>
       ) : viewMode === 'table' ? (
         <>
           {/* ── Table ── */}
-          <div className="rounded-xl border overflow-hidden" style={cardStyle}>
+          <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
-                <thead
-                  className="border-b"
-                  style={{ background: 'var(--bg-main)', borderColor: 'var(--border-color)' }}
-                >
+                <thead className={TH_ROW}>
                   <tr>
-                    {['Patient', 'Type', 'ID', 'Admission', 'Location', 'Stay', 'Status', 'Actions'].map((h) => (
-                      <th
-                        key={h}
-                        className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider whitespace-nowrap"
-                        style={{ color: 'var(--text-tertiary)' }}
-                      >
+                    {['Patient', 'Folder #', 'Attendance #', 'Type', 'ID', 'Admission', 'Location', 'Stay', 'Status', 'Actions'].map((h) => (
+                      <th key={h} className={h === 'Actions' ? cn(TH, 'text-right') : TH}>
                         {h}
                       </th>
                     ))}
@@ -957,12 +770,10 @@ export default function Admissions() {
                 </thead>
                 <tbody>
                   {paginatedAdmissions.map((admission) => {
-                    const patient =
-                      admission.attendance?.Patient ||
-                      patientById.get(admission.attendance?.patientId);
-                    const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
-                    const wardName = admission.attendance?.Ward?.wardName || '—';
-                    const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
+                    const patient = rowPatient(admission);
+                    const fullName = rowPatientName(admission);
+                    const wardName = rowWardName(admission);
+                    const bedNumber = rowBedNumber(admission);
                     const isDischarged = !!admission.dischargeDate;
                     const stayDays = getLengthOfStay(admission);
 
@@ -974,14 +785,8 @@ export default function Admissions() {
                         : 'var(--icon-green-bg)';
 
                     return (
-                      <tr
-                        key={admission.id}
-                        className="transition-colors"
-                        style={{ borderTop: '1px solid var(--border-color)' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--bg-main)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-                      >
-                        <td className="px-4 py-3">
+                      <tr key={admission.id} className={TR}>
+                        <td className={TD}>
                           <div className="flex items-center gap-3">
                             <div
                               className="w-9 h-9 rounded-full border flex items-center justify-center flex-shrink-0"
@@ -996,8 +801,6 @@ export default function Admissions() {
                                 {fullName}
                               </p>
                               <p className="text-[10px] flex items-center gap-1.5" style={{ color: 'var(--text-tertiary)' }}>
-                                <span className="font-mono">{patient?.folderNumber || '—'}</span>
-                                <span className="opacity-40">·</span>
                                 <span>{patient?.gender || '—'}</span>
                                 <span className="opacity-40">·</span>
                                 <span>
@@ -1007,10 +810,16 @@ export default function Admissions() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD_MONO}>
+                          {rowFolderNumber(admission)}
+                        </td>
+                        <td className={TD_MONO}>
+                          {admission.attendanceNumber || admission.attendance?.attendanceNumber || '—'}
+                        </td>
+                        <td className={TD}>
                           <AdmissionTypeBadge type={admission.displayType} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <span
                             className="text-xs font-mono font-semibold px-2 py-0.5 rounded border"
                             style={{
@@ -1022,37 +831,33 @@ export default function Admissions() {
                             {admission.admissionNumber}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="text-xs">
-                            <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
+                            <p className="font-medium text-[var(--text-primary)]">
                               {formatDate(admission.admissionDate)}
                             </p>
-                            <p className="text-[10px]" style={{ color: 'var(--text-tertiary)' }}>
+                            <p className="text-[10px] text-[var(--text-tertiary)]">
                               {formatTimeOnly(admission.admissionDate)}
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center gap-1 text-xs">
-                            <MapPin className="w-3 h-3" style={{ color: 'var(--text-tertiary)' }} />
-                            <span className="truncate" style={{ color: 'var(--text-primary)' }}>
-                              {wardName}
-                            </span>
-                            <span style={{ color: 'var(--text-tertiary)' }}>/</span>
-                            <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                              {bedNumber}
-                            </span>
+                            <MapPin className="w-3 h-3 text-[var(--text-tertiary)]" />
+                            <span className="truncate text-[var(--text-primary)]">{wardName}</span>
+                            <span className="text-[var(--text-tertiary)]">/</span>
+                            <span className="font-mono text-[var(--text-secondary)]">{bedNumber}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+                        <td className={TD}>
+                          <span className="text-xs font-medium text-[var(--text-primary)]">
                             {stayDays} day{stayDays !== 1 ? 's' : ''}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <StatusBadge isDischarged={isDischarged} isCancelled={admission.status === 'cancelled'} />
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center justify-end gap-1">
                             <Link
                               to={`/dashboard/admissions/${admission.id}`}
@@ -1157,74 +962,25 @@ export default function Admissions() {
             </div>
           </div>
 
-          {/* ── Pagination ── */}
-          {filteredAdmissions.length > 0 && (
-            <div className="rounded-xl p-4 border" style={cardStyle}>
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    Showing <strong style={{ color: 'var(--text-primary)' }}>{startIndex + 1}</strong> to{' '}
-                    <strong style={{ color: 'var(--text-primary)' }}>
-                      {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)}
-                    </strong>{' '}
-                    of <strong style={{ color: 'var(--text-primary)' }}>{filteredAdmissions.length}</strong>
-                  </div>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1.5 text-xs rounded-lg border"
-                    style={inputStyle}
-                  >
-                    {[10, 25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n} per page
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      aria-label="Previous page"
-                      className="p-2 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ borderColor: 'var(--border-color)' }}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="px-3 py-1 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      aria-label="Next page"
-                      className="p-2 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ borderColor: 'var(--border-color)' }}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredAdmissions.length}
+            noun="admissions"
+            onChange={goToPage}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onPageSizeChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+          />
         </>
       ) : (
         /* ═══════════ Cards view ═══════════ */
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedAdmissions.map((admission) => {
-              const patient =
-                admission.attendance?.Patient ||
-                patientById.get(admission.attendance?.patientId);
-              const fullName = patient ? getPatientName(patient) : 'Unknown Patient';
-              const wardName = admission.attendance?.Ward?.wardName || '—';
-              const bedNumber = admission.attendance?.Bed?.bedNumber || '—';
+              const fullName = rowPatientName(admission);
+              const wardName = rowWardName(admission);
+              const bedNumber = rowBedNumber(admission);
               const isDischarged = !!admission.dischargeDate;
               const stayDays = getLengthOfStay(admission);
 
@@ -1264,7 +1020,7 @@ export default function Admissions() {
                           {fullName}
                         </p>
                         <p className="text-[10px] font-mono" style={{ color: 'var(--text-tertiary)' }}>
-                          #{patient?.folderNumber || '—'}
+                          #{rowFolderNumber(admission)}
                         </p>
                       </div>
                     </div>
@@ -1273,6 +1029,7 @@ export default function Admissions() {
                   {/* Body */}
                   <div className="p-4 space-y-2.5 flex-1 text-xs">
                     {[
+                      { icon: Hash,     label: 'Attendance #',   value: admission.attendanceNumber || admission.attendance?.attendanceNumber || '—', mono: true },
                       { icon: Hash,     label: 'Admission #',    value: admission.admissionNumber, mono: true },
                       { icon: Calendar, label: 'Admitted',       value: formatDate(admission.admissionDate) },
                       {
@@ -1381,62 +1138,16 @@ export default function Admissions() {
             })}
           </div>
 
-          {/* ── Pagination ── */}
-          {filteredAdmissions.length > 0 && (
-            <div className="rounded-xl p-4 border" style={cardStyle}>
-              <div className="flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                    Showing <strong style={{ color: 'var(--text-primary)' }}>{startIndex + 1}</strong> to{' '}
-                    <strong style={{ color: 'var(--text-primary)' }}>
-                      {Math.min(startIndex + itemsPerPage, filteredAdmissions.length)}
-                    </strong>{' '}
-                    of <strong style={{ color: 'var(--text-primary)' }}>{filteredAdmissions.length}</strong>
-                  </div>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => {
-                      setItemsPerPage(Number(e.target.value));
-                      setCurrentPage(1);
-                    }}
-                    className="px-2 py-1.5 text-xs rounded-lg border"
-                    style={inputStyle}
-                  >
-                    {[10, 25, 50, 100].map((n) => (
-                      <option key={n} value={n}>
-                        {n} per page
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => goToPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      aria-label="Previous page"
-                      className="p-2 rounded-lg border transition-colors disabled:opacity-40"
-                      style={{ borderColor: 'var(--border-color)' }}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="px-3 py-1 text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => goToPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      aria-label="Next page"
-                      className="p-2 rounded-lg border transition-colors disabled:opacity-40"
-                      style={{ borderColor: 'var(--border-color)' }}
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredAdmissions.length}
+            noun="admissions"
+            onChange={goToPage}
+            pageSizeOptions={[10, 25, 50, 100]}
+            onPageSizeChange={(size) => { setItemsPerPage(size); setCurrentPage(1); }}
+          />
         </>
       )}
 

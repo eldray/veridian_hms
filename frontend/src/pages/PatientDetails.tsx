@@ -13,12 +13,17 @@ import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
   ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
   DollarSign, RefreshCw, AlertCircle, Loader, Trash2, Eye, Clock,
-  CheckCircle, XCircle, Activity, File, Download, Printer, ChevronRight,
+  CheckCircle, Activity, File, Download, Printer, ChevronRight,
   Stethoscope, Microscope, Heart, AlertTriangle,
   Phone, MapPin, CreditCard,
   Receipt, ClipboardList, FileText, X, TrendingUp
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import {
+  Badge, Button, cn, humanStatus, LinkButton, PageHeader, StatCard, statusTone,
+  TABLE_SHELL, TD, TD_MUTED, TH, TH_ROW, TR,
+  type Accent,
+} from '../components/ui';
 import type { Attendance, LabTest, Medication, Procedure, Scan, Vitals } from '../types';
 import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
@@ -32,80 +37,50 @@ const formatCurrency = (amount: unknown): string => {
 };
 
 // ============ STATUS BADGE ============
+// Three statuses this screen renders have no entry in Badge's shared STATUS_TONES,
+// so only those keep a local tone; everything else resolves through statusTone().
+const LOCAL_STATUS_TONES: Record<string, Accent> = {
+  prescribed: 'purple',
+  requested: 'yellow',
+  scheduled: 'cyan',
+};
+
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
-  const colors: Record<string, string> = {
-    pending: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    completed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    cancelled: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-    admitted: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-    discharged: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-    prescribed: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-    dispensed: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-    requested: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    scheduled: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-    in_progress: 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]',
-  };
-  const cls = colors[status?.toLowerCase()] || 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
+  const key = status?.toLowerCase() ?? '';
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold tracking-wide uppercase ${cls}`}>
-      {status?.replace(/_/g, ' ') || 'pending'}
-    </span>
+    <Badge tone={LOCAL_STATUS_TONES[key] ?? statusTone(status)} dot size="sm">
+      {humanStatus(status || 'pending')}
+    </Badge>
   );
 };
 
 // ============ TABLE PRIMITIVES ============
 const Table: React.FC<{ heads: string[]; children: React.ReactNode }> = ({ heads, children }) => (
-  <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
-    <table className="w-full text-xs">
-      <thead className="bg-[var(--bg-main)]">
-        <tr>
-          {heads.map(h => (
-            <th key={h} className="px-3 py-2 text-left font-semibold text-[10px] uppercase tracking-wider text-[var(--text-tertiary)]">
-              {h}
-            </th>
-          ))}
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-[var(--border-color)]">{children}</tbody>
-    </table>
+  <div className={TABLE_SHELL}>
+    <div className="overflow-x-auto">
+      <table className="w-full text-xs">
+        <thead className={TH_ROW}>
+          <tr>
+            {heads.map(h => (
+              <th key={h} className={cn(TH, 'px-3 py-2')}>
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>{children}</tbody>
+      </table>
+    </div>
   </div>
 );
 
 const TdPrimary: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <td className="px-3 py-2 font-medium text-[var(--text-primary)]">{children}</td>
+  <td className={cn(TD, 'px-3 py-2 text-xs font-medium whitespace-normal')}>{children}</td>
 );
 
-const Td: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
-  <td className={`px-3 py-2 text-[var(--text-secondary)] ${className}`}>{children}</td>
+const Td: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className }) => (
+  <td className={cn(TD_MUTED, 'px-3 py-2 text-xs whitespace-normal', className)}>{children}</td>
 );
-
-// ============ STAT CARD ============
-const StatCard: React.FC<{
-  label: string;
-  value: string | number;
-  icon: React.ElementType;
-  tone?: 'cyan' | 'green' | 'yellow' | 'purple' | 'red' | 'blue';
-}> = ({ label, value, icon: Icon, tone = 'cyan' }) => {
-  const tones: Record<string, string> = {
-    cyan: 'text-[var(--icon-cyan-text)] bg-[var(--icon-cyan-bg)]',
-    green: 'text-[var(--icon-green-text)] bg-[var(--icon-green-bg)]',
-    yellow: 'text-[var(--icon-yellow-text)] bg-[var(--icon-yellow-bg)]',
-    purple: 'text-[var(--icon-purple-text)] bg-[var(--icon-purple-bg)]',
-    red: 'text-[var(--icon-red-text)] bg-[var(--icon-red-bg)]',
-    blue: 'text-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)]',
-  };
-  return (
-    <div className="group bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg p-2.5 flex items-center gap-2.5 hover:shadow-sm hover:border-[var(--icon-cyan-text)] transition-all">
-      <div className={`w-8 h-8 rounded-md flex items-center justify-center shrink-0 ${tones[tone]}`}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm font-bold text-[var(--text-primary)] leading-tight truncate">{value}</p>
-        <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wide truncate">{label}</p>
-      </div>
-    </div>
-  );
-};
 
 // ============ INFO ROW ============
 const InfoRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, value }) => (
@@ -485,12 +460,15 @@ export default function PatientDetails() {
           <p className="text-xs text-[var(--text-secondary)] mb-5">
             The patient record does not exist or has been removed.
           </p>
-          <button
+          <Button
+            variant="soft"
+            accent="cyan"
+            size="sm"
+            icon={ArrowLeft}
             onClick={() => navigate('/dashboard/patients')}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-xs font-semibold"
           >
-            <ArrowLeft className="w-3.5 h-3.5" /> Back to Patients
-          </button>
+            Back to Patients
+          </Button>
         </div>
       </div>
     );
@@ -501,64 +479,38 @@ export default function PatientDetails() {
     <div className="space-y-4 p-4 lg:p-6 max-w-[1600px] mx-auto">
 
       {/* ============ HEADER ============ */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard/patients')}
-            className="p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--icon-cyan-text)] transition-colors"
-            aria-label="Back"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div>
-            <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Patient Details</h1>
-            <p className="text-[11px] text-[var(--text-tertiary)]">
-              Record #{patient.folderNumber || patient.id?.slice(-8)}
-            </p>
-          </div>
-        </div>
+      <PageHeader
+        title="Patient Details"
+        meta={`Record #${patient.folderNumber || patient.id?.slice(-8)}`}
+        icon={Users}
+        accent="cyan"
+        backTo="/dashboard/patients"
+        actions={(
+          <>
+            <Button size="sm" icon={RefreshCw} loading={refreshing} onClick={loadData}>
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-colors disabled:opacity-50 text-xs font-medium text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
-          </button>
+            {canCreateAttendance && (
+              <Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}>
+                <span className="hidden sm:inline">New Visit</span>
+              </Button>
+            )}
 
-          {canCreateAttendance && (
-            <button
-              onClick={handleNewAttendance}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-xs font-semibold"
-            >
-              <Calendar className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">New Visit</span>
-            </button>
-          )}
+            {canEdit && (
+              <Button size="sm" variant="soft" accent="cyan" icon={Edit} onClick={handleEdit}>
+                <span className="hidden sm:inline">Edit</span>
+              </Button>
+            )}
 
-          {canEdit && (
-            <button
-              onClick={handleEdit}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-xs font-semibold"
-            >
-              <Edit className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Edit</span>
-            </button>
-          )}
-
-          {canDelete && (
-            <button
-              onClick={() => setDeleteConfirm(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors text-xs font-semibold"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Delete</span>
-            </button>
-          )}
-        </div>
-      </div>
+            {canDelete && (
+              <Button size="sm" variant="dangerSoft" icon={Trash2} onClick={() => setDeleteConfirm(true)}>
+                <span className="hidden sm:inline">Delete</span>
+              </Button>
+            )}
+          </>
+        )}
+      />
 
       {/* ============ PATIENT HERO CARD ============ */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
@@ -572,15 +524,18 @@ export default function PatientDetails() {
                 <h2 className="text-lg font-bold text-[var(--text-primary)] truncate leading-tight">
                   {getPatientFullName(patient)}
                 </h2>
-                <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-md uppercase tracking-wide ${
-                  patient.gender?.toLowerCase() === 'male'
-                    ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                    : patient.gender?.toLowerCase() === 'female'
-                      ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
-                      : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'
-                }`}>
+                <Badge
+                  tone={
+                    patient.gender?.toLowerCase() === 'male'
+                      ? 'cyan'
+                      : patient.gender?.toLowerCase() === 'female'
+                        ? 'purple'
+                        : 'neutral'
+                  }
+                  size="sm"
+                >
                   {patient.gender || 'Unknown'}
-                </span>
+                </Badge>
               </div>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] text-[var(--text-secondary)]">
                 <span className="inline-flex items-center gap-1">
@@ -617,12 +572,12 @@ export default function PatientDetails() {
 
       {/* ============ STATS BAR ============ */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-        <StatCard label="Visits" value={enhancedStats.totalVisits} icon={Calendar} tone="cyan" />
-        <StatCard label="Completed" value={enhancedStats.completedVisits} icon={CheckCircle} tone="green" />
-        <StatCard label="Pending" value={enhancedStats.pendingVisits} icon={Clock} tone="yellow" />
-        <StatCard label="Meds" value={allMedications.length} icon={Pill} tone="purple" />
-        <StatCard label="Labs" value={allLabTests.length} icon={FlaskConical} tone="blue" />
-        <StatCard label="Outstanding" value={formatCurrency(enhancedStats.outstanding)} icon={DollarSign} tone="red" />
+        <StatCard label="Visits" value={enhancedStats.totalVisits} icon={Calendar} accent="cyan" />
+        <StatCard label="Completed" value={enhancedStats.completedVisits} icon={CheckCircle} accent="green" />
+        <StatCard label="Pending" value={enhancedStats.pendingVisits} icon={Clock} accent="yellow" />
+        <StatCard label="Meds" value={allMedications.length} icon={Pill} accent="purple" />
+        <StatCard label="Labs" value={allLabTests.length} icon={FlaskConical} accent="blue" />
+        <StatCard label="Outstanding" size="money" value={formatCurrency(enhancedStats.outstanding)} icon={DollarSign} accent="red" />
       </div>
 
       {/* ============ TABS ============ */}
@@ -791,12 +746,9 @@ export default function PatientDetails() {
                   title="No visits yet"
                   hint="This patient has no recorded visits."
                   action={canCreateAttendance && (
-                    <button
-                      onClick={handleNewAttendance}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white transition-colors text-xs font-semibold"
-                    >
-                      <Calendar className="w-3.5 h-3.5" /> Create First Visit
-                    </button>
+                    <Button size="sm" variant="soft" accent="green" icon={Calendar} onClick={handleNewAttendance}>
+                      Create First Visit
+                    </Button>
                   )}
                 />
               ) : (
@@ -829,18 +781,24 @@ export default function PatientDetails() {
                             </div>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Link
+                            <LinkButton
+                              size="xs"
+                              variant="soft"
+                              accent="cyan"
+                              icon={Eye}
                               to={`/dashboard/attendance/${att.id}`}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-[11px] font-semibold"
                             >
-                              <Eye className="w-3 h-3" /> View
-                            </Link>
-                            <button
+                              View
+                            </LinkButton>
+                            <Button
+                              size="xs"
+                              variant="soft"
+                              accent="purple"
+                              icon={Stethoscope}
                               onClick={() => viewMedicalDetails(att)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] rounded-md hover:bg-[var(--icon-purple-text)] hover:text-white transition-colors text-[11px] font-semibold"
                             >
-                              <Stethoscope className="w-3 h-3" /> Summary
-                            </button>
+                              Summary
+                            </Button>
                           </div>
                         </div>
 
@@ -931,17 +889,13 @@ export default function PatientDetails() {
             ) : (
               <Table heads={['Diagnosis', 'ICD-10', 'Type', 'Visit Date', '']}>
                 {allDiagnoses.map((d, i) => (
-                  <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <tr key={i} className={TR}>
                     <TdPrimary>{d.Diagnosis?.name || d.diagnosis?.name || d.icdCode}</TdPrimary>
                     <Td className="font-mono text-[11px]">{d.icdCode || d.Diagnosis?.icdCode || d.diagnosis?.icdCode}</Td>
                     <Td>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${
-                        d.diagnosisType === 'primary'
-                          ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
-                          : 'bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)]'
-                      }`}>
+                      <Badge tone={d.diagnosisType === 'primary' ? 'green' : 'blue'} size="xs">
                         {d.diagnosisType === 'primary' ? 'Primary' : 'Secondary'}
-                      </span>
+                      </Badge>
                     </Td>
                     <Td>{formatDate(d.attendanceDate)}</Td>
                     <Td>
@@ -962,7 +916,7 @@ export default function PatientDetails() {
             ) : (
               <Table heads={['Medication', 'Dosage', 'Frequency', 'Duration', 'Status', '']}>
                 {allMedications.map((m, i) => (
-                  <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <tr key={i} className={TR}>
                     <TdPrimary>{m.name}</TdPrimary>
                     <Td>{m.dosage || '—'}</Td>
                     <Td>{m.frequency || '—'}</Td>
@@ -986,7 +940,7 @@ export default function PatientDetails() {
             ) : (
               <Table heads={['Test', 'Status', 'Request Date', 'Result', '']}>
                 {allLabTests.map((t, i) => (
-                  <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <tr key={i} className={TR}>
                     <TdPrimary>{t.LabTestTemplate?.name || t.ServiceCatalog?.name || t.name || '—'}</TdPrimary>
                     <Td><StatusBadge status={t.status} /></Td>
                     <Td>{formatDate(t.requestedAt || t.createdAt)}</Td>
@@ -1009,7 +963,7 @@ export default function PatientDetails() {
             ) : (
               <Table heads={['Procedure', 'Scheduled', 'Status', '']}>
                 {allProcedures.map((p, i) => (
-                  <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <tr key={i} className={TR}>
                     <TdPrimary>{p.ProcedureTemplate?.name || p.ServiceCatalog?.name || p.name || '—'}</TdPrimary>
                     <Td>{p.scheduledDate ? formatDate(p.scheduledDate) : '—'}</Td>
                     <Td><StatusBadge status={p.status} /></Td>
@@ -1037,7 +991,7 @@ export default function PatientDetails() {
                 )}
                 <Table heads={['Date', 'BP', 'Temp', 'Pulse', 'Resp', 'SpO₂', 'Weight', 'BMI', '']}>
                   {vitalsList.map((v, i) => (
-                    <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                    <tr key={i} className={TR}>
                       <Td>{formatDateTime(v.recordedAt)}</Td>
                       <Td>{v.bloodPressure || '—'}</Td>
                       <Td>{v.temperature ? `${v.temperature}°C` : '—'}</Td>
@@ -1073,12 +1027,15 @@ export default function PatientDetails() {
                 <p className="text-[10px] uppercase tracking-wide text-[var(--icon-yellow-text)]">Outstanding</p>
                 <p className="text-xl font-bold text-[var(--icon-yellow-text)] mt-1">{formatCurrency(enhancedStats.outstanding)}</p>
               </div>
-              <button
+              <Button
+                variant="soft"
+                accent="cyan"
+                fullWidth
+                icon={TrendingUp}
                 onClick={() => navigate(`/dashboard/billing/patient/${patient.id}`)}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-xs font-semibold"
               >
-                <TrendingUp className="w-3.5 h-3.5" /> View Detailed Billing
-              </button>
+                View Detailed Billing
+              </Button>
             </div>
           )}
 
@@ -1149,18 +1106,22 @@ export default function PatientDetails() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <button
+                                <Button
+                                  size="xs"
+                                  variant="soft"
+                                  accent="cyan"
+                                  icon={Download}
                                   onClick={() => handleDownloadDocument(doc)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-md hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors text-[10px] font-semibold"
                                 >
-                                  <Download className="w-3 h-3" /> Download
-                                </button>
-                                <button
+                                  Download
+                                </Button>
+                                <Button
+                                  size="xs"
+                                  icon={Printer}
                                   onClick={() => handlePrintDocument(doc)}
-                                  className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded-md hover:bg-[var(--border-color)] transition-colors text-[10px] font-semibold border border-[var(--border-color)]"
                                 >
-                                  <Printer className="w-3 h-3" /> Print
-                                </button>
+                                  Print
+                                </Button>
                               </div>
                             </div>
                           ))}
@@ -1193,18 +1154,20 @@ export default function PatientDetails() {
               All patient records and visits will be permanently removed.
             </p>
             <div className="flex gap-2">
-              <button
+              <Button
+                variant="dangerSoft"
+                className="flex-1"
                 onClick={handleDeletePatient}
-                className="flex-1 px-3 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors font-semibold text-xs"
               >
                 Delete
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
+                className="flex-1"
                 onClick={() => setDeleteConfirm(false)}
-                className="flex-1 px-3 py-2 bg-[var(--bg-main)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--border-color)] transition-colors font-semibold text-xs border border-[var(--border-color)]"
               >
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1221,12 +1184,14 @@ export default function PatientDetails() {
                   Visit: {formatDateTime(selectedAttendance.dateTime || selectedAttendance.createdAt)}
                 </p>
               </div>
-              <button
+              <Button
+                variant="ghost"
+                size="sm"
+                iconOnly
+                icon={X}
+                aria-label="Close"
                 onClick={() => { setShowMedicalDetails(false); setSelectedAttendance(null); }}
-                className="p-1.5 hover:bg-[var(--bg-main)] rounded-md transition-colors"
-              >
-                <X className="w-4 h-4 text-[var(--text-secondary)]" />
-              </button>
+              />
             </div>
 
             <div className="p-4 space-y-4 overflow-y-auto">

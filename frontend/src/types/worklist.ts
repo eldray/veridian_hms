@@ -15,6 +15,12 @@ export interface BaseWorklistItem {
   id: string;
   patientId: string;
   attendanceId: string;
+  // The visit number is what the desk reads alongside the folder: two attendances for the same
+  // patient are different pieces of work, and the folder alone cannot tell them apart.
+  attendanceNumber?: string;
+  attendanceDateTime?: string | null;
+  attendanceStatus?: string;
+  queueRank?: number;
   patient: {
     name: string;
     age: number;
@@ -173,7 +179,8 @@ export type WorklistItem =
   | PharmacyWorklistItem 
   | ScansWorklistItem 
   | TheatreWorklistItem 
-  | MaternalWorklistItem;
+  | MaternalWorklistItem
+  | OutstandingWorklistItem;
 
 // Department types - ADD 'maternal'
 export type DepartmentType = 
@@ -194,6 +201,8 @@ export interface WorklistResponse {
 
 // Response structures for each worklist type
 export interface VitalsWorklistResponse {
+  view?: WorklistView;
+  buckets?: WorklistBuckets;
   total: number;
   pending: number;
   recent: number;
@@ -201,6 +210,8 @@ export interface VitalsWorklistResponse {
 }
 
 export interface MedicalWorklistResponse {
+  view?: WorklistView;
+  buckets?: WorklistBuckets;
   total: number;
   pending: number;
   reviewed: number;
@@ -239,6 +250,8 @@ export interface TheatreWorklistResponse {
 }
 
 export interface MaternalWorklistResponse {
+  view?: WorklistView;
+  buckets?: WorklistBuckets;
   total: number;
   pending: number;
   recent: number;
@@ -256,4 +269,75 @@ export interface WorklistState {
     urgent: number;
     critical: number;
   };
+  // Which queue an attendance-based department is showing, and the day range narrowing it.
+  view: WorklistView;
+  dateFrom: string;
+  dateTo: string;
+  buckets: WorklistBuckets;
+  setDepartment: (department: DepartmentType) => void;
+  fetchWorklist: (department: DepartmentType, options?: WorklistFetchOptions) => Promise<void>;
+  setView: (view: WorklistView) => void;
+  setDateRange: (range: { dateFrom?: string; dateTo?: string }) => void;
+  selectItem: (item: WorklistItem | null) => void;
+  clearSelection: () => void;
+  refreshWorklist: () => void;
+  reset: () => void;
+}
+
+/**
+ * The three queues an attendance-based worklist answers: work still open, work finished, and the
+ * warning queue — visits already closed that still owe a lab, scan or procedure result.
+ */
+export type WorklistView = 'pending' | 'completed' | 'outstanding';
+
+/** Query parameters a queue accepts; an empty range means "the queue's own default window". */
+export interface WorklistParams {
+  view?: WorklistView;
+  dateFrom?: string;
+  dateTo?: string;
+  /** Comma-separated attendance types, for a queue that only owns some of the visits. */
+  attendanceType?: string;
+}
+
+/**
+ * Per-request overrides for a page that keeps its own queue rules instead of the shared tab state.
+ * Family Planning splits pending/recent from one visit list, so it pins the queue to open visits
+ * and drops any date another page left on the store.
+ */
+export interface WorklistFetchOptions extends WorklistParams {
+  silent?: boolean;
+}
+
+/** How a returned queue splits, matching the tab counts the panel shows. */
+export interface WorklistBuckets {
+  today: number;
+  inpatients: number;
+  overdue: number;
+  closed: number;
+}
+
+export interface OutstandingInvestigation {
+  kind: 'lab' | 'scan' | 'procedure';
+  id: string;
+  name: string;
+  requestedAt: string | null;
+  status: string;
+}
+
+export interface OutstandingWorklistItem extends BaseWorklistItem {
+  closedAt?: string;
+  outstanding: OutstandingInvestigation[];
+  outstandingCount: number;
+  labCount: number;
+  scanCount: number;
+  procedureCount: number;
+}
+
+export interface OutstandingWorklistResponse {
+  view: WorklistView;
+  total: number;
+  pending: number;
+  recent: number;
+  buckets: WorklistBuckets;
+  data: OutstandingWorklistItem[];
 }

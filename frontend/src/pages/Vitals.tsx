@@ -1,90 +1,52 @@
-// src/pages/VitalsWaitingList.tsx - SIMPLIFIED using worklistItems
+// src/pages/Vitals.tsx
 
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
+import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
 import {
-  ChevronLeft,
+  HeartPulse,
   Activity,
   RefreshCw,
-  AlertCircle,
   Clock,
   CheckCircle,
   AlertTriangle,
   Heart,
-  Thermometer,
   User,
-  Calendar,
-  TrendingUp,
-  Search,
-  Users,
-  Eye,
-  Bed,
   Baby,
   History,
+  Eye,
   Edit3,
-  ArrowRight
+  Bed,
 } from 'lucide-react';
+import {
+  PageHeader,
+  Button,
+  Card,
+  SearchInput,
+  Tabs,
+  Badge,
+  StatCard,
+  Pagination,
+  TH,
+  TH_ROW,
+  TD,
+  TD_MONO,
+  TR,
+  TABLE_SHELL,
+  cn,
+} from '../components/ui';
 
-// Helper function to calculate age
-function calculateAge(dateOfBirth: Date): number {
-  if (!dateOfBirth) return 0;
-  const birthDate = new Date(dateOfBirth);
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const monthDiff = today.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
+// Priority chip
+const PriorityBadge = ({ priority }: { priority: string }) => {
+  if (priority === 'critical' || priority === 'stat') {
+    return <Badge tone="red" dot size="sm">Critical</Badge>;
   }
-  return age;
-}
-
-// Stats Card Component
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: any;
-  color: string;
-  bg: string;
-  onClick?: () => void;
-}
-
-const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
-  <div 
-    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
-    onClick={onClick}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
-      </div>
-      <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 ${color}`} />
-      </div>
-    </div>
-    {onClick && (
-      <div className="mt-2 flex justify-end">
-        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-          Enter <ArrowRight className="w-3 h-3" />
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-// Priority Badge
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case 'critical':
-    case 'stat':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Critical</span>;
-    case 'urgent':
-      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Urgent</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Routine</span>;
+  if (priority === 'urgent') {
+    return <Badge tone="orange" dot size="sm">Urgent</Badge>;
   }
+  return <Badge tone="blue" dot size="sm">Routine</Badge>;
 };
 
 export default function VitalsWaitingList() {
@@ -99,7 +61,7 @@ export default function VitalsWaitingList() {
   const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
   // ✅ Only use worklistStore - no more attendanceStore or patientStore needed
-  const { worklistItems, stats: worklistStats, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
+  const { worklistItems, fetchWorklist, isLoading: worklistLoading, view } = useWorklistStore();
 
   const loadData = async () => {
     try {
@@ -128,16 +90,20 @@ export default function VitalsWaitingList() {
     return worklistItems.filter(item => item.hasVitalsToday);
   }, [worklistItems]);
 
-  // Filter based on search and active tab
+  // Filter based on search and active tab. The completed and awaiting-results queues are already
+  // narrowed by the server, so the pending/done-today split only applies to the to-do queue.
   const filteredPatients = useMemo(() => {
-    const source = activeTab === 'pending' ? pendingPatients : recentPatients;
+    const source = view === 'pending'
+      ? (activeTab === 'pending' ? pendingPatients : recentPatients)
+      : worklistItems;
     if (!searchQuery) return source;
     const lower = searchQuery.toLowerCase();
     return source.filter(p =>
       p.patient?.name?.toLowerCase().includes(lower) ||
-      p.patient?.folderNumber?.toLowerCase().includes(lower)
+      p.patient?.folderNumber?.toLowerCase().includes(lower) ||
+      (p.attendanceNumber || '').toLowerCase().includes(lower)
     );
-  }, [pendingPatients, recentPatients, searchQuery, activeTab]);
+  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view]);
 
   // Pagination
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
@@ -191,138 +157,94 @@ export default function VitalsWaitingList() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-xl flex items-center justify-center">
-            <Activity className="w-5 h-5 text-[var(--icon-red-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Vital Signs</h1>
-            <p className="text-sm text-[var(--text-secondary)]">Record and monitor patient vital signs</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Vital Signs"
+        subtitle="Record and monitor patient vital signs"
+        meta={`${filteredPatients.length} shown • ${pendingPatients.length} due • ${recentPatients.length} done today`}
+        icon={HeartPulse}
+        accent="red"
+        backTo="/dashboard"
+        tabs={view === 'pending' ? (
+          <Tabs<'pending' | 'recent'>
+            tabs={[
+              { key: 'pending', label: 'Pending Vitals', icon: Clock, count: pendingPatients.length },
+              { key: 'recent', label: 'Recent Vitals (Today)', icon: CheckCircle, count: recentPatients.length },
+            ]}
+            active={activeTab}
+            onChange={setActiveTab}
+            accent="red"
+            aria-label="Vitals queue"
+          />
+        ) : undefined}
+        actions={(
+          <>
+            <Button variant="secondary" icon={HeartPulse} onClick={() => navigate('/dashboard/vitals/entry')}>
+              Vitals Entry
+            </Button>
+            <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>
+              Refresh
+            </Button>
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <StatCard
-          title="Vitals Due"
+          label="Vitals Due"
           value={stats.pendingVitals}
           icon={Activity}
-          color="text-[var(--icon-red-text)]"
-          bg="bg-[var(--icon-red-bg)]"
+          accent="red"
           onClick={() => navigate('/dashboard/vitals')}
         />
         <StatCard
-          title="Critical"
+          label="Critical"
           value={stats.critical}
           icon={AlertTriangle}
-          color="text-red-600"
-          bg="bg-red-100"
+          accent="red"
           onClick={() => navigate('/dashboard/vitals')}
         />
         <StatCard
-          title="Urgent"
+          label="Urgent"
           value={stats.urgent}
           icon={Clock}
-          color="text-orange-600"
-          bg="bg-orange-100"
+          accent="orange"
           onClick={() => navigate('/dashboard/vitals')}
         />
         <StatCard
-          title="Antenatal"
+          label="Antenatal"
           value={stats.antenatalPatients}
           icon={Baby}
-          color="text-pink-600"
-          bg="bg-pink-100"
+          accent="purple"
           onClick={() => navigate('/dashboard/vitals')}
         />
         <StatCard
-          title="Recent Vitals"
+          label="Recent Vitals"
           value={stats.recentVitals}
           icon={History}
-          color="text-green-600"
-          bg="bg-green-100"
+          accent="green"
           onClick={() => navigate('/dashboard/vitals')}
         />
       </div>
 
       {/* Search Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            placeholder="Search by patient name or folder number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
-        </div>
-      </div>
+      <Card>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by patient name, folder or attendance number..."
+        />
+      </Card>
 
-      {/* TABS - Pending vs Recent */}
-      <div className="border-b border-[var(--border-color)]">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'pending'
-                ? 'text-[var(--icon-red-text)] border-b-2 border-[var(--icon-red-text)]'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pending Vitals
-              {pendingPatients.length > 0 && (
-                <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full text-xs">
-                  {pendingPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('recent')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'recent'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Recent Vitals (Today)
-              {recentPatients.length > 0 && (
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                  {recentPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-        </div>
-      </div>
+      {/* Queue view: what is open now, what was closed, and what was closed with a result still owed */}
+      <Card>
+        <WorklistViewControls department="vitals" />
+      </Card>
 
       {/* Table View */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+      <div className={TABLE_SHELL}>
         <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
             {activeTab === 'pending' ? (
               <>
                 <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
@@ -330,7 +252,7 @@ export default function VitalsWaitingList() {
               </>
             ) : (
               <>
-                <History className="w-4 h-4 text-green-600" />
+                <History className="w-4 h-4 text-[var(--icon-green-text)]" />
                 Recent Vitals Recorded Today ({filteredPatients.length} patients)
               </>
             )}
@@ -354,158 +276,126 @@ export default function VitalsWaitingList() {
             )}
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Last Vitals' : 'Latest Reading'}
-                    </th>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Visit date</th>
+                  <th className={TH}>Location</th>
+                  <th className={cn(TH, 'text-center')}>
+                    {activeTab === 'pending' ? 'Last Vitals' : 'Latest Reading'}
+                  </th>
+                  {activeTab === 'pending' && (
+                    <th className={TH}>Priority</th>
+                  )}
+                  <th className={TH}>
+                    {activeTab === 'pending' ? 'Waiting Time' : 'Recorded At'}
+                  </th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedPatients.map((patient) => (
+                  <tr
+                    key={patient.id}
+                    className={cn(TR, 'cursor-pointer')}
+                    onClick={() => handlePatientClick(patient)}
+                  >
+                    <td className={TD}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-[var(--text-primary)] text-sm">
+                            {patient.patient?.name}
+                          </p>
+                          <p className="text-xs text-[var(--text-secondary)]">
+                            {patient.patient?.age} years • {patient.patient?.gender}
+                            {patient.isAntenatal && <span className="ml-1">🤰</span>}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className={TD_MONO}>{patient.patient?.folderNumber}</td>
+                    <td className={TD_MONO}>{patient.attendanceNumber || '—'}</td>
+                    <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
+                      {patient.attendanceDateTime ? new Date(patient.attendanceDateTime).toLocaleString() : '—'}
+                    </td>
+                    <td className={TD}>
+                      <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Bed className="w-3.5 h-3.5" />
+                        <span>{patient.location?.bed || '—'}</span>
+                        {patient.location?.ward && <span className="text-xs">({patient.location.ward})</span>}
+                      </div>
+                    </td>
+                    <td className={cn(TD, 'text-center')}>
+                      {patient.lastVitals ? (
+                        <div className="text-xs space-y-1">
+                          <div className="flex gap-2 justify-center">
+                            <span>BP: {patient.lastVitals.bloodPressure || '—'}</span>
+                            <span>Temp: {patient.lastVitals.temperature || '—'}°C</span>
+                          </div>
+                          <div className="flex gap-2 justify-center text-[var(--text-tertiary)]">
+                            <span>Pulse: {patient.lastVitals.pulse || '—'}</span>
+                            <span>SpO2: {patient.lastVitals.spo2 || '—'}%</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-[var(--text-secondary)]">No records</span>
+                      )}
+                    </td>
                     {activeTab === 'pending' && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Priority</th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Waiting Time' : 'Recorded At'}
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginatedPatients.map((patient) => (
-                    <tr
-                      key={patient.id}
-                      className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
-                      onClick={() => handlePatientClick(patient)}
-                    >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-[var(--text-primary)] text-sm">
-                              {patient.patient?.name}
-                            </p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {patient.patient?.age} years • {patient.patient?.gender}
-                              {patient.isAntenatal && <span className="ml-1 text-pink-500">🤰</span>}
-                            </p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-[var(--text-primary)]">
-                          {patient.patient?.folderNumber}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Bed className="w-3.5 h-3.5" />
-                          <span>{patient.location?.bed || '—'}</span>
-                          {patient.location?.ward && <span className="text-xs">({patient.location.ward})</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        {patient.lastVitals ? (
-                          <div className="text-xs space-y-1">
-                            <div className="flex gap-2 justify-center">
-                              <span>BP: {patient.lastVitals.bloodPressure || '—'}</span>
-                              <span>Temp: {patient.lastVitals.temperature || '—'}°C</span>
-                            </div>
-                            <div className="flex gap-2 justify-center text-[var(--text-tertiary)]">
-                              <span>Pulse: {patient.lastVitals.pulse || '—'}</span>
-                              <span>SpO2: {patient.lastVitals.spo2 || '—'}%</span>
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-[var(--text-secondary)]">No records</span>
+                      <td className={TD}>
+                        <PriorityBadge priority={patient.priority} />
+                        {patient.hasAbnormal && (
+                          <Badge tone="red" size="xs" className="ml-1">Abnormal</Badge>
                         )}
                       </td>
-                      {activeTab === 'pending' && (
-                        <td className="px-4 py-3">
-                          {getPriorityBadge(patient.priority)}
-                          {patient.hasAbnormal && (
-                            <span className="ml-1 inline-flex items-center px-1.5 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px]">
-                              Abnormal
-                            </span>
-                          )}
-                        </td>
-                      )}
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span>
-                            {activeTab === 'pending'
-                              ? `${Math.floor(patient.waitTime / 60)}h ${patient.waitTime % 60}m`
-                              : patient.vitalsRecordedAt
-                                ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
-                                : '—'
-                            }
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
-                          className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
-                            activeTab === 'pending'
-                              ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] hover:bg-[var(--icon-green-text)] hover:text-white'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-700 hover:text-white'
-                          }`}
-                        >
-                          {activeTab === 'pending' ? (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              Record Vitals
-                            </>
-                          ) : (
-                            <>
-                              <Edit3 className="w-3 h-3" />
-                              Edit Vitals
-                            </>
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                    )}
+                    <td className={TD}>
+                      <div className="flex items-center gap-1 text-[var(--text-secondary)]">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span>
+                          {activeTab === 'pending'
+                            ? `${Math.floor(patient.waitTime / 60)}h ${patient.waitTime % 60}m`
+                            : patient.vitalsRecordedAt
+                              ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
+                              : '—'
+                          }
+                        </span>
+                      </div>
+                    </td>
+                    <td className={cn(TD, 'text-center')}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        iconOnly
+                        icon={activeTab === 'pending' ? Eye : Edit3}
+                        aria-label={activeTab === 'pending' ? 'Record Vitals' : 'Edit Vitals'}
+                        className="mx-auto"
+                        onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </div>
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredPatients.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
     </div>
   );
 }

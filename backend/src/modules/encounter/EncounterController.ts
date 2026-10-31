@@ -9,6 +9,11 @@ import { ValidationError } from '../../utils/errors';
 
 const WORKLIST_VIEWS = ['pending', 'completed', 'outstanding'];
 
+const ATTENDANCE_TYPES = [
+  'emergency_acute', 'antenatal', 'postnatal', 'chronic_followup', 'specialist_consultation',
+  'delivery', 'surgery', 'general_consultation', 'walk_in',
+];
+
 /**
  * A date typed into a filter is a clinic day, not an instant. Ghana is UTC+0 all year, so the day
  * is bounded in UTC and `2026-10-30` means that whole day rather than its first second.
@@ -72,7 +77,24 @@ export const parseWorklistQuery = (query: Record<string, any> = {}): WorklistQue
     }
   }
 
-  return { view: (rawView || undefined) as WorklistQuery['view'], dateFrom, dateTo };
+  const rawType = typeof query.attendanceType === 'string'
+    ? query.attendanceType
+    : Array.isArray(query.attendanceType) ? query.attendanceType.join(',') : '';
+  const attendanceTypes = rawType.split(',').map((value: string) => value.trim().toLowerCase()).filter(Boolean);
+  const unknownType = attendanceTypes.find((value: string) => !ATTENDANCE_TYPES.includes(value));
+  if (unknownType) {
+    throw new ValidationError(
+      `Unknown attendance type "${unknownType}" for a worklist.`,
+      [{ field: 'attendanceType', message: 'Use a known attendance type.', code: 'invalid_attendance_type' }],
+    );
+  }
+
+  return {
+    view: (rawView || undefined) as WorklistQuery['view'],
+    dateFrom,
+    dateTo,
+    ...(attendanceTypes.length ? { attendanceTypes } : {}),
+  };
 };
 
 
@@ -423,22 +445,22 @@ export class EncounterController extends BaseController {
   });
 
   getLabWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getLabWorklist();
+    const worklist = await this.service.getLabWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Lab worklist retrieved');
   });
 
   getPharmacyWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getPharmacyWorklist();
+    const worklist = await this.service.getPharmacyWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Pharmacy worklist retrieved');
   });
 
   getRadiologyWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getRadiologyWorklist();
+    const worklist = await this.service.getRadiologyWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Radiology worklist retrieved');
   });
 
   getProceduresWorklist = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const worklist = await this.service.getProceduresWorklist();
+    const worklist = await this.service.getProceduresWorklist(parseWorklistQuery(req.query));
     return this.ok(res, worklist, 'Procedures worklist retrieved');
   });
 

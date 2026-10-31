@@ -8,8 +8,11 @@ import { useAuthStore } from '../store/authStore';
 import { useMedicalServicesStore } from '../store/medicalServicesStore';
 import { useToast } from '../store/toastStore';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
+import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVisits';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
+import { getTheatreWorklist } from '../api';
 import { getPatientName } from '../utils/patient';
+import { pickVisit } from '../utils/visitSelection';
 import {
   ChevronLeft, Scissors, ClipboardList, RefreshCw, AlertCircle,
   Syringe, FileText, CheckCircle, Clock, User, Calendar,
@@ -20,6 +23,12 @@ import {
 
 const getEntityId = (entity: { id?: string; _id?: string } | null): string | undefined =>
   entity?.id || entity?._id;
+
+const OUTSTANDING_PROCEDURE_STATUSES = new Set(['scheduled', 'in_progress']);
+
+/** A visit is "the one to open" when it still owes this department a procedure. */
+const hasOutstandingProcedureWork = (visit: any): boolean =>
+  (visit?.Procedure || []).some((proc: any) => OUTSTANDING_PROCEDURE_STATUSES.has(String(proc?.status)));
 
 const getStatusBadge = (status: string) => {
   const map: Record<string, string> = {
@@ -241,6 +250,55 @@ export default function TheatreProcedure() {
   const [patient, setPatient] = useState<any>(null);
   const [attendance, setAttendance] = useState<any>(null);
   const [allAttendances, setAllAttendances] = useState<any[]>([]);
+  const [queueRows, setQueueRows] = useState<QueuedVisit[]>([]);
+  const [queueLoading, setQueueLoading] = useState(false);
+
+  // Direct entry has no patient yet, so the screen offers the theatre queue instead
+  // of an empty picker, and opening a row lands on the visit that holds the procedure.
+  const loadQueue = async () => {
+    setQueueLoading(true);
+    try {
+      const response: any = await getTheatreWorklist();
+      const rows: any[] = response?.data?.data || [];
+      setQueueRows(rows.map((row) => ({
+        attendanceId: row.attendanceId,
+        patientId: row.patientId,
+        name: row.patient?.name || 'Unknown patient',
+        folderNumber: row.patient?.folderNumber,
+        age: row.patient?.age,
+        gender: row.patient?.gender,
+        attendanceNumber: row.attendanceNumber,
+        visitDate: row.attendanceDateTime,
+        detail: [
+          `${row.procedureCount ?? 0} procedure${row.procedureCount === 1 ? '' : 's'}`,
+          row.scheduledCount ? `${row.scheduledCount} scheduled` : null,
+          row.inProgressCount ? `${row.inProgressCount} in progress` : null,
+          Array.isArray(row.procedureNames) && row.procedureNames[0] ? row.procedureNames[0] : null,
+        ].filter(Boolean).join(' · '),
+        priority: row.priority,
+        waitMinutes: row.waitTime,
+      })));
+    } catch {
+      setQueueRows([]);
+    } finally {
+      setQueueLoading(false);
+    }
+  };
+
+  const openQueuedVisit = (row: QueuedVisit) => {
+    navigate(`/dashboard/theatre/${row.patientId}`, {
+      state: {
+        patient: {
+          id: row.patientId,
+          name: row.name,
+          folderNumber: row.folderNumber,
+          age: row.age,
+          gender: row.gender,
+        },
+        attendanceId: row.attendanceId,
+      },
+    });
+  };
 
   const loadData = async () => {
     try {
@@ -250,6 +308,8 @@ export default function TheatreProcedure() {
       const statePatient = location.state?.patient;
       const patientId = statePatient?.id || id;
       const initialAttendanceId = location.state?.attendanceId;
+
+      if (!patientId) await loadQueue();
 
       if (patientId) {
         const patientAttendances = await getAttendances({ patientId });
@@ -264,13 +324,26 @@ export default function TheatreProcedure() {
           setSelectedPatientId(patientId);
         }
 
-        const target =
-          (initialAttendanceId && patientAttendances.find(a => a.id === initialAttendanceId)) ||
-          [...patientAttendances].sort((a, b) =>
-            new Date(b.dateTime).getTime() - new Date(a.dateTime).getTime()
-          )[0];
+        // A queued visit can be older than the patient's recent-visit window, so the
+        // attendance named by the queue row is fetched on its own if the list missed it.
+        let target: any = initialAttendanceId
+          ? patientAttendances.find(a => a.id === initialAttendanceId)
+          : undefined;
+        if (!target && initialAttendanceId) {
+          target = await getAttendance(initialAttendanceId).catch(() => null);
+          if (target && !patientAttendances.some(a => a.id === target.id)) {
+            setAllAttendances([target, ...patientAttendances]);
+          }
+        }
+        target = target || pickVisit(patientAttendances, hasOutstandingProcedureWork);
         if (target) {
           setSelectedAttendanceId(target.id);
+          // Without directory access the only patient record available is the one
+          // carried by the visit, and the screen still needs it to draw the header.
+          if (!foundPatient) {
+            const linked = target.Patient || target.patient || null;
+            if (linked) setPatient(linked);
+          }
           await getAttendance(target.id);
         }
       }
@@ -631,7 +704,9 @@ export default function TheatreProcedure() {
     );
   }
 
-  if (!patient) {
+  // Direct entry starts without a patient until one is picked in the selector;
+  // only a patient named in the route that failed to load is an error.
+  if (!patient && (id || (location.state as any)?.patient)) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
         <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
@@ -714,30 +789,56 @@ export default function TheatreProcedure() {
 
       {/* Selector */}
       <PatientAttendanceSelector
-        patients={[patient]}
+        patients={patient ? [patient, ...patients.filter(p => p.id !== patient.id)] : patients}
         attendances={allAttendances}
         selectedPatientId={selectedPatientId}
         selectedAttendanceId={selectedAttendanceId}
-        onPatientSelect={(patientId) => {
+        onPatientSelect={async (patientId) => {
           setSelectedPatientId(patientId);
-          setAllAttendances(attendances.filter(a => a.patientId === patientId));
           setSelectedAttendanceId('');
           setAttendance(null);
           setSelectedProcedureId('');
+          // Resolve the patient before the visits: the picker auto-selects an open visit as
+          // soon as they arrive, and the screen renders that visit's patient details.
+          let resolved: any = null;
+          try { resolved = await fetchPatient(patientId); } catch { /* fall back to the visit's own patient */ }
+          let visits: any[] = [];
+          try {
+            visits = await getAttendances({ patientId });
+            setAllAttendances(visits);
+            if (!resolved) {
+              const linked = visits.find((a: any) => a.Patient || a.patient);
+              resolved = linked?.Patient ?? linked?.patient ?? null;
+            }
+          } catch {
+            visits = attendances.filter(a => a.patientId === patientId);
+            setAllAttendances(visits);
+          }
+          if (resolved) setPatient(resolved);
+          // Open the visit that owes the department a procedure, not merely the most recent one.
+          const best = pickVisit(visits, hasOutstandingProcedureWork);
+          if (best) setSelectedAttendanceId(best.id);
         }}
         onAttendanceSelect={handleAttendanceChange}
         onClearSelection={handleClearSelection}
       />
 
       {!selectedAttendanceId && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-10 text-center">
-          <Calendar className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
-          <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Attendance Selected</h3>
-          <p className="text-sm text-[var(--text-secondary)]">Select an attendance above to manage procedures.</p>
-        </div>
+        <QueuedVisits
+          title="Theatre queue"
+          description="Procedures scheduled or in progress — pick a visit to record notes"
+          icon={Scissors}
+          accent="purple"
+          rows={queueRows}
+          loading={queueLoading}
+          emptyMessage="No procedures are queued. Open the theatre waiting list to review completed operations."
+          onOpen={openQueuedVisit}
+          onRefresh={loadData}
+          onViewAll={() => navigate('/dashboard/theatre')}
+        />
       )}
 
-      {selectedAttendanceId && attendance && (
+      {selectedAttendanceId && attendance && patient && (
         <>
           {/* Patient Summary Bar */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">

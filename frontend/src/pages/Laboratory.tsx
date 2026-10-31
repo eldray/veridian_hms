@@ -1,106 +1,76 @@
-// src/pages/Laboratory.tsx - CORRECTED (keeps all original features)
-
-import { useLiveRefresh } from '../api/realtime';
-import React, { useState, useEffect, useMemo } from 'react';
+// src/pages/Laboratory.tsx — Laboratory queue on the shared UI primitives
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useLiveRefresh } from '../api/realtime';
 import { useWorklistStore } from '../store/worklistStore';
+import { WorklistViewControls } from '../components/worklist/WorklistViewControls';
 import { useToast } from '../store/toastStore';
 import {
-  ChevronLeft,
-  FlaskConical,
-  RefreshCw,
-  Clock,
-  CheckCircle,
+  AlertCircle,
   AlertTriangle,
-  Microscope,
-  User,
-  Activity,
-  Search,
-  Users,
-  FileText,
+  Bed,
+  CheckCircle,
+  Clock,
   Eye,
+  FileText,
+  FlaskConical,
   History,
-  Play,
-  CheckSquare,
-  List,
-  X,
-  ArrowRight
+  Microscope,
+  RefreshCw,
+  User,
+  Users,
 } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  Card,
+  humanStatus,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  StatCard,
+  statusTone,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+  cn,
+  type BadgeTone,
+} from '../components/ui';
 
-// Stats Card Component
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: any;
-  color: string;
-  bg: string;
-  onClick?: () => void;
-}
-
-const StatCard = ({ title, value, icon: Icon, color, bg, onClick }: StatCardProps) => (
-  <div 
-    className={`bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] ${onClick ? 'cursor-pointer hover:shadow-lg transition-all' : ''}`}
-    onClick={onClick}
-  >
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="text-2xl font-bold text-[var(--text-primary)]">{value}</p>
-        <p className="text-xs text-[var(--text-secondary)] mt-1">{title}</p>
-      </div>
-      <div className={`w-10 h-10 ${bg} rounded-lg flex items-center justify-center`}>
-        <Icon className={`w-5 h-5 ${color}`} />
-      </div>
-    </div>
-    {onClick && (
-      <div className="mt-2 flex justify-end">
-        <span className="text-xs text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
-          Enter <ArrowRight className="w-3 h-3" />
-        </span>
-      </div>
-    )}
-  </div>
-);
-
-// Priority Badge
-const getPriorityBadge = (priority: string) => {
-  switch (priority) {
-    case 'stat':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">STAT</span>;
-    case 'urgent':
-      return <span className="px-2 py-0.5 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">Urgent</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">Routine</span>;
-  }
+const PRIORITY_TONES: Record<string, BadgeTone> = {
+  stat: 'red',
+  urgent: 'orange',
 };
 
-// Test Status Badge - KEPT from original
-const getTestStatusBadge = (status: string) => {
-  switch (status) {
-    case 'requested':
-      return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">Requested</span>;
-    case 'in_progress':
-      return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">In Progress</span>;
-    case 'completed':
-      return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Completed</span>;
-    case 'cancelled':
-      return <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-xs font-medium">Cancelled</span>;
-    default:
-      return <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">{status}</span>;
-  }
+const PRIORITY_LABELS: Record<string, string> = {
+  stat: 'STAT',
+  urgent: 'URGENT',
 };
 
-// Progress Badge for grouped summary
+/** Each grouped row carries the raw LabTest rows; the API returns no `nextTest`. */
+const testName = (test: any) => test.labTestTemplate?.name || 'Lab test';
+
+const pendingTests = (item: any) =>
+  (item.tests || []).filter((test: any) => test.status === 'requested' || test.status === 'in_progress');
+
+const completedTests = (item: any) =>
+  (item.tests || [])
+    .filter((test: any) => test.status === 'completed')
+    .sort((a: any, b: any) => new Date(b.completedAt ?? 0).getTime() - new Date(a.completedAt ?? 0).getTime());
+
 const ProgressBadge = ({ requested, inProgress, completed }: { requested: number; inProgress: number; completed: number }) => {
   const total = requested + inProgress + completed;
   const pending = requested + inProgress;
-  
+
   if (pending === 0) {
-    return <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">All Completed</span>;
+    return <Badge tone="green" dot size="sm">All Completed</Badge>;
   }
   if (completed === 0) {
-    return <span className="px-2 py-0.5 bg-yellow-100 text-yellow-700 rounded-full text-xs font-medium">{pending} Pending</span>;
+    return <Badge tone="yellow" dot size="sm">{pending} Pending</Badge>;
   }
-  return <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-medium">{completed}/{total} Completed</span>;
+  return <Badge tone="blue" dot size="sm">{completed}/{total} Completed</Badge>;
 };
 
 export default function Laboratory() {
@@ -112,11 +82,8 @@ export default function Laboratory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  const [activeTab, setActiveTab] = useState<'pending' | 'recent'>('pending');
 
-  // ✅ ONLY use worklistStore
-  const { worklistItems, fetchWorklist, isLoading: worklistLoading } = useWorklistStore();
-  // Live queue: refreshes within a couple of seconds when a visit, request or result changes
+  const { worklistItems, fetchWorklist, view, isLoading: worklistLoading, error: worklistError } = useWorklistStore();
   useLiveRefresh(['encounters', 'nursing'], () => fetchWorklist('lab', { silent: true }));
 
   const loadData = async () => {
@@ -142,71 +109,89 @@ export default function Laboratory() {
     loadData();
   }, []);
 
-  // ✅ Use grouped worklistItems (each item = one patient with aggregated data)
-  const pendingPatients = useMemo(() => {
-    return worklistItems.filter(item => item.hasPendingTests === true);
-  }, [worklistItems]);
-
-  const recentPatients = useMemo(() => {
-    return worklistItems.filter(item => item.hasResults === true);
-  }, [worklistItems]);
-
-  // Filter based on search
+  // The server returns the queue for the active view, so no status split happens here.
   const filteredPatients = useMemo(() => {
-    const source = activeTab === 'pending' ? pendingPatients : recentPatients;
-    if (!searchQuery) return source;
+    if (!searchQuery) return worklistItems;
     const lower = searchQuery.toLowerCase();
-    return source.filter(patient =>
-      patient.patient?.name?.toLowerCase().includes(lower) ||
-      patient.patient?.folderNumber?.toLowerCase().includes(lower)
+    return worklistItems.filter((item: any) =>
+      item.patient?.name?.toLowerCase().includes(lower) ||
+      item.patient?.folderNumber?.toLowerCase().includes(lower) ||
+      (item.attendanceNumber || '').toLowerCase().includes(lower) ||
+      (item.tests || []).some((test: any) => testName(test).toLowerCase().includes(lower)),
     );
-  }, [pendingPatients, recentPatients, searchQuery, activeTab]);
+  }, [worklistItems, searchQuery]);
 
-  // Pagination
   const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
   const paginatedPatients = filteredPatients.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [activeTab]);
+  }, [view, searchQuery]);
 
-  // Stats
+  const isDone = view === 'completed';
+  const isOutstanding = view === 'outstanding';
+
   const stats = {
-    pendingTests: pendingPatients.reduce((sum, p) => sum + (p.requestedCount || 0), 0),
-    inProgress: pendingPatients.reduce((sum, p) => sum + (p.inProgressCount || 0), 0),
-    patientsWaiting: pendingPatients.length,
-    urgent: pendingPatients.filter(p => p.priority === 'urgent').length,
-    stat: pendingPatients.filter(p => p.priority === 'stat').length,
-    recentTests: recentPatients.length
+    patients: filteredPatients.length,
+    openTests: filteredPatients.reduce(
+      (sum, item: any) => sum + (item.requestedCount || 0) + (item.inProgressCount || 0),
+      0,
+    ),
+    completedTests: filteredPatients.reduce((sum, item: any) => sum + (item.completedCount || 0), 0),
+    urgent: filteredPatients.filter((item: any) => item.priority === 'urgent' || item.priority === 'stat').length,
   };
 
-  const handlePatientClick = (patient: any) => {
-    // Navigate to lab entry page where lab results can be viewed/processed
-    navigate(`/dashboard/laboratory/${patient.patientId}`, {
+  const queueTitle = isDone
+    ? `Tests Completed (${filteredPatients.length} patients)`
+    : isOutstanding
+      ? `Awaiting Results — Closed Visits (${filteredPatients.length} patients)`
+      : `Laboratory Waiting List (${filteredPatients.length} patients)`;
+
+  const handlePatientClick = (item: any) => {
+    navigate(`/dashboard/laboratory/${item.patientId}`, {
       state: {
         patient: {
-          id: patient.patientId,
-          name: patient.patient?.name,
-          folderNumber: patient.patient?.folderNumber,
-          age: patient.patient?.age,
-          gender: patient.patient?.gender
+          id: item.patientId,
+          name: item.patient?.name,
+          folderNumber: item.patient?.folderNumber,
+          age: item.patient?.age,
+          gender: item.patient?.gender,
         },
-        attendanceId: patient.attendanceId,
+        attendanceId: item.attendanceId,
         fromWaitingList: true,
-        activeTab: activeTab === 'pending' ? 'lab' : undefined
-      }
+        activeTab: isDone ? undefined : 'lab',
+      },
     });
   };
 
+  const queueHeader = (
+    <PageHeader
+      title="Laboratory Management"
+      subtitle="Specimen waiting list and entered results"
+      icon={Microscope}
+      accent="cyan"
+      backTo="/dashboard"
+      actions={(
+        <>
+          <Button variant="secondary" icon={FileText} onClick={() => navigate('/dashboard/laboratory/entry')}>
+            Enter Results
+          </Button>
+          <Button icon={RefreshCw} loading={refreshing} onClick={loadData}>Refresh</Button>
+        </>
+      )}
+    />
+  );
+
   if (isLoading || worklistLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
+      <div className="space-y-6 p-6">
+        {queueHeader}
+        <div className="bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl py-16 text-center">
           <div className="w-12 h-12 border-4 border-[var(--icon-cyan-text)] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Laboratory...</h2>
+          <p className="text-sm text-[var(--text-secondary)]">Loading Laboratory Queue…</p>
         </div>
       </div>
     );
@@ -214,358 +199,226 @@ export default function Laboratory() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="p-2 hover:bg-[var(--bg-card)] rounded-lg transition-all border border-[var(--border-color)]"
-          >
-            <ChevronLeft className="w-5 h-5 text-[var(--text-primary)]" />
-          </button>
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-            <FlaskConical className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Laboratory Management</h1>
-            <p className="text-sm text-[var(--text-secondary)]">View waiting list and enter test results</p>
-          </div>
+      {queueHeader}
+
+      {worklistError && (
+        <div role="alert" className="flex items-center gap-2 rounded-lg border border-[var(--icon-red-text)] bg-[var(--icon-red-bg)] px-4 py-3 text-sm text-[var(--icon-red-text)]">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>Could not load the laboratory waiting list: {worklistError}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={loadData}
-            disabled={refreshing}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+      )}
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard label="Patients" value={stats.patients} icon={Users} accent="cyan" />
+        <StatCard label="Open Tests" value={stats.openTests} icon={FlaskConical} accent="purple" />
+        <StatCard label="Completed Tests" value={stats.completedTests} icon={CheckCircle} accent="green" />
+        <StatCard label="Urgent / STAT" value={stats.urgent} icon={AlertTriangle} accent="red" />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <StatCard 
-          title="Pending Tests" 
-          value={stats.pendingTests} 
-          icon={FlaskConical}
-          color="text-purple-600"
-          bg="bg-purple-100"
-          onClick={() => navigate('/dashboard/laboratory')}
+      <Card>
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search by patient name, folder number, or test…"
         />
-        <StatCard 
-          title="In Progress" 
-          value={stats.inProgress} 
-          icon={Activity}
-          color="text-blue-600"
-          bg="bg-blue-100"
-          onClick={() => navigate('/dashboard/laboratory')}
-        />
-        <StatCard 
-          title="Patients Waiting" 
-          value={stats.patientsWaiting} 
-          icon={Users}
-          color="text-cyan-600"
-          bg="bg-cyan-100"
-          onClick={() => navigate('/dashboard/laboratory')}
-        />
-        <StatCard 
-          title="Urgent/STAT" 
-          value={stats.urgent + stats.stat} 
-          icon={AlertTriangle}
-          color="text-red-600"
-          bg="bg-red-100"
-          onClick={() => navigate('/dashboard/laboratory')}
-        />
-        <StatCard 
-          title="Completed Today" 
-          value={stats.recentTests} 
-          icon={History}
-          color="text-green-600"
-          bg="bg-green-100"
-          onClick={() => navigate('/dashboard/laboratory')}
-        />
-      </div>
+      </Card>
 
-      {/* Search Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-          <input
-            type="text"
-            placeholder="Search by patient name or folder number..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all text-sm"
-          />
-        </div>
-      </div>
+      {/* To do, completed, and the requests still owed on visits already closed */}
+      <Card>
+        <WorklistViewControls department="lab" />
+      </Card>
 
-      {/* TABS - Pending vs Recent */}
-      <div className="border-b border-[var(--border-color)]">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'pending'
-                ? 'text-purple-600 border-b-2 border-purple-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Pending Tests
-              {pendingPatients.length > 0 && (
-                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-xs">
-                  {pendingPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-          <button
-            onClick={() => setActiveTab('recent')}
-            className={`px-4 py-2 text-sm font-medium transition-all relative ${
-              activeTab === 'recent'
-                ? 'text-green-600 border-b-2 border-green-600'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <span className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4" />
-              Completed Today
-              {recentPatients.length > 0 && (
-                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs">
-                  {recentPatients.length}
-                </span>
-              )}
-            </span>
-          </button>
-        </div>
-      </div>
-
-      {/* Table View */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
-          <h2 className="font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {activeTab === 'pending' ? (
-              <>
-                <Microscope className="w-4 h-4 text-purple-600" />
-                Laboratory Waiting List ({filteredPatients.length} patients)
-              </>
-            ) : (
-              <>
-                <History className="w-4 h-4 text-green-600" />
-                Tests Completed Today ({filteredPatients.length} patients)
-              </>
-            )}
-          </h2>
-        </div>
-        
+      <Card
+        title={queueTitle}
+        icon={isDone ? History : Microscope}
+        accent={isDone ? 'green' : 'purple'}
+        padded={false}
+      >
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
-            {activeTab === 'pending' ? (
+            {worklistError ? (
+              <>
+                <AlertCircle className="w-12 h-12 text-[var(--icon-red-text)] mx-auto mb-3 opacity-75" />
+                <p className="text-[var(--text-secondary)]">Laboratory waiting list unavailable</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Refresh to try again</p>
+              </>
+            ) : isDone ? (
+              <>
+                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No tests completed in the last 72 hours</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Entered results will appear here</p>
+              </>
+            ) : isOutstanding ? (
+              <>
+                <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
+                <p className="text-[var(--text-secondary)]">No closed visit is owing a lab result</p>
+                <p className="text-sm text-[var(--text-tertiary)] mt-1">Results requested before discharge have all been entered</p>
+              </>
+            ) : (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No pending lab tests</p>
                 <p className="text-sm text-[var(--text-tertiary)] mt-1">All tests have been completed</p>
               </>
-            ) : (
-              <>
-                <History className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3 opacity-50" />
-                <p className="text-[var(--text-secondary)]">No tests completed today</p>
-                <p className="text-sm text-[var(--text-tertiary)] mt-1">Complete tests to see them here</p>
-              </>
             )}
           </div>
         ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Location</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Test Summary</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Next Test' : 'Tests Completed'}
-                    </th>
-                    {activeTab === 'pending' && (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Priority</th>
-                    )}
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">
-                      {activeTab === 'pending' ? 'Waiting Time' : 'Completed At'}
-                    </th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginatedPatients.map((patient) => (
-                    <tr 
-                      key={patient.id} 
-                      className="hover:bg-[var(--bg-main)] transition-colors cursor-pointer"
-                      onClick={() => handlePatientClick(patient)}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Visit date</th>
+                  <th className={TH}>Location</th>
+                  <th className={cn(TH, 'text-center')}>Progress</th>
+                  <th className={TH}>Tests</th>
+                  <th className={TH}>{isDone ? 'Completed' : 'Next Test'}</th>
+                  {!isDone && <th className={TH}>Priority</th>}
+                  <th className={TH}>{isDone ? 'Status' : isOutstanding ? 'Visit status' : 'Waiting'}</th>
+                  <th className={cn(TH, 'text-center')}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedPatients.map((item: any) => {
+                  const pending = pendingTests(item);
+                  const done = completedTests(item);
+                  const requested = item.requestedCount || 0;
+                  const inProgress = item.inProgressCount || 0;
+                  const completed = item.completedCount || 0;
+                  const next = pending[0] ?? null;
+
+                  return (
+                    <tr
+                      key={item.id}
+                      className={cn(TR, 'cursor-pointer')}
+                      onClick={() => handlePatientClick(item)}
                     >
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center">
-                            <User className="w-4 h-4 text-purple-600" />
+                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                           </div>
                           <div>
-                            <p className="font-medium text-[var(--text-primary)] text-sm">
-                              {patient.patient?.name}
-                            </p>
+                            <p className="font-medium text-[var(--text-primary)] text-sm">{item.patient?.name}</p>
                             <p className="text-xs text-[var(--text-secondary)]">
-                              {patient.patient?.age} years • {patient.patient?.gender}
+                              {item.patient?.age} years • {item.patient?.gender}
                             </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <span className="font-mono text-sm text-[var(--text-primary)]">
-                          {patient.patient?.folderNumber}
-                        </span>
+                      <td className={TD_MONO}>{item.patient?.folderNumber || '—'}</td>
+                      <td className={TD_MONO}>{item.attendanceNumber || '—'}</td>
+                      <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
+                        {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleString() : '—'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className={TD}>
                         <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                          <span>{patient.location?.ward || 'OPD'}</span>
-                          {patient.location?.bed && <span className="text-xs">/ Bed {patient.location.bed}</span>}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <ProgressBadge 
-                          requested={patient.requestedCount || 0}
-                          inProgress={patient.inProgressCount || 0}
-                          completed={patient.completedCount || 0}
-                        />
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <List className="w-3 h-3 text-[var(--text-tertiary)]" />
-                            <span className="text-xs text-[var(--text-primary)]">
-                              {patient.testCount} total ({patient.requestedCount} pending, {patient.inProgressCount} in progress, {patient.completedCount} completed)
-                            </span>
-                          </div>
-                          {activeTab === 'recent' && patient.testTypes && (
-                            <div className="text-[10px] text-[var(--text-tertiary)] truncate max-w-[200px]">
-                              {patient.testTypes}
-                            </div>
+                          <Bed className="w-3.5 h-3.5" />
+                          <span>{item.location?.ward || item.location?.bed || 'OPD'}</span>
+                          {item.location?.bed && item.location?.ward && (
+                            <span className="text-xs">({item.location.bed})</span>
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        {activeTab === 'pending' ? (
-                          patient.nextTest ? (
+                      <td className={cn(TD, 'text-center')}>
+                        <ProgressBadge requested={requested} inProgress={inProgress} completed={completed} />
+                      </td>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        <p className="text-sm text-[var(--text-primary)]">
+                          {item.testCount || 0} test{(item.testCount || 0) === 1 ? '' : 's'}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-tertiary)]">
+                          {requested} pending · {inProgress} in progress · {completed} completed
+                        </p>
+                      </td>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        {!isDone ? (
+                          next ? (
                             <div className="text-xs">
-                              <div className="font-medium text-[var(--text-primary)]">
-                                {patient.nextTest.name}
-                              </div>
-                              <div className="text-[var(--text-secondary)]">
-                                Requested: {new Date(patient.nextTest.requestedAt).toLocaleDateString()}
-                              </div>
+                              <p className="font-medium text-[var(--text-primary)]">{testName(next)}</p>
+                              <p className="text-[var(--text-secondary)]">
+                                {next.status === 'in_progress' ? 'In progress' : 'Requested'}{' '}
+                                {next.requestedAt ? new Date(next.requestedAt).toLocaleDateString() : ''}
+                              </p>
                             </div>
                           ) : (
-                            <span className="text-xs text-[var(--text-secondary)]">No pending tests</span>
+                            <span className="text-xs text-[var(--text-secondary)]">—</span>
                           )
                         ) : (
                           <div className="flex flex-col gap-1">
-                            {patient.completedTests?.slice(0, 2).map((test: any) => (
+                            {done.slice(0, 2).map((test: any) => (
                               <div key={test.id} className="text-xs">
-                                <span className="font-medium">{test.name}</span>
+                                <span className="font-medium">{testName(test)}</span>
                                 <span className="text-[var(--text-tertiary)] ml-1">
-                                  ({new Date(test.completedAt).toLocaleTimeString()})
+                                  ({test.completedAt ? new Date(test.completedAt).toLocaleTimeString() : '—'})
                                 </span>
                               </div>
                             ))}
-                            {patient.completedTests?.length > 2 && (
-                              <span className="text-xs text-[var(--text-tertiary)]">
-                                +{patient.completedTests.length - 2} more
-                              </span>
+                            {done.length > 2 && (
+                              <span className="text-xs text-[var(--text-tertiary)]">+{done.length - 2} more</span>
                             )}
+                            {done.length === 0 && <span className="text-xs text-[var(--text-secondary)]">—</span>}
                           </div>
                         )}
                       </td>
-                      {activeTab === 'pending' && (
-                        <td className="px-4 py-3">
-                          {getPriorityBadge(patient.priority)}
+                      {!isDone && (
+                        <td className={TD}>
+                          <Badge tone={PRIORITY_TONES[item.priority] ?? 'blue'} dot size="sm">
+                            {PRIORITY_LABELS[item.priority] ?? 'ROUTINE'}
+                          </Badge>
                         </td>
                       )}
-                      <td className="px-4 py-3">
-                        {activeTab === 'pending' ? (
-                          <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>
-                              {Math.floor(patient.waitTime / 60)}h {patient.waitTime % 60}m
-                            </span>
+                      <td className={TD}>
+                        {isDone ? (
+                          <Badge tone={statusTone(item.status)} dot size="sm">{humanStatus(item.status)}</Badge>
+                        ) : isOutstanding ? (
+                          <div className="space-y-1">
+                            <Badge tone={statusTone(item.attendanceStatus)} dot size="sm">
+                              {humanStatus(item.attendanceStatus)}
+                            </Badge>
+                            <p className="flex items-center gap-1 text-[10px] text-[var(--text-tertiary)]">
+                              <Clock className="w-3 h-3" />
+                              owing {Math.floor((item.waitTime || 0) / 60)}h {(item.waitTime || 0) % 60}m
+                            </p>
                           </div>
                         ) : (
-                          <div className="text-xs text-[var(--text-secondary)]">
-                            {patient.completedTests?.[0]?.completedAt 
-                              ? new Date(patient.completedTests[0].completedAt).toLocaleTimeString()
-                              : '—'}
-                          </div>
+                          <span className="flex items-center gap-1 text-xs text-[var(--text-secondary)]">
+                            <Clock className="w-3.5 h-3.5" />
+                            {Math.floor((item.waitTime || 0) / 60)}h {(item.waitTime || 0) % 60}m
+                          </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
-                          className={`px-3 py-1.5 rounded-lg transition-all text-xs font-medium flex items-center gap-1 mx-auto ${
-                            activeTab === 'pending'
-                              ? 'bg-purple-600 text-white hover:bg-purple-700'
-                              : 'bg-blue-100 text-blue-700 hover:bg-blue-700 hover:text-white'
-                          }`}
+                      <td className={cn(TD, 'text-center')}>
+                        <Button
+                          size="sm"
+                          variant="soft"
+                          accent={isDone ? 'blue' : isOutstanding ? 'orange' : 'cyan'}
+                          icon={isDone ? FileText : Eye}
+                          className="mx-auto"
+                          onClick={(e) => { e.stopPropagation(); handlePatientClick(item); }}
                         >
-                          {activeTab === 'pending' ? (
-                            <>
-                              <Eye className="w-3 h-3" />
-                              Process
-                            </>
-                          ) : (
-                            <>
-                              <FileText className="w-3 h-3" />
-                              View Report
-                            </>
-                          )}
-                        </button>
+                          {isDone ? 'View Report' : isOutstanding ? 'Enter Result' : 'Process'}
+                        </Button>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="px-4 py-3 border-t border-[var(--border-color)] flex items-center justify-between">
-                <div className="text-sm text-[var(--text-secondary)]">
-                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredPatients.length)} of {filteredPatients.length}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Previous
-                  </button>
-                  <span className="px-3 py-1 text-sm text-[var(--text-secondary)]">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm text-[var(--text-primary)]"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </Card>
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredPatients.length}
+        noun="patients"
+        onChange={setCurrentPage}
+      />
     </div>
   );
 }

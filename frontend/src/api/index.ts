@@ -8,6 +8,7 @@ import type {
   Appointment, ConsultationType, HospitalInfo, Seniority
 } from '../types';
 import type { NewbornRecord } from '../store/deliveryStore';
+import type { WorklistParams } from '../types/worklist';
 
 // ============================================
 // TYPES
@@ -1654,26 +1655,40 @@ export const completeEncounter = (encounterId: string) =>
 // WORKLIST (VIA ENCOUNTER MODULE)
 // ============================================
 
-export const getVitalsWorklist = () =>
-  api.get('/encounters/worklist/vitals').then(r => r.data);
+// The attendance queues take a view (open / closed / outstanding results) and an optional date
+// range; the item queues (lab, pharmacy, scans, theatre) still list work per item, so they take none.
+const worklistParams = (params: WorklistParams = {}) => {
+  const query: Record<string, string> = {};
+  if (params.view && params.view !== 'pending') query.view = params.view;
+  if (params.dateFrom) query.dateFrom = params.dateFrom;
+  if (params.dateTo) query.dateTo = params.dateTo;
+  if (params.attendanceType) query.attendanceType = params.attendanceType;
+  return Object.keys(query).length ? { params: query } : undefined;
+};
 
-export const getMedicalWorklist = () =>
-  api.get('/encounters/worklist/medical').then(r => r.data);
+export const getVitalsWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/vitals', worklistParams(params)).then(r => r.data);
 
-export const getLabWorklist = () =>
-  api.get('/encounters/worklist/lab').then(r => r.data);
+export const getMedicalWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/medical', worklistParams(params)).then(r => r.data);
 
-export const getPharmacyWorklist = () =>
-  api.get('/encounters/worklist/pharmacy').then(r => r.data);
+export const getOutstandingWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/outstanding', worklistParams(params)).then(r => r.data);
 
-export const getScansWorklist = () =>
-  api.get('/encounters/worklist/scans').then(r => r.data);
+export const getLabWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/lab', worklistParams(params)).then(r => r.data);
 
-export const getTheatreWorklist = () =>
-  api.get('/encounters/worklist/procedures').then(r => r.data);
+export const getPharmacyWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/pharmacy', worklistParams(params)).then(r => r.data);
 
-export const getMaternalWorklist = () =>
-  api.get('/encounters/worklist/maternal').then(r => r.data);
+export const getScansWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/scans', worklistParams(params)).then(r => r.data);
+
+export const getTheatreWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/procedures', worklistParams(params)).then(r => r.data);
+
+export const getMaternalWorklist = (params?: WorklistParams) =>
+  api.get('/encounters/worklist/maternal', worklistParams(params)).then(r => r.data);
 
 export const getWorklistSummary = () =>
   api.get('/encounters/worklist/summary').then(r => r.data);

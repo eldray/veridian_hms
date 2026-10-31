@@ -201,12 +201,15 @@ function App() {
           <Route path="admissions"     element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
           <Route path="wards"          element={<ProtectedRoute><WardManagement /></ProtectedRoute>} />
           <Route path="laboratory"     element={<ProtectedRoute><Laboratory /></ProtectedRoute>} />
+          <Route path="laboratory/entry" element={<ProtectedRoute><LabResultEntry /></ProtectedRoute>} />
           <Route path="laboratory/:id" element={<ProtectedRoute><LabResultEntry /></ProtectedRoute>} />
           <Route path="scans"          element={<ProtectedRoute><Scans /></ProtectedRoute>} />
+          <Route path="scans/entry"    element={<ProtectedRoute><ScansEntry /></ProtectedRoute>} />
           <Route path="scans/:id"      element={<ProtectedRoute><ScansEntry /></ProtectedRoute>} />
           <Route path="medical-entries"                element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="medical-entries/:attendanceId"  element={<ProtectedRoute><MedicalEntries /></ProtectedRoute>} />
           <Route path="vitals"          element={<ProtectedRoute><Vitals /></ProtectedRoute>} />
+          <Route path="vitals/entry"    element={<ProtectedRoute><VitalsEntry /></ProtectedRoute>} />
           <Route path="vitals/:id"      element={<ProtectedRoute><VitalsEntry /></ProtectedRoute>} />
           <Route path="family-planning" element={<ProtectedRoute><FamilyPlanning /></ProtectedRoute>} />
 
@@ -226,6 +229,7 @@ function App() {
 
           {/* Theatre & Nursing */}
           <Route path="theatre"     element={<ProtectedRoute><Theatre /></ProtectedRoute>} />
+          <Route path="theatre/entry" element={<ProtectedRoute><TheatreProcedure /></ProtectedRoute>} />
           <Route path="theatre/:id" element={<ProtectedRoute><TheatreProcedure /></ProtectedRoute>} />
           <Route path="nursing"     element={<ProtectedRoute><Nursing /></ProtectedRoute>} />
           <Route path="nursing/patient/:attendanceId" element={<ProtectedRoute><NursingPatientWorkspace /></ProtectedRoute>} />
@@ -254,19 +258,35 @@ function App() {
           <Route path="patients/:patientId/billing" element={<ProtectedRoute><PatientBillingItems /></ProtectedRoute>} />
           <Route path="billing/:billId/payment"     element={<ProtectedRoute><ProcessPayment /></ProtectedRoute>} />
           <Route path="billing"                     element={<ProtectedRoute><Billing /></ProtectedRoute>} />
-          <Route path="insurance-providers"         element={<ProtectedRoute><InsuranceProviders /></ProtectedRoute>} />
-          <Route path="insurance-claims"            element={<ProtectedRoute><InsuranceClaims /></ProtectedRoute>} />
-          <Route path="insurance-claims/tracking" element={<ProtectedRoute><InsuranceClaimsTracking /></ProtectedRoute>} />
-          <Route path="insurance-claims/:id/edit"   element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
-          <Route path="insurance-claims/nhis/:id/edit"      element={<ProtectedRoute><EditNHISClaim /></ProtectedRoute>} />
-          <Route path="insurance-claims/private/:id/edit"   element={<ProtectedRoute><EditPrivateClaim /></ProtectedRoute>} />
-          <Route path="insurance-claims/corporate/:id/edit" element={<ProtectedRoute><EditCorporateClaim /></ProtectedRoute>} />
-          <Route path="insurance-claims/batches"    element={<ProtectedRoute><ClaimBatches /></ProtectedRoute>} />
+          {/* Insurance — one page per payer family; every tab is its own route so the
+              back button, deep links and the quick-access launcher all agree. */}
+          <Route path="insurance" element={<Navigate to="/dashboard/insurance/nhis/claims" replace />} />
+          <Route path="insurance/nhis/claims"    element={<ProtectedRoute><InsuranceClaims family="nhis" /></ProtectedRoute>} />
+          <Route path="insurance/nhis/providers" element={<ProtectedRoute><InsuranceProviders family="nhis" /></ProtectedRoute>} />
+          <Route path="insurance/nhis/batches"   element={<ProtectedRoute><ClaimBatches family="nhis" /></ProtectedRoute>} />
+          <Route path="insurance/nhis/tracking"  element={<ProtectedRoute><InsuranceClaimsTracking family="nhis" /></ProtectedRoute>} />
+          <Route path="insurance/private/claims"    element={<ProtectedRoute><InsuranceClaims family="private" /></ProtectedRoute>} />
+          <Route path="insurance/private/providers" element={<ProtectedRoute><InsuranceProviders family="private" /></ProtectedRoute>} />
+          <Route path="insurance/private/batches"   element={<ProtectedRoute><ClaimBatches family="private" /></ProtectedRoute>} />
+          <Route path="insurance/private/tracking"  element={<ProtectedRoute><InsuranceClaimsTracking family="private" /></ProtectedRoute>} />
+          <Route path="insurance/corporate/claims"   element={<ProtectedRoute><InsuranceClaims family="corporate" /></ProtectedRoute>} />
+          <Route path="insurance/corporate/batches"  element={<ProtectedRoute><ClaimBatches family="corporate" /></ProtectedRoute>} />
+          <Route path="insurance/corporate/tracking" element={<ProtectedRoute><InsuranceClaimsTracking family="corporate" /></ProtectedRoute>} />
+          <Route path="insurance/corporate/accounts"     element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+          <Route path="insurance/corporate/accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
+          <Route path="insurance/claims/:id/edit"           element={<ProtectedRoute><EditInsuranceClaim /></ProtectedRoute>} />
+          <Route path="insurance/claims/nhis/:id/edit"      element={<ProtectedRoute><EditNHISClaim /></ProtectedRoute>} />
+          <Route path="insurance/claims/private/:id/edit"   element={<ProtectedRoute><EditPrivateClaim /></ProtectedRoute>} />
+          <Route path="insurance/claims/corporate/:id/edit" element={<ProtectedRoute><EditCorporateClaim /></ProtectedRoute>} />
+          {/* Old insurance URLs — bookmarks and shared links still land somewhere sensible. */}
+          <Route path="insurance-claims"             element={<Navigate to="/dashboard/insurance/nhis/claims" replace />} />
+          <Route path="insurance-claims/tracking"    element={<Navigate to="/dashboard/insurance/nhis/tracking" replace />} />
+          <Route path="insurance-claims/batches"     element={<Navigate to="/dashboard/insurance/nhis/batches" replace />} />
+          <Route path="insurance-providers"          element={<Navigate to="/dashboard/insurance/private/providers" replace />} />
+          <Route path="corporate-accounts"           element={<Navigate to="/dashboard/insurance/corporate/accounts" replace />} />
+          <Route path="corporate-accounts/:id"       element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
           <Route path="reports"                     element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="referrals"                   element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
-
-          <Route path="corporate-accounts"     element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
-          <Route path="corporate-accounts/:id" element={<ProtectedRoute><CorporateAccounts /></ProtectedRoute>} />
 
           {/* Counter: walk-in tickets held against a CounterClient, not the patient register */}
           <Route path="counter" element={<ProtectedRoute><Counter /></ProtectedRoute>} />

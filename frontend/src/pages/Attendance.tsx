@@ -1,19 +1,21 @@
 // src/pages/Attendance.tsx - FIXED VERSION
 import { useLiveRefresh } from '../api/realtime';
 import { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { usePatientStore } from '../store/patientStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import NewAttendanceModal from '../components/NewAttendanceModal';
+import {
+  Badge, Button, Card, cn, FilterSelect, humanStatus, INPUT, LinkButton, PageHeader, Pagination,
+  SearchInput, Segmented, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR,
+} from '../components/ui';
 import { 
-  Search, Grid, List, RefreshCw, Hospital, FileText, Users, Calendar, 
-  Eye, Edit, ChevronLeft, ChevronRight, Pill, FlaskConical, Scissors, 
-  DollarSign, CreditCard, Shield, Trash2, User, Filter, X, Building
+  Grid, List, RefreshCw, Hospital, FileText, Calendar, 
+  Eye, Edit, Pill, FlaskConical, Scissors, 
+  DollarSign, CreditCard, Shield, Trash2, User, X, Building
 } from 'lucide-react';
-import type { AttendanceStatus, AttendanceType, PaymentMode } from '../types';
-import { getPatientName } from '../utils/patient';
+import type { AttendanceType, PaymentMode } from '../types';
 
 type DateFilterType = 'today' | 'yesterday' | 'custom';
 
@@ -248,17 +250,6 @@ export default function Attendance() {
   }, [searchQuery, dateFilter, customStartDate, customEndDate]);
 
   // UI Helper Functions
-  const getStatusColor = (status: AttendanceStatus) => {
-    switch (status) {
-      case 'completed': return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] border-[var(--icon-green-bg)]';
-      case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-bg)]';
-      case 'admitted': return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)] border-[var(--icon-purple-bg)]';
-      case 'pending': return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-bg)]';
-      case 'discharged': return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-bg)]';
-      default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
-    }
-  };
-
   const getAttendanceTypeLabel = (type: AttendanceType) => {
     const typeMap: Record<AttendanceType, string> = {
       'emergency_acute': 'Emergency/Acute',
@@ -338,15 +329,15 @@ export default function Attendance() {
   if (isLoading && !refreshing) {
     return (
       <div className="space-y-6 p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Management</h1>
-          </div>
-          <button disabled className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-secondary)] text-sm">
-            <RefreshCw className="w-4 h-4 animate-spin" />
-            Loading...
-          </button>
-        </div>
+        <PageHeader
+          title="Attendance Management"
+          subtitle="Manage patient visits and clinical records"
+          icon={Calendar}
+          accent="cyan"
+          actions={(
+            <Button icon={RefreshCw} loading>Loading...</Button>
+          )}
+        />
         <div className="space-y-4">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
@@ -368,79 +359,54 @@ export default function Attendance() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-[var(--text-primary)]">Attendance Management</h1>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">Manage patient visits and clinical records</p>
-          <p className="text-xs text-[var(--text-tertiary)] mt-0.5">
-            {filteredAttendances.length} attendance(s) • {patients.length} patient(s)
-          </p>
-        </div>
-        <button
-          onClick={handleRefresh}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] transition-all disabled:opacity-50 text-sm text-[var(--text-primary)]"
-        >
-          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          {refreshing ? 'Refreshing...' : 'Refresh'}
-        </button>
-      </div>
+      <PageHeader
+        title="Attendance Management"
+        subtitle="Manage patient visits and clinical records"
+        meta={`${filteredAttendances.length} attendance(s) • ${patients.length} patient(s)`}
+        icon={Calendar}
+        accent="cyan"
+        actions={(
+          <Button icon={RefreshCw} loading={refreshing} onClick={handleRefresh}>
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        )}
+      />
 
       {/* Date Filter Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-2">
             <Calendar className="w-4 h-4 text-[var(--text-secondary)]" />
             <span className="text-sm font-medium text-[var(--text-primary)]">Show:</span>
           </div>
-          
-          <div className="flex gap-2">
-            <button
-              onClick={() => { setDateFilter('today'); setShowDatePicker(false); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'today'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
-              Today
-            </button>
-            <button
-              onClick={() => { setDateFilter('yesterday'); setShowDatePicker(false); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'yesterday'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
-              Yesterday
-            </button>
-            <button
-              onClick={() => { setDateFilter('custom'); setShowDatePicker(true); }}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-all ${
-                dateFilter === 'custom'
-                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
-                  : 'bg-[var(--bg-main)] text-[var(--text-secondary)] hover:bg-[var(--border-color)]'
-              }`}
-            >
-              Custom
-            </button>
-          </div>
+
+          <Segmented
+            aria-label="Attendance date range"
+            value={dateFilter}
+            onChange={(range) => { setDateFilter(range); setShowDatePicker(range === 'custom'); }}
+            options={[
+              { value: 'today', label: 'Today' },
+              { value: 'yesterday', label: 'Yesterday' },
+              { value: 'custom', label: 'Custom' },
+            ]}
+          />
 
           {showDatePicker && dateFilter === 'custom' && (
             <div className="flex items-center gap-3 ml-auto">
               <input
                 type="date"
+                aria-label="Custom range start"
                 value={customStartDate}
                 onChange={(e) => setCustomStartDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={INPUT}
               />
               <span className="text-[var(--text-secondary)]">to</span>
               <input
                 type="date"
+                aria-label="Custom range end"
                 value={customEndDate}
                 onChange={(e) => setCustomEndDate(e.target.value)}
-                className="px-3 py-1.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
+                className={INPUT}
               />
             </div>
           )}
@@ -449,92 +415,70 @@ export default function Attendance() {
             Showing: {getDateFilterDisplay()}
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Controls */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
+      <Card>
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-          <div className="flex-1 w-full sm:max-w-sm">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--text-secondary)]" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                placeholder="Search by patient name, folder number, complaints..."
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-sm placeholder-[var(--text-tertiary)]"
-              />
-            </div>
-          </div>
+          <SearchInput
+            className="w-full sm:max-w-sm"
+            value={searchQuery}
+            onChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
+            placeholder="Search by patient name, folder number, complaints..."
+          />
 
           <div className="flex items-center gap-3">
-            <div className="flex bg-[var(--bg-main)] rounded-lg p-1">
-              <button
-                onClick={() => setViewMode('cards')}
-                className={`p-2 rounded transition-all duration-200 ${
-                  viewMode === 'cards' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <Grid className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded transition-all duration-200 ${
-                  viewMode === 'list' ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-                }`}
-              >
-                <List className="w-4 h-4" />
-              </button>
-            </div>
+            <Segmented
+              aria-label="Attendance layout"
+              value={viewMode}
+              onChange={setViewMode}
+              options={[
+                { value: 'cards', label: 'Cards', icon: Grid },
+                { value: 'list', label: 'List', icon: List },
+              ]}
+            />
 
-            <select
-              value={itemsPerPage}
-              onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-              className="px-3 py-2.5 border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-[var(--bg-card)] text-[var(--text-primary)] text-sm"
-            >
-              <option value={10}>10 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={50}>50 per page</option>
-            </select>
+            <FilterSelect
+              aria-label="Rows per page"
+              value={String(itemsPerPage)}
+              onChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}
+              options={[
+                { value: '10', label: '10 per page' },
+                { value: '20', label: '20 per page' },
+                { value: '50', label: '50 per page' },
+              ]}
+            />
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Stats Banner */}
       {filteredAttendances.length > 0 && (
-        <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-4 border border-blue-200">
+        <Card>
           <div className="flex items-center justify-between flex-wrap gap-2">
             <div>
-              <p className="text-sm font-semibold text-blue-800">
+              <p className="text-sm font-semibold text-[var(--text-primary)]">
                 Showing {paginated.length} of {filteredAttendances.length} attendance records
               </p>
               {searchQuery && (
-                <p className="text-xs text-blue-600 mt-0.5">
+                <p className="text-xs text-[var(--text-secondary)] mt-0.5">
                   Search results for: "{searchQuery}"
                 </p>
               )}
             </div>
-            <div className="flex items-center gap-2 text-xs text-blue-700 flex-wrap">
-              <span className="bg-blue-100 px-2 py-1 rounded border border-blue-200">
-                Pending: {filteredAttendances.filter(a => a.status === 'pending').length}
-              </span>
-              <span className="bg-green-100 px-2 py-1 rounded border border-green-200">
-                Completed: {filteredAttendances.filter(a => a.status === 'completed').length}
-              </span>
-              <span className="bg-purple-100 px-2 py-1 rounded border border-purple-200">
-                Admitted: {filteredAttendances.filter(a => a.status === 'admitted').length}
-              </span>
-              <span className="bg-yellow-100 px-2 py-1 rounded border border-yellow-200">
-                Discharged: {filteredAttendances.filter(a => a.status === 'discharged').length}
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge tone="yellow" dot size="sm">Pending: {filteredAttendances.filter(a => a.status === 'pending').length}</Badge>
+              <Badge tone="green" dot size="sm">Completed: {filteredAttendances.filter(a => a.status === 'completed').length}</Badge>
+              <Badge tone="purple" dot size="sm">Admitted: {filteredAttendances.filter(a => a.status === 'admitted').length}</Badge>
+              <Badge tone="cyan" dot size="sm">Discharged: {filteredAttendances.filter(a => a.status === 'discharged').length}</Badge>
             </div>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Content */}
       {filteredAttendances.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl p-8 shadow-sm border border-[var(--border-color)] text-center">
+        <Card padded={false} className="p-8 text-center">
           <FileText className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-4" />
           <h3 className="text-lg font-bold text-[var(--text-primary)] mb-2">
             {searchQuery ? 'No Attendances Found' : 'No Attendance Records'}
@@ -546,23 +490,13 @@ export default function Attendance() {
             }
           </p>
           {searchQuery ? (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all duration-200 font-semibold text-sm border border-[var(--border-color)]"
-            >
-              <X className="w-4 h-4" />
-              Clear Search
-            </button>
+            <Button icon={X} onClick={() => setSearchQuery('')}>Clear Search</Button>
           ) : dateFilter !== 'today' && (
-            <button
-              onClick={() => setDateFilter('today')}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-semibold text-sm"
-            >
-              <Calendar className="w-4 h-4" />
+            <Button variant="soft" accent="cyan" icon={Calendar} onClick={() => setDateFilter('today')}>
               View Today's Attendances
-            </button>
+            </Button>
           )}
-        </div>
+        </Card>
       ) : viewMode === 'cards' ? (
         // Cards View
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -584,23 +518,25 @@ export default function Attendance() {
                       <h3 className="font-semibold text-[var(--text-primary)] text-sm leading-tight">
                         {fullName}
                       </h3>
-                      <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border mt-1">
+                      <p className="text-xs text-[var(--text-secondary)] bg-[var(--bg-main)] px-2 py-1 rounded border border-[var(--border-color)] mt-1">
                         {patient?.folderNumber || (walkIn ? 'Walk-in' : 'No Folder')} • {attendance.attendanceNumber || `ATT-${attendanceId?.slice(-8)}`}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
-                    {(attendance.status || 'pending').charAt(0).toUpperCase() + (attendance.status || 'pending').slice(1)}
-                    </span>
+                    <Badge tone={statusTone(attendance.status || 'pending')} dot size="sm">
+                      {humanStatus(attendance.status || 'pending')}
+                    </Badge>
                     {canDelete && (
-                      <button
+                      <Button
+                        size="xs"
+                        variant="dangerSoft"
+                        iconOnly
+                        icon={Trash2}
+                        aria-label="Delete Attendance"
+                        className="opacity-0 group-hover:opacity-100"
                         onClick={() => setDeleteConfirm(attendanceId)}
-                        className="p-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all duration-200 opacity-0 group-hover:opacity-100"
-                        title="Delete Attendance"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      />
                     )}
                   </div>
                 </div>
@@ -642,42 +578,42 @@ export default function Attendance() {
                 </div>
 
                 <div className="flex gap-2 pt-3 border-t border-[var(--border-color)]">
-                  <Link
+                  <LinkButton
+                    size="sm"
+                    variant="soft"
+                    accent="cyan"
+                    icon={Eye}
+                    className="flex-1"
                     to={`/dashboard/attendance/${attendanceId}`}
-                    className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all duration-200 font-medium text-xs"
                   >
-                    <Eye className="w-3.5 h-3.5" />
                     View
-                  </Link>
+                  </LinkButton>
                   {canEdit && (
-                    <button
+                    <Button
+                      size="sm"
+                      variant="soft"
+                      accent="yellow"
+                      icon={Edit}
+                      className="flex-1"
                       onClick={() => handleEditAttendance(attendance)}
-                      className="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-all duration-200 font-medium text-xs"
                     >
-                      <Edit className="w-3.5 h-3.5" />
                       Edit
-                    </button>
+                    </Button>
                   )}
                 </div>
 
                 {deleteConfirm === attendanceId && (
-                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-red-700 text-xs font-medium mb-2">
+                  <div className="mt-3 p-3 bg-[var(--icon-red-bg)] border border-[var(--border-color)] rounded-lg">
+                    <p className="text-[var(--icon-red-text)] text-xs font-medium mb-2">
                       Delete this attendance record?
                     </p>
                     <div className="flex gap-2">
-                      <button
-                        onClick={() => handleDeleteAttendance(attendanceId)}
-                        className="flex-1 px-2 py-1.5 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                      >
+                      <Button size="sm" variant="danger" className="flex-1" onClick={() => handleDeleteAttendance(attendanceId)}>
                         Delete
-                      </button>
-                      <button
-                        onClick={() => setDeleteConfirm(null)}
-                        className="flex-1 px-2 py-1.5 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400 transition-colors"
-                      >
+                      </Button>
+                      <Button size="sm" variant="secondary" className="flex-1" onClick={() => setDeleteConfirm(null)}>
                         Cancel
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
@@ -687,181 +623,133 @@ export default function Attendance() {
         </div>
       ) : (
         // ✅ LIST VIEW
-        <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Patient Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Folder #</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Attendance #</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Date & Time</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Payment</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {paginated.map((attendance) => {
-                const patient = findPatient(attendance);
-                const attendanceId = attendance.id;
-                const totalBill = attendance.totalBill || 0;
-                const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
-                const walkIn = isCounterTicket(attendance);
-                
-                return (
-                  <tr key={attendanceId} className="hover:bg-[var(--bg-main)] transition-colors duration-150">
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
-                          <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+        <div className={TABLE_SHELL}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className={TH_ROW}>
+                <tr>
+                  <th className={TH}>Patient Name</th>
+                  <th className={TH}>Folder #</th>
+                  <th className={TH}>Attendance #</th>
+                  <th className={TH}>Date & Time</th>
+                  <th className={TH}>Type</th>
+                  <th className={TH}>Payment</th>
+                  <th className={TH}>Status</th>
+                  <th className={TH}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((attendance) => {
+                  const patient = findPatient(attendance);
+                  const attendanceId = attendance.id;
+                  const totalBill = attendance.totalBill || 0;
+                  const fullName = patient ? getPatientFullName(patient) : 'Unknown Patient';
+                  const walkIn = isCounterTicket(attendance);
+
+                  return (
+                    <tr key={attendanceId} className={TR}>
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center flex-shrink-0">
+                            <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                          </div>
+                          <p className="font-semibold text-[var(--text-primary)] text-sm">
+                            {fullName}
+                          </p>
+                          {walkIn && (
+                            <Badge tone="orange" dot size="sm">Walk-in</Badge>
+                          )}
                         </div>
-                        <p className="font-semibold text-[var(--text-primary)] text-sm">
-                          {fullName}
-                        </p>
-                        {walkIn && (
-                          <span className="px-2 py-0.5 rounded-full bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] text-xs font-semibold">
-                            Walk-in
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <p className="font-mono text-sm font-medium text-[var(--text-primary)]">
+                      </td>
+
+                      <td className={TD_MONO}>
                         {patient?.folderNumber || (walkIn ? 'No folder' : 'N/A')}
-                      </p>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <p className="font-mono text-sm font-semibold text-[var(--icon-cyan-text)]">
+                      </td>
+
+                      <td className={cn(TD_MONO, 'font-semibold text-[var(--icon-cyan-text)]')}>
                         {attendance.attendanceNumber}
-                      </p>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <p className="text-sm text-[var(--text-primary)]">
+                      </td>
+
+                      <td className={TD}>
                         {formatDate(attendance.dateTime || attendance.createdAt)}
-                      </p>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 text-xs">
-                        <Hospital className="w-3 h-3 text-[var(--icon-cyan-text)]" />
-                        {getAttendanceTypeLabel(attendance.attendanceType)}
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        {getPaymentModeIcon(attendance.paymentMode)}
-                        <span className="font-medium">{getPaymentModeLabel(attendance.paymentMode)}</span>
-                        {totalBill > 0 && (
-                          <span className="text-[var(--icon-green-text)] font-bold ml-1">
-                            GHS {totalBill.toFixed(2)}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(attendance.status)}`}>
-                        {(attendance.status || 'pending').charAt(0).toUpperCase() + (attendance.status || 'pending').slice(1)}
-                      </span>
-                    </td>
-                    
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to={`/dashboard/attendance/${attendanceId}`}
-                          className="p-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-colors duration-200"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
-                        {canEdit && (
-                          <button
-                            onClick={() => handleEditAttendance(attendance)}
-                            className="p-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white transition-colors duration-200"
-                            title="Edit Attendance"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        )}
-                        {canDelete && (
-                          <button
-                            onClick={() => setDeleteConfirm(attendanceId)}
-                            className="p-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-colors duration-200"
-                            title="Delete Attendance"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      </td>
 
-      {/* Pagination */}
-      {filteredAttendances.length > 0 && totalPages > 1 && (
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="text-sm text-[var(--text-secondary)]">
-              Showing {startIndex + 1} to {Math.min(startIndex + itemsPerPage, filteredAttendances.length)} of{' '}
-              {filteredAttendances.length} attendance records
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => goToPage(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                let pageNum;
-                if (totalPages <= 5) {
-                  pageNum = i + 1;
-                } else if (currentPage <= 3) {
-                  pageNum = i + 1;
-                } else if (currentPage >= totalPages - 2) {
-                  pageNum = totalPages - 4 + i;
-                } else {
-                  pageNum = currentPage - 2 + i;
-                }
+                      <td className={TD}>
+                        <span className="inline-flex items-center gap-1 text-xs">
+                          <Hospital className="w-3 h-3 text-[var(--icon-cyan-text)]" />
+                          {getAttendanceTypeLabel(attendance.attendanceType)}
+                        </span>
+                      </td>
 
-                return (
-                  <button
-                    key={pageNum}
-                    onClick={() => goToPage(pageNum)}
-                    className={`w-8 h-8 rounded-lg text-sm font-medium transition-colors ${
-                      currentPage === pageNum
-                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] shadow-sm'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-main)] hover:text-[var(--text-primary)]'
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                );
-              })}
+                      <td className={cn(TD, 'whitespace-normal')}>
+                        <div className="flex items-center gap-1.5 text-xs">
+                          {getPaymentModeIcon(attendance.paymentMode)}
+                          <span className="font-medium">{getPaymentModeLabel(attendance.paymentMode)}</span>
+                          {totalBill > 0 && (
+                            <span className="text-[var(--icon-green-text)] font-bold ml-1">
+                              GHS {totalBill.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
 
-              <button
-                onClick={() => goToPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="p-2 border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-[var(--text-primary)]"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+                      <td className={TD}>
+                        <Badge tone={statusTone(attendance.status || 'pending')} dot size="sm">
+                          {humanStatus(attendance.status || 'pending')}
+                        </Badge>
+                      </td>
+
+                      <td className={TD}>
+                        <div className="flex items-center gap-1.5">
+                          <LinkButton
+                            size="sm"
+                            variant="soft"
+                            accent="cyan"
+                            iconOnly
+                            icon={Eye}
+                            aria-label="View Details"
+                            to={`/dashboard/attendance/${attendanceId}`}
+                          />
+                          {canEdit && (
+                            <Button
+                              size="sm"
+                              variant="soft"
+                              accent="yellow"
+                              iconOnly
+                              icon={Edit}
+                              aria-label="Edit Attendance"
+                              onClick={() => handleEditAttendance(attendance)}
+                            />
+                          )}
+                          {canDelete && (
+                            <Button
+                              size="sm"
+                              variant="dangerSoft"
+                              iconOnly
+                              icon={Trash2}
+                              aria-label="Delete Attendance"
+                              onClick={() => setDeleteConfirm(attendanceId)}
+                            />
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}
+
+      <Pagination
+        page={currentPage}
+        totalPages={totalPages}
+        itemsPerPage={itemsPerPage}
+        totalItems={filteredAttendances.length}
+        noun="attendances"
+        onChange={goToPage}
+      />
 
       {/* Edit Modal */}
       {editModalOpen && selectedAttendance && (

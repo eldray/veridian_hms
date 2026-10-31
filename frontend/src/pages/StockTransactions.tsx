@@ -2,10 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useStockStore } from '../store/stockStore';
 import { useToast } from '../store/toastStore';
-import { 
-  Search, 
+import {
   RefreshCw,
-  ArrowLeft,
   Filter,
   Download,
   TrendingUp,
@@ -14,13 +12,29 @@ import {
   FileText,
   ClipboardList,
   X,
-  ChevronLeft,
-  ChevronRight,
   Calendar,
-  Tag,
-  User
+  User,
+  type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Badge,
+  Button,
+  cn,
+  FilterSelect,
+  INPUT,
+  PageHeader,
+  Pagination,
+  SearchInput,
+  StatCard,
+  TABLE_SHELL,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
+  type BadgeTone,
+} from '../components/ui';
 
 export default function StockTransactions() {
   const {
@@ -129,80 +143,24 @@ export default function StockTransactions() {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
-  const getTransactionTypeConfig = (type: string) => {
+  const getTransactionTypeConfig = (type: string): { accent: BadgeTone; label: string; icon: LucideIcon; direction: string } => {
     switch (type) {
-      case 'purchase': 
-        return { 
-          bg: 'bg-[var(--icon-green-bg)]', 
-          text: 'text-[var(--icon-green-text)]', 
-          border: 'border-[var(--icon-green-text)]',
-          label: 'Purchase',
-          icon: TrendingUp,
-          direction: 'in'
-        };
+      case 'purchase':
+        return { accent: 'green', label: 'Purchase', icon: TrendingUp, direction: 'in' };
       case 'sale':
-        return { 
-          bg: 'bg-[var(--icon-red-bg)]', 
-          text: 'text-[var(--icon-red-text)]', 
-          border: 'border-[var(--icon-red-text)]',
-          label: 'Sale',
-          icon: TrendingDown,
-          direction: 'out'
-        };
+        return { accent: 'red', label: 'Sale', icon: TrendingDown, direction: 'out' };
       case 'requisition':
-        return { 
-          bg: 'bg-[var(--icon-purple-bg)]', 
-          text: 'text-[var(--icon-purple-text)]', 
-          border: 'border-[var(--icon-purple-text)]',
-          label: 'Requisition',
-          icon: ClipboardList,
-          direction: 'out'
-        };
+        return { accent: 'purple', label: 'Requisition', icon: ClipboardList, direction: 'out' };
       case 'transfer_in':
-        return {
-          bg: 'bg-[var(--icon-green-bg)]',
-          text: 'text-[var(--icon-green-text)]',
-          border: 'border-[var(--icon-green-text)]',
-          label: 'Transfer In',
-          icon: TrendingUp,
-          direction: 'in'
-        };
+        return { accent: 'green', label: 'Transfer In', icon: TrendingUp, direction: 'in' };
       case 'transfer_out':
-        return {
-          bg: 'bg-[var(--icon-purple-bg)]',
-          text: 'text-[var(--icon-purple-text)]',
-          border: 'border-[var(--icon-purple-text)]',
-          label: 'Transfer Out',
-          icon: TrendingDown,
-          direction: 'out'
-        };
+        return { accent: 'purple', label: 'Transfer Out', icon: TrendingDown, direction: 'out' };
       case 'write_off':
-        return {
-          bg: 'bg-[var(--icon-red-bg)]',
-          text: 'text-[var(--icon-red-text)]',
-          border: 'border-[var(--icon-red-text)]',
-          label: 'Write-off',
-          icon: TrendingDown,
-          direction: 'out'
-        };
+        return { accent: 'red', label: 'Write-off', icon: TrendingDown, direction: 'out' };
       case 'adjustment':
-        return { 
-          bg: 'bg-[var(--icon-yellow-bg)]', 
-          text: 'text-[var(--icon-yellow-text)]', 
-          border: 'border-[var(--icon-yellow-text)]',
-          label: 'Adjustment',
-          icon: Package,
-          direction: 'adjust'
-        };
+        return { accent: 'yellow', label: 'Adjustment', icon: Package, direction: 'adjust' };
       default:
-        return { 
-          bg: 'bg-[var(--bg-main)]', 
-          text: 'text-[var(--text-secondary)]', 
-          border: 'border-[var(--border-color)]',
-          label: type,
-          icon: Package,
-          direction: 'unknown'
-        };
+        return { accent: 'neutral', label: type, icon: Package, direction: 'unknown' };
     }
   };
 
@@ -210,7 +168,7 @@ export default function StockTransactions() {
     setExporting(true);
     try {
       const headers = ['Date', 'Item', 'Type', 'Quantity', 'Reference', 'Balance After', 'Performed By', 'Notes'];
-      const csvData = filteredTransactions.map(t => [
+      const csvData = filteredTransactions.map((t: any) => [
         new Date(t.transactionDate).toLocaleString(),
         t.StockItem?.name || getStockItemName(t.stockItemId),
         t.transactionType,
@@ -275,140 +233,49 @@ export default function StockTransactions() {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5 text-[var(--text-secondary)]" />
-          </button>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Stock Transactions</h1>
-            <p className="text-sm text-[var(--text-secondary)] mt-0.5">
-              Track all stock movements and inventory changes
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={loadTransactions}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all text-sm font-medium"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          <button
-            onClick={exportToCSV}
-            disabled={exporting || filteredTransactions.length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium"
-          >
-            <Download className="w-4 h-4" />
-            {exporting ? 'Exporting...' : 'Export CSV'}
-          </button>
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all text-sm font-medium ${
-              showFilters 
-                ? 'bg-[var(--icon-cyan-text)] text-white' 
-                : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white'
-            }`}
-          >
-            <Filter className="w-4 h-4" />
-            Filters
-            {Object.values(filters).some(f => f) && (
-              <span className="ml-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            )}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Stock Transactions"
+        subtitle="Track all stock movements and inventory changes"
+        icon={FileText}
+        accent="blue"
+        onBack={() => navigate(-1)}
+        actions={(
+          <>
+            <Button variant="secondary" icon={RefreshCw} loading={isLoading} onClick={() => loadTransactions(filters)}>
+              Refresh
+            </Button>
+            <Button
+              variant="soft"
+              accent="green"
+              icon={Download}
+              disabled={exporting || filteredTransactions.length === 0}
+              onClick={exportToCSV}
+            >
+              {exporting ? 'Exporting...' : 'Export CSV'}
+            </Button>
+            <Button
+              variant={showFilters ? 'primary' : 'soft'}
+              accent="cyan"
+              icon={Filter}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filters
+              {Object.values(filters).some(f => f) && (
+                <span className="ml-1 w-2 h-2 rounded-full bg-[var(--icon-red-text)]" />
+              )}
+            </Button>
+          </>
+        )}
+      />
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Stock In</p>
-              <p className="text-xl font-bold text-[var(--icon-green-text)]">
-                {summaryStats.totalIncoming}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center">
-              <TrendingDown className="w-5 h-5 text-[var(--icon-red-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Stock Out</p>
-              <p className="text-xl font-bold text-[var(--icon-red-text)]">
-                {summaryStats.totalOutgoing}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Purchases</p>
-              <p className="text-xl font-bold text-[var(--icon-cyan-text)]">
-                {summaryStats.purchases}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
-              <ClipboardList className="w-5 h-5 text-[var(--icon-purple-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Requisitions</p>
-              <p className="text-xl font-bold text-[var(--icon-purple-text)]">
-                {summaryStats.requisitions}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center">
-              <Package className="w-5 h-5 text-[var(--icon-yellow-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Adjustments</p>
-              <p className="text-xl font-bold text-[var(--icon-yellow-text)]">
-                {summaryStats.adjustments}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-[var(--icon-blue-bg)] rounded-lg flex items-center justify-center">
-              <Calendar className="w-5 h-5 text-[var(--icon-blue-text)]" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--text-secondary)]">Total</p>
-              <p className="text-xl font-bold text-[var(--icon-blue-text)]">
-                {summaryStats.totalTransactions}
-              </p>
-            </div>
-          </div>
-        </div>
+        <StatCard label="Stock In" value={summaryStats.totalIncoming} icon={TrendingUp} accent="green" />
+        <StatCard label="Stock Out" value={summaryStats.totalOutgoing} icon={TrendingDown} accent="red" />
+        <StatCard label="Purchases" value={summaryStats.purchases} icon={FileText} accent="cyan" />
+        <StatCard label="Requisitions" value={summaryStats.requisitions} icon={ClipboardList} accent="purple" />
+        <StatCard label="Adjustments" value={summaryStats.adjustments} icon={Package} accent="yellow" />
+        <StatCard label="Total" value={summaryStats.totalTransactions} icon={Calendar} accent="blue" />
       </div>
 
       {/* Filters Panel */}
@@ -419,31 +286,27 @@ export default function StockTransactions() {
               <Filter className="w-4 h-4" />
               Filter Transactions
             </h3>
-            <button
-              onClick={() => setShowFilters(false)}
-              className="p-1 rounded-lg hover:bg-[var(--bg-main)] transition-colors"
-            >
-              <X className="w-4 h-4 text-[var(--text-secondary)]" />
-            </button>
+            <Button variant="ghost" iconOnly icon={X} aria-label="Close filters" onClick={() => setShowFilters(false)} />
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Transaction Type</label>
-              <select
+              <FilterSelect
                 value={filters.transactionType}
-                onChange={e => handleFilterChange('transactionType', e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="">All Types</option>
-                <option value="purchase">Purchase (Stock In)</option>
-                <option value="sale">Sale (Stock Out)</option>
-                <option value="requisition">Requisition (Stock Out)</option>
-                <option value="transfer_in">Transfer In</option>
-                <option value="transfer_out">Transfer Out</option>
-                <option value="write_off">Write-off</option>
-                <option value="adjustment">Adjustment</option>
-              </select>
+                onChange={v => handleFilterChange('transactionType', v)}
+                className="w-full"
+                options={[
+                  { value: '', label: 'All Types' },
+                  { value: 'purchase', label: 'Purchase (Stock In)' },
+                  { value: 'sale', label: 'Sale (Stock Out)' },
+                  { value: 'requisition', label: 'Requisition (Stock Out)' },
+                  { value: 'transfer_in', label: 'Transfer In' },
+                  { value: 'transfer_out', label: 'Transfer Out' },
+                  { value: 'write_off', label: 'Write-off' },
+                  { value: 'adjustment', label: 'Adjustment' },
+                ]}
+              />
             </div>
             
             <div>
@@ -452,7 +315,7 @@ export default function StockTransactions() {
                 type="date"
                 value={filters.startDate}
                 onChange={e => handleFilterChange('startDate', e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                className={cn(INPUT, 'w-full')}
               />
             </div>
             
@@ -462,37 +325,30 @@ export default function StockTransactions() {
                 type="date"
                 value={filters.endDate}
                 onChange={e => handleFilterChange('endDate', e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
+                className={cn(INPUT, 'w-full')}
               />
             </div>
             
             <div>
               <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Stock Item</label>
-              <select
+              <FilterSelect
                 value={filters.stockItemId}
-                onChange={e => handleFilterChange('stockItemId', e.target.value)}
-                className="w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="">All Items</option>
-                {stockItems.map(item => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
+                onChange={v => handleFilterChange('stockItemId', v)}
+                className="w-full"
+                options={[
+                  { value: '', label: 'All Items' },
+                  ...stockItems.map(item => ({ value: item.id, label: item.name })),
+                ]}
+              />
             </div>
             
             <div className="flex items-end gap-2">
-              <button
-                onClick={applyFilters}
-                className="flex-1 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-              >
+              <Button variant="soft" accent="cyan" className="flex-1" onClick={applyFilters}>
                 Apply
-              </button>
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
-              >
+              </Button>
+              <Button variant="secondary" onClick={clearFilters}>
                 Clear
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -500,46 +356,34 @@ export default function StockTransactions() {
 
       {/* Search and Items Per Page */}
       <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by item name, reference, or notes..."
-            value={searchTerm}
-            onChange={e => {
-              setSearchTerm(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-          />
-        </div>
-        
+        <SearchInput
+          value={searchTerm}
+          onChange={(v) => {
+            setSearchTerm(v);
+            setCurrentPage(1);
+          }}
+          placeholder="Search by item name, reference, or notes..."
+        />
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-[var(--text-secondary)]">Show:</span>
-          <select
-            value={itemsPerPage}
-            onChange={(e) => {
-              setItemsPerPage(Number(e.target.value));
+          <FilterSelect
+            value={String(itemsPerPage)}
+            onChange={(v) => {
+              setItemsPerPage(Number(v));
               setCurrentPage(1);
             }}
-            className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-          >
-            <option value={10}>10</option>
-            <option value={15}>15</option>
-            <option value={25}>25</option>
-            <option value={50}>50</option>
-            <option value={100}>100</option>
-          </select>
+            options={[
+              { value: '10', label: '10' },
+              { value: '15', label: '15' },
+              { value: '25', label: '25' },
+              { value: '50', label: '50' },
+              { value: '100', label: '100' },
+            ]}
+          />
           <span className="text-sm text-[var(--text-secondary)]">per page</span>
         </div>
       </div>
-
-      {/* Results Count */}
-      {filteredTransactions.length > 0 && (
-        <div className="text-sm text-[var(--text-secondary)]">
-          Showing {startIndex + 1} to {Math.min(endIndex, filteredTransactions.length)} of {filteredTransactions.length} transactions
-        </div>
-      )}
 
       {/* Transactions Table */}
       {isLoading ? (
@@ -569,41 +413,37 @@ export default function StockTransactions() {
               : 'No stock transactions have been recorded yet'}
           </p>
           {(Object.values(filters).some(f => f) || searchTerm) && (
-            <button
-              onClick={clearFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium"
-            >
-              <X className="w-4 h-4" />
+            <Button variant="soft" accent="cyan" icon={X} onClick={clearFilters}>
               Clear All Filters
-            </button>
+            </Button>
           )}
         </div>
       ) : (
         <>
-          <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] overflow-hidden">
+          <div className={TABLE_SHELL}>
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <thead className={TH_ROW}>
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Date & Time</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Item</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Quantity</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Reference</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Balance</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] uppercase tracking-wider">Performed By</th>
+                    <th className={TH}>Date &amp; Time</th>
+                    <th className={TH}>Item</th>
+                    <th className={TH}>Type</th>
+                    <th className={cn(TH, 'text-right')}>Quantity</th>
+                    <th className={TH}>Reference</th>
+                    <th className={cn(TH, 'text-right')}>Balance</th>
+                    <th className={TH}>Performed By</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-[var(--border-color)]">
-                  {paginatedTransactions.map(transaction => {
+                <tbody>
+                  {paginatedTransactions.map((transaction: any) => {
                     const config = getTransactionTypeConfig(transaction.transactionType);
                     const IconComponent = config.icon;
                     const itemName = transaction.StockItem?.name || getStockItemName(transaction.stockItemId);
                     const unit = transaction.StockItem?.unitOfMeasure || 'unit';
                     
                     return (
-                      <tr key={transaction.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                        <td className="px-4 py-3">
+                      <tr key={transaction.id} className={TR}>
+                        <td className={TD}>
                           <div className="text-sm text-[var(--text-primary)]">
                             {new Date(transaction.transactionDate).toLocaleDateString()}
                           </div>
@@ -611,7 +451,7 @@ export default function StockTransactions() {
                             {new Date(transaction.transactionDate).toLocaleTimeString()}
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={cn(TD, 'whitespace-normal')}>
                           <div className="flex items-center gap-2">
                             <Package className="w-4 h-4 text-[var(--text-tertiary)]" />
                             <span className="text-sm font-medium text-[var(--text-primary)]">
@@ -624,14 +464,14 @@ export default function StockTransactions() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${config.bg} ${config.text} border ${config.border}`}>
+                        <td className={TD}>
+                          <Badge tone={config.accent} size="sm">
                             <IconComponent className="w-3 h-3" />
                             {config.label}
-                          </span>
+                          </Badge>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
+                        <td className={cn(TD, 'text-right')}>
+                          <div className="flex items-center justify-end gap-1">
                             {config.direction === 'in' ? (
                               <TrendingUp className="w-3 h-3 text-[var(--icon-green-text)]" />
                             ) : config.direction === 'out' ? (
@@ -652,17 +492,15 @@ export default function StockTransactions() {
                             <span className="text-xs text-[var(--text-tertiary)]">{unit}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
-                          <span className="text-sm text-[var(--text-secondary)] font-mono">
-                            {transaction.reference || '—'}
-                          </span>
+                        <td className={cn(TD_MONO, 'text-[var(--text-secondary)]')}>
+                          {transaction.reference || '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={cn(TD, 'text-right')}>
                           <span className="text-sm font-medium text-[var(--text-primary)]">
                             {transaction.balanceAfter} {unit}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                           <div className="flex items-center gap-1">
                             <User className="w-3 h-3 text-[var(--text-tertiary)]" />
                             <span className="text-sm text-[var(--text-secondary)]">
@@ -680,59 +518,14 @@ export default function StockTransactions() {
             </div>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-              <div className="text-sm text-[var(--text-secondary)]">
-                Page {currentPage} of {totalPages}
-              </div>
-              
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handlePageChange(currentPage - 1)}
-                  disabled={currentPage === 1}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) {
-                    pageNum = i + 1;
-                  } else if (currentPage <= 3) {
-                    pageNum = i + 1;
-                  } else if (currentPage >= totalPages - 2) {
-                    pageNum = totalPages - 4 + i;
-                  } else {
-                    pageNum = currentPage - 2 + i;
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`min-w-[36px] h-9 rounded-lg text-sm font-medium transition-all ${
-                        currentPage === pageNum
-                          ? 'bg-[var(--icon-cyan-text)] text-white'
-                          : 'border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
-                
-                <button
-                  onClick={() => handlePageChange(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                  className="p-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            page={currentPage}
+            totalPages={totalPages}
+            itemsPerPage={itemsPerPage}
+            totalItems={filteredTransactions.length}
+            noun="transactions"
+            onChange={handlePageChange}
+          />
         </>
       )}
     </div>

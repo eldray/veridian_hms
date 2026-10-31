@@ -7,15 +7,16 @@ import { useCorporateStore } from '../store/corporateStore';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
-  ArrowLeft,
   Save,
   User,
+  Users,
   CreditCard,
   Info,
   Edit,
   AlertCircle,
   Eye
 } from 'lucide-react';
+import { Button, PageHeader } from '../components/ui';
 import type {
   PaymentMode,
   InsuranceDetails,
@@ -706,81 +707,33 @@ return (
   <div className="space-y-4 p-6">
 
     {/* ── Header ──────────────────────────────────────────────────────── */}
-    <div className="flex items-start justify-between gap-3">
-      <div className="flex items-center gap-3">
-        <button
-          onClick={handleBack}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition-colors"
-          style={{
-            color: 'var(--text-secondary)',
-            borderColor: 'var(--border-color)',
-            background: 'transparent',
-          }}
-          onMouseEnter={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.background =
-              'var(--bg-main)')
-          }
-          onMouseLeave={(e) =>
-            ((e.currentTarget as HTMLButtonElement).style.background =
-              'transparent')
-          }
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          Back
-        </button>
-
-        <div>
-          <h1
-            className="text-base font-medium"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {isEditMode ? 'Update patient' : 'Patient registration'}
-          </h1>
-          <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>
-            {isEditMode && currentPatient
-              ? `Editing: ${currentPatient.surname} ${currentPatient.otherNames}`
-              : saveSuccess
-              ? `Registered: ${formData.surname} ${formData.otherNames}`
-              : 'New outpatient record'}
-          </p>
-        </div>
-      </div>
-
-      {saveSuccess && (
-        <div className="flex gap-2">
-          <button
-            onClick={handleContinueEditing}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border transition-colors"
-            style={{
-              color: 'var(--text-primary)',
-              borderColor: 'var(--border-color)',
-              background: 'transparent',
-            }}
-          >
-            <Edit className="w-3.5 h-3.5" />
+    <PageHeader
+      title={isEditMode ? 'Update patient' : 'Patient registration'}
+      subtitle={
+        isEditMode && currentPatient
+          ? `Editing: ${currentPatient.surname} ${currentPatient.otherNames}`
+          : saveSuccess
+          ? `Registered: ${formData.surname} ${formData.otherNames}`
+          : 'New outpatient record'
+      }
+      icon={Users}
+      accent="cyan"
+      onBack={handleBack}
+      actions={saveSuccess ? (
+        <>
+          <Button size="sm" icon={Edit} onClick={handleContinueEditing}>
             Continue editing
-          </button>
-          <button
-            onClick={handleViewDetails}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium rounded-lg border-0 text-white transition-opacity hover:opacity-90"
-            style={{ background: 'var(--icon-green-text)' }}
-          >
-            <Eye className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="sm" variant="soft" accent="green" icon={Eye} onClick={handleViewDetails}>
             View patient
-          </button>
-        </div>
-      )}
-    </div>
+          </Button>
+        </>
+      ) : undefined}
+    />
 
     {/* ── Success banner ───────────────────────────────────────────────── */}
     {saveSuccess && (
-      <div
-        className="flex items-center gap-3 px-4 py-3.5 rounded-xl border"
-        style={{
-          background: 'var(--icon-green-bg)',
-          borderColor: 'var(--border-color)',
-        }}
-      >
+      <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl border border-[var(--border-color)] bg-[var(--icon-green-bg)]">
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ background: 'var(--icon-green-text)' + '33' }}
@@ -804,21 +757,9 @@ return (
     )}
 
     {/* ── Form card ───────────────────────────────────────────────────── */}
-    <div
-      className="rounded-xl overflow-hidden border"
-      style={{
-        background: 'var(--bg-card)',
-        borderColor: 'var(--border-color)',
-      }}
-    >
+    <div className="rounded-xl overflow-hidden border border-[var(--border-color)] bg-[var(--bg-card)]">
       {/* Tab bar */}
-      <div
-        className="flex gap-1.5 px-3 py-2.5 border-b"
-        style={{
-          background: 'var(--bg-main)',
-          borderColor: 'var(--border-color)',
-        }}
-      >
+      <div className="flex gap-1.5 px-3 py-2.5 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
         {tabs.map((tab, idx) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -922,24 +863,17 @@ return (
       </div>
 
       {/* ── Action bar ──────────────────────────────────────────────────── */}
-      <div
-        className="flex items-center gap-3 px-5 py-3.5 border-t"
-        style={{
-          background: 'var(--bg-main)',
-          borderColor: 'var(--border-color)',
-        }}
-      >
+      <div className="flex items-center gap-3 px-5 py-3.5 border-t border-[var(--border-color)] bg-[var(--bg-main)]">
         {/* Basic tab actions */}
         {activeTab === 'basic' && (
           <>
-            <button
+            <Button
               type="submit"
-              onClick={handleBasicInfoSubmit}
+              variant="primary"
+              icon={Save}
               disabled={isSubmitting || isUploadingImage}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-              style={{ background: 'var(--icon-cyan-text)' }}
+              onClick={handleBasicInfoSubmit}
             >
-              <Save className="w-4 h-4" />
               {isUploadingImage
                 ? 'Uploading…'
                 : isSubmitting
@@ -947,63 +881,49 @@ return (
                 : isEditMode
                 ? 'Update patient'
                 : 'Register patient'}
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
               onClick={handleBack}
               disabled={isSubmitting || isUploadingImage}
-              className="px-5 py-2.5 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50"
-              style={{
-                color: 'var(--text-secondary)',
-                borderColor: 'var(--border-color)',
-                background: 'transparent',
-              }}
             >
               Cancel
-            </button>
+            </Button>
           </>
         )}
 
         {/* Payment tab actions */}
         {activeTab === 'payment' && (savedPatientId || isEditMode) && (
-          <button
+          <Button
             type="button"
-            onClick={handleSavePaymentMode}
+            variant="primary"
+            icon={Save}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
-            style={{ background: 'var(--icon-cyan-text)' }}
+            onClick={handleSavePaymentMode}
           >
-            <Save className="w-4 h-4" />
             Save payment mode
-          </button>
+          </Button>
         )}
 
         {/* Additional tab actions */}
         {activeTab === 'additional' && (savedPatientId || isEditMode) && (
-          <button
+          <Button
             type="button"
-            onClick={handleSaveAdditionalInfo}
+            variant="soft"
+            accent="green"
+            icon={Save}
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-opacity disabled:opacity-50 hover:opacity-90"
-            style={{ background: 'var(--icon-green-text)' }}
+            onClick={handleSaveAdditionalInfo}
           >
-            <Save className="w-4 h-4" />
             Save additional info
-          </button>
+          </Button>
         )}
 
         {/* Guard — tabs 2 & 3 before basic info is saved */}
         {(activeTab === 'payment' || activeTab === 'additional') &&
           !savedPatientId &&
           !isEditMode && (
-            <div
-              className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs border"
-              style={{
-                background: 'var(--icon-yellow-bg)',
-                borderColor: 'var(--border-color)',
-                color: 'var(--icon-yellow-text)',
-              }}
-            >
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs text-[var(--icon-yellow-text)] border border-[var(--border-color)] bg-[var(--icon-yellow-bg)]">
               <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
               Complete and save basic information first.
             </div>

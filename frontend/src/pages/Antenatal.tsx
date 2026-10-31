@@ -1790,12 +1790,10 @@ useEffect(() => {
           </div>
 
           {/* RIGHT SIDEBAR */}
-          <div className="w-64 xl:w-72 flex-shrink-0">
+          <div className="w-64 xl:w-72 flex-shrink-0 sticky top-20">
             <div
               className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col"
               style={{
-                position: 'sticky',
-                top: '80px',
                 height: 'calc(100vh - 100px)',
                 boxShadow: 'var(--shadow-sm)',
               }}
@@ -1807,7 +1805,7 @@ useEffect(() => {
               </div>
 
               <div
-                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
                 style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
               >
                 {physicianNotes.length > 0 ? (
@@ -1851,7 +1849,7 @@ useEffect(() => {
               </div>
 
               <div
-                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-main)]"
+                className="overflow-y-auto p-3 space-y-2 bg-[var(--bg-card)]"
                 style={{ flex: '1 1 0', minHeight: 0, scrollbarWidth: 'thin' }}
               >
                 {treatmentNotes.length > 0 ? (
