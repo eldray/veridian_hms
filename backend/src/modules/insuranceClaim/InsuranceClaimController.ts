@@ -207,6 +207,7 @@ export class InsuranceClaimController extends BaseController {
           Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
           Attendance: { select: { attendanceNumber: true, dateTime: true } },
           trackingEvents: { orderBy: { createdAt: 'asc' } },
+          items: { select: { itemCategory: true, lineTotal: true } },
         },
       }),
       prisma.insuranceClaim.count({ where }),
@@ -215,7 +216,15 @@ export class InsuranceClaimController extends BaseController {
       const paid = claim.trackingEvents
         .filter((event: any) => event.eventType === 'payment')
         .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
-      return { ...claim, tracking: {
+      const itemTotals = (claim.items || []).reduce((totals: any, item: any) => {
+        const amount = Number(item.lineTotal || 0);
+        if (item.itemCategory === 'gdrg') totals.gdrg += amount;
+        else if (item.itemCategory === 'medicine') totals.medications += amount;
+        else if (item.itemCategory === 'investigation') totals.labs += amount;
+        else if (['service', 'procedure'].includes(item.itemCategory)) totals.services += amount;
+        return totals;
+      }, { gdrg: 0, medications: 0, labs: 0, services: 0 });
+      return { ...claim, itemTotals, tracking: {
         totalPaid: paid,
         outstanding: Math.max(0, Number(claim.totalClaimAmount) - paid),
         latestStatus: paid >= Number(claim.totalClaimAmount) && paid > 0
