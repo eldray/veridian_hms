@@ -253,7 +253,14 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
 
   const totals = periodClaims?.totals ?? null;
   const claimsPages = Math.max(1, periodClaims?.pagination?.pages ?? 1);
-  const rows = useMemo(() => periodClaims?.rows ?? [], [periodClaims]);
+  const rows = useMemo(() => {
+    const source = [...(periodClaims?.rows ?? [])];
+    if (filterType === 'nhis') return source;
+    return source.sort((a, b) =>
+      (filterType === 'corporate' ? a.corporateAccount : a.provider ?? '')
+        .localeCompare(filterType === 'corporate' ? b.corporateAccount : b.provider ?? '')
+    );
+  }, [periodClaims, filterType]);
 
   const providerOptions = useMemo(
     () => providers.filter((p: any) => p.type === formType && p.isActive !== false),
@@ -595,11 +602,17 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                     <th className={TH}>Payer</th>
                     <th className={TH}>Status</th>
                     <th className={TH}>Batch</th>
-                    <th className={cn(TH, 'text-right')}>Amount</th>
+                    <th className={cn(TH, 'text-right')}>{filterType === 'nhis' ? 'GDRG / medications / total' : 'Services / labs / medications / total'}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((c: PeriodClaimRow) => (
+                  {rows.map((c: PeriodClaimRow, index: number) => {
+                    const payer = filterType === 'corporate' ? (c.corporateAccount || 'Unassigned company') : (c.provider || 'Unassigned provider');
+                    const previous = rows[index - 1];
+                    const previousPayer = filterType === 'corporate' ? (previous?.corporateAccount || 'Unassigned company') : (previous?.provider || 'Unassigned provider');
+                    return (
+                    <>
+                    {filterType !== 'nhis' && payer !== previousPayer && <tr key={`payer-${payer}`} className="bg-[var(--bg-subtle)]"><td colSpan={7} className="px-4 py-2 font-semibold">{payer}</td></tr>}
                     <tr key={c.claimId} className={TR}>
                       <td className={cn(TD_MONO, 'text-xs')}>
                         <Link
@@ -645,9 +658,17 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                           <span className="text-[var(--text-tertiary)]">not batched</span>
                         )}
                       </td>
-                      <td className={cn(TD, 'text-right font-medium')}>{money(c.amount)}</td>
+                      <td className={cn(TD, 'text-right')}>
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          {filterType === 'nhis'
+                            ? `GDRG ${money(c.itemTotals?.gdrg)} · Meds ${money(c.itemTotals?.medications)}`
+                            : `Svc ${money(c.itemTotals?.services)} · Labs ${money(c.itemTotals?.labs)} · Meds ${money(c.itemTotals?.medications)}`}
+                        </div>
+                        <div className="font-semibold">{money(c.amount)}</div>
+                      </td>
                     </tr>
-                  ))}
+                    </>
+                  );})}
                 </tbody>
                 <tfoot>
                   <tr className="border-t border-[var(--border-color)] bg-[var(--bg-main)]">
