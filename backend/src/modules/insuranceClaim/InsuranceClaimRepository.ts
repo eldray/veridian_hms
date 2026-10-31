@@ -416,7 +416,11 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       // the month summary remains correct when the claims table is paginated.
       this.prisma.insuranceClaim.findMany({
         where,
-        select: { items: { select: { itemCategory: true, lineTotal: true } } },
+        select: {
+          items: { select: { itemCategory: true, lineTotal: true } },
+          CorporateAccount: { select: { companyName: true } },
+          InsuranceProvider: { select: { name: true, type: true } },
+        },
       }),
     ]);
 
