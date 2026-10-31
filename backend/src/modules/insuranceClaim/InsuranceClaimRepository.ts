@@ -383,7 +383,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       ? this.batchableWhere(type, periodYear, periodMonth)
       : { status: 'finalized', batchId: null, Attendance: { dateTime: range } };
 
-    const [rows, total, summed, byStatus, batchable] = await Promise.all([
+    const [rows, total, summed, byStatus, batchable, categoryClaims] = await Promise.all([
       this.prisma.insuranceClaim.findMany({
         where,
         include: {
@@ -392,6 +392,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
           InsuranceProvider: { select: { name: true, type: true } },
           CorporateAccount: { select: { companyName: true } },
           batch: { select: { id: true, batchNumber: true, status: true } },
+          items: { select: { itemCategory: true, lineTotal: true } },
         },
         orderBy: { Attendance: { dateTime: 'asc' } },
         skip,
@@ -410,6 +411,12 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         _count: { _all: true },
         _sum: { totalClaimAmount: true },
       }),
+      // Read item lines across the complete month, not just the visible page, so
+      // the month summary remains correct when the claims table is paginated.
+      this.prisma.insuranceClaim.findMany({
+        where,
+        select: { items: { select: { itemCategory: true, lineTotal: true } } },
+      }),
     ]);
 
     const statusTotals: Record<string, { count: number; amount: number }> = {
@@ -423,12 +430,33 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       };
     }
 
+    const categoryTotals = { gdrg: 0, medications: 0, labs: 0, services: 0 };
+    const getItemTotals = (items: any[]) => {
+      const result = { ...categoryTotals };
+      for (const item of items ?? []) {
+        const amount = Number(item.lineTotal ?? 0);
+        if (item.itemCategory === 'gdrg') result.gdrg += amount;
+        else if (item.itemCategory === 'medicine') result.medications += amount;
+        else if (item.itemCategory === 'investigation') result.labs += amount;
+        else if (item.itemCategory === 'service' || item.itemCategory === 'procedure') result.services += amount;
+      }
+      return Object.fromEntries(Object.entries(result).map(([key, value]) => [key, money(value)]));
+    };
+    for (const claim of categoryClaims) {
+      const itemTotals = getItemTotals(claim.items) as Record<string, number>;
+      categoryTotals.gdrg += Number(itemTotals.gdrg || 0);
+      categoryTotals.medications += Number(itemTotals.medications || 0);
+      categoryTotals.labs += Number(itemTotals.labs || 0);
+      categoryTotals.services += Number(itemTotals.services || 0);
+    }
+
     return {
       data: rows.map((c: any) => ({
         claimId: c.id,
         claimNumber: c.claimNumber,
         status: c.status,
         amount: money(c.totalClaimAmount),
+        itemTotals: getItemTotals(c.items),
         visitDate: c.Attendance?.dateTime ?? null,
         attendanceNumber: c.Attendance?.attendanceNumber ?? null,
         folderNumber: c.Patient?.folderNumber ?? null,
@@ -444,6 +472,10 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       totals: {
         claims: total,
         amount: money(summed._sum.totalClaimAmount),
+        gdrg: money(categoryTotals.gdrg),
+        medications: money(categoryTotals.medications),
+        labs: money(categoryTotals.labs),
+        services: money(categoryTotals.services),
         byStatus: statusTotals,
         batchable: { count: batchable._count._all, amount: money(batchable._sum.totalClaimAmount) },
       },
