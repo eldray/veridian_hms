@@ -22,6 +22,7 @@ type ClaimRow = {
   patient?: { folderNumber?: string; surname?: string; otherNames?: string };
   attendance?: { attendanceNumber?: string; dateTime?: string };
   trackingEvents: TrackingEvent[];
+  itemTotals?: { gdrg: number; medications: number; labs: number; services: number };
   tracking: { totalPaid: number; outstanding: number; latestStatus: string };
 };
 const money = (value: unknown) => new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', maximumFractionDigits: 2 }).format(Number(value || 0));
@@ -142,15 +143,15 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
         claims.length === 0 ? <div className="py-16 text-center"><AlertCircle size={28} className="mx-auto text-[var(--text-tertiary)] mb-2" /><p className="font-medium text-[var(--text-primary)]">No finalized claims found</p><p className="text-sm text-[var(--text-secondary)] mt-1">Finalize a claim first; it will appear here for submission and payment tracking.</p></div> :
         <div className="overflow-x-auto"><table className="w-full text-sm text-left">
           <thead className={TH_ROW}><tr>
-            <th className={TH}>Claim</th><th className={TH}>Patient</th><th className={TH}>Folder #</th><th className={TH}>Attendance #</th><th className={TH}>Payer</th><th className={TH}>Claim amount</th><th className={TH}>Paid</th><th className={TH}>Outstanding</th><th className={TH}>Tracking status</th><th className={TH}>Activity</th>
+            <th className={TH}>Claim</th><th className={TH}>Patient</th><th className={TH}>Folder #</th><th className={TH}>Attendance #</th>{family !== 'nhis' && <th className={TH}>Payer / company</th>}<th className={TH}>Claim breakdown</th><th className={TH}>Paid</th><th className={TH}>Outstanding</th><th className={TH}>Tracking status</th><th className={TH}>Activity</th>
           </tr></thead>
           <tbody>{claims.map(claim => <tr key={claim.id} className={TR}>
             <td className={TD}><div className="font-semibold text-[var(--text-primary)]">{claim.claimNumber}</div></td>
             <td className={TD}><div className="text-[var(--text-secondary)]">{[claim.patient?.surname, claim.patient?.otherNames].filter(Boolean).join(' ') || 'Unknown patient'}</div></td>
             <td className={TD_MONO}>{claim.patient?.folderNumber || '—'}</td>
             <td className={TD_MONO}>{claim.attendance?.attendanceNumber || '—'}</td>
-            <td className={TD}><div className="font-medium">{claim.insuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.insuranceProvider?.type)}</div></td>
-            <td className={TD}>{money(claim.totalClaimAmount)}</td>
+            {family !== 'nhis' && <td className={TD}><div className="font-medium">{claim.insuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.insuranceProvider?.type)}</div></td>}
+            <td className={TD}><div className="space-y-0.5 text-xs"><div>GDRG: {money(claim.itemTotals?.gdrg)}</div><div>Services: {money(claim.itemTotals?.services)}</div><div>Labs: {money(claim.itemTotals?.labs)}</div><div>Medications: {money(claim.itemTotals?.medications)}</div><div className="border-t border-[var(--border-color)] pt-1 font-semibold text-sm">Total: {money(claim.totalClaimAmount)}</div></div></td>
             <td className={cn(TD, 'text-[var(--icon-green-text)]')}>{money(claim.tracking?.totalPaid)}</td>
             <td className={cn(TD, 'font-medium')}>{money(claim.tracking?.outstanding)}</td>
             <td className={TD}><Badge dot size="sm" tone={claim.tracking?.latestStatus === 'paid' ? 'green' : claim.tracking?.latestStatus === 'rejected' ? 'red' : 'orange'}>{titleCase(claim.tracking?.latestStatus)}</Badge></td>
@@ -164,7 +165,7 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
         <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
           <div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4"><div><h2 className="text-lg font-bold">Record claim activity</h2><p className="text-sm text-[var(--text-secondary)]">{selected.claimNumber} · {selected.insuranceProvider?.name}</p></div><Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => setSelected(null)} disabled={saving} /></div>
           <div className="p-5">
-            <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg bg-[var(--bg-main)] p-3 text-sm"><div><div className="text-xs text-[var(--text-secondary)]">Claimed</div><strong>{money(selected.totalClaimAmount)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Paid</div><strong className="text-[var(--icon-green-text)]">{money(selected.tracking?.totalPaid)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(selected.tracking?.outstanding)}</strong></div></div>
+            <div className="mb-4 grid grid-cols-2 md:grid-cols-5 gap-2 rounded-lg bg-[var(--bg-main)] p-3 text-sm"><div><div className="text-xs text-[var(--text-secondary)]">GDRG</div><strong>{money(selected.itemTotals?.gdrg)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Services</div><strong>{money(selected.itemTotals?.services)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Labs</div><strong>{money(selected.itemTotals?.labs)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Medications</div><strong>{money(selected.itemTotals?.medications)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Claimed total</div><strong>{money(selected.totalClaimAmount)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Paid</div><strong className="text-[var(--icon-green-text)]">{money(selected.tracking?.totalPaid)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(selected.tracking?.outstanding)}</strong></div></div>
             <form onSubmit={submitEvent} className="space-y-4">
               <Field label="Activity type">
                 <FilterSelect
