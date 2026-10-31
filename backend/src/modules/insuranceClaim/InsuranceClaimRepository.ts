@@ -71,7 +71,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } },
-        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        items: { select: { itemCategory: true, lineTotal: true } }
       }
     });
   }
@@ -509,7 +510,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } },
-        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        items: { select: { itemCategory: true, lineTotal: true } }
       }
     });
   }
@@ -538,7 +540,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         InsuranceProvider: { select: { id: true, name: true, type: true } },
         Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
-        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        items: { select: { itemCategory: true, lineTotal: true } }
       }
     });
   }
@@ -569,7 +572,8 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         CorporateAccount: { select: { id: true, companyName: true } },
         Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } },
         Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, corporateEmployeeId: true } },
-        Bill: { select: { id: true, billNumber: true, totalAmount: true } }
+        Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        items: { select: { itemCategory: true, lineTotal: true } }
       }
     });
   }
