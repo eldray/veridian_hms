@@ -18,14 +18,16 @@ import {
   Calendar,
   Tag,
   CheckCircle,
-  MessageSquare
+  MessageSquare,
+  Printer
 } from 'lucide-react';
 import {
   Button, Card, cn, Field, INPUT, LinkButton, PageHeader, StatCard,
 } from '../components/ui';
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
-import { generateReceipt, downloadDocument } from '../api';
+import { useHospitalStore } from '../store/hospitalStore';
+import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
@@ -52,6 +54,7 @@ export default function ProcessPayment() {
   const { getBill, addPaymentToBill, currentBill, isLoading, getBillingBreakdown } = useBillingStore();
   const { patients, currentPatient, fetchPatient } = usePatientStore();
   const { user, hasRole } = useAuthStore();
+  const { hospital } = useHospitalStore();
   const canProcessPayment = hasRole(['admin', 'accounts', 'records']);
   const { success, error: toastError } = useToast();
 
@@ -106,6 +109,9 @@ export default function ProcessPayment() {
   }, [currentBill]);
 
   const bill = currentBill;
+  // A counter ticket bills a walk-in who is not in the patient register; their name lives
+  // on bill.CounterClient, so the register lookup alone shows "Unknown Patient" for them.
+  const counterClient: any = (bill as any)?.CounterClient || (bill as any)?.counterClient || null;
   const patient = bill
     ? ((bill as any).Patient?.surname
         ? (bill as any).Patient
@@ -202,28 +208,17 @@ export default function ProcessPayment() {
       // Receipt generation is deliberately separate from payment posting: a receipt-template
       // failure must never make a successfully committed payment look unsuccessful.
       const recordedPayment = paymentResult?.payment ?? paymentResult?.data?.payment;
-      if (recordedPayment?.id) {
-        try {
-          const receiptResult: any = await generateReceipt(bill.id, recordedPayment.id);
-          const documentId = receiptResult?.data?.documentId ?? receiptResult?.documentId;
-          if (documentId) {
-            const fileBlob = await downloadDocument(documentId);
-            const blobUrl = URL.createObjectURL(fileBlob);
-            const link = document.createElement('a');
-            link.href = blobUrl;
-            link.download = `receipt_${bill.billNumber || bill.id}_${recordedPayment.id}.pdf`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(blobUrl);
-          } else {
-            toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the receipt document could not be prepared. Please ask an authorised accounts user to generate the payment receipt.');
-          }
-        } catch (receiptError: any) {
-          toastError('Payment recorded; receipt unavailable', receiptError?.message || 'The payment was saved, but the receipt could not be generated.');
-        }
-      } else {
-        toastError('Payment recorded; receipt unavailable', 'The payment was saved, but no payment reference was returned to generate its receipt.');
+      try {
+        printReceipt({
+          id: recordedPayment?.id,
+          amount,
+          paymentMethod,
+          reference: reference || undefined,
+          transactionDate: new Date().toISOString(),
+          User: { fullName: user?.fullName },
+        }, true);
+      } catch {
+        toastError('Payment recorded; receipt unavailable', 'The payment was saved, but the thermal receipt could not be opened for printing.');
       }
       navigate('/dashboard/billing');
     } catch (error: any) {
@@ -249,6 +244,35 @@ export default function ProcessPayment() {
   const getPatientName = (patient: any) => {
     if (!patient) return 'Unknown Patient';
     return patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim() || 'Unknown Patient';
+  };
+
+  // Registered patient wins; otherwise fall back to the counter walk-in name.
+  const payerName = patient
+    ? getPatientName(patient)
+    : (counterClient?.name || 'Counter customer');
+
+  // Latest non-voided payment — drives both the "Print Receipt" button and the Send modal.
+  const latestPayment = (((bill as any)?.Payment || (bill as any)?.payments || []) as any[])
+    .filter((p: any) => !p.isVoided)
+    .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime())[0] || null;
+
+  // Build and open the 80mm thermal receipt for a payment. `autoPrint` opens the print
+  // dialog on load (used right after a payment is recorded); otherwise the operator clicks Print.
+  const printReceipt = (payment: any, autoPrint = false) => {
+    if (!bill) return;
+    const receiptPayment = {
+      amount: payment?.amount ?? 0,
+      paymentMethod: payment?.paymentMethod || payment?.paymentMode || 'cash',
+      receiptNumber: payment?.reference || payment?.receiptNumber || payment?.id,
+      paymentDate: payment?.transactionDate || payment?.paymentDate || new Date().toISOString(),
+      receivedBy: payment?.User?.fullName || payment?.receivedBy || user?.fullName || 'System',
+    };
+    const receiptBill = {
+      ...(bill as any),
+      BillLineItem: (bill as any).BillLineItem || (bill as any).items || billingBreakdown?.items || [],
+    };
+    const html = generatePDF('thermalReceipt', { bill: receiptBill, patient, payment: receiptPayment }, hospital);
+    openPrintWindow(html, `Receipt-${(bill as any).billNumber || bill.id}`, autoPrint);
   };
 
   if (isPageLoading) {
@@ -297,6 +321,17 @@ export default function ProcessPayment() {
             <LinkButton variant="secondary" icon={BarChart3} className="hidden sm:flex" to="/dashboard/billing">
               Billing Dashboard
             </LinkButton>
+            <Button
+              variant="secondary"
+              accent="cyan"
+              icon={Printer}
+              disabled={!latestPayment}
+              onClick={() => latestPayment
+                ? printReceipt(latestPayment, false)
+                : toastError('No payment yet', 'Record a payment before printing a receipt.')}
+            >
+              Print Receipt
+            </Button>
             <Button variant="soft" accent="cyan" icon={MessageSquare} onClick={() => setShowSendReceipt(true)}>
               Send Receipt
             </Button>
@@ -307,16 +342,10 @@ export default function ProcessPayment() {
       <SendDocumentModal
         open={showSendReceipt}
         onClose={() => setShowSendReceipt(false)}
-        patient={patient}
+        patient={patient || (counterClient ? { id: counterClient.id, name: counterClient.name, phone: counterClient.phone, mobile: counterClient.phone } : null)}
         documentType="receipt"
         entityId={bill.id}
-        paymentId={(() => {
-          const payments = ((bill as any).Payment || (bill as any).payments || [])
-            .filter((payment: any) => !payment.isVoided)
-            .slice()
-            .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime());
-          return payments[0]?.id;
-        })()}
+        paymentId={latestPayment?.id}
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -332,11 +361,13 @@ export default function ProcessPayment() {
                   <span className="text-xs font-semibold text-[var(--text-secondary)]">PATIENT</span>
                 </div>
                 <p className="font-bold text-[var(--text-primary)] text-lg">
-                  {getPatientName(patient)}
+                  {payerName}
                 </p>
-                {patient?.folderNumber && (
+                {patient?.folderNumber ? (
                   <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Folder: {patient.folderNumber}</p>
-                )}
+                ) : counterClient ? (
+                  <p className="text-sm text-[var(--icon-cyan-text)] mt-1">Counter customer</p>
+                ) : null}
               </div>
               
               <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">

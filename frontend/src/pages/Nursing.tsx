@@ -25,13 +25,20 @@ import {
 import {
   Button,
   Card,
+  cn,
   FilterSelect,
   PageHeader,
   Pagination,
   SearchInput,
   Segmented,
   StatCard,
+  TABLE_SHELL,
   Tabs,
+  TD,
+  TD_MONO,
+  TH,
+  TH_ROW,
+  TR,
   type TabItem,
 } from '../components/ui';
 
@@ -120,6 +127,40 @@ const VitalPill: React.FC<{ label: string; value?: string | number; unit?: strin
 
 type ViewMode = 'grid' | 'list';
 type CareGroup = 'ipd' | 'daycase' | 'observation';
+
+// Compact per-vital cell for the list table: value only, colored by clinical status.
+const vitalTextCls: Record<'ok' | 'warn' | 'critical' | 'none', string> = {
+  ok: 'text-green-700',
+  warn: 'text-yellow-600',
+  critical: 'text-red-600 font-bold',
+  none: 'text-[var(--text-tertiary)]',
+};
+
+const VitalCell: React.FC<{ value?: string | number; unit?: string; status: 'ok' | 'warn' | 'critical' | 'none' }> = ({
+  value, unit, status,
+}) => (
+  <span className={cn('text-sm tabular-nums', vitalTextCls[status])}>
+    {value ?? '—'}
+    {value != null && unit ? unit : ''}
+  </span>
+);
+
+const CountCell: React.FC<{ n: number; cls: string }> = ({ n, cls }) => (
+  <span className={cn('inline-flex items-center justify-center min-w-[1.5rem] text-sm font-semibold', n > 0 ? cls : 'text-[var(--text-tertiary)]')}>
+    {n > 0 ? n : '—'}
+  </span>
+);
+
+// Admission date comes from the active admission record; fall back to the encounter clock.
+const formatAdmitted = (iso?: string): { date: string; time: string } => {
+  if (!iso) return { date: '—', time: '' };
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return { date: '—', time: '' };
+  return {
+    date: d.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }),
+    time: d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+  };
+};
 
 /** Mirrors PatientTypeBadge: day surgery wins, then observation, then formal IPD. */
 const patientGroup = (attendance: any, admission: any): CareGroup => {
@@ -708,131 +749,127 @@ export default function Nursing() {
           })}
         </div>
       ) : (
-        /* ============ LIST VIEW ============ */
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] shadow-sm overflow-hidden">
-          {/* List header — desktop */}
-          <div className="hidden lg:grid grid-cols-12 gap-4 px-4 py-3 bg-[var(--bg-main)] border-b border-[var(--border-color)] text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-            <div className="col-span-3">Patient</div>
-            <div className="col-span-2">Bed / Ward</div>
-            <div className="col-span-2">Type / Payment</div>
-            <div className="col-span-2">Vitals</div>
-            <div className="col-span-2">Care Alerts</div>
-            <div className="col-span-1 text-right">Open</div>
-          </div>
+        /* ============ LIST VIEW — one field per column ============ */
+        <div className={TABLE_SHELL}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className={TH_ROW}>
+                  <th className={TH}>Patient</th>
+                  <th className={TH}>Folder No.</th>
+                  <th className={TH}>Att. No.</th>
+                  <th className={cn(TH, 'text-center')}>Sex</th>
+                  <th className={cn(TH, 'text-center')}>Age</th>
+                  <th className={TH}>Bed</th>
+                  <th className={TH}>Ward</th>
+                  <th className={TH}>Type</th>
+                  <th className={TH}>Payment</th>
+                  <th className={TH}>Admitted</th>
+                  <th className={cn(TH, 'text-center')}>BP</th>
+                  <th className={cn(TH, 'text-center')}>Pulse</th>
+                  <th className={cn(TH, 'text-center')}>Temp</th>
+                  <th className={cn(TH, 'text-center')}>SpO₂</th>
+                  <th className={cn(TH, 'text-center')}>Alerts</th>
+                  <th className={cn(TH, 'text-center')}>Meds Due</th>
+                  <th className={cn(TH, 'text-center')}>Tasks</th>
+                  <th className={cn(TH, 'text-center')}>
+                    <span className="sr-only">Open</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedInpatients.map((att) => {
+                  const id = getEntityId(att);
+                  const patient = findPatient(att);
+                  const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
+                  const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
+                  const name = patient ? getPatientName(patient) : 'Unknown Patient';
+                  const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
+                  const ward = wards.find((w: any) => w.id === att.wardId);
+                  const age = patient?.dateOfBirth
+                    ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
+                    : null;
+                  const v = badges.vitalsRaw;
+                  const admitted = formatAdmitted(
+                    admission?.admissionDate || admission?.createdAt || att.dateTime || att.createdAt,
+                  );
 
-          <div className="divide-y divide-[var(--border-color)]">
-            {paginatedInpatients.map((att) => {
-              const id = getEntityId(att);
-              const patient = findPatient(att);
-              const admission = admissions.find((a) => a.attendanceId === id && !a.dischargeDate);
-              const badges = patientBadges[id] || { alerts: 0, medsDue: 0, tasksPending: 0 };
-              const name = patient ? getPatientName(patient) : 'Unknown Patient';
-              const bedNumber = beds.find((b: any) => b.id === att.bedId)?.bedNumber;
-              const ward = wards.find((w: any) => w.id === att.wardId);
-              const age = patient?.dateOfBirth
-                ? Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))
-                : null;
-              const v = badges.vitalsRaw;
-
-              return (
-                <button
-                  key={id}
-                  onClick={() => navigate(`/dashboard/nursing/patient/${id}`)}
-                  className="w-full text-left grid grid-cols-1 lg:grid-cols-12 gap-3 lg:gap-4 px-4 py-3.5 hover:bg-teal-50/30 transition-colors group items-center"
-                >
-                  {/* Patient info */}
-                  <div className="lg:col-span-3 flex items-center gap-3 min-w-0">
-                    <div className="relative flex-shrink-0">
-                      <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-teal-100 to-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs border border-teal-200">
-                        {initials(name) || <User className="w-3.5 h-3.5" />}
-                      </div>
-                      {badges.alerts > 0 && (
-                        <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
-                          {badges.alerts}
-                        </span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{name}</p>
-                      <div className="flex items-center gap-2 text-[10px] text-[var(--text-secondary)] mt-0.5">
-                        <span className="font-mono">#{patient?.folderNumber || '—'}</span>
-                        <span className="opacity-40">·</span>
-                        <span className="font-mono">{att.attendanceNumber || '—'}</span>
-                        <span className="opacity-40">·</span>
-                        <span>{patient?.gender === 'male' ? '♂' : patient?.gender === 'female' ? '♀' : '·'}</span>
-                        {age != null && <span>{age}y</span>}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Bed / Ward */}
-                  <div className="lg:col-span-2 flex items-center gap-2 text-xs">
-                    {bedNumber ? (
-                      <span className="inline-flex items-center gap-1 font-semibold text-[var(--text-primary)]">
-                        <Bed className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-                        {bedNumber}
-                      </span>
-                    ) : (
-                      <span className="text-[var(--text-tertiary)] italic text-[11px]">No bed</span>
-                    )}
-                    {ward && (
-                      <span className="text-[var(--text-tertiary)] truncate">
-                        · {ward.wardName}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Type / Payment */}
-                  <div className="lg:col-span-2 flex items-center gap-1.5 flex-wrap">
-                    <PatientTypeBadge attendance={att} admission={admission} />
-                    <PaymentBadge mode={att.paymentMode} />
-                  </div>
-
-                  {/* Vitals */}
-                  <div className="lg:col-span-2 flex items-center gap-1.5 flex-wrap">
-                    {v ? (
-                      <>
-                        <VitalPill label="BP" value={v.bloodPressure} status={getVitalStatus('bp', v.bloodPressure)} />
-                        <VitalPill label="T" value={v.temperature} unit="°" status={getVitalStatus('temp', v.temperature)} />
-                        <VitalPill label="SpO₂" value={v.spo2} unit="%" status={getVitalStatus('spo2', v.spo2)} />
-                      </>
-                    ) : (
-                      <span className="text-[11px] text-[var(--text-tertiary)] italic">
-                        {formatRelativeTime(badges.lastVitals)}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Care alerts */}
-                  <div className="lg:col-span-2 flex items-center gap-3 flex-wrap text-[11px]">
-                    <span className={`inline-flex items-center gap-1 font-medium ${
-                      badges.alerts > 0 ? 'text-red-600' : 'text-[var(--text-tertiary)]'
-                    }`}>
-                      <AlertTriangle className="w-3.5 h-3.5" />
-                      {badges.alerts}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 font-medium ${
-                      badges.medsDue > 0 ? 'text-yellow-600' : 'text-[var(--text-tertiary)]'
-                    }`}>
-                      <Pill className="w-3.5 h-3.5" />
-                      {badges.medsDue}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 font-medium ${
-                      badges.tasksPending > 0 ? 'text-cyan-600' : 'text-[var(--text-tertiary)]'
-                    }`}>
-                      <ClipboardList className="w-3.5 h-3.5" />
-                      {badges.tasksPending}
-                    </span>
-                  </div>
-
-                  {/* Open */}
-                  <div className="lg:col-span-1 flex items-center lg:justify-end gap-2">
-                    <span className="lg:hidden text-xs text-teal-600 font-semibold">Open workspace</span>
-                    <ChevronRight className="w-4 h-4 text-[var(--text-tertiary)] group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </button>
-              );
-            })}
+                  return (
+                    <tr
+                      key={id}
+                      onClick={() => navigate(`/dashboard/nursing/patient/${id}`)}
+                      className={cn(TR, 'cursor-pointer group')}
+                    >
+                      {/* Patient */}
+                      <td className={TD}>
+                        <div className="flex items-center gap-2.5">
+                          <div className="relative flex-shrink-0">
+                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-teal-100 to-teal-50 text-teal-700 flex items-center justify-center font-bold text-xs border border-teal-200">
+                              {initials(name) || <User className="w-3.5 h-3.5" />}
+                            </div>
+                            {badges.alerts > 0 && (
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full flex items-center justify-center text-[9px] font-bold border-2 border-[var(--bg-card)]">
+                                {badges.alerts}
+                              </span>
+                            )}
+                          </div>
+                          <span className="font-semibold text-[var(--text-primary)] whitespace-nowrap">{name}</span>
+                        </div>
+                      </td>
+                      <td className={TD_MONO}>#{patient?.folderNumber || '—'}</td>
+                      <td className={TD_MONO}>{att.attendanceNumber || '—'}</td>
+                      <td className={cn(TD, 'text-center')}>
+                        {patient?.gender === 'male' ? 'M' : patient?.gender === 'female' ? 'F' : '—'}
+                      </td>
+                      <td className={cn(TD, 'text-center tabular-nums')}>{age != null ? age : '—'}</td>
+                      <td className={TD}>
+                        {bedNumber ? (
+                          <span className="inline-flex items-center gap-1 font-semibold text-[var(--text-primary)]">
+                            <Bed className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
+                            {bedNumber}
+                          </span>
+                        ) : (
+                          <span className="text-[var(--text-tertiary)] italic">No bed</span>
+                        )}
+                      </td>
+                      <td className={TD}>{ward?.wardName || '—'}</td>
+                      <td className={TD}><PatientTypeBadge attendance={att} admission={admission} /></td>
+                      <td className={TD}><PaymentBadge mode={att.paymentMode} /></td>
+                      <td className={TD}>
+                        <div className="leading-tight">
+                          <p className="font-medium text-[var(--text-primary)]">{admitted.date}</p>
+                          {admitted.time && <p className="text-[11px] text-[var(--text-tertiary)]">{admitted.time}</p>}
+                        </div>
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <VitalCell value={v?.bloodPressure} status={getVitalStatus('bp', v?.bloodPressure)} />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <VitalCell value={v?.pulse} status={getVitalStatus('pulse', v?.pulse)} />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <VitalCell value={v?.temperature} unit="°" status={getVitalStatus('temp', v?.temperature)} />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <VitalCell value={v?.spo2} unit="%" status={getVitalStatus('spo2', v?.spo2)} />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <CountCell n={badges.alerts} cls="text-red-600" />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <CountCell n={badges.medsDue} cls="text-yellow-600" />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <CountCell n={badges.tasksPending} cls="text-cyan-600" />
+                      </td>
+                      <td className={cn(TD, 'text-center')}>
+                        <ChevronRight className="w-4 h-4 inline text-[var(--text-tertiary)] group-hover:text-teal-600 group-hover:translate-x-0.5 transition-all" />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

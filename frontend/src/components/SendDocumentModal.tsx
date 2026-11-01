@@ -13,7 +13,7 @@ import {
   generateLabResult,
 } from '../api';
 
-export type SendDocType = 'receipt' | 'prescription' | 'lab-result' | 'scan-result' | 'general';
+export type SendDocType = 'receipt' | 'prescription' | 'lab-result' | 'scan-result' | 'referral' | 'general';
 
 interface SendDocumentModalProps {
   open: boolean;
@@ -30,6 +30,7 @@ const DOC_LABEL: Record<SendDocType, string> = {
   prescription: 'Prescription',
   'lab-result': 'Lab Results',
   'scan-result': 'Scan Results',
+  referral: 'Referral Form',
   general: 'Message',
 };
 
@@ -74,6 +75,7 @@ export default function SendDocumentModal({
       prescription: `Dear ${firstName}, your prescription from ${hospitalName} is ready. Please proceed to the pharmacy to collect your medication.`,
       'lab-result': `Dear ${firstName}, your laboratory results from ${hospitalName} are ready. Kindly visit or contact us to collect them.`,
       'scan-result': `Dear ${firstName}, your scan/imaging results from ${hospitalName} are ready. Kindly visit or contact us to collect them.`,
+      referral: `Dear ${firstName}, your referral form from ${hospitalName} is ready. Please carry it with you to the receiving facility.`,
       general: `Dear ${firstName}, you have a message from ${hospitalName}.`,
     };
     setMessage(templates[documentType] || templates.general);

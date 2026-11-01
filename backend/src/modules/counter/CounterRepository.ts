@@ -10,6 +10,34 @@ const TICKET_INCLUDE = {
   User_Attendance_createdByIdToUser: { select: { fullName: true } },
 } as const;
 
+// A ticket that is finished in any way. The same set the service guards writes with.
+const CLOSED_TICKET_STATUSES = ['completed', 'cancelled', 'discharged', 'referred', 'absconded'];
+
+// Attendance has no closedAt column, and nothing edits a ticket once it is completed,
+// so the row's own updatedAt is the moment it closed.
+function startOfToday(): Date {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
+}
+
+/**
+ * The dashboard cards and the list filter share one definition, so a card can never
+ * show a number the list it opens disagrees with.
+ */
+const TICKET_LENS: Record<string, () => any> = {
+  open: () => ({ status: { notIn: CLOSED_TICKET_STATUSES } }),
+  handover: () => ({
+    status: { notIn: CLOSED_TICKET_STATUSES },
+    Medication: { some: { status: 'prescribed' } },
+  }),
+  payment: () => ({
+    status: { notIn: CLOSED_TICKET_STATUSES },
+    Bill: { is: { balance: { gt: 0 }, status: { not: 'cancelled' } } },
+  }),
+  closedToday: () => ({ status: 'completed', updatedAt: { gte: startOfToday() } }),
+};
+
 /**
  * Counter customers and their tickets. The ticket itself is an Attendance, so the
  * orders, results, dispensing and billing rows are written by the existing encounter
@@ -203,14 +231,17 @@ export class CounterRepository extends BaseRepository<any, any, any> {
   async listTickets(filters: {
     query?: string;
     status?: string;
+    lens?: string;
     dateFrom?: Date;
     dateTo?: Date;
     page: number;
     limit: number;
   }) {
-    const { query, status, dateFrom, dateTo, page, limit } = filters;
+    const { query, status, lens, dateFrom, dateTo, page, limit } = filters;
     const where: any = { attendanceType: 'walk_in' };
     if (status) where.status = status;
+    const lensFilter = lens ? TICKET_LENS[lens] : undefined;
+    if (lensFilter) Object.assign(where, lensFilter());
     if (dateFrom || dateTo) {
       where.dateTime = {};
       if (dateFrom) where.dateTime.gte = dateFrom;
@@ -250,6 +281,19 @@ export class CounterRepository extends BaseRepository<any, any, any> {
       this.prisma.attendance.count({ where }),
     ]);
     return { data, total, page, limit, totalPages: Math.ceil(total / limit) };
+  }
+
+  /**
+   * The dashboard's four cards. Each count is the same where-clause the list uses for
+   * that card, so clicking a card returns exactly the tickets it promised.
+   */
+  async summary() {
+    const [open, awaitingHandover, awaitingPayment, closedToday] = await Promise.all(
+      ['open', 'handover', 'payment', 'closedToday'].map((key) =>
+        this.prisma.attendance.count({ where: { attendanceType: 'walk_in', ...TICKET_LENS[key]() } }),
+      ),
+    );
+    return { open, awaitingHandover, awaitingPayment, closedToday };
   }
 
   /**

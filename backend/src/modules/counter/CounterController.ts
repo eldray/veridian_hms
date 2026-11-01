@@ -70,9 +70,9 @@ export class CounterController extends BaseController {
     return this.ok(res, data, 'Item handed over');
   });
 
-  cancelSaleItem = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const data = await this.service.cancelSaleItem(req.params.id, req.params.medicationId);
-    return this.ok(res, data, 'Item removed from the ticket');
+  deleteSaleItem = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const data = await this.service.deleteSaleItem(req.params.id, req.params.medicationId);
+    return this.ok(res, data, 'Item deleted from the ticket');
   });
 
   addLabOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -80,9 +80,9 @@ export class CounterController extends BaseController {
     return this.created(res, data, 'Laboratory test requested');
   });
 
-  removeLabOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const data = await this.service.removeLabOrder(req.params.id, req.params.labTestId);
-    return this.ok(res, data, 'Laboratory order cancelled');
+  deleteLabOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const data = await this.service.deleteLabOrder(req.params.id, req.params.labTestId);
+    return this.ok(res, data, 'Laboratory order deleted');
   });
 
   addScanOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -90,9 +90,9 @@ export class CounterController extends BaseController {
     return this.created(res, data, 'Scan requested');
   });
 
-  removeScanOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const data = await this.service.removeScanOrder(req.params.id, req.params.scanId);
-    return this.ok(res, data, 'Scan order cancelled');
+  deleteScanOrder = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const data = await this.service.deleteScanOrder(req.params.id, req.params.scanId);
+    return this.ok(res, data, 'Scan order deleted');
   });
 
   raiseBill = this.asyncHandler(async (req: AuthRequest, res: Response) => {

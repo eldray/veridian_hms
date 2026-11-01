@@ -113,11 +113,27 @@ export class CounterService extends BaseService {
     }, userId);
   }
 
-  async cancelSaleItem(ticketId: string, medicationId: string) {
+  /**
+   * A walk-in basket line that has not left the shelf is deleted outright — it never
+   * reached the bill, so there is nothing to reverse. Anything that already moved stock
+   * or has a filed result is refused here and belongs to the return/correction workflow.
+   */
+  async deleteSaleItem(ticketId: string, medicationId: string) {
     await this.requireOpenTicket(ticketId);
-    // Only an undispatched basket line may be dropped here. Stock that already left the
-    // shelf needs the documented stock-correction workflow, same as in the pharmacy.
-    return this.encounters.removeMedication(ticketId, medicationId);
+    return this.prisma.$transaction(async (tx) => {
+      const med = await tx.medication.findFirst({
+        where: { id: medicationId, attendanceId: ticketId },
+        select: { id: true, status: true },
+      });
+      if (!med) throw new NotFoundError('Medication', medicationId);
+      if (med.status === 'dispensed' || med.status === 'administered') {
+        throw new ConflictError('This item has already left the shelf; return it through the pharmacy instead of deleting it.');
+      }
+      const claimed = await tx.insuranceClaimItem.count({ where: { medicationId: med.id } });
+      if (claimed > 0) throw new ConflictError('This item is already on a generated claim and cannot be deleted here.');
+      await tx.medication.delete({ where: { id: med.id } }); // doses cascade
+      return { id: med.id, deleted: true };
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async addLabOrder(ticketId: string, data: AddOrderInput, userId: string) {
@@ -130,9 +146,22 @@ export class CounterService extends BaseService {
     } as any, userId);
   }
 
-  async removeLabOrder(ticketId: string, labTestId: string) {
+  async deleteLabOrder(ticketId: string, labTestId: string) {
     await this.requireOpenTicket(ticketId);
-    return this.encounters.removeLabTest(ticketId, labTestId);
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.labTest.findFirst({
+        where: { id: labTestId, attendanceId: ticketId },
+        select: { id: true, status: true },
+      });
+      if (!order) throw new NotFoundError('Laboratory order', labTestId);
+      if (order.status === 'in_progress' || order.status === 'completed') {
+        throw new ConflictError('This order is already with the laboratory; cancel it there, not from the counter.');
+      }
+      const claimed = await tx.insuranceClaimItem.count({ where: { labTestId: order.id } });
+      if (claimed > 0) throw new ConflictError('This order is already on a generated claim and cannot be deleted here.');
+      await tx.labTest.delete({ where: { id: order.id } });
+      return { id: order.id, deleted: true };
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   async addScanOrder(ticketId: string, data: AddOrderInput, userId: string) {
@@ -145,9 +174,22 @@ export class CounterService extends BaseService {
     } as any, userId);
   }
 
-  async removeScanOrder(ticketId: string, scanId: string) {
+  async deleteScanOrder(ticketId: string, scanId: string) {
     await this.requireOpenTicket(ticketId);
-    return this.encounters.removeScan(ticketId, scanId);
+    return this.prisma.$transaction(async (tx) => {
+      const order = await tx.scan.findFirst({
+        where: { id: scanId, attendanceId: ticketId },
+        select: { id: true, status: true },
+      });
+      if (!order) throw new NotFoundError('Scan order', scanId);
+      if (order.status === 'in_progress' || order.status === 'completed') {
+        throw new ConflictError('This order is already with the scan room; cancel it there, not from the counter.');
+      }
+      const claimed = await tx.insuranceClaimItem.count({ where: { scanId: order.id } });
+      if (claimed > 0) throw new ConflictError('This order is already on a generated claim and cannot be deleted here.');
+      await tx.scan.delete({ where: { id: order.id } });
+      return { id: order.id, deleted: true };
+    }, { timeout: 15000, maxWait: 5000 });
   }
 
   /**
@@ -209,7 +251,7 @@ export class CounterService extends BaseService {
       throw new ValidationError(`${outstanding.pendingOrders} lab or scan order(s) have no result yet. Enter the result or cancel the order before closing.`);
     }
     if (outstanding.undispensed > 0) {
-      throw new ValidationError(`${outstanding.undispensed} item(s) have not been handed over yet. Dispense or cancel them before closing.`);
+      throw new ValidationError(`${outstanding.undispensed} item(s) have not been handed over yet. Dispense or delete them before closing.`);
     }
     return this.encounterService.completeEncounter(ticketId, userId);
   }

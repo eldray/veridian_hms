@@ -36,7 +36,7 @@ interface SettingsState {
 
   // Hospital Management
   getHospitalDetails: () => Promise<void>;
-  updateHospitalDetails: (data: Partial<Hospital>) => Promise<Hospital>;
+  updateHospitalDetails: (data: Partial<Hospital> | FormData) => Promise<Hospital>;
   getHospital: () => Promise<void>;
   loadHospitalOnStartup: () => Promise<void>;
   clearHospital: () => void;
@@ -79,7 +79,10 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   getHospitalDetails: async () => {
     set({ isLoading: true, error: null });
     try {
-      const hospital = await getHospitalDetails();
+      // The endpoint answers { success, data }, so unwrap before storing; keeping
+      // the envelope meant the settings form read hospital.name as undefined.
+      const response = await getHospitalDetails();
+      const hospital = ((response as any)?.data ?? response) as Hospital;
       set({ hospital, isLoading: false });
     } catch (error: unknown) {
       console.error('Failed to fetch hospital details:', error);
@@ -91,10 +94,11 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
     }
   },
 
-  updateHospitalDetails: async (data: Partial<Hospital>) => {
+  updateHospitalDetails: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      const hospital = await updateHospitalDetails(data);
+      const response = await updateHospitalDetails(data);
+      const hospital = ((response as any)?.data ?? response) as Hospital;
       set({ hospital, isLoading: false });
       return hospital;
     } catch (error: unknown) {

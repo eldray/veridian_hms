@@ -638,7 +638,8 @@ export default function Appointments() {
                     <th className={TH}>Patient</th>
                     <th className={TH}>Clinician</th>
                     <th className={TH}>Department</th>
-                    <th className={TH}>Date & Time</th>
+                    <th className={TH}>Date</th>
+                    <th className={TH}>Time</th>
                     <th className={TH}>Type</th>
                     <th className={TH}>Status</th>
                     <th className={cn(TH, 'text-center')}>Actions</th>
@@ -672,10 +673,10 @@ export default function Appointments() {
                           <span className="text-sm text-[var(--text-primary)]">{apt.department?.name || '—'}</span>
                         </td>
                         <td className={TD}>
-                          <div className="text-sm">
-                            <p className="font-medium text-[var(--text-primary)]">{new Date(apt.appointmentDate).toLocaleDateString()}</p>
-                            <p className="text-[var(--text-secondary)] text-xs">{apt.appointmentTime}</p>
-                          </div>
+                          <span className="text-sm font-medium text-[var(--text-primary)]">{new Date(apt.appointmentDate).toLocaleDateString()}</span>
+                        </td>
+                        <td className={TD}>
+                          <span className="text-sm text-[var(--text-secondary)]">{apt.appointmentTime}</span>
                         </td>
                         <td className={TD}>
                           {/* Appointment types include pink and teal, which Badge has no tone for, so the tint stays local. */}

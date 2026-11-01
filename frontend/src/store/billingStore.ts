@@ -40,8 +40,15 @@ const parseBillAmounts = (bill: any): Bill => {
     taxAmount: typeof bill.taxAmount === 'string' ? parseFloat(bill.taxAmount) : bill.taxAmount,
     insuranceCovered: typeof bill.insuranceCovered === 'string' ? parseFloat(bill.insuranceCovered) : bill.insuranceCovered,
     patientPayable: typeof bill.patientPayable === 'string' ? parseFloat(bill.patientPayable) : bill.patientPayable,
-    // Parse line items if they exist
-    BillLineItem: bill.BillLineItem?.map((item: any) => ({
+    // API returns the payer relations in lowercase (counterClient, patient) while the
+    // UI reads the PascalCase forms; expose both names so consumers stay consistent.
+    CounterClient: bill.CounterClient || bill.counterClient || null,
+    Patient: bill.Patient || bill.patient || null,
+    // The payments relation arrives as `payment` (singular array) from the API; the
+    // typed Bill contract and every consumer use `payments`.
+    payments: bill.payments || bill.payment || [],
+    // Parse line items if they exist (API sends them as `billLineItem`).
+    BillLineItem: (bill.BillLineItem || bill.billLineItem || []).map((item: any) => ({
       ...item,
       unitPrice: typeof item.unitPrice === 'string' ? parseFloat(item.unitPrice) : item.unitPrice,
       lineTotal: typeof item.lineTotal === 'string' ? parseFloat(item.lineTotal) : item.lineTotal,
@@ -49,7 +56,7 @@ const parseBillAmounts = (bill: any): Bill => {
       insuranceCoveredAmount: typeof item.insuranceCoveredAmount === 'string' ? parseFloat(item.insuranceCoveredAmount) : item.insuranceCoveredAmount,
       patientPayableAmount: typeof item.patientPayableAmount === 'string' ? parseFloat(item.patientPayableAmount) : item.patientPayableAmount,
       discount: typeof item.discount === 'string' ? parseFloat(item.discount) : item.discount,
-    })) || bill.BillLineItem
+    }))
   };
 };
 

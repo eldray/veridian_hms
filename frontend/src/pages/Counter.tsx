@@ -24,7 +24,7 @@ import {
 } from '../api';
 import {
   AlertCircle, AlertTriangle, CheckCircle2, ClipboardList, DollarSign, FlaskConical,
-  Plus, Printer, RefreshCw, Scan, Search, Store, User, UserPlus, X,
+  Plus, Printer, RefreshCw, Scan, Search, Store, Trash2, User, UserPlus, X,
 } from 'lucide-react';
 import {
   Badge,
@@ -80,8 +80,8 @@ const LIST_KEYS = {
  */
 const CLOSED_STATUSES = ['completed', 'cancelled', 'discharged', 'referred', 'absconded'];
 
-/** The orders the encounter repository will still cancel: requested, or in progress but not reported. */
-const CANCELLABLE_ORDER_STATUSES = ['requested', 'in_progress'];
+/** Orders the counter can still delete outright: never started, or already cancelled (to purge). */
+const CANCELLABLE_ORDER_STATUSES = ['requested', 'cancelled'];
 
 const openedByLabel = (ticket: any): string =>
   ticket?.openedBy
@@ -168,7 +168,7 @@ export default function Counter() {
   // these controls from the administrator who can perform every one of them.
   const roleOk = (roles: string[]) => isAdminLike(user?.role) || hasRole(roles);
   const canSell = roleOk(['pharmacist', 'lab_tech', 'sonographer', 'accounts', 'records']);
-  const canDispense = roleOk(['pharmacist']);
+  const canDispense = roleOk(['pharmacist', 'records', 'accounts']);
   const canCancelItem = roleOk(['pharmacist', 'records']);
   const canCancelOrder = roleOk(['pharmacist', 'lab_tech', 'sonographer', 'accounts', 'records']);
   const canTakePayment = canAccessPage(user?.role, 'billing');
@@ -733,7 +733,7 @@ export default function Counter() {
                           </thead>
                           <tbody>
                             {medications.map((med) => {
-                              const cancellable = isOpen && med.status === 'prescribed';
+                              const deletable = isOpen && (med.status === 'prescribed' || med.status === 'cancelled');
                               return (
                                 <tr key={med.id} className={TR}>
                                   <td className={cn(TD, 'whitespace-normal')}>
@@ -763,29 +763,29 @@ export default function Counter() {
                                           Hand over
                                         </Button>
                                       ) : null}
-                                      {cancellable && canCancelItem ? (
+                                      {deletable && canCancelItem ? (
                                         <Button
                                           variant="dangerSoft"
                                           iconOnly
-                                          icon={X}
-                                          aria-label="Cancel line"
-                                          title="Cancel this line"
+                                          icon={Trash2}
+                                          aria-label="Delete line"
+                                          title="Delete this line"
                                           disabled={!!working}
                                           onClick={() => confirmThen(
                                             {
-                                              title: 'Cancel this item?',
-                                              message: `${med.name} has not been handed over, so it is cancelled and never reaches the bill.`,
-                                              confirmText: 'Cancel item',
+                                              title: 'Delete this item?',
+                                              message: `${med.name} has not been handed over, so it is deleted and never reaches the bill.`,
+                                              confirmText: 'Delete item',
                                               type: 'danger',
                                             },
-                                            () => run('Cancel item', () => removeCounterSaleItem(ticket.id, med.id), { failureTitle: 'Item not cancelled', successTitle: 'Item cancelled', successMessage: `${med.name} is off the ticket.` }),
+                                            () => run('Delete item', () => removeCounterSaleItem(ticket.id, med.id), { failureTitle: 'Item not deleted', successTitle: 'Item deleted', successMessage: `${med.name} is off the ticket.` }),
                                           )}
                                         />
                                       ) : null}
                                       {med.status === 'dispensed' || med.status === 'administered' ? (
                                         <span className="text-xs text-[var(--text-secondary)]">stock left the shelf — return it through the pharmacy</span>
                                       ) : med.status === 'prescribed' && !canDispense ? (
-                                        <span className="text-xs text-[var(--text-secondary)]">the pharmacy hands this over</span>
+                                        <span className="text-xs text-[var(--text-secondary)]">the counter bench hands this over</span>
                                       ) : null}
                                     </div>
                                   </td>
@@ -919,31 +919,31 @@ export default function Counter() {
                                         <Button
                                           variant="dangerSoft"
                                           iconOnly
-                                          icon={X}
-                                          aria-label="Cancel order"
-                                          title="Cancel this order"
+                                          icon={Trash2}
+                                          aria-label="Delete order"
+                                          title="Delete this order"
                                           disabled={!!working}
                                           onClick={() => confirmThen(
                                             {
-                                              title: `Cancel this ${order.kind.toLowerCase()} order?`,
-                                              message: `${order.nameLabel} has not been reported yet, so it is cancelled and never reaches the bill.`,
-                                              confirmText: 'Cancel order',
+                                              title: `Delete this ${order.kind.toLowerCase()} order?`,
+                                              message: `${order.nameLabel} has not been started yet, so it is deleted and never reaches the bill.`,
+                                              confirmText: 'Delete order',
                                               type: 'danger',
                                             },
                                             () => run(
-                                              'Cancel order',
+                                              'Delete order',
                                               () => (order.kind === 'Lab test' ? removeCounterLabOrder(ticket.id, order.id) : removeCounterScanOrder(ticket.id, order.id)),
-                                              { failureTitle: 'Order not cancelled', successTitle: 'Order cancelled', successMessage: `${order.nameLabel} is off the ticket.` },
+                                              { failureTitle: 'Order not deleted', successTitle: 'Order deleted', successMessage: `${order.nameLabel} is off the ticket.` },
                                             ),
                                           )}
                                         />
                                       ) : null}
-                                      {order.status === 'completed' || order.status === 'cancelled' ? (
-                                        <span className="text-xs text-[var(--text-secondary)]">{order.status === 'completed' ? 'reported — print the result sheet above' : 'already cancelled'}</span>
+                                      {order.status === 'completed' || order.status === 'in_progress' ? (
+                                        <span className="text-xs text-[var(--text-secondary)]">{order.status === 'completed' ? 'reported — print the result sheet above' : 'with the department — cancel it there'}</span>
                                       ) : !cancellable && !isOpen ? (
                                         <span className="text-xs text-[var(--text-secondary)]">ticket closed</span>
                                       ) : !canCancelOrder ? (
-                                        <span className="text-xs text-[var(--text-secondary)]">the requesting department cancels this</span>
+                                        <span className="text-xs text-[var(--text-secondary)]">the requesting department deletes this</span>
                                       ) : null}
                                     </div>
                                   </td>
@@ -956,8 +956,8 @@ export default function Counter() {
                     )}
                     <p className="text-xs text-[var(--text-secondary)] px-4 py-3 border-t border-[var(--border-color)]">
                       Results are entered by the lab or scan room on their own screen — this ticket shows up in their
-                      queue with the customer's name. An order that has been picked up (in progress) can still be
-                      cancelled here until its result is filed.
+                      queue with the customer's name. A requested order can be deleted here, but once it has been
+                      picked up (in progress) only the department can drop it.
                       {/* The visit screen is role-gated separately, and the pharmacy bench has no route to it, so the
                           link only appears for the roles that can actually open it. */}
                       {canOpenVisit ? (

@@ -14,12 +14,28 @@ export class AppointmentService extends BaseService {
     this.repository = new AppointmentRepository(prisma);
   }
 
-  async getAppointments(filters: AppointmentFilters) { return this.repository.findAll(filters); }
-  
+  /** Keep scheduledAt as the database contract, while exposing the date/time fields the booking UI reads. */
+  private toPresentation(appointment: any) {
+    const scheduledAt = new Date(appointment?.scheduledAt);
+    if (!appointment || Number.isNaN(scheduledAt.getTime())) return appointment;
+
+    const pad = (value: number) => String(value).padStart(2, '0');
+    return {
+      ...appointment,
+      appointmentDate: `${scheduledAt.getFullYear()}-${pad(scheduledAt.getMonth() + 1)}-${pad(scheduledAt.getDate())}`,
+      appointmentTime: `${pad(scheduledAt.getHours())}:${pad(scheduledAt.getMinutes())}`,
+    };
+  }
+
+  async getAppointments(filters: AppointmentFilters) {
+    const result = await this.repository.findAll(filters);
+    return { ...result, appointments: result.appointments.map((appointment) => this.toPresentation(appointment)) };
+  }
+
   async getAppointmentById(id: string) {
     const appt = await this.repository.findById(id);
     if (!appt) throw new Error('Appointment not found');
-    return appt;
+    return this.toPresentation(appt);
   }
 
   async createAppointment(data: CreateAppointmentDTO, createdBy: string) {
@@ -27,16 +43,22 @@ export class AppointmentService extends BaseService {
     if (!(await this.repository.validatePatientExists(data.patientId))) throw new Error('Patient not found');
     if (!(await this.repository.validateClinicianExists(data.clinicianId))) throw new Error('Clinician not found');
     if (!(await this.repository.validateDepartmentExists(data.departmentId))) throw new Error('Department not found');
-    return this.repository.create(data, createdBy);
+    return this.toPresentation(await this.repository.create(data, createdBy));
   }
 
   async updateAppointment(id: string, data: UpdateAppointmentDTO) {
     const appt = await this.repository.findById(id);
     if (!appt) throw new Error('Appointment not found');
+    if (data.patientId && data.patientId !== appt.patientId) {
+      if (!(await this.repository.validatePatientExists(data.patientId))) throw new Error('Patient not found');
+    }
     if (data.clinicianId && data.clinicianId !== appt.clinicianId) {
       if (!(await this.repository.validateClinicianExists(data.clinicianId))) throw new Error('Clinician not found');
     }
-    return this.repository.update(id, data);
+    if (data.departmentId && !(await this.repository.validateDepartmentExists(data.departmentId))) {
+      throw new Error('Department not found');
+    }
+    return this.toPresentation(await this.repository.update(id, data));
   }
 
   async deleteAppointment(id: string) {
@@ -47,7 +69,8 @@ export class AppointmentService extends BaseService {
   async getStatistics(dateFrom?: Date) { return this.repository.getStatistics(dateFrom); }
   async getClinicianSchedule(clinicianId: string, date: Date) {
     if (!(await this.repository.validateClinicianExists(clinicianId))) throw new Error('Clinician not found');
-    return this.repository.getClinicianSchedule(clinicianId, date);
+    const appointments = await this.repository.getClinicianSchedule(clinicianId, date);
+    return appointments.map((appointment: any) => this.toPresentation(appointment));
   }
   async getAvailableClinicians(roles?: UserRole[]) { return this.repository.getAvailableClinicians(roles || ['doctor', 'nurse', 'midwife']); }
 

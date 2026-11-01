@@ -58,11 +58,25 @@ export class AppointmentController extends BaseController {
 
   update = [
     body('status').optional().isIn(['scheduled', 'confirmed', 'checked_in', 'in_progress', 'completed', 'cancelled', 'no_show']),
+    body('appointmentDate').optional().isISO8601(),
+    body('appointmentTime').optional().matches(/^\d{2}:\d{2}$/),
     this.asyncHandler(async (req: AuthRequest, res: Response) => {
       const errors = validationResult(req);
       if (!errors.isEmpty()) return this.badRequest(res, 'Validation failed', errors.array() as any[]);
-      
-      const appt = await this.service.updateAppointment(req.params.id, req.body);
+
+      const { appointmentDate, appointmentTime, ...rest } = req.body;
+      let scheduledAt: Date | undefined;
+      if (appointmentDate && appointmentTime) {
+        scheduledAt = new Date(`${appointmentDate}T${appointmentTime}:00`);
+      } else if (rest.scheduledAt) {
+        scheduledAt = new Date(rest.scheduledAt);
+      }
+
+      if (scheduledAt && Number.isNaN(scheduledAt.getTime())) {
+        return this.badRequest(res, 'Appointment date and time are invalid');
+      }
+
+      const appt = await this.service.updateAppointment(req.params.id, { ...rest, scheduledAt });
       return this.ok(res, appt, 'Appointment updated');
     })
   ];

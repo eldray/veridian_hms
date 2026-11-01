@@ -39,8 +39,12 @@ export const updateHospitalDetails = async (req: Request, res: Response) => {
     }
 
     const { name, address, phone, email, imageUrl } = req.body;
+    // A freshly uploaded file wins over whatever reference the form echoes back.
+    const storedImage = req.file
+      ? `/api/uploads/hospital/${req.file.filename}`
+      : (typeof imageUrl === 'string' && imageUrl.trim() ? imageUrl : undefined);
     const hospital = await settingsService.updateHospitalDetails({
-      name, address, phone, email, imageUrl,
+      name, address, phone, email, imageUrl: storedImage,
     });
     return res.json({ success: true, data: hospital });
   } catch (error) {

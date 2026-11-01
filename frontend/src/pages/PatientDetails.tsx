@@ -27,6 +27,7 @@ import {
 import type { Attendance, LabTest, Medication, Procedure, Scan, Vitals } from '../types';
 import { useDocumentStore } from '../store/documentStore';
 import type { GeneratedDocument } from '../types/documents';
+import { getScanDisplayName, humanScanModality } from '../utils/scan';
 
 // ============ HELPERS ============
 const formatCurrency = (amount: unknown): string => {
@@ -1309,7 +1310,8 @@ export default function PatientDetails() {
                     {selectedAttendance.scans.map((s: Scan, i: number) => (
                       <div key={i} className="bg-[var(--bg-main)] rounded-md p-2.5 border border-[var(--border-color)]">
                         <p className="text-xs font-medium text-[var(--text-primary)]">
-                          {s.scanType} - {s.bodyPart || 'General'}
+                          {getScanDisplayName(s)} - {s.bodyPart || 'General'}
+                          <span className="text-[var(--text-tertiary)]"> · {humanScanModality(s)}</span>
                         </p>
                         <div className="flex items-center justify-between mt-0.5">
                           <span className="text-[11px] text-[var(--text-secondary)]">Status: {s.status}</span>

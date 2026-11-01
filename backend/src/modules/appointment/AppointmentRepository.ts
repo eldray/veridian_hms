@@ -73,7 +73,26 @@ export class AppointmentRepository extends BaseRepository<any, any, any> {
   }
 
   async update(id: string, data: UpdateAppointmentDTO) {
-    const updateData: any = { ...data, updatedAt: new Date() };
+    const updateData: any = {};
+
+    for (const field of [
+      'status', 'type', 'scheduledAt', 'duration', 'title', 'description',
+      'checkedIn', 'checkedInAt', 'clinicianRole',
+    ] as const) {
+      if (data[field] !== undefined) updateData[field] = data[field];
+    }
+
+    if (data.patientId !== undefined) updateData.patient = { connect: { id: data.patientId } };
+    if (data.clinicianId !== undefined) {
+      updateData.clinician = data.clinicianId === null
+        ? { disconnect: true }
+        : { connect: { id: data.clinicianId } };
+    }
+    if (data.departmentId !== undefined) {
+      updateData.department = data.departmentId === null
+        ? { disconnect: true }
+        : { connect: { id: data.departmentId } };
+    }
 
     if (data.clinicianId) {
       const clinician = await this.prisma.user.findUnique({ where: { id: data.clinicianId }, select: { role: true } });

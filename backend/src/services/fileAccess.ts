@@ -11,7 +11,7 @@ export const FILE_ACCESS_TTL_SECONDS = (() => {
   return Number.isFinite(configured) && configured > 0 ? Math.floor(configured) : 24 * 60 * 60;
 })();
 
-const UPLOAD_CATEGORIES = new Set(['patients', 'users', 'scans', 'documents']);
+const UPLOAD_CATEGORIES = new Set(['patients', 'users', 'scans', 'documents', 'hospital']);
 const SAFE_FILENAME = /^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/;
 // Files uploaded before extensions were derived from the MIME type may carry
 // a client-chosen extension such as .html. Only browser-safe types are served.

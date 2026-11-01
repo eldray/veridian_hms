@@ -9,6 +9,8 @@ export type { BadgeProps, BadgeTone } from './Badge';
 export { Card, StatCard } from './Card';
 export type { CardProps, StatCardProps } from './Card';
 export { SearchInput, FilterSelect, Field } from './Controls';
+export { PatientVisitHeader } from './PatientVisitHeader';
+export type { HeaderField, PatientVisitHeaderProps } from './PatientVisitHeader';
 export { Pagination } from './Pagination';
 export { TH, TH_ROW, TD, TD_MUTED, TD_MONO, TR, TABLE_SHELL, INPUT, SELECT, SEARCH_INPUT } from './table';
 export { ACCENTS, accentVar } from './accent';

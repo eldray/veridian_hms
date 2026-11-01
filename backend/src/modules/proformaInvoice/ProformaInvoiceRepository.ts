@@ -13,7 +13,7 @@ export class ProformaInvoiceRepository extends BaseRepository<any, any, any> {
       Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } },
       Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } },
       admission: { select: { id: true, admissionNumber: true } },
-      CorporateAccount: { select: { id: true, companyName: true, companyCode: true } },
+      CorporateAccount: { select: { id: true, companyName: true, registrationNumber: true } },
       items: {
         include: {
           serviceCatalog: {

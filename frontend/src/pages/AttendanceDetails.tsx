@@ -10,6 +10,7 @@ import NewAttendanceModal from '../components/NewAttendanceModal';
 import SendDocumentModal from '../components/SendDocumentModal';
 import { VitalsHistory } from '../components/vitals/VitalsHistory';
 import { getPatientName } from '../utils/patient';
+import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { canAccessPage } from '../config/access';
 import { useHospitalStore } from '../store/hospitalStore';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
@@ -644,7 +645,7 @@ export default function AttendanceDetails() {
   const printScanReport = (scan: any) => {
     printDocument(
       () => generatePDF('scanReport', { scans: [scan], patient: patient ?? (currentAttendance as any)?.patient, attendance: currentAttendance }, hospital),
-      `Scan-Report-${scan?.ServiceCatalog?.name || scan?.scanType || scan?.id?.slice(-6)}`
+      `Scan-Report-${getScanDisplayName(scan) || scan?.id?.slice(-6)}`
     );
   };
 
@@ -1750,10 +1751,13 @@ export default function AttendanceDetails() {
                 </div>
               )}
               {encounterScans.length > 0 ? (
-                <Table heads={['Scan', 'Body part', 'Priority', 'Status', 'Requested', 'Result']}>
+                <Table heads={['Study', 'Body part', 'Priority', 'Status', 'Requested', 'Result']}>
                   {encounterScans.map((scan: any) => (
                     <tr key={scan.id}>
-                      <TdPrimary>{scan.ServiceCatalog?.name || scan.ScanTemplate?.name || scan.scanType}</TdPrimary>
+                      <TdPrimary>
+                        {getScanDisplayName(scan)}
+                        <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">{humanScanModality(scan)}</p>
+                      </TdPrimary>
                       <Td>{scan.bodyPart || scan.ScanTemplate?.bodyPart || '—'}</Td>
                       <Td>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
@@ -1984,126 +1988,212 @@ export default function AttendanceDetails() {
           )}
 
           {/* CLINICAL TAB */}
-          {activeTab === 'clinical' && (
-            <div className="space-y-6">
-              {/* Clinical Notes Section */}
-              <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
-                <div className="flex items-center gap-3 mb-4">
-                  <Clipboard className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                  <h3 className="text-lg font-bold text-[var(--text-primary)]">Clinical Notes</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  {/* History of Presenting Complaint */}
-                  {clinicalNotes.historyPresentingComplaint && (
-                    <div className="bg-purple-50 dark:bg-purple-950/30 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-                      <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-2">History of Presenting Complaint</p>
-                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.historyPresentingComplaint}</p>
+          {activeTab === 'clinical' && (() => {
+            // clinicalNotes may arrive as an object, a JSON string, or be missing entirely.
+            const rawNotes = currentAttendance?.clinicalNotes;
+            let notes: Record<string, any> = {};
+            if (rawNotes && typeof rawNotes === 'object' && !Array.isArray(rawNotes)) {
+              notes = rawNotes as Record<string, any>;
+            } else if (typeof rawNotes === 'string' && rawNotes.trim()) {
+              try {
+                const parsed = JSON.parse(rawNotes);
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) notes = parsed;
+              } catch {
+                notes = { notes: rawNotes };
+              }
+            }
+
+            // Friendly labels for every key Medical Entries may write.
+            const NOTE_LABELS: Record<string, string> = {
+              historyPresentingComplaint: 'History of Presenting Complaint',
+              historyOfPresentingComplaint: 'History of Presenting Complaint',
+              presentingComplaint: 'Presenting Complaint',
+              onsetDurationQuality: 'Onset, Duration & Quality',
+              physicalExamination: 'Physical Examination',
+              examination: 'Physical Examination',
+              assessment: 'Assessment',
+              diagnosis: 'Diagnosis (notes)',
+              plan: 'Plan',
+              treatmentPlan: 'Treatment Plan',
+              management: 'Management',
+              investigations: 'Investigations',
+              reviewOfSystems: 'Review of Systems',
+              pastMedicalHistory: 'Past Medical History',
+              pastSurgicalHistory: 'Past Surgical History',
+              familyHistory: 'Family History',
+              socialHistory: 'Social History',
+              drugHistory: 'Drug History',
+              notes: 'Notes',
+              summary: 'Summary',
+            };
+
+            // Every non-empty note field, in a stable, clinically sensible order.
+            const noteEntries = Object.entries(notes)
+              .filter(([, value]) =>
+                value !== null &&
+                value !== undefined &&
+                value !== '' &&
+                !(Array.isArray(value) && value.length === 0) &&
+                !(typeof value === 'object' && !Array.isArray(value))
+              )
+              .sort(([a], [b]) => {
+                const order = Object.keys(NOTE_LABELS);
+                const ia = order.indexOf(a);
+                const ib = order.indexOf(b);
+                return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+              })
+              .map(([key, value]) => ({
+                key,
+                label: NOTE_LABELS[key] || key.replace(/([A-Z])/g, ' $1').replace(/^./, (c) => c.toUpperCase()),
+                text: Array.isArray(value) ? value.join(', ') : String(value),
+              }));
+
+            const hasDiagnoses = encounterDiagnoses.length > 0;
+            const hasComplaint = Boolean(currentAttendance?.complaints);
+            const hasMedicalNotes = Boolean(currentAttendance?.medicalNotes);
+            const hasNotes = noteEntries.length > 0;
+            const hasAnything = hasDiagnoses || hasComplaint || hasMedicalNotes || hasNotes;
+
+            return (
+              <div className="space-y-6">
+                {/* DIAGNOSES — same source the Overview tab uses, now shown here too */}
+                {hasDiagnoses && (
+                  <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Brain className="w-5 h-5 text-[var(--icon-purple-text)]" />
+                      <h3 className="text-lg font-bold text-[var(--text-primary)]">Diagnoses</h3>
+                      <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]">
+                        {encounterDiagnoses.length}
+                      </span>
                     </div>
-                  )}
-                  
-                  {/* ODQ */}
-                  {clinicalNotes.onsetDurationQuality && (
-                    <div className="bg-indigo-50 dark:bg-indigo-950/30 rounded-lg p-4 border border-indigo-200 dark:border-indigo-800">
-                      <p className="text-xs font-semibold text-indigo-700 dark:text-indigo-400 mb-2">Onset, Duration & Quality</p>
-                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.onsetDurationQuality}</p>
-                    </div>
-                  )}
-                  
-                  {/* Physical Examination */}
-                  {clinicalNotes.physicalExamination && (
-                    <div className="bg-teal-50 dark:bg-teal-950/30 rounded-lg p-4 border border-teal-200 dark:border-teal-800">
-                      <p className="text-xs font-semibold text-teal-700 dark:text-teal-400 mb-2">Physical Examination</p>
-                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.physicalExamination}</p>
-                    </div>
-                  )}
-                  
-                  {/* Treatment Plan */}
-                  {clinicalNotes.treatmentPlan && (
-                    <div className="bg-green-50 dark:bg-green-950/30 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                      <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-2">Treatment Plan</p>
-                      <p className="text-sm text-[var(--text-primary)]">{clinicalNotes.treatmentPlan}</p>
-                    </div>
-                  )}
-                  
-                  {/* Follow-up Date */}
-                  {(currentAttendance as any)?.followUpDate && (
-                    <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
-                      <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2">Follow-up Date</p>
-                      <p className="text-sm text-[var(--text-primary)]">{new Date((currentAttendance as any).followUpDate).toLocaleDateString()}</p>
-                    </div>
-                  )}
-                  
-                  {!clinicalNotes.historyPresentingComplaint &&
-                   !clinicalNotes.onsetDurationQuality &&
-                   !clinicalNotes.physicalExamination &&
-                   !clinicalNotes.treatmentPlan && (
-                    <div className="text-center py-8">
-                      <Stethoscope className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
-                      <p className="text-[var(--text-secondary)]">No clinical notes recorded for this attendance.</p>
-                      {canAddClinical && (
-                        <button
-                          onClick={() => handleAddClinical('diagnosis')}
-                          className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                    <div className="space-y-3">
+                      {encounterDiagnoses.map((diagnosis: any, index: number) => (
+                        <div
+                          key={diagnosis.id || index}
+                          className="bg-green-50 dark:bg-green-950/30 rounded-lg p-3 border border-green-200 dark:border-green-800"
                         >
-                          Add Clinical Notes
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              {/* Action Buttons for Adding Clinical Data */}
-              {canAddClinical && (
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div>
-                      <h3 className="text-sm font-bold text-blue-900 dark:text-blue-300 mb-1">Quick Clinical Actions</h3>
-                      <p className="text-xs text-blue-700 dark:text-blue-400">Add clinical data to this attendance record</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <button
-                        onClick={() => handleAddClinical('diagnosis')}
-                        className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Diagnosis
-                      </button>
-                      <button
-                        onClick={() => handleAddClinical('lab')}
-                        className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Lab Test
-                      </button>
-                      <button
-                        onClick={() => handleAddClinical('scan')}
-                        className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Scan
-                      </button>
-                      <button
-                        onClick={() => handleAddClinical('medication')}
-                        className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-medium"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Medication
-                      </button>
-                      <button
-                        onClick={() => handleAddClinical('procedure')}
-                        className="flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs font-medium"
-                      >
-                        <Plus className="w-3 h-3" />
-                        Procedure
-                      </button>
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                              <p className="font-semibold text-[var(--text-primary)] text-sm">
+                                {diagnosis.diagnosis?.name || diagnosis.diagnosisName || diagnosis.name || diagnosis.icdCode || 'Diagnosis'}
+                              </p>
+                              {diagnosis.icdCode && (
+                                <p className="text-xs text-[var(--text-secondary)] mt-1">ICD-10: {diagnosis.icdCode}</p>
+                              )}
+                              {diagnosis.notes && (
+                                <p className="text-xs text-[var(--text-primary)] mt-2 whitespace-pre-wrap">{diagnosis.notes}</p>
+                              )}
+                            </div>
+                            {diagnosis.primary && (
+                              <span className="px-2 py-1 bg-green-600 text-white text-xs rounded-full font-medium shrink-0">
+                                Primary
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
-          )}
+                )}
+
+                {/* CHIEF COMPLAINT */}
+                {hasComplaint && (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                    <p className="text-xs font-semibold text-blue-700 dark:text-blue-400 mb-2 flex items-center gap-2">
+                      <Clipboard className="w-3 h-3" /> Chief Complaints
+                    </p>
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{currentAttendance.complaints}</p>
+                  </div>
+                )}
+
+                {/* ALL CLINICAL NOTES — every populated key, not just four hard-coded ones */}
+                {hasNotes && (
+                  <div className="bg-[var(--bg-main)] rounded-xl p-5 border border-[var(--border-color)]">
+                    <div className="flex items-center gap-3 mb-4">
+                      <Clipboard className="w-5 h-5 text-[var(--icon-cyan-text)]" />
+                      <h3 className="text-lg font-bold text-[var(--text-primary)]">Clinical Notes</h3>
+                    </div>
+                    <div className="space-y-4">
+                      {noteEntries.map((entry) => (
+                        <div
+                          key={entry.key}
+                          className="bg-white dark:bg-[var(--bg-card)] rounded-lg p-4 border border-[var(--border-color)]"
+                        >
+                          <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">{entry.label}</p>
+                          <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{entry.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* MEDICAL NOTES */}
+                {hasMedicalNotes && (
+                  <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2 flex items-center gap-2">
+                      <FileText className="w-3 h-3" /> Medical Notes
+                    </p>
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{currentAttendance.medicalNotes}</p>
+                  </div>
+                )}
+
+                {/* FOLLOW-UP DATE */}
+                {(currentAttendance as any)?.followUpDate && (
+                  <div className="bg-yellow-50 dark:bg-yellow-950/30 rounded-lg p-4 border border-yellow-200 dark:border-yellow-800">
+                    <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400 mb-2">Follow-up Date</p>
+                    <p className="text-sm text-[var(--text-primary)]">
+                      {new Date((currentAttendance as any).followUpDate).toLocaleDateString()}
+                    </p>
+                  </div>
+                )}
+
+                {/* EMPTY STATE — only when there is genuinely nothing */}
+                {!hasAnything && (
+                  <div className="text-center py-8">
+                    <Stethoscope className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" />
+                    <p className="text-[var(--text-secondary)]">No clinical notes or diagnoses recorded for this attendance.</p>
+                    {canAddClinical && (
+                      <button
+                        onClick={() => handleAddClinical('diagnosis')}
+                        className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg text-sm font-medium"
+                      >
+                        Add Clinical Notes
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Action Buttons for Adding Clinical Data (unchanged) */}
+                {canAddClinical && (
+                  <div className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/40 dark:to-cyan-950/40 rounded-xl p-5 border border-blue-200 dark:border-blue-800">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-blue-900 dark:text-blue-300 mb-1">Quick Clinical Actions</h3>
+                        <p className="text-xs text-blue-700 dark:text-blue-400">Add clinical data to this attendance record</p>
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button onClick={() => handleAddClinical('diagnosis')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
+                          <Plus className="w-3 h-3" /> Diagnosis
+                        </button>
+                        <button onClick={() => handleAddClinical('lab')} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-medium">
+                          <Plus className="w-3 h-3" /> Lab Test
+                        </button>
+                        <button onClick={() => handleAddClinical('scan')} className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-purple-text)] text-white rounded-lg hover:opacity-90 transition-colors text-xs font-medium">
+                          <Plus className="w-3 h-3" /> Scan
+                        </button>
+                        <button onClick={() => handleAddClinical('medication')} className="flex items-center gap-2 px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-xs font-medium">
+                          <Plus className="w-3 h-3" /> Medication
+                        </button>
+                        <button onClick={() => handleAddClinical('procedure')} className="flex items-center gap-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-xs font-medium">
+                          <Plus className="w-3 h-3" /> Procedure
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       </div>
 

@@ -14,7 +14,9 @@ import { useWorklistStore } from '../store/worklistStore';
 import { WorklistPanel } from '../components/worklist/WorklistPanel';
 import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanceSelector';
 import { AllergyBanner } from '../components/patients/AllergyBanner';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 import { getPatientName } from '../utils/patient';
+import { getScanDisplayName, humanScanModality } from '../utils/scan';
 
 import { DiagnosisModal } from '../components/medical-entries/modals/DiagnosisModal';
 import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
@@ -220,10 +222,11 @@ const ScanResultForm: React.FC<{
             </div>
             <div>
               <p className="text-xs font-semibold text-[var(--text-primary)]">
-                {scan.scanType || scan.ServiceCatalog?.name}
+                {getScanDisplayName(scan)}
               </p>
               <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                {scan.bodyPart && <span>Body part: {scan.bodyPart} · </span>}
+                Modality: {humanScanModality(scan)}
+                {scan.bodyPart && <span> · Body part: {scan.bodyPart}</span>} ·
                 Requested by {scan.requestedBy?.fullName || 'Unknown'} on {new Date(scan.requestedAt).toLocaleDateString()}
               </p>
             </div>
@@ -1429,29 +1432,12 @@ export default function MedicalEntries() {
     </div>
   );
 
-  // ─── Payment mode badge ───────────────────────────────────────────────────
-  const paymentBadge = (() => {
-    const mode = currentAttendance?.paymentMode;
-    if (mode === 'nhis') return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-    if (mode === 'private_insurance') return 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]';
-    return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
-  })();
-
+  // ─── Payment mode label ───────────────────────────────────────────────────
   const paymentLabel = (() => {
     const mode = currentAttendance?.paymentMode;
     if (mode === 'nhis') return 'NHIS';
     if (mode === 'private_insurance') return 'PRIVATE INS.';
     return 'CASH';
-  })();
-
-  // ─── Status badge class ───────────────────────────────────────────────────
-  const statusBadgeClass = (() => {
-    const s = currentAttendance?.status;
-    if (s === 'admitted') return 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]';
-    if (s === 'completed') return 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
-    if (s === 'pending') return 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]';
-    if (s === 'discharged') return 'bg-[var(--icon-gray-bg)] text-[var(--text-secondary)]';
-    return 'bg-[var(--bg-main)] text-[var(--text-secondary)]';
   })();
 
   // ─── Render ───────────────────────────────────────────────────────────────
@@ -1606,52 +1592,27 @@ export default function MedicalEntries() {
       {selectedAttendanceId && currentAttendance ? (
         <>
           {/* ── PATIENT BANNER ─────────────────────────────────────────── */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4"
-            style={{ boxShadow: 'var(--shadow-sm)' }}>
-            <div className="flex flex-wrap items-center justify-between gap-4">
-
-              {/* Identity */}
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
-                  <User className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                </div>
-                <div>
-                  <h2 className="text-sm font-bold text-[var(--text-primary)] leading-tight">
-                    {getPatientName(selectedPatient)}
-                  </h2>
-                  <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                    {selectedPatient?.age || '—'} yrs · {selectedPatient?.gender} · {selectedPatient?.folderNumber} · {selectedPatient?.contact}
-                  </p>
-                </div>
-              </div>
-
-              {/* Badges + actions */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Payment mode */}
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${paymentBadge}`}>{paymentLabel}</span>
-
-                {/* Status */}
-                <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${statusBadgeClass}`}>
-                  {currentAttendance.status?.toUpperCase()}
-                </span>
-
-                {/* Patient Type Badge */}
+          <PatientVisitHeader
+            patient={selectedPatient}
+            attendance={currentAttendance}
+            accent="cyan"
+            fields={[
+              { label: 'Payment', value: paymentLabel },
+              { label: 'Balance', value: `GHS ${(currentAttendance.outstandingBalance || 0).toFixed(2)}` },
+            ]}
+            aside={
+              <>
                 <PatientStatusBadge
                   attendance={currentAttendance}
                   admissionType={currentAttendance.admissionType}
                 />
-
-                {/* Balance warning */}
-                {currentAttendance.outstandingBalance > 0 && (
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]">
-                    Balance: GHS {currentAttendance.outstandingBalance.toFixed(2)}
-                  </span>
-                )}
-
-                {/* Action buttons */}
                 {getActionButtons()}
-              </div>
-            </div>
+              </>
+            }
+          />
+
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4"
+            style={{ boxShadow: 'var(--shadow-sm)' }}>
             <AllergyBanner
               patientId={selectedPatientId}
               allergies={selectedPatient?.allergies}
@@ -2133,11 +2094,14 @@ export default function MedicalEntries() {
                   {scansList.length === 0
                     ? <EmptyState icon={<Scan className="w-9 h-9" />} label="No scans requested" />
                     : (
-                      <Table heads={['Scan', 'Body Part', 'Priority', 'Status', 'Requested', '']}>
+                      <Table heads={['Study', 'Body Part', 'Priority', 'Status', 'Requested', '']}>
                         {scansList.map((scan: any) => (
                           <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                             <TdPrimary>
-                              {scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}
+                              {getScanDisplayName(scan)}
+                              <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                {humanScanModality(scan)}
+                              </p>
                               {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
                             </TdPrimary>
                             <Td>{scan.bodyPart || '—'}</Td>
@@ -2166,12 +2130,15 @@ export default function MedicalEntries() {
                   {completedScans.length === 0
                     ? <EmptyState icon={<Microscope className="w-9 h-9" />} label="No scan results yet" />
                     : (
-                      <Table heads={['Scan', 'Findings', 'Impression', '']}
+                      <Table heads={['Study', 'Findings', 'Impression', '']}
                         colWidths={['24%', '40%', '32%', '4%']}>
                         {completedScans.map((scan: any) => (
                           <tr key={scan.id} className="hover:bg-[var(--bg-main)] transition-colors align-top">
                             <TdPrimary>
-                              {scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Scan'}
+                              {getScanDisplayName(scan)}
+                              <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">
+                                {humanScanModality(scan)}
+                              </p>
                               {scan.bodyPart && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5">{scan.bodyPart}</p>}
                               {scan.description && <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-0.5 whitespace-pre-wrap">{scan.description}</p>}
                               <p className="text-[10px] font-normal text-[var(--text-tertiary)] mt-1">

@@ -111,12 +111,23 @@ export default function CompanySettingsTab() {
         return;
       }
 
-      const submitData = {
-        ...formData,
-        imageUrl: imagePreview || formData.imageUrl
-      };
+      // The picked file travels as multipart and the server turns it into a stored
+      // path. The base64 preview stays in the browser — posting it as `imageUrl`
+      // is what the API's URL check rejected.
+      const form = new FormData();
+      form.append('name', formData.name.trim());
+      form.append('address', formData.address.trim());
+      form.append('phone', formData.phone.trim());
+      form.append('email', formData.email.trim());
+      if (formData.imageUrl && !formData.imageUrl.startsWith('data:')) {
+        form.append('imageUrl', formData.imageUrl);
+      }
+      if (imageFile) form.append('image', imageFile);
 
-      await updateHospitalDetails(submitData);
+      const saved = await updateHospitalDetails(form);
+      setImageFile(null);
+      setImagePreview(saved?.imageUrl || '');
+      setFormData(prev => ({ ...prev, imageUrl: saved?.imageUrl || '' }));
       success('Hospital Details Updated', 'Hospital details updated successfully!');
     } catch (err: any) {
       toastError('Update Failed', err.response?.data?.message || 'Failed to update hospital details');

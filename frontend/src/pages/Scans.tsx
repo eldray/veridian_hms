@@ -37,6 +37,7 @@ import {
   cn,
   type BadgeTone,
 } from '../components/ui';
+import { getScanDisplayName } from '../utils/scan';
 
 const PRIORITY_TONES: Record<string, BadgeTone> = {
   stat: 'red',
@@ -48,8 +49,7 @@ const PRIORITY_LABELS: Record<string, string> = {
   urgent: 'URGENT',
 };
 
-const scanName = (scan: any) => scan.templateName || scan.scanType || 'Scan';
-
+const scanName = getScanDisplayName;
 const pendingScans = (item: any) =>
   (item.scans || []).filter((scan: any) => scan.status === 'requested' || scan.status === 'in_progress');
 

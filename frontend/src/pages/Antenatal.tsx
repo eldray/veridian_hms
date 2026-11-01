@@ -25,6 +25,8 @@ import { LabTestModal } from '../components/medical-entries/modals/LabTestModal'
 import { ProcedureModal } from '../components/medical-entries/modals/ProcedureModal';
 import { MedicationModal } from '../components/medical-entries/modals/MedicationModal';
 import { ScanModal } from '../components/medical-entries/modals/ScanModal';
+import { getScanDisplayName, humanScanModality } from '../utils/scan';
+import { PatientVisitHeader } from '../components/ui/PatientVisitHeader';
 
 import {
   ChevronLeft, RefreshCw, X, Stethoscope, Pill, FlaskConical, Scissors,
@@ -37,14 +39,6 @@ import {
 const getEntityId = (e: { id?: string; _id?: string } | null) => e?._id || e?.id;
 type ModalType = 'diagnosis' | 'lab' | 'procedure' | 'medication' | 'scan' | 'anc_booking' | null;
 type TabKey = 'clinical' | 'anc' | 'delivery' | 'postnatal' | 'vitals';
-
-function calculateAge(dob: Date): number {
-  if (!dob) return 0;
-  const today = new Date(), b = new Date(dob);
-  let age = today.getFullYear() - b.getFullYear();
-  if (today.getMonth() < b.getMonth() || (today.getMonth() === b.getMonth() && today.getDate() < b.getDate())) age--;
-  return age;
-}
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -1022,9 +1016,6 @@ useEffect(() => {
     </SectionCard>
   );
 
-  const paymentCls = currentAttendance?.paymentMode === 'nhis' ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
-    : currentAttendance?.paymentMode === 'private_insurance' ? 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]'
-      : 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]';
   const paymentLabel = currentAttendance?.paymentMode === 'nhis' ? 'NHIS'
     : currentAttendance?.paymentMode === 'private_insurance' ? 'PRIVATE INS.'
       : 'CASH';
@@ -1076,41 +1067,23 @@ useEffect(() => {
 
       {/* ── PATIENT BANNER ────────────────────────────────────────────────── */}
       {selectedPatient && currentAttendance && (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-5 py-4" style={{ boxShadow: 'var(--shadow-sm)' }}>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3.5">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${activeTab === 'delivery' ? 'bg-[var(--icon-green-bg)]' : activeTab === 'postnatal' ? 'bg-[var(--icon-cyan-bg)]' : 'bg-pink-100'
-                }`}>
-                {activeTab === 'delivery' ? <Hospital className="w-5 h-5 text-[var(--icon-green-text)]" />
-                  : activeTab === 'postnatal' ? <Heart className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-                    : <Baby className="w-5 h-5 text-pink-600" />}
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h2 className="text-sm font-bold text-[var(--text-primary)]">{selectedPatient.surname} {selectedPatient.otherNames}</h2>
-                  <span className="text-[11px] text-[var(--text-tertiary)]">{calculateAge(selectedPatient.dateOfBirth)}y · {selectedPatient.gender}</span>
-                  {activeTab === 'anc' && hasActiveBooking && <RiskBadge risk={currentRecord?.riskLevel || 'low'} />}
-                </div>
-                <p className="text-[11px] text-[var(--text-secondary)] mt-0.5">
-                  {selectedPatient.folderNumber} · {selectedPatient.contact}
-                  {activeTab === 'anc' && currentRecord?.edd && (
-                    <span className="ml-2 font-semibold text-pink-600">EDD: {getEDDDisplay()}</span>
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-mono text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                #{currentAttendance.attendanceNumber || 'New'}
-              </span>
-              <span className="text-[10px] text-[var(--text-tertiary)] bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                {new Date(currentAttendance.dateTime || currentAttendance.createdAt || '').toLocaleDateString()}
-              </span>
-              <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${paymentCls}`}>{paymentLabel}</span>
-              {getMaternalActionButtons()}
-            </div>
-          </div>
-        </div>
+        <PatientVisitHeader
+          patient={selectedPatient}
+          attendance={currentAttendance}
+          icon={activeTab === 'delivery' ? Hospital : activeTab === 'postnatal' ? Heart : Baby}
+          accent={activeTab === 'delivery' ? 'green' : activeTab === 'postnatal' ? 'cyan' : 'purple'}
+          fields={[
+            // EDD and risk belong to the pregnancy, not to one tab: hiding them
+            // when the midwife moves to Clinical or Delivery removes the two
+            // facts that change how she reads everything else on the screen.
+            ...(currentRecord?.edd ? [{ label: 'EDD', value: getEDDDisplay() }] : []),
+            ...(hasActiveBooking
+              ? [{ label: 'Risk', value: <RiskBadge risk={currentRecord?.riskLevel || 'low'} /> }]
+              : []),
+            { label: 'Payment', value: paymentLabel },
+          ]}
+          aside={getMaternalActionButtons()}
+        />
       )}
 
       {/* ── VITALS STRIP (always visible, matching MedicalEntries) ────────── */}
@@ -1496,12 +1469,12 @@ useEffect(() => {
                       {requestedScans.length === 0 ? <EmptySlate icon={<Scan className="w-8 h-8" />} label="No scans requested" /> : (
                         <table className="w-full text-xs">
                           <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>Scan</TH><TH>Body Part</TH><TH>Status</TH><TH>Date</TH><TH></TH></tr>
+                            <tr><TH>Study</TH><TH>Body Part</TH><TH>Status</TH><TH>Date</TH><TH></TH></tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border-color)]">
                             {requestedScans.map((s: any) => (
                               <tr key={s.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <TDp>{s.scanType || s.ServiceCatalog?.name}</TDp><TD>{s.bodyPart || '—'}</TD>
+                                <TDp>{getScanDisplayName(s)}<p className="text-[10px] text-[var(--text-tertiary)]">{humanScanModality(s)}</p></TDp><TD>{s.bodyPart || '—'}</TD>
                                 <TD><StatusBadge status={s.status} /></TD>
                                 <TD>{new Date(s.requestedAt).toLocaleDateString()}</TD>
                                 <TD>{canAddEntries && (s.status === 'requested' || s.status === 'scheduled') && <DelBtn onClick={() => handleDeleteItem('scan', s.id)} />}</TD>
@@ -1517,12 +1490,12 @@ useEffect(() => {
                       {completedScans.length === 0 ? <EmptySlate icon={<Scan className="w-8 h-8" />} label="No scan results yet" /> : (
                         <table className="w-full text-xs">
                           <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                            <tr><TH>Scan</TH><TH>Findings</TH><TH>Completed</TH></tr>
+                            <tr><TH>Study</TH><TH>Findings</TH><TH>Completed</TH></tr>
                           </thead>
                           <tbody className="divide-y divide-[var(--border-color)]">
                             {completedScans.map((s: any) => (
                               <tr key={s.id} className="hover:bg-[var(--bg-main)] transition-colors">
-                                <TDp>{s.scanType || s.ServiceCatalog?.name}{s.bodyPart && <p className="text-[10px] text-[var(--text-tertiary)]">{s.bodyPart}</p>}</TDp>
+                                <TDp>{getScanDisplayName(s)}{s.bodyPart && <p className="text-[10px] text-[var(--text-tertiary)]">{s.bodyPart}</p>}<p className="text-[10px] text-[var(--text-tertiary)]">{humanScanModality(s)}</p></TDp>
                                 <TD className="max-w-[160px] truncate">{s.findings || '—'}</TD>
                                 <TD>{s.completedAt ? new Date(s.completedAt).toLocaleDateString() : '—'}</TD>
                               </tr>

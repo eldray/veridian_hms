@@ -1,5 +1,6 @@
 // src/utils/pdfTemplates/visitSummaryPDF.ts - REDESIGNED PROFESSIONAL VERSION
 import type { Attendance, Patient, Hospital } from '../../types';
+import { getScanDisplayName, humanScanModality } from '../scan';
 
 export const generateVisitSummaryHTML = (
   attendance: any,
@@ -755,7 +756,7 @@ export const generateVisitSummaryHTML = (
         <table class="data-table">
           <thead>
             <tr>
-              <th style="width: 40%;">Scan Type</th>
+              <th style="width: 40%;">Study</th>
               <th style="width: 35%;">Description</th>
               <th style="width: 25%;">Status</th>
             </tr>
@@ -763,7 +764,10 @@ export const generateVisitSummaryHTML = (
           <tbody>
             ${scans.map((scan: any) => `
               <tr>
-                <td><strong>${escapeHtml(scan.scanType || scan.name || 'N/A')}</strong></td>
+                <td>
+                  <strong>${escapeHtml(getScanDisplayName(scan))}</strong>
+                  <div style="font-size: 10px; color: #64748b;">${escapeHtml(humanScanModality(scan))}</div>
+                </td>
                 <td>${escapeHtml(scan.description || '-')}</td>
                 <td style="text-transform: capitalize;">${escapeHtml(scan.status || 'pending')}</td>
               </tr>

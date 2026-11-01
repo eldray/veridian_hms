@@ -9,6 +9,7 @@ const createUploadsDirectories = () => {
   const directories = [
     'uploads/patients',
     'uploads/users',    // ✅ ADDED for User profile images
+    'uploads/hospital',  // Hospital logo uploaded from Settings
     'uploads/scans',
     'uploads/documents',
     'uploads/temp'
@@ -51,6 +52,13 @@ const scanStorage = multer.diskStorage({
     const scanId = req.params.scanId || 'unknown';
     cb(null, generateFilename('scan', scanId, file));
   }
+});
+
+// The hospital logo is a single image per installation, so the file name keys on
+// the hospital row rather than a caller-supplied id.
+const hospitalStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'hospital')),
+  filename: (req, file, cb) => cb(null, generateFilename('hospital', 'logo', file))
 });
 
 const imageFileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
@@ -119,6 +127,7 @@ export const uploadUserImage = withFileSignatureCheck(multer({ storage: userStor
 export const uploadPatientImage = withFileSignatureCheck(multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 5 } }).array('images', 5));
 export const uploadPatientPhoto = withFileSignatureCheck(multer({ storage: patientStorage, fileFilter: imageFileFilter, limits: { fileSize: 10 * 1024 * 1024, files: 1 } }).single('image'));
 export const uploadScanImages = withFileSignatureCheck(multer({ storage: scanStorage, fileFilter: imageFileFilter, limits: { fileSize: 20 * 1024 * 1024, files: 10 } }).array('images', 10));
+export const uploadHospitalLogo = withFileSignatureCheck(multer({ storage: hospitalStorage, fileFilter: imageFileFilter, limits: { fileSize: 5 * 1024 * 1024 } }).single('image'));
 export const uploadSingleDocument = withFileSignatureCheck(multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, path.join(process.cwd(), 'uploads', 'documents')),
@@ -155,7 +164,7 @@ export const handleUploadError = (error: any, req: Request, res: Response, next:
 
 export const getFileUrl = (
   filename: string,
-  category: 'patients' | 'users' | 'scans' | 'documents' = 'patients',
+  category: 'patients' | 'users' | 'hospital' | 'scans' | 'documents' = 'patients',
 ): string => {
   return `/api/uploads/${category}/${filename}`;
 };

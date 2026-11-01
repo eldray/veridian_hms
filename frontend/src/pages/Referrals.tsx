@@ -10,6 +10,18 @@ import { PatientAttendanceSelector } from '../components/vitals/PatientAttendanc
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
 import SendDocumentModal from '../components/SendDocumentModal';
+import ReferralDetailModal from '../components/referral/ReferralDetailModal';
+import ReferralReportBackModal from '../components/referral/ReferralReportBackModal';
+import { ReferralPartFields } from '../components/referral/ReferralStructuredParts';
+import {
+  PART_I_SECTIONS,
+  PART_II_SECTIONS,
+  emptyPartI,
+  emptyPartII,
+  missingRequired,
+  partHasContent,
+} from '../components/referral/referralForm';
+import type { ReferralPartI, ReferralPartII } from '../components/referral/referralForm';
 import {
   getReferrals,
   createOutgoingReferral,
@@ -26,7 +38,7 @@ import {
   Search, X, Info, MapPin, Calendar, FileText,
   Phone, User, ClipboardList, Target, TrendingUp,
   ChevronDown, Check, BadgeCheck, Hash, AlertTriangle,
-  ChevronLeft, ChevronsLeft, ChevronsRight,
+  ChevronLeft, ChevronsRight, ChevronsLeft, Eye,
 } from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -64,6 +76,11 @@ interface Referral {
     encounterCategory?: string;
   } | null;
   createdBy?: { fullName: string; role: string };
+  outcomeNotes?: string;
+  structuredForm?: {
+    partI?: Record<string, unknown>;
+    partII?: Record<string, unknown>;
+  } | null;
 }
 
 type ViewMode = 'table' | 'cards';
@@ -350,13 +367,15 @@ export default function Referrals() {
     urgency: 'routine' as 'routine' | 'urgent' | 'stat',
   });
 
-  const [useStructuredForm, setUseStructuredForm] = useState(false);
-  const [structuredPartI, setStructuredPartI] = useState({
-    clientName: '', age: '', sex: '', parity: '', clinicName: '', generalCondition: '', patientComplaints: '', diagnosis: '', actionsTaken: '', reasonForReferral: '', dateOfReferral: '', referrerName: '', referrerTitle: '', referrerSignature: ''
-  });
-  const [structuredPartII, setStructuredPartII] = useState({
-    institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: ''
-  });
+  const [partI, setPartI] = useState<ReferralPartI>(() => emptyPartI());
+  const [partII, setPartII] = useState<ReferralPartII>(() => emptyPartII());
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+
+  // The referral a row was opened for, and the one awaiting a Part II report back.
+  const [detailReferral, setDetailReferral] = useState<Referral | null>(null);
+  const [acceptTarget, setAcceptTarget] = useState<Referral | null>(null);
+  const [acceptPartII, setAcceptPartII] = useState<Record<string, string>>(() => emptyPartII());
+  const [accepting, setAccepting] = useState(false);
 
   const hasLoaded = useRef(false);
 
@@ -430,34 +449,25 @@ export default function Referrals() {
         ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
         : 'routine'),
     });
-    setStructuredPartI({
+    setPartI(emptyPartI({
       clientName: searchParams.get('patientName') || '',
-      age: '',
-      sex: '',
-      parity: '',
       clinicName: source,
       generalCondition: '',
       patientComplaints: searchParams.get('complaints') || searchParams.get('reason') || '',
+      clinicalFindings: '',
       diagnosis: searchParams.get('diagnosis') || '',
       actionsTaken: searchParams.get('treatment') || '',
       reasonForReferral: searchParams.get('reason') || '',
-      dateOfReferral: new Date().toISOString().slice(0, 10),
-      referrerName: '',
-      referrerTitle: '',
-      referrerSignature: '',
-    });
-    setStructuredPartII({
-      institutionName: '',
-      dateReceived: '',
-      findings: '',
-      actionsTaken: '',
-      recommendations: '',
-      receiverName: '',
-      receiverTitle: '',
-    });
-    setUseStructuredForm(true);
+      contactBackName: user?.fullName || '',
+    }));
+    setPartII(emptyPartII({
+      institutionName: hospital?.name || '',
+      receiverName: user?.fullName || '',
+      receiverTitle: user?.role || '',
+    }));
+    setFormErrors([]);
     setShowModal(true);
-  }, [searchParams]);
+  }, [searchParams, user, hospital]);
 
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
@@ -491,8 +501,10 @@ export default function Referrals() {
     return () => { cancelled = true; };
   }, [searchParams, getAttendance, toastError]);
 
+  // Identity and signature answers come from the register and the signed-in clinician, so
+  // Part I only asks for what a person actually has to assess.
   useEffect(() => {
-    if (!searchParams.get('patientId') || !selectedPatientId) return;
+    if (!selectedPatientId) return;
     const patient: any = patients.find((item: any) =>
       String(item.id || item._id || '') === String(selectedPatientId)
     );
@@ -502,21 +514,24 @@ export default function Referrals() {
     if (!calculatedAge && birthDateValue) {
       const birthDate = new Date(birthDateValue);
       if (Number.isFinite(birthDate.getTime())) {
-        const today = new Date();
-        let years = today.getFullYear() - birthDate.getFullYear();
-        const birthdayPending = today.getMonth() < birthDate.getMonth() ||
-          (today.getMonth() === birthDate.getMonth() && today.getDate() < birthDate.getDate());
+        const now = new Date();
+        let years = now.getFullYear() - birthDate.getFullYear();
+        const birthdayPending = now.getMonth() < birthDate.getMonth() ||
+          (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
         if (birthdayPending) years -= 1;
         if (years >= 0 && years <= 125) calculatedAge = String(years);
       }
     }
-    setStructuredPartI(prev => ({
+    setPartI(prev => ({
       ...prev,
       clientName: prev.clientName || getPatientName(patient),
-      age: prev.age || (calculatedAge !== '' && calculatedAge != null ? String(calculatedAge) : ''),
+      age: prev.age || (calculatedAge !== '' && calculatedAge != null ? `${calculatedAge} years` : ''),
       sex: prev.sex || String(patient.gender || patient.sex || ''),
+      contactBackName: prev.contactBackName || user?.fullName || '',
+      referrerName: prev.referrerName || user?.fullName || '',
+      referrerTitle: prev.referrerTitle || (user?.role ? String(user.role).replace(/_/g, ' ') : ''),
     }));
-  }, [patients, selectedPatientId, searchParams, structuredPartI.clientName]);
+  }, [patients, selectedPatientId, user]);
 
   // The register and the live visit list are only used by the picker inside the referral form,
   // so they load when that form opens instead of on every visit to this page.
@@ -535,10 +550,6 @@ export default function Referrals() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatientId) { toastError('Error', 'Please select a patient'); return; }
-    if (!formData.referralReason.trim()) {
-      toastError('Error', 'Please enter the reason for referral');
-      return;
-    }
     if (referralType === 'outgoing' && searchParams.get('attendanceId') && !selectedAttendanceId) {
       toastError('Visit required', 'Select and verify the visit for this clinical referral before submitting.');
       return;
@@ -550,30 +561,43 @@ export default function Referrals() {
       toastError('Error', 'Please enter the facility that referred the patient'); return;
     }
 
+    // The structured part is the referral document, so its required answers gate submission.
+    const sections = referralType === 'outgoing' ? PART_I_SECTIONS : PART_II_SECTIONS;
+    const values = referralType === 'outgoing' ? partI : partII;
+    const missing = missingRequired(sections, values as unknown as Record<string, string>);
+    if (missing.length) {
+      setFormErrors(missing);
+      toastError('Incomplete form', `Complete ${missing.length} required field${missing.length > 1 ? 's' : ''}`);
+      return;
+    }
+    setFormErrors([]);
+
+    const reason = referralType === 'outgoing' ? partI.reasonForReferral : partII.findings;
+
     setIsLoading(true);
     try {
       if (referralType === 'outgoing') {
         await createOutgoingReferral({
           patientId:           selectedPatientId,
           attendanceId:        selectedAttendanceId || undefined,
-          referralReason:      formData.referralReason,
+          referralReason:      reason,
           referralNotes:       formData.referralNotes,
           urgency:             formData.urgency,
           referredToFacility:  formData.referredToFacility,
           referredToDoctor:    formData.referredToDoctor,
           referredToDepartment: formData.referredToDepartment,
-          structuredForm:      useStructuredForm ? { partI: structuredPartI } : undefined
+          structuredForm:      { partI }
         });
         success('Success', 'Outgoing referral created');
       } else {
         await createIncomingReferral({
           patientId:           selectedPatientId,
-          referralReason:      formData.referralReason,
+          referralReason:      reason,
           referralNotes:       formData.referralNotes,
           urgency:             formData.urgency,
           referredFromFacility: formData.referredFromFacility,
           referredFromDoctor:  formData.referredFromDoctor,
-          structuredForm:      useStructuredForm ? { partII: structuredPartII } : undefined
+          structuredForm:      { partII }
         });
         success('Success', 'Incoming referral recorded');
       }
@@ -584,6 +608,35 @@ export default function Referrals() {
       toastError('Error', err.response?.data?.message || 'Failed to create referral');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ── Accept with the Part II report back ─────────────────────────────────────
+  const openAcceptDialog = (referral: Referral) => {
+    setAcceptTarget(referral);
+    setAcceptPartII({
+      ...emptyPartII({
+        institutionName: hospital?.name || '',
+        receiverName: user?.fullName || '',
+        receiverTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
+      }),
+      ...(referral.structuredForm?.partII as Record<string, string> | undefined),
+    });
+  };
+
+  const handleAcceptWithReportBack = async (partIIValues: Record<string, string>) => {
+    if (!acceptTarget) return;
+    setAccepting(true);
+    try {
+      await updateReferralStatus(acceptTarget.id, 'accepted', undefined, partIIValues);
+      success('Referral accepted', 'Part II report back recorded');
+      setAcceptTarget(null);
+      fetchReferrals();
+      fetchStats();
+    } catch (err: any) {
+      toastError('Error', err.response?.data?.message || 'Failed to accept referral');
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -608,7 +661,11 @@ export default function Referrals() {
         ? `${referral.patient.surname} ${referral.patient.otherNames}`.trim()
         : 'Unknown Patient';
 
-      const html = generatePDF('referral', {
+      const structuredForm = referral.structuredForm ?? null;
+      // Rows created before the structured form only carry the flat columns, so they still
+      // print as the letter; anything with Part I / Part II content prints the form itself.
+      const hasStructured = partHasContent(structuredForm?.partI) || partHasContent(structuredForm?.partII);
+      const html = generatePDF(hasStructured ? 'referralForm' : 'referral', {
         referral: {
           ...referral,
           referralNumber: referral.referralNumber,
@@ -622,6 +679,7 @@ export default function Referrals() {
           referredToDepartment: referral.referredToDepartment || '',
           referredFromFacility: referral.referredFromFacility || '',
           referredFromDoctor: referral.referredFromDoctor || '',
+          structuredForm,
         },
         patient: {
           ...referral.patient,
@@ -630,7 +688,7 @@ export default function Referrals() {
       }, hospital);
 
       openPrintWindow(html, `Referral_${referral.referralNumber}`);
-      success('Print ready', 'Referral letter opened');
+      success('Print ready', hasStructured ? 'Referral form opened' : 'Referral letter opened');
     } catch (err) {
       console.error('Print error:', err);
       toastError('Print failed', 'Could not generate referral letter');
@@ -649,9 +707,17 @@ export default function Referrals() {
       referredFromFacility: '', referredFromDoctor: '',
       urgency: 'routine',
     });
-    setUseStructuredForm(false);
-    setStructuredPartI({ clientName: '', age: '', sex: '', parity: '', clinicName: '', generalCondition: '', patientComplaints: '', diagnosis: '', actionsTaken: '', reasonForReferral: '', dateOfReferral: '', referrerName: '', referrerTitle: '', referrerSignature: '' });
-    setStructuredPartII({ institutionName: '', dateReceived: '', findings: '', actionsTaken: '', recommendations: '', receiverName: '', receiverTitle: '' });
+    setPartI(emptyPartI({
+      contactBackName: user?.fullName || '',
+      referrerName: user?.fullName || '',
+      referrerTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
+    }));
+    setPartII(emptyPartII({
+      institutionName: hospital?.name || '',
+      receiverName: user?.fullName || '',
+      receiverTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
+    }));
+    setFormErrors([]);
   };
 
   const selectedAttendance = [...attendances, ...(prefilledAttendance ? [prefilledAttendance] : [])]
@@ -752,7 +818,7 @@ export default function Referrals() {
             <span className="hidden sm:inline">Stats</span>
           </button>
           <button
-            onClick={() => setShowModal(true)}
+            onClick={() => { resetForm(); setShowModal(true); }}
             className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all text-sm font-semibold shadow-sm shadow-cyan-500/20"
           >
             <UserPlus className="w-4 h-4" />
@@ -772,6 +838,23 @@ export default function Referrals() {
           entityId={sendReferral.id}
         />
       )}
+
+      {/* ── REFERRAL FORM (read) + PART II REPORT BACK ────────────────────────── */}
+      <ReferralDetailModal
+        open={!!detailReferral}
+        referral={detailReferral}
+        onClose={() => setDetailReferral(null)}
+        onPrint={detailReferral ? () => handlePrintLetter(detailReferral) : undefined}
+      />
+      <ReferralReportBackModal
+        open={!!acceptTarget}
+        referral={acceptTarget}
+        submitting={accepting}
+        values={acceptPartII}
+        onValuesChange={setAcceptPartII}
+        onClose={() => { if (!accepting) setAcceptTarget(null); }}
+        onSubmit={handleAcceptWithReportBack}
+      />
 
       {/* ── STATS ───────────────────────────────────────────────────────────── */}
       {showStats && stats && (
@@ -1066,16 +1149,21 @@ export default function Referrals() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-0.5">
-                        {ref.referralType === 'outgoing' && (
-                          <button
-                            onClick={() => handlePrintLetter(ref)}
-                            disabled={printingId === ref.id}
-                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
-                            title="Print referral letter"
-                          >
-                            <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() => setDetailReferral(ref)}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
+                          title="Open referral form"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handlePrintLetter(ref)}
+                          disabled={printingId === ref.id}
+                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
+                          title="Print referral form"
+                        >
+                          <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
+                        </button>
                         <button
                           onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
                           className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
@@ -1086,9 +1174,9 @@ export default function Referrals() {
                         {ref.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => handleStatusUpdate(ref.id, 'accepted')}
+                              onClick={() => openAcceptDialog(ref)}
                               className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
-                              title="Accept"
+                              title="Accept and record the Part II report back"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                             </button>
@@ -1218,16 +1306,21 @@ export default function Referrals() {
                 <div className="px-4 py-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between gap-2">
                   <StatusBadge status={ref.status} />
                   <div className="flex items-center gap-0.5">
-                    {ref.referralType === 'outgoing' && (
-                      <button
-                        onClick={() => handlePrintLetter(ref)}
-                        disabled={printingId === ref.id}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
-                        title="Print referral letter"
-                      >
-                        <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setDetailReferral(ref)}
+                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
+                      title="Open referral form"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handlePrintLetter(ref)}
+                      disabled={printingId === ref.id}
+                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
+                      title="Print referral form"
+                    >
+                      <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
+                    </button>
                     <button
                       onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
                       className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
@@ -1238,9 +1331,9 @@ export default function Referrals() {
                     {ref.status === 'pending' && (
                       <>
                         <button
-                          onClick={() => handleStatusUpdate(ref.id, 'accepted')}
+                          onClick={() => openAcceptDialog(ref)}
                           className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
-                          title="Accept"
+                          title="Accept and record the Part II report back"
                         >
                           <CheckCircle className="w-3.5 h-3.5" />
                         </button>
@@ -1501,23 +1594,10 @@ export default function Referrals() {
                 {/* Clinical details */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <ClipboardList className="w-4 h-4 text-cyan-600" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Clinical Information</h3>
+                    <FileText className="w-4 h-4 text-cyan-600" />
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Additional Notes</h3>
                   </div>
                   <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                        Reason for Referral <span className="text-red-500">*</span>
-                      </label>
-                      <textarea
-                        rows={3}
-                        required
-                        value={formData.referralReason}
-                        onChange={e => setFormData(p => ({ ...p, referralReason: e.target.value }))}
-                        placeholder="Describe the clinical reason for referral…"
-                        className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
-                      />
-                    </div>
                     <div>
                       <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
                         Additional Notes
@@ -1526,7 +1606,7 @@ export default function Referrals() {
                         rows={2}
                         value={formData.referralNotes}
                         onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
-                        placeholder="Any additional information for the receiving facility…"
+                        placeholder="Anything the receiving facility should know that does not fit the form…"
                         className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-cyan-500 transition-all"
                       />
                     </div>
@@ -1580,70 +1660,52 @@ export default function Referrals() {
                   </div>
                 </div>
 
-                {/* Structured form toggle + fields */}
-                <div className="border-t border-[var(--border-color)] pt-4">
-                  <label className="flex items-center gap-2.5 p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] cursor-pointer hover:border-cyan-300 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={useStructuredForm}
-                      onChange={e => setUseStructuredForm(e.target.checked)}
-                      className="rounded border-gray-300 text-cyan-600 focus:ring-cyan-500 w-4 h-4"
+                {/* The referral document — Part I when sending, Part II when receiving */}
+                <div className="border-t border-[var(--border-color)] pt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <ClipboardList className={`w-4 h-4 ${referralType === 'outgoing' ? 'text-cyan-600' : 'text-green-600'}`} />
+                      <h3 className="text-sm font-bold text-[var(--text-primary)]">
+                        {referralType === 'outgoing'
+                          ? 'Part I — Referral by the health worker'
+                          : 'Part II — Report back by the receiving facility'}
+                      </h3>
+                    </div>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
+                      referralType === 'outgoing'
+                        ? 'text-cyan-700 bg-cyan-50 border-cyan-100'
+                        : 'text-green-700 bg-green-50 border-green-100'
+                    }`}>
+                      {referralType === 'outgoing' ? 'Travels with the patient' : 'Filed against the referral'}
+                    </span>
+                  </div>
+
+                  {referralType === 'outgoing' ? (
+                    <ReferralPartFields
+                      sections={PART_I_SECTIONS}
+                      values={partI as unknown as Record<string, string>}
+                      onChange={(key, value) => setPartI(prev => ({ ...prev, [key]: value }))}
+                      tone="cyan"
                     />
-                    <FileText className="w-3.5 h-3.5 text-cyan-600 flex-shrink-0" />
-                    <span className="text-sm font-medium text-[var(--text-primary)] flex-1">
-                      Use structured referral form
-                    </span>
-                    <span className="text-[10px] font-semibold text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full border border-cyan-100">
-                      {referralType === 'outgoing' ? 'Part I' : 'Part II'}
-                    </span>
-                  </label>
+                  ) : (
+                    <ReferralPartFields
+                      sections={PART_II_SECTIONS}
+                      values={partII as unknown as Record<string, string>}
+                      onChange={(key, value) => setPartII(prev => ({ ...prev, [key]: value }))}
+                      tone="green"
+                    />
+                  )}
+
+                  {formErrors.length > 0 && (
+                    <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] px-3 py-2.5">
+                      <p className="text-xs font-semibold text-[var(--icon-red-text)]">Complete these before submitting</p>
+                      <ul className="text-xs text-[var(--icon-red-text)] mt-1 list-disc list-inside space-y-0.5">
+                        {formErrors.map(label => <li key={label}>{label}</li>)}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
-                {useStructuredForm && referralType === 'outgoing' && (
-                  <div className="space-y-3 bg-cyan-50/40 p-4 rounded-xl border border-cyan-100">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4 text-cyan-700" />
-                      <h4 className="text-sm font-bold text-cyan-800">
-                        Part I — Outgoing Referral Form
-                      </h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input placeholder="Client name" value={structuredPartI.clientName} onChange={e => setStructuredPartI(s => ({ ...s, clientName: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Age" value={structuredPartI.age} onChange={e => setStructuredPartI(s => ({ ...s, age: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Sex" value={structuredPartI.sex} onChange={e => setStructuredPartI(s => ({ ...s, sex: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Parity" value={structuredPartI.parity} onChange={e => setStructuredPartI(s => ({ ...s, parity: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Clinic name" value={structuredPartI.clinicName} onChange={e => setStructuredPartI(s => ({ ...s, clinicName: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2" />
-                      <textarea placeholder="General condition (vital signs)" value={structuredPartI.generalCondition} onChange={e => setStructuredPartI(s => ({ ...s, generalCondition: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Patient complaints" value={structuredPartI.patientComplaints} onChange={e => setStructuredPartI(s => ({ ...s, patientComplaints: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Diagnosis" value={structuredPartI.diagnosis} onChange={e => setStructuredPartI(s => ({ ...s, diagnosis: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Actions taken" value={structuredPartI.actionsTaken} onChange={e => setStructuredPartI(s => ({ ...s, actionsTaken: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Reason for referral" value={structuredPartI.reasonForReferral} onChange={e => setStructuredPartI(s => ({ ...s, reasonForReferral: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2 resize-none" />
-                      <input type="date" placeholder="Date of referral" value={structuredPartI.dateOfReferral} onChange={e => setStructuredPartI(s => ({ ...s, dateOfReferral: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Referrer name" value={structuredPartI.referrerName} onChange={e => setStructuredPartI(s => ({ ...s, referrerName: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500" />
-                      <input placeholder="Referrer title" value={structuredPartI.referrerTitle} onChange={e => setStructuredPartI(s => ({ ...s, referrerTitle: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-cyan-500 sm:col-span-2" />
-                    </div>
-                  </div>
-                )}
-
-                {useStructuredForm && referralType === 'incoming' && (
-                  <div className="space-y-3 bg-green-50/40 p-4 rounded-xl border border-green-100">
-                    <div className="flex items-center gap-2">
-                      <ClipboardList className="w-4 h-4 text-green-700" />
-                      <h4 className="text-sm font-bold text-green-800">
-                        Part II — Incoming Referral Form
-                      </h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <input placeholder="Institution name" value={structuredPartII.institutionName} onChange={e => setStructuredPartII(s => ({ ...s, institutionName: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500" />
-                      <input type="date" placeholder="Date received" value={structuredPartII.dateReceived} onChange={e => setStructuredPartII(s => ({ ...s, dateReceived: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500" />
-                      <textarea placeholder="Findings" value={structuredPartII.findings} onChange={e => setStructuredPartII(s => ({ ...s, findings: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Actions taken" value={structuredPartII.actionsTaken} onChange={e => setStructuredPartII(s => ({ ...s, actionsTaken: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500 sm:col-span-2 resize-none" />
-                      <textarea placeholder="Recommendations for follow-up" value={structuredPartII.recommendations} onChange={e => setStructuredPartII(s => ({ ...s, recommendations: e.target.value }))} rows={2} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500 sm:col-span-2 resize-none" />
-                      <input placeholder="Receiver name" value={structuredPartII.receiverName} onChange={e => setStructuredPartII(s => ({ ...s, receiverName: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500" />
-                      <input placeholder="Receiver title" value={structuredPartII.receiverTitle} onChange={e => setStructuredPartII(s => ({ ...s, receiverTitle: e.target.value }))} className="p-2.5 text-sm border border-[var(--border-color)] bg-[var(--bg-card)] rounded-lg focus:ring-2 focus:ring-green-500" />
-                    </div>
-                  </div>
-                )}
               </form>
 
               {/* Footer */}

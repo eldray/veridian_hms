@@ -1,5 +1,6 @@
 // src/utils/pdfTemplates/scanReportPDF.ts — template-aware + custom fields
 import type { Scan, Patient, Attendance, Hospital } from '../../types';
+import { getScanDisplayName, humanScanModality } from '../scan';
 
 interface TemplateField {
   fieldName: string;
@@ -165,12 +166,10 @@ export const generateScanReportHTML = (
     return `<div class="text" style="color: #94a3b8;">No findings recorded.</div>`;
   };
 
-  const getScanName = (scan: any) =>
-    scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Radiology Study';
+  const getScanName = (scan: any) => getScanDisplayName(scan);
   const getBodyPart = (scan: any) =>
     scan?.bodyPart || scan?.ServiceCatalog?.metadata?.bodyPart || '—';
-  const getModality = (scan: any) =>
-    scan?.modality || scan?.ServiceCatalog?.metadata?.scanType || '—';
+  const getModality = (scan: any) => humanScanModality(scan);
   const getImpression = (scan: any) =>
     scan?.impression || scan?.conclusion || '';
   const getStatus = (scan: any) => scan?.status || 'completed';

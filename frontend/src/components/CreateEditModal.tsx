@@ -537,10 +537,10 @@ export default function CreateEditModal({ type, item, onSave, onClose, metadata 
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Scan Type</label>
+          <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">Modality</label>
           <select value={formData.scanType || ''} onChange={(e) => handleChange('scanType', e.target.value)}
             className="w-full p-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)]">
-            <option value="">Select Scan Type</option>
+            <option value="">Select Modality</option>
             {scanTypes.map(type => <option key={type} value={type}>{type}</option>)}
           </select>
         </div>

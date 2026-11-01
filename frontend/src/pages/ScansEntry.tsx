@@ -15,25 +15,24 @@ import { getScansWorklist } from '../api';
 import { ScanResultForm } from '../components/scans/ScanResultForm';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
 import { getPatientName } from '../utils/patient';
+import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
 import {
   Scan, RefreshCw, AlertCircle, Plus, Clock,
-  CheckCircle, Activity, User, Calendar, X, Edit, Trash2,
+  CheckCircle, Activity, X, Edit, Trash2,
   Printer, Image as ImageIcon, MessageSquare,
-  Play, FileText, Hash, Phone, AlertTriangle, Info,
+  Play, FileText, AlertTriangle, Info,
   ChevronDown, ChevronRight, Stethoscope, Sparkles,
   Maximize2,
 } from 'lucide-react';
 import {
   Badge, Button, Card, PageHeader, StatCard,
+  PatientVisitHeader,
   TH, TH_ROW, TD, TD_MUTED, TR,
-  statusTone, humanStatus, cn,
+  cn,
   type Accent,
 } from '../components/ui';
-
-const getScanDisplayName = (scan: any): string =>
-  scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Unknown Scan';
 
 const OUTSTANDING_SCAN_STATUSES = new Set(['requested', 'in_progress']);
 
@@ -102,13 +101,20 @@ const ScanResultDisplay: React.FC<{
             <Badge tone="green" className="flex-shrink-0">Completed</Badge>
           </div>
           <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)] mt-0.5 flex-wrap">
+            <span className="inline-flex items-center gap-1">
+              <Scan className="w-2.5 h-2.5" />
+              {humanScanModality(scan)}
+            </span>
             {scan.bodyPart && (
-              <span className="inline-flex items-center gap-1">
-                <Stethoscope className="w-2.5 h-2.5" />
-                {scan.bodyPart}
-              </span>
+              <>
+                <span className="opacity-40">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Stethoscope className="w-2.5 h-2.5" />
+                  {scan.bodyPart}
+                </span>
+              </>
             )}
-            {scan.bodyPart && <span className="opacity-40">·</span>}
+            <span className="opacity-40">·</span>
             <span className="inline-flex items-center gap-1">
               <Clock className="w-2.5 h-2.5" />
               {scan.completedAt ? new Date(scan.completedAt).toLocaleString() : '—'}
@@ -430,8 +436,7 @@ export default function ScansEntry() {
     return currentAttendance.Scan.map((scan: any) => ({
       ...scan,
       id: scan.id,
-      name: scan.scanType || scan.ServiceCatalog?.name || scan.ScanTemplate?.name || 'Unknown Scan',
-      scanType: scan.scanType || scan.ServiceCatalog?.name,
+      name: getScanDisplayName(scan),
       status: scan.status,
       priority: scan.priority || 'routine',
       requestedAt: scan.requestedAt,
@@ -499,16 +504,6 @@ export default function ScansEntry() {
     } catch (error: any) {
       toastError('Delete failed', error.message);
     }
-  };
-
-  const calculateAge = (dateOfBirth: string): number => {
-    if (!dateOfBirth) return 0;
-    const today = new Date();
-    const birthDate = new Date(dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) age--;
-    return age;
   };
 
   // ── PRINT: single scan ──
@@ -748,52 +743,7 @@ export default function ScansEntry() {
       {selectedAttendanceId && attendance && patient && (
         <>
           {/* Patient info bar */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-            <div className="px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-xl bg-[var(--icon-indigo-bg)] border border-[var(--border-color)] flex items-center justify-center shadow-sm">
-                  <User className="w-5 h-5 text-[var(--icon-indigo-text)]" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-bold text-[var(--text-primary)] text-base">{patientFullName}</h3>
-                    <span className="text-xs text-[var(--text-secondary)]">
-                      {patient.gender === 'male' ? '♂' : patient.gender === 'female' ? '♀' : '·'} ·{' '}
-                      {patient.age || calculateAge(patient.dateOfBirth)}y
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-xs mt-1">
-                    <span className="inline-flex items-center gap-1 font-mono text-[10px] bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
-                      <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
-                      {patient.folderNumber}
-                    </span>
-                    {patient.contact && (
-                      <span className="inline-flex items-center gap-1 text-[var(--text-secondary)]">
-                        <Phone className="w-2.5 h-2.5" />
-                        {patient.contact}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                  <span className="text-xs font-mono text-[var(--text-secondary)]">
-                    #{attendance.attendanceNumber || 'New Visit'}
-                  </span>
-                </div>
-                <div className="bg-[var(--bg-main)] px-2.5 py-1 rounded-full border border-[var(--border-color)]">
-                  <span className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(attendance.dateTime || attendance.createdAt || '').toLocaleDateString()}
-                  </span>
-                </div>
-                <Badge tone={statusTone(attendance.status)} dot size="sm">
-                  {humanStatus(attendance.status)}
-                </Badge>
-              </div>
-            </div>
-          </div>
+          <PatientVisitHeader patient={patient} attendance={attendance} icon={Scan} accent="purple" />
 
           {/* Status warning */}
           {!canUpdateScan && (
@@ -829,7 +779,7 @@ export default function ScansEntry() {
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Scan Type</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Study</th>
                       <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Body Part</th>
                       <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Priority</th>
                       <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Requested</th>
@@ -841,6 +791,7 @@ export default function ScansEntry() {
                       <tr key={scan.id} className="hover:bg-indigo-50/30 transition-colors group">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
+                          <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{humanScanModality(scan)}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">
                           {scan.bodyPart || '—'}
@@ -892,7 +843,7 @@ export default function ScansEntry() {
                 <table className="w-full text-sm">
                   <thead className="bg-[var(--bg-main)]/50 border-b border-[var(--border-color)]">
                     <tr>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Scan Type</th>
+                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Study</th>
                       <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Body Part</th>
                       <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Started</th>
                       <th className="px-4 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Actions</th>
@@ -903,6 +854,7 @@ export default function ScansEntry() {
                       <tr key={scan.id} className="hover:bg-purple-50/30 transition-colors">
                         <td className="px-4 py-3">
                           <p className="font-semibold text-sm text-[var(--text-primary)]">{scan.name}</p>
+                          <p className="text-[11px] text-[var(--text-tertiary)] mt-0.5">{humanScanModality(scan)}</p>
                         </td>
                         <td className="px-4 py-3 text-sm text-[var(--text-secondary)]">{scan.bodyPart || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[var(--text-secondary)]">

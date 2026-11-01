@@ -232,10 +232,10 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                           </div>
                         )}
 
-                        {department === 'scans' && item.scanType && (
+                        {department === 'scans' && (item as any).scanTypes && (
                           <div className="col-span-2">
-                            Scan: <span className="font-medium text-[var(--text-primary)]">{item.scanType}</span>
-                            {item.bodyPart && <span className="ml-2">- {item.bodyPart}</span>}
+                            Studies: <span className="font-medium text-[var(--text-primary)]">{(item as any).scanTypes}</span>
+                            {(item as any).scanCount > 0 && <span className="ml-2">({(item as any).scanCount} ordered)</span>}
                           </div>
                         )}
 

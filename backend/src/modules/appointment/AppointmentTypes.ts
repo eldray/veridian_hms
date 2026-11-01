@@ -12,6 +12,7 @@ export interface CreateAppointmentDTO {
 }
 
 export interface UpdateAppointmentDTO {
+  patientId?: string;
   status?: AppointmentStatus;
   type?: AppointmentType;
   scheduledAt?: Date; // ✅ FIXED
@@ -20,7 +21,9 @@ export interface UpdateAppointmentDTO {
   description?: string;
   checkedIn?: boolean;
   checkedInAt?: Date;
-  clinicianId?: string;
+  clinicianId?: string | null;
+  clinicianRole?: UserRole | null;
+  departmentId?: string | null;
 }
 
 export interface AppointmentFilters {

@@ -6,6 +6,7 @@ import { generateShiftSummaryHTML } from './pdfTemplates/shiftSummaryPDF';
 import { generateLeaveRegisterHTML } from './pdfTemplates/leaveRegisterPDF';
 import { generateLeaveRequestFormHTML } from './pdfTemplates/leaveRequestFormPDF';
 import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
+import { generateThermalReceiptHTML } from './pdfTemplates/thermalReceiptPDF';
 import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
 import { generateClaimBatchHTML } from './pdfTemplates/claimBatchPDF';
 import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
@@ -16,10 +17,12 @@ import { generatePrescriptionHTML } from './pdfTemplates/prescriptionPDF';
 import { generateCombinedPrescriptionHTML } from './pdfTemplates/combinedPrescriptionPDF'; 
 import { generateScanReportHTML } from './pdfTemplates/scanReportPDF';
 import { generateReferralLetterHTML } from './pdfTemplates/referralLetterPDF';
+import { generateReferralFormHTML } from './pdfTemplates/referralFormPDF';
 import { generateHandoverHTML } from './pdfTemplates/handoverPDF';
 
 export type PDFType =
   | 'receipt'
+  | 'thermalReceipt'
   | 'insuranceClaim'
   | 'billStatement'
   | 'visitSummary'
@@ -30,6 +33,7 @@ export type PDFType =
   | 'prescription'
   | 'referral'
   | 'referralLetter'
+  | 'referralForm'
   | 'combinedPrescription'
   | 'scanReport'
   | 'handover'
@@ -51,6 +55,8 @@ export const generatePDF = (
   switch (type) {
     case 'receipt':
       return generateReceiptHTML(data.bill, data.patient, data.payment, hospital);
+    case 'thermalReceipt':
+      return generateThermalReceiptHTML(data.bill, data.patient, data.payment, hospital);
     case 'insuranceClaim':
       // New signature: (claim, hospital)
       return generateInsuranceClaimHTML(data.claim, hospital);
@@ -71,6 +77,8 @@ export const generatePDF = (
     case 'referral':
     case 'referralLetter':
       return generateReferralLetterHTML(data.referral, data.patient, hospital);
+    case 'referralForm':
+      return generateReferralFormHTML(data.referral, data.patient, hospital);
     case 'combinedPrescription':
       return generateCombinedPrescriptionHTML(data.medications, data.patient, data.attendance, hospital, data.prescriberName);
     case 'scanReport':
@@ -111,14 +119,22 @@ case 'shiftSummary':
 };
 
 // Open print window function
-export const openPrintWindow = (htmlContent: string, title = 'Document') => {
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-  if (printWindow) {
-    printWindow.document.write(htmlContent);
-    printWindow.document.title = title;
-    printWindow.document.close();
-    printWindow.focus();
-  } else {
+export const openPrintWindow = (htmlContent: string, title = 'Document', autoPrint = false) => {
+  const printWindow = window.open('', '_blank', 'width=420,height=680');
+  if (!printWindow) {
     alert('Please allow popups to print documents');
+    return;
   }
+  if (autoPrint) {
+    // Registered before close() so the load event that fires on document.close() is caught.
+    printWindow.addEventListener('load', () => {
+      printWindow.focus();
+      // Small delay lets the browser finish laying out the narrow thermal page before the dialog.
+      window.setTimeout(() => printWindow.print(), 300);
+    }, { once: true });
+  }
+  printWindow.document.write(htmlContent);
+  printWindow.document.title = title;
+  printWindow.document.close();
+  printWindow.focus();
 };

@@ -588,8 +588,16 @@ export const changePassword = (currentPassword: string, newPassword: string) =>
 export const getHospitalDetails = () =>
   api.get('/settings/hospital').then(r => r.data);
 
-export const updateHospitalDetails = (data: any) =>
-  api.put('/settings/hospital', data).then(r => r.data);
+export const updateHospitalDetails = (data: any) => {
+  // A logo upload goes as multipart; without the explicit header Axios would
+  // JSON-encode the FormData and the file would never reach the server.
+  if (typeof FormData !== 'undefined' && data instanceof FormData) {
+    return api.put('/settings/hospital', data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data);
+  }
+  return api.put('/settings/hospital', data).then(r => r.data);
+};
 
 // ──────────────────────────────────────────────
 // HOSPITAL INFO
@@ -2707,8 +2715,14 @@ export const createIncomingReferral = async (data: {
   return response.data;
 };
 
-export const updateReferralStatus = async (id: string, status: string, outcomeNotes?: string) => {
-  const response = await api.put(`/referrals/${id}/status`, { status, outcomeNotes });
+export const updateReferralStatus = async (
+  id: string,
+  status: string,
+  outcomeNotes?: string,
+  // Accepting an outgoing referral carries the receiving clinician's Part II report back.
+  partII?: Record<string, string>,
+) => {
+  const response = await api.put(`/referrals/${id}/status`, { status, outcomeNotes, partII });
   return response.data;
 };
 

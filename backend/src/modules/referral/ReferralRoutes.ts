@@ -8,16 +8,19 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
   const router = Router();
   const controller = new ReferralController(prisma);
 
+  // The structured Part I / Part II answers are the source of truth, and the service mirrors
+  // reason-for-referral (outgoing) or findings (incoming) into the flat column, so the route
+  // only checks the shape and lets the service decide what counts as missing.
   const outgoingReferralValidation = [
     body('patientId').notEmpty().withMessage('Patient ID is required'),
-    body('referralReason').notEmpty().withMessage('Referral reason is required'),
+    body('referralReason').optional().isString().withMessage('Referral reason must be text'),
     body('referredToFacility').notEmpty().withMessage('Referred to facility is required'),
     body('urgency').optional().isIn(['routine', 'urgent', 'stat']).withMessage('Valid urgency required')
   ];
 
   const incomingReferralValidation = [
     body('patientId').notEmpty().withMessage('Patient ID is required'),
-    body('referralReason').notEmpty().withMessage('Referral reason is required'),
+    body('referralReason').optional().isString().withMessage('Referral reason must be text'),
     body('referredFromFacility').notEmpty().withMessage('Referred from facility is required'),
     body('urgency').optional().isIn(['routine', 'urgent', 'stat']).withMessage('Valid urgency required')
   ];
@@ -44,7 +47,9 @@ export function createReferralRoutes(prisma: PrismaClient): Router {
   router.post('/outgoing', protect, requireRole(['admin', 'doctor', 'records']), outgoingReferralValidation, controller.createOutgoingReferral);
   router.post('/incoming', protect, requireRole(['admin', 'records']), incomingReferralValidation, controller.createIncomingReferral);
 
-  router.put('/:id/status', protect, requireRole(['admin', 'doctor']), statusUpdateValidation, controller.updateReferralStatus);
+  // Accepting carries the receiving clinician's Part II report back, so the records desk
+  // that fields incoming referrals can move a referral forward too.
+  router.put('/:id/status', protect, requireRole(['admin', 'doctor', 'records']), statusUpdateValidation, controller.updateReferralStatus);
   router.delete('/:id', protect, requireRole(['admin']), controller.deleteReferral);
 
   return router;

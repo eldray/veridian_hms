@@ -2,6 +2,16 @@ import { Router } from 'express';
 import * as settingsController from './SettingsController';
 import { body } from 'express-validator';
 import { protect, requireRole } from '../../middleware/authMiddleware';
+import { handleUploadError, uploadHospitalLogo } from '../../middleware/uploadMiddleware';
+
+// The logo is either a hosted URL or a file this app already serves from
+// /uploads. A base64 data URL is rejected on purpose: the form previews the
+// picked file in the browser and posts it as multipart, so the stored value must
+// stay a short reference rather than a several-megabyte blob.
+const isImageReference = (value: unknown): boolean => {
+  if (typeof value !== 'string' || !value.trim()) return false;
+  return /^https?:\/\//i.test(value) || /^\/(api\/)?uploads\/[a-z-]+\/[\w.@-]+$/.test(value);
+};
 
 export const createSettingsRoutes = () => {
   const router = Router();
@@ -18,12 +28,14 @@ export const createSettingsRoutes = () => {
   router.put(
     '/hospital',
     requireRole(['admin']),
+    uploadHospitalLogo,
+    handleUploadError,
     [
       body('name').notEmpty().withMessage('Hospital name is required'),
       body('address').notEmpty().withMessage('Address is required'),
       body('phone').notEmpty().withMessage('Phone number is required'),
       body('email').isEmail().withMessage('Valid email is required'),
-      body('imageUrl').optional().isURL().withMessage('Valid image URL required'),
+      body('imageUrl').optional().custom(isImageReference).withMessage('Image must be a URL or an uploaded file'),
     ],
     settingsController.updateHospitalDetails
   );

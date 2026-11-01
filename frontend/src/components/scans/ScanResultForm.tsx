@@ -4,6 +4,7 @@ import {
   X, Upload, Image as ImageIcon, Trash2, FileText, Plus,
 } from 'lucide-react';
 import { useToast } from '../../store/toastStore';
+import { getScanDisplayName, humanScanModality } from '../../utils/scan';
 
 interface ScanResultFormProps {
   scan: any;
@@ -317,7 +318,7 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
           <div className="bg-[var(--bg-main)] px-5 py-3 border-b border-[var(--border-color)] flex items-center justify-between flex-shrink-0">
             <h2 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
               <FileText className="w-4 h-4 text-indigo-600" />
-              Enter Results: {scan?.name || scan?.scanType || scan?.ServiceCatalog?.name || 'Scan'}
+              Enter Results: {getScanDisplayName(scan)}
             </h2>
             <button onClick={onClose} className="p-1 hover:bg-[var(--bg-card)] rounded-lg">
               <X className="w-4 h-4 text-[var(--text-secondary)]" />
@@ -329,6 +330,10 @@ export const ScanResultForm: React.FC<ScanResultFormProps> = ({
 
             {/* Scan meta strip */}
             <div className="bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] px-4 py-2.5 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+              <div>
+                <span className="text-[var(--text-tertiary)]">Modality: </span>
+                <span className="text-[var(--text-primary)] font-medium">{humanScanModality(scan)}</span>
+              </div>
               <div>
                 <span className="text-[var(--text-tertiary)]">Body Part: </span>
                 <span className="text-[var(--text-primary)] font-medium">{scan?.bodyPart || '—'}</span>

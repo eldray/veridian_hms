@@ -5,7 +5,7 @@ import prisma from '../core/database/prisma.client';
 // served only when a database record still references it, and the viewer's
 // role may read that kind of record.
 
-const SUPPORTED_CATEGORIES = new Set(['patients', 'users', 'scans', 'documents']);
+const SUPPORTED_CATEGORIES = new Set(['patients', 'users', 'hospital', 'scans', 'documents']);
 
 const ADMIN_ROLES = new Set<string>(['admin', 'super_admin']);
 
@@ -39,6 +39,7 @@ type UploadAccessDb = {
   patient: { findFirst: (args: any) => Promise<{ id: string } | null> };
   scan: { findFirst: (args: any) => Promise<{ id: string } | null> };
   user: { findFirst: (args: any) => Promise<{ id: string } | null> };
+  hospital: { findFirst: (args: any) => Promise<{ id: string } | null> };
   document: { findFirst: (args: any) => Promise<{ staff: { userId: string } } | null> };
   generatedDocument: {
     findFirst: (args: any) => Promise<{ entityType: string; generatedById: string } | null>;
@@ -97,6 +98,16 @@ export async function canAccessUpload(
         select: { id: true },
       });
       return Boolean(owner);
+    }
+
+    case 'hospital': {
+      // The logo is branding, not patient data, but it is still served only while
+      // the hospital row points at it, so a replaced logo stops resolving.
+      const referenced = await db.hospital.findFirst({
+        where: { imageUrl: { in: urls } },
+        select: { id: true },
+      });
+      return Boolean(referenced);
     }
 
     case 'documents': {

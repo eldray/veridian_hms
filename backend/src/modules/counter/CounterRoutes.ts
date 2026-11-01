@@ -41,23 +41,24 @@ export function createCounterRoutes(prisma: PrismaClient): Router {
   router.post('/tickets', requireRole(COUNTER_STAFF), validateBody(CreateTicketSchema), controller.createTicket);
 
   router.post('/tickets/:id/items', requireRole(COUNTER_STAFF), validateBody(AddSaleItemSchema), controller.addSaleItem);
-  // Handing goods over moves stock, so it is the pharmacy's job and not accounts'.
+  // Handing goods over moves stock. The counter bench (pharmacy plus the records/accounts
+  // staff who run a walk-in sale) completes it; a dispensed line then needs the return flow.
   router.post(
     '/tickets/:id/items/:medicationId/dispense',
-    requireRole(['admin', 'super_admin', 'pharmacist']),
+    requireRole(['admin', 'super_admin', 'pharmacist', 'records', 'accounts']),
     validateBody(DispenseItemSchema),
     controller.dispenseItem,
   );
   router.delete(
     '/tickets/:id/items/:medicationId',
     requireRole(['admin', 'super_admin', 'pharmacist', 'records']),
-    controller.cancelSaleItem,
+    controller.deleteSaleItem,
   );
 
   router.post('/tickets/:id/lab-tests', requireRole(COUNTER_STAFF), validateBody(AddLabOrderSchema), controller.addLabOrder);
-  router.delete('/tickets/:id/lab-tests/:labTestId', requireRole(COUNTER_STAFF), controller.removeLabOrder);
+  router.delete('/tickets/:id/lab-tests/:labTestId', requireRole(COUNTER_STAFF), controller.deleteLabOrder);
   router.post('/tickets/:id/scans', requireRole(COUNTER_STAFF), validateBody(AddScanOrderSchema), controller.addScanOrder);
-  router.delete('/tickets/:id/scans/:scanId', requireRole(COUNTER_STAFF), controller.removeScanOrder);
+  router.delete('/tickets/:id/scans/:scanId', requireRole(COUNTER_STAFF), controller.deleteScanOrder);
 
   // Raising the ticket's bill is the counter's own step, so the bench roles can price a
   // basket. Taking the money stays with accounts on the existing /bills/:id/payment route.
