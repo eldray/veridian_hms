@@ -1191,6 +1191,29 @@ export const recordInsuranceClaimTrackingEvent = (claimId: string, data: {
   notes?: string;
 }) => api.post(`/insurance-claims/${claimId}/tracking-events`, data).then(r => r.data);
 
+/**
+ * Tracking & payments reads batches, not claims: the payer receives one submitted period and
+ * answers it with one or more remittances, so the batch is the row the desk reconciles.
+ */
+export interface BatchTrackingEventInput {
+  eventType: 'submission' | 'adjudication' | 'payment' | 'note';
+  status?: string;
+  submissionDate?: string;
+  payerReference?: string;
+  amount?: number;
+  paymentReference?: string;
+  paymentMethod?: string;
+  notes?: string;
+}
+
+export const getClaimBatchTracking = (filters?: {
+  page?: number; limit?: number; search?: string; insuranceType?: string;
+  status?: string; periodYear?: number; periodMonth?: number;
+}) => api.get('/insurance-claims/batches/tracking', { params: filters }).then(r => r.data);
+
+export const recordClaimBatchTrackingEvent = (batchId: string, data: BatchTrackingEventInput) =>
+  api.post(`/insurance-claims/batches/${batchId}/tracking-events`, data).then(r => r.data);
+
 export const getClaimsSummary = (insuranceType?: 'nhis' | 'private' | 'corporate') =>
   api.get('/insurance-claims/summary', { params: { insuranceType } }).then(r => r.data);
 
@@ -2145,43 +2168,17 @@ export const applyWaiverToBill = (billId: string, waiverId: string) =>
 // BILLING COLLECTIONS REPORT
 // ──────────────────────────────────────────────
 
-export interface BillingCollectionItem {
-  id: string;
-  description: string;
-  serviceCategory: string;
-  quantity: number;
-  amount: number;
-}
-
-export interface BillingCollectionPayment {
-  id: string;
-  reference: string;
-  transactionDate: string;
-  amount: number;
-  paymentMethod: string;
-  bill: {
-    billNumber: string;
-    // A counter ticket pays without a patient folder, so the report names the payer
-    // rather than assuming a registered patient. Mirrors BillingService.getCollections.
-    customer: {
-      name: string;
-      reference: string | null;
-      kind: 'patient' | 'walk_in';
-    };
-  };
-  collector: {
-    id: string;
-    fullName: string;
-    username: string;
-  };
-  items: BillingCollectionItem[];
-}
-
-export interface BillingCollectionsReport {
-  totalAmount: number;
-  paymentCount: number;
-  payments: BillingCollectionPayment[];
-}
+// The shape is declared once, in types/billing, so the report screen and the generic
+// report page cannot drift apart on how much money was actually taken.
+export type {
+  BillingCollectionItem,
+  BillingCollectionPayment,
+  BillingBreakdownGroup,
+  BillingBreakdownLine,
+  BillingCashierRow,
+  BillingCollectionsReport,
+} from '../types/billing';
+import type { BillingCollectionsReport } from '../types/billing';
 
 export const getBillingInvoice = (billId: string) =>
   api.get(`/billing/invoices/${billId}`).then(r => r.data?.data ?? r.data);
@@ -4316,8 +4313,19 @@ export const searchCounterClients = (query: string, limit = 20) =>
 export const searchCounterPatients = (query: string, limit = 20) =>
   api.get('/counter/patients', { params: { query, limit } }).then(r => r.data);
 
-export const listCounterTickets = (filters?: { query?: string; status?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
+export const listCounterTickets = (filters?: { query?: string; status?: string; lens?: string; fromDate?: string; toDate?: string; page?: number; limit?: number }) =>
   api.get('/counter/tickets', { params: filters }).then(r => r.data);
+
+/** The dashboard cards: open / awaiting handover / awaiting payment / closed today. */
+export const getCounterSummary = () =>
+  api.get('/counter/summary').then(r => r.data);
+
+/**
+ * What the signed-in staff member's own store can hand over. `department: null` means
+ * their account has no department, so handing over is not available to them at all.
+ */
+export const getCounterStockAvailability = (stockItemIds: string[]) =>
+  api.get('/counter/stock-availability', { params: { stockItemIds: stockItemIds.join(',') } }).then(r => r.data);
 
 export const getCounterTicket = (id: string) =>
   api.get(`/counter/tickets/${id}`).then(r => r.data);

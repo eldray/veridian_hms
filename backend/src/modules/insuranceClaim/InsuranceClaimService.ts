@@ -12,6 +12,34 @@ const safeArrayJoin = (arr: any, sep: string = ','): string => Array.isArray(arr
 const escapeXml = (value: unknown): string => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&apos;');
 const safeMap = (arr: any[] | undefined, mapper: (item: any) => any): any[] => (arr || []).map(mapper).filter(Boolean);
 
+/**
+ * The priced lines, carried on every claim list so the desk can see what each claim
+ * actually bills for. Without it the GDRG / services / labs / medicines columns read zero.
+ */
+const CLAIM_LINE_LIST_SELECT = {
+  select: {
+    id: true,
+    itemNumber: true,
+    itemCategory: true,
+    code: true,
+    description: true,
+    quantity: true,
+    unitPrice: true,
+    lineTotal: true,
+  },
+  orderBy: { itemNumber: 'asc' as const },
+};
+
+/**
+ * The newest active price row of a catalog entry. A claim line without a bill line has no
+ * stored amount, so the form quotes this same row the bill generator would have used.
+ */
+const ACTIVE_PRICING = {
+  where: { isActive: true },
+  orderBy: { effectiveDate: 'desc' as const },
+  take: 1,
+};
+
 export class InsuranceClaimService extends BaseService {
   private repo: InsuranceClaimRepository;
   private prisma: PrismaClient;
@@ -286,7 +314,7 @@ ${claimsXml}
 
     const [claims, total] = await Promise.all([
       this.prisma.insuranceClaim.findMany({
-        where, include: { InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } },
+        where, include: { InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, status: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } }, items: CLAIM_LINE_LIST_SELECT },
         orderBy: { createdAt: 'desc' }, skip, take: limitNum
       }),
       this.prisma.insuranceClaim.count({ where })
@@ -311,7 +339,7 @@ ${claimsXml}
         AttendanceDiagnosis: { include: { Diagnosis: true } },
         LabTest: { include: { LabTestTemplate: true, ServiceCatalog: true } },
         Scan: { include: { ScanTemplate: true, ServiceCatalog: true } },
-        Medication: { include: { StockItem: true, ServiceCatalog: true } },
+        Medication: { include: { StockItem: true, ServiceCatalog: { include: { pricing: ACTIVE_PRICING } } } },
         Procedure: { include: { ProcedureTemplate: true, ServiceCatalog: true } },
         referral: true,
       }
@@ -705,7 +733,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true, nhisCCC: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } }, items: CLAIM_LINE_LIST_SELECT }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -813,7 +841,7 @@ ${claimsXml}
     const skip = (pageNum - 1) * limitNum;
 
     const [claims, total] = await Promise.all([
-      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } } }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
+      this.prisma.insuranceClaim.findMany({ where, include: { InsuranceProvider: { select: { id: true, name: true, type: true } }, Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true } }, Attendance: { select: { id: true, attendanceNumber: true, dateTime: true } }, Bill: { select: { id: true, billNumber: true, totalAmount: true } }, items: CLAIM_LINE_LIST_SELECT }, orderBy: { createdAt: 'desc' }, skip, take: limitNum }),
       this.prisma.insuranceClaim.count({ where })
     ]);
 
@@ -1376,6 +1404,7 @@ async getCorporateClaims(
           },
         },
         Bill: { select: { id: true, billNumber: true, totalAmount: true } },
+        items: CLAIM_LINE_LIST_SELECT,
       },
       orderBy: { createdAt: 'desc' },
       skip,

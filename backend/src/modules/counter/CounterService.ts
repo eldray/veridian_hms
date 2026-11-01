@@ -4,7 +4,8 @@ import { ConflictError, NotFoundError, ValidationError } from '../../utils/error
 import { EncounterRepository } from '../encounter/EncounterRepository';
 import { EncounterService } from '../encounter/EncounterService';
 import { BillService } from '../bill/BillService';
-import { CounterRepository } from './CounterRepository';
+import { CounterRepository, TICKET_LENS_KEYS } from './CounterRepository';
+import { availabilityFor } from './CounterStockRepository';
 import { AddOrderInput, AddSaleItemInput, CounterTicketFilters, CreateTicketInput } from './CounterTypes';
 
 /**
@@ -45,9 +46,13 @@ export class CounterService extends BaseService {
   async listTickets(filters: CounterTicketFilters) {
     const page = filters.page ?? 1;
     const limit = Math.min(filters.limit ?? 50, 200);
+    if (filters.lens && !TICKET_LENS_KEYS.includes(filters.lens)) {
+      throw new ValidationError(`Unknown ticket filter "${filters.lens}". Use one of: ${TICKET_LENS_KEYS.join(', ')}.`);
+    }
     const result = await this.repository.listTickets({
       query: filters.query,
       status: filters.status,
+      lens: filters.lens,
       dateFrom: filters.dateFrom,
       dateTo: filters.dateTo,
       page,
@@ -57,6 +62,21 @@ export class CounterService extends BaseService {
       data: result.data,
       pagination: { page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages },
     };
+  }
+
+  /** The dashboard's cards. */
+  async summary() {
+    return this.repository.summary();
+  }
+
+  /**
+   * What the signed-in staff member's own store can hand over, so the bench knows before
+   * it promises a drug it cannot release. No department means no answer to give — the
+   * caller gets department: null and hides the hand-over step rather than guessing.
+   */
+  async stockAvailability(stockItemIds: string[], userId: string) {
+    const actorId = await this.encounters.requireActorId(userId);
+    return availabilityFor(this.prisma, actorId, stockItemIds);
   }
 
   async createTicket(input: CreateTicketInput, userId: string) {

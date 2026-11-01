@@ -31,6 +31,14 @@ export const createClaimBatchRoutes = () => {
     claimBatchController.periodClaims,
   );
 
+  // The tracking screen's rows are batches, so it must sit above the dynamic :id route
+  // or "tracking" is read as a batch id.
+  router.get(
+    '/tracking',
+    requireRole(['admin', 'accounts', 'doctor', 'records']),
+    claimBatchController.listTracking,
+  );
+
   // Dynamic :id routes — two-segment before one-segment
   router.get(
     '/:id/xml',
@@ -46,6 +54,13 @@ export const createClaimBatchRoutes = () => {
     '/:id/finalize',
     requireRole(['admin', 'accounts']),
     claimBatchController.finalizeBatch,
+  );
+
+  // A submission, payer decision or remittance recorded against the period, not against a claim.
+  router.post(
+    '/:id/tracking-events',
+    requireRole(['admin', 'accounts']),
+    claimBatchController.recordTrackingEvent,
   );
 
   // CLAIM-it submission for a whole batch. `submit-claimit` is a POST so the write audit records it

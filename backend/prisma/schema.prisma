@@ -1252,6 +1252,33 @@ model InsuranceClaimTrackingEvent {
   @@map("insurance_claim_tracking_events")
 }
 
+/// The payer's side of a batch: what was submitted for the month, the payer's decision and
+/// the remittances received against it. Money is tracked on the batch, not on its claims —
+/// the payer pays one submitted period, so that is the row the accounts desk reconciles.
+model ClaimBatchTrackingEvent {
+  id               String   @id @default(cuid())
+  batchId          String
+  eventType        String
+  status           String?
+  submissionDate   DateTime?
+  payerReference   String?
+  amount           Decimal? @db.Decimal(15, 2)
+  paymentReference String?
+  paymentMethod    String?
+  notes            String?  @db.Text
+  recordedById     String
+  createdAt        DateTime @default(now())
+
+  batch      ClaimBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  recordedBy User       @relation("BatchTrackingEvent_recordedBy", fields: [recordedById], references: [id])
+
+  @@unique([batchId, paymentReference])
+  @@index([batchId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([status])
+  @@map("claim_batch_tracking_events")
+}
+
 /// What CLAIM-it answered about one claim, once per attempt.
 enum ClaimItOutcome {
   passed
@@ -1326,6 +1353,7 @@ model ClaimBatch {
   updatedAt           DateTime      @updatedAt
 
   claims            InsuranceClaim[]
+  trackingEvents    ClaimBatchTrackingEvent[]
   createdBy         User               @relation("Batch_createdBy", fields: [createdById], references: [id])
   finalizedBy       User?              @relation("Batch_finalizedBy", fields: [finalizedById], references: [id])
   insuranceProvider InsuranceProvider? @relation(fields: [insuranceProviderId], references: [id])
@@ -2311,6 +2339,7 @@ model User {
   InsuranceClaim_InsuranceClaim_createdByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_createdByIdToUser")
   InsuranceClaim_InsuranceClaim_updatedByIdToUser InsuranceClaim[]          @relation("InsuranceClaim_updatedByIdToUser")
   claimTrackingEvents InsuranceClaimTrackingEvent[] @relation("ClaimTrackingEvent_recordedBy")
+  batchTrackingEvents ClaimBatchTrackingEvent[]     @relation("BatchTrackingEvent_recordedBy")
   claimitSubmissions  ClaimItSubmission[]           @relation("ClaimItSubmission_submittedBy")
   Invoice                                         Invoice[]
   LabTest_LabTest_createdByIdToUser               LabTest[]                 @relation("LabTest_createdByIdToUser")

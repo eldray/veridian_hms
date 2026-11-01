@@ -27,6 +27,8 @@ export interface CreateTicketInput {
 export interface CounterTicketFilters {
   query?: string;
   status?: string;
+  /** Dashboard card the list is opened from; see CounterRepository's TICKET_LENS. */
+  lens?: string;
   dateFrom?: Date;
   dateTo?: Date;
   page?: number;
@@ -44,4 +46,12 @@ export interface AddOrderInput {
   templateId?: string | null;
   priority?: 'routine' | 'urgent' | 'stat';
   notes?: string | null;
+}
+
+/** The four dashboard cards; each one is also a filter the ticket list understands. */
+export interface CounterSummary {
+  open: number;
+  awaitingHandover: number;
+  awaitingPayment: number;
+  closedToday: number;
 }

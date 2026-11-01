@@ -29,6 +29,214 @@ function collectCustomerLabel(patient: CollectionPatient, client: CollectionClie
   };
 }
 
+/** A payment as the repository hands it back, narrowed to what the report reads. */
+type CollectionRow = {
+  id: string;
+  transactionDate: Date;
+  amount: unknown;
+  paymentMethod: string;
+  reference: string | null;
+  notes: string | null;
+  isVoided: boolean;
+  voidedAt: Date | null;
+  voidReason: string | null;
+  User: { id: string; fullName: string; username: string } | null;
+  Bill: {
+    id: string;
+    billNumber: string;
+    Patient: CollectionPatient;
+    CounterClient: CollectionClient;
+    BillLineItem: {
+      id: string;
+      description: string;
+      quantity: number;
+      lineTotal: unknown;
+      patientPayableAmount: unknown;
+      serviceType: string;
+      serviceCatalog: {
+        serviceCategory: string;
+        subType: string | null;
+        StockItem: { isMedication: boolean; category: string } | null;
+      } | null;
+      wardChargeRecord: { ward: { wardName: string } } | null;
+    }[];
+  };
+};
+
+/**
+ * Stock cards that are not a drug: the shelf sells these, but the money behind them is not
+ * medicine, and the legacy cashbook has always shown them on their own lines.
+ */
+const CONSUMABLE_STOCK_CATEGORIES = new Set(['consumable', 'medical_supply', 'diagnostic']);
+
+/**
+ * The groups the cashbook is kept in, taken straight off the service catalog: a charged line
+ * belongs to a group by its `ServiceType`, and to one line inside that group by the catalog
+ * card's `subType` (or the ward that billed a bed day). The labels are the words the printed
+ * receipt and the bill screen already use, so a cashier reading both is not learning a second
+ * vocabulary.
+ *
+ * There is no Deposits group, because nothing here can produce one: no service catalog code is
+ * a deposit, and no payment has ever been taken against a bill with no charged lines.
+ */
+const COLLECTION_GROUPS: { key: string; label: string; always: boolean }[] = [
+  { key: 'consultation', label: 'Consultation', always: true },
+  { key: 'procedures', label: 'Procedures', always: true },
+  { key: 'laboratory', label: 'Laboratory Tests', always: true },
+  { key: 'scans', label: 'Scans & Imaging', always: true },
+  { key: 'accommodation', label: 'Ward & Accommodation', always: true },
+  { key: 'drugs', label: 'Drugs', always: true },
+  { key: 'consumables', label: 'Consumables', always: true },
+  // Only ever a landing place for money that cannot be typed; shown when it has taken any.
+  { key: 'other', label: 'Other Services', always: false },
+];
+
+const COLLECTION_GROUP_BY_SERVICE_TYPE: Record<string, string> = {
+  consultation: 'consultation',
+  procedure: 'procedures',
+  lab_test: 'laboratory',
+  scan: 'scans',
+  ward: 'accommodation',
+};
+
+/** Catalog sub-types whose readable name is not the value stored on the card. */
+const COLLECTION_ROW_LABELS: Record<string, string> = {
+  ct_scan: 'CT Scan',
+  dental_xray: 'Dental X-ray',
+  xray: 'X-ray',
+  mri: 'MRI',
+  bone_densitometry: 'Bone Densitometry',
+  nuclear_medicine: 'Nuclear Medicine',
+  icu: 'ICU',
+  ent: 'ENT',
+  medical_supply: 'Medical Supplies',
+};
+
+const humanRowLabel = (raw: string) => COLLECTION_ROW_LABELS[raw.toLowerCase()]
+  || raw
+    .split(/[_\s-]+/)
+    .filter(Boolean)
+    .map((word) => word[0].toUpperCase() + word.slice(1))
+    .join(' ');
+
+const rowSlug = (raw: string) => raw.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '') || 'unsorted';
+
+/** Which group, and which line inside it, a charged line's share of a payment belongs to. */
+function collectionPlacement(
+  line: CollectionRow['Bill']['BillLineItem'][number],
+): { group: string; row: string; label: string } {
+  const stock = line.serviceCatalog?.StockItem;
+  if (line.serviceType === 'medication') {
+    if (!stock) return { group: 'drugs', row: 'unsorted', label: 'Not on a stock card' };
+    const isConsumable = CONSUMABLE_STOCK_CATEGORIES.has((stock.category || '').toLowerCase()) || !stock.isMedication;
+    const subType = line.serviceCatalog?.subType || stock.category;
+    return {
+      group: isConsumable ? 'consumables' : 'drugs',
+      row: rowSlug(subType),
+      label: subType ? humanRowLabel(subType) : 'Unsorted pharmacy line',
+    };
+  }
+  const group = COLLECTION_GROUP_BY_SERVICE_TYPE[line.serviceType] || 'other';
+  // A bed day is billed by the ward, not by a catalog card, so the ward name is the line.
+  if (line.serviceType === 'ward') {
+    const wardName = line.wardChargeRecord?.ward?.wardName;
+    return { group, row: wardName ? rowSlug(wardName) : 'unsorted', label: wardName || 'Ward accommodation' };
+  }
+  const subType = line.serviceCatalog?.subType;
+  return {
+    group,
+    row: subType ? rowSlug(subType) : 'unsorted',
+    label: subType ? humanRowLabel(subType) : 'Not on a catalog card',
+  };
+}
+
+/** Whole cents, because adding Prisma Decimals with `+` concatenates them as text. */
+const toCents = (value: unknown) => Math.round(Number(value) * 100);
+
+/**
+ * One payment, with its amount split across the bill's charged lines.
+ *
+ * The split is proportional to what the patient actually owed on each line, falling back to
+ * the line total when nothing was recorded as payable. Cents are distributed largest-remainder
+ * so the shares add back to the payment exactly — a rounding drift here is what makes a
+ * cashbook and its breakdown disagree.
+ */
+function allocateCollection(payment: CollectionRow) {
+  const lineItems = payment.Bill.BillLineItem;
+  const payableAmounts = lineItems.map((item) => Number(item.patientPayableAmount));
+  const payableTotal = payableAmounts.reduce((sum, amount) => sum + amount, 0);
+  const lineTotals = lineItems.map((item) => Number(item.lineTotal));
+  const allocationBasis = payableTotal > 0 ? payableAmounts : lineTotals;
+  const allocationTotal = allocationBasis.reduce((sum, amount) => sum + amount, 0);
+  const paymentCents = toCents(payment.amount);
+  const itemAmounts = allocationTotal > 0
+    ? allocationBasis.map((amount) => Math.floor(paymentCents * amount / allocationTotal))
+    : [];
+  const remainingCents = allocationTotal > 0
+    ? paymentCents - itemAmounts.reduce((sum, amount) => sum + amount, 0)
+    : 0;
+  const remainderOrder = allocationTotal > 0
+    ? allocationBasis
+        .map((amount, index) => ({
+          index,
+          remainder: paymentCents * amount / allocationTotal - itemAmounts[index]
+        }))
+        .sort((a, b) => b.remainder - a.remainder)
+    : [];
+  for (let index = 0; index < remainingCents; index += 1) {
+    itemAmounts[remainderOrder[index].index] += 1;
+  }
+
+  const items = allocationTotal > 0
+    ? lineItems.map((item, index) => {
+        const placement = collectionPlacement(item);
+        return {
+          id: item.id,
+          description: item.description,
+          quantity: item.quantity,
+          serviceCategory: item.serviceCatalog?.serviceCategory || 'other',
+          serviceType: item.serviceType,
+          breakdownRow: `${placement.group}:${placement.row}`,
+          breakdownLabel: placement.label,
+          amount: itemAmounts[index] / 100,
+        };
+      })
+    : [{
+        id: payment.id,
+        description: 'Uncategorized collection',
+        quantity: 1,
+        serviceCategory: 'other',
+        serviceType: 'miscellaneous',
+        breakdownRow: 'other:unallocated',
+        breakdownLabel: 'Payment not tied to a charged line',
+        amount: paymentCents / 100,
+      }];
+
+  return {
+    id: payment.id,
+    transactionDate: payment.transactionDate,
+    amount: Number(payment.amount),
+    paymentMethod: payment.paymentMethod,
+    reference: payment.reference,
+    notes: payment.notes,
+    isVoided: payment.isVoided,
+    voidedAt: payment.voidedAt,
+    voidReason: payment.voidReason,
+    collector: payment.User,
+    bill: {
+      id: payment.Bill.id,
+      billNumber: payment.Bill.billNumber,
+      // One field for whoever handed over the money. A counter ticket has no Patient
+      // row, so the report must not assume the payer is in the patient register.
+      customer: collectCustomerLabel(payment.Bill.Patient, payment.Bill.CounterClient),
+    },
+    items,
+  };
+}
+
+/** Sums of whole cents, returned in currency units. */
+const sumAmounts = (values: number[]) => Math.round(values.reduce((sum, value) => sum + toCents(value), 0)) / 100;
+
 export class BillingService extends BaseService {
   private repository: BillingRepository;
   private prisma: PrismaClient;
@@ -285,75 +493,140 @@ export class BillingService extends BaseService {
     return this.repository.getStatistics(period);
   }
 
+  /**
+   * The cashbook for a period: what was taken, what was reversed, who took it, and which
+   * services the money bought.
+   *
+   * `payments` stays the money actually banked (voided rows excluded) so every existing
+   * consumer of this endpoint keeps the same totals. `reversals` carries the voided ones,
+   * and `groups`/`cashiers` are computed from both so the grids on the screen always tie to
+   * the same figure.
+   */
   async getCollections(dateFrom: Date, dateTo: Date) {
     this.logInfo('Fetching payment collections', { dateFrom, dateTo });
-    const payments = await this.repository.findCollections(dateFrom, dateTo);
+    const rows = (await this.repository.findCollections(dateFrom, dateTo)) as unknown as CollectionRow[];
+    const allocated = rows.map(allocateCollection);
 
-    const collectionPayments = payments.map((payment) => {
-      const lineItems = payment.Bill.BillLineItem;
-      const payableAmounts = lineItems.map((item) => Number(item.patientPayableAmount));
-      const payableTotal = payableAmounts.reduce((sum, amount) => sum + amount, 0);
-      const lineTotals = lineItems.map((item) => Number(item.lineTotal));
-      const allocationBasis = payableTotal > 0 ? payableAmounts : lineTotals;
-      const allocationTotal = allocationBasis.reduce((sum, amount) => sum + amount, 0);
-      const paymentCents = Math.round(Number(payment.amount) * 100);
-      const itemAmounts = allocationTotal > 0
-        ? allocationBasis.map((amount) => Math.floor(paymentCents * amount / allocationTotal))
-        : [];
-      const remainingCents = allocationTotal > 0
-        ? paymentCents - itemAmounts.reduce((sum, amount) => sum + amount, 0)
-        : 0;
-      const remainderOrder = allocationTotal > 0
-        ? allocationBasis
-            .map((amount, index) => ({
-              index,
-              remainder: paymentCents * amount / allocationTotal - itemAmounts[index]
-            }))
-            .sort((a, b) => b.remainder - a.remainder)
-        : [];
-      for (let index = 0; index < remainingCents; index += 1) {
-        itemAmounts[remainderOrder[index].index] += 1;
+    const payments = allocated.filter((payment) => !payment.isVoided);
+    const reversals = allocated.filter((payment) => payment.isVoided);
+
+    const reversalCentsByRow = new Map<string, number>();
+    for (const reversal of reversals) {
+      for (const item of reversal.items) {
+        reversalCentsByRow.set(item.breakdownRow, (reversalCentsByRow.get(item.breakdownRow) || 0) + toCents(item.amount));
       }
+    }
 
-      return {
-        id: payment.id,
-        transactionDate: payment.transactionDate,
-        amount: Number(payment.amount),
-        paymentMethod: payment.paymentMethod,
-        reference: payment.reference,
-        notes: payment.notes,
-        collector: payment.User,
-        bill: {
-          id: payment.Bill.id,
-          billNumber: payment.Bill.billNumber,
-          // One field for whoever handed over the money. A counter ticket has no Patient
-          // row, so the report must not assume the payer is in the patient register.
-          customer: collectCustomerLabel(payment.Bill.Patient, payment.Bill.CounterClient)
-        },
-        items: allocationTotal > 0
-          ? lineItems.map((item, index) => ({
-                id: item.id,
-                description: item.description,
-                quantity: item.quantity,
-                serviceCategory: item.serviceCatalog?.serviceCategory || 'other',
-                serviceType: item.serviceType,
-                amount: itemAmounts[index] / 100
-              }))
-          : [{
-              id: payment.id,
-              description: 'Uncategorized collection',
-              quantity: 1,
-              serviceCategory: 'other',
-              serviceType: 'miscellaneous',
-              amount: paymentCents / 100
-            }]
+    const collectionsCentsByRow = new Map<string, number>();
+    type CashierRow = {
+      id: string; name: string; username: string;
+      receipts: number; collections: number; reversals: number; cash: number;
+    };
+    const cashiers = new Map<string, CashierRow>();
+    const cashierOf = (collector: CollectionRow['User']): CashierRow => {
+      const id = collector?.id || 'unknown';
+      const existing = cashiers.get(id);
+      if (existing) return existing;
+      const created: CashierRow = {
+        id,
+        name: collector?.fullName || collector?.username || 'Unknown user',
+        username: collector?.username || '',
+        receipts: 0,
+        collections: 0,
+        reversals: 0,
+        cash: 0,
       };
-    });
+      cashiers.set(id, created);
+      return created;
+    };
+    for (const payment of payments) {
+      for (const item of payment.items) {
+        collectionsCentsByRow.set(item.breakdownRow, (collectionsCentsByRow.get(item.breakdownRow) || 0) + toCents(item.amount));
+      }
+      const cashier = cashierOf(payment.collector);
+      cashier.receipts += 1;
+      cashier.collections += toCents(payment.amount);
+      // "Cash at hand" means physical money only; mobile money, card, bank transfer and
+      // cheque land elsewhere in the till, so counting them here would overstate the drawer.
+      if (payment.paymentMethod === 'cash') cashier.cash += toCents(payment.amount);
+    }
+    for (const reversal of reversals) {
+      const cashier = cashierOf(reversal.collector);
+      cashier.reversals += toCents(reversal.amount);
+      if (reversal.paymentMethod === 'cash') cashier.cash -= toCents(reversal.amount);
+    }
+
+    // The rows are whatever the period actually charged, so their names come off the lines
+    // rather than from a fixed chart — a ward or a lab discipline added next month appears here
+    // without this report being edited to make room for it.
+    const rowLabels = new Map<string, string>();
+    for (const payment of allocated) {
+      for (const item of payment.items) rowLabels.set(item.breakdownRow, item.breakdownLabel);
+    }
+
+    type BreakdownLine = { key: string; label: string; collections: number; reversals: number; balance: number };
+    const linesByGroup = new Map<string, BreakdownLine[]>();
+    for (const rowKey of new Set([...collectionsCentsByRow.keys(), ...reversalCentsByRow.keys()])) {
+      const groupKey = rowKey.split(':')[0];
+      const collections = collectionsCentsByRow.get(rowKey) || 0;
+      const rowReversals = reversalCentsByRow.get(rowKey) || 0;
+      const lines = linesByGroup.get(groupKey) || [];
+      lines.push({
+        key: rowKey,
+        label: rowLabels.get(rowKey) || humanRowLabel(rowKey.split(':')[1] || 'Other'),
+        collections: collections / 100,
+        reversals: rowReversals / 100,
+        balance: (collections - rowReversals) / 100,
+      });
+      linesByGroup.set(groupKey, lines);
+    }
+
+    const groups = COLLECTION_GROUPS
+      .filter((group) => group.always || (linesByGroup.get(group.key)?.length ?? 0) > 0)
+      .map((group) => {
+        const lines = (linesByGroup.get(group.key) || [])
+          .sort((a, b) => b.balance - a.balance || a.label.localeCompare(b.label));
+        return {
+          key: group.key,
+          label: group.label,
+          lines,
+          subtotal: {
+            collections: lines.reduce((sum, line) => sum + toCents(line.collections), 0) / 100,
+            reversals: lines.reduce((sum, line) => sum + toCents(line.reversals), 0) / 100,
+            balance: lines.reduce((sum, line) => sum + toCents(line.balance), 0) / 100,
+          },
+        };
+      });
+
+    const totalCollections = sumAmounts(payments.map((payment) => payment.amount));
+    const totalReversals = sumAmounts(reversals.map((reversal) => reversal.amount));
 
     return {
-      totalAmount: Math.round(collectionPayments.reduce((sum, payment) => sum + payment.amount, 0) * 100) / 100,
-      paymentCount: collectionPayments.length,
-      payments: collectionPayments
+      totalAmount: totalCollections,
+      paymentCount: payments.length,
+      payments,
+      totalReversals,
+      reversalCount: reversals.length,
+      reversals,
+      netCollected: Math.round((totalCollections - totalReversals) * 100) / 100,
+      cashAtHand: sumAmounts(
+        payments.filter((payment) => payment.paymentMethod === 'cash').map((payment) => payment.amount)
+      ) - sumAmounts(
+        reversals.filter((reversal) => reversal.paymentMethod === 'cash').map((reversal) => reversal.amount)
+      ),
+      groups,
+      cashiers: [...cashiers.values()]
+        .map((cashier) => ({
+          id: cashier.id,
+          name: cashier.name,
+          username: cashier.username,
+          receipts: cashier.receipts,
+          collections: cashier.collections / 100,
+          reversals: cashier.reversals / 100,
+          balance: (cashier.collections - cashier.reversals) / 100,
+          cashAtHand: cashier.cash / 100,
+        }))
+        .sort((a, b) => b.collections - a.collections),
     };
   }
 

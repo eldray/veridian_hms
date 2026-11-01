@@ -58,6 +58,10 @@ export interface BillingCollectionItem {
   quantity: number;
   serviceCategory: string;
   serviceType: string;
+  /** Which row of the financial breakdown this share was counted under, as `group:row`. */
+  breakdownRow: string;
+  /** The readable name of that row — the catalog sub-type, or the ward that billed a bed day. */
+  breakdownLabel: string;
   amount: number;
 }
 
@@ -68,7 +72,11 @@ export interface BillingCollectionPayment {
   paymentMethod: string;
   reference: string | null;
   notes: string | null;
-  collector: { id: string; fullName: string; username: string };
+  /** A reversed payment is reported under `reversals`, never under `payments`. */
+  isVoided: boolean;
+  voidedAt: string | null;
+  voidReason: string | null;
+  collector: { id: string; fullName: string; username: string } | null;
   bill: {
     id: string;
     billNumber: string;
@@ -82,8 +90,42 @@ export interface BillingCollectionPayment {
   items: BillingCollectionItem[];
 }
 
+export interface BillingBreakdownLine {
+  key: string;
+  label: string;
+  collections: number;
+  reversals: number;
+  balance: number;
+}
+
+export interface BillingBreakdownGroup {
+  key: string;
+  label: string;
+  lines: BillingBreakdownLine[];
+  subtotal: { collections: number; reversals: number; balance: number };
+}
+
+export interface BillingCashierRow {
+  id: string;
+  name: string;
+  username: string;
+  receipts: number;
+  collections: number;
+  reversals: number;
+  balance: number;
+  /** Physical money only — mobile money, card, transfer and cheque are not in the drawer. */
+  cashAtHand: number;
+}
+
 export interface BillingCollectionsReport {
   totalAmount: number;
   paymentCount: number;
   payments: BillingCollectionPayment[];
+  totalReversals: number;
+  reversalCount: number;
+  reversals: BillingCollectionPayment[];
+  netCollected: number;
+  cashAtHand: number;
+  groups: BillingBreakdownGroup[];
+  cashiers: BillingCashierRow[];
 }

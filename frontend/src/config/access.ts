@@ -124,7 +124,7 @@ export const PAGES: PageDef[] = [
   // Counter mirrors COUNTER_STAFF in backend/src/modules/counter/CounterRoutes.ts.
   // Doctors and nurses are deliberately absent: a consultation is opened from the visit
   // screen, and the API refuses any ticket that is not a walk-in.
-  { key: 'counter', paths: ['/dashboard/counter'], roles: ['pharmacist', 'lab_tech', 'sonographer', 'accounts', 'records'], label: 'Counter', icon: Store, group: 'Revenue' },
+  { key: 'counter', paths: ['/dashboard/counter'], patterns: ['/dashboard/counter/new', '/dashboard/counter/:id'], roles: ['pharmacist', 'lab_tech', 'sonographer', 'accounts', 'records'], label: 'Counter', icon: Store, group: 'Revenue' },
 
   // ── HR & staff ─────────────────────────────────────────────────────────────
   { key: 'user_management', paths: ['/dashboard/users'], patterns: ['/dashboard/users/:id'], roles: ['hr_officer'], label: 'User Management', icon: Users, group: 'HR & Staff' },

@@ -96,7 +96,12 @@ export const COUNTS = {
   waivers: 80,
   preAuthorisations: 120,
   eligibilityChecks: 500,
-  claimBatches: 10,
+  /**
+   * A batch is one payer's month, so this is how many months of submission history the
+   * tracking screen has: the newest groups are taken first, and a count that reaches back
+   * only a few weeks leaves no period old enough to have been adjudicated and paid.
+   */
+  claimBatches: 20,
   auditLogs: 800,
   communicationLogs: 600,
   counterClients: 200,
@@ -800,6 +805,23 @@ export interface GeneratedClaimBatch {
   description: string;
   createdBy: Actor;
   finalizedBy: Actor | null;
+  /**
+   * The payer's side of the batch. Remittances answer the period, not the individual
+   * claim, so this is where the money is tracked. Each payment is a fraction of the
+   * batch total because the total only exists once the seeder has the priced claims.
+   * A batch still sitting as `generated` has no answer yet.
+   */
+  payerResponse: {
+    submittedAt: Date;
+    payerReference: string;
+    adjudication: {
+      status: 'approved' | 'partially_approved' | 'rejected' | 'under_review' | 'queried';
+      at: Date;
+      notes: string;
+    } | null;
+    payments: Array<{ fraction: number; at: Date; reference: string; method: string }>;
+    recorder: Actor;
+  } | null;
 }
 
 export interface GeneratedWaiver {
@@ -2250,38 +2272,14 @@ const emitEncounter = (
       batchKey: null,
     };
     if (finalized) {
+      // Only the handover is a per-claim fact; the payer's decision and the money are the
+      // batch's (see buildBatchPayerResponse). InsuranceClaim has no submission date
+      // column, so this event is what the claims lists read as `submissionDate`.
       claim.trackingEvents.push({
-        eventType: 'submitted', status: 'submitted', at: claim.finalizedAt!, amount: null,
+        eventType: 'submission', status: 'submitted', at: claim.finalizedAt!, amount: null,
         payerReference: `PAYREF-${attendanceNumber}`, paymentReference: null, paymentMethod: null,
-        notes: 'Batch file handed to the payer for adjudication.', recorder: actor('accounts'),
+        notes: 'Included in the period batch file handed to the payer.', recorder: actor('accounts'),
       });
-      const outcomeRoll = rand();
-      if (outcomeRoll < 0.45) {
-        claim.trackingEvents.push({
-          eventType: 'paid', status: 'paid', at: addDays(claim.finalizedAt!, intBetween(20, 120)),
-          amount: null, payerReference: null, paymentReference: `PMT-${attendanceNumber}`,
-          paymentMethod: 'bank_transfer', notes: 'Adjudicated at the published tariff and settled.',
-          recorder: actor('accounts'),
-        });
-      } else if (outcomeRoll < 0.65) {
-        claim.trackingEvents.push({
-          eventType: 'rejected', status: 'rejected', at: addDays(claim.finalizedAt!, intBetween(10, 60)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: pick(CLAIM_REJECTION_NOTES), recorder: actor('accounts'),
-        });
-      } else if (outcomeRoll < 0.8) {
-        claim.trackingEvents.push({
-          eventType: 'partially_approved', status: 'partially approved', at: addDays(claim.finalizedAt!, intBetween(10, 60)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: pick(CLAIM_REJECTION_NOTES), recorder: actor('accounts'),
-        });
-      } else {
-        claim.trackingEvents.push({
-          eventType: 'under_review', status: 'under review', at: addDays(claim.finalizedAt!, intBetween(2, 20)),
-          amount: null, payerReference: null, paymentReference: null, paymentMethod: null,
-          notes: 'Awaiting adjudication by the payer.', recorder: actor('accounts'),
-        });
-      }
     }
     b.claims.push(claim);
   }
@@ -2331,6 +2329,85 @@ const sampleIndices = (total: number, count: number): number[] => {
 
 const scenarioByKey = (key: string, fallback: ComplaintScenario): ComplaintScenario =>
   COMPLAINT_SCENARIOS.find((s) => s.key === key) || fallback;
+
+/**
+ * The states a payer's answer to a submitted period actually takes, cycled across the
+ * submitted batches instead of rolled: the demo only has ~10 batches, and a roll can
+ * leave the tracking screen without a single queried, rejected or unpaid period.
+ */
+const BATCH_OUTCOMES = [
+  'settled', 'partially_settled', 'awaiting_remittance', 'under_review', 'queried',
+  'rejected', 'settled', 'partially_settled', 'settled', 'awaiting_remittance',
+] as const;
+
+type BatchOutcome = (typeof BATCH_OUTCOMES)[number];
+
+/** The answers that decide the period but move no money yet. */
+const BATCH_UNANSWERED: Record<
+  Exclude<BatchOutcome, 'settled' | 'partially_settled'>,
+  { status: 'approved' | 'under_review' | 'queried' | 'rejected'; note: () => string }
+> = {
+  awaiting_remittance: { status: 'approved', note: () => 'Approved; the remittance has not arrived yet.' },
+  under_review: { status: 'under_review', note: () => 'Awaiting adjudication by the payer.' },
+  queried: { status: 'queried', note: () => pick(CLAIM_REJECTION_NOTES) },
+  rejected: { status: 'rejected', note: () => pick(CLAIM_REJECTION_NOTES) },
+};
+
+/**
+ * How the payer answered a submitted batch: decided, and how much of the period they have
+ * actually remitted. Amounts are fractions because a batch is worth whatever its claims add
+ * up to, which is only known once they are priced.
+ */
+const buildBatchPayerResponse = (
+  batchNumber: string,
+  finalizedAt: Date,
+  submittedOrdinal: number,
+): GeneratedClaimBatch['payerResponse'] => {
+  // The newest batch period can still be the current month. A step that would be dated today
+  // or later has not happened yet, so the story stops there instead of piling every event
+  // onto one clamped day.
+  const cap = Date.now() - 86_400_000;
+  const handed = addDays(finalizedAt, intBetween(1, 4));
+  if (handed.getTime() > cap) return null;
+  const base = { submittedAt: handed, payerReference: `${batchNumber}-SUB`, recorder: actor('accounts') };
+  const adjudicatedAt = addDays(handed, intBetween(5, 21));
+  if (adjudicatedAt.getTime() > cap) return { ...base, adjudication: null, payments: [] };
+  const outcome = BATCH_OUTCOMES[submittedOrdinal % BATCH_OUTCOMES.length];
+
+  // Instalments arrive one after another; a remittance dated beyond today never landed.
+  const settle = (fractions: number[]) => {
+    const rows: Array<{ fraction: number; at: Date; reference: string; method: string }> = [];
+    let arrival = adjudicatedAt;
+    for (const fraction of fractions) {
+      arrival = addDays(arrival, rows.length ? intBetween(10, 30) : intBetween(5, 25));
+      if (arrival.getTime() > cap) break;
+      rows.push({
+        fraction,
+        at: arrival,
+        reference: `${batchNumber}-PMT-${rows.length + 1}`,
+        method: fractions.length > 1 ? 'bank_transfer' : pick(['bank_transfer', 'cheque']),
+      });
+    }
+    return rows;
+  };
+
+  if (outcome === 'settled') {
+    return {
+      ...base,
+      adjudication: { status: 'approved', at: adjudicatedAt, notes: 'Adjudicated at the published tariff.' },
+      payments: settle([1]),
+    };
+  }
+  if (outcome === 'partially_settled') {
+    return {
+      ...base,
+      adjudication: { status: 'partially_approved', at: adjudicatedAt, notes: pick(CLAIM_REJECTION_NOTES) },
+      payments: settle([between(0.35, 0.6), between(0.15, 0.3)]),
+    };
+  }
+  const answer = BATCH_UNANSWERED[outcome];
+  return { ...base, adjudication: { status: answer.status, at: adjudicatedAt, notes: answer.note() }, payments: [] };
+};
 
 export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBundle => {
   const b: GeneratedBundle = {
@@ -2572,15 +2649,18 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     const month = Number(monthText);
     const status: GeneratedClaimBatch['status'] = claims.length > 3 && chance(0.7) ? 'finalized' : 'generated';
     const generatedAt = new Date(year, month - 1, Math.min(28, 20));
+    const finalizedAt = status === 'finalized' ? addDays(generatedAt, intBetween(1, 6)) : null;
+    const batchNumber = `BATCH-${padNumber(++counters.receipt)}`;
     const batch: GeneratedClaimBatch = {
       key: `batch-${b.claimBatches.length + 1}`,
-      batchNumber: `BATCH-${padNumber(++counters.receipt)}`,
+      batchNumber,
       insuranceType: insuranceType as GeneratedClaimBatch['insuranceType'],
       periodYear: year,
       periodMonth: month,
       status,
       generatedAt,
-      finalizedAt: status === 'finalized' ? addDays(generatedAt, intBetween(1, 6)) : null,
+      finalizedAt,
+      payerResponse: null,
       description: `${insuranceType.toUpperCase()} claim batch for ${new Date(year, month - 1, 1).toLocaleString('en-US', { month: 'long' })} ${year}, ${claims.length} claims.`,
       createdBy: actor('accounts'),
       finalizedBy: status === 'finalized' ? actor('admin') : null,
@@ -2588,6 +2668,15 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     b.claimBatches.push(batch);
     for (const claim of claims) claim.batchKey = batch.key;
   }
+
+  // The payer's answer goes on oldest period first: a batch handed in months ago has had
+  // time to be adjudicated and paid, one closed last week has not.
+  b.claimBatches
+    .filter((batch) => batch.status === 'finalized' && batch.finalizedAt)
+    .sort((a, z) => a.finalizedAt!.getTime() - z.finalizedAt!.getTime())
+    .forEach((batch, ordinal) => {
+      batch.payerResponse = buildBatchPayerResponse(batch.batchNumber, batch.finalizedAt!, ordinal);
+    });
 
   return b;
 };

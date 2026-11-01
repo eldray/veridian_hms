@@ -7,7 +7,8 @@ import { usePatientStore } from '../../store/patientStore';
 import { useStockStore } from '../../store/stockStore';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
-import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, fmtDate } from '../../components/claims/ClaimUI';
+import { ClaimFrame, ClaimCard, UField, ListSection, TH, ClaimFooter, Hint, fmtDate } from '../../components/claims/ClaimUI';
+import { payerUnitPrice, priceLabel, medicationCatalogByStockItemId } from '../../utils/pricing';
 import { Download, Printer, XCircle, Plus, Search, Edit, Trash2 as TrashIcon } from 'lucide-react';
 
 interface DiagnosisItem {
@@ -26,6 +27,9 @@ interface ServiceItem {
   quantity: number;
   unitPrice: number;
   total: number;
+  /** 'service' or 'procedure' — the category the claim line is stored under. */
+  itemCategory?: string;
+  code?: string;
 }
 
 interface MedicineItem {
@@ -37,6 +41,7 @@ interface MedicineItem {
   total: number;
   date: string;
   stockItemId?: string;
+  serviceCatalogId?: string;
 }
 
 const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
@@ -87,7 +92,10 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
   const meds = attendance?.medication ?? attendance?.Medication ?? [];
   return meds.map((m: any) => {
     const quantity = m.quantity || 1;
-    const unitPrice = toNum(m.unitPrice ?? m.stockItem?.sellingPrice ?? m.StockItem?.sellingPrice);
+    const catalog = m.ServiceCatalog ?? m.serviceCatalog;
+    // A dispensed medicine already carries its batch cost; a prescribed one is quoted at the
+    // payer tariff of its catalog entry, which is the price billing would have charged.
+    const unitPrice = toNum(m.dispensedUnitCost ?? payerUnitPrice(catalog, 'private_insurance'));
     return {
       id: m.id,
       description: m.name,
@@ -100,6 +108,7 @@ function buildMedicinesFromBill(bill: any, attendance: any): MedicineItem[] {
         ? new Date(m.prescribedAt).toISOString().split('T')[0]
         : '',
       stockItemId: m.stockItemId,
+      serviceCatalogId: catalog?.id,
     } as MedicineItem;
   });
 }
@@ -197,7 +206,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
   const handleAdd = () => {
     if (!selectedService) return;
-    const unitPrice = selectedService.pricing?.insurancePrice || selectedService.pricing?.cashPrice || selectedService.cashPrice || 100;
+    const unitPrice = payerUnitPrice(selectedService, 'private_insurance');
     onAdd({
       description: selectedService.name,
       date: serviceDate,
@@ -257,7 +266,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
                 }`}
               >
                 <div className="font-medium text-sm">{s.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | Price: GHS {(s.pricing?.insurancePrice || s.pricing?.cashPrice || s.cashPrice || 100).toFixed(2)}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {s.code} | {priceLabel(payerUnitPrice(s, 'private_insurance'))}</div>
               </button>
             ))}
           </div>
@@ -277,6 +286,7 @@ function AddServiceModal({ isOpen, onClose, onAdd }: any) {
 
 function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
   const { stockItems, getStockItems } = useStockStore();
+  const { serviceCatalog } = useMedicalServicesStore();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedMedicine, setSelectedMedicine] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
@@ -286,6 +296,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
     if (isOpen) getStockItems({ isActive: true, isMedication: true });
   }, [isOpen, getStockItems]);
 
+  const catalogsByStock = medicationCatalogByStockItemId(serviceCatalog);
+
   const filtered = (stockItems || []).filter(m =>
     m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (m.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -293,11 +305,14 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
 
   const handleAdd = () => {
     if (!selectedMedicine) return;
-    const unitPrice = selectedMedicine.costPrice || selectedMedicine.sellingPrice || 0;
+    // The drug's price is its catalog tariff for this payer, not the purchase cost on the stock card.
+    const catalog = catalogsByStock.get(selectedMedicine.id);
+    const unitPrice = payerUnitPrice(catalog, 'private_insurance');
     onAdd({
       description: selectedMedicine.name,
       date: medicineDate,
       stockItemId: selectedMedicine.id,
+      serviceCatalogId: catalog?.id,
       quantity,
       unitPrice,
       total: quantity * unitPrice,
@@ -353,7 +368,7 @@ function AddMedicineModal({ isOpen, onClose, onAdd }: any) {
                 }`}
               >
                 <div className="font-medium text-sm">{m.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode || m.code} | Price: GHS {(m.costPrice || 0).toFixed(2)}</div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {m.drugCode || m.code} | {priceLabel(payerUnitPrice(catalogsByStock.get(m.id), 'private_insurance'))}</div>
               </button>
             ))}
           </div>
@@ -611,7 +626,8 @@ export default function EditPrivateClaim() {
         unitPrice: toNum(m.unitPrice),
         total: toNum(m.lineTotal),
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
-        stockItemId: m.medicationId,
+        stockItemId: m.serviceCatalog?.stockItemId,
+        serviceCatalogId: m.serviceCatalogId,
       })));
     } else if (meta.medicines?.length) {
       setMedicines(meta.medicines);
@@ -667,7 +683,7 @@ export default function EditPrivateClaim() {
         unitPrice: m.unitPrice,
         lineTotal: m.total,
         serviceDate: m.date || null,
-        medicationId: m.stockItemId ?? null,
+        serviceCatalogId: m.serviceCatalogId ?? null,
         billLineItemId: m.billLineItemId ?? null,
       });
     }
@@ -747,6 +763,7 @@ export default function EditPrivateClaim() {
     <button type="button" onClick={() => setActiveModal(modal)} className="text-xs border border-white/60 rounded px-2 py-0.5 hover:bg-white/10 normal-case flex items-center gap-1"><Plus className="w-3 h-3" /> {label}</button>
   ) : undefined;
   const money = (n: number) => `GHS ${n.toFixed(2)}`;
+  const unpricedLines = services.filter(s => !s.unitPrice).length + medicines.filter(m => !m.unitPrice).length;
 
   return (
     <>
@@ -852,6 +869,9 @@ export default function EditPrivateClaim() {
               ))}
             </tbody>
           </table>
+          {unpricedLines > 0 && (
+            <Hint>{unpricedLines} line(s) have no tariff configured for this payer. Open the line and set its unit price, or add the price in Settings → Service Catalog, before finalizing.</Hint>
+          )}
         </ListSection>
 
         <ClaimCard title="Authorization Codes">

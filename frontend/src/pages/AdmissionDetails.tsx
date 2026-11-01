@@ -1,4 +1,4 @@
-// src/pages/AdmissionDetails.tsx — Enhanced UI/UX
+// src/pages/AdmissionDetails.tsx — Redesigned: top action bar, Antenatal-style sections
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAdmissionStore } from '../store/admissionStore';
@@ -6,26 +6,25 @@ import { usePatientStore } from '../store/patientStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useWardStore } from '../store/wardStore';
 import {
-  ArrowLeft, User, Calendar, Bed, Activity, FileText, Loader2,
-  AlertCircle, Phone, IdCard, Stethoscope, Clock, MapPin,
-  CheckCircle,
-  UserCircle, ClipboardList, Pill, FlaskConical, Scissors,
-  Scan, Eye, Hospital, Moon, Sun, Building2, LogOut, RefreshCw,
-  Hash, Info, ChevronRight, TrendingUp, Baby, Heart,
-  ShieldCheck, Stethoscope as Steth, BedDouble, CalendarClock,
-  CircleDot, BarChart3, AlertTriangle, FileSignature,
+  ArrowLeft, User, Calendar, Activity, FileText, Loader2,
+  AlertCircle, Phone, Stethoscope, Clock, MapPin,
+  CheckCircle, UserCircle, ClipboardList, Pill, FlaskConical, Scissors,
+  Eye, Hospital, Moon, Sun, Building2, LogOut, RefreshCw,
+  Hash, ChevronRight, TrendingUp, Baby, Heart,
+  ShieldCheck, BedDouble, CalendarClock, CircleDot, BarChart3,
+  AlertTriangle, FileSignature, Stethoscope as Steth,
 } from 'lucide-react';
 
 export default function AdmissionDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const {
-    currentAdmission, getAdmission, updateAdmission, dischargePatient,
-    admissions, getAdmissions, isLoading: admissionLoading, error: admissionError,
+    currentAdmission, getAdmission, dischargePatient,
+    admissions, getAdmissions, isLoading: admissionLoading,
   } = useAdmissionStore();
   const { patients, currentPatient, fetchPatient } = usePatientStore();
-  const { getAttendance, currentAttendance, updateAttendance, attendances } = useAttendanceStore();
-  const { getAvailableBeds, wards } = useWardStore();
+  const { getAttendance, currentAttendance, attendances } = useAttendanceStore();
+  const { getAvailableBeds } = useWardStore();
   const [loading, setLoading] = useState(true);
   const [attendance, setAttendance] = useState<any>(null);
   const [showDischargeModal, setShowDischargeModal] = useState(false);
@@ -39,9 +38,6 @@ export default function AdmissionDetails() {
       if (id) {
         setLoading(true);
         try {
-          // This screen shows ONE admission, so ask for that record. It used to walk every
-          // admission in the hospital and then the whole patient register just to find the
-          // row the URL names — and the admission and visit rows already carry the patient.
           let admission: any =
             admissions.find(a => a.id === id) || admissions.find(a => a.attendanceId === id) || null;
           if (!admission) admission = await getAdmission(id);
@@ -53,9 +49,6 @@ export default function AdmissionDetails() {
               setAttendance(att || attendances.find(a => a.id === admission.attendanceId) || null);
             }
           } else {
-            // The route may name the visit rather than the admission. The admissions endpoint
-            // cannot filter by visit, so search the current ward census instead of every
-            // admission ever written.
             const att = await getAttendance(id).catch(() => null);
             if (att) {
               setAttendance(att);
@@ -88,8 +81,6 @@ export default function AdmissionDetails() {
   };
   const patient = getPatient();
 
-  // The admission and the visit rows both carry the patient, so the register is not needed
-  // here; if neither did, ask for that one patient instead of downloading every patient.
   const linkedPatientId = String(
     foundAdmission?.patientId || foundAdmission?.attendance?.patientId || attendance?.patientId || ''
   );
@@ -111,12 +102,12 @@ export default function AdmissionDetails() {
   const getAdmissionTypeDisplay = () => {
     const admissionType = admission?.admissionType || attendance?.admissionType;
     const encounterCategory = attendance?.encounterCategory;
-    if (encounterCategory === 'daycase') return { label: 'Day Surgery', icon: <Sun className="w-4 h-4" />, color: 'purple' };
-    if (admissionType === 'detention_observation') return { label: 'Detention / Observation', icon: <Moon className="w-4 h-4" />, color: 'orange' };
-    if (admissionType === 'antenatal_observation') return { label: 'Antenatal Observation', icon: <Baby className="w-4 h-4" />, color: 'pink' };
-    if (admissionType === 'delivery') return { label: 'Delivery Admission', icon: <Heart className="w-4 h-4" />, color: 'green' };
-    if (admissionType === 'postpartum_observation') return { label: 'Postpartum Observation', icon: <Baby className="w-4 h-4" />, color: 'cyan' };
-    return { label: 'Formal IPD Admission', icon: <Hospital className="w-4 h-4" />, color: 'green' };
+    if (encounterCategory === 'daycase') return { label: 'Day Surgery', icon: <Sun className="w-4 h-4" /> };
+    if (admissionType === 'detention_observation') return { label: 'Detention / Observation', icon: <Moon className="w-4 h-4" /> };
+    if (admissionType === 'antenatal_observation') return { label: 'Antenatal Observation', icon: <Baby className="w-4 h-4" /> };
+    if (admissionType === 'delivery') return { label: 'Delivery Admission', icon: <Heart className="w-4 h-4" /> };
+    if (admissionType === 'postpartum_observation') return { label: 'Postpartum Observation', icon: <Baby className="w-4 h-4" /> };
+    return { label: 'Formal IPD Admission', icon: <Hospital className="w-4 h-4" /> };
   };
   const admissionTypeDisplay = getAdmissionTypeDisplay();
 
@@ -217,9 +208,7 @@ export default function AdmissionDetails() {
             <AlertCircle className="w-7 h-7 text-red-500" />
           </div>
           <h2 className="text-lg font-bold text-[var(--text-primary)] mb-2">Admission Not Found</h2>
-          <p className="text-sm text-[var(--text-secondary)] mb-5">
-            The admission record could not be located.
-          </p>
+          <p className="text-sm text-[var(--text-secondary)] mb-5">The admission record could not be located.</p>
           <button
             onClick={() => navigate('/dashboard/admissions')}
             className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 text-sm font-semibold transition-all"
@@ -237,26 +226,31 @@ export default function AdmissionDetails() {
   const isDaySurgery = attendance?.encounterCategory === 'daycase';
   const patientName = patient ? (patient.name || patient.fullName || `${patient.surname || ''} ${patient.otherNames || ''}`.trim()) : 'Unknown Patient';
   const initials = patientName.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
+  const attendanceId = attendance?.id || admission?.attendanceId;
 
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      {/* ── Header ── */}
+    <div className="space-y-4 p-4 sm:p-6">
+      {/* ── PAGE HEADER ──────────────────────────────────────────── */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => navigate('/dashboard/admissions')}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
+              text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >
-            <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
+            <ArrowLeft className="w-3.5 h-3.5" /> Back
           </button>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-sm shadow-teal-500/20">
-            <ClipboardList className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Admission Details</h1>
-            <p className="text-xs text-[var(--text-secondary)]">
-              {admissionTypeDisplay.label} · #{admission?.admissionNumber || attendance?.attendanceNumber || 'N/A'}
-            </p>
+          <div className="h-5 w-px bg-[var(--border-color)]" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-sm shadow-teal-500/20">
+              <ClipboardList className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Admission Details</h1>
+              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">
+                {admissionTypeDisplay.label} · #{admission?.admissionNumber || attendance?.attendanceNumber || 'N/A'}
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
@@ -265,70 +259,130 @@ export default function AdmissionDetails() {
         </div>
       </div>
 
-      {/* ── Content Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* ── Main Column ── */}
-        <div className="lg:col-span-2 space-y-5">
+      {/* ── ACTION BAR (moved to the top) ────────────────────────── */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] px-3 py-2 flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => navigate(`/dashboard/medical-entries/${attendanceId}`)}
+          className="inline-flex items-center gap-2 rounded-lg bg-teal-600 px-3.5 py-2 text-xs font-semibold text-white hover:bg-teal-700 transition-colors shadow-sm shadow-teal-500/20"
+        >
+          <Stethoscope className="w-3.5 h-3.5" />
+          Clinical entries
+        </button>
+        <button
+          onClick={() => navigate(`/dashboard/nursing/patient/${attendanceId}`)}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 hover:bg-[var(--bg-main)] transition-colors"
+        >
+          <ClipboardList className="w-3.5 h-3.5" />
+          Nursing care
+        </button>
+        <button
+          onClick={() => navigate(`/dashboard/vitals/${attendanceId}`)}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 hover:bg-[var(--bg-main)] transition-colors"
+        >
+          <Activity className="w-3.5 h-3.5" />
+          Observations
+        </button>
+        <button
+          onClick={() => navigate(`/dashboard/billing?attendanceId=${attendanceId}`)}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 hover:bg-[var(--bg-main)] transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" />
+          Billing
+        </button>
+        <button
+          onClick={() => navigate('/dashboard/wards')}
+          className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3.5 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-indigo-500 hover:bg-[var(--bg-main)] transition-colors"
+        >
+          <Building2 className="w-3.5 h-3.5" />
+          Ward management
+        </button>
+        <div className="flex-1" />
+        {isActive && (
+          <button
+            onClick={() => setShowDischargeModal(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3.5 py-2 text-xs font-semibold text-green-700 hover:bg-green-600 hover:text-white transition-colors"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+            Discharge
+          </button>
+        )}
+      </div>
 
-          {/* Patient Information Card */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-            <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
-              <UserCircle className="w-4 h-4 text-teal-600" />
-              <h2 className="text-sm font-bold text-[var(--text-primary)]">Patient Information</h2>
+      {/* ── PATIENT BANNER ─────────────────────────────────────── */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-teal-100 to-teal-50 border border-teal-200 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-bold text-teal-700">{initials || <User className="w-5 h-5" />}</span>
             </div>
-            <div className="p-5">
-              <div className="flex items-start gap-4 mb-5">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-teal-100 to-teal-50 border border-teal-200 flex items-center justify-center flex-shrink-0">
-                  <span className="text-base font-bold text-teal-700">{initials || <User className="w-5 h-5" />}</span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-lg font-bold text-[var(--text-primary)]">{patientName}</p>
-                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs">
-                    <span className="inline-flex items-center gap-1 font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded border border-[var(--border-color)]">
-                      <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
-                      {patient?.folderNumber || '—'}
-                    </span>
-                    <span className="text-[var(--text-secondary)] capitalize">{patient?.gender || '—'}</span>
+            <div className="min-w-0">
+              <p className="text-base font-bold text-[var(--text-primary)] truncate">{patientName}</p>
+              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mt-0.5 flex-wrap">
+                <span className="inline-flex items-center gap-1 font-mono bg-[var(--bg-main)] px-1.5 py-0.5 rounded border border-[var(--border-color)]">
+                  <Hash className="w-2.5 h-2.5 text-[var(--text-tertiary)]" />
+                  {patient?.folderNumber || '—'}
+                </span>
+                <span className="capitalize">{patient?.gender || '—'}</span>
+                <span className="opacity-40">·</span>
+                <span>
+                  {patient?.dateOfBirth
+                    ? `${Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))} yrs`
+                    : '—'}
+                </span>
+                {patient?.contact && (
+                  <>
                     <span className="opacity-40">·</span>
-                    <span className="text-[var(--text-secondary)]">
-                      {patient?.dateOfBirth
-                        ? `${Math.floor((Date.now() - new Date(patient.dateOfBirth).getTime()) / (365.25 * 24 * 3600000))} yrs`
-                        : '—'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2 p-2.5 bg-[var(--bg-main)] rounded-lg">
-                  <Phone className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase text-[var(--text-tertiary)] tracking-wide font-semibold">Contact</p>
-                    <p className="text-sm text-[var(--text-primary)] truncate">{patient?.contact || '—'}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 p-2.5 bg-[var(--bg-main)] rounded-lg">
-                  <Calendar className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase text-[var(--text-tertiary)] tracking-wide font-semibold">Date of Birth</p>
-                    <p className="text-sm text-[var(--text-primary)] truncate">{formatDateOnly(patient?.dateOfBirth)}</p>
-                  </div>
-                </div>
-                {patient?.address && (
-                  <div className="flex items-center gap-2 p-2.5 bg-[var(--bg-main)] rounded-lg sm:col-span-2">
-                    <MapPin className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                    <div className="min-w-0">
-                      <p className="text-[10px] uppercase text-[var(--text-tertiary)] tracking-wide font-semibold">Address</p>
-                      <p className="text-sm text-[var(--text-primary)] truncate">{patient.address}</p>
-                    </div>
-                  </div>
+                    <span className="inline-flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{patient.contact}</span>
+                  </>
                 )}
               </div>
             </div>
           </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[10px] bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1">
+              <CalendarClock className="w-2.5 h-2.5" />
+              Admitted {formatDateOnly(admission?.admissionDate || attendance?.dateTime)}
+            </span>
+            {lengthOfStay > 0 && (
+              <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded-full border border-teal-200 flex items-center gap-1">
+                <Clock className="w-2.5 h-2.5" />
+                {lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}
+              </span>
+            )}
+            <span className="text-[10px] bg-[var(--bg-main)] px-2 py-1 rounded-full border border-[var(--border-color)] text-[var(--text-secondary)] flex items-center gap-1">
+              <Building2 className="w-2.5 h-2.5" />
+              {attendance?.Ward?.wardName || '—'} · {attendance?.Bed?.bedNumber || '—'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── ALERT: Detention over 48h ───────────────────────────── */}
+      {isDetention && isActive && lengthOfStay >= 2 && (
+        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="text-sm font-bold text-orange-800">Observation Period Alert</p>
+            <p className="text-xs text-orange-700 mt-1 leading-relaxed">
+              Patient has been in observation for <strong>{lengthOfStay}</strong> day(s). Maximum observation period is 72 hours. Consider converting to formal IPD or discharging.
+            </p>
+          </div>
+          <button
+            onClick={() => navigate(`/dashboard/medical-entries/${attendanceId}`)}
+            className="px-3 py-1.5 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all inline-flex items-center gap-1 flex-shrink-0"
+          >
+            Review <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {/* ── BODY GRID ───────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* ── Main column ── */}
+        <div className="lg:col-span-2 space-y-4">
 
           {/* Admission Information */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
               <Calendar className="w-4 h-4 text-teal-600" />
               <h2 className="text-sm font-bold text-[var(--text-primary)]">Admission Information</h2>
@@ -368,20 +422,11 @@ export default function AdmissionDetails() {
                   <p className="text-sm text-[var(--text-primary)] mt-1">{formatDate(admission.dischargeDate)}</p>
                 </div>
               )}
-              {lengthOfStay > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Length of Stay</p>
-                  <p className="text-sm font-semibold text-teal-600 mt-1 flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
-                    {lengthOfStay} day{lengthOfStay !== 1 ? 's' : ''}
-                  </p>
-                </div>
-              )}
             </div>
           </div>
 
           {/* Location */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
               <MapPin className="w-4 h-4 text-teal-600" />
               <h2 className="text-sm font-bold text-[var(--text-primary)]">Location</h2>
@@ -415,19 +460,37 @@ export default function AdmissionDetails() {
             </div>
           </div>
 
-          {/* Primary Diagnosis */}
-          {primaryDiagnosis && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-              <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
-                <Stethoscope className="w-4 h-4 text-teal-600" />
-                <h2 className="text-sm font-bold text-[var(--text-primary)]">Primary Diagnosis</h2>
+          {/* Clinical Snapshot (Inpatient Care Workspace) */}
+          {attendance && admission?.status !== 'cancelled' && (
+            <div className="rounded-xl border border-teal-200 dark:border-teal-900/60 bg-gradient-to-br from-teal-50/80 to-cyan-50/60 dark:from-teal-950/20 dark:to-cyan-950/10 overflow-hidden">
+              <div className="px-5 py-3 border-b border-teal-200/80 dark:border-teal-900/60 flex items-center gap-2">
+                <Activity className="w-4 h-4 text-teal-700 dark:text-teal-300" />
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm font-bold text-[var(--text-primary)]">Inpatient Clinical Snapshot</h2>
+                  <p className="text-[11px] text-[var(--text-secondary)]">Notes stay in Medical Entries; nursing and observations in their modules.</p>
+                </div>
+                <span className="hidden sm:inline-flex items-center rounded-full border border-teal-200 dark:border-teal-900 px-2 py-1 text-[10px] font-semibold text-teal-800 dark:text-teal-200">
+                  {isActive ? 'IN CARE' : 'RECORD VIEW'}
+                </span>
               </div>
-              <div className="p-5">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{primaryDiagnosis.name}</p>
-                {primaryDiagnosis.icdCode && (
-                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1.5 inline-flex items-center gap-1 font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded border border-[var(--border-color)]">
-                    ICD-10: {primaryDiagnosis.icdCode}
-                  </p>
+              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Presenting complaint</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.complaints || 'Not documented yet'}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Primary diagnosis</p>
+                  <p className="text-sm text-[var(--text-primary)]">{primaryDiagnosis?.name || primaryDiagnosis?.description || primaryDiagnosis?.code || 'Not recorded yet'}</p>
+                </div>
+                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
+                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Assessment and treatment plan</p>
+                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.assessment || attendance?.treatmentPlan || 'Open Medical Entries to document the assessment and inpatient plan.'}</p>
+                </div>
+                {attendance?.medicalNotes && (
+                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
+                    <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Encounter notes / admission context</p>
+                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words">{attendance.medicalNotes}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -436,7 +499,7 @@ export default function AdmissionDetails() {
           {/* Additional Diagnoses */}
           {attendance?.AttendanceDiagnosis &&
             attendance.AttendanceDiagnosis.filter((d: any) => d.diagnosisType !== 'primary').length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
                 <ClipboardList className="w-4 h-4 text-teal-600" />
                 <h2 className="text-sm font-bold text-[var(--text-primary)]">Additional Diagnoses</h2>
@@ -465,7 +528,7 @@ export default function AdmissionDetails() {
 
           {/* Discharge Summary */}
           {admission?.dischargeSummary && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
                 <FileSignature className="w-4 h-4 text-teal-600" />
                 <h2 className="text-sm font-bold text-[var(--text-primary)]">Discharge Summary</h2>
@@ -480,7 +543,7 @@ export default function AdmissionDetails() {
 
           {/* Daily Notes */}
           {admission?.dailyNotes && Array.isArray(admission.dailyNotes) && admission.dailyNotes.length > 0 && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
               <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
                 <FileText className="w-4 h-4 text-teal-600" />
                 <h2 className="text-sm font-bold text-[var(--text-primary)]">Daily Notes</h2>
@@ -489,7 +552,7 @@ export default function AdmissionDetails() {
                 </span>
               </div>
               <div className="divide-y divide-[var(--border-color)]">
-                {admission.dailyNotes.map((note: any, idx: number) => (
+                                {admission.dailyNotes.map((note: any, idx: number) => (
                   <div key={idx} className="p-4">
                     <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
                       <span className="text-xs font-semibold text-teal-600">
@@ -514,11 +577,11 @@ export default function AdmissionDetails() {
           )}
         </div>
 
-        {/* ── Sidebar Column ── */}
-        <div className="space-y-5">
+        {/* ── Sidebar column ── */}
+        <div className="space-y-4">
 
           {/* Quick Stats */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
             <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
               <BarChart3 className="w-4 h-4 text-teal-600" />
               <h2 className="text-sm font-bold text-[var(--text-primary)]">Quick Stats</h2>
@@ -567,139 +630,79 @@ export default function AdmissionDetails() {
             </div>
           </div>
 
-          {/* Inpatient care workspace: shortcuts to existing modules, without duplicate clinical records */}
-          {attendance && admission?.status !== 'cancelled' && (
-            <div className="rounded-xl border border-teal-200 dark:border-teal-900/60 bg-gradient-to-br from-teal-50/80 to-cyan-50/60 dark:from-teal-950/20 dark:to-cyan-950/10 overflow-hidden shadow-sm">
-              <div className="px-5 py-3 border-b border-teal-200/80 dark:border-teal-900/60 flex items-center gap-2">
-                <Activity className="w-4 h-4 text-teal-700 dark:text-teal-300" />
-                <div className="min-w-0 flex-1">
-                  <h2 className="text-sm font-bold text-[var(--text-primary)]">Inpatient Care Workspace</h2>
-                  <p className="text-[11px] text-[var(--text-secondary)]">Clinical notes stay in Medical Entries; nursing care and observations stay in their existing modules.</p>
-                </div>
-                <span className="hidden sm:inline-flex items-center rounded-full border border-teal-200 dark:border-teal-900 px-2 py-1 text-[10px] font-semibold text-teal-800 dark:text-teal-200">{isActive ? 'IN CARE' : 'RECORD VIEW'}</span>
-              </div>
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
-                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Presenting complaint</p>
-                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.complaints || 'Not documented yet'}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3">
-                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Primary diagnosis</p>
-                  <p className="text-sm text-[var(--text-primary)]">{primaryDiagnosis?.name || primaryDiagnosis?.description || primaryDiagnosis?.code || 'Not recorded yet'}</p>
-                </div>
-                <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
-                  <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Assessment and treatment plan</p>
-                  <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap">{attendance?.assessment || attendance?.treatmentPlan || 'Open Medical Entries to document the assessment and inpatient plan.'}</p>
-                </div>
-                {attendance?.medicalNotes && (
-                  <div className="rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)]/80 p-3 sm:col-span-2">
-                    <p className="text-[10px] uppercase tracking-wide font-bold text-[var(--text-tertiary)] mb-1">Encounter notes / admission context</p>
-                    <p className="text-sm text-[var(--text-primary)] whitespace-pre-wrap break-words">{attendance.medicalNotes}</p>
-                  </div>
-                )}
-              </div>
-              <div className="px-4 pb-4 flex flex-wrap gap-2">
-                <button onClick={() => navigate(`/dashboard/medical-entries/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg bg-teal-700 px-3 py-2 text-xs font-semibold text-white hover:bg-teal-800 transition-colors"><Stethoscope className="w-3.5 h-3.5" />Clinical entries</button>
-                <button onClick={() => navigate(`/dashboard/nursing/patient/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors"><ClipboardList className="w-3.5 h-3.5" />Nursing care</button>
-                <button onClick={() => navigate(`/dashboard/vitals/${attendance?.id || admission?.attendanceId}`)} className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-xs font-semibold text-[var(--text-primary)] hover:border-teal-500 transition-colors"><Activity className="w-3.5 h-3.5" />Record observations</button>
-              </div>
+          {/* Clinical Summary + Current Location — compact, merged */}
+          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+            <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-teal-600" />
+              <h2 className="text-sm font-bold text-[var(--text-primary)]">Clinical Summary</h2>
             </div>
-          )}
 
-          {/* Clinical Summary */}
-          {attendance && (
-            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-              <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-teal-600" />
-                <h2 className="text-sm font-bold text-[var(--text-primary)]">Clinical Summary</h2>
-              </div>
-              <div className="p-5 grid grid-cols-2 gap-2.5">
+            {attendance && (
+              <div className="p-4 grid grid-cols-4 gap-1.5">
                 {[
-                  { count: attendance.AttendanceDiagnosis?.length || 0, label: 'Diagnoses', Icon: Stethoscope, bg: 'bg-teal-50', color: 'text-teal-600' },
-                  { count: attendance.Medication?.length || 0, label: 'Medications', Icon: Pill, bg: 'bg-blue-50', color: 'text-blue-600' },
-                  { count: attendance.LabTest?.length || 0, label: 'Lab Tests', Icon: FlaskConical, bg: 'bg-purple-50', color: 'text-purple-600' },
-                  { count: attendance.Procedure?.length || 0, label: 'Procedures', Icon: Scissors, bg: 'bg-orange-50', color: 'text-orange-600' },
+                  { count: attendance.AttendanceDiagnosis?.length || 0, label: 'Dx', Icon: Stethoscope, color: 'text-teal-600', bg: 'bg-teal-50' },
+                  { count: attendance.Medication?.length || 0, label: 'Rx', Icon: Pill, color: 'text-blue-600', bg: 'bg-blue-50' },
+                  { count: attendance.LabTest?.length || 0, label: 'Labs', Icon: FlaskConical, color: 'text-purple-600', bg: 'bg-purple-50' },
+                  { count: attendance.Procedure?.length || 0, label: 'Proc', Icon: Scissors, color: 'text-orange-600', bg: 'bg-orange-50' },
                 ].map(s => {
                   const Icon = s.Icon;
                   return (
-                    <div key={s.label} className="text-center p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] hover:shadow-sm transition-shadow">
-                      <div className={`w-7 h-7 rounded-md ${s.bg} flex items-center justify-center mx-auto mb-1.5`}>
-                        <Icon className={`w-3.5 h-3.5 ${s.color}`} />
+                    <div key={s.label} className="text-center py-2 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)]">
+                      <div className={`w-6 h-6 rounded ${s.bg} flex items-center justify-center mx-auto mb-1`}>
+                        <Icon className={`w-3 h-3 ${s.color}`} />
                       </div>
-                      <div className="text-lg font-bold text-[var(--text-primary)] leading-tight">{s.count}</div>
-                      <div className="text-[10px] text-[var(--text-tertiary)] font-medium mt-0.5">{s.label}</div>
+                      <div className="text-sm font-bold text-[var(--text-primary)] leading-none">{s.count}</div>
+                      <div className="text-[9px] text-[var(--text-tertiary)] font-medium mt-0.5 uppercase tracking-wide">{s.label}</div>
                     </div>
                   );
                 })}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Actions */}
-          <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-            <div className="p-4 space-y-2.5">
-              <button
-                onClick={() => navigate(`/dashboard/medical-entries/${attendance?.id || admission?.attendanceId}`)}
-                className="w-full px-4 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-all text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shadow-teal-500/20"
-              >
-                <Eye className="w-4 h-4" />
-                View Medical Records
-              </button>
-
-              <button
-                onClick={() => navigate(`/dashboard/billing?attendanceId=${attendance?.id || admission?.attendanceId}`)}
-                className="w-full px-4 py-2.5 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--border-color)] transition-all text-sm font-medium border border-[var(--border-color)] flex items-center justify-center gap-2"
-              >
-                <FileText className="w-4 h-4" />
-                View Billing
-              </button>
-
-              {isActive && (
-                <button
-                  onClick={() => setShowDischargeModal(true)}
-                  className="w-full px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all text-sm font-semibold flex items-center justify-center gap-2 shadow-sm shadow-green-500/20"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Discharge Patient
-                </button>
-              )}
-
-              <button
-                onClick={() => navigate('/dashboard/wards')}
-                className="w-full px-4 py-2.5 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-700 hover:text-white transition-all text-sm font-medium flex items-center justify-center gap-2"
-              >
-                <Building2 className="w-4 h-4" />
-                Ward Management
-              </button>
+            {/* Current Location — folded into the same card */}
+            <div className="border-t border-[var(--border-color)] px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Building2 className="w-3 h-3 text-teal-600" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Current Location</span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5">
+                <div className="rounded-md bg-[var(--bg-main)] border border-[var(--border-color)] px-2 py-1.5">
+                  <p className="text-[9px] uppercase tracking-wide font-semibold text-[var(--text-tertiary)]">Ward</p>
+                  <p className="text-xs font-semibold text-[var(--text-primary)] truncate">
+                    {attendance?.Ward?.wardName || '—'}
+                  </p>
+                </div>
+                <div className="rounded-md bg-[var(--bg-main)] border border-[var(--border-color)] px-2 py-1.5">
+                  <p className="text-[9px] uppercase tracking-wide font-semibold text-[var(--text-tertiary)]">Bed</p>
+                  <p className="text-xs font-mono font-semibold text-[var(--text-primary)]">
+                    {attendance?.Bed?.bedNumber || '—'}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Observation Warning */}
-          {isDetention && isActive && lengthOfStay >= 2 && (
-            <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-orange-800">Observation Period Alert</p>
-                  <p className="text-xs text-orange-700 mt-1 leading-relaxed">
-                    Patient has been in observation for <strong>{lengthOfStay}</strong> day(s).
-                    Maximum observation period is 72 hours. Consider converting to formal IPD or discharging.
+          {/* Primary Diagnosis (kept — no change) */}
+          {primaryDiagnosis && (
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              <div className="px-5 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center gap-2">
+                <Stethoscope className="w-4 h-4 text-teal-600" />
+                <h2 className="text-sm font-bold text-[var(--text-primary)]">Primary Diagnosis</h2>
+              </div>
+              <div className="p-5">
+                <p className="text-sm font-medium text-[var(--text-primary)]">{primaryDiagnosis.name}</p>
+                {primaryDiagnosis.icdCode && (
+                  <p className="text-[11px] text-[var(--text-tertiary)] mt-1.5 inline-flex items-center gap-1 font-mono bg-[var(--bg-main)] px-2 py-0.5 rounded border border-[var(--border-color)]">
+                    ICD-10: {primaryDiagnosis.icdCode}
                   </p>
-                  <button
-                    onClick={() => navigate(`/dashboard/medical-entries/${attendance?.id}`)}
-                    className="mt-2.5 px-3 py-1.5 text-xs font-semibold bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all inline-flex items-center gap-1"
-                  >
-                    Review Patient
-                    <ChevronRight className="w-3 h-3" />
-                  </button>
-                </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* ── Discharge Modal ── */}
+      {/* ── DISCHARGE MODAL ───────────────────────────────────── */}
       {showDischargeModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowDischargeModal(false)} />

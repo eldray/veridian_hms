@@ -14,14 +14,15 @@ import {
   RefreshCw, FileText, DollarSign, CreditCard, Eye,
   Receipt, TrendingUp,
   CheckCircle, Clock, Shield, User, Calendar, X,
-  Filter, Printer, Hospital, Gift, Loader2, Users, Layers
+  Filter, Printer, Hospital, Gift
 } from 'lucide-react';
 import {
   Badge, Button, Card, cn, Field, humanStatus, INPUT, LinkButton, PageHeader, Pagination,
   SearchInput, SELECT, StatCard, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR,
 } from '../components/ui';
 import type { PaymentMode } from '../types';
-import type { BillingCollectionItem, BillingCollectionsReport } from '../types/billing';
+import type { BillingCollectionsReport } from '../types/billing';
+import CollectionsReport from './billing/CollectionsReport';
 
 type DateFilterType = 'today' | 'yesterday' | 'week' | 'month' | 'custom';
 
@@ -53,6 +54,24 @@ const formatDateOnly = (dateString: string) => {
 
 const formatCurrency = (amount: number | string | null | undefined) =>
   `₵${Number(amount || 0).toFixed(2)}`;
+
+/** yyyy-mm-dd in the browser's own day, so a picker never shifts a period by a timezone hour. */
+const toDateInput = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
+/** An empty cashbook still has to carry its grids, or the report renders as a crash. */
+const EMPTY_COLLECTIONS: BillingCollectionsReport = {
+  totalAmount: 0,
+  paymentCount: 0,
+  payments: [],
+  totalReversals: 0,
+  reversalCount: 0,
+  reversals: [],
+  netCollected: 0,
+  cashAtHand: 0,
+  groups: [],
+  cashiers: [],
+};
 
 const getPaymentModeIcon = (mode: PaymentMode) => {
   switch (mode) {
@@ -100,11 +119,7 @@ export default function Billing() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>({
-    totalAmount: 0,
-    paymentCount: 0,
-    payments: []
-  });
+  const [collectionsReport, setCollectionsReport] = useState<BillingCollectionsReport>(EMPTY_COLLECTIONS);
   const [collectionsLoading, setCollectionsLoading] = useState(false);
 
   // Waiver modal state
@@ -203,6 +218,13 @@ export default function Billing() {
     }
   };
 
+  // The report's own pickers show the window the request actually ran with, whichever preset
+  // produced it, so the dates on screen and the money on screen are never two different things.
+  const collectionsRange = useMemo(() => {
+    const range = getDateRange();
+    return range ? { from: toDateInput(range.startDate), to: toDateInput(range.endDate) } : { from: '', to: '' };
+  }, [getDateRange]);
+
   // Load data
   const loadData = async () => {
     try {
@@ -210,7 +232,7 @@ export default function Billing() {
       const dateRange = getDateRange();
       setCollectionsLoading(activeTab === 'collections');
       if (activeTab === 'collections' && !dateRange) {
-        setCollectionsReport({ totalAmount: 0, paymentCount: 0, payments: [] });
+        setCollectionsReport(EMPTY_COLLECTIONS);
       }
       const filters: any = {};
       if (dateRange) {
@@ -233,7 +255,7 @@ export default function Billing() {
           : Promise.resolve(null)
       ]);
       if (activeTab === 'collections') {
-        setCollectionsReport(collections || { totalAmount: 0, paymentCount: 0, payments: [] });
+        setCollectionsReport(collections || EMPTY_COLLECTIONS);
       }
       success('Data refreshed', 'Billing data is up-to-date.');
     } catch (err) {
@@ -319,43 +341,6 @@ export default function Billing() {
     );
   }, [waivers, searchQuery, statusFilter]);
 
-  const collectionRows = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return collectionsReport.payments.flatMap((payment) =>
-      payment.items.map((item: BillingCollectionItem) => ({
-        payment,
-        item,
-        searchText: [
-          payment.reference,
-          payment.bill.billNumber,
-          payment.bill.customer.name,
-          payment.bill.customer.reference,
-          payment.collector.fullName,
-          item.description,
-          item.serviceCategory
-        ].join(' ').toLowerCase()
-      }))
-    ).filter((row) => !query || row.searchText.includes(query));
-  }, [collectionsReport.payments, searchQuery]);
-
-  const collectionSummaries = useMemo(() => {
-    const byCategory = new Map<string, number>();
-    const byCollector = new Map<string, { amount: number; payments: number }>();
-    for (const payment of collectionsReport.payments) {
-      const collector = byCollector.get(payment.collector.id) || { amount: 0, payments: 0 };
-      collector.amount += payment.amount;
-      collector.payments += 1;
-      byCollector.set(payment.collector.id, collector);
-      for (const item of payment.items) {
-        byCategory.set(item.serviceCategory, (byCategory.get(item.serviceCategory) || 0) + item.amount);
-      }
-    }
-    return {
-      categories: [...byCategory.entries()].sort((a, b) => b[1] - a[1]),
-      collectors: [...byCollector.entries()].sort((a, b) => b[1].amount - a[1].amount)
-    };
-  }, [collectionsReport]);
-
   // Bill statistics
   const stats = useMemo(() => {
     const totalAmount = filteredBills.reduce((sum, b) => sum + (b.totalAmount || 0), 0);
@@ -379,15 +364,12 @@ export default function Billing() {
     totalApprovedAmount: waiverStats?.summary?.totalApprovedAmount || 0
   };
 
-  // Pagination
-  const currentData = activeTab === 'bills'
-    ? filteredBills
-    : activeTab === 'waivers' ? filteredWaivers : collectionRows;
+  // Pagination. The collections report paginates its own receipt grid, so it is left out here.
+  const currentData = activeTab === 'bills' ? filteredBills : filteredWaivers;
   const totalPages = Math.ceil(currentData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedBills = filteredBills.slice(startIndex, startIndex + itemsPerPage);
   const paginatedWaivers = filteredWaivers.slice(startIndex, startIndex + itemsPerPage);
-  const paginatedCollectionRows = collectionRows.slice(startIndex, startIndex + itemsPerPage);
 
   const goToPage = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
 
@@ -730,105 +712,23 @@ const handlePrintStatement = async (billId: string) => {
 
       {/* PAYMENT COLLECTIONS */}
       {activeTab === 'collections' && (
-        <section className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <StatCard label="Total Collected" size="money" value={formatCurrency(collectionsReport.totalAmount)} icon={DollarSign} accent="green" />
-            <StatCard label="Receipts" value={collectionsReport.paymentCount} icon={Receipt} accent="cyan" />
-            <StatCard label="Collectors" value={collectionSummaries.collectors.length} icon={Users} accent="purple" />
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <Card title="Collected by Service Category" icon={Layers}>
-              {collectionSummaries.categories.length ? (
-                <div className="divide-y divide-[var(--border-color)]">
-                  {collectionSummaries.categories.map(([category, amount]) => (
-                    <div key={category} className="py-2 flex items-center justify-between text-sm">
-                      <span className="text-[var(--text-secondary)] capitalize">{category.replace(/_/g, ' ')}</span>
-                      <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(amount)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-sm text-[var(--text-tertiary)]">No category totals for this period.</p>}
-            </Card>
-            <Card title="Collected by User" icon={Users} accent="purple">
-              {collectionSummaries.collectors.length ? (
-                <div className="divide-y divide-[var(--border-color)]">
-                  {collectionSummaries.collectors.map(([collectorId, summary]) => {
-                    const collector = collectionsReport.payments.find((payment) => payment.collector.id === collectorId)?.collector;
-                    return (
-                      <div key={collectorId} className="py-2 flex items-center justify-between text-sm gap-3">
-                        <span className="text-[var(--text-secondary)]">{collector?.fullName || collector?.username || 'Unknown user'} <span className="text-xs">({summary.payments} receipts)</span></span>
-                        <span className="font-semibold text-[var(--text-primary)]">{formatCurrency(summary.amount)}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : <p className="text-sm text-[var(--text-tertiary)]">No collections for this period.</p>}
-            </Card>
-          </div>
-
-          <Card
-            title="Itemized Collections"
-            description="Payment amounts are allocated proportionally across each bill's active service items."
-            actions={(
-              <SearchInput
-                className="w-full sm:max-w-sm"
-                value={searchQuery}
-                onChange={(value) => { setSearchQuery(value); setCurrentPage(1); }}
-                placeholder="Search patient, bill, collector, or item..."
-              />
-            )}
-          >
-            {collectionsLoading ? (
-              <div className="py-12 flex items-center justify-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Loader2 className="w-4 h-4 animate-spin" /> Loading collections...
-              </div>
-            ) : collectionRows.length === 0 ? (
-              <div className="py-10 text-center">
-                <Receipt className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3" />
-                <p className="font-medium text-[var(--text-primary)]">{searchQuery ? 'No matching collection items' : 'No collections found'}</p>
-                <p className="text-sm text-[var(--text-secondary)] mt-1">No payments were recorded for {getDateFilterDisplay().toLowerCase()}.</p>
-              </div>
-            ) : (
-              <div className={TABLE_SHELL}>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className={TH_ROW}>
-                      <tr>
-                        {['Collected At', 'Receipt / Bill', 'Paid For', 'Collected By', 'Method', 'Service Item', 'Category', 'Qty', 'Allocated Amount'].map((heading) => (
-                          <th key={heading} className={cn(TH, heading === 'Allocated Amount' || heading === 'Qty' ? 'text-right' : 'text-left')}>{heading}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {paginatedCollectionRows.map(({ payment, item }: { payment: BillingCollectionsReport['payments'][number]; item: BillingCollectionItem }, index: number) => (
-                        <tr key={`${payment.id}-${item.id}-${index}`} className={TR}>
-                          <td className={cn(TD, 'text-[var(--text-secondary)]')}>{formatDate(payment.transactionDate)}</td>
-                          <td className={TD_MONO}>
-                            <p className="font-medium text-[var(--text-primary)]">{payment.reference || payment.id}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">{payment.bill.billNumber}</p>
-                          </td>
-                          <td className={TD}>
-                            <p className="font-medium text-[var(--text-primary)]">{payment.bill.customer.name}</p>
-                            <p className="text-xs text-[var(--text-secondary)]">
-                              {payment.bill.customer.reference || 'Walk-in (no folder)'}
-                            </p>
-                          </td>
-                          <td className={TD}>{payment.collector.fullName || payment.collector.username}</td>
-                          <td className={cn(TD, 'capitalize text-[var(--text-secondary)]')}>{payment.paymentMethod.replace(/_/g, ' ')}</td>
-                          <td className={cn(TD, 'whitespace-normal')}>{item.description}</td>
-                          <td className={cn(TD, 'capitalize text-[var(--text-secondary)]')}>{item.serviceCategory.replace(/_/g, ' ')}</td>
-                          <td className={cn(TD, 'text-right text-[var(--text-secondary)]')}>{item.quantity}</td>
-                          <td className={cn(TD, 'text-right font-semibold')}>{formatCurrency(item.amount)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </Card>
-        </section>
+        <CollectionsReport
+          report={collectionsReport}
+          loading={collectionsLoading}
+          dateFrom={collectionsRange.from}
+          dateTo={collectionsRange.to}
+          periodLabel={getDateFilterDisplay()}
+          onRangeChange={(from, to) => {
+            setCustomStartDate(from);
+            setCustomEndDate(to);
+            setDateFilter('custom');
+            setShowDatePicker(true);
+          }}
+          onRefresh={loadData}
+          onClose={() => { setActiveTab('bills'); setSearchQuery(''); }}
+          onExported={(count) => success('Exported', `${count} collection line(s) written to CSV.`)}
+          onExportFailed={(message) => toastError('Export failed', message)}
+        />
       )}
 
       {/* BILLS TABLE */}
@@ -1132,8 +1032,8 @@ const handlePrintStatement = async (billId: string) => {
         </>
       )}
 
-      {/* Pagination */}
-      {totalPages > 1 && (
+      {/* Pagination — the collections report carries its own receipt pager */}
+      {activeTab !== 'collections' && totalPages > 1 && (
         <div className="flex items-center gap-3 flex-wrap">
           <Pagination
             page={currentPage}

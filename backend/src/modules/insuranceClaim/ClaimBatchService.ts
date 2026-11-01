@@ -51,6 +51,145 @@ export class ClaimBatchService extends BaseService {
   }
 
   // ==========================================
+  // TRACKING & PAYMENTS (batch level)
+  // ==========================================
+
+  /**
+   * What the payer owes for the period, derived from the batch's own events.
+   *
+   * The reconciliation is against `totalAmount` — the amount submitted for the month — because
+   * that is the figure the remittance answers. Individual claims are deliberately not tracked.
+   */
+  private summarizeTracking(batch: any) {
+    const events = batch.trackingEvents || [];
+    const submitted = Number(batch.totalAmount || 0);
+    const paid = events
+      .filter((event: any) => event.eventType === 'payment')
+      .reduce((sum: number, event: any) => sum + Number(event.amount || 0), 0);
+    const latestAdjudication = [...events].reverse().find((event: any) => event.eventType === 'adjudication')?.status;
+    const submission = events.find((event: any) => event.eventType === 'submission');
+    return {
+      amountSubmitted: submitted,
+      totalPaid: paid,
+      outstanding: Math.max(0, submitted - paid),
+      latestStatus: paid >= submitted && paid > 0
+        ? 'paid'
+        : paid > 0
+          ? 'partially_paid'
+          : (latestAdjudication || (submission ? 'submitted' : 'not_submitted')),
+      submittedAt: submission?.submissionDate || submission?.createdAt || batch.finalizedAt || null,
+    };
+  }
+
+  async listBatchTracking(filters: any) {
+    const result = await this.repo.findBatchesForTracking({
+      ...filters,
+      limit: Math.min(filters.limit ?? 20, 100),
+    });
+    return {
+      ...result,
+      data: result.data.map((batch: any) => ({ ...batch, tracking: this.summarizeTracking(batch) })),
+    };
+  }
+
+  async recordBatchTrackingEvent(
+    batchId: string,
+    input: {
+      eventType: string;
+      status?: string;
+      submissionDate?: string;
+      payerReference?: string;
+      amount?: number | string;
+      paymentReference?: string;
+      paymentMethod?: string;
+      notes?: string;
+    },
+    userId: string,
+  ) {
+    const allowedTypes = ['submission', 'adjudication', 'payment', 'note'];
+    if (!allowedTypes.includes(String(input.eventType))) {
+      throw new ValidationError('Invalid tracking event type');
+    }
+    const batch = await this.prisma.claimBatch.findUnique({
+      where: { id: batchId },
+      select: { id: true, batchNumber: true, status: true, totalAmount: true },
+    });
+    if (!batch) throw new NotFoundError('Claim batch', batchId);
+    if (batch.status !== 'finalized') {
+      throw new ValidationError('Only finalized batches can be tracked for submission or remittance');
+    }
+
+    if (input.eventType === 'payment') {
+      const numericAmount = Number(input.amount);
+      if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+        throw new ValidationError('Payment amount must be greater than zero');
+      }
+      const paymentReference = String(input.paymentReference || '').trim();
+      if (!paymentReference) {
+        throw new ValidationError('A payer remittance/payment reference is required to prevent duplicate entries');
+      }
+      try {
+        return await this.prisma.$transaction(async (tx: any) => {
+          await tx.$queryRaw`SELECT "id" FROM "claim_batches" WHERE "id" = ${batch.id} FOR UPDATE`;
+          const existing = await tx.claimBatchTrackingEvent.findMany({
+            where: { batchId: batch.id, eventType: 'payment' }, select: { amount: true },
+          });
+          const paid = existing.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+          if (paid + numericAmount > Number(batch.totalAmount) + 0.005) {
+            throw new ValidationError(
+              `Payment exceeds the ₵${Number(batch.totalAmount).toFixed(2)} submitted for ${batch.batchNumber}. Check the remittance and the payments already recorded.`,
+            );
+          }
+          return tx.claimBatchTrackingEvent.create({
+            data: {
+              batchId: batch.id,
+              eventType: 'payment',
+              amount: numericAmount,
+              paymentReference,
+              paymentMethod: input.paymentMethod ? String(input.paymentMethod).trim() : null,
+              payerReference: input.payerReference ? String(input.payerReference).trim() : null,
+              notes: input.notes ? String(input.notes).trim() : null,
+              recordedById: userId,
+            },
+          });
+        });
+      } catch (error: any) {
+        if (error?.code === 'P2002' || /unique constraint/i.test(String(error?.message))) {
+          throw new ConflictError('This payment reference has already been recorded for the batch');
+        }
+        throw error;
+      }
+    }
+
+    if (input.eventType === 'submission' && !String(input.payerReference || '').trim()) {
+      throw new ValidationError('Enter the payer submission/batch reference where available');
+    }
+    if (input.eventType === 'submission' && input.submissionDate
+      && Number.isNaN(new Date(input.submissionDate).getTime())) {
+      throw new ValidationError('Submission date is invalid');
+    }
+    const allowedStatuses = ['acknowledged', 'under_review', 'queried', 'approved', 'partially_approved', 'rejected'];
+    if (input.eventType === 'adjudication'
+      && !allowedStatuses.includes(String(input.status || '').trim().toLowerCase())) {
+      throw new ValidationError('Choose a valid payer adjudication status');
+    }
+
+    return this.prisma.claimBatchTrackingEvent.create({
+      data: {
+        batchId: batch.id,
+        eventType: String(input.eventType),
+        status: input.status ? String(input.status).trim().toLowerCase() : null,
+        submissionDate: input.submissionDate
+          ? new Date(input.submissionDate)
+          : (input.eventType === 'submission' ? new Date() : null),
+        payerReference: input.payerReference ? String(input.payerReference).trim() : null,
+        notes: input.notes ? String(input.notes).trim() : null,
+        recordedById: userId,
+      },
+    });
+  }
+
+  // ==========================================
   // GENERATE
   // ==========================================
   async generateBatch(input: GenerateBatchInput, userId: string) {

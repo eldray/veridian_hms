@@ -50,6 +50,9 @@ interface InvestigationItem {
   date: string;
   serviceCatalogId?: string;
   type?: 'lab' | 'scan';
+  /** What the claim line was billed at; null until the claim is saved. */
+  unitPrice?: number | null;
+  lineTotal?: number | null;
 }
 
 interface MedicineItem {
@@ -64,6 +67,9 @@ interface MedicineItem {
   duration?: string;
   stockItemId?: string;
   serviceCatalogId?: string;
+  /** The NHIS-covered amount per unit, set by the payer rule when the claim saves. */
+  unitPrice?: number | null;
+  lineTotal?: number | null;
 }
 
 interface ProcedureItem {
@@ -71,12 +77,22 @@ interface ProcedureItem {
   code: string;
   description: string;
   date: string;
+  unitPrice?: number | null;
+  lineTotal?: number | null;
 }
 
 // Accept both camelCase (new) and PascalCase (old) claim shapes so this page
 // works whether or not PR 9's response normalizer is live.
 const p = (claim: any): any => claim?.patient ?? claim?.Patient ?? {};
 const a = (claim: any): any => claim?.attendance ?? claim?.Attendance ?? {};
+
+const toNum = (v: any): number => (v === null || v === undefined ? 0 : parseFloat(v.toString()) || 0);
+
+/** A line with no saved amount shows a dash, never a GHS 0.00 that reads as a priced line. */
+const moneyCell = (value: any): string => {
+  const n = toNum(value);
+  return value === null || value === undefined ? '—' : `GHS ${n.toFixed(2)}`;
+};
 
 const buildItemPayload = (args: {
   diagnoses: DiagnosisItem[];
@@ -107,8 +123,8 @@ const buildItemPayload = (args: {
       code: inv.gdrgCode,
       description: inv.description || inv.gdrgCode,
       quantity: 1,
-      unitPrice: 0,
-      lineTotal: 0,
+      unitPrice: inv.unitPrice ?? 0,
+      lineTotal: inv.lineTotal ?? 0,
       serviceDate: inv.date || null,
       serviceCatalogId: inv.serviceCatalogId ?? null,
     });
@@ -121,8 +137,8 @@ const buildItemPayload = (args: {
       code: pr.code,
       description: pr.description || pr.code,
       quantity: 1,
-      unitPrice: 0,
-      lineTotal: 0,
+      unitPrice: pr.unitPrice ?? 0,
+      lineTotal: pr.lineTotal ?? 0,
       serviceDate: pr.date || null,
     });
   }
@@ -134,8 +150,10 @@ const buildItemPayload = (args: {
       code: m.code,
       description: m.description || m.code,
       quantity: m.quantity ?? 1,
-      unitPrice: 0,
-      lineTotal: 0,
+      // The server re-prices every NHIS medicine line from its payer rule, so what
+      // is sent here is only the previous saved amount for rows that have one.
+      unitPrice: m.unitPrice ?? 0,
+      lineTotal: m.lineTotal ?? 0,
       serviceDate: m.date || null,
       prescriptionText: m.prescription ?? null,
     });
@@ -1028,6 +1046,8 @@ export default function EditNHISClaim() {
         date: i.serviceDate ? String(i.serviceDate).split('T')[0] : '',
         serviceCatalogId: i.serviceCatalogId,
         type: 'lab' as const,
+        unitPrice: i.unitPrice,
+        lineTotal: i.lineTotal,
       })));
     } else if (meta.investigations?.length) {
       setInvestigations(meta.investigations);
@@ -1060,6 +1080,8 @@ export default function EditNHISClaim() {
         date: m.serviceDate ? String(m.serviceDate).split('T')[0] : '',
         prescription: m.prescriptionText || 'As prescribed',
         stockItemId: m.medicationId,
+        unitPrice: m.unitPrice,
+        lineTotal: m.lineTotal,
       })));
     } else if (meta.medicines?.length) {
       setMedicines(meta.medicines);
@@ -1085,6 +1107,8 @@ export default function EditNHISClaim() {
         code: pr.code,
         description: pr.description,
         date: pr.serviceDate ? String(pr.serviceDate).split('T')[0] : '',
+        unitPrice: pr.unitPrice,
+        lineTotal: pr.lineTotal,
       })));
     } else if (meta.procedures?.length) {
       setProcedures(meta.procedures);
@@ -1151,6 +1175,22 @@ export default function EditNHISClaim() {
       }
     }
   }, [tariffs, principalGDRG]);
+
+  // Money on this claim. The saved lines carry the server's own figures; a G-DRG that
+  // has not been saved yet is shown at its tariff, and medicines stay blank until the
+  // payer rule prices them, because only the server knows the NHIS-covered amount.
+  const claimLines: any[] = ((currentClaim as any)?.items ?? []);
+  const gdrgLine = claimLines.find((line: any) => line.itemCategory === 'gdrg');
+  const gdrgAmount = gdrgLine
+    ? toNum(gdrgLine.lineTotal)
+    : toNum((tariffs as any[]).find(g => g.gdrgCode === principalGDRG)?.nhiaTariff);
+  const pricedMedicines = medicines.filter(m => m.lineTotal != null || m.unitPrice != null);
+  const medicinesAmount = pricedMedicines.reduce(
+    (sum, m) => sum + (m.lineTotal != null ? toNum(m.lineTotal) : toNum(m.unitPrice) * (Number(m.quantity) || 1)),
+    0,
+  );
+  const claimTotal = toNum((currentClaim as any)?.totalClaimAmount) || (gdrgAmount + medicinesAmount);
+  const money = (value: number) => `GHS ${value.toFixed(2)}`;
 
   const handleMemberEdit = () => {
     setIsEditingMember(true);
@@ -1541,7 +1581,7 @@ export default function EditNHISClaim() {
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {procedures.map((pr, idx) => (
                 <tr key={idx} className="border-t border-gray-100">
@@ -1549,6 +1589,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">{pr.code || '—'}</td>
                   <td className="px-3 py-3 text-gray-700">{pr.description}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(pr.date)}</td>
+                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(pr.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'procedure', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1614,7 +1655,7 @@ export default function EditNHISClaim() {
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>GDRG</TH><TH>Description</TH><TH>Date</TH><TH className="text-right">Amount</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {investigations.map((inv, idx) => (
                 <tr key={idx} className="border-t border-gray-100">
@@ -1622,6 +1663,7 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">{inv.gdrgCode}</td>
                   <td className="px-3 py-3 text-gray-700">{inv.description}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(inv.date)}</td>
+                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(inv.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'investigation', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1646,7 +1688,7 @@ export default function EditNHISClaim() {
           ) : undefined}
         >
           <table className="w-full text-sm">
-            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
+            <thead><tr><TH>#</TH><TH>Code</TH><TH>Description</TH><TH>Qty</TH><TH>Date</TH><TH className="text-right">Unit price</TH><TH className="text-right">Total</TH>{isDraft && <TH className="text-center">&nbsp;</TH>}</tr></thead>
             <tbody>
               {medicines.map((m, idx) => (
                 <tr key={idx} className="border-t border-gray-100 align-top">
@@ -1658,6 +1700,8 @@ export default function EditNHISClaim() {
                   </td>
                   <td className="px-3 py-3 text-gray-700">{m.quantity}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(m.date)}</td>
+                  <td className="px-3 py-3 text-right text-gray-700">{moneyCell(m.unitPrice)}</td>
+                  <td className="px-3 py-3 text-right text-gray-800 font-medium">{moneyCell(m.lineTotal)}</td>
                   {isDraft && (
                     <td className="px-3 py-3 text-center whitespace-nowrap">
                       <button type="button" onClick={() => setEditing({ kind: 'medicine', index: idx })} className="text-blue-400 hover:text-blue-600 mr-2"><Edit className="w-4 h-4" /></button>
@@ -1677,7 +1721,36 @@ export default function EditNHISClaim() {
               <label className="block text-[11px] text-gray-500 mb-0.5">Select Principal GDRG</label>
               <SearchableGDRGSelect value={principalGDRG} onChange={handlePrincipalGDRGChange} options={availableGDRGs} disabled={locked} placeholder="Search GDRG by code or description..." />
               <p className="text-[15px] text-gray-700 mt-3">{principalGDRGDescription}</p>
+              {principalGDRG ? (
+                <p className="mt-2 text-sm text-gray-700">
+                  G-DRG amount <span className="font-semibold">{money(gdrgAmount)}</span>
+                  {!gdrgLine && principalGDRG ? <span className="text-xs text-gray-500 ml-1">· current tariff, saved with the claim</span> : null}
+                </p>
+              ) : null}
             </div>
+          </div>
+        </ClaimCard>
+
+        <ClaimCard title="Claim amounts">
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between border-b border-gray-100 pb-1">
+              <span className="text-gray-600">G-DRG {principalGDRG ? `(${principalGDRG})` : ''}</span>
+              <span className="font-medium text-gray-800">{principalGDRG ? money(gdrgAmount) : '—'}</span>
+            </div>
+            <div className="flex justify-between border-b border-gray-100 pb-1">
+              <span className="text-gray-600">Medicines ({medicines.length})</span>
+              <span className="font-medium text-gray-800">
+                {medicines.length === 0 ? '—' : pricedMedicines.length === medicines.length ? money(medicinesAmount) : `${money(medicinesAmount)} · ${medicines.length - pricedMedicines.length} not priced yet`}
+              </span>
+            </div>
+            <div className="flex justify-between pt-1">
+              <span className="font-semibold text-gray-800">Claim total</span>
+              <span className="font-bold text-gray-900">{money(claimTotal)}</span>
+            </div>
+            <Hint>
+              NHIS pays the G-DRG pack plus covered medicines. The investigations and procedures listed above are
+              part of that pack, so their amounts are shown for reference and are not claimed on top of the G-DRG.
+            </Hint>
           </div>
         </ClaimCard>
 

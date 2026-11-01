@@ -47,6 +47,8 @@ const STATUS_TONES: Record<string, BadgeTone> = {
   finalized: 'purple',
   batched: 'indigo', corporate: 'indigo',
   referred: 'orange', transferred: 'orange', partial: 'orange', admitted_overdue: 'orange',
+  partially_paid: 'orange', queried: 'orange',
+  under_review: 'blue', not_submitted: 'neutral',
   rejected: 'red', cancelled: 'red', canceled: 'red', failed: 'red', overdue: 'red',
   expired: 'red', critical: 'red', absent: 'red', absconded: 'red',
   inactive: 'neutral', suspended: 'neutral', archived: 'neutral', returned: 'neutral', closed: 'neutral',

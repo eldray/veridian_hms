@@ -79,6 +79,8 @@ const Estimates = lazy(() => import('./pages/Estimates'));
 const EstimateDetails = lazy(() => import('./pages/EstimateDetails'));
 const EstimateForm = lazy(() => import('./pages/EstimateForm'));
 const Counter = lazy(() => import('./pages/Counter'));
+const CounterNewTicket = lazy(() => import('./pages/CounterNewTicket'));
+const CounterTicket = lazy(() => import('./pages/CounterTicket'));
 const UserManagement = lazy(() => import('./pages/UserManagement'));
 const ShiftManagement = lazy(() => import('./pages/ShiftManagement'));
 const LeaveManagement = lazy(() => import('./pages/LeaveManagement'));
@@ -288,8 +290,10 @@ function App() {
           <Route path="reports"                     element={<ProtectedRoute><Reports /></ProtectedRoute>} />
           <Route path="referrals"                   element={<ProtectedRoute><Referrals /></ProtectedRoute>} />
 
-          {/* Counter: walk-in tickets held against a CounterClient, not the patient register */}
-          <Route path="counter" element={<ProtectedRoute><Counter /></ProtectedRoute>} />
+          {/* Counter: dashboard, entry page, and one ticket worked end to end */}
+          <Route path="counter"        element={<ProtectedRoute><Counter /></ProtectedRoute>} />
+          <Route path="counter/new"    element={<ProtectedRoute><CounterNewTicket /></ProtectedRoute>} />
+          <Route path="counter/:id"    element={<ProtectedRoute><CounterTicket /></ProtectedRoute>} />
 
           {/* Estimates */}
           <Route path="estimates"           element={<ProtectedRoute><Estimates /></ProtectedRoute>} />

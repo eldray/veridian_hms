@@ -144,8 +144,12 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
   // ==========================================
   // BATCH QUERIES
   // ==========================================
-  async findBatchesWithFilters(filters: any) {
-    const { status, startDate, endDate, page = 1, limit = 1000 } = filters;
+  /**
+   * The batch list filter, shared by the batches screen and the tracking screen so both
+   * answer to the same search, period and payer terms.
+   */
+  private batchListWhere(filters: any) {
+    const { status, startDate, endDate } = filters;
     const where: any = {};
     // Two filters that each need their own OR block — search terms and the month
     // expansion — so they go into AND instead of clobbering one another.
@@ -179,6 +183,12 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       });
     }
     if (and.length) where.AND = and;
+    return where;
+  }
+
+  async findBatchesWithFilters(filters: any) {
+    const { page = 1, limit = 1000 } = filters;
+    const where = this.batchListWhere(filters);
 
     const safePage = Math.max(1, Number(page) || 1);
     const safeLimit = Math.min(1000, Math.max(1, Number(limit) || 20));
@@ -256,6 +266,66 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
 
   async findBatchesPaginated(filters: any) {
     return this.findBatchesWithFilters(filters);
+  }
+
+  /**
+   * Batches with their payer history — the rows the Tracking & payments screen reads.
+   *
+   * The submitted amount is the batch's own total, not a sum of claims: the payer is billed for
+   * the period, so the period is what gets reconciled against a remittance.
+   */
+  async findBatchesForTracking(filters: any) {
+    const { page = 1, limit = 20 } = filters;
+    const where = this.batchListWhere(filters);
+    const safePage = Math.max(1, Number(page) || 1);
+    const safeLimit = Math.min(100, Math.max(1, Number(limit) || 20));
+    const skip = (safePage - 1) * safeLimit;
+
+    const [batches, total, totals, paidAcrossFilter] = await Promise.all([
+      this.prisma.claimBatch.findMany({
+        where,
+        include: {
+          insuranceProvider: { select: { id: true, name: true, type: true } },
+          corporateAccount: { select: { id: true, companyName: true } },
+          createdBy: { select: { id: true, fullName: true, username: true } },
+          trackingEvents: {
+            orderBy: { createdAt: 'asc' },
+            include: { recordedBy: { select: { id: true, fullName: true, username: true } } },
+          },
+        },
+        orderBy: [{ periodYear: 'desc' }, { periodMonth: 'desc' }, { batchNumber: 'desc' }],
+        skip,
+        take: safeLimit,
+      }),
+      this.prisma.claimBatch.count({ where }),
+      this.prisma.claimBatch.aggregate({
+        where,
+        _count: { _all: true },
+        _sum: { totalAmount: true, totalClaims: true },
+      }),
+      // The card has to describe the whole filter; summing only the rows on this page would
+      // understate a month that spans more batches than the page size.
+      this.prisma.claimBatchTrackingEvent.aggregate({
+        where: { eventType: 'payment', batch: where },
+        _sum: { amount: true },
+      }),
+    ]);
+
+    return {
+      data: batches,
+      pagination: {
+        page: safePage,
+        limit: safeLimit,
+        total,
+        pages: Math.ceil(total / safeLimit),
+      },
+      summary: {
+        batches: totals._count._all,
+        claims: toNum(totals._sum.totalClaims),
+        amount: money(totals._sum.totalAmount),
+        paid: money(paidAcrossFilter._sum?.amount),
+      },
+    };
   }
 
   async findExistingBatch(

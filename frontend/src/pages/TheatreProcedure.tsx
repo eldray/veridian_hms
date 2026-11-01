@@ -1,4 +1,4 @@
-// src/pages/TheatreProcedure.tsx — V2 with Grid Note Tiles
+// src/pages/TheatreProcedure.tsx — V3, restructured to Antenatal UI language
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
@@ -65,129 +65,72 @@ const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
 // ─────────────────────────────────────────────────────────────
-// Note Tile
+// Shared primitives (mirroring src/pages/Antenatal.tsx)
 // ─────────────────────────────────────────────────────────────
-type TileKey = 'anesthesia' | 'bloodLoss' | 'intraOp' | 'complications' | 'postOp' | 'outcome';
-
-interface NoteTileProps {
-  tileKey: TileKey;
-  icon: React.ElementType;
-  label: string;
-  preview: string;
-  meta?: string;
-  isEmpty: boolean;
-  isOpen: boolean;
-  isDimmed: boolean;
-  disabled: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  onSave: () => void;
-  children: React.ReactNode; // editor content when open
-}
-
-const NoteTile: React.FC<NoteTileProps> = ({
-  icon: Icon, label, preview, meta, isEmpty, isOpen, isDimmed,
-  disabled, onOpen, onClose, onSave, children,
-}) => {
-  const wordCount = countWords(preview);
-
-  // Collapsed view
-  if (!isOpen) {
-    return (
-      <button
-        type="button"
-        onClick={onOpen}
-        disabled={disabled}
-        className={`text-left rounded-xl border transition-all flex flex-col min-h-[140px] p-4 ${
-          isEmpty
-            ? 'border-dashed border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-400'
-            : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-400 hover:shadow-sm'
-        } ${isDimmed ? 'opacity-40' : 'opacity-100'} ${
-          disabled ? 'cursor-not-allowed' : 'cursor-pointer'
-        }`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between w-full mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-              <Icon className="w-4 h-4 text-purple-600" />
-            </div>
-            <span className="text-xs font-bold text-[var(--text-primary)] truncate">{label}</span>
-          </div>
-          {!disabled && (
-            <Edit className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-          )}
-        </div>
-
-        {/* Body */}
-        <div className="flex-1 mt-1 min-w-0 w-full">
-          {isEmpty ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-2">
-              <div className="w-7 h-7 rounded-full bg-[var(--bg-main)] border border-[var(--border-color)] flex items-center justify-center mb-1.5">
-                <Plus className="w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-              </div>
-              <p className="text-[11px] text-[var(--text-tertiary)]">Click to add</p>
-            </div>
-          ) : (
-            <p className="text-xs text-[var(--text-secondary)] leading-relaxed line-clamp-3">
-              {preview}
-            </p>
-          )}
-        </div>
-
-        {/* Footer */}
-        {!isEmpty && (
-          <div className="mt-2 pt-2 border-t border-[var(--border-color)] flex items-center justify-between w-full">
-            <span className="text-[10px] text-[var(--text-tertiary)]">
-              {wordCount} word{wordCount !== 1 ? 's' : ''}
-            </span>
-            {meta && (
-              <span className="text-[10px] text-[var(--text-tertiary)] truncate ml-2">
-                {meta}
-              </span>
-            )}
-          </div>
+const SectionCard: React.FC<{
+  icon: React.ReactNode; title: string; count?: number;
+  countCls?: string; action?: React.ReactNode; children: React.ReactNode; maxH?: string;
+}> = ({ icon, title, count, countCls = 'bg-purple-100 text-purple-700', action, children, maxH = 'max-h-none' }) => (
+  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden flex flex-col">
+    <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex-shrink-0">
+      <div className="flex items-center gap-2">
+        {icon}
+        <span className="text-xs font-semibold text-[var(--text-primary)] tracking-tight">{title}</span>
+        {count !== undefined && count > 0 && (
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${countCls}`}>{count}</span>
         )}
-      </button>
-    );
-  }
-
-  // Expanded view — full width
-  return (
-    <div className="col-span-full rounded-xl border border-purple-300 bg-[var(--bg-card)] shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
-            <Icon className="w-4 h-4 text-purple-600" />
-          </div>
-          <h3 className="text-sm font-bold text-[var(--text-primary)] truncate">{label}</h3>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            type="button"
-            onClick={onSave}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-xs font-semibold transition-all"
-          >
-            <Save className="w-3.5 h-3.5" />
-            Done
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-colors"
-            aria-label="Cancel"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
       </div>
-
-      {/* Editor body */}
-      <div className="p-5 space-y-4">{children}</div>
+      {action}
     </div>
-  );
-};
+    <div className={`${maxH} overflow-y-auto`} style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--border-color) transparent' }}>
+      {children}
+    </div>
+  </div>
+);
+
+const EmptySlate: React.FC<{ icon: React.ReactNode; label: string; action?: React.ReactNode }> = ({ icon, label, action }) => (
+  <div className="flex flex-col items-center justify-center py-10 gap-2.5">
+    <div className="opacity-20">{icon}</div>
+    <p className="text-xs text-[var(--text-tertiary)]">{label}</p>
+    {action}
+  </div>
+);
+
+const AddBtn: React.FC<{ onClick: () => void; label: string }> = ({ onClick, label }) => (
+  <button onClick={onClick}
+    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold
+      bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]
+      hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
+    <Plus className="w-3 h-3" />{label}
+  </button>
+);
+
+const FormField: React.FC<{ label: string; children: React.ReactNode; className?: string; hint?: string }> = ({ label, children, className = '', hint }) => (
+  <label className={`block text-xs font-semibold text-[var(--text-primary)] ${className}`}>
+    {label}
+    <div className="mt-1 font-normal">{children}</div>
+    {hint && <p className="mt-1 text-[10px] font-normal text-[var(--text-tertiary)]">{hint}</p>}
+  </label>
+);
+
+const TickBox: React.FC<{ checked: boolean; onChange: (v: boolean) => void; label: string }> = ({ checked, onChange, label }) => (
+  <label className="flex items-start gap-2 rounded-lg border border-[var(--border-color)] p-3 text-xs text-[var(--text-primary)] cursor-pointer hover:bg-[var(--bg-main)] transition-colors">
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5" />
+    <span>{label}</span>
+  </label>
+);
+
+const TH: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] whitespace-nowrap">{children}</th>
+);
+const TD: React.FC<{ children: React.ReactNode; className?: string }> = ({ children, className = '' }) => (
+  <td className={`px-3 py-2 text-[var(--text-secondary)] text-xs ${className}`}>{children}</td>
+);
+const TDp: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <td className="px-3 py-2 text-[var(--text-primary)] text-xs font-medium">{children}</td>
+);
+
+type TheatreTabKey = 'record' | 'narrative' | 'handover' | 'history';
 
 // ─────────────────────────────────────────────────────────────
 // Main page
@@ -204,7 +147,8 @@ export default function TheatreProcedure() {
   const [selectedAttendanceId, setSelectedAttendanceId] = useState<string>('');
   const [selectedProcedureId, setSelectedProcedureId] = useState<string>('');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [openTile, setOpenTile] = useState<TileKey | null>(null);
+  const [openTile, setOpenTile] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<TheatreTabKey>('record');
 
   // Theatre form state
   const [anesthesiaNotes, setAnesthesiaNotes] = useState('');
@@ -253,8 +197,6 @@ export default function TheatreProcedure() {
   const [queueRows, setQueueRows] = useState<QueuedVisit[]>([]);
   const [queueLoading, setQueueLoading] = useState(false);
 
-  // Direct entry has no patient yet, so the screen offers the theatre queue instead
-  // of an empty picker, and opening a row lands on the visit that holds the procedure.
   const loadQueue = async () => {
     setQueueLoading(true);
     try {
@@ -324,8 +266,6 @@ export default function TheatreProcedure() {
           setSelectedPatientId(patientId);
         }
 
-        // A queued visit can be older than the patient's recent-visit window, so the
-        // attendance named by the queue row is fetched on its own if the list missed it.
         let target: any = initialAttendanceId
           ? patientAttendances.find(a => a.id === initialAttendanceId)
           : undefined;
@@ -338,8 +278,6 @@ export default function TheatreProcedure() {
         target = target || pickVisit(patientAttendances, hasOutstandingProcedureWork);
         if (target) {
           setSelectedAttendanceId(target.id);
-          // Without directory access the only patient record available is the one
-          // carried by the visit, and the screen still needs it to draw the header.
           if (!foundPatient) {
             const linked = target.Patient || target.patient || null;
             if (linked) setPatient(linked);
@@ -409,8 +347,6 @@ export default function TheatreProcedure() {
 
   const selectedProcedure = procedures.find((p: any) => p.id === selectedProcedureId);
 
-  // When arriving from the theatre worklist, open the exact pending/in-progress
-  // procedure that was selected there instead of requiring staff to find it again.
   const appliedInitialProcedureId = useRef<string | null>(null);
   useEffect(() => {
     const requestedProcedureId = location.state?.procedureId;
@@ -473,8 +409,7 @@ export default function TheatreProcedure() {
       allergyStatusReviewed: false, allergyNotes: '', preOpAssessmentCompleted: false,
       asaClass: '', surgeonName: '', assistantName: '', anaesthetistName: '',
       scrubNurseName: '', circulatingNurseName: '', incisionTime: '', closureTime: '',
-      instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '',
-      specimens: '', specimenLabelled: false,
+      instrumentCountsCorrect: false, instrumentCountsStatus: '', instrumentCountNotes: '', specimens: '', specimenLabelled: false,
       postOpDestination: '', postOpPlan: '', handoverNotes: '',
     });
   };
@@ -567,60 +502,60 @@ export default function TheatreProcedure() {
       return;
     }
     if (complete) {
-    if (!outcome || !outcomeOptions.some((option) => option.value === outcome)) {
-      toastError('Procedure outcome required', 'Select the documented outcome before completing the theatre record.');
-      return;
-    }
-    if (
-      !String(clinicalRecord.indication || '').trim() ||
-      !String(clinicalRecord.preOpDiagnosis || '').trim() ||
-      !String(clinicalRecord.operativeSite || '').trim()
-    ) {
-      toastError('Operative details incomplete', 'Record the clinical indication, pre-operative diagnosis and operative site before completing the theatre record.');
-      return;
-    }
-    const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
-      field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
-    ));
-    if (missingProtocolField) {
-      toastError('Hospital protocol field required', `Complete the required field: ${missingProtocolField.label || 'Unnamed protocol field'}`);
-      return;
-    }
-    if (!clinicalRecord.identityConfirmed || !clinicalRecord.procedureAndSiteConfirmed) {
-      toastError('Safety checks incomplete', 'Confirm patient identity and the planned procedure/site before completion.');
-      return;
-    }
-    if (!clinicalRecord.consentConfirmed && clinicalRecord.consentStatus !== 'emergency_exception') {
-      toastError('Consent documentation required', 'Record informed consent or document the emergency exception.');
-      return;
-    }
-    if (
-      clinicalRecord.consentStatus === 'emergency_exception' &&
-      !String(clinicalRecord.consentNotes || '').trim()
-    ) {
-      toastError('Emergency exception details required', 'Document the reason and circumstances for proceeding without informed consent.');
-      return;
-    }
-    if (String(clinicalRecord.specimens || '').trim() && clinicalRecord.specimenLabelled !== true) {
-      toastError('Specimen labelling required', 'Confirm that the specimen is correctly labelled before completing the procedure.');
-      return;
-    }
-    if (!clinicalRecord.allergyStatusReviewed || !clinicalRecord.preOpAssessmentCompleted) {
-      toastError('Pre-operative checks incomplete', 'Review allergies and complete the pre-operative assessment.');
-      return;
-    }
-    if (clinicalRecord.instrumentCountsStatus !== 'correct' && !(clinicalRecord.instrumentCountsStatus === 'not_applicable' && String(clinicalRecord.instrumentCountNotes || '').trim())) {
-      toastError('Counts not confirmed', 'Confirm counts or document why they are not applicable. Resolve any discrepancy before completion.');
-      return;
-    }
-    if (!String(clinicalRecord.postOpDestination || '').trim() || !String(clinicalRecord.postOpPlan || '').trim()) {
-      toastError('Post-operative handover incomplete', 'Record the post-operative destination and care plan.');
-      return;
-    }
-    if (!String(clinicalRecord.handoverNotes || '').trim()) {
-      toastError('Clinical handover required', 'Document the key information handed over to the receiving recovery or ward team.');
-      return;
-    }
+      if (!outcome || !outcomeOptions.some((option) => option.value === outcome)) {
+        toastError('Procedure outcome required', 'Select the documented outcome before completing the theatre record.');
+        return;
+      }
+      if (
+        !String(clinicalRecord.indication || '').trim() ||
+        !String(clinicalRecord.preOpDiagnosis || '').trim() ||
+        !String(clinicalRecord.operativeSite || '').trim()
+      ) {
+        toastError('Operative details incomplete', 'Record the clinical indication, pre-operative diagnosis and operative site before completing the theatre record.');
+        return;
+      }
+      const missingProtocolField = customProtocolFields.find((field: any) => field.required === true && (
+        field.type === 'checkbox' ? field.value !== true : String(field.value ?? '').trim() === ''
+      ));
+      if (missingProtocolField) {
+        toastError('Hospital protocol field required', `Complete the required field: ${missingProtocolField.label || 'Unnamed protocol field'}`);
+        return;
+      }
+      if (!clinicalRecord.identityConfirmed || !clinicalRecord.procedureAndSiteConfirmed) {
+        toastError('Safety checks incomplete', 'Confirm patient identity and the planned procedure/site before completion.');
+        return;
+      }
+      if (!clinicalRecord.consentConfirmed && clinicalRecord.consentStatus !== 'emergency_exception') {
+        toastError('Consent documentation required', 'Record informed consent or document the emergency exception.');
+        return;
+      }
+      if (
+        clinicalRecord.consentStatus === 'emergency_exception' &&
+        !String(clinicalRecord.consentNotes || '').trim()
+      ) {
+        toastError('Emergency exception details required', 'Document the reason and circumstances for proceeding without informed consent.');
+        return;
+      }
+      if (String(clinicalRecord.specimens || '').trim() && clinicalRecord.specimenLabelled !== true) {
+        toastError('Specimen labelling required', 'Confirm that the specimen is correctly labelled before completing the procedure.');
+        return;
+      }
+      if (!clinicalRecord.allergyStatusReviewed || !clinicalRecord.preOpAssessmentCompleted) {
+        toastError('Pre-operative checks incomplete', 'Review allergies and complete the pre-operative assessment.');
+        return;
+      }
+      if (clinicalRecord.instrumentCountsStatus !== 'correct' && !(clinicalRecord.instrumentCountsStatus === 'not_applicable' && String(clinicalRecord.instrumentCountNotes || '').trim())) {
+        toastError('Counts not confirmed', 'Confirm counts or document why they are not applicable. Resolve any discrepancy before completion.');
+        return;
+      }
+      if (!String(clinicalRecord.postOpDestination || '').trim() || !String(clinicalRecord.postOpPlan || '').trim()) {
+        toastError('Post-operative handover incomplete', 'Record the post-operative destination and care plan.');
+        return;
+      }
+      if (!String(clinicalRecord.handoverNotes || '').trim()) {
+        toastError('Clinical handover required', 'Document the key information handed over to the receiving recovery or ward team.');
+        return;
+      }
     }
     setIsSubmitting(true);
     try {
@@ -693,19 +628,18 @@ export default function TheatreProcedure() {
     return age;
   };
 
+  // ── Loading / error ──────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
-        <div className="text-center bg-[var(--bg-card)] p-8 rounded-xl border border-[var(--border-color)]">
-          <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <h2 className="text-lg font-bold text-[var(--text-primary)]">Loading Theatre Data…</h2>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-10 h-10 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-[var(--text-secondary)]">Loading Theatre Data…</p>
         </div>
       </div>
     );
   }
 
-  // Direct entry starts without a patient until one is picked in the selector;
-  // only a patient named in the route that failed to load is an error.
   if (!patient && (id || (location.state as any)?.patient)) {
     return (
       <div className="min-h-screen bg-[var(--bg-main)] flex items-center justify-center p-6">
@@ -729,14 +663,12 @@ export default function TheatreProcedure() {
   const inProgressProcedures = procedures.filter((p: any) => p.status === 'in_progress');
   const completedProcedures = procedures.filter((p: any) => p.status === 'completed');
 
-  // Group for left pane
   const groupedProcedures = [
     { key: 'in_progress', label: 'In Progress', items: inProgressProcedures },
     { key: 'scheduled', label: 'Scheduled', items: scheduledProcedures },
     { key: 'completed', label: 'Completed', items: completedProcedures },
   ].filter(g => g.items.length > 0);
 
-  // Completion count for progress text
   const sections = [
     { key: 'anesthesia', filled: !!anesthesiaType && (!!anesthesiaNotes || anesthesiaType !== 'none') },
     { key: 'bloodLoss', filled: bloodLoss !== '' && bloodLoss !== null },
@@ -747,47 +679,59 @@ export default function TheatreProcedure() {
   ];
   const filledCount = sections.filter(s => s.filled).length;
 
+  const tabs: Array<{ key: TheatreTabKey; label: string; icon: React.ReactNode; count?: number }> = [
+    { key: 'record', label: 'Peri-operative record', icon: <ClipboardList className="w-3.5 h-3.5" /> },
+    { key: 'narrative', label: 'Narrative notes', icon: <FileText className="w-3.5 h-3.5" />, count: [anesthesiaNotes, intraOperativeNotes, postOperativeNotes].filter(Boolean).length },
+    { key: 'handover', label: 'Handover', icon: <Save className="w-3.5 h-3.5" /> },
+    { key: 'history', label: 'Procedure history', icon: <Clock className="w-3.5 h-3.5" />, count: procedures.length },
+  ];
+
+  const setCR = (patch: any) => setClinicalRecord((p: any) => ({ ...p, ...patch }));
+
   return (
-    <div className="space-y-5 p-4 sm:p-6">
-      {/* Header */}
+    <div className="space-y-4 p-4 sm:p-6">
+      {/* ── PAGE HEADER ─────────────────────────────────────────── */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <button
             onClick={() => (location.key === 'default' ? navigate('/dashboard/theatre') : navigate(-1))}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
+              text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium"
           >
-            <ChevronLeft className="w-4 h-4 text-[var(--text-secondary)]" />
+            <ChevronLeft className="w-3.5 h-3.5" /> Back
           </button>
-          <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
-            <Scissors className="w-5 h-5 text-purple-600" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Theatre Management</h1>
-            <p className="text-xs text-[var(--text-secondary)]">{patientFullName}</p>
+          <div className="h-5 w-px bg-[var(--border-color)]" />
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
+              <Scissors className="w-4 h-4 text-purple-600" />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Theatre Management</h1>
+              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">Scheduled · In progress · Documented</p>
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setShowScheduleModal(true)}
             disabled={!canAddEntries}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all disabled:opacity-50 text-sm font-semibold"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+              bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all disabled:opacity-50"
           >
-            <Plus className="w-4 h-4" />
-            <span className="hidden sm:inline">Schedule Procedure</span>
-            <span className="sm:hidden">New</span>
+            <Plus className="w-3.5 h-3.5" /> New Procedure
           </button>
           <button
             onClick={loadData}
             disabled={refreshing}
-            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Refresh"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)]
+                           text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
 
-      {/* Selector */}
+      {/* ── SELECTOR ────────────────────────────────────────────── */}
       <PatientAttendanceSelector
         patients={patient ? [patient, ...patients.filter(p => p.id !== patient.id)] : patients}
         attendances={allAttendances}
@@ -798,10 +742,9 @@ export default function TheatreProcedure() {
           setSelectedAttendanceId('');
           setAttendance(null);
           setSelectedProcedureId('');
-          // Resolve the patient before the visits: the picker auto-selects an open visit as
-          // soon as they arrive, and the screen renders that visit's patient details.
+          setOpenTile(null);
           let resolved: any = null;
-          try { resolved = await fetchPatient(patientId); } catch { /* fall back to the visit's own patient */ }
+          try { resolved = await fetchPatient(patientId); } catch {}
           let visits: any[] = [];
           try {
             visits = await getAttendances({ patientId });
@@ -815,7 +758,6 @@ export default function TheatreProcedure() {
             setAllAttendances(visits);
           }
           if (resolved) setPatient(resolved);
-          // Open the visit that owes the department a procedure, not merely the most recent one.
           const best = pickVisit(visits, hasOutstandingProcedureWork);
           if (best) setSelectedAttendanceId(best.id);
         }}
@@ -823,6 +765,7 @@ export default function TheatreProcedure() {
         onClearSelection={handleClearSelection}
       />
 
+      {/* ── QUEUE (no visit selected) ───────────────────────────── */}
       {!selectedAttendanceId && (
         <QueuedVisits
           title="Theatre queue"
@@ -840,7 +783,7 @@ export default function TheatreProcedure() {
 
       {selectedAttendanceId && attendance && patient && (
         <>
-          {/* Patient Summary Bar */}
+          {/* ── PATIENT BANNER ─────────────────────────────────── */}
           <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -861,9 +804,7 @@ export default function TheatreProcedure() {
                     {patient.contact && (
                       <>
                         <span className="opacity-40">·</span>
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-2.5 h-2.5" />{patient.contact}
-                        </span>
+                        <span className="flex items-center gap-1"><Phone className="w-2.5 h-2.5" />{patient.contact}</span>
                       </>
                     )}
                   </div>
@@ -888,7 +829,7 @@ export default function TheatreProcedure() {
             allergyReviewStatus={attendance?.allergyReviewStatus}
           />
 
-          {/* Read-only warning */}
+          {/* ── READ-ONLY WARNING ─────────────────────────────── */}
           {!canUpdateProcedure && (
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3.5 flex items-start gap-2.5">
               <AlertCircle className="w-4 h-4 text-yellow-600 flex-shrink-0 mt-0.5" />
@@ -898,7 +839,7 @@ export default function TheatreProcedure() {
             </div>
           )}
 
-          {/* Stats */}
+          {/* ── STATS STRIP ───────────────────────────────────── */}
           <div className="grid grid-cols-3 gap-3">
             {[
               { count: scheduledProcedures.length, label: 'Scheduled', Icon: Clock, bg: 'bg-blue-100', color: 'text-blue-600' },
@@ -918,76 +859,62 @@ export default function TheatreProcedure() {
             })}
           </div>
 
-          {/* Main two-pane */}
-          <div className="flex flex-col lg:flex-row gap-4 items-start">
-            {/* LEFT: Procedures list */}
-            <div className="w-full lg:w-72 lg:flex-shrink-0 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-              <div className="px-4 py-3 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-center justify-between">
-                <h3 className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
-                  <ClipboardList className="w-3.5 h-3.5 text-purple-600" />
-                  Procedures ({procedures.length})
-                </h3>
-                {canAddEntries && (
+          {/* ── PROCEDURE LIST (full-width card above tabs) ───── */}
+          <SectionCard
+            icon={<ClipboardList className="w-4 h-4 text-purple-600" />}
+            title={`Procedures for this visit (${procedures.length})`}
+            action={canAddEntries ? <AddBtn onClick={() => setShowScheduleModal(true)} label="Schedule" /> : undefined}
+            maxH="max-h-none"
+          >
+            {procedures.length === 0 ? (
+              <EmptySlate
+                icon={<Scissors className="w-9 h-9" />}
+                label="No procedures scheduled for this visit"
+                action={canAddEntries ? (
                   <button
                     onClick={() => setShowScheduleModal(true)}
-                    className="p-1 rounded text-purple-600 hover:bg-purple-100 transition-colors"
-                    title="Schedule procedure"
+                    className="mt-1 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-700 hover:text-white transition-all"
                   >
-                    <Plus className="w-3.5 h-3.5" />
+                    <Plus className="w-3 h-3" /> Schedule first procedure
                   </button>
-                )}
-              </div>
-
-              {procedures.length === 0 ? (
-                <div className="p-6 text-center">
-                  <Scissors className="w-8 h-8 text-[var(--text-tertiary)] mx-auto mb-2 opacity-40" />
-                  <p className="text-xs text-[var(--text-secondary)]">No procedures scheduled</p>
-                  {canAddEntries && (
-                    <button
-                      onClick={() => setShowScheduleModal(true)}
-                      className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium hover:bg-purple-700 hover:text-white transition-all"
-                    >
-                      <Plus className="w-3 h-3" /> Schedule
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="divide-y divide-[var(--border-color)] max-h-[560px] overflow-y-auto">
-                  {groupedProcedures.map(group => (
-                    <div key={group.key}>
-                      {/* Group header */}
-                      <div className="px-4 py-2 bg-[var(--bg-main)]/60 border-y border-[var(--border-color)] first:border-t-0">
-                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                          {group.label} ({group.items.length})
-                        </p>
-                      </div>
-                      {/* Items */}
+                ) : undefined}
+              />
+            ) : (
+              <div className="divide-y divide-[var(--border-color)]">
+                {groupedProcedures.map(group => (
+                  <div key={group.key}>
+                    <div className="px-4 py-2 bg-[var(--bg-main)]/60 border-y border-[var(--border-color)] first:border-t-0 flex items-center justify-between">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                        {group.label} ({group.items.length})
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3">
                       {group.items.map((procedure: any) => {
                         const isSelected = selectedProcedureId === procedure.id;
                         return (
                           <button
                             key={procedure.id}
-                            onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); }}
-                            className={`w-full text-left px-4 py-3 transition-colors relative ${
+                            onClick={() => { setSelectedProcedureId(procedure.id); setOpenTile(null); setActiveTab('record'); }}
+                            className={`text-left rounded-lg border p-3 transition-all ${
                               isSelected
-                                ? 'bg-purple-50 border-l-2 border-purple-600'
-                                : 'hover:bg-[var(--bg-main)] border-l-2 border-transparent'
+                                ? 'border-purple-500 bg-purple-50 ring-1 ring-purple-500'
+                                : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-purple-300 hover:bg-[var(--bg-main)]'
                             }`}
                           >
                             <div className="flex items-center gap-2 mb-1">
                               {getStatusDot(procedure.status)}
-                              <span className="font-medium text-xs text-[var(--text-primary)] truncate flex-1">
+                              <span className="font-semibold text-xs text-[var(--text-primary)] truncate flex-1">
                                 {procedure.name}
                               </span>
                             </div>
                             {procedure.scheduledDate && (
-                              <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1 ml-4">
+                              <p className="text-[10px] text-[var(--text-secondary)] flex items-center gap-1">
                                 <Calendar className="w-2.5 h-2.5" />
                                 {new Date(procedure.scheduledDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                               </p>
                             )}
                             {procedure.performedAt && procedure.status === 'completed' && (
-                              <p className="text-[10px] text-green-600 flex items-center gap-1 ml-4">
+                              <p className="text-[10px] text-green-600 flex items-center gap-1 mt-0.5">
                                 <CheckCircle className="w-2.5 h-2.5" />
                                 {new Date(procedure.performedAt).toLocaleDateString()}
                               </p>
@@ -996,550 +923,729 @@ export default function TheatreProcedure() {
                         );
                       })}
                     </div>
-                  ))}
-                </div>
-              )}
-            </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </SectionCard>
 
-            {/* RIGHT: Workspace */}
-            <div className="flex-1 min-w-0 w-full">
-              {selectedProcedure ? (
-                <div className="space-y-4">
-                  {/* Procedure header */}
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-                    <div className="flex items-start justify-between gap-3 flex-wrap">
-                      <div className="min-w-0">
-                        <h2 className="text-base font-bold text-[var(--text-primary)] truncate">
-                          {selectedProcedure.name}
-                        </h2>
-                        <div className="flex items-center gap-2 mt-1.5 flex-wrap text-xs text-[var(--text-secondary)]">
-                          {selectedProcedure.scheduledDate && (
-                            <span className="flex items-center gap-1">
-                              <Calendar className="w-3 h-3" />
-                              Scheduled: {new Date(selectedProcedure.scheduledDate).toLocaleString()}
-                            </span>
-                          )}
-                          {selectedProcedure.ServiceCatalog?.category && (
-                            <>
-                              <span className="opacity-40">·</span>
-                              <span>{selectedProcedure.ServiceCatalog.category}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {getStatusBadge(selectedProcedure.status)}
-                      </div>
-                    </div>
+          {/* ── WORKSPACE CARD WITH TABS ──────────────────────── */}
+          {selectedProcedure ? (
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+              {/* Procedure header strip */}
+              <div className="px-5 py-4 border-b border-[var(--border-color)] bg-[var(--bg-main)] flex items-start justify-between gap-3 flex-wrap">
+                <div className="min-w-0">
+                  <h2 className="text-base font-bold text-[var(--text-primary)] truncate">{selectedProcedure.name}</h2>
+                  <div className="flex items-center gap-2 mt-1 flex-wrap text-xs text-[var(--text-secondary)]">
+                    {selectedProcedure.scheduledDate && (
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        Scheduled: {new Date(selectedProcedure.scheduledDate).toLocaleString()}
+                      </span>
+                    )}
+                    {selectedProcedure.ServiceCatalog?.category && (
+                      <>
+                        <span className="opacity-40">·</span>
+                        <span>{selectedProcedure.ServiceCatalog.category}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">{getStatusBadge(selectedProcedure.status)}</div>
+              </div>
+
+              {/* Tab bar */}
+              <div className="flex items-center border-b border-[var(--border-color)] px-1 overflow-x-auto">
+                {tabs.map(tab => {
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      onClick={() => setActiveTab(tab.key)}
+                      className={`flex items-center gap-1.5 px-4 py-3 text-[11px] font-semibold border-b-2 whitespace-nowrap transition-all ${
+                        isActive
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-[var(--text-secondary)] hover:text-purple-500'
+                      }`}
+                    >
+                      {tab.icon}
+                      {tab.label}
+                      {tab.count !== undefined && tab.count > 0 && (
+                        <span className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-[var(--bg-main)] text-[var(--text-tertiary)]">
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* ── TAB: PERI-OPERATIVE RECORD ─────────────────── */}
+              {activeTab === 'record' && (
+                <div className="p-4 space-y-4">
+                  {/* Allergy reminder inside record */}
+                  <div className={`rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
+                    <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>
+                      Known allergy record — verify directly with the patient
+                    </p>
+                    {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
+                      <ul className="mt-1 list-disc pl-5 text-xs text-red-800">
+                        {patient.allergies.map((allergy: any, index: number) => (
+                          <li key={allergy.id || index}>
+                            {allergy.allergen}
+                            {allergy.reaction ? ` — reaction: ${allergy.reaction}` : ''}
+                            {allergy.severity ? ` (${allergy.severity})` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="mt-1 text-xs text-amber-800">
+                        No allergy entries are available on this patient record. Confirm and document the patient's allergy status rather than assuming there are no allergies.
+                      </p>
+                    )}
                   </div>
 
-                  {/* Note grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Structured peri-operative record: the narrative tiles below remain available for detail. */}
-                    <section className="col-span-full rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-4">
-                      <div>
-                        <h3 className="text-sm font-bold text-[var(--text-primary)]">Pre-operative safety & team</h3>
-                        <p className="text-xs text-[var(--text-secondary)] mt-1">Complete and document safety checks before marking the procedure complete. Record emergency consent exceptions explicitly.</p>
-                        <div className={`mt-3 rounded-lg border p-3 ${Array.isArray(patient.allergies) && patient.allergies.length ? 'border-red-300 bg-red-50' : 'border-amber-300 bg-amber-50'}`}>
-                          <p className={`text-xs font-bold ${Array.isArray(patient.allergies) && patient.allergies.length ? 'text-red-800' : 'text-amber-800'}`}>Known allergy record — verify directly with the patient</p>
-                          {Array.isArray(patient.allergies) && patient.allergies.length > 0 ? (
-                            <ul className="mt-1 list-disc pl-5 text-xs text-red-800">
-                              {patient.allergies.map((allergy: any, index: number) => (
-                                <li key={allergy.id || index}>{allergy.allergen}{allergy.reaction ? ` — reaction: ${allergy.reaction}` : ''}{allergy.severity ? ` (${allergy.severity})` : ''}</li>
-                              ))}
-                            </ul>
-                          ) : (
-                            <p className="mt-1 text-xs text-amber-800">No allergy entries are available on this patient record. Confirm and document the patient’s allergy status rather than assuming there are no allergies.</p>
-                          )}
-                        </div>
+                  {/* Pre-operative safety & team */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SectionCard
+                      icon={<Stethoscope className="w-4 h-4 text-purple-600" />}
+                      title="Clinical & operative details"
+                    >
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label="Indication / reason for procedure" className="md:col-span-2">
+                          <input
+                            value={clinicalRecord.indication || ''}
+                            onChange={(e) => setCR({ indication: e.target.value })}
+                            maxLength={500}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                        <FormField label="Pre-operative diagnosis">
+                          <input
+                            value={clinicalRecord.preOpDiagnosis || ''}
+                            onChange={(e) => setCR({ preOpDiagnosis: e.target.value })}
+                            maxLength={500}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                        <FormField label="Operative site / laterality">
+                          <input
+                            value={clinicalRecord.operativeSite || ''}
+                            onChange={(e) => setCR({ operativeSite: e.target.value })}
+                            maxLength={500}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                        <FormField label="ASA physical status (if assessed)">
+                          <input
+                            value={clinicalRecord.asaClass || ''}
+                            onChange={(e) => setCR({ asaClass: e.target.value })}
+                            maxLength={50}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                        <FormField label="Consent status">
+                          <select
+                            value={clinicalRecord.consentStatus || ''}
+                            onChange={(e) => setCR({ consentStatus: e.target.value, consentConfirmed: e.target.value === 'consented' })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          >
+                            <option value="">Select consent status</option>
+                            <option value="consented">Informed consent obtained</option>
+                            <option value="emergency_exception">Emergency exception (must explain)</option>
+                          </select>
+                        </FormField>
+                        <FormField label="Consent / exception details" className="md:col-span-2">
+                          <input
+                            value={clinicalRecord.consentNotes || ''}
+                            onChange={(e) => setCR({ consentNotes: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
                       </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    </SectionCard>
+
+                    <SectionCard
+                      icon={<User className="w-4 h-4 text-purple-600" />}
+                      title="Theatre team"
+                    >
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                         {[
-                          ['indication', 'Indication / reason for procedure'],
-                          ['preOpDiagnosis', 'Pre-operative diagnosis'],
-                          ['operativeSite', 'Operative site / laterality'],
-                          ['asaClass', 'ASA physical status (if assessed)'],
                           ['surgeonName', 'Surgeon / lead operator'],
                           ['assistantName', 'Assistant'],
                           ['anaesthetistName', 'Anaesthetist / anaesthesia provider'],
                           ['scrubNurseName', 'Scrub nurse'],
                           ['circulatingNurseName', 'Circulating nurse'],
                         ].map(([key, label]) => (
-                          <label key={key} className="block text-xs font-semibold text-[var(--text-primary)]">
-                            {label}
+                          <FormField key={key} label={label}>
                             <input
                               value={clinicalRecord[key] || ''}
-                              onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, [key]: e.target.value }))}
-                              className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal"
+                              onChange={(e) => setCR({ [key]: e.target.value })}
                               maxLength={500}
+                              className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
                             />
-                          </label>
+                          </FormField>
                         ))}
-                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
-                          Consent status
-                          <select
-                            value={clinicalRecord.consentStatus || ''}
-                            onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, consentStatus: e.target.value, consentConfirmed: e.target.value === 'consented' }))}
-                            className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal"
-                          >
-                            <option value="">Select consent status</option>
-                            <option value="consented">Informed consent obtained</option>
-                            <option value="emergency_exception">Emergency exception (must explain below)</option>
-                          </select>
-                        </label>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
-                          Consent / exception details
-                          <input value={clinicalRecord.consentNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, consentNotes: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
-                        </label>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)]">
-                          Allergy review notes
-                          <input value={clinicalRecord.allergyNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, allergyNotes: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
-                        </label>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {[
-                          ['identityConfirmed', 'Patient identity confirmed using identifiers'],
-                          ['procedureAndSiteConfirmed', 'Planned procedure and site confirmed (time-out)'],
-                          ['siteMarked', 'Site marked where applicable'],
-                          ['allergyStatusReviewed', 'Allergy status reviewed'],
-                          ['preOpAssessmentCompleted', 'Pre-operative assessment reviewed'],
-                        ].map(([key, label]) => (
-                          <label key={key} className="flex items-start gap-2 rounded-lg border border-[var(--border-color)] p-3 text-xs text-[var(--text-primary)]">
-                            <input type="checkbox" checked={clinicalRecord[key] === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, [key]: e.target.checked }))} className="mt-0.5" />
-                            <span>{label}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="border-t border-[var(--border-color)] pt-4">
-                        <h4 className="text-sm font-bold text-[var(--text-primary)] mb-3">Intra-operative safety & handover</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Incision / procedure start time<input type="time" value={clinicalRecord.incisionTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, incisionTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Closure / procedure end time<input type="time" value={clinicalRecord.closureTime || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, closureTime: e.target.value }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Specimens / pathology requests<textarea value={clinicalRecord.specimens || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimens: e.target.value }))} rows={2} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Post-operative destination<textarea value={clinicalRecord.postOpDestination || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, postOpDestination: e.target.value }))} rows={2} placeholder="Recovery, ward, HDU/ICU, referral…" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] md:col-span-2">Post-operative plan / monitoring / analgesia / escalation criteria<textarea value={clinicalRecord.postOpPlan || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, postOpPlan: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] md:col-span-2">Handover notes<textarea value={clinicalRecord.handoverNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, handoverNotes: e.target.value }))} rows={3} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" /></label>
-                        </div>
-                        <div className="flex flex-wrap gap-3 mt-3">
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Instrument / swab / needle counts
-                            <select value={clinicalRecord.instrumentCountsStatus || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountsStatus: e.target.value, instrumentCountsCorrect: e.target.value === 'correct' }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
-                              <option value="">Select count status</option>
-                              <option value="correct">Counts correct</option>
-                              <option value="not_applicable">Not applicable to this procedure</option>
-                              <option value="discrepancy">Discrepancy — must be resolved before completion</option>
-                            </select>
-                          </label>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)]">Count exception / reconciliation notes
-                            <input value={clinicalRecord.instrumentCountNotes || ''} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, instrumentCountNotes: e.target.value }))} placeholder="Required when counts are not applicable" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
-                          </label>
-                          <label className="flex items-center gap-2 text-xs text-[var(--text-primary)]"><input type="checkbox" checked={clinicalRecord.specimenLabelled === true} onChange={(e) => setClinicalRecord((p: any) => ({ ...p, specimenLabelled: e.target.checked }))} />Specimen correctly labelled, if applicable</label>
-                        </div>
-                      </div>
-                    </section>
-
-                    {/* Hospital-specific protocol fields: stored with this procedure's clinical record. */}
-                    <section className="col-span-full rounded-xl border border-dashed border-[var(--border-color)] bg-[var(--bg-card)] p-4 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-bold text-[var(--text-primary)]">Hospital-specific theatre protocol</h3>
-                          <p className="text-xs text-[var(--text-secondary)] mt-1">Add local protocol items that are not covered above. Examples include antibiotic prophylaxis, positioning, airway checks, implant details, equipment checks or specialty-specific notes. These additions are saved with this procedure.</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setClinicalRecord((prev: any) => ({
-                            ...prev,
-                            customProtocolFields: [...(Array.isArray(prev.customProtocolFields) ? prev.customProtocolFields : []), {
-                              id: `protocol-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-                              label: '', type: 'note', required: false, value: '',
-                            }],
-                          }))}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm font-semibold text-[var(--text-primary)] hover:bg-[var(--bg-main)]"
-                        >
-                          <Plus size={15} /> Add protocol field
-                        </button>
-                      </div>
-                      {(!Array.isArray(clinicalRecord.customProtocolFields) || clinicalRecord.customProtocolFields.length === 0) ? (
-                        <p className="rounded-lg bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">No additional local protocol fields have been added to this entry.</p>
-                      ) : (
-                        <div className="space-y-3">
-                          {clinicalRecord.customProtocolFields.map((field: any, index: number) => (
-                            <div key={field.id || index} className="rounded-lg border border-[var(--border-color)] p-3 space-y-3">
-                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                                <label className="md:col-span-5 block text-xs font-semibold text-[var(--text-primary)]">
-                                  Field label / protocol requirement
-                                  <input value={field.label || ''} maxLength={160} required onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, label: e.target.value } : item) }))} placeholder="e.g. Antibiotic prophylaxis" className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal" />
-                                </label>
-                                <label className="md:col-span-3 block text-xs font-semibold text-[var(--text-primary)]">
-                                  Response type
-                                  <select value={field.type || 'note'} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? false : '' } : item) }))} className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm font-normal">
-                                    <option value="note">Long note</option>
-                                    <option value="text">Short text</option>
-                                    <option value="number">Number</option>
-                                    <option value="date">Date</option>
-                                    <option value="time">Time</option>
-                                    <option value="checkbox">Yes / checked</option>
-                                  </select>
-                                </label>
-                                <div className="md:col-span-3 flex items-end">
-                                  <label className="flex items-center gap-2 pb-2 text-xs text-[var(--text-primary)]">
-                                    <input type="checkbox" checked={field.required === true} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, required: e.target.checked } : item) }))} />
-                                    Required to complete
-                                  </label>
-                                </div>
-                                <div className="md:col-span-1 flex items-end justify-end">
-                                  <button type="button" aria-label="Remove protocol field" onClick={() => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.filter((_: any, i: number) => i !== index) }))} className="p-2 rounded-lg text-red-600 hover:bg-red-50"><X size={16} /></button>
-                                </div>
-                              </div>
-                              {field.type === 'checkbox' ? (
-                                <label className="flex items-center gap-2 text-sm text-[var(--text-primary)]">
-                                  <input type="checkbox" checked={field.value === true} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.checked } : item) }))} />
-                                  {field.label || 'Confirm this protocol item'}
-                                </label>
-                              ) : field.type === 'note' ? (
-                                <textarea value={String(field.value ?? '')} rows={3} maxLength={10000} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item) }))} placeholder="Document the hospital-specific requirement, finding or action…" className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm" />
-                              ) : (
-                                <input type={['text', 'number', 'date', 'time'].includes(field.type) ? field.type : 'text'} value={String(field.value ?? '')} maxLength={field.type === 'text' ? 1000 : undefined} onChange={(e) => setClinicalRecord((prev: any) => ({ ...prev, customProtocolFields: prev.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item) }))} className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm" />
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      <p className="text-xs text-[var(--text-secondary)]">Local protocol fields supplement, and do not replace, mandatory safety checks or your hospital's approved theatre policy. Avoid adding duplicate fields where a standard clinical field already exists.</p>
-                    </section>
-
-                    {/* Anesthesia */}
-                    <NoteTile
-                      tileKey="anesthesia"
-                      icon={Syringe}
-                      label="Anesthesia"
-                      preview={anesthesiaType !== 'none'
-                        ? `${anesthesiaTypes.find(t => t.value === anesthesiaType)?.label || anesthesiaType}${anesthesiaNotes ? ' · ' + anesthesiaNotes : ''}`
-                        : 'None'}
-                      isEmpty={anesthesiaType === 'none' && !anesthesiaNotes}
-                      isOpen={openTile === 'anesthesia'}
-                      isDimmed={openTile !== null && openTile !== 'anesthesia'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('anesthesia')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                            Anesthesia Type
-                          </label>
-                          <select
-                            value={anesthesiaType}
-                            onChange={(e) => setAnesthesiaType(e.target.value)}
-                            className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                          >
-                            {anesthesiaTypes.map(t => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                            Blood Loss (ml)
-                          </label>
+                        <FormField label="Allergy review notes" className="md:col-span-2">
                           <input
-                            type="number"
-                            min={0}
-                            step={1}
-                            value={bloodLoss}
-                            onChange={(e) => setBloodLoss(e.target.value ? Number(e.target.value) : '')}
-                            placeholder="Optional"
-                            className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                            value={clinicalRecord.allergyNotes || ''}
+                            onChange={(e) => setCR({ allergyNotes: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
                           />
-                        </div>
+                        </FormField>
                       </div>
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Anesthesia Notes
-                        </label>
-                        <textarea
-                          value={anesthesiaNotes}
-                          onChange={(e) => setAnesthesiaNotes(e.target.value)}
-                          rows={8}
-                          placeholder="Medications, patient responses, monitoring details…"
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                        />
-                        <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5">
-                          {countWords(anesthesiaNotes)} word{countWords(anesthesiaNotes) !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </NoteTile>
+                    </SectionCard>
+                  </div>
 
-                    {/* Blood Loss */}
-                    <NoteTile
-                      tileKey="bloodLoss"
-                      icon={Droplet}
-                      label="Blood Loss"
-                      preview={bloodLoss !== '' && bloodLoss !== null ? `${bloodLoss} ml` : ''}
-                      isEmpty={bloodLoss === '' || bloodLoss === null}
-                      isOpen={openTile === 'bloodLoss'}
-                      isDimmed={openTile !== null && openTile !== 'bloodLoss'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('bloodLoss')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Estimated Blood Loss (ml)
-                        </label>
+                  {/* Safety time-out checks */}
+                  <SectionCard
+                    icon={<AlertTriangle className="w-4 h-4 text-purple-600" />}
+                    title="Safety time-out checks"
+                  >
+                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                      <TickBox
+                        checked={clinicalRecord.identityConfirmed === true}
+                        onChange={(v) => setCR({ identityConfirmed: v })}
+                        label="Patient identity confirmed using identifiers"
+                      />
+                      <TickBox
+                        checked={clinicalRecord.procedureAndSiteConfirmed === true}
+                        onChange={(v) => setCR({ procedureAndSiteConfirmed: v })}
+                        label="Planned procedure and site confirmed (time-out)"
+                      />
+                      <TickBox
+                        checked={clinicalRecord.siteMarked === true}
+                        onChange={(v) => setCR({ siteMarked: v })}
+                        label="Site marked where applicable"
+                      />
+                      <TickBox
+                        checked={clinicalRecord.allergyStatusReviewed === true}
+                        onChange={(v) => setCR({ allergyStatusReviewed: v })}
+                        label="Allergy status reviewed"
+                      />
+                      <TickBox
+                        checked={clinicalRecord.preOpAssessmentCompleted === true}
+                        onChange={(v) => setCR({ preOpAssessmentCompleted: v })}
+                        label="Pre-operative assessment reviewed"
+                      />
+                    </div>
+                  </SectionCard>
+
+                  {/* Anaesthesia */}
+                  <SectionCard
+                    icon={<Syringe className="w-4 h-4 text-purple-600" />}
+                    title="Anaesthesia"
+                  >
+                    <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <FormField label="Anaesthesia type">
+                        <select
+                          value={anesthesiaType}
+                          onChange={(e) => setAnesthesiaType(e.target.value)}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                        >
+                          {anesthesiaTypes.map(t => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </FormField>
+                      <FormField label="Estimated blood loss (ml)">
                         <input
                           type="number"
                           min={0}
                           step={1}
                           value={bloodLoss}
                           onChange={(e) => setBloodLoss(e.target.value ? Number(e.target.value) : '')}
-                          placeholder="e.g., 150"
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          placeholder="Optional"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
                         />
-                      </div>
-                    </NoteTile>
+                      </FormField>
+                      <FormField label="Anaesthesia notes" className="md:col-span-2">
+                        <textarea
+                          value={anesthesiaNotes}
+                          onChange={(e) => setAnesthesiaNotes(e.target.value)}
+                          rows={5}
+                          placeholder="Medications, patient responses, monitoring details…"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm resize-none"
+                        />
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                          {countWords(anesthesiaNotes)} word{countWords(anesthesiaNotes) !== 1 ? 's' : ''}
+                        </p>
+                      </FormField>
+                    </div>
+                  </SectionCard>
 
-                    {/* Intra-operative */}
-                    <NoteTile
-                      tileKey="intraOp"
-                      icon={Scissors}
-                      label="Intra-operative Notes"
-                      preview={intraOperativeNotes}
-                      isEmpty={!intraOperativeNotes}
-                      isOpen={openTile === 'intraOp'}
-                      isDimmed={openTile !== null && openTile !== 'intraOp'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('intraOp')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Surgical Procedure Details
-                        </label>
+                  {/* Intra-operative */}
+                  <SectionCard
+                    icon={<Scissors className="w-4 h-4 text-purple-600" />}
+                    title="Intra-operative"
+                  >
+                    <div className="p-4 space-y-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label="Incision / procedure start time">
+                          <input
+                            type="time"
+                            value={clinicalRecord.incisionTime || ''}
+                            onChange={(e) => setCR({ incisionTime: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                        <FormField label="Closure / procedure end time">
+                          <input
+                            type="time"
+                            value={clinicalRecord.closureTime || ''}
+                            onChange={(e) => setCR({ closureTime: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
+                      </div>
+                      <FormField label="Surgical procedure details">
                         <textarea
                           value={intraOperativeNotes}
                           onChange={(e) => setIntraOperativeNotes(e.target.value)}
-                          rows={10}
+                          rows={8}
                           placeholder="Findings, techniques, instruments, intra-operative events…"
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm resize-none"
                         />
-                        <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5">
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
                           {countWords(intraOperativeNotes)} word{countWords(intraOperativeNotes) !== 1 ? 's' : ''}
                         </p>
+                      </FormField>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <FormField label="Instrument / swab / needle counts">
+                          <select
+                            value={clinicalRecord.instrumentCountsStatus || ''}
+                            onChange={(e) => setCR({ instrumentCountsStatus: e.target.value, instrumentCountsCorrect: e.target.value === 'correct' })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          >
+                            <option value="">Select count status</option>
+                            <option value="correct">Counts correct</option>
+                            <option value="not_applicable">Not applicable to this procedure</option>
+                            <option value="discrepancy">Discrepancy — must be resolved before completion</option>
+                          </select>
+                        </FormField>
+                        <FormField label="Count exception / reconciliation notes" hint="Required when counts are not applicable">
+                          <input
+                            value={clinicalRecord.instrumentCountNotes || ''}
+                            onChange={(e) => setCR({ instrumentCountNotes: e.target.value })}
+                            className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                          />
+                        </FormField>
                       </div>
-                    </NoteTile>
-
-                    {/* Complications */}
-                    <NoteTile
-                      tileKey="complications"
-                      icon={AlertTriangle}
-                      label="Complications"
-                      preview={hasComplications ? (complications || 'Complications recorded') : 'None recorded'}
-                      isEmpty={false}
-                      isOpen={openTile === 'complications'}
-                      isDimmed={openTile !== null && openTile !== 'complications'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('complications')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <label className="flex items-center gap-2.5 p-3 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={hasComplications}
-                          onChange={(e) => setHasComplications(e.target.checked)}
-                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-4 h-4"
+                      <FormField label="Specimens / pathology requests">
+                        <textarea
+                          value={clinicalRecord.specimens || ''}
+                          onChange={(e) => setCR({ specimens: e.target.value })}
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
                         />
-                        <span className="text-sm font-medium text-[var(--text-primary)]">
-                          Complications were encountered
-                        </span>
-                      </label>
+                      </FormField>
+                      <TickBox
+                        checked={clinicalRecord.specimenLabelled === true}
+                        onChange={(v) => setCR({ specimenLabelled: v })}
+                        label="Specimen correctly labelled, if applicable"
+                      />
+                    </div>
+                  </SectionCard>
+
+                  {/* Hospital-specific protocol fields */}
+                  <SectionCard
+                    icon={<Info className="w-4 h-4 text-purple-600" />}
+                    title="Hospital-specific theatre protocol"
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => setCR({
+                          customProtocolFields: [...(Array.isArray(clinicalRecord.customProtocolFields) ? clinicalRecord.customProtocolFields : []), {
+                            id: `protocol-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                            label: '', type: 'note', required: false, value: '',
+                          }],
+                        })}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-purple-100 text-purple-700 hover:bg-purple-700 hover:text-white transition-all"
+                      >
+                        <Plus className="w-3 h-3" /> Add field
+                      </button>
+                    }
+                  >
+                    <div className="p-4 space-y-3">
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Add local protocol items not covered above (antibiotic prophylaxis, positioning, airway checks, implant details, equipment checks, specialty notes). These additions are saved with this procedure.
+                      </p>
+                      {(!Array.isArray(clinicalRecord.customProtocolFields) || clinicalRecord.customProtocolFields.length === 0) ? (
+                        <p className="rounded-lg bg-[var(--bg-main)] p-3 text-xs text-[var(--text-secondary)]">
+                          No additional local protocol fields have been added to this entry.
+                        </p>
+                      ) : (
+                        <div className="space-y-3">
+                          {clinicalRecord.customProtocolFields.map((field: any, index: number) => (
+                            <div key={field.id || index} className="rounded-lg border border-[var(--border-color)] p-3 space-y-3">
+                              <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                                <div className="md:col-span-5">
+                                  <FormField label="Field label / protocol requirement">
+                                    <input
+                                      value={field.label || ''}
+                                      maxLength={160}
+                                      required
+                                      onChange={(e) => setCR({
+                                        customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, label: e.target.value } : item),
+                                      })}
+                                      placeholder="e.g. Antibiotic prophylaxis"
+                                      className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                                    />
+                                  </FormField>
+                                </div>
+                                <div className="md:col-span-3">
+                                  <FormField label="Response type">
+                                    <select
+                                      value={field.type || 'note'}
+                                      onChange={(e) => setCR({
+                                        customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, type: e.target.value, value: e.target.value === 'checkbox' ? false : '' } : item),
+                                      })}
+                                      className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                                    >
+                                      <option value="note">Long note</option>
+                                      <option value="text">Short text</option>
+                                      <option value="number">Number</option>
+                                      <option value="date">Date</option>
+                                      <option value="time">Time</option>
+                                      <option value="checkbox">Yes / checked</option>
+                                    </select>
+                                  </FormField>
+                                </div>
+                                <div className="md:col-span-3 flex items-end">
+                                  <label className="flex items-center gap-2 pb-2 text-xs text-[var(--text-primary)]">
+                                    <input
+                                      type="checkbox"
+                                      checked={field.required === true}
+                                      onChange={(e) => setCR({
+                                        customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, required: e.target.checked } : item),
+                                      })}
+                                    />
+                                    Required to complete
+                                  </label>
+                                </div>
+                                <div className="md:col-span-1 flex items-end justify-end">
+                                  <button
+                                    type="button"
+                                    aria-label="Remove protocol field"
+                                    onClick={() => setCR({
+                                      customProtocolFields: clinicalRecord.customProtocolFields.filter((_: any, i: number) => i !== index),
+                                    })}
+                                    className="p-2 rounded-lg text-red-600 hover:bg-red-50"
+                                  >
+                                    <X size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                              {field.type === 'checkbox' ? (
+                                <TickBox
+                                  checked={field.value === true}
+                                  onChange={(v) => setCR({
+                                    customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: v } : item),
+                                  })}
+                                  label={field.label || 'Confirm this protocol item'}
+                                />
+                              ) : field.type === 'note' ? (
+                                <textarea
+                                  value={String(field.value ?? '')}
+                                  rows={3}
+                                  maxLength={10000}
+                                  onChange={(e) => setCR({
+                                    customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item),
+                                  })}
+                                  placeholder="Document the hospital-specific requirement, finding or action…"
+                                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                                />
+                              ) : (
+                                <input
+                                  type={['text', 'number', 'date', 'time'].includes(field.type) ? field.type : 'text'}
+                                  value={String(field.value ?? '')}
+                                  maxLength={field.type === 'text' ? 1000 : undefined}
+                                  onChange={(e) => setCR({
+                                    customProtocolFields: clinicalRecord.customProtocolFields.map((item: any, i: number) => i === index ? { ...item, value: e.target.value } : item),
+                                  })}
+                                  className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      <p className="text-[10px] text-[var(--text-secondary)]">
+                        Local protocol fields supplement, and do not replace, mandatory safety checks or your hospital's approved theatre policy.
+                      </p>
+                    </div>
+                  </SectionCard>
+                </div>
+              )}
+
+              {/* ── TAB: NARRATIVE NOTES ─────────────────────────── */}
+              {activeTab === 'narrative' && (
+                <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Complications */}
+                  <SectionCard
+                    icon={<AlertTriangle className="w-4 h-4 text-red-600" />}
+                    title="Complications"
+                  >
+                    <div className="p-4 space-y-3">
+                      <TickBox
+                        checked={hasComplications}
+                        onChange={setHasComplications}
+                        label="Complications were encountered"
+                      />
                       {hasComplications && (
-                        <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                            Describe Complications
-                          </label>
+                        <FormField label="Describe complications and management">
                           <textarea
                             value={complications}
                             onChange={(e) => setComplications(e.target.value)}
                             rows={6}
                             placeholder="Describe complications and how they were managed…"
-                            className="w-full px-3 py-2 bg-[var(--bg-main)] border border-red-300 rounded-lg text-sm text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            className="w-full px-3 py-2 rounded-lg border border-red-300 bg-[var(--bg-main)] text-sm resize-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                           />
-                        </div>
+                        </FormField>
                       )}
-                    </NoteTile>
+                    </div>
+                  </SectionCard>
 
-                    {/* Post-op */}
-                    <NoteTile
-                      tileKey="postOp"
-                      icon={Heart}
-                      label="Post-operative Notes"
-                      preview={postOperativeNotes}
-                      isEmpty={!postOperativeNotes}
-                      isOpen={openTile === 'postOp'}
-                      isDimmed={openTile !== null && openTile !== 'postOp'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('postOp')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Recovery & Post-op Care
-                        </label>
+                  {/* Post-op notes */}
+                  <SectionCard
+                    icon={<Heart className="w-4 h-4 text-purple-600" />}
+                    title="Post-operative notes"
+                  >
+                    <div className="p-4">
+                      <FormField label="Recovery & post-op care">
                         <textarea
                           value={postOperativeNotes}
                           onChange={(e) => setPostOperativeNotes(e.target.value)}
                           rows={8}
                           placeholder="Recovery status, immediate post-op care, discharge instructions…"
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm resize-none"
                         />
-                        <p className="text-[10px] text-[var(--text-tertiary)] mt-1.5">
+                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">
                           {countWords(postOperativeNotes)} word{countWords(postOperativeNotes) !== 1 ? 's' : ''}
                         </p>
-                      </div>
-                    </NoteTile>
+                      </FormField>
+                    </div>
+                  </SectionCard>
 
-                    {/* Outcome */}
-                    <NoteTile
-                      tileKey="outcome"
-                      icon={CheckCircle}
-                      label="Outcome"
-                      preview={outcome ? (outcomeOptions.find(o => o.value === outcome)?.label || outcome) : ''}
-                      isEmpty={!outcome}
-                      isOpen={openTile === 'outcome'}
-                      isDimmed={openTile !== null && openTile !== 'outcome'}
-                      disabled={!canUpdateProcedure || selectedProcedure.status === 'completed' || selectedProcedure.status === 'cancelled'}
-                      onOpen={() => setOpenTile('outcome')}
-                      onClose={() => setOpenTile(null)}
-                      onSave={() => setOpenTile(null)}
-                    >
-                      <div>
-                        <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                          Procedure Outcome
-                        </label>
+                  {/* Outcome */}
+                  <SectionCard
+                    icon={<CheckCircle className="w-4 h-4 text-green-600" />}
+                    title="Procedure outcome"
+                  >
+                    <div className="p-4">
+                      <FormField label="Select outcome">
                         <select
                           value={outcome}
                           onChange={(e) => setOutcome(e.target.value)}
-                          className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)] focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
                         >
                           <option value="">Select outcome…</option>
                           {outcomeOptions.map(o => (
                             <option key={o.value} value={o.value}>{o.label}</option>
                           ))}
                         </select>
-                      </div>
-                    </NoteTile>
-                  </div>
-
-                  {/* Completion progress + action bar */}
-                  <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-4">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-semibold text-[var(--text-primary)]">
-                            {filledCount} of 6
-                          </span>
-                          <span className="text-xs text-[var(--text-secondary)]">sections completed</span>
-                        </div>
-                        <div className="w-24 h-1.5 bg-[var(--bg-main)] rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-purple-500 rounded-full transition-all"
-                            style={{ width: `${(filledCount / 6) * 100}%` }}
-                          />
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress') && canUpdateProcedure && (
-                          <>
-                            <button
-                              onClick={() => handleCancelProcedure(selectedProcedure.id)}
-                              className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium transition-all"
-                            >
-                              Cancel Procedure
-                            </button>
-                            {selectedProcedure.status === 'scheduled' && (
-                              <button
-                                onClick={() => handleStartProcedure(selectedProcedure.id)}
-                                className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-semibold transition-all"
-                              >
-                                Start Procedure
-                              </button>
-                            )}
-                            {selectedProcedure.status === 'in_progress' && (
-                              <>
-                              <button
-                                onClick={() => handleSubmitTheatreNotes(false)}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
-                              >
-                                Save Progress
-                              </button>
-                              <button
-                                onClick={() => handleSubmitTheatreNotes(true)}
-                                disabled={isSubmitting}
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
-                              >
-                                {isSubmitting ? (
-                                  <>
-                                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Saving…
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle className="w-4 h-4" />
-                                    Complete Procedure
-                                  </>
-                                )}
-                              </button>
-                              </>
-                            )}
-                          </>
-                        )}
-                        {selectedProcedure.status === 'completed' && (
-                          <span className="text-xs text-[var(--text-tertiary)] italic">
-                            This procedure is completed and locked.
-                          </span>
-                        )}
-                      </div>
+                      </FormField>
                     </div>
-                  </div>
-                </div>
-              ) : procedures.length > 0 ? (
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
-                  <ClipboardList className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3 opacity-40" />
-                  <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Procedure Selected</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    Select a procedure from the list to enter operation notes
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
-                  <Scissors className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3 opacity-40" />
-                  <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Procedures</h3>
-                  <p className="text-sm text-[var(--text-secondary)]">
-                    No procedures have been scheduled for this visit
-                  </p>
-                  {canAddEntries && (
-                    <button
-                      onClick={() => setShowScheduleModal(true)}
-                      className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm font-semibold"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Schedule First Procedure
-                    </button>
-                  )}
+                  </SectionCard>
                 </div>
               )}
+
+              {/* ── TAB: HANDOVER ─────────────────────────────────── */}
+              {activeTab === 'handover' && (
+                <div className="p-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <SectionCard
+                    icon={<Save className="w-4 h-4 text-purple-600" />}
+                    title="Post-operative handover"
+                  >
+                    <div className="p-4 space-y-3">
+                      <FormField label="Post-operative destination" hint="Recovery, ward, HDU/ICU, referral…">
+                        <textarea
+                          value={clinicalRecord.postOpDestination || ''}
+                          onChange={(e) => setCR({ postOpDestination: e.target.value })}
+                          rows={2}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                        />
+                      </FormField>
+                      <FormField label="Post-operative plan / monitoring / analgesia / escalation criteria">
+                        <textarea
+                          value={clinicalRecord.postOpPlan || ''}
+                          onChange={(e) => setCR({ postOpPlan: e.target.value })}
+                          rows={4}
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm"
+                        />
+                      </FormField>
+                    </div>
+                  </SectionCard>
+
+                  <SectionCard
+                    icon={<FileText className="w-4 h-4 text-purple-600" />}
+                    title="Clinical handover notes"
+                  >
+                    <div className="p-4">
+                      <FormField label="Key information handed over to the receiving recovery or ward team">
+                        <textarea
+                          value={clinicalRecord.handoverNotes || ''}
+                          onChange={(e) => setCR({ handoverNotes: e.target.value })}
+                          rows={10}
+                          placeholder="Critical findings, equipment in situ, drains, catheters, blood products, next-review plan…"
+                          className="w-full px-3 py-2 rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] text-sm resize-none"
+                        />
+                      </FormField>
+                    </div>
+                  </SectionCard>
+                </div>
+              )}
+
+              {/* ── TAB: PROCEDURE HISTORY ────────────────────────── */}
+              {activeTab === 'history' && (
+                <div className="p-4">
+                  <SectionCard
+                    icon={<Clock className="w-4 h-4 text-purple-600" />}
+                    title={`Procedures for this visit (${procedures.length})`}
+                    maxH="max-h-none"
+                  >
+                    {procedures.length === 0 ? (
+                      <EmptySlate icon={<Scissors className="w-9 h-9" />} label="No procedures for this visit" />
+                    ) : (
+                      <table className="w-full text-xs">
+                        <thead className="sticky top-0 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                          <tr>
+                            <TH>Procedure</TH>
+                            <TH>Scheduled</TH>
+                            <TH>Performed</TH>
+                            <TH>Outcome</TH>
+                            <TH>Status</TH>
+                            <TH></TH>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[var(--border-color)]">
+                          {procedures.map((p: any) => (
+                            <tr
+                              key={p.id}
+                              className={`hover:bg-[var(--bg-main)] transition-colors ${
+                                selectedProcedureId === p.id ? 'bg-purple-50/40' : ''
+                              }`}
+                            >
+                              <TDp>{p.name}</TDp>
+                              <TD>
+                                {p.scheduledDate
+                                  ? new Date(p.scheduledDate).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                  : '—'}
+                              </TD>
+                              <TD>
+                                {p.performedAt
+                                  ? new Date(p.performedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                  : '—'}
+                              </TD>
+                              <TD>
+                                {p.outcome
+                                  ? (outcomeOptions.find((o) => o.value === p.outcome)?.label || p.outcome)
+                                  : '—'}
+                              </TD>
+                              <TD>{getStatusBadge(p.status)}</TD>
+                              <TD>
+                                <button
+                                  onClick={() => { setSelectedProcedureId(p.id); setActiveTab('record'); setOpenTile(null); }}
+                                  className="text-[10px] font-semibold text-purple-600 hover:underline"
+                                >
+                                  Open
+                                </button>
+                              </TD>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </SectionCard>
+                </div>
+              )}
+
+              {/* ── COMPLETION BAR + ACTION BUTTONS ────────────── */}
+              <div className="border-t border-[var(--border-color)] bg-[var(--bg-main)] p-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-[var(--text-primary)]">
+                        {filledCount} of 6
+                      </span>
+                      <span className="text-xs text-[var(--text-secondary)]">sections completed</span>
+                    </div>
+                    <div className="w-24 h-1.5 bg-[var(--bg-card)] rounded-full overflow-hidden border border-[var(--border-color)]">
+                      <div
+                        className="h-full bg-purple-500 rounded-full transition-all"
+                        style={{ width: `${(filledCount / 6) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {(selectedProcedure.status === 'scheduled' || selectedProcedure.status === 'in_progress') && canUpdateProcedure && (
+                      <>
+                        <button
+                          onClick={() => handleCancelProcedure(selectedProcedure.id)}
+                          className="px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50 text-sm font-medium transition-all"
+                        >
+                          Cancel Procedure
+                        </button>
+                        {selectedProcedure.status === 'scheduled' && (
+                          <button
+                            onClick={() => handleStartProcedure(selectedProcedure.id)}
+                            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 text-sm font-semibold transition-all"
+                          >
+                            Start Procedure
+                          </button>
+                        )}
+                        {selectedProcedure.status === 'in_progress' && (
+                          <>
+                            <button
+                              onClick={() => handleSubmitTheatreNotes(false)}
+                              disabled={isSubmitting}
+                              className="px-4 py-2 border border-purple-300 text-purple-700 rounded-lg hover:bg-purple-50 disabled:opacity-50 text-sm font-semibold transition-all"
+                            >
+                              Save Progress
+                            </button>
+                            <button
+                              onClick={() => handleSubmitTheatreNotes(true)}
+                              disabled={isSubmitting}
+                              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 text-sm font-semibold transition-all flex items-center gap-2"
+                            >
+                              {isSubmitting ? (
+                                <>
+                                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                  Saving…
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle className="w-4 h-4" />
+                                  Complete Procedure
+                                </>
+                              )}
+                            </button>
+                          </>
+                        )}
+                      </>
+                    )}
+                    {selectedProcedure.status === 'completed' && (
+                      <span className="text-xs text-[var(--text-tertiary)] italic">
+                        This procedure is completed and locked.
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : procedures.length > 0 ? (
+            <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
+              <ClipboardList className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3 opacity-40" />
+              <h3 className="text-base font-semibold text-[var(--text-primary)] mb-1">No Procedure Selected</h3>
+              <p className="text-sm text-[var(--text-secondary)]">
+                Pick a procedure tile above to record the operation notes.
+              </p>
+            </div>
+          ) : null}
         </>
       )}
 
-      {/* Schedule Modal */}
+      {/* ── SCHEDULE MODAL (unchanged behaviour) ───────────────── */}
       {showScheduleModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)} />

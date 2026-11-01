@@ -309,6 +309,9 @@ export const deleteTestData = async (force: boolean = false) => {
       await prisma.insuranceClaimItem.deleteMany({ where: { claimId: { in: testClaimIds } } });
     }
     await prisma.insuranceClaim.deleteMany({ where: { patientId: { in: testPatientIds } } });
+    // A batch answers for its period, so the payer's events go with it - and each one names
+    // a cashier, which the user cleanup below would otherwise refuse to delete around.
+    await prisma.claimBatchTrackingEvent.deleteMany({ where: { batchId: { startsWith: 'seedcb-' } } });
     await prisma.claimBatch.deleteMany({ where: { id: { startsWith: 'seedcb-' } } });
     await prisma.preAuthorisationRequest.deleteMany({ where: { patientId: { in: testPatientIds } } });
     await prisma.nHISEligibilityCheck.deleteMany({ where: { patientId: { in: testPatientIds } } });

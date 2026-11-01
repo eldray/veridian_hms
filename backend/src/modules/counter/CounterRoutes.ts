@@ -37,6 +37,11 @@ export function createCounterRoutes(prisma: PrismaClient): Router {
   router.get('/patients', requireRole(COUNTER_STAFF), controller.searchPatients);
 
   router.get('/tickets', requireRole(COUNTER_STAFF), controller.listTickets);
+  // The dashboard cards. Counts and the list's `lens` filter share one definition in the
+  // repository, so a card never shows a number the page it opens disagrees with.
+  router.get('/summary', requireRole(COUNTER_STAFF), controller.summary);
+  // What the signed-in bench can actually hand over, before the customer is promised a drug.
+  router.get('/stock-availability', requireRole(COUNTER_STAFF), controller.stockAvailability);
   router.get('/tickets/:id', requireRole(COUNTER_STAFF), controller.getTicket);
   router.post('/tickets', requireRole(COUNTER_STAFF), validateBody(CreateTicketSchema), controller.createTicket);
 

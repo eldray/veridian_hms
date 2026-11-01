@@ -27,7 +27,7 @@ import {
 import type { PaymentMethod } from '../types';
 import SendDocumentModal from '../components/SendDocumentModal';
 import { useHospitalStore } from '../store/hospitalStore';
-import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrinter';
 import { checkMomoPaymentStatus, initiateMomoPayment } from '../api/momo';
 import { CURRENCY_CODE, formatCurrency } from '../utils/currency';
 
@@ -252,27 +252,21 @@ export default function ProcessPayment() {
     : (counterClient?.name || 'Counter customer');
 
   // Latest non-voided payment — drives both the "Print Receipt" button and the Send modal.
-  const latestPayment = (((bill as any)?.Payment || (bill as any)?.payments || []) as any[])
-    .filter((p: any) => !p.isVoided)
-    .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime())[0] || null;
+  const latestPayment = latestRecordedPayment(bill);
 
   // Build and open the 80mm thermal receipt for a payment. `autoPrint` opens the print
   // dialog on load (used right after a payment is recorded); otherwise the operator clicks Print.
   const printReceipt = (payment: any, autoPrint = false) => {
     if (!bill) return;
-    const receiptPayment = {
-      amount: payment?.amount ?? 0,
-      paymentMethod: payment?.paymentMethod || payment?.paymentMode || 'cash',
-      receiptNumber: payment?.reference || payment?.receiptNumber || payment?.id,
-      paymentDate: payment?.transactionDate || payment?.paymentDate || new Date().toISOString(),
-      receivedBy: payment?.User?.fullName || payment?.receivedBy || user?.fullName || 'System',
-    };
-    const receiptBill = {
-      ...(bill as any),
-      BillLineItem: (bill as any).BillLineItem || (bill as any).items || billingBreakdown?.items || [],
-    };
-    const html = generatePDF('thermalReceipt', { bill: receiptBill, patient, payment: receiptPayment }, hospital);
-    openPrintWindow(html, `Receipt-${(bill as any).billNumber || bill.id}`, autoPrint);
+    printThermalReceipt({
+      bill,
+      patient,
+      payment,
+      hospital,
+      receivedBy: user?.fullName,
+      lineItems: billingBreakdown?.items,
+      autoPrint,
+    });
   };
 
   if (isPageLoading) {

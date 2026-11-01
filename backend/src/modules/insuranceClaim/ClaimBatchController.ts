@@ -53,6 +53,52 @@ export class ClaimBatchController extends BaseController {
   });
 
   // ==========================================
+  // TRACKING & PAYMENTS (batch level)
+  // ==========================================
+
+  /** The submitted periods with what the payer has paid against them. */
+  listTracking = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { page, limit } = this.getPaginationParams(req);
+    const result = await this.service.listBatchTracking({
+      insuranceType: req.query.insuranceType as string | undefined,
+      insuranceProviderId: req.query.insuranceProviderId as string | undefined,
+      corporateAccountId: req.query.corporateAccountId as string | undefined,
+      status: req.query.status as string | undefined,
+      search: req.query.search as string | undefined,
+      startDate: req.query.startDate as string | undefined,
+      endDate: req.query.endDate as string | undefined,
+      periodYear: req.query.periodYear ? parseInt(req.query.periodYear as string, 10) : undefined,
+      periodMonth: req.query.periodMonth ? parseInt(req.query.periodMonth as string, 10) : undefined,
+      page,
+      limit,
+    });
+    return this.ok(
+      res,
+      { data: result.data, pagination: result.pagination, summary: result.summary },
+      'Claim batch tracking retrieved',
+    );
+  });
+
+  /** Record a submission, payer decision or remittance against the batch. */
+  recordTrackingEvent = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const event = await this.service.recordBatchTrackingEvent(
+      req.params.id,
+      {
+        eventType: req.body?.eventType,
+        status: req.body?.status,
+        submissionDate: req.body?.submissionDate,
+        payerReference: req.body?.payerReference,
+        amount: req.body?.amount,
+        paymentReference: req.body?.paymentReference,
+        paymentMethod: req.body?.paymentMethod,
+        notes: req.body?.notes,
+      },
+      req.user!.id,
+    );
+    return this.created(res, event, 'Batch tracking event recorded');
+  });
+
+  // ==========================================
   // GENERATE
   // ==========================================
   generateBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {

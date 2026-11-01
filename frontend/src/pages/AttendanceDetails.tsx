@@ -14,6 +14,7 @@ import { getScanDisplayName, humanScanModality } from '../utils/scan';
 import { canAccessPage } from '../config/access';
 import { useHospitalStore } from '../store/hospitalStore';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { latestRecordedPayment, printThermalReceipt } from '../utils/receiptPrinter';
 import { 
   ArrowLeft, Edit, FileText, Pill, FlaskConical, Scissors, DollarSign, 
   User, Calendar, Stethoscope, Activity, CreditCard, Shield, X,
@@ -591,7 +592,7 @@ export default function AttendanceDetails() {
   // counter page does everything they do for a walk-in, so send it there instead of
   // handing a counter-customer id to a patient screen.
   const counterFallback = (): string | null =>
-    isCounterTicket ? `/dashboard/counter?ticket=${id}` : null;
+    isCounterTicket ? `/dashboard/counter/${id}` : null;
 
   const handleGoToBilling = () => {
     const fallback = counterFallback();
@@ -656,32 +657,25 @@ export default function AttendanceDetails() {
     );
   };
 
-  /** Newest recorded, non-voided payment — a receipt documents a payment, not an estimate. */
-  const latestPaymentOf = (bill: any) => (bill?.Payment || bill?.payments || [])
-    .filter((payment: any) => !payment.isVoided)
-    .slice()
-    .sort((a: any, b: any) => new Date(b.transactionDate || 0).getTime() - new Date(a.transactionDate || 0).getTime())[0] || null;
-
   const printReceipt = (bill: any) => {
-    const payment = latestPaymentOf(bill);
+    const payment = latestRecordedPayment(bill);
     if (!payment) {
       toastError('No payment recorded', 'A receipt can only be issued for a recorded, non-voided payment.');
       return;
     }
-    printDocument(
-      () => generatePDF('receipt', {
+    // The reprint must produce the same 80mm slip the pay flow printed, not the A4 invoice.
+    try {
+      printThermalReceipt({
         bill,
         patient: (bill as any).Patient || patient,
-        payment: {
-          amount: payment.amount,
-          paymentMethod: payment.paymentMethod,
-          receiptNumber: payment.reference || payment.id,
-          paymentDate: payment.transactionDate,
-          receivedBy: payment.User?.fullName || 'System',
-        },
-      }, hospital),
-      `Receipt-${bill.billNumber}`
-    );
+        payment,
+        hospital,
+        receivedBy: user?.fullName,
+      });
+      success('Print view opened', 'Use the browser print dialog to print or save the document.');
+    } catch (err: any) {
+      toastError('Print failed', err?.message || 'Could not build this receipt.');
+    }
   };
 
   // Generate the first bill or synchronize newly completed billable items into the
@@ -1885,7 +1879,7 @@ export default function AttendanceDetails() {
               {attendanceBills.length > 0 ? (
                 <div className="space-y-4">
                   {attendanceBills.map((bill: any) => {
-                    const paidSoFar = latestPaymentOf(bill);
+                    const paidSoFar = latestRecordedPayment(bill);
                     return (
                     <div key={bill.id} className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                       <div className="flex items-center justify-between mb-3 pb-2 border-b border-[var(--border-color)]">
@@ -2261,7 +2255,7 @@ export default function AttendanceDetails() {
           patient={patient ?? (receiptToSend as any).Patient}
           documentType="receipt"
           entityId={receiptToSend.id}
-          paymentId={latestPaymentOf(receiptToSend)?.id}
+          paymentId={latestRecordedPayment(receiptToSend)?.id}
         />
       )}
     </div>

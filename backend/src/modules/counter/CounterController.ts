@@ -38,6 +38,7 @@ export class CounterController extends BaseController {
     const result = await this.service.listTickets({
       query: req.query.query ? String(req.query.query) : undefined,
       status: req.query.status ? String(req.query.status) : undefined,
+      lens: req.query.lens ? String(req.query.lens) : undefined,
       dateFrom: req.query.fromDate ? new Date(String(req.query.fromDate)) : undefined,
       dateTo: req.query.toDate ? new Date(String(req.query.toDate)) : undefined,
       page: parsePage(req.query.page),
@@ -48,6 +49,21 @@ export class CounterController extends BaseController {
       limit: result.pagination.limit,
       total: result.pagination.total,
     }, 'Counter tickets retrieved');
+  });
+
+  summary = this.asyncHandler(async (_req: AuthRequest, res: Response) => {
+    const data = await this.service.summary();
+    return this.ok(res, data, 'Counter summary retrieved');
+  });
+
+  stockAvailability = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const ids = String(req.query.stockItemIds ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean)
+      .slice(0, 60);
+    const data = await this.service.stockAvailability(ids, this.actor(req));
+    return this.ok(res, data, 'Stock availability retrieved');
   });
 
   getTicket = this.asyncHandler(async (req: AuthRequest, res: Response) => {

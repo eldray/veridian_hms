@@ -334,11 +334,16 @@ export class BillingRepository extends BaseRepository<any, any, any> {
     });
   }
 
+  /**
+   * Every payment in the window, voided ones included: the report needs the reversals
+   * alongside the collections, otherwise a cashier's takings and the breakdown of what the
+   * money bought cannot be reconciled. `voidedBy` is excluded because the caller only ever
+   * reports the amount and the reason.
+   */
   async findCollections(dateFrom: Date, dateTo: Date) {
     return this.prisma.payment.findMany({
       where: {
         transactionDate: { gte: dateFrom, lte: dateTo },
-        isVoided: false,
         amount: { gt: 0 }
       },
       orderBy: { transactionDate: 'desc' },
@@ -362,7 +367,18 @@ export class BillingRepository extends BaseRepository<any, any, any> {
                 lineTotal: true,
                 patientPayableAmount: true,
                 serviceType: true,
-                serviceCatalog: { select: { serviceCategory: true } }
+                serviceCatalog: {
+                  select: {
+                    serviceCategory: true,
+                    subType: true,
+                    // A pharmacy line is a drug or a consumable depending on the stock card
+                    // behind it; the bill line alone cannot tell them apart.
+                    StockItem: { select: { isMedication: true, category: true } },
+                  },
+                },
+                // Bed days are charged by the ward itself and carry no catalog card, so the
+                // ward behind the charge record is the only thing that says which one was paid for.
+                wardChargeRecord: { select: { ward: { select: { wardName: true } } } },
               }
             }
           }

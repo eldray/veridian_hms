@@ -181,6 +181,67 @@ export const seedEligibilityChecks = async (
 };
 
 /**
+ * What the payer answered the submitted period, written the way the tracking endpoints
+ * write it: one submission, an adjudication, then the remittances that arrived. Amounts
+ * are fractions of the batch because a batch is worth whatever its claims add up to, and
+ * that is only known once they are priced.
+ */
+const batchTrackingRows = (
+  batchId: string,
+  totalAmount: number,
+  plan: GeneratedClaimBatch,
+  lookups: Lookups,
+): Prisma.ClaimBatchTrackingEventCreateManyInput[] => {
+  const response = plan.payerResponse;
+  if (!response) return [];
+  const recordedById = lookups.actorId(response.recorder);
+  const rows: Prisma.ClaimBatchTrackingEventCreateManyInput[] = [{
+    batchId,
+    eventType: 'submission',
+    status: null,
+    submissionDate: response.submittedAt,
+    payerReference: response.payerReference,
+    amount: null,
+    paymentReference: null,
+    paymentMethod: null,
+    notes: 'Batch file transmitted to the payer for the period.',
+    recordedById,
+    createdAt: response.submittedAt,
+  }];
+  if (response.adjudication) {
+    rows.push({
+      batchId,
+      eventType: 'adjudication',
+      status: response.adjudication.status,
+      submissionDate: null,
+      payerReference: response.payerReference,
+      amount: null,
+      paymentReference: null,
+      paymentMethod: null,
+      notes: response.adjudication.notes,
+      recordedById,
+      createdAt: response.adjudication.at,
+    });
+  }
+  for (const payment of response.payments) {
+    rows.push({
+      batchId,
+      eventType: 'payment',
+      status: null,
+      submissionDate: null,
+      payerReference: response.payerReference,
+      amount: money(totalAmount * payment.fraction),
+      paymentReference: payment.reference,
+      paymentMethod: payment.method,
+      notes: 'Remittance received against the submitted period.',
+      recordedById,
+      createdAt: payment.at,
+    });
+  }
+  return rows;
+};
+
+/**
  * Claims, one per covered and billed visit, then the batches the finalised ones are
  * submitted in.
  *
@@ -284,6 +345,7 @@ export const seedClaims = async (
   }
 
   const batchRows: Prisma.ClaimBatchCreateManyInput[] = [];
+  const batchEventRows: Prisma.ClaimBatchTrackingEventCreateManyInput[] = [];
   const batchLink: Array<{ batchId: string; claimIds: string[] }> = [];
   for (const plan of claimBatches) {
     const claimIds = (claimsByBatch.get(plan.key) ?? []).filter((id) => claimById.get(id)?.status === ENUMS.claimStatus.finalized);
@@ -312,15 +374,23 @@ export const seedClaims = async (
       createdById: lookups.actorId(plan.createdBy),
       createdAt: plan.generatedAt,
     });
+    batchEventRows.push(...batchTrackingRows(id, totalAmount, plan, lookups));
     batchLink.push({ batchId: id, claimIds });
   }
 
   await writeMany('claim batches', (part) => prisma.claimBatch.createMany({ data: part }), batchRows, stats, planned);
+  await writeMany(
+    'batch tracking events',
+    (part) => prisma.claimBatchTrackingEvent.createMany({ data: part, skipDuplicates: true }),
+    batchEventRows,
+    stats,
+    planned,
+  );
   for (const link of batchLink) {
     await prisma.insuranceClaim.updateMany({ where: { id: { in: link.claimIds } }, data: { batchId: link.batchId } });
   }
 
-  const eventCount = await prisma.insuranceClaimTrackingEvent.count();
-  console.log(`✅ ${claimIdByKey.size}/${claims.length} claims generated, ${batchRows.length} batches, ${eventCount} tracking events`);
+  const settledBatches = new Set(batchEventRows.filter((row) => row.eventType === 'payment').map((row) => row.batchId)).size;
+  console.log(`✅ ${claimIdByKey.size}/${claims.length} claims generated, ${batchRows.length} batches, ${batchEventRows.length} payer events (${settledBatches} batches with a remittance)`);
   if (rejected) console.log(`   ${rejected} claim plans could not be generated - ${notes.join(' | ') || 'no bill or no covered line'}`);
 };

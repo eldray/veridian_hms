@@ -2,7 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/errors';
 import { getCounterService } from '../../services/CounterService';
-import { CounterClientSummary } from './CounterTypes';
+import { CounterClientSummary, CounterSummary } from './CounterTypes';
+import { availabilityFor } from './CounterStockRepository';
 
 const TICKET_INCLUDE = {
   Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, dateOfBirth: true, gender: true, contact: true } },
@@ -37,6 +38,8 @@ const TICKET_LENS: Record<string, () => any> = {
   }),
   closedToday: () => ({ status: 'completed', updatedAt: { gte: startOfToday() } }),
 };
+
+export const TICKET_LENS_KEYS = Object.keys(TICKET_LENS);
 
 /**
  * Counter customers and their tickets. The ticket itself is an Attendance, so the
@@ -287,7 +290,7 @@ export class CounterRepository extends BaseRepository<any, any, any> {
    * The dashboard's four cards. Each count is the same where-clause the list uses for
    * that card, so clicking a card returns exactly the tickets it promised.
    */
-  async summary() {
+  async summary(): Promise<CounterSummary> {
     const [open, awaitingHandover, awaitingPayment, closedToday] = await Promise.all(
       ['open', 'handover', 'payment', 'closedToday'].map((key) =>
         this.prisma.attendance.count({ where: { attendanceType: 'walk_in', ...TICKET_LENS[key]() } }),
@@ -345,6 +348,20 @@ export class CounterRepository extends BaseRepository<any, any, any> {
     });
     if (!catalog) {
       throw new ValidationError(`"${stock.name}" has no active medication service in the price list. Ask an administrator to price it before selling it.`);
+    }
+
+    // The same numbers the hand-over step will demand, checked before the basket line
+    // exists — otherwise the counter sells a drug its own store cannot release and the
+    // customer finds out at the desk. A staff member with no department is skipped:
+    // they cannot hand over at all, so blocking them here would only be a second error.
+    const availability = await availabilityFor(this.prisma, actorId, [data.stockItemId]);
+    if (availability.department) {
+      const item = availability.items[data.stockItemId];
+      if (item && item.available < data.quantity) {
+        throw new ValidationError(
+          `Only ${item.available} of "${stock.name}" can be handed over from ${item.storeName ?? availability.department.name} (${item.limitedBy}). Requested ${data.quantity}.`,
+        );
+      }
     }
 
     return this.prisma.medication.create({
