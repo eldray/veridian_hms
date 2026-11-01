@@ -18,6 +18,20 @@ import { hashOf, money, prisma, toNumber, writeMany, type SeedStats } from './sh
 /** The demo history is one year deep; this tariff is back-dated a little further. */
 const PRICING_HISTORY_DAYS = 420;
 
+/**
+ * Every bill is several sequential transactions (generate, waive, pay, re-date), so a
+ * full run is thousands of bills with a long, silent stretch. Report progress this often
+ * so a slow run is never mistaken for a stopped one.
+ */
+const BILL_PROGRESS_EVERY = 250;
+
+const formatDuration = (ms: number): string => {
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${String(seconds).padStart(2, '0')}s` : `${seconds}s`;
+};
+
 let pricingCounter = 0;
 const nextPricingId = () => `seedprice-${(++pricingCounter).toString().padStart(6, '0')}`;
 
@@ -123,7 +137,25 @@ export const seedBills = async (
 
   planned['bills'] = (planned['bills'] ?? 0) + bills.length;
 
-  for (const plan of bills) {
+  const startedAt = Date.now();
+  console.log(`   billing ${bills.length} encounters - each bill is several database round trips, progress is shown every ${BILL_PROGRESS_EVERY}`);
+
+  for (const [position, plan] of bills.entries()) {
+    // Logged at the top of the loop so the `continue` paths below still count.
+    if (position === 25 || (position > 0 && position % BILL_PROGRESS_EVERY === 0)) {
+      const elapsed = Date.now() - startedAt;
+      const perSecond = position / Math.max(elapsed / 1000, 0.001);
+      const remaining = (bills.length - position) / Math.max(perSecond, 0.001);
+      const failed = Object.entries(outcomes)
+        .filter(([reason]) => reason.includes('rejected'))
+        .reduce((sum, [, count]) => sum + count, 0);
+      console.log(
+        `   ... ${position}/${bills.length} (${((position / bills.length) * 100).toFixed(1)}%)`
+        + ` - ${byAttendanceKey.size} billed, ${failed} rejected`
+        + ` - ${perSecond.toFixed(1)}/s, about ${formatDuration(remaining * 1000)} left`,
+      );
+    }
+
     const encounter = encounters.get(plan.attendanceKey);
     if (!encounter) { note('skipped: no encounter'); continue; }
 
@@ -265,7 +297,7 @@ export const seedBills = async (
     await recomputeAttendanceTotals(encounter.attendanceId);
   }
 
-  console.log(`✅ ${byAttendanceKey.size} bills generated from the encounters that had billable work`);
+  console.log(`✅ ${byAttendanceKey.size} bills generated from the encounters that had billable work (${formatDuration(Date.now() - startedAt)})`);
   for (const [reason, count] of Object.entries(outcomes)) {
     if (count >= 5 || !reason.startsWith('skipped')) console.log(`   ${reason}: ${count}`);
   }

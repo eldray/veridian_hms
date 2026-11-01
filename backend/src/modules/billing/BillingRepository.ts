@@ -2,6 +2,7 @@ import { PrismaClient, BillStatus } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
 import { BillFilters } from './BillingTypes';
 import { resolveUnitPrice } from '../../utils/pricing';
+import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/helpers/claimSubmission';
 
 // ✅ Helper to safely convert Prisma Decimal objects to JS numbers for math
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
@@ -84,12 +85,16 @@ export class BillingRepository extends BaseRepository<any, any, any> {
         InsuranceProvider: { select: { id: true, name: true, type: true, coveragePercentage: true } },
         CorporateAccount: { select: { id: true, companyName: true, creditLimit: true, currentBalance: true, discountPercentage: true } },
         Payment: { orderBy: { transactionDate: 'desc' } },
-        InsuranceClaim: { select: { id: true, claimNumber: true, status: true, totalClaimAmount: true, submissionDate: true } },
+        InsuranceClaim: { select: { id: true, claimNumber: true, status: true, totalClaimAmount: true, ...latestSubmissionEvent } },
         BillLineItem: { where: { isVoided: false }, include: { serviceCatalog: { select: { name: true, code: true, serviceType: true } } }, orderBy: { createdAt: 'asc' } },
         User_Bill_createdByIdToUser: { select: { id: true, fullName: true, username: true } }
       }
     });
-    return this.withAdmission(bill);
+    if (!bill) return bill;
+    return this.withAdmission({
+      ...bill,
+      InsuranceClaim: (bill.InsuranceClaim ?? []).map(withSubmissionDate),
+    });
   }
 
   async create(data: any, items: any[]) {

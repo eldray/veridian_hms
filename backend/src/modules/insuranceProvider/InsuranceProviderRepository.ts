@@ -1,5 +1,6 @@
 import { PrismaClient, InsuranceType } from '@prisma/client';
 import { BaseRepository } from '../../shared/base/BaseRepository';
+import { latestSubmissionEvent, withSubmissionDate } from '../insuranceClaim/helpers/claimSubmission';
 
 const toNumber = (val: any): number => val ? parseFloat(val.toString()) : 0;
 
@@ -23,16 +24,18 @@ export class InsuranceProviderRepository extends BaseRepository<any, any, any> {
   }
 
   async findById(id: string) {
-    return this.getModel().findUnique({
+    const provider = await this.getModel().findUnique({
       where: { id },
       include: {
         Patient: { select: { id: true, folderNumber: true, surname: true, otherNames: true, contact: true }, take: 10, orderBy: { surname: 'asc' } },
         Attendance: { select: { id: true, attendanceNumber: true, attendanceType: true, status: true, dateTime: true }, take: 10, orderBy: { dateTime: 'desc' } },
         Bill: { select: { id: true, billNumber: true, totalAmount: true, status: true, billDate: true }, take: 10, orderBy: { billDate: 'desc' } },
-        InsuranceClaim: { select: { id: true, claimNumber: true, totalClaimAmount: true, status: true, submissionDate: true }, take: 10, orderBy: { submissionDate: 'desc' } },
+        InsuranceClaim: { select: { id: true, claimNumber: true, totalClaimAmount: true, status: true, ...latestSubmissionEvent }, take: 10, orderBy: { createdAt: 'desc' } },
         _count: { select: { Patient: true, Attendance: true, Bill: true, InsuranceClaim: true } }
       }
     });
+    if (!provider) return provider;
+    return { ...provider, InsuranceClaim: (provider.InsuranceClaim ?? []).map(withSubmissionDate) };
   }
 
   async create(data: any) {
