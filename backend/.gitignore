@@ -8,6 +8,8 @@ backend/logs/
 
 backend/src/seed/.seed_status.json
 
+uploads/
+
 uploads/claim-batches/*.xml
 uploads/claim-batches/*.html
 
