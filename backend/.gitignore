@@ -58,3 +58,7 @@ Desktop.ini
 *.tsbuildinfo
 tmp/
 temp/
+
+# runtime uploads — never commit
+backend/uploads/
+uploads/
