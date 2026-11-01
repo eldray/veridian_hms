@@ -218,7 +218,7 @@ export const MarGrid: React.FC<MarGridProps> = ({
           key: dk,
           name: d.medication.name,
           dosage: d.dose || d.medication.dosage || '—',
-          route: d.route,
+          route: d.route ?? undefined,
           frequency: (d.medication as any).frequency,
           totalDoses: 0,
           givenDoses: 0,
@@ -331,7 +331,6 @@ export const MarGrid: React.FC<MarGridProps> = ({
 
               {/* Day headers */}
               {cols.map(ck => {
-                const iso = ck; // dayKey is Date.toString() but we can still parse
                 const d = new Date(ck);
                 const today = isToday(ck);
                 return (

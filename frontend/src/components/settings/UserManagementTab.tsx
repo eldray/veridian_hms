@@ -133,9 +133,10 @@ export default function UserManagementTab() {
   });
 
   const seniorityStats = () => {
-    const stats = { TRAINEE: 0, JUNIOR: 0, SENIOR: 0, PRINCIPAL: 0 };
+    const stats: Record<string, number> = { TRAINEE: 0, JUNIOR: 0, SENIOR: 0, PRINCIPAL: 0 };
     users.forEach((user: any) => {
-      if (user.seniority && stats[user.seniority] !== undefined) stats[user.seniority]++;
+      const current = typeof user.seniority === 'string' ? user.seniority.toUpperCase() : 'JUNIOR';
+      if (current in stats) stats[current]++;
       else stats.JUNIOR++;
     });
     return stats;

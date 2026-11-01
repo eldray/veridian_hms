@@ -38,6 +38,7 @@ interface AntenatalState {
   getAntenatalRecordById: (recordId: string) => Promise<any>;
   refreshAntenatalRecord: (patientId: string) => Promise<void>;
   registerAntenatalBooking: (data: any) => Promise<any>;
+  updateAntenatalRecord: (recordId: string, data: any) => Promise<any>;
   closeAntenatalRecord: (recordId: string, data: any) => Promise<void>;
   deleteAntenatalRecord: (recordId: string) => Promise<void>;
   getANCVisitsByAntenatalRecord: (recordId: string) => Promise<any[]>;
@@ -161,6 +162,23 @@ export const useAntenatalStore = create<AntenatalState>((set, get) => ({
       set((state) => ({
         records: [record, ...state.records],
         currentRecord: record,
+        isLoading: false,
+      }));
+      return record;
+    } catch (error: unknown) {
+      set({ error: (error as any).message, isLoading: false });
+      throw error;
+    }
+  },
+
+  updateAntenatalRecord: async (recordId: string, data: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await updateAntenatalRecord(recordId, data);
+      const record = response?.data || response;
+      set((state) => ({
+        records: state.records.map(r => r.id === recordId ? record : r),
+        currentRecord: state.currentRecord?.id === recordId ? record : state.currentRecord,
         isLoading: false,
       }));
       return record;

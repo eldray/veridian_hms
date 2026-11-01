@@ -32,7 +32,7 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({ previousVitals }) 
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {previousVitals.map((vital, index) => {
-              const key = vital._id || `vital-${index}`;
+              const key = (vital as any)._id || `vital-${index}`;
               return (
                 <tr key={key} className="hover:bg-gray-50">
                   <td className="px-3 py-2 text-xs text-gray-900">

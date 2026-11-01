@@ -25,7 +25,6 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   scanTemplates, // ✅ ADDED
   canAddEntries,
   paymentMode = 'cash',
-  currentUser,
   onRemoveScan // ✅ ADDED
 }) => {
   const [scanSearch, setScanSearch] = useState('');
@@ -33,11 +32,13 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   const [filteredScanTemplates, setFilteredScanTemplates] = useState<ScanTemplate[]>([]);
 
   // ✅ FIXED: Only use store for body parts and loading states
-  const { 
-    bodyParts, 
+  const {
+    bodyParts,
     getScanBodyParts,
-    isLoading 
+    isLoading
   } = useScanTemplateStore();
+
+  void bodyParts;
 
   useEffect(() => {
     const loadData = async () => {
@@ -70,12 +71,19 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   }, [scanSearch, scanTemplates]);
 
   const getScanPrice = (template: ScanTemplate) => {
+    const pricing = (template as any)?.pricing || (template as any)?.serviceCatalog?.pricing || [];
+    const price = pricing[0] || {};
     switch (paymentMode) {
-      case 'cash': return template.cashPrice || 0;
-      case 'nhis': return template.nhisPrice || template.cashPrice || 0;
-      case 'private_insurance': return template.insurancePrice || template.cashPrice || 0;
-      default: return template.cashPrice || 0;
+      case 'cash': return Number(price.cashPrice ?? price.price ?? template.cashPrice ?? 0) || 0;
+      case 'nhis': return Number(price.nhisPrice ?? price.cashPrice ?? template.nhisPrice ?? template.cashPrice ?? price.price ?? 0) || 0;
+      case 'private_insurance': return Number(price.insurancePrice ?? price.cashPrice ?? template.insurancePrice ?? template.cashPrice ?? price.price ?? 0) || 0;
+      default: return Number(template.cashPrice ?? price.cashPrice ?? 0) || 0;
     }
+  };
+
+  const scanRequiresAuthorization = (template?: ScanTemplate | null) => {
+    if (!template) return false;
+    return Boolean((template as any).requiresAuthorization ?? template.nhisRequiresAuth ?? template.privateInsRequiresAuth ?? false);
   };
 
   const getStatusColor = (status: string) => {
@@ -92,7 +100,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
   const handleScanSelect = (template: ScanTemplate) => {
     onScanChange({
       ...currentScan,
-      templateId: template.id || template.id, // ✅ ADDED
+      templateId: template.id || template._id || '',
       scanType: template.name,
       description: template.description || '',
       bodyPart: template.bodyPart || '',
@@ -170,7 +178,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                 {filteredScanTemplates.length > 0 ? (
                   capPickerRows(filteredScanTemplates).map((template) => (
                     <button
-                      key={template.id || template.id} // ✅ FIXED: Consistent ID
+                      key={template.id || template._id || template.name}
                       onClick={() => handleScanSelect(template)}
                       className="w-full text-left p-2 hover:bg-[var(--bg-main)] border-b border-[var(--border-color)] last:border-b-0 transition-colors text-sm"
                     >
@@ -180,11 +188,11 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs">
                         <span className={`px-1.5 py-0.5 rounded ${
-                          template.requiresAuthorization
+                          scanRequiresAuthorization(template)
                             ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
                             : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                         }`}>
-                          {template.requiresAuthorization ? 'Auth Req' : 'No Auth'}
+                          {scanRequiresAuthorization(template) ? 'Auth Req' : 'No Auth'}
                         </span>
                         <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
                           <DollarSign className="w-2.5 h-2.5" />
@@ -272,11 +280,11 @@ const ScansSection: React.FC<ScansSectionProps> = ({
             <div>
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Auth</label>
               <span className={`text-xs px-1.5 py-0.5 rounded ${
-                selectedTemplate.requiresAuthorization
+                scanRequiresAuthorization(selectedTemplate)
                   ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
                   : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
               }`}>
-                {selectedTemplate.requiresAuthorization ? 'Required' : 'Not Required'}
+                {scanRequiresAuthorization(selectedTemplate) ? 'Required' : 'Not Required'}
               </span>
             </div>
             {selectedTemplate.contrastRequired && (
@@ -329,7 +337,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold text-[var(--text-primary)]">{scan.scanType}</span>
-                          {template?.requiresAuthorization && (
+                          {scanRequiresAuthorization(template) && (
                             <Shield className="w-3.5 h-3.5 text-[var(--icon-orange-text)]" />
                           )}
                         </div>
@@ -364,7 +372,7 @@ const ScansSection: React.FC<ScansSectionProps> = ({
           const template = scanTemplates.find(t => 
             t.id === scan.templateId || t.id === scan.templateId || t.name === scan.scanType
           );
-          return template?.requiresAuthorization;
+          return scanRequiresAuthorization(template);
         }) && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)] flex-shrink-0" />

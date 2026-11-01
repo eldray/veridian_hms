@@ -1,5 +1,5 @@
 // src/components/attendance/OverviewTab.tsx
-import { User, Calendar, Stethoscope, CreditCard, Activity, Pill, FlaskConical, Scissors, DollarSign, Folder, Phone, MapPin } from 'lucide-react';
+import { User, Calendar, Stethoscope, CreditCard, Activity } from 'lucide-react';
 
 interface OverviewTabProps {
   attendance: any;

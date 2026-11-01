@@ -98,7 +98,7 @@ export const CheckItem: React.FC<{ label: string; checked: boolean; onChange?: (
 /** Numbered teal bar with an optional table body ("2 DIAGNOSES"). */
 export const ListSection: React.FC<{
   n?: number; title: string; count: number; emptyText?: string; action?: React.ReactNode; open?: boolean; children?: React.ReactNode;
-}> = ({ n, title, count, emptyText, action, open = true, children }) => {
+}> = ({ title, count, emptyText, action, open = true, children }) => {
   if (count === 0 && emptyText) {
     return (
       <div className="text-white text-sm px-4 py-2.5 flex items-center justify-between" style={{ background: TEAL }}>

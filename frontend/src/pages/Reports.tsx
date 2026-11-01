@@ -413,10 +413,10 @@ export default function Reports() {
           <p className="text-[11px] text-[var(--text-tertiary)]">{report.period?.startDate?.split('T')[0]} — {report.period?.endDate?.split('T')[0]}</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Attendances" value={t.totalAttendances||0}   icon={Users}     color="cyan"   />
-          <StatCard label="New Cases"   value={t.totalNewCases||0}      icon={UserCheck} color="green"  />
-          <StatCard label="Re-Attend."  value={t.totalReAttendances||0} icon={Clock}     color="yellow" />
-          <StatCard label="Referrals"   value={t.totalReferrals||0}     icon={Shield}    color="cyan"   />
+          <StatCard label="Attendances" value={t.totalAttendances||0} icon={Users} accent="cyan" />
+          <StatCard label="New Cases" value={t.totalNewCases||0} icon={UserCheck} accent="green" />
+          <StatCard label="Re-Attend." value={t.totalReAttendances||0} icon={Clock} accent="yellow" />
+          <StatCard label="Referrals" value={t.totalReferrals||0} icon={Shield} accent="cyan" />
         </div>
         {renderDiseaseTable('Section 1: Communicable Immunizable', report.communicableImmunizable, { afp_polio:'AFP / Polio', meningitis:'Meningitis', neonatal_tetanus:'Neonatal Tetanus', pertussis_whooping_cough:'Pertussis', diphtheria:'Diphtheria', measles:'Measles', yellow_fever:'Yellow Fever', tetanus:'Tetanus', tuberculosis:'Tuberculosis' })}
         {renderDiseaseTable('Section 2: Communicable Non-Immunizable', report.communicableNonImmunizable, { uncomplicated_malaria_suspected:'Malaria - Suspected', uncomplicated_malaria_tested:'Malaria - Tested', uncomplicated_malaria_positive:'Malaria - Positive', severe_malaria_lab_confirmed:'Severe Malaria', typhoid_fever:'Typhoid Fever', suspected_cholera:'Suspected Cholera', diarrhoea_diseases:'Diarrhoea', viral_hepatitis:'Viral Hepatitis', pneumonia:'Pneumonia', upper_respiratory_tract_infections:'URTI' })}
@@ -436,26 +436,36 @@ export default function Reports() {
     const list = topDiagnoses as any[];
     if (!list?.length) return <EmptyState message="No diagnosis data available" />;
     return (
-      <SectionCard title="Top 10 Diagnoses" icon={ListOrdered}>
-        <table className="w-full text-xs">
-          <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-            <tr><TH>Rank</TH><TH>Diagnosis</TH><TH>ICD-10</TH><TH>Group</TH><TH center>Male</TH><TH center>Female</TH><TH center>Total</TH></tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {list.map((d: any, i: number) => (
-              <tr key={d.diagnosisId||i} className="hover:bg-[var(--bg-main)] transition-colors">
-                <TD><span className="font-bold text-[var(--icon-orange-text)]">{i+1}</span></TD>
-                <TD className="text-[var(--text-primary)] font-medium">{d.diagnosisName||d.name||d.disease}</TD>
-                <TD className="font-mono">{d.icdCode||'—'}</TD>
-                <TD><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{d.morbidityGroup?.replace(/_/g,' ')||'General'}</span></TD>
-                <TD center>{d.male||0}</TD>
-                <TD center>{d.female||0}</TD>
-                <TD center><span className="font-bold text-[var(--text-primary)]">{d.totalCases||d.patients||0}</span></TD>
+      <Card title="Top 10 Diagnoses" icon={ListOrdered} accent="orange">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className={TH}>Rank</th>
+                <th className={TH}>Diagnosis</th>
+                <th className={TH}>ICD-10</th>
+                <th className={TH}>Group</th>
+                <th className={`${TH} text-center`}>Male</th>
+                <th className={`${TH} text-center`}>Female</th>
+                <th className={`${TH} text-center`}>Total</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </SectionCard>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {list.map((d: any, i: number) => (
+                <tr key={d.diagnosisId||i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <td className={TD}><span className="font-bold text-[var(--icon-orange-text)]">{i+1}</span></td>
+                  <td className={`${TD} text-[var(--text-primary)] font-medium`}>{d.diagnosisName||d.name||d.disease}</td>
+                  <td className={`${TD} font-mono`}>{d.icdCode||'—'}</td>
+                  <td className={TD}><span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]">{d.morbidityGroup?.replace(/_/g,' ')||'General'}</span></td>
+                  <td className={`${TD} text-center`}>{d.male||0}</td>
+                  <td className={`${TD} text-center`}>{d.female||0}</td>
+                  <td className={`${TD} text-center`}><span className="font-bold text-[var(--text-primary)]">{d.totalCases||d.patients||0}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     );
   };
 
@@ -475,38 +485,39 @@ const renderFormAReport = () => {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard label="Total Admissions" value={t.totalAdmissions||0}                         icon={Hospital}     color="cyan"  />
-          <StatCard label="Total Deaths"      value={t.totalDeaths||0}                             icon={AlertTriangle}color="red"   />
-          {/* FIXED: camelCase field names — schema returns under5Admitted not under5_admitted */}
-          <StatCard label="Under-5 Malaria"   value={mal.under5Admitted||0}                       icon={Baby}         color="yellow"/>
-          <StatCard label="Malaria Deaths"    value={(mal.under5Deaths||0)+(mal.above5Deaths||0)} icon={AlertTriangle}color="red"   />
+          <StatCard label="Total Admissions" value={t.totalAdmissions||0} icon={Hospital} accent="cyan" />
+          <StatCard label="Total Deaths" value={t.totalDeaths||0} icon={AlertTriangle} accent="red" />
+          <StatCard label="Under-5 Malaria" value={mal.under5Admitted||0} icon={Baby} accent="yellow" />
+          <StatCard label="Malaria Deaths" value={(mal.under5Deaths||0)+(mal.above5Deaths||0)} icon={AlertTriangle} accent="red" />
         </div>
-        <SectionCard title="Admissions by Age Group" icon={Hospital}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr>
-                <TH>Age Group</TH>
-                <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Insured</th>
-                <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Non-Insured</th>
-              </tr>
-              <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <th />
-                {['M','F','M','F'].map((l,i) => <th key={i} className="px-3 py-1 text-center text-[9px] text-[var(--text-tertiary)]">{l}</th>)}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {Object.entries(ag).map(([group, data]: [string,any]) => (
-                <tr key={group} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <TD className="text-[var(--text-primary)] font-medium">{group}</TD>
-                  <TD center>{data?.admissions?.insured?.male||0}</TD>
-                  <TD center>{data?.admissions?.insured?.female||0}</TD>
-                  <TD center>{data?.admissions?.nonInsured?.male||0}</TD>
-                  <TD center>{data?.admissions?.nonInsured?.female||0}</TD>
+        <Card title="Admissions by Age Group" icon={Hospital} accent="purple">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <tr>
+                  <th className={TH}>Age Group</th>
+                  <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Insured</th>
+                  <th colSpan={2} className="px-3 py-2.5 text-center text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Non-Insured</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
+                <tr className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                  <th />
+                  {['M','F','M','F'].map((l,i) => <th key={i} className="px-3 py-1 text-center text-[9px] text-[var(--text-tertiary)]">{l}</th>)}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {Object.entries(ag).map(([group, data]: [string, any]) => (
+                  <tr key={group} className="hover:bg-[var(--bg-main)] transition-colors">
+                    <td className={`${TD} text-[var(--text-primary)] font-medium`}>{group}</td>
+                    <td className={`${TD} text-center`}>{data?.admissions?.insured?.male||0}</td>
+                    <td className={`${TD} text-center`}>{data?.admissions?.insured?.female||0}</td>
+                    <td className={`${TD} text-center`}>{data?.admissions?.nonInsured?.male||0}</td>
+                    <td className={`${TD} text-center`}>{data?.admissions?.nonInsured?.female||0}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
     );
   };
@@ -521,22 +532,30 @@ const renderFormAReport = () => {
     const report = idsrReport as any;
     if (!report) return <EmptyState message="No IDSR data available" />;
     return (
-      <SectionCard title="Notifiable Diseases (IDSR)" icon={AlertTriangle}>
-        <table className="w-full text-xs">
-          <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-            <tr><TH>Disease</TH><TH center>Suspected</TH><TH center>Confirmed</TH><TH center>Deaths</TH></tr>
-          </thead>
-          <tbody className="divide-y divide-[var(--border-color)]">
-            {(report.diseases||[]).map((d: any, i: number) => (
-              <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                <TD className="text-[var(--text-primary)] font-medium">{d.disease}</TD>
-                <TD center>{d.suspected}</TD><TD center>{d.confirmed}</TD>
-                <TD center><span className="font-bold text-[var(--icon-red-text)]">{d.deaths}</span></TD>
+      <Card title="Notifiable Diseases (IDSR)" icon={AlertTriangle} accent="orange">
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+              <tr>
+                <th className={TH}>Disease</th>
+                <th className={`${TH} text-center`}>Suspected</th>
+                <th className={`${TH} text-center`}>Confirmed</th>
+                <th className={`${TH} text-center`}>Deaths</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </SectionCard>
+            </thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {(report.diseases||[]).map((d: any, i: number) => (
+                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
+                  <td className={`${TD} text-[var(--text-primary)] font-medium`}>{d.disease}</td>
+                  <td className={`${TD} text-center`}>{d.suspected}</td>
+                  <td className={`${TD} text-center`}>{d.confirmed}</td>
+                  <td className={`${TD} text-center`}><span className="font-bold text-[var(--icon-red-text)]">{d.deaths}</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     );
   };
 
@@ -549,25 +568,30 @@ const renderFormAReport = () => {
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <StatCard label="FP Clients"    value={report.summary?.totalFPClients||0} icon={Users}    color="cyan"   />
-          <StatCard label="FP Visits"     value={report.summary?.totalFPVisits||0}  icon={Calendar} color="green"  />
-          <StatCard label="New Acceptors" value={report.summary?.newAcceptors||0}   icon={UserCheck}color="cyan"   />
+          <StatCard label="FP Clients" value={report.summary?.totalFPClients||0} icon={Users} accent="cyan" />
+          <StatCard label="FP Visits" value={report.summary?.totalFPVisits||0} icon={Calendar} accent="green" />
+          <StatCard label="New Acceptors" value={report.summary?.newAcceptors||0} icon={UserCheck} accent="cyan" />
         </div>
-        <SectionCard title="Method Mix" icon={PieChart}>
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-              <tr><TH>Method</TH><TH>Count</TH></tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {Object.entries(report.methodMix||{}).map(([m, c]: [string,any]) => (
-                <tr key={m} className="hover:bg-[var(--bg-main)]">
-                  <TD className="text-[var(--text-primary)]">{m}</TD>
-                  <TD className="font-bold text-[var(--text-primary)]">{c}</TD>
+        <Card title="Method Mix" icon={PieChart} accent="cyan">
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <tr>
+                  <th className={TH}>Method</th>
+                  <th className={TH}>Count</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </SectionCard>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {Object.entries(report.methodMix||{}).map(([m, c]: [string, any]) => (
+                  <tr key={m} className="hover:bg-[var(--bg-main)]">
+                    <td className={`${TD} text-[var(--text-primary)]`}>{m}</td>
+                    <td className={`${TD} font-bold text-[var(--text-primary)]`}>{c}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
       </div>
     );
   };

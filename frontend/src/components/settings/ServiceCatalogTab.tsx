@@ -372,7 +372,7 @@ export default function ServiceCatalogTab() {
   };
 
   const getServiceIcon = (type: string) => {
-    const icons: Record<string, JSX.Element> = {
+    const icons: Record<string, React.ReactNode> = {
       consultation: <Stethoscope className="w-4 h-4" />,
       lab_test: <FlaskConical className="w-4 h-4" />,
       procedure: <ClipboardList className="w-4 h-4" />,

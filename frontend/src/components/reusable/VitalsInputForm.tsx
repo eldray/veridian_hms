@@ -69,8 +69,8 @@ export const VitalsInputForm: React.FC<VitalsInputFormProps> = ({
           icon={Gauge}
           label="Blood Pressure"
           placeholder="e.g., 120/80"
-          value={vitalsInput.bloodPressure}
-          onChange={(value) => onVitalsChange({ ...vitalsInput, bloodPressure: value })}
+          value={vitalsInput.bloodPressure ?? ''}
+          onChange={(value) => onVitalsChange({ ...vitalsInput, bloodPressure: value || undefined })}
         />
 
         {/* Temperature */}

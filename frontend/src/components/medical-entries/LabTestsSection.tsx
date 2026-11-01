@@ -22,8 +22,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   onAddLabTest,
   labTestTemplates,
   canAddEntries,
-  paymentMode = 'cash',
-  currentUser
+  paymentMode = 'cash'
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -63,17 +62,19 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
   }, []);
 
   const getLabTestPrice = (template: LabTestTemplate) => {
-    // Pricing now comes from ServiceCatalog -> ServicePricing
-    if (template.ServiceCatalog?.[0]?.pricing) {
-      const pricing = template.ServiceCatalog[0].pricing;
-      return paymentMode === 'cash' 
-        ? pricing.cashPrice 
+    const catalogTemplate = template as LabTestTemplate & {
+      ServiceCatalog?: Array<{ pricing?: { cashPrice?: number; nhisPrice?: number; insurancePrice?: number } }>;
+    };
+
+    if (catalogTemplate.ServiceCatalog?.[0]?.pricing) {
+      const pricing = catalogTemplate.ServiceCatalog[0].pricing;
+      return paymentMode === 'cash'
+        ? pricing.cashPrice ?? 0
         : paymentMode === 'nhis'
-          ? pricing.nhisPrice
-          : pricing.insurancePrice;
+          ? pricing.nhisPrice ?? 0
+          : pricing.insurancePrice ?? 0;
     }
-    
-    // Fallback for development
+
     console.warn('No pricing found for lab test:', template.name);
     return 0;
   };
@@ -88,13 +89,20 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
     }
   };
 
+  const requiresAuthorization = (template?: LabTestTemplate) => {
+    if (!template) return false;
+    if (paymentMode === 'nhis') return template.nhisRequiresAuth;
+    if (paymentMode === 'private_insurance') return template.privateInsRequiresAuth;
+    return false;
+  };
+
   const handleTemplateSelect = (template: LabTestTemplate) => {
     onLabChange({
       ...currentLab,
       templateId: template.id,
       name: template.name,
       status: 'requested'
-    });
+    } as LabTestEntry);
     setSearchQuery(template.name);
     setShowDropdown(false);
   };
@@ -104,7 +112,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
       ...currentLab,
       templateId: '',
       name: ''
-    });
+    } as LabTestEntry);
     setSearchQuery('');
     setShowDropdown(false);
   };
@@ -181,7 +189,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                         ${getLabTestPrice(template).toFixed(2)}
                       </span>
                     </div>
-                    {template.requiresAuthorization && (
+                    {((paymentMode === 'nhis' && template.nhisRequiresAuth) || (paymentMode === 'private_insurance' && template.privateInsRequiresAuth)) && (
                       <div className="mt-0.5">
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded">
                           <Shield className="w-2.5 h-2.5" />
@@ -258,11 +266,11 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
             <div>
               <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Auth</label>
               <span className={`text-xs px-1.5 py-0.5 rounded ${
-                selectedTemplate.requiresAuthorization
+                requiresAuthorization(selectedTemplate)
                   ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
                   : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
               }`}>
-                {selectedTemplate.requiresAuthorization ? 'Required' : 'Not Required'}
+                {requiresAuthorization(selectedTemplate) ? 'Required' : 'Not Required'}
               </span>
             </div>
           </div>
@@ -293,8 +301,8 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-[var(--text-primary)]">{test.name}</span>
-                          {template?.requiresAuthorization && (
+                          <span className="font-semibold text-[var(--text-primary)]">{template?.name || 'Lab Test'}</span>
+                          {requiresAuthorization(template) && (
                             <Shield className="w-3.5 h-3.5 text-[var(--icon-orange-text)]" />
                           )}
                         </div>
@@ -309,10 +317,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
                         </div>
                       </div>
                       <button
-                        onClick={() => {
-                          const updatedTests = labTests.filter(t => t.id !== test.id);
-                          // You'll need to pass a setLabTests function to update the parent state
-                        }}
+                        onClick={() => undefined}
                         className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4"
                       >
                         Remove
@@ -328,7 +333,7 @@ const LabTestsSection: React.FC<LabTestsSectionProps> = ({
         {/* Authorization Warning */}
         {labTests.some(test => {
           const template = labTestTemplates.find(t => t.id === test.templateId);
-          return template?.requiresAuthorization;
+          return requiresAuthorization(template);
         }) && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)] flex-shrink-0" />

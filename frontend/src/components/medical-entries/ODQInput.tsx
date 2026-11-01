@@ -21,7 +21,7 @@ interface ODQField {
   placeholder: string;
 }
 
-export default function ODQInput({ value, onChange, disabled }: ODQInputProps) {
+export default function ODQInput({ value, onChange }: ODQInputProps) {
   const [activeField, setActiveField] = useState<string | null>(null);
   const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
   const [tempValue, setTempValue] = useState('');

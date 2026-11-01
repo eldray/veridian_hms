@@ -78,7 +78,6 @@ export default function ThemePicker() {
                 }`}
                 style={{
                   background: bg,
-                  focusRingColor: scheme.previewAccent,
                 }}
                 aria-pressed={isActive}
                 aria-label={`${scheme.name} theme`}

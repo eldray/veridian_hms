@@ -266,6 +266,7 @@ export const MedicalEntriesForm: React.FC<MedicalEntriesFormProps> = ({
               currentScan={currentScan}
               onScanChange={onScanChange}
               onAddScan={onAddScan}
+              scanTemplates={[]}
               canAddEntries={canAddEntries}
               paymentMode={paymentMode}
               currentUser={currentUser}

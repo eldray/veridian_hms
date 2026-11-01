@@ -16,10 +16,11 @@ export const VitalsHistory: React.FC<VitalsHistoryProps> = ({
   isLoading = false 
 }) => {
   const getRecordedBy = (vitals: Vitals): string => {
-    if (typeof vitals.recordedBy === 'string') {
-      return vitals.recordedBy;
+    const recordedBy = (vitals as any).recordedBy;
+    if (typeof recordedBy === 'string') {
+      return recordedBy;
     }
-    return vitals.recordedBy?.fullName || 'Unknown';
+    return recordedBy?.fullName || vitals.recordedById || 'Unknown';
   };
 
   const getStatusColor = (type: string, value: any): string => {

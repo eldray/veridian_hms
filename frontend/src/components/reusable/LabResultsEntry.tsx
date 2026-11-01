@@ -65,7 +65,7 @@ export const LabResultsEntry: React.FC<LabResultsEntryProps> = ({
       <div className="space-y-4">
         <div className="bg-[var(--icon-blue-bg)] rounded-lg p-4 border border-[var(--icon-blue-text)]">
           <p className="text-xs text-[var(--icon-blue-text)] font-medium mb-1">Selected Test</p>
-          <p className="font-bold text-lg text-[var(--icon-blue-text)] mb-1">{selectedTestData?.name}</p>
+          <p className="font-bold text-lg text-[var(--icon-blue-text)] mb-1">{(selectedTestData as any)?.name ?? (selectedTestData as any)?.serviceCatalog?.name ?? 'Lab test'}</p>
           {selectedPatient && (
             <p className="text-[var(--icon-blue-text)] text-sm">
               Patient: <span className="font-semibold">{selectedPatient.fullName}</span>

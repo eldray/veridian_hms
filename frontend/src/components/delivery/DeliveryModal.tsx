@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { X, Hospital, Baby, AlertTriangle, Plus, Trash2, FileText } from 'lucide-react';
-import { useDeliveryStore } from '../../store/deliveryStore';
+import { useDeliveryStore, type DeliveryRecord } from '../../store/deliveryStore';
 import { useToast } from '../../store/toastStore';
 import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
 
@@ -33,6 +33,22 @@ interface DeliveryModalProps {
   existingDelivery?: any;
 }
 
+type DeliveryFormData = {
+  deliveryDate: string;
+  deliveryType: DeliveryRecord['deliveryType'];
+  deliveryOutcome: DeliveryRecord['deliveryOutcome'] | '';
+  placeOfDelivery: string;
+  attendant: string;
+  gestationWeeks: string;
+  maternalOutcome: string;
+  referralTo: string;
+  complications: string[];
+  notes: string;
+  malePartnerPresentDelivery: boolean;
+  maternalDeathsAudited: boolean;
+  auditNotes: string;
+};
+
 export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, patientId, existingDelivery,
 }) => {
@@ -41,7 +57,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<DeliveryFormData>({
     deliveryDate: new Date().toISOString().split('T')[0],
     deliveryType: 'spontaneous_vertex',
     deliveryOutcome: '',
@@ -50,7 +66,7 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     gestationWeeks: '',
     maternalOutcome: '',
     referralTo: '',
-    complications: [] as string[],
+    complications: [],
     notes: '',
     malePartnerPresentDelivery: false,
     maternalDeathsAudited: false,
@@ -73,8 +89,8 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     if (existingDelivery) {
       setFormData({
         deliveryDate: existingDelivery.deliveryDate?.split('T')[0] || new Date().toISOString().split('T')[0],
-        deliveryType: existingDelivery.deliveryType || 'spontaneous_vertex',
-        deliveryOutcome: existingDelivery.deliveryOutcome || '',
+        deliveryType: (existingDelivery.deliveryType || 'spontaneous_vertex') as DeliveryRecord['deliveryType'],
+        deliveryOutcome: (existingDelivery.deliveryOutcome || '') as DeliveryRecord['deliveryOutcome'] | '',
         placeOfDelivery: existingDelivery.placeOfDelivery || 'private_hospital',
         attendant: existingDelivery.attendant || '',
         gestationWeeks: existingDelivery.gestationWeeks?.toString() || '',
@@ -188,10 +204,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
     }
     setLoading(true);
     try {
-      const data = {
+      const data: Record<string, any> = {
         deliveryDate: formData.deliveryDate ? new Date(formData.deliveryDate).toISOString() : new Date().toISOString(),
-        deliveryType: formData.deliveryType,
-        deliveryOutcome: formData.deliveryOutcome,
+        deliveryType: formData.deliveryType as DeliveryRecord['deliveryType'],
+        deliveryOutcome: (formData.deliveryOutcome || 'live_birth') as DeliveryRecord['deliveryOutcome'],
         placeOfDelivery: formData.placeOfDelivery,
         attendant: formData.attendant,
         gestationWeeks: formData.gestationWeeks ? parseInt(formData.gestationWeeks) : null,
@@ -226,10 +242,10 @@ export const DeliveryModal: React.FC<DeliveryModalProps> = ({
       delete (data as any).patientId;
 
       if (existingDelivery) {
-        await updateDeliveryRecord(existingDelivery.id, data);
+        await updateDeliveryRecord(existingDelivery.id, data as Partial<DeliveryRecord>);
         success('Updated', 'Delivery record updated successfully');
       } else {
-        await recordDelivery(data);
+        await recordDelivery(data as Partial<DeliveryRecord>);
         success('Created', 'Delivery record created successfully');
       }
       onSuccess();

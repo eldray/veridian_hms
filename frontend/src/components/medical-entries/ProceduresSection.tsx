@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Procedure, ProcedureTemplate } from '../../types';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { ProcedureEntry } from '../../types/medical-entries';
@@ -62,8 +62,14 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
   // ✅ FIXED: Get procedure price with safety checks
   const getProcedurePrice = (template: ProcedureTemplate) => {
     if (!template) return 0;
-    const price = paymentMode === 'cash' ? template.cashPrice : template.insurancePrice;
-    return price || 0;
+    const prices = (template as any).pricing || (template as any).serviceCatalog?.pricing || [];
+    const pricing = prices[0] || {};
+    const price = paymentMode === 'cash'
+      ? pricing.cashPrice ?? pricing?.price ?? 0
+      : paymentMode === 'nhis'
+        ? pricing.nhisPrice ?? pricing.cashPrice ?? pricing?.price ?? 0
+        : pricing.insurancePrice ?? pricing.cashPrice ?? pricing?.price ?? 0;
+    return Number(price) || 0;
   };
 
   const getStatusColor = (status: string) => {
@@ -88,7 +94,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
       status: 'scheduled',
       createdBy: currentUser?.id || currentUser?.username || ''
     });
-    setProcedureSearch(template.name);
+    setProcedureSearch(template.name ?? '');
     setShowProcedureDropdown(false);
   };
 
@@ -105,7 +111,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
   const selectedTemplate = procedureTemplates.find(t => t.id === currentProcedure.templateId);
 
   // Format date for display
-  const formatScheduledDate = (dateString: string) => {
+  const formatScheduledDate = (dateString?: string) => {
     if (!dateString) return 'Not scheduled';
     const date = new Date(dateString);
     return date.toLocaleString('en-US', {
@@ -170,11 +176,11 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                       </div>
                       <div className="flex items-center gap-2 mt-0.5 text-xs">
                         <span className={`px-1.5 py-0.5 rounded ${
-                          template.requiresAuthorization
+                          (template as any)?.requiresAuthorization ?? template.nhisRequiresAuth ?? template.privateInsRequiresAuth
                             ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
                             : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                         }`}>
-                          {template.requiresAuthorization ? 'Auth Req' : 'No Auth'}
+                          {(template as any)?.requiresAuthorization ?? template.nhisRequiresAuth ?? template.privateInsRequiresAuth ? 'Auth Req' : 'No Auth'}
                         </span>
                         <span className="flex items-center gap-0.5 text-[var(--text-secondary)]">
                           <DollarSign className="w-2.5 h-2.5" />
@@ -305,8 +311,8 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-[var(--text-primary)]">{procedure.name}</span>
-                          {template?.requiresAuthorization && (
+                          <span className="font-semibold text-[var(--text-primary)]">{procedure.name || template?.name || 'Procedure'}</span>
+                          {(template?.requiresAuthorization ?? template?.nhisRequiresAuth ?? template?.privateInsRequiresAuth) && (
                             <Shield className="w-3.5 h-3.5 text-[var(--icon-orange-text)]" />
                           )}
                         </div>
@@ -341,7 +347,7 @@ const ProceduresSection: React.FC<ProceduresSectionProps> = ({
         {/* Authorization Warning */}
         {procedures.some(procedure => {
           const template = procedureTemplates.find(t => t.id === procedure.templateId);
-          return template?.requiresAuthorization;
+          return Boolean(template?.requiresAuthorization ?? template?.nhisRequiresAuth ?? template?.privateInsRequiresAuth);
         }) && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)] flex-shrink-0" />

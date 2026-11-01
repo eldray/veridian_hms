@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Diagnosis, DiagnosisTemplate } from '../../types';
-import { AlertCircle, Save, CheckCircle2, Stethoscope, FileText, Edit, Clock, User, Search, X, DollarSign, Shield } from 'lucide-react';
+import { AlertCircle, Save, CheckCircle2, Stethoscope, FileText, Edit, Clock, User, Search, X, DollarSign } from 'lucide-react';
 
 interface ClinicalInformationSectionProps {
   chiefComplaint: string;
@@ -49,7 +49,7 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
   const [showDiagnosisDropdown, setShowDiagnosisDropdown] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
-  const autoSaveTimeoutRef = useRef<NodeJS.Timeout>();
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSaveRef = useRef<number>(Date.now());
 
   // Safe handling of diagnosisTemplates - ensure it's always an array
@@ -243,7 +243,7 @@ const ClinicalInformationSection: React.FC<ClinicalInformationSectionProps> = ({
     setDiagnosisSearch('');
   };
 
-  const hasChanges = chiefComplaint || diagnosis || notes;
+  const hasChanges = Boolean(chiefComplaint || diagnosis || notes);
   const canEdit = canAddEntries && !isEditing;
 
   // Calculate time since last save

@@ -1,0 +1,768 @@
+﻿src/components/medical-entries/ProceduresSection.tsx(321,64): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/nursing/MarChart.tsx(6,3): error TS6133: 'AlertOctagon' is declared but its value is never read.
+src/components/nursing/MarChart.tsx(341,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/components/nursing/MarGrid.tsx(5,27): error TS6133: 'User' is declared but its value is never read.
+src/components/nursing/MarGrid.tsx(190,3): error TS6133: 'onAdminister' is declared but its value is never read.
+src/components/nursing/MarGrid.tsx(191,3): error TS6133: 'onVariance' is declared but its value is never read.
+src/components/nursing/MarGrid.tsx(192,3): error TS6133: 'isSubmitting' is declared but its value is never read.
+src/components/nursing/MarGrid.tsx(193,3): error TS6133: 'busyId' is declared but its value is never read.
+src/components/nursing/MarGrid.tsx(221,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/components/nursing/MarGrid.tsx(334,23): error TS6133: 'iso' is declared but its value is never read.
+src/components/nursing/NursingDashboardStats.tsx(6,34): error TS6133: 'Bed' is declared but its value is never read.
+src/components/nursing/NursingNotesPanel.tsx(7,10): error TS6133: 'Eye' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(4,29): error TS6133: 'Trash2' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(4,37): error TS6133: 'Edit' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(5,50): error TS6133: 'Calendar' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(214,3): error TS6133: 'patientId' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(215,3): error TS6133: 'attendanceId' is declared but its value is never read.
+src/components/nursing/NursingTaskList.tsx(216,3): error TS6133: 'admissionId' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(5,3): error TS6133: 'Heart' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(5,16): error TS6133: 'Bed' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(5,21): error TS6133: 'Calendar' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(5,31): error TS6133: 'User' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(113,3): error TS6133: 'patient' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(114,3): error TS6133: 'attendance' is declared but its value is never read.
+src/components/nursing/PatientSummarySidebar.tsx(115,3): error TS6133: 'admission' is declared but its value is never read.
+src/components/patients/DocumentsTab.tsx(8,59): error TS6133: 'patient' is declared but its value is never read.
+src/components/patients/MedicalRecordsTab.tsx(10,84): error TS6133: 'patient' is declared but its value is never read.
+src/components/PayslipEditor.tsx(7,20): error TS6133: 'Save' is declared but its value is never read.
+src/components/postnatal/PostnatalModal.tsx(23,11): error TS2339: Property 'createPostnatalRecord' does not exist on type 'PostnatalState'.
+src/components/reusable/AttendanceSelection.tsx(20,3): error TS6133: 'selectedPatientId' is declared but its value is never read.
+src/components/reusable/AttendanceSelection.tsx(26,9): error TS6133: 'getStatusColor' is declared but its value is never read.
+src/components/reusable/CompletedTestsSection.tsx(33,79): error TS2339: Property 'name' does not exist on type 'LabTest'.
+src/components/reusable/CompletedTestsSection.tsx(45,23): error TS2339: Property 'normalRange' does not exist on type 'LabTest'.
+src/components/reusable/CompletedTestsSection.tsx(46,91): error TS2339: Property 'normalRange' does not exist on type 'LabTest'.
+src/components/reusable/LabRequestSection.tsx(42,70): error TS2339: Property '_id' does not exist on type 'LabTestTemplate'.
+src/components/reusable/LabRequestSection.tsx(53,58): error TS2339: Property '_id' does not exist on type 'LabTestTemplate'.
+src/components/reusable/LabResultsEntry.tsx(68,97): error TS2339: Property 'name' does not exist on type 'LabTest'.
+src/components/reusable/PatientSelection.tsx(1,17): error TS6133: 'useState' is declared but its value is never read.
+src/components/reusable/PendingTestsSection.tsx(47,21): error TS2367: This comparison appears to be unintentional because the types 'LabTestStatus' and '"in_progress"' have no overlap.
+src/components/reusable/PendingTestsSection.tsx(60,85): error TS2339: Property 'name' does not exist on type 'LabTest'.
+src/components/reusable/PendingTestsSection.tsx(86,21): error TS2367: This comparison appears to be unintentional because the types 'LabTestStatus' and '"in_progress"' have no overlap.
+src/components/reusable/PendingTestsSection.tsx(90,22): error TS2367: This comparison appears to be unintentional because the types 'LabTestStatus' and '"in_progress"' have no overlap.
+src/components/reusable/PrintPrescriptionsSection.tsx(16,3): error TS6133: 'selectedPatient' is declared but its value is never read.
+src/components/reusable/PrintPrescriptionsSection.tsx(17,3): error TS6133: 'selectedAttendance' is declared but its value is never read.
+src/components/reusable/PrintPrescriptionsSection.tsx(19,3): error TS6133: 'onPrintSingle' is declared but its value is never read.
+src/components/reusable/PrintPrescriptionsSection.tsx(20,3): error TS6133: 'printingPrescriptionId' is declared but its value is never read.
+src/components/reusable/VitalsHistory.tsx(35,33): error TS2339: Property '_id' does not exist on type 'Vitals'.
+src/components/reusable/VitalsInputForm.tsx(72,11): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/components/scans/ScanResultForm.tsx(4,23): error TS6133: 'ImageIcon' is declared but its value is never read.
+src/components/scans/ScanResultForm.tsx(78,9): error TS6133: 'templateHasComment' is declared but its value is never read.
+src/components/settings/BackupRestoreTab.tsx(6,78): error TS6133: 'CheckCircle' is declared but its value is never read.
+src/components/settings/BackupRestoreTab.tsx(125,13): error TS6133: 'response' is declared but its value is never read.
+src/components/settings/CompanySettingsTab.tsx(11,3): error TS6133: 'Upload' is declared but its value is never read.
+src/components/settings/CompanySettingsTab.tsx(34,10): error TS6133: 'imageFile' is declared but its value is never read.
+src/components/settings/CompanySettingsTab.tsx(59,24): error TS2339: Property 'type' does not exist on type 'HospitalInfo'.
+src/components/settings/CompanySettingsTab.tsx(63,27): error TS2339: Property 'website' does not exist on type 'HospitalInfo'.
+src/components/settings/CompanySettingsTab.tsx(64,31): error TS2339: Property 'description' does not exist on type 'HospitalInfo'.
+src/components/settings/CompanySettingsTab.tsx(65,34): error TS2339: Property 'emergencyPhone' does not exist on type 'HospitalInfo'.
+src/components/settings/CompanySettingsTab.tsx(67,27): error TS2339: Property 'logoUrl' does not exist on type 'HospitalInfo'.
+src/components/settings/CompanySettingsTab.tsx(69,53): error TS2339: Property 'logoUrl' does not exist on type 'HospitalInfo'.
+src/components/settings/NHISConfigTab.tsx(4,93): error TS6133: 'Database' is declared but its value is never read.
+src/components/settings/NHISConfigTab.tsx(4,103): error TS6133: 'Wifi' is declared but its value is never read.
+src/components/settings/ServiceCatalogTab.tsx(13,24): error TS6133: 'BarChart3' is declared but its value is never read.
+src/components/settings/ServiceCatalogTab.tsx(14,3): error TS6133: 'Eye' is declared but its value is never read.
+src/components/settings/ServiceCatalogTab.tsx(14,21): error TS6133: 'Clock' is declared but its value is never read.
+src/components/settings/ServiceCatalogTab.tsx(375,33): error TS2503: Cannot find namespace 'JSX'.
+src/components/settings/UserManagementTab.tsx(8,23): error TS6133: 'Mail' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(8,29): error TS6133: 'Phone' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(9,3): error TS6133: 'Loader' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(9,11): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(11,3): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(11,16): error TS6133: 'Filter' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(11,24): error TS6133: 'CalendarRange' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(59,5): error TS6133: 'updateUserSeniority' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(66,5): error TS6133: 'error' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(67,5): error TS6133: 'clearError' is declared but its value is never read.
+src/components/settings/UserManagementTab.tsx(138,29): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ TRAINEE: number; JUNIOR: number; SENIOR: number; PRINCIPAL: number; }'.
+src/components/settings/UserManagementTab.tsx(138,66): error TS7053: Element implicitly has an 'any' type because expression of type 'any' can't be used to index type '{ TRAINEE: number; JUNIOR: number; SENIOR: number; PRINCIPAL: number; }'.
+src/components/ThemePicker.tsx(65,19): error TS6133: 'isHovered' is declared but its value is never read.
+src/components/ThemePicker.tsx(81,19): error TS2353: Object literal may only specify known properties, and 'focusRingColor' does not exist in type 'Properties<string | number, string & {}>'.
+src/components/Toast.tsx(21,22): error TS2554: Expected 1 arguments, but got 0.
+src/components/UserEditModal.tsx(79,9): error TS2322: Type 'string' is not assignable to type 'UserRole | undefined'.
+src/components/UserMessageModal.tsx(7,39): error TS6133: 'Users' is declared but its value is never read.
+src/components/vitals/PatientSelection.tsx(24,3): error TS6133: 'selectedPatientId' is declared but its value is never read.
+src/components/vitals/VitalsFormModal.tsx(7,15): error TS2305: Module '"../../types"' has no exported member 'VitalsEntry'.
+src/components/vitals/VitalsFormModal.tsx(154,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(172,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(194,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(216,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(238,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(261,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(283,48): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsFormModal.tsx(303,44): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/components/vitals/VitalsHistory.tsx(2,25): error TS6133: 'Calendar' is declared but its value is never read.
+src/components/vitals/VitalsHistory.tsx(2,35): error TS6133: 'User' is declared but its value is never read.
+src/components/vitals/VitalsHistory.tsx(2,41): error TS6133: 'MoreVertical' is declared but its value is never read.
+src/components/vitals/VitalsHistory.tsx(19,23): error TS2551: Property 'recordedBy' does not exist on type 'Vitals'. Did you mean 'recordedById'?
+src/components/vitals/VitalsHistory.tsx(20,21): error TS2551: Property 'recordedBy' does not exist on type 'Vitals'. Did you mean 'recordedById'?
+src/components/vitals/VitalsHistory.tsx(22,19): error TS2551: Property 'recordedBy' does not exist on type 'Vitals'. Did you mean 'recordedById'?
+src/components/vitals/VitalsTrendGraph.tsx(4,29): error TS2307: Cannot find module '../../types/vitals' or its corresponding type declarations.
+src/components/vitals/VitalsTrendGraph.tsx(33,45): error TS6133: 'label' is declared but its value is never read.
+src/components/worklist/WorklistPanel.tsx(185,26): error TS2367: This comparison appears to be unintentional because the types '"routine" | "urgent" | "stat"' and '"critical"' have no overlap.
+src/components/worklist/WorklistPanel.tsx(223,55): error TS2339: Property 'testCount' does not exist on type 'WorklistItem'.
+  Property 'testCount' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(225,99): error TS2339: Property 'testCount' does not exist on type 'WorklistItem'.
+  Property 'testCount' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(229,60): error TS2339: Property 'itemCount' does not exist on type 'WorklistItem'.
+  Property 'itemCount' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(231,105): error TS2339: Property 'itemCount' does not exist on type 'WorklistItem'.
+  Property 'itemCount' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(235,57): error TS2339: Property 'scanType' does not exist on type 'WorklistItem'.
+  Property 'scanType' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(237,98): error TS2339: Property 'scanType' does not exist on type 'WorklistItem'.
+  Property 'scanType' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(238,35): error TS2339: Property 'bodyPart' does not exist on type 'WorklistItem'.
+  Property 'bodyPart' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(238,78): error TS2339: Property 'bodyPart' does not exist on type 'WorklistItem'.
+  Property 'bodyPart' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(242,59): error TS2339: Property 'procedureName' does not exist on type 'WorklistItem'.
+  Property 'procedureName' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(244,103): error TS2339: Property 'procedureName' does not exist on type 'WorklistItem'.
+  Property 'procedureName' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(257,31): error TS2339: Property 'diagnosis' does not exist on type 'WorklistItem'.
+  Property 'diagnosis' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(259,103): error TS2339: Property 'diagnosis' does not exist on type 'WorklistItem'.
+  Property 'diagnosis' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(275,31): error TS2339: Property 'admittedAt' does not exist on type 'WorklistItem'.
+  Property 'admittedAt' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(275,58): error TS2339: Property 'admittedAt' does not exist on type 'WorklistItem'.
+  Property 'admittedAt' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(276,31): error TS2339: Property 'requestedAt' does not exist on type 'WorklistItem'.
+  Property 'requestedAt' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(276,59): error TS2339: Property 'requestedAt' does not exist on type 'WorklistItem'.
+  Property 'requestedAt' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(277,31): error TS2339: Property 'scheduledDate' does not exist on type 'WorklistItem'.
+  Property 'scheduledDate' does not exist on type 'VitalsWorklistItem'.
+src/components/worklist/WorklistPanel.tsx(277,61): error TS2339: Property 'scheduledDate' does not exist on type 'WorklistItem'.
+  Property 'scheduledDate' does not exist on type 'VitalsWorklistItem'.
+src/config/dashboardConfig.tsx(7,40): error TS6133: 'ScrollText' is declared but its value is never read.
+src/config/dashboardConfig.tsx(7,52): error TS6133: 'Bed' is declared but its value is never read.
+src/config/dashboardConfig.tsx(8,3): error TS6133: 'Receipt' is declared but its value is never read.
+src/config/dashboardConfig.tsx(8,12): error TS6133: 'UserCog' is declared but its value is never read.
+src/config/dashboardConfig.tsx(8,47): error TS6133: 'Building' is declared but its value is never read.
+src/config/dashboardConfig.tsx(8,57): error TS6133: 'CreditCard' is declared but its value is never read.
+src/config/dashboardConfig.tsx(9,3): error TS6133: 'Hospital' is declared but its value is never read.
+src/layouts/DashboardLayout.tsx(2,60): error TS6133: 'useCallback' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(2,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(9,30): error TS6133: 'Bed' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(10,23): error TS6133: 'IdCard' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(13,3): error TS6133: 'Scan' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(13,54): error TS6133: 'RefreshCw' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(14,9): error TS6133: 'Info' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(15,31): error TS6133: 'Steth' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(23,37): error TS6133: 'updateAdmission' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(24,68): error TS6133: 'admissionError' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(27,26): error TS6133: 'currentAttendance' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(27,45): error TS6133: 'updateAttendance' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(28,29): error TS6133: 'wards' is declared but its value is never read.
+src/pages/AdmissionDetails.tsx(239,75): error TS7006: Parameter 'p' implicitly has an 'any' type.
+src/pages/Admissions.tsx(42,7): error TS6133: 'getEntityId' is declared but its value is never read.
+src/pages/Admissions.tsx(427,28): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/Antenatal.tsx(17,1): error TS6133: 'VitalsDisplay' is declared but its value is never read.
+src/pages/Antenatal.tsx(31,62): error TS6133: 'User' is declared but its value is never read.
+src/pages/Antenatal.tsx(32,16): error TS6133: 'Droplet' is declared but its value is never read.
+src/pages/Antenatal.tsx(32,46): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/Antenatal.tsx(33,67): error TS6133: 'Sun' is declared but its value is never read.
+src/pages/Antenatal.tsx(380,31): error TS6133: 'recordANCVisit' is declared but its value is never read.
+src/pages/Antenatal.tsx(380,47): error TS6133: 'updateANCVisit' is declared but its value is never read.
+src/pages/Antenatal.tsx(380,74): error TS6133: 'ancLoading' is declared but its value is never read.
+src/pages/Antenatal.tsx(383,50): error TS6133: 'deletePostnatalRecord' is declared but its value is never read.
+src/pages/Antenatal.tsx(658,9): error TS6133: 'handleRegisterAntenatalBooking' is declared but its value is never read.
+src/pages/Antenatal.tsx(690,25): error TS2339: Property '_id' does not exist on type '{ id: string; surname: string; otherNames: string; folderNumber: string; contact: string; dateOfBirth: string; gender: string; }'.
+src/pages/Antenatal.tsx(691,64): error TS2339: Property 'id' does not exist on type 'never'.
+src/pages/Antenatal.tsx(877,46): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/Antenatal.tsx(997,88): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; }'.
+src/pages/Antenatal.tsx(1074,9): error TS2322: Type '{ patients: Patient[]; attendances: Attendance[]; selectedPatientId: string; selectedAttendanceId: string; onPatientSelect: Dispatch<SetStateAction<string>>; onAttendanceSelect: Dispatch<...>; onClearSelection: () => void; placeholder: string; }' is not assignable to type 'IntrinsicAttributes & PatientAttendanceSelectorProps'.
+  Property 'placeholder' does not exist on type 'IntrinsicAttributes & PatientAttendanceSelectorProps'.
+src/pages/Antenatal.tsx(1322,96): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; }'.
+src/pages/Antenatal.tsx(1347,92): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; }'.
+src/pages/Antenatal.tsx(1417,17): error TS2322: Type '{ children: string; className: string; }' is not assignable to type 'IntrinsicAttributes & { children: ReactNode; }'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & { children: ReactNode; }'.
+src/pages/Antenatal.tsx(1418,14): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; }'.
+src/pages/Antenatal.tsx(1464,17): error TS2322: Type '{ children: string; className: string; }' is not assignable to type 'IntrinsicAttributes & { children: ReactNode; }'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & { children: ReactNode; }'.
+src/pages/Antenatal.tsx(1465,17): error TS2322: Type '{ children: string; className: string; }' is not assignable to type 'IntrinsicAttributes & { children: ReactNode; }'.
+  Property 'className' does not exist on type 'IntrinsicAttributes & { children: ReactNode; }'.
+src/pages/Antenatal.tsx(1499,93): error TS2741: Property 'children' is missing in type '{}' but required in type '{ children: ReactNode; }'.
+src/pages/Appointments.tsx(245,33): error TS2339: Property 'clinician' does not exist on type 'Appointment'.
+src/pages/Appointments.tsx(667,84): error TS2339: Property 'clinician' does not exist on type 'Appointment'.
+src/pages/Appointments.tsx(668,97): error TS2339: Property 'clinicianRole' does not exist on type 'Appointment'.
+src/pages/Attendance.tsx(254,11): error TS2741: Property 'walk_in' is missing in type '{ emergency_acute: string; antenatal: string; postnatal: string; chronic_followup: string; specialist_consultation: string; delivery: string; surgery: string; general_consultation: string; }' but required in type 'Record<AttendanceType, string>'.
+src/pages/Attendance.tsx(551,104): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceType'.
+src/pages/Attendance.tsx(554,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/Attendance.tsx(555,99): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/Attendance.tsx(562,33): error TS2551: Property 'medications' does not exist on type 'Attendance'. Did you mean 'Medication'?
+src/pages/Attendance.tsx(566,33): error TS2551: Property 'labTests' does not exist on type 'Attendance'. Did you mean 'LabTest'?
+src/pages/Attendance.tsx(570,33): error TS2551: Property 'procedures' does not exist on type 'Attendance'. Did you mean 'Procedure'?
+src/pages/Attendance.tsx(680,51): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceType'.
+src/pages/Attendance.tsx(686,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/Attendance.tsx(687,78): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/AttendanceDetails.tsx(3,47): error TS6133: 'Link' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(19,38): error TS6133: 'ChevronLeft' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(19,51): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(20,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(20,10): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(20,18): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(20,25): error TS6133: 'Mail' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(20,49): error TS6133: 'Thermometer' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(21,3): error TS6133: 'Droplet' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(21,12): error TS6133: 'Ruler' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(21,19): error TS6133: 'Weight' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(21,34): error TS6133: 'Bone' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(22,3): error TS6133: 'Syringe' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(22,22): error TS6133: 'CheckCircle' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(22,35): error TS6133: 'XCircle' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(22,59): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(23,21): error TS6133: 'Download' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(23,31): error TS6133: 'Building2' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(91,7): error TS6133: 'SectionCard' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(391,20): error TS2353: Object literal may only specify known properties, and 'attendanceId' does not exist in type 'BillFilters'.
+src/pages/AttendanceDetails.tsx(459,37): error TS2339: Property 'id' does not exist on type 'never'.
+src/pages/AttendanceDetails.tsx(483,9): error TS6133: 'latestBill' is declared but its value is never read.
+src/pages/AttendanceDetails.tsx(520,108): error TS2339: Property 'visitDate' does not exist on type 'Attendance'.
+src/pages/AttendanceDetails.tsx(693,24): error TS2353: Object literal may only specify known properties, and 'attendanceId' does not exist in type 'BillFilters'.
+src/pages/AttendanceDetails.tsx(717,11): error TS2741: Property 'corporate' is missing in type '{ cash: string; nhis: string; private_insurance: string; }' but required in type 'Record<PaymentMode, string>'.
+src/pages/AttendanceDetails.tsx(734,11): error TS2741: Property 'walk_in' is missing in type '{ emergency_acute: string; antenatal: string; postnatal: string; chronic_followup: string; specialist_consultation: string; delivery: string; surgery: string; general_consultation: string; }' but required in type 'Record<AttendanceType, string>'.
+src/pages/AttendanceDetails.tsx(821,46): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/AttendanceDetails.tsx(1019,37): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/AttendanceDetails.tsx(1020,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/AttendanceDetails.tsx(1024,41): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceType'.
+src/pages/AttendanceDetails.tsx(1110,44): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceType'.
+src/pages/AttendanceDetails.tsx(1458,116): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceStatus'.
+src/pages/AttendanceDetails.tsx(1480,118): error TS2345: Argument of type 'string' is not assignable to parameter of type 'AttendanceType'.
+src/pages/AttendanceDetails.tsx(1485,47): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/AttendanceDetails.tsx(1486,115): error TS2345: Argument of type 'string' is not assignable to parameter of type 'PaymentMode'.
+src/pages/AttendanceDetails.tsx(1494,52): error TS2339: Property 'bedNumber' does not exist on type 'Attendance'.
+src/pages/AttendanceDetails.tsx(1842,19): error TS2322: Type '{ vitals: any[]; isLoading: boolean; isAntenatal: boolean; }' is not assignable to type 'IntrinsicAttributes & VitalsHistoryProps'.
+  Property 'isAntenatal' does not exist on type 'IntrinsicAttributes & VitalsHistoryProps'.
+src/pages/AttendanceDetails.tsx(2148,11): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/AuditLogs.tsx(9,44): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/Billing.tsx(236,30): error TS2345: Argument of type 'BillingCollectionsReport' is not assignable to parameter of type 'SetStateAction<BillingCollectionsReport>'.
+  Type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").BillingCollectionsReport' is not assignable to type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/billing").BillingCollectionsReport'.
+    Types of property 'payments' are incompatible.
+      Type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").BillingCollectionPayment[]' is not assignable to type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/billing").BillingCollectionPayment[]'.
+        Property 'notes' is missing in type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").BillingCollectionPayment' but required in type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/billing").BillingCollectionPayment'.
+src/pages/Billing.tsx(886,72): error TS2339: Property 'id' does not exist on type '{ surname: string; otherNames: string; folderNumber: string; contact?: string | undefined; }'.
+src/pages/Departments.tsx(12,3): error TS6133: 'UserCheck' is declared but its value is never read.
+src/pages/Departments.tsx(14,41): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/Departments.tsx(117,9): error TS6133: 'user' is declared but its value is never read.
+src/pages/Departments.tsx(399,100): error TS2339: Property '_count' does not exist on type 'Department'.
+src/pages/Departments.tsx(506,90): error TS2339: Property '_count' does not exist on type 'Department'.
+src/pages/DispensePatient.tsx(1341,11): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: any; stockItems: StockItem[]; canAdd: boolean; allergies: any; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & MedicationModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & MedicationModalProps'.
+src/pages/EditInsuranceClaim.tsx(12,30): error TS6133: 'currentClaim' is declared but its value is never read.
+src/pages/EstimateForm.tsx(401,18): error TS2345: Argument of type 'string | null | undefined' is not assignable to parameter of type 'SetStateAction<string>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string>'.
+src/pages/GDRGManagement.tsx(19,3): error TS6133: 'DollarSign' is declared but its value is never read.
+src/pages/GDRGManagement.tsx(20,3): error TS6133: 'Calendar' is declared but its value is never read.
+src/pages/GDRGManagement.tsx(32,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/GDRGManagement.tsx(33,3): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/GDRGManagement.tsx(46,3): error TS6133: 'getProcedureTemplates' is declared but its value is never read.
+src/pages/GDRGManagement.tsx(111,65): error TS6133: 'procedureTemplates' is declared but its value is never read.
+src/pages/insurance-claims/EditCorporateClaim.tsx(213,105): error TS2339: Property 'corporatePrice' does not exist on type 'ServicePricing'.
+src/pages/insurance-claims/EditCorporateClaim.tsx(280,94): error TS2339: Property 'code' does not exist on type 'StockItem'.
+src/pages/insurance-claims/EditCorporateClaim.tsx(280,110): error TS2339: Property 'sellingPrice' does not exist on type 'StockItem'.
+src/pages/insurance-claims/EditCorporateClaim.tsx(427,67): error TS2551: Property 'corporateAccount' does not exist on type 'InsuranceClaim'. Did you mean 'CorporateAccount'?
+src/pages/insurance-claims/EditNHISClaim.tsx(462,6): error TS7053: Element implicitly has an 'any' type because expression of type '"investigationCode" | "scanCode"' can't be used to index type 'LabTestTemplate | ScanTemplate'.
+  Property 'scanCode' does not exist on type 'LabTestTemplate | ScanTemplate'.
+src/pages/insurance-claims/EditNHISClaim.tsx(539,78): error TS7053: Element implicitly has an 'any' type because expression of type '"investigationCode" | "scanCode"' can't be used to index type 'LabTestTemplate | ScanTemplate'.
+  Property 'scanCode' does not exist on type 'LabTestTemplate | ScanTemplate'.
+src/pages/insurance-claims/EditNHISClaim.tsx(539,102): error TS2339: Property 'code' does not exist on type 'LabTestTemplate | ScanTemplate'.
+  Property 'code' does not exist on type 'LabTestTemplate'.
+src/pages/insurance-claims/EditNHISClaim.tsx(1012,42): error TS6133: 'idx' is declared but its value is never read.
+src/pages/insurance-claims/EditNHISClaim.tsx(1195,9): error TS2322: Type 'string' is not assignable to type 'Gender | undefined'.
+src/pages/insurance-claims/EditPrivateClaim.tsx(6,1): error TS6133: 'usePatientStore' is declared but its value is never read.
+src/pages/insurance-claims/EditPrivateClaim.tsx(260,156): error TS2339: Property 'cashPrice' does not exist on type 'ServiceCatalog'.
+src/pages/insurance-claims/EditPrivateClaim.tsx(356,94): error TS2339: Property 'code' does not exist on type 'StockItem'.
+src/pages/insurance-claims/EditPrivateClaim.tsx(547,11): error TS6133: 'patient' is declared but its value is never read.
+src/pages/insurance-claims/EditPrivateClaim.tsx(549,69): error TS2551: Property 'insuranceProvider' does not exist on type 'InsuranceClaim'. Did you mean 'InsuranceProvider'?
+src/pages/InsuranceClaims.tsx(324,8): error TS7006: Parameter 'sum' implicitly has an 'any' type.
+src/pages/InsuranceClaims.tsx(324,13): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/pages/InsuranceClaims.tsx(360,27): error TS2345: Argument of type 'any' is not assignable to parameter of type 'never'.
+src/pages/InvoiceManagement.tsx(478,11): error TS2339: Property 'User' does not exist on type 'PurchaseInvoice'.
+src/pages/InvoiceManagement.tsx(757,57): error TS2339: Property 'User' does not exist on type 'PurchaseInvoice'.
+src/pages/LandingPage.tsx(12,3): error TS6133: 'Stethoscope' is declared but its value is never read.
+src/pages/LeaveManagement.tsx(11,54): error TS6133: 'Table2' is declared but its value is never read.
+src/pages/LeaveManagement.tsx(12,26): error TS6133: 'List' is declared but its value is never read.
+src/pages/Login.tsx(10,3): error TS6133: 'GraduationCap' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(13,1): error TS6133: 'useWorklistStore' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(39,29): error TS6133: 'DollarSign' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(41,21): error TS6133: 'Eye' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(42,15): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(42,28): error TS6133: 'ChevronUp' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(337,18): error TS6133: 'beds' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(337,34): error TS6133: 'getBeds' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(577,7): error TS6133: 'PhysicianNoteInput' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(1145,103): error TS6133: 'admissionNotes' is declared but its value is never read.
+src/pages/MedicalEntries.tsx(1335,46): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/MedicalEntries.tsx(1641,52): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/MedicalEntries.tsx(1725,43): error TS2339: Property 'Ward' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(1725,80): error TS2339: Property 'ward' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(1727,43): error TS2339: Property 'Bed' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(1727,80): error TS2339: Property 'bed' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(1728,53): error TS2339: Property 'Bed' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(1728,90): error TS2339: Property 'bed' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(2337,185): error TS2339: Property 'referringFacility' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(2346,50): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/MedicalEntries.tsx(2348,56): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/MedicalEntries.tsx(2348,134): error TS2551: Property 'admissionType' does not exist on type 'Attendance'. Did you mean 'Admission'?
+src/pages/MedicalEntries.tsx(2360,194): error TS2339: Property 'updatedBy' does not exist on type 'Attendance'.
+src/pages/MedicalEntries.tsx(2512,27): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: string; labTests: LabTestTemplate[]; canAdd: boolean; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & LabTestModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & LabTestModalProps'.
+src/pages/MedicalEntries.tsx(2515,27): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: string; procedures: ProcedureTemplate[]; canAdd: boolean; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ProcedureModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & ProcedureModalProps'.
+src/pages/MedicalEntries.tsx(2520,27): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: string; stockItems: StockItem[]; canAdd: boolean; allergies: any; onSwitchToConsumable: () => void; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & MedicationModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & MedicationModalProps'.
+src/pages/MedicalEntries.tsx(2526,27): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: string; scans: ScanTemplate[]; canAdd: boolean; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ScanModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & ScanModalProps'.
+src/pages/MedicalEntries.tsx(2561,7): error TS6133: 'NoteField' is declared but its value is never read.
+src/pages/MedicalServicesManagement.tsx(2,8): error TS6133: 'React' is declared but its value is never read.
+src/pages/MedicalServicesManagement.tsx(354,7): error TS2322: Type '(Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate)[]' is not assignable to type 'Diagnosis[] | LabTestTemplate[] | ProcedureTemplate[] | ScanTemplate[]'.
+  Type '(Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate)[]' is not assignable to type 'Diagnosis[]'.
+    Type 'Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate' is not assignable to type 'Diagnosis'.
+      Type 'LabTestTemplate' is missing the following properties from type 'Diagnosis': icdCode, gdrgGroupCode, requiresAuthorization, isChronic, morbidityGroup
+src/pages/MedicalServicesManagement.tsx(389,7): error TS2322: Type '(Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate)[]' is not assignable to type 'Diagnosis[] | LabTestTemplate[] | ProcedureTemplate[] | ScanTemplate[]'.
+  Type '(Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate)[]' is not assignable to type 'Diagnosis[]'.
+    Type 'Diagnosis | LabTestTemplate | ProcedureTemplate | ScanTemplate' is not assignable to type 'Diagnosis'.
+      Type 'LabTestTemplate' is missing the following properties from type 'Diagnosis': icdCode, gdrgGroupCode, requiresAuthorization, isChronic, morbidityGroup
+src/pages/MedicalServicesManagement.tsx(547,9): error TS6133: 'getCategory' is declared but its value is never read.
+src/pages/MedicalWaitingList.tsx(107,47): error TS2339: Property 'hasMedicalNotesToday' does not exist on type 'WorklistItem'.
+  Property 'hasMedicalNotesToday' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(111,46): error TS2339: Property 'hasMedicalNotesToday' does not exist on type 'WorklistItem'.
+  Property 'hasMedicalNotesToday' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(124,15): error TS2339: Property 'complaints' does not exist on type 'WorklistItem'.
+  Property 'complaints' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(144,68): error TS2367: This comparison appears to be unintentional because the types '"routine" | "urgent"' and '"critical"' have no overlap.
+src/pages/MedicalWaitingList.tsx(346,34): error TS2339: Property 'complaints' does not exist on type 'WorklistItem'.
+  Property 'complaints' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(361,36): error TS2339: Property 'reviewedAt' does not exist on type 'WorklistItem'.
+  Property 'reviewedAt' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(362,48): error TS2339: Property 'reviewedAt' does not exist on type 'WorklistItem'.
+  Property 'reviewedAt' does not exist on type 'VitalsWorklistItem'.
+src/pages/MedicalWaitingList.tsx(377,36): error TS2339: Property 'reviewedBy' does not exist on type 'WorklistItem'.
+  Property 'reviewedBy' does not exist on type 'VitalsWorklistItem'.
+src/pages/Notifications.tsx(7,1): error TS6133: 'useSettingsStore' is declared but its value is never read.
+src/pages/Notifications.tsx(390,30): error TS2345: Argument of type '{}' is not assignable to parameter of type 'number'.
+src/pages/Nursing/MedicationChart.tsx(3,35): error TS2307: Cannot find module '../../services/medicationService' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(4,32): error TS2307: Cannot find module '../../services/nursingService' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(8,19): error TS2307: Cannot find module '../../components/ui/Modal' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(9,1): error TS6133: 'Input' is declared but its value is never read.
+src/pages/Nursing/MedicationChart.tsx(9,19): error TS2307: Cannot find module '../../components/ui/Input' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(10,20): error TS2307: Cannot find module '../../components/ui/Select' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(11,40): error TS2307: Cannot find module '../../utils/dateUtils' or its corresponding type declarations.
+src/pages/Nursing/MedicationChart.tsx(84,9): error TS6133: 'getStatusColor' is declared but its value is never read.
+src/pages/Nursing/MedicationChart.tsx(135,9): error TS6133: 'groupedByDate' is declared but its value is never read.
+src/pages/Nursing/MedicationChart.tsx(232,26): error TS2322: Type '{ children: "CRITICAL" | "GENERAL" | "WOUND" | "EDUCATION"; color: string; }' is not assignable to type 'IntrinsicAttributes & BadgeProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & BadgeProps'.
+src/pages/Nursing/MedicationChart.tsx(311,28): error TS7006: Parameter 'e' implicitly has an 'any' type.
+src/pages/NursingPatientWorkspace.tsx(21,32): error TS6133: 'Bed' is declared but its value is never read.
+src/pages/NursingPatientWorkspace.tsx(112,9): error TS6133: 'hospital' is declared but its value is never read.
+src/pages/NursingPatientWorkspace.tsx(121,10): error TS6133: 'administeringId' is declared but its value is never read.
+src/pages/NursingPatientWorkspace.tsx(121,27): error TS6133: 'setAdministeringId' is declared but its value is never read.
+src/pages/NursingPatientWorkspace.tsx(193,9): error TS6133: 'administrableMeds' is declared but its value is never read.
+src/pages/NursingPatientWorkspace.tsx(199,37): error TS2353: Object literal may only specify known properties, and 'limit' does not exist in type '{ attendanceId?: string | undefined; patientId?: string | undefined; medicationId?: string | undefined; status?: string | string[] | undefined; fromDate?: string | undefined; toDate?: string | undefined; }'.
+src/pages/NursingPatientWorkspace.tsx(387,33): error TS2339: Property 'Bed' does not exist on type 'Attendance'.
+src/pages/NursingPatientWorkspace.tsx(387,63): error TS2339: Property 'bed' does not exist on type 'Attendance'.
+src/pages/PatientBillingItems.tsx(189,33): error TS2503: Cannot find namespace 'JSX'.
+src/pages/PatientBillingItems.tsx(241,45): error TS2353: Object literal may only specify known properties, and '_t' does not exist in type 'BillFilters'.
+src/pages/PatientBillingItems.tsx(391,21): error TS2345: Argument of type '() => { BillLineItem: any[]; id: string; billNumber: string; patientId: string | null; counterClientId?: string | null; counterClient?: CounterClient | null; ... 32 more ...; InsuranceProvider?: { name: string; coveragePercentage: number; }; }' is not assignable to parameter of type 'SetStateAction<ProcessedBill | null>'.
+  Type '() => { BillLineItem: any[]; id: string; billNumber: string; patientId: string | null; counterClientId?: string | null; counterClient?: CounterClient | null; ... 32 more ...; InsuranceProvider?: { name: string; coveragePercentage: number; }; }' is not assignable to type '(prevState: ProcessedBill | null) => ProcessedBill | null'.
+    Call signature return types '{ BillLineItem: any[]; id: string; billNumber: string; patientId: string | null; counterClientId?: string | null | undefined; counterClient?: CounterClient | null | undefined; ... 32 more ...; InsuranceProvider?: { ...; } | undefined; }' and 'ProcessedBill | null' are incompatible.
+      The types of 'Patient' are incompatible between these types.
+        Type '{ surname: string; otherNames: string; folderNumber: string; contact?: string | undefined; } | undefined' is not assignable to type '{ id: string; surname: string; otherNames: string; folderNumber: string; contact: string; address: string; } | undefined'.
+          Type '{ surname: string; otherNames: string; folderNumber: string; contact?: string | undefined; }' is missing the following properties from type '{ id: string; surname: string; otherNames: string; folderNumber: string; contact: string; address: string; }': id, address
+src/pages/PatientBillingItems.tsx(709,9): error TS2322: Type 'string' is not assignable to type 'PaymentMethod | undefined'.
+src/pages/PatientBillingItems.tsx(724,24): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/PatientDetails.tsx(141,24): error TS2339: Property 'data' does not exist on type 'Patient'.
+src/pages/PatientDetails.tsx(141,52): error TS2339: Property 'data' does not exist on type 'Patient'.
+src/pages/PatientDetails.tsx(142,24): error TS2339: Property 'success' does not exist on type 'Patient'.
+src/pages/PatientDetails.tsx(142,50): error TS2339: Property 'data' does not exist on type 'Patient'.
+src/pages/PatientDetails.tsx(142,78): error TS2339: Property 'data' does not exist on type 'Patient'.
+src/pages/PatientDetails.tsx(1259,30): error TS2339: Property 'LabTestTemplate' does not exist on type 'LabTest'.
+src/pages/PatientDetails.tsx(1286,30): error TS2339: Property 'ProcedureTemplate' does not exist on type 'Procedure'.
+src/pages/Patients.tsx(222,57): error TS2339: Property 'attendances' does not exist on type 'Patient'.
+src/pages/Referrals.tsx(22,3): error TS6133: 'Users' is declared but its value is never read.
+src/pages/Referrals.tsx(26,14): error TS6133: 'Info' is declared but its value is never read.
+src/pages/Referrals.tsx(26,20): error TS6133: 'MapPin' is declared but its value is never read.
+src/pages/Referrals.tsx(27,3): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/Referrals.tsx(27,39): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/Referrals.tsx(28,3): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/Referrals.tsx(28,41): error TS6133: 'AlertTriangle' is declared but its value is never read.
+src/pages/Referrals.tsx(304,9): error TS6133: 'user' is declared but its value is never read.
+src/pages/Referrals.tsx(771,11): error TS2322: Type '"referral"' is not assignable to type 'SendDocType'.
+src/pages/Reports.tsx(8,43): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/pages/Reports.tsx(20,3): error TS6133: 'Badge' is declared but its value is never read.
+src/pages/Reports.tsx(21,3): error TS6133: 'Button' is declared but its value is never read.
+src/pages/Reports.tsx(23,3): error TS6133: 'FilterSelect' is declared but its value is never read.
+src/pages/Reports.tsx(24,3): error TS6133: 'INPUT' is declared but its value is never read.
+src/pages/Reports.tsx(25,3): error TS6133: 'PageHeader' is declared but its value is never read.
+src/pages/Reports.tsx(416,90): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(417,90): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(418,90): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(419,90): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(439,8): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(442,17): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,18): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,30): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,31): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,48): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,49): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,63): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,64): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,77): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,78): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,97): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,98): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(442,119): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(442,120): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(447,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(447,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(448,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(448,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(449,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(449,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(450,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(450,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(451,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(451,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(452,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(452,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(453,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(453,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(458,9): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(478,119): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(479,120): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(481,119): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(482,119): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(484,10): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(488,17): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(488,18): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(500,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(500,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(501,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(501,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(502,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(502,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(503,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(503,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(504,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(504,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(509,11): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(524,8): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(527,17): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(527,18): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(527,33): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(527,34): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(527,58): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(527,59): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(527,83): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(527,84): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(532,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(532,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(533,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(533,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(533,46): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(533,47): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(534,17): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(534,18): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(539,9): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(552,101): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(553,101): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(554,101): error TS2322: Type '{ label: string; value: any; icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; color: string; }' is not assignable to type 'IntrinsicAttributes & StatCardProps'.
+  Property 'color' does not exist on type 'IntrinsicAttributes & StatCardProps'.
+src/pages/Reports.tsx(556,10): error TS2304: Cannot find name 'SectionCard'.
+src/pages/Reports.tsx(559,19): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(559,20): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(559,34): error TS2339: Property 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(559,35): error TS2604: JSX element type 'TH' does not have any construct or call signatures.
+src/pages/Reports.tsx(564,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(564,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(565,19): error TS2339: Property 'px-4 py-3 text-sm text-[var(--text-primary)] whitespace-nowrap' does not exist on type 'JSX.IntrinsicElements'.
+src/pages/Reports.tsx(565,20): error TS2604: JSX element type 'TD' does not have any construct or call signatures.
+src/pages/Reports.tsx(570,11): error TS2304: Cannot find name 'SectionCard'.
+src/pages/RequisitionManagement.tsx(115,5): error TS2339: Property 'updateRequisitionStatus' does not exist on type 'StockState'.
+src/pages/ScansEntry.tsx(29,18): error TS6133: 'Card' is declared but its value is never read.
+src/pages/ScansEntry.tsx(30,3): error TS6133: 'TH' is declared but its value is never read.
+src/pages/ScansEntry.tsx(30,7): error TS6133: 'TH_ROW' is declared but its value is never read.
+src/pages/ScansEntry.tsx(30,15): error TS6133: 'TD' is declared but its value is never read.
+src/pages/ScansEntry.tsx(30,19): error TS6133: 'TD_MUTED' is declared but its value is never read.
+src/pages/ScansEntry.tsx(30,29): error TS6133: 'TR' is declared but its value is never read.
+src/pages/ScansEntry.tsx(31,28): error TS6133: 'cn' is declared but its value is never read.
+src/pages/ScansEntry.tsx(1006,11): error TS2322: Type '{ isOpen: boolean; onClose: () => void; onSuccess: () => Promise<void>; attendanceId: string; scans: ScanTemplate[]; canAdd: boolean; userId: string | undefined; userName: string | undefined; }' is not assignable to type 'IntrinsicAttributes & ScanModalProps'.
+  Property 'userName' does not exist on type 'IntrinsicAttributes & ScanModalProps'.
+src/pages/Settings.tsx(7,29): error TS6133: 'Activity' is declared but its value is never read.
+src/pages/Settings.tsx(8,13): error TS6133: 'Plus' is declared but its value is never read.
+src/pages/Settings.tsx(8,19): error TS6133: 'Search' is declared but its value is never read.
+src/pages/Settings.tsx(8,27): error TS6133: 'Filter' is declared but its value is never read.
+src/pages/Settings.tsx(8,35): error TS6133: 'Edit' is declared but its value is never read.
+src/pages/Settings.tsx(8,41): error TS6133: 'Trash2' is declared but its value is never read.
+src/pages/Settings.tsx(8,49): error TS6133: 'X' is declared but its value is never read.
+src/pages/Settings.tsx(8,52): error TS6133: 'Check' is declared but its value is never read.
+src/pages/Settings.tsx(8,59): error TS6133: 'AlertCircle' is declared but its value is never read.
+src/pages/Settings.tsx(9,12): error TS6133: 'DollarSign' is declared but its value is never read.
+src/pages/Settings.tsx(9,24): error TS6133: 'Tag' is declared but its value is never read.
+src/pages/Settings.tsx(9,29): error TS6133: 'Grid' is declared but its value is never read.
+src/pages/Settings.tsx(9,35): error TS6133: 'List' is declared but its value is never read.
+src/pages/Settings.tsx(21,1): error TS6133: 'CreateEditModal' is declared but its value is never read.
+src/pages/Settings.tsx(32,25): error TS6133: 'setMedicalSubTab' is declared but its value is never read.
+src/pages/Settings.tsx(33,22): error TS6133: 'setSearchTerm' is declared but its value is never read.
+src/pages/Settings.tsx(34,10): error TS6133: 'showCreateModal' is declared but its value is never read.
+src/pages/Settings.tsx(36,10): error TS6133: 'deleteConfirm' is declared but its value is never read.
+src/pages/Settings.tsx(147,9): error TS6133: 'handleCreateMedical' is declared but its value is never read.
+src/pages/Settings.tsx(174,9): error TS6133: 'handleEditMedical' is declared but its value is never read.
+src/pages/Settings.tsx(203,9): error TS6133: 'handleDeleteMedical' is declared but its value is never read.
+src/pages/Settings.tsx(240,9): error TS6133: 'medicalTabs' is declared but its value is never read.
+src/pages/Settings.tsx(258,9): error TS6133: 'filteredMedicalData' is declared but its value is never read.
+src/pages/Settings.tsx(259,9): error TS6133: 'isLoadingMedical' is declared but its value is never read.
+src/pages/Settings.tsx(314,45): error TS2345: Argument of type '"nhis" | "gdrg" | "medical" | "services" | "backup" | "users" | "appearance" | "company"' is not assignable to parameter of type 'SetStateAction<"nhis" | "medical" | "services" | "backup" | "users" | "company">'.
+  Type '"gdrg"' is not assignable to type 'SetStateAction<"nhis" | "medical" | "services" | "backup" | "users" | "company">'.
+src/pages/Settings.tsx(341,12): error TS2367: This comparison appears to be unintentional because the types '"nhis" | "medical" | "services" | "backup" | "users" | "company"' and '"gdrg"' have no overlap.
+src/pages/Settings.tsx(346,12): error TS2367: This comparison appears to be unintentional because the types '"nhis" | "medical" | "services" | "backup" | "users" | "company"' and '"appearance"' have no overlap.
+src/pages/ShiftManagement.tsx(13,35): error TS6133: 'Building' is declared but its value is never read.
+src/pages/ShiftManagement.tsx(100,13): error TS6133: 'total' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(18,12): error TS6133: 'FileText' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(19,36): error TS6133: 'Trash2' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(19,44): error TS6133: 'Printer' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(20,19): error TS6133: 'Hash' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(20,32): error TS6133: 'Info' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(20,38): error TS6133: 'ChevronDown' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(20,51): error TS6133: 'ChevronRight' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(21,9): error TS6133: 'Maximize2' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(21,35): error TS6133: 'CircleDot' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(21,46): error TS6133: 'Stethoscope' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(24,7): error TS6133: 'getEntityId' is declared but its value is never read.
+src/pages/TheatreProcedure.tsx(238,9): error TS6133: 'hasLoaded' is declared but its value is never read.
+src/pages/UserManagement.tsx(10,21): error TS6133: 'Mail' is declared but its value is never read.
+src/pages/UserManagement.tsx(10,27): error TS6133: 'Phone' is declared but its value is never read.
+src/pages/UserManagement.tsx(11,55): error TS6133: 'Download' is declared but its value is never read.
+src/pages/UserProfile.tsx(194,68): error TS2503: Cannot find namespace 'JSX'.
+src/pages/Vitals.tsx(86,47): error TS2339: Property 'hasVitalsToday' does not exist on type 'WorklistItem'.
+  Property 'hasVitalsToday' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(90,46): error TS2339: Property 'hasVitalsToday' does not exist on type 'WorklistItem'.
+  Property 'hasVitalsToday' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(123,43): error TS2367: This comparison appears to be unintentional because the types '"routine" | "urgent" | "stat"' and '"critical"' have no overlap.
+src/pages/Vitals.tsx(125,54): error TS2339: Property 'isAntenatal' does not exist on type 'WorklistItem'.
+  Property 'isAntenatal' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(318,38): error TS2339: Property 'isAntenatal' does not exist on type 'WorklistItem'.
+  Property 'isAntenatal' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(336,32): error TS2339: Property 'lastVitals' does not exist on type 'WorklistItem'.
+  Property 'lastVitals' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(339,48): error TS2339: Property 'lastVitals' does not exist on type 'WorklistItem'.
+  Property 'lastVitals' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(340,50): error TS2339: Property 'lastVitals' does not exist on type 'WorklistItem'.
+  Property 'lastVitals' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(343,51): error TS2339: Property 'lastVitals' does not exist on type 'WorklistItem'.
+  Property 'lastVitals' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(344,50): error TS2339: Property 'lastVitals' does not exist on type 'WorklistItem'.
+  Property 'lastVitals' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(354,34): error TS2339: Property 'hasAbnormal' does not exist on type 'WorklistItem'.
+  Property 'hasAbnormal' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(365,39): error TS2339: Property 'vitalsRecordedAt' does not exist on type 'WorklistItem'.
+  Property 'vitalsRecordedAt' does not exist on type 'MedicalWorklistItem'.
+src/pages/Vitals.tsx(366,50): error TS2339: Property 'vitalsRecordedAt' does not exist on type 'WorklistItem'.
+  Property 'vitalsRecordedAt' does not exist on type 'MedicalWorklistItem'.
+src/pages/VitalsEntry.tsx(28,3): error TS6133: 'Clock' is declared but its value is never read.
+src/pages/VitalsEntry.tsx(33,3): error TS6133: 'Shield' is declared but its value is never read.
+src/pages/VitalsEntry.tsx(270,50): error TS2322: Type 'string | null' is not assignable to type 'string | undefined'.
+  Type 'null' is not assignable to type 'string | undefined'.
+src/pages/VitalsEntry.tsx(352,26): error TS2345: Argument of type 'Attendance | undefined' is not assignable to parameter of type 'Attendance'.
+  Type 'undefined' is not assignable to type 'Attendance'.
+src/pages/VitalsEntry.tsx(470,9): error TS2322: Type '{ patients: Patient[]; attendances: Attendance[]; selectedPatientId: string; selectedAttendanceId: string; onPatientSelect: (patientId: string) => void; onAttendanceSelect: (attendanceId: string) => void; onClearSelection: () => void; placeholder: string; }' is not assignable to type 'IntrinsicAttributes & PatientAttendanceSelectorProps'.
+  Property 'placeholder' does not exist on type 'IntrinsicAttributes & PatientAttendanceSelectorProps'.
+src/pages/VitalsEntry.tsx(708,17): error TS2322: Type '((vitals: any) => void) | undefined' is not assignable to type '(vitals: Vitals) => void'.
+  Type 'undefined' is not assignable to type '(vitals: Vitals) => void'.
+src/pages/VitalsEntry.tsx(709,17): error TS2322: Type '((vitals: any) => Promise<void>) | undefined' is not assignable to type '(vitals: Vitals) => void'.
+  Type 'undefined' is not assignable to type '(vitals: Vitals) => void'.
+src/pages/WardManagement.tsx(97,74): error TS2503: Cannot find namespace 'JSX'.
+src/pages/WardManagement.tsx(184,10): error TS6133: 'StatTile' is declared but its value is never read.
+src/pages/WardManagement.tsx(1048,29): error TS2339: Property 'location' does not exist on type 'Ward'.
+src/pages/WardManagement.tsx(1051,33): error TS2339: Property 'location' does not exist on type 'Ward'.
+src/store/appointmentStore.ts(65,32): error TS2339: Property 'appointments' does not exist on type 'Appointment[]'.
+src/store/appointmentStore.ts(65,71): error TS2339: Property 'appointments' does not exist on type 'Appointment[]'.
+src/store/appointmentStore.ts(66,38): error TS2339: Property 'appointments' does not exist on type 'Appointment[]'.
+src/store/appointmentStore.ts(69,53): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/appointmentStore.ts(70,38): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/appointmentStore.ts(250,1): error TS2322: Type '(roles?: string[]) => Promise<any[] | undefined>' is not assignable to type '(roles?: string[] | undefined) => Promise<void>'.
+  Type 'Promise<any[] | undefined>' is not assignable to type 'Promise<void>'.
+    Type 'any[] | undefined' is not assignable to type 'void'.
+      Type 'any[]' is not assignable to type 'void'.
+src/store/attendanceStore.ts(889,9): error TS2322: Type 'Attendance | { Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; ... 4 more ...; gender: string; } | null | undefined; ... 45 more ...; Admission?: any; } | null' is not assignable to type 'Attendance | null | undefined'.
+  Type '{ Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; otherNames: string; folderNumber: string; contact: string; dateOfBirth: string; gender: string; } | null; ... 45 more ...; Admission?: any; }' is not assignable to type 'Attendance'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/store/attendanceStore.ts(938,9): error TS2322: Type 'Attendance | { Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; ... 4 more ...; gender: string; } | null | undefined; ... 45 more ...; Admission?: any; } | null' is not assignable to type 'Attendance | null | undefined'.
+  Type '{ Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; otherNames: string; folderNumber: string; contact: string; dateOfBirth: string; gender: string; } | null; ... 45 more ...; Admission?: any; }' is not assignable to type 'Attendance'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/store/attendanceStore.ts(974,9): error TS2322: Type 'Attendance | { Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; ... 4 more ...; gender: string; } | null | undefined; ... 45 more ...; Admission?: any; } | null' is not assignable to type 'Attendance | null | undefined'.
+  Type '{ Vitals: any; id?: string | undefined; attendanceNumber?: string | undefined; patientId?: string | null | undefined; patient?: { id: string; surname: string; otherNames: string; folderNumber: string; contact: string; dateOfBirth: string; gender: string; } | null; ... 45 more ...; Admission?: any; }' is not assignable to type 'Attendance'.
+    Types of property 'id' are incompatible.
+      Type 'string | undefined' is not assignable to type 'string'.
+        Type 'undefined' is not assignable to type 'string'.
+src/store/authStore.ts(39,3): error TS2353: Object literal may only specify known properties, and 'firstName' does not exist in type 'Partial<User>'.
+src/store/billingStore.ts(213,32): error TS2339: Property 'success' does not exist on type 'any[]'.
+src/store/billingStore.ts(214,31): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/billingStore.ts(215,35): error TS2339: Property 'pagination' does not exist on type 'any[]'.
+src/store/billingStore.ts(215,58): error TS2339: Property 'meta' does not exist on type 'any[]'.
+src/store/billingStore.ts(221,51): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/billingStore.ts(222,31): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/billingStore.ts(224,37): error TS2339: Property 'bills' does not exist on type 'never'.
+src/store/billingStore.ts(225,31): error TS2339: Property 'bills' does not exist on type 'never'.
+src/store/corporateStore.ts(112,63): error TS6133: 'get' is declared but its value is never read.
+src/store/corporateStore.ts(135,21): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/corporateStore.ts(135,52): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/corporateStore.ts(136,29): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/corporateStore.ts(137,31): error TS2339: Property 'pagination' does not exist on type 'any[]'.
+src/store/corporateStore.ts(141,28): error TS2339: Property 'accounts' does not exist on type 'never'.
+src/store/corporateStore.ts(141,63): error TS2339: Property 'accounts' does not exist on type 'never'.
+src/store/corporateStore.ts(142,29): error TS2339: Property 'accounts' does not exist on type 'never'.
+src/store/corporateStore.ts(143,31): error TS2339: Property 'pagination' does not exist on type 'never'.
+src/store/deliveryStore.ts(77,61): error TS6133: 'get' is declared but its value is never read.
+src/store/deliveryStore.ts(125,45): error TS2345: Argument of type 'Partial<DeliveryRecord>' is not assignable to parameter of type '{ patientId: string; attendanceId: string; antenatalBookingId?: string | undefined; deliveryDate: string; deliveryType: "spontaneous_vertex" | "assisted_breech" | "vacuum" | "forceps" | "caesarean_section" | "multiple"; ... 16 more ...; newborns?: { ...; }[] | undefined; }'.
+  Types of property 'patientId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/store/departmentStore.ts(12,27): error TS6133: 'apiAssignDepartmentHead' is declared but its value is never read.
+src/store/departmentStore.ts(197,68): error TS2339: Property 'users' does not exist on type 'never'.
+src/store/departmentStore.ts(197,87): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/documentStore.ts(28,31): error TS2322: Type 'any[]' is not assignable to type 'T'.
+  'T' could be instantiated with an arbitrary type which could be unrelated to 'any[]'.
+src/store/documentStore.ts(204,3): error TS2322: Type '(documentId: string) => Promise<import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").DocumentGenerationResponse>' is not assignable to type '(documentId: string) => Promise<import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/documents").DocumentGenerationResponse>'.
+  Type 'Promise<import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").DocumentGenerationResponse>' is not assignable to type 'Promise<import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/documents").DocumentGenerationResponse>'.
+    Type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/api/index").DocumentGenerationResponse' is not assignable to type 'import("C:/Users/iMac/Desktop/hms/veridian_hms/frontend/src/types/documents").DocumentGenerationResponse'.
+      Types of property 'message' are incompatible.
+        Type 'string | undefined' is not assignable to type 'string'.
+          Type 'undefined' is not assignable to type 'string'.
+src/store/familyPlanningStore.ts(45,73): error TS6133: 'get' is declared but its value is never read.
+src/store/hospitalStore.ts(49,3): error TS2322: Type '"General"' is not assignable to type 'FacilityType'.
+src/store/hospitalStore.ts(66,61): error TS6133: 'get' is declared but its value is never read.
+src/store/hospitalStore.ts(104,46): error TS2339: Property 'data' does not exist on type 'HospitalInfo[]'.
+src/store/hospitalStore.ts(105,45): error TS2339: Property 'hospitals' does not exist on type 'HospitalInfo[]'.
+src/store/hospitalStore.ts(106,45): error TS2339: Property 'data' does not exist on type 'HospitalInfo[]'.
+src/store/hospitalStore.ts(143,21): error TS2339: Property 'response' does not exist on type '{}'.
+src/store/hospitalStore.ts(163,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(174,43): error TS2554: Expected 0 arguments, but got 1.
+src/store/hospitalStore.ts(178,30): error TS2339: Property 'pagination' does not exist on type 'HospitalInfo[]'.
+src/store/hospitalStore.ts(184,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(203,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(228,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(249,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(266,16): error TS18046: 'error' is of type 'unknown'.
+src/store/hospitalStore.ts(282,16): error TS18046: 'error' is of type 'unknown'.
+src/store/insuranceStore.ts(693,55): error TS2554: Expected 0 arguments, but got 1.
+src/store/insuranceStore.ts(696,40): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/insuranceStore.ts(696,68): error TS2339: Property 'data' does not exist on type 'never'.
+src/store/insuranceStore.ts(697,40): error TS2339: Property 'providers' does not exist on type 'never'.
+src/store/insuranceStore.ts(697,73): error TS2339: Property 'providers' does not exist on type 'never'.
+src/store/leaveStore.ts(5,19): error TS6133: 'getLeaveByIdApi' is declared but its value is never read.
+src/store/leaveStore.ts(6,18): error TS6133: 'createLeaveApi' is declared but its value is never read.
+src/store/leaveStore.ts(7,18): error TS6133: 'updateLeaveApi' is declared but its value is never read.
+src/store/medicalServicesStore.ts(43,28): error TS6133: 'apiGetServiceCatalogItem' is declared but its value is never read.
+src/store/medicalServicesStore.ts(692,47): error TS18046: 'error' is of type 'unknown'.
+src/store/medicalServicesStore.ts(703,47): error TS18046: 'error' is of type 'unknown'.
+src/store/medicalServicesStore.ts(733,1): error TS2322: Type '(filters?: any) => Promise<{ services: ServiceCatalog[]; pagination: Pagination | null; }>' is not assignable to type '(filters?: any) => Promise<void>'.
+  Type 'Promise<{ services: ServiceCatalog[]; pagination: Pagination | null; }>' is not assignable to type 'Promise<void>'.
+    Type '{ services: ServiceCatalog[]; pagination: Pagination | null; }' is not assignable to type 'void'.
+src/store/notificationStore.ts(87,11): error TS2739: Type '{ page: number; limit: number; total: number; pages: number; }' is missing the following properties from type 'Pagination': hasNext, hasPrev
+src/store/postnatalStore.ts(75,63): error TS6133: 'get' is declared but its value is never read.
+src/store/postnatalStore.ts(120,51): error TS2345: Argument of type 'Partial<PostnatalRecord>' is not assignable to parameter of type '{ patientId: string; attendanceId: string; antenatalBookingId?: string | undefined; deliveryRecordId?: string | undefined; examinationDate: string; dayNumber?: number | undefined; maternalCondition?: "good" | ... 3 more ... | undefined; ... 30 more ...; notes?: string | undefined; }'.
+  Types of property 'patientId' are incompatible.
+    Type 'string | undefined' is not assignable to type 'string'.
+      Type 'undefined' is not assignable to type 'string'.
+src/store/reportsStore.ts(332,54): error TS2345: Argument of type '{ startDate?: string | undefined; endDate?: string | undefined; expiryStatus?: "" | "ACTIVE" | "WARNING" | "CRITICAL" | "EXPIRED" | undefined; }' is not assignable to parameter of type '{ startDate?: string | undefined; endDate?: string | undefined; expiryStatus?: "ACTIVE" | "WARNING" | "CRITICAL" | "EXPIRED" | undefined; }'.
+  Types of property 'expiryStatus' are incompatible.
+    Type '"" | "ACTIVE" | "WARNING" | "CRITICAL" | "EXPIRED" | undefined' is not assignable to type '"ACTIVE" | "WARNING" | "CRITICAL" | "EXPIRED" | undefined'.
+      Type '""' is not assignable to type '"ACTIVE" | "WARNING" | "CRITICAL" | "EXPIRED" | undefined'.
+src/store/scanTemplateStore.ts(79,13): error TS2740: Type '{ data: any; pagination: any; }' is missing the following properties from type 'ScanTemplate[]': length, pop, push, concat, and 28 more.
+src/store/scanTemplateStore.ts(81,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(92,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(108,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(126,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(142,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(153,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(164,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(176,38): error TS18046: 'error' is of type 'unknown'.
+src/store/scanTemplateStore.ts(191,38): error TS18046: 'error' is of type 'unknown'.
+src/store/settingsStore.ts(113,30): error TS2554: Expected 1 arguments, but got 0.
+src/store/shiftStore.ts(5,19): error TS6133: 'getShiftByIdApi' is declared but its value is never read.
+src/store/toastStore.ts(4,17): error TS6133: 'ToastType' is declared but its value is never read.
+src/store/userStore.ts(535,32): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/userStore.ts(601,32): error TS2339: Property 'data' does not exist on type 'any[]'.
+src/store/vitalsStore.ts(20,57): error TS6133: 'get' is declared but its value is never read.
+src/store/vitalsStore.ts(35,16): error TS18046: 'error' is of type 'unknown'.
+src/store/vitalsStore.ts(53,16): error TS18046: 'error' is of type 'unknown'.
+src/store/vitalsStore.ts(60,24): error TS6133: 'attendanceId' is declared but its value is never read.
+src/store/vitalsStore.ts(73,16): error TS18046: 'error' is of type 'unknown'.
+src/store/wardStore.ts(72,5): error TS2353: Object literal may only specify known properties, and 'description' does not exist in type 'Ward'.
+src/store/wardStore.ts(84,3): error TS2741: Property 'admissions' is missing in type '{ id: any; bedNumber: any; wardId: any; isOccupied: any; currentPatientId: any; createdAt: any; updatedAt: any; ward: any; currentPatient: any; }' but required in type 'Bed'.
+src/store/wardStore.ts(116,21): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(116,52): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(117,31): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(118,28): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(118,65): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(119,31): error TS2339: Property 'data' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(122,28): error TS2339: Property 'wards' does not exist on type 'never'.
+src/store/wardStore.ts(122,60): error TS2339: Property 'wards' does not exist on type 'never'.
+src/store/wardStore.ts(123,31): error TS2339: Property 'wards' does not exist on type 'never'.
+src/store/wardStore.ts(134,31): error TS2339: Property 'pagination' does not exist on type 'Ward[]'.
+src/store/wardStore.ts(287,21): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(287,52): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(288,30): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(289,28): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(289,65): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(290,30): error TS2339: Property 'data' does not exist on type 'Bed[] & { pagination: { page: number; limit: number; total: number; pages: number; } | null; }'.
+src/store/wardStore.ts(303,9): error TS2322: Type '{ page: number; limit: number; total: number; pages: number; } | null' is not assignable to type 'Pagination | null | undefined'.
+  Type '{ page: number; limit: number; total: number; pages: number; }' is missing the following properties from type 'Pagination': hasNext, hasPrev
+src/store/worklistStore.ts(48,7): error TS2740: Type '{ buckets: { today: number; inpatients: number; overdue: number; closed: number; }; dateFrom: string; dateTo: string; currentDepartment: null; worklistItems: never[]; selectedItem: null; isLoading: false; error: null; stats: { ...; }; view: "pending"; }' is missing the following properties from type 'WorklistState': setDepartment, fetchWorklist, setView, setDateRange, and 4 more.
+src/types/index.ts(903,3): error TS2717: Subsequent property declarations must have the same type.  Property 'claimStatus' must be of type 'ClaimStatus', but here has type 'string'.
+src/types/index.ts(1505,3): error TS2687: All declarations of 'isArchived' must have identical modifiers.
+src/types/index.ts(1703,3): error TS2687: All declarations of 'isArchived' must have identical modifiers.
+src/types/index.ts(1703,3): error TS2717: Subsequent property declarations must have the same type.  Property 'isArchived' must be of type 'boolean', but here has type 'boolean | undefined'.
+src/utils/pdfGenerator.ts(56,14): error TS2554: Expected 3 arguments, but got 2.
+src/utils/pdfTemplates/billStatementPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/billStatementPDF.ts(10,9): error TS6133: 'formatDate' is declared but its value is never read.
+src/utils/pdfTemplates/combinedPrescriptionPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/combinedPrescriptionPDF.ts(27,9): error TS6133: 'formatDateTime' is declared but its value is never read.
+src/utils/pdfTemplates/combinedPrescriptionPDF.ts(86,9): error TS6133: 'formatInstruction' is declared but its value is never read.
+src/utils/pdfTemplates/dischargeSummaryPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/dischargeSummaryPDF.ts(42,9): error TS6133: 'formatDateTime' is declared but its value is never read.
+src/utils/pdfTemplates/dischargeSummaryPDF.ts(104,9): error TS6133: 'attendanceDate' is declared but its value is never read.
+src/utils/pdfTemplates/handoverPDF.ts(702,87): error TS2345: Argument of type 'Date' is not assignable to parameter of type 'string'.
+src/utils/pdfTemplates/insuranceClaimPDF.ts(2,1): error TS6133: 'Hospital' is declared but its value is never read.
+src/utils/pdfTemplates/insuranceClaimPDF.ts(9,7): error TS6133: 'formatDate' is declared but its value is never read.
+src/utils/pdfTemplates/insuranceClaimPDF.ts(138,9): error TS6133: 'cccCode' is declared but its value is never read.
+src/utils/pdfTemplates/labResultsPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/labResultsPDF.ts(126,9): error TS6133: 'hospitalLogo' is declared but its value is never read.
+src/utils/pdfTemplates/labResultsPDF.ts(140,9): error TS6133: 'attendanceType' is declared but its value is never read.
+src/utils/pdfTemplates/leaveRegisterPDF.ts(390,51): error TS6133: 'key' is declared but its value is never read.
+src/utils/pdfTemplates/prescriptionPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/prescriptionPDF.ts(37,9): error TS6133: 'formatDateTime' is declared but its value is never read.
+src/utils/pdfTemplates/prescriptionPDF.ts(99,9): error TS6133: 'attendanceDate' is declared but its value is never read.
+src/utils/pdfTemplates/prescriptionPDF.ts(103,9): error TS6133: 'strengthText' is declared but its value is never read.
+src/utils/pdfTemplates/receiptPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/referralLetterPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/referralLetterPDF.ts(23,9): error TS6133: 'formatDateShort' is declared but its value is never read.
+src/utils/pdfTemplates/referralLetterPDF.ts(36,9): error TS6133: 'formatDateTime' is declared but its value is never read.
+src/utils/pdfTemplates/scanReportPDF.ts(2,1): error TS6192: All imports in import declaration are unused.
+src/utils/pdfTemplates/shiftRotaPDF.ts(477,35): error TS6133: 'groupKey' is declared but its value is never read.
+src/utils/pdfTemplates/shiftSummaryPDF.ts(381,37): error TS6133: 'groupKey' is declared but its value is never read.
+src/utils/pdfTemplates/visitSummaryPDF.ts(2,1): error TS6192: All imports in import declaration are unused.

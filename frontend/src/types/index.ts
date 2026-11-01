@@ -53,7 +53,7 @@ export type ClaimStatus = 'draft' | 'finalized';
 export type BatchStatus = 'generated' | 'finalized';
 
 // Clinical
-export type LabTestStatus = 'requested' | 'completed' | 'cancelled';
+export type LabTestStatus = 'requested' | 'in_progress' | 'completed' | 'cancelled';
 export type ProcedureStatus = 'scheduled' | 'completed' | 'cancelled';
 export type ScanStatus = 'requested' | 'completed' | 'cancelled';
 export type MedicationStatus = 'prescribed' | 'dispensed' | 'administered' | 'cancelled';
@@ -412,6 +412,9 @@ export interface PatientFamilyHistory {
 
 export interface Patient {
   id: string;
+  _id?: string;
+  fullName?: string;
+  name?: string;
   folderNumber: string;
   surname: string;
   otherNames: string;
@@ -924,6 +927,17 @@ export interface Bill {
 // CLINICAL ENTRIES
 // ======================
 
+export interface VitalsEntry {
+  bloodPressure?: string;
+  temperature?: number;
+  pulse?: number;
+  respiration?: number;
+  spo2?: number;
+  weight?: number;
+  height?: number;
+  notes?: string;
+}
+
 export interface Vitals {
   id: string;
   attendanceId: string;
@@ -1130,6 +1144,7 @@ export interface ServiceCatalog {
 
 export interface LabTestTemplate {
   id: string;
+  _id?: string;
   name: string;
   investigationCode: string;
   category: LabCategory;
@@ -1152,6 +1167,7 @@ export interface LabTestTemplate {
 
 export interface ProcedureTemplate {
   id: string;
+  _id?: string;
   name: string;
   procedureCode: string;
   description?: string;
@@ -1161,6 +1177,7 @@ export interface ProcedureTemplate {
   isPrivateInsExempted: boolean;
   nhisRequiresAuth: boolean;
   privateInsRequiresAuth: boolean;
+  requiresAuthorization?: boolean;
   isActive: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -1175,9 +1192,11 @@ export interface ProcedureTemplate {
 // UPDATE LabTest type to include ServiceCatalog
 export interface LabTest {
   id: string;
+  _id?: string;
   attendanceId: string;
   serviceCatalogId?: string;
   templateId?: string;  // Keep for backward compatibility
+  name?: string;
   status: LabTestStatus;
   priority: 'routine' | 'urgent' | 'stat';
   requestedAt: string;
@@ -1199,6 +1218,7 @@ export interface Procedure {
   attendanceId: string;
   serviceCatalogId?: string;
   templateId?: string;
+  name?: string;
   status: ProcedureStatus;
   scheduledDate?: string;
   performedAt?: string;
@@ -1271,6 +1291,7 @@ export interface Scan {
 
 export interface ScanTemplate {
   id: string;
+  _id?: string;
   name: string;
   investigationCode: string;
   scanCode: string;
@@ -1281,6 +1302,7 @@ export interface ScanTemplate {
   isPrivateInsExempted: boolean;
   nhisRequiresAuth: boolean;
   privateInsRequiresAuth: boolean;
+  requiresAuthorization?: boolean;
   isActive: boolean;
   tariffCode?: string;
   vatRate: number;
@@ -1288,6 +1310,9 @@ export interface ScanTemplate {
   preparationInstructions?: string;
   duration: number;
   contrastRequired: boolean;
+  cashPrice?: number;
+  nhisPrice?: number;
+  insurancePrice?: number;
   scanType?: string;
   createdAt: string;
   updatedAt: string;
@@ -1523,12 +1548,17 @@ export interface ConsultationType {
 export interface HospitalInfo {
   id: string;
   name: string;
+  type?: string;
   address: string;
   phone: string;
   email: string;
+  website?: string;
+  description?: string;
+  emergencyPhone?: string;
   imageUrl?: string;
-  nhisFacilityCode: string;
-  nhisFacilityType: FacilityType;
+  logoUrl?: string;
+  nhisFacilityCode?: string;
+  nhisFacilityType?: FacilityType;
   nhisAccreditationNumber?: string;
   nhisAccreditationDate?: string;
   nhisAccreditationExpiry?: string;
@@ -1540,9 +1570,9 @@ export interface HospitalInfo {
   nhisContactEmail?: string;
   ghsDistrictCode?: string;
   ghaHFCode?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type Hospital = HospitalInfo;

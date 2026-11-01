@@ -21,8 +21,8 @@ export const LabRequestSection: React.FC<LabRequestSectionProps> = ({
   selectedAttendance,
   isRequestingLab
 }) => {
-  const canRequestLab = selectedAttendance && 
-    (selectedAttendance.status === 'pending' || selectedAttendance.status === 'active');
+  const canRequestLab = !!selectedAttendance &&
+    (selectedAttendance.status === 'pending' || selectedAttendance.status === 'admitted' || selectedAttendance.status === 'completed');
 
   return (
     <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)] p-6">
@@ -39,7 +39,7 @@ export const LabRequestSection: React.FC<LabRequestSectionProps> = ({
           <select
             value={currentLabRequest.templateId}
             onChange={(e) => {
-              const template = labTestTemplates.find(t => t._id === e.target.value);
+              const template = labTestTemplates.find(t => (t.id || t._id || '') === e.target.value);
               onLabRequestChange({
                 ...currentLabRequest,
                 templateId: e.target.value,
@@ -49,11 +49,14 @@ export const LabRequestSection: React.FC<LabRequestSectionProps> = ({
             className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-[var(--icon-blue-text)] focus:border-[var(--icon-blue-text)] transition-all"
           >
             <option value="">Select lab test...</option>
-            {labTestTemplates.map((template) => (
-              <option key={template._id} value={template._id}>
-                {template.name}
-              </option>
-            ))}
+            {labTestTemplates.map((template) => {
+              const templateId = (template as any)?.id || (template as any)?._id || '';
+              return (
+                <option key={templateId} value={templateId}>
+                  {template.name}
+                </option>
+              );
+            })}
           </select>
         </div>
 

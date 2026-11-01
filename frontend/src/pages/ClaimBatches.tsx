@@ -555,6 +555,115 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
         />
       </div>
 
+      {/* Batches of the month */}
+      <Card
+        title={`Batches in ${periodName(periodYear, periodMonth)}`}
+        description={`Generated for ${typeLabel(filterType)}. A batch stays editable until it is finalized.`}
+        padded={false}
+      >
+        <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className={TH_ROW}>
+              <th className={TH}>Batch #</th>
+              <th className={TH}>Period</th>
+              <th className={TH}>Type</th>
+              {filterType !== 'nhis' && <th className={TH}>Provider / account</th>}
+              <th className={cn(TH, 'text-right')}>Claims</th>
+              <th className={cn(TH, 'text-right')}>Amount</th>
+              <th className={TH}>Status</th>
+              <th className={cn(TH, 'text-right')}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading && batches.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                  <Loader className="w-4 h-4 animate-spin inline mr-2" /> Loading…
+                </td>
+              </tr>
+            ) : batches.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-secondary)]">
+                  No batch covers {periodName(periodYear, periodMonth)}
+                  {` for ${typeLabel(filterType)}`} yet.
+                </td>
+              </tr>
+            ) : (
+              batches.map((raw: any) => {
+                const b = raw as BatchRow;
+                return (
+                  <tr key={b.id} className={TR}>
+                    <td className={cn(TD_MONO, 'text-xs')}>{b.batchNumber}</td>
+                    <td className={TD}>{periodName(b.periodYear, b.periodMonth)}</td>
+                    <td className={TD}>
+                      <Badge tone={typeTone[b.insuranceType]}>
+                        {typeLabel(b.insuranceType)}
+                      </Badge>
+                    </td>
+                    {filterType !== 'nhis' && (
+                      <td className={TD}>
+                        {b.insuranceType === 'corporate'
+                          ? (b.corporateAccount?.companyName ?? '—')
+                          : (b.insuranceProvider?.name ?? '—')}
+                      </td>
+                    )}
+                    <td className={cn(TD, 'text-right')}>{b.totalClaims ?? b.claims?.length ?? 0}</td>
+                    <td className={cn(TD, 'text-right font-medium')}>{money(b.totalAmount)}</td>
+                    <td className={TD}>{statusBadge(b.status)}</td>
+                    <td className={cn(TD, 'text-right')}>
+                      <div className="inline-flex items-center justify-end gap-1.5">
+                        <Button size="xs" variant="ghost" iconOnly icon={Eye} aria-label="View batch" onClick={() => handleView(b.id)} />
+                        {b.insuranceType === 'nhis' && (
+                          <Button size="xs" variant="ghost" iconOnly icon={Download} aria-label="Download batch XML" onClick={() => handleDownloadXml(b.id)} />
+                        )}
+                        {b.insuranceType === 'nhis' && canSendToClaimIt && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={claimitBusy === b.id ? undefined : Send}
+                            loading={claimitBusy === b.id}
+                            aria-label="Send to CLAIM-it"
+                            className="text-[var(--icon-green-text)]"
+                            onClick={() => handleSendBatch(b)}
+                          />
+                        )}
+                        <Button size="xs" variant="ghost" iconOnly icon={Printer} aria-label="Print batch" onClick={() => handlePrint(b.id)} />
+                        {b.status === 'generated' && (
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            iconOnly
+                            icon={CheckCircle}
+                            aria-label="Finalize batch"
+                            className="text-[var(--icon-green-text)]"
+                            disabled={processingId === b.id}
+                            onClick={() => handleFinalize(b.id)}
+                          />
+                        )}
+                        {b.status === 'generated' && (
+                          <Button
+                            size="xs"
+                            variant="dangerSoft"
+                            iconOnly
+                            icon={Trash2}
+                            aria-label="Delete batch"
+                            disabled={processingId === b.id}
+                            onClick={() => setDeleteId(b.id)}
+                          />
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+        </div>
+      </Card>
+
       {/* The month's claims */}
       <Card
         title={`Claims in ${periodName(periodYear, periodMonth)}`}
@@ -656,113 +765,6 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
             )}
           </>
         )}
-      </Card>
-
-      {/* Batches of the month */}
-      <Card
-        title={`Batches in ${periodName(periodYear, periodMonth)}`}
-        description={`Generated for ${typeLabel(filterType)}. A batch stays editable until it is finalized.`}
-        padded={false}
-      >
-        <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className={TH_ROW}>
-              <th className={TH}>Batch #</th>
-              <th className={TH}>Period</th>
-              <th className={TH}>Type</th>
-              <th className={TH}>Provider / account</th>
-              <th className={cn(TH, 'text-right')}>Claims</th>
-              <th className={cn(TH, 'text-right')}>Amount</th>
-              <th className={TH}>Status</th>
-              <th className={cn(TH, 'text-right')}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && batches.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-secondary)]">
-                  <Loader className="w-4 h-4 animate-spin inline mr-2" /> Loading…
-                </td>
-              </tr>
-            ) : batches.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-[var(--text-secondary)]">
-                  No batch covers {periodName(periodYear, periodMonth)}
-                  {` for ${typeLabel(filterType)}`} yet.
-                </td>
-              </tr>
-            ) : (
-              batches.map((raw: any) => {
-                const b = raw as BatchRow;
-                return (
-                  <tr key={b.id} className={TR}>
-                    <td className={cn(TD_MONO, 'text-xs')}>{b.batchNumber}</td>
-                    <td className={TD}>{periodName(b.periodYear, b.periodMonth)}</td>
-                    <td className={TD}>
-                      <Badge tone={typeTone[b.insuranceType]}>
-                        {typeLabel(b.insuranceType)}
-                      </Badge>
-                    </td>
-                    <td className={TD}>
-                      {b.insuranceType === 'corporate'
-                        ? (b.corporateAccount?.companyName ?? '—')
-                        : (b.insuranceProvider?.name ?? '—')}
-                    </td>
-                    <td className={cn(TD, 'text-right')}>{b.totalClaims ?? b.claims?.length ?? 0}</td>
-                    <td className={cn(TD, 'text-right font-medium')}>{money(b.totalAmount)}</td>
-                    <td className={TD}>{statusBadge(b.status)}</td>
-                    <td className={cn(TD, 'text-right')}>
-                      <div className="inline-flex items-center justify-end gap-1.5">
-                        <Button size="xs" variant="ghost" iconOnly icon={Eye} aria-label="View batch" onClick={() => handleView(b.id)} />
-                        {b.insuranceType === 'nhis' && (
-                          <Button size="xs" variant="ghost" iconOnly icon={Download} aria-label="Download batch XML" onClick={() => handleDownloadXml(b.id)} />
-                        )}
-                        {b.insuranceType === 'nhis' && canSendToClaimIt && (
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            iconOnly
-                            icon={claimitBusy === b.id ? undefined : Send}
-                            loading={claimitBusy === b.id}
-                            aria-label="Send to CLAIM-it"
-                            className="text-[var(--icon-green-text)]"
-                            onClick={() => handleSendBatch(b)}
-                          />
-                        )}
-                        <Button size="xs" variant="ghost" iconOnly icon={Printer} aria-label="Print batch" onClick={() => handlePrint(b.id)} />
-                        {b.status === 'generated' && (
-                          <Button
-                            size="xs"
-                            variant="ghost"
-                            iconOnly
-                            icon={CheckCircle}
-                            aria-label="Finalize batch"
-                            className="text-[var(--icon-green-text)]"
-                            disabled={processingId === b.id}
-                            onClick={() => handleFinalize(b.id)}
-                          />
-                        )}
-                        {b.status === 'generated' && (
-                          <Button
-                            size="xs"
-                            variant="dangerSoft"
-                            iconOnly
-                            icon={Trash2}
-                            aria-label="Delete batch"
-                            disabled={processingId === b.id}
-                            onClick={() => setDeleteId(b.id)}
-                          />
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-        </div>
       </Card>
 
       {/* Pagination */}

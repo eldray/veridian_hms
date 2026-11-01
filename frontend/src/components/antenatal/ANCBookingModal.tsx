@@ -1,6 +1,6 @@
 // src/components/antenatal/ANCBookingModal.tsx
 import React, { useState } from 'react';
-import { X, Calendar, Heart, Ruler, Weight, Syringe, AlertTriangle, Droplet } from 'lucide-react';
+import { X, Calendar, Heart, Ruler, Weight, Syringe, AlertTriangle } from 'lucide-react';
 import { useAntenatalStore } from '../../store/antenatalStore';
 import { useToast } from '../../store/toastStore';
 

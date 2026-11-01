@@ -1,7 +1,7 @@
 // src/components/ComplaintInput.tsx - FIXED (no nested buttons)
 import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, X, Tag } from 'lucide-react';
-import { COMPLAINTS_CATALOG, searchComplaints } from '../data/complaints';
+import { searchComplaints } from '../data/complaints';
 
 interface ComplaintInputProps {
   value: string;
@@ -129,6 +129,7 @@ export default function ComplaintInput({
             onKeyDown={handleKeyDown}
             placeholder={complaintsList.length === 0 ? placeholder : "Add more..."}
             disabled={disabled}
+            required={required}
             className="w-full pl-8 pr-8 py-1.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-1 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-[var(--text-primary)]"
           />
           {searchTerm && (

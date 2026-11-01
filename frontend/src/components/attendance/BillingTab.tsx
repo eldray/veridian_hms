@@ -12,7 +12,7 @@ import {
   Download
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/settingsStore';
-import { useAttendanceStore } from '../../store/attendanceStore';
+import { useInsuranceStore } from '../../store/insuranceStore';
 
 interface BillingTabProps {
   attendance: any;
@@ -20,7 +20,7 @@ interface BillingTabProps {
 
 export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
   const { nhisConfig } = useSettingsStore();
-  const { submitNHISClaim, isLoading } = useAttendanceStore();
+  const { generateNHISClaim, isLoading } = useInsuranceStore();
 
   const [showClaimSuccess, setShowClaimSuccess] = useState(false);
   const [claimError, setClaimError] = useState('');
@@ -53,13 +53,12 @@ export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
     setClaimXML('');
 
     try {
-      // Generate XML first
-      const claimData = await useAttendanceStore.getState().generateNHISClaim(attendance._id);
-      setClaimXML(claimData.xml);
-      setShowXML(true);
-
-      // Submit to NHIS
-      await submitNHISClaim(attendance._id);
+      const claimData = await generateNHISClaim(attendance.id);
+      const xml = (claimData as any)?.xml ?? (claimData as any)?.claimXml ?? (claimData as any)?.data?.xml ?? '';
+      if (xml) {
+        setClaimXML(xml);
+        setShowXML(true);
+      }
       setShowClaimSuccess(true);
     } catch (err: any) {
       setClaimError(err.message || 'Failed to submit NHIS claim');
@@ -76,7 +75,7 @@ export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `NHIS_Claim_${attendance._id}.xml`;
+    a.download = `NHIS_Claim_${attendance.id}.xml`;
     a.click();
     URL.revokeObjectURL(url);
   };

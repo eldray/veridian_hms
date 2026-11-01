@@ -22,7 +22,6 @@ import {
   getVitalsReport,
   getReportSubmissions,
   getReportSubmissionById,
-  exportGHSReportToCSV,
   exportReport as exportReportApi,
   exportReportToCSV,
   getNhisExpiryReport,
@@ -105,7 +104,7 @@ interface ReportsState {
 
   // ── Actions: NHIS ─────────────────────────────
   getNhisExpiryReport: (params: { daysThreshold?: number; startDate?: string; endDate?: string }) => Promise<void>;
-  getNhisClaimsSummary: (params: { startDate?: string; endDate?: string; expiryStatus?: string }) => Promise<void>;
+  getNhisClaimsSummary: (params: { startDate?: string; endDate?: string; expiryStatus?: 'ACTIVE' | 'WARNING' | 'CRITICAL' | 'EXPIRED' | '' }) => Promise<void>;
 
   // ── Actions: Export / submissions ────────────
   exportReport: (data: { reportType: string; format: string; filters: ReportFilter; data: any }) => Promise<any>;

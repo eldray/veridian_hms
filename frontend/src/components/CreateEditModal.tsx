@@ -199,7 +199,7 @@ const DEFAULT_DEPARTMENTS = ['General Surgery', 'Orthopedics', 'OB/GYN', 'Cardio
 const DEFAULT_SPECIMEN_TYPES = ['blood', 'urine', 'stool', 'csf', 'sputum', 'fluid', 'semen', 'tissue', 'saliva', 'swab', 'other'];
 
 export default function CreateEditModal({ type, item, onSave, onClose, metadata }: CreateEditModalProps) {
-  const [formData, setFormData] = useState(defaultFormData[type]);
+  const [formData, setFormData] = useState<Record<string, any>>(defaultFormData[type]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveError, setSaveError] = useState('');
 

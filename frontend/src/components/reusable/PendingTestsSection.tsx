@@ -44,9 +44,9 @@ export const PendingTestsSection: React.FC<PendingTestsSectionProps> = ({
               className={`p-4 rounded-lg border-2 cursor-pointer transition-all duration-300 ${
                 selectedTest?.testId === getEntityId(test)
                   ? 'bg-[var(--icon-blue-bg)] border-[var(--icon-blue-text)] shadow-md'
-                  : test.status === 'in_progress'
-                  ? 'bg-[var(--icon-blue-bg)] border-[var(--icon-blue-text)] hover:border-[var(--icon-blue-text)]'
-                  : 'bg-[var(--bg-main)] border-[var(--border-color)] hover:border-[var(--border-hover)]'
+                  : (test.status === 'in_progress')
+                ? 'bg-[var(--icon-blue-bg)] border-[var(--icon-blue-text)] hover:border-[var(--icon-blue-text)]'
+                : 'bg-[var(--bg-main)] border-[var(--border-color)] hover:border-[var(--border-hover)]'
               }`}
               onClick={() =>
                 onTestSelect({

@@ -18,7 +18,7 @@ interface ToastProps {
 }
 
 export function Toast({ toast, onRemove }: ToastProps) {
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Clear existing timeout

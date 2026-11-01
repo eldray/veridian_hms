@@ -151,7 +151,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
             </label>
             <BloodPressureInput
               value={formData.bloodPressure}
-              onChange={(value) => setFormData(prev => ({ ...prev, bloodPressure: value }))}
+              onChange={(value) => setFormData((prev: VitalsEntry) => ({ ...prev, bloodPressure: value }))}
               disabled={isLoading}
             />
           </div>
@@ -169,7 +169,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   step="0.1"
                   placeholder="36.6"
                   value={formData.temperature || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     temperature: e.target.value ? parseFloat(e.target.value) : undefined 
                   }))}
@@ -191,7 +191,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   type="number"
                   placeholder="72"
                   value={formData.pulse || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     pulse: e.target.value ? parseInt(e.target.value) : undefined 
                   }))}
@@ -213,7 +213,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   type="number"
                   placeholder="16"
                   value={formData.respiration || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     respiration: e.target.value ? parseInt(e.target.value) : undefined 
                   }))}
@@ -235,7 +235,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   type="number"
                   placeholder="98"
                   value={formData.spo2 || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     spo2: e.target.value ? parseInt(e.target.value) : undefined 
                   }))}
@@ -258,7 +258,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   step="0.1"
                   placeholder="65.5"
                   value={formData.weight || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     weight: e.target.value ? parseFloat(e.target.value) : undefined 
                   }))}
@@ -280,7 +280,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
                   type="number"
                   placeholder="170"
                   value={formData.height || ''}
-                  onChange={(e) => setFormData(prev => ({ 
+                  onChange={(e) => setFormData((prev: VitalsEntry) => ({ 
                     ...prev, 
                     height: e.target.value ? parseFloat(e.target.value) : undefined 
                   }))}
@@ -300,7 +300,7 @@ export const VitalsFormModal: React.FC<VitalsFormModalProps> = ({
             <textarea
               placeholder="Enter any additional observations or comments..."
               value={formData.notes || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              onChange={(e) => setFormData((prev: VitalsEntry) => ({ ...prev, notes: e.target.value }))}
               rows={3}
               disabled={isLoading}
               className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-[var(--text-primary)] placeholder-[var(--text-tertiary)] resize-none disabled:opacity-50 disabled:cursor-not-allowed"

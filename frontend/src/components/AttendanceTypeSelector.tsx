@@ -8,7 +8,17 @@ interface AttendanceTypeSelectorProps {
   disabled?: boolean;
 }
 
-const attendanceTypes = [
+type AttendanceColor = 'blue' | 'purple' | 'pink' | 'teal' | 'red' | 'gray' | 'indigo';
+
+type AttendanceTypeOption = {
+  value: AttendanceType;
+  label: string;
+  description: string;
+  icon: typeof User;
+  color: AttendanceColor;
+};
+
+const attendanceTypes: AttendanceTypeOption[] = [
   {
     value: 'general_opd' as AttendanceType,
     label: 'General OPD',
@@ -65,8 +75,8 @@ export default function AttendanceTypeSelector({
   onAttendanceTypeChange,
   disabled = false
 }: AttendanceTypeSelectorProps) {
-  const getColorClasses = (type: typeof attendanceTypes[0], isSelected: boolean) => {
-    const colors = {
+  const getColorClasses = (type: { color: AttendanceColor }, isSelected: boolean) => {
+    const colors: Record<AttendanceColor, string> = {
       blue: isSelected ? 'border-blue-500 bg-blue-50' : 'hover:border-blue-300',
       purple: isSelected ? 'border-purple-500 bg-purple-50' : 'hover:border-purple-300',
       pink: isSelected ? 'border-pink-500 bg-pink-50' : 'hover:border-pink-300',
@@ -75,11 +85,11 @@ export default function AttendanceTypeSelector({
       gray: isSelected ? 'border-gray-500 bg-gray-50' : 'hover:border-gray-300',
       indigo: isSelected ? 'border-indigo-500 bg-indigo-50' : 'hover:border-indigo-300'
     };
-    return colors[type.color] || colors.blue;
+    return colors[type.color] ?? colors.blue;
   };
 
-  const getIconColor = (type: typeof attendanceTypes[0], isSelected: boolean) => {
-    const colors = {
+  const getIconColor = (type: { color: AttendanceColor }, isSelected: boolean) => {
+    const colors: Record<AttendanceColor, string> = {
       blue: isSelected ? 'text-blue-600' : 'text-gray-600',
       purple: isSelected ? 'text-purple-600' : 'text-gray-600',
       pink: isSelected ? 'text-pink-600' : 'text-gray-600',
@@ -88,7 +98,7 @@ export default function AttendanceTypeSelector({
       gray: isSelected ? 'text-gray-600' : 'text-gray-600',
       indigo: isSelected ? 'text-indigo-600' : 'text-gray-600'
     };
-    return colors[type.color] || colors.blue;
+    return colors[type.color] ?? colors.blue;
   };
 
   return (

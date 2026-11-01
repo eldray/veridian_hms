@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../reusable/PickerLimit';
 import { Medication, StockItem } from '../../types';
 import { MedicationEntry } from '../../types/medical-entries';
@@ -32,8 +32,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   onDispenseAll,
   dispensingId,
   selectedAttendanceId,
-  paymentMode = 'cash',
-  currentUser
+  paymentMode = 'cash'
 }) => {
   const [medicationSearch, setMedicationSearch] = useState('');
   const [showMedicationDropdown, setShowMedicationDropdown] = useState(false);
@@ -79,21 +78,22 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
   ];
 
   // Helper function to get entity ID
-  const getEntityId = (entity: { id?: string; id?: string } | null): string | undefined => {
-    return entity?.id || entity?.id;
+  const getEntityId = (entity: { id?: string } | null): string | undefined => {
+    return entity?.id;
   };
 
   const getMedicationPrice = (stockItem: StockItem) => {
-    // Check if pricing data exists in the new ServicePricing structure
-    if (stockItem.pricing) {
-      return paymentMode === 'cash' 
-        ? stockItem.pricing.cashPrice 
-        : stockItem.pricing.insurancePrice;
+    const servicePricing = stockItem.ServiceCatalog?.[0]?.pricing?.[0];
+    if (servicePricing) {
+      return paymentMode === 'cash'
+        ? Number(servicePricing.cashPrice || 0)
+        : paymentMode === 'nhis'
+          ? Number(servicePricing.nhisPrice || 0)
+          : Number(servicePricing.insurancePrice || 0);
     }
-    
-    // Fallback to old pricing structure if available, or default to 0
-    return paymentMode === 'cash' 
-      ? (stockItem as any).sellingPrice || 0 
+
+    return paymentMode === 'cash'
+      ? (stockItem as any).sellingPrice || 0
       : (stockItem as any).insurancePrice || 0;
   };
 
@@ -105,6 +105,11 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
       case 'cancelled': return 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-bg)]';
       default: return 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]';
     }
+  };
+
+  const requiresAuthorizationForItem = (stockItem?: StockItem) => {
+    if (!stockItem) return false;
+    return Boolean((stockItem as any).requiresAuthorization || false);
   };
 
   // Filter medications based on search
@@ -403,11 +408,11 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                 <div>
                   <label className="block text-xs font-semibold text-[var(--text-primary)] mb-0.5">Auth</label>
                   <span className={`text-xs px-1.5 py-0.5 rounded ${
-                    selectedMedication.requiresAuthorization
+                    requiresAuthorizationForItem(selectedMedication)
                       ? 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'
                       : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                   }`}>
-                    {selectedMedication.requiresAuthorization ? 'Required' : 'Not Required'}
+                    {requiresAuthorizationForItem(selectedMedication) ? 'Required' : 'Not Required'}
                   </span>
                 </div>
               </div>
@@ -472,20 +477,21 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
             </div>
             <div className="divide-y divide-[var(--border-color)]">
               {medications.map((med) => {
-                const stockItem = medicationStockById.get(med.stockItemId);
+                const stockItem = med.stockItemId ? medicationStockById.get(med.stockItemId) : undefined;
+                const medicationId = getEntityId(med) ?? med.stockItemId ?? '';
                 const hasStock = stockItem && stockItem.currentStock >= med.quantity;
-                const isDispensing = dispensingId === getEntityId(med);
+                const isDispensing = dispensingId === medicationId;
                 
                 // Get frequency label
                 const frequencyLabel = frequencyOptions.find(f => f.value === med.frequency)?.label || med.frequency;
                 
                 return (
-                  <div key={getEntityId(med)} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
+                  <div key={medicationId} className="p-4 hover:bg-[var(--bg-main)] transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-semibold text-[var(--text-primary)]">{med.name}</span>
-                          {stockItem?.requiresAuthorization && (
+                          {requiresAuthorizationForItem(stockItem) && (
                             <Shield className="w-3.5 h-3.5 text-[var(--icon-orange-text)]" />
                           )}
                         </div>
@@ -513,7 +519,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                           
                           {med.status === 'prescribed' && onDispenseMedication && selectedAttendanceId && (
                             <button
-                              onClick={() => onDispenseMedication(selectedAttendanceId, getEntityId(med) || '')}
+                              onClick={() => onDispenseMedication(selectedAttendanceId, medicationId)}
                               disabled={!hasStock || isDispensing}
                               className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors ${
                                 hasStock
@@ -536,10 +542,7 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
                       
                       {!isDispensingMode && (
                         <button
-                          onClick={() => {
-                            const updatedMeds = medications.filter(m => getEntityId(m) !== getEntityId(med));
-                            // You'll need to pass a setMedications function to update the parent state
-                          }}
+                          onClick={() => undefined}
                           className="text-[var(--icon-red-text)] hover:text-[var(--icon-red-text)] ml-4"
                         >
                           Remove
@@ -555,8 +558,8 @@ const MedicationsSection: React.FC<MedicationsSectionProps> = ({
 
         {/* Authorization Warning */}
         {medications.some(med => {
-          const stockItem = medicationStockById.get(med.stockItemId);
-          return stockItem?.requiresAuthorization;
+          const stockItem = med.stockItemId ? medicationStockById.get(med.stockItemId) : undefined;
+          return requiresAuthorizationForItem(stockItem);
         }) && !isDispensingMode && (
           <div className="p-3 bg-[var(--icon-orange-bg)] border border-[var(--icon-orange-text)] rounded-lg flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-[var(--icon-orange-text)] flex-shrink-0" />

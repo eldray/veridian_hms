@@ -17,6 +17,7 @@ export interface MedicationEntry {
 
 export interface LabTestEntry {
   templateId: string;
+  name?: string;
   serviceCatalogId?: string;  // For pricing
   priority: 'routine' | 'urgent' | 'stat';
   notes?: string;
@@ -25,6 +26,7 @@ export interface LabTestEntry {
 
 export interface ProcedureEntry {
   templateId: string;
+  name?: string;
   serviceCatalogId?: string;  // For pricing
   scheduledDate: string;
   notes?: string;
@@ -39,6 +41,7 @@ export interface ProcedureEntry {
 
 export interface ScanEntry {
   templateId: string;
+  name?: string;
   serviceCatalogId?: string;  // For pricing
   scanType: string;
   description: string;

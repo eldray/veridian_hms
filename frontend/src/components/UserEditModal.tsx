@@ -43,7 +43,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
     phone: '',
     licenseNumber: '',
     specialization: '',
-    role: '',
+    role: 'admin',
     seniority: 'JUNIOR',
     isActive: true,
   });
@@ -56,7 +56,7 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
         phone: user.phone || '',
         licenseNumber: user.licenseNumber || '',
         specialization: user.specialization || '',
-        role: user.role,
+        role: user.role || 'admin',
         seniority: (user.seniority as Seniority) || 'JUNIOR',
         isActive: user.isActive ?? true,
       });
@@ -97,6 +97,8 @@ export default function UserEditModal({ user, onClose, onSave, isLoading }: User
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+      ...(name === 'role' ? { role: value as AppUser['role'] } : {}),
+      ...(name === 'seniority' ? { seniority: value as Seniority } : {}),
     }));
   };
 

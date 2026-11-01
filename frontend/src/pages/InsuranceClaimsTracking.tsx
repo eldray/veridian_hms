@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, Fragment, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle, Banknote, Clock3, FileCheck2, Loader2,
   Plus, RefreshCw, Send, X,
@@ -19,6 +19,7 @@ type ClaimRow = {
   // This screen reads the raw API envelope, whose relation keys arrive camelCase; the insurance
   // store re-cases its claims to Prisma's names, so the two must not be conflated here.
   insuranceProvider?: { name?: string; type?: string };
+  corporateAccount?: { companyName?: string };
   patient?: { folderNumber?: string; surname?: string; otherNames?: string };
   attendance?: { attendanceNumber?: string; dateTime?: string };
   trackingEvents: TrackingEvent[];
@@ -77,6 +78,65 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
     acc.outstanding += Number(claim.tracking?.outstanding ?? claim.totalClaimAmount ?? 0);
     return acc;
   }, { claimed: 0, paid: 0, outstanding: 0 }), [claims]);
+
+  const groupedTrackingClaims = useMemo(() => {
+    const monthGroups = new Map<string, Map<string, { label: string; claims: ClaimRow[]; totalClaimed: number; totalPaid: number; totalOutstanding: number; count: number }>>();
+
+    const monthLabel = (value?: string | null) => {
+      if (!value) return 'Unknown month';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Unknown month';
+      return new Intl.DateTimeFormat('en-GH', { month: 'long', year: 'numeric' }).format(date);
+    };
+
+    const monthKey = (value?: string | null) => {
+      if (!value) return 'unknown';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'unknown';
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      return `${y}-${m}`;
+    };
+
+    const payerKey = (claim: ClaimRow) => family === 'corporate'
+      ? (claim.corporateAccount?.companyName || 'Unassigned corporate account')
+      : family === 'nhis'
+        ? 'NHIS'
+        : (claim.insuranceProvider?.name || 'Unknown payer');
+
+    claims.forEach((claim) => {
+      const bucket = monthKey(claim.finalizedAt || claim.attendance?.dateTime || claim.trackingEvents?.[0]?.createdAt || claim.tracking?.latestStatus);
+      const monthBucket = monthGroups.get(bucket) ?? new Map();
+
+      const key = payerKey(claim);
+      const current = monthBucket.get(key) ?? {
+        label: key,
+        claims: [],
+        totalClaimed: 0,
+        totalPaid: 0,
+        totalOutstanding: 0,
+        count: 0,
+      };
+
+      current.claims.push(claim);
+      current.count += 1;
+      current.totalClaimed += Number(claim.totalClaimAmount || 0);
+      current.totalPaid += Number(claim.tracking?.totalPaid || 0);
+      current.totalOutstanding += Number(claim.tracking?.outstanding ?? claim.totalClaimAmount ?? 0);
+      monthBucket.set(key, current);
+      monthGroups.set(bucket, monthBucket);
+    });
+
+    return Array.from(monthGroups.entries()).map(([monthKeyValue, payers]) => ({
+      monthKey: monthKeyValue,
+      label: monthLabel(claims.find((claim) => monthKey(claim.finalizedAt || claim.attendance?.dateTime || claim.trackingEvents?.[0]?.createdAt) === monthKeyValue)?.finalizedAt || claims.find((claim) => monthKey(claim.finalizedAt || claim.attendance?.dateTime || claim.trackingEvents?.[0]?.createdAt) === monthKeyValue)?.attendance?.dateTime || null),
+      payers: Array.from(payers.values()),
+      totalClaimed: Array.from(payers.values()).reduce((sum, payer) => sum + payer.totalClaimed, 0),
+      totalPaid: Array.from(payers.values()).reduce((sum, payer) => sum + payer.totalPaid, 0),
+      totalOutstanding: Array.from(payers.values()).reduce((sum, payer) => sum + payer.totalOutstanding, 0),
+      count: Array.from(payers.values()).reduce((sum, payer) => sum + payer.count, 0),
+    }));
+  }, [claims, family]);
 
   const openRecord = (claim: ClaimRow) => {
     setSelected(claim);
@@ -144,18 +204,38 @@ export default function InsuranceClaimsTracking({ family }: { family: InsuranceF
           <thead className={TH_ROW}><tr>
             <th className={TH}>Claim</th><th className={TH}>Patient</th><th className={TH}>Folder #</th><th className={TH}>Attendance #</th><th className={TH}>Payer</th><th className={TH}>Claim amount</th><th className={TH}>Paid</th><th className={TH}>Outstanding</th><th className={TH}>Tracking status</th><th className={TH}>Activity</th>
           </tr></thead>
-          <tbody>{claims.map(claim => <tr key={claim.id} className={TR}>
-            <td className={TD}><div className="font-semibold text-[var(--text-primary)]">{claim.claimNumber}</div></td>
-            <td className={TD}><div className="text-[var(--text-secondary)]">{[claim.patient?.surname, claim.patient?.otherNames].filter(Boolean).join(' ') || 'Unknown patient'}</div></td>
-            <td className={TD_MONO}>{claim.patient?.folderNumber || '—'}</td>
-            <td className={TD_MONO}>{claim.attendance?.attendanceNumber || '—'}</td>
-            <td className={TD}><div className="font-medium">{claim.insuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.insuranceProvider?.type)}</div></td>
-            <td className={TD}>{money(claim.totalClaimAmount)}</td>
-            <td className={cn(TD, 'text-[var(--icon-green-text)]')}>{money(claim.tracking?.totalPaid)}</td>
-            <td className={cn(TD, 'font-medium')}>{money(claim.tracking?.outstanding)}</td>
-            <td className={TD}><Badge dot size="sm" tone={claim.tracking?.latestStatus === 'paid' ? 'green' : claim.tracking?.latestStatus === 'rejected' ? 'red' : 'orange'}>{titleCase(claim.tracking?.latestStatus)}</Badge></td>
-            <td className={TD}><Button size="sm" variant="primary" icon={Plus} onClick={() => openRecord(claim)}>Record activity</Button><div className="mt-1 text-xs text-[var(--text-secondary)]">{claim.trackingEvents?.length || 0} events</div></td>
-          </tr>)}</tbody>
+          <tbody>
+            {groupedTrackingClaims.map(group => (
+              <Fragment key={group.label}>
+                <tr className="bg-[var(--bg-main)]">
+                  <td colSpan={10} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span>{group.label}</span>
+                      <div className="flex items-center gap-3 text-[11px] text-[var(--text-secondary)]">
+                        <span>Claimed: {money(group.totalClaimed)}</span>
+                        <span>Paid: {money(group.totalPaid)}</span>
+                        <span>Outstanding: {money(group.totalOutstanding)}</span>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {group.claims.map(claim => (
+                  <tr key={claim.id} className={TR}>
+                    <td className={TD}><div className="font-semibold text-[var(--text-primary)]">{claim.claimNumber}</div></td>
+                    <td className={TD}><div className="text-[var(--text-secondary)]">{[claim.patient?.surname, claim.patient?.otherNames].filter(Boolean).join(' ') || 'Unknown patient'}</div></td>
+                    <td className={TD_MONO}>{claim.patient?.folderNumber || '—'}</td>
+                    <td className={TD_MONO}>{claim.attendance?.attendanceNumber || '—'}</td>
+                    <td className={TD}><div className="font-medium">{claim.insuranceProvider?.name || 'Unknown payer'}</div><div className="text-xs text-[var(--text-secondary)]">{titleCase(claim.insuranceProvider?.type)}</div></td>
+                    <td className={TD}>{money(claim.totalClaimAmount)}</td>
+                    <td className={cn(TD, 'text-[var(--icon-green-text)]')}>{money(claim.tracking?.totalPaid)}</td>
+                    <td className={cn(TD, 'font-medium')}>{money(claim.tracking?.outstanding)}</td>
+                    <td className={TD}><Badge dot size="sm" tone={claim.tracking?.latestStatus === 'paid' ? 'green' : claim.tracking?.latestStatus === 'rejected' ? 'red' : 'orange'}>{titleCase(claim.tracking?.latestStatus)}</Badge></td>
+                    <td className={TD}><Button size="sm" variant="primary" icon={Plus} onClick={() => openRecord(claim)}>Record activity</Button><div className="mt-1 text-xs text-[var(--text-secondary)]">{claim.trackingEvents?.length || 0} events</div></td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+          </tbody>
         </table></div>}
       </div>
       <p className="text-xs text-[var(--text-secondary)]">Payments recorded here are insurer remittances against claims. They do not alter patient cash payments or the original bill ledger.</p>

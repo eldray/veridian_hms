@@ -1,5 +1,5 @@
 // src/pages/InsuranceClaims.tsx - COMPLETE FIXED VERSION
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { useInsuranceStore } from '../store/insuranceStore';
 import { useAttendanceStore } from '../store/attendanceStore';
 import { useToast } from '../store/toastStore';
@@ -318,6 +318,89 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
     return 'All Dates';
   };
 
+  const summarizeClaimItems = (claim: any) => {
+    const items = Array.isArray(claim?.items) ? claim.items : [];
+    const totals = items.reduce(
+      (sum, item) => {
+        const rawAmount = Number(item?.lineTotal ?? item?.amount ?? item?.total ?? 0);
+        const amount = Number.isFinite(rawAmount) ? rawAmount : 0;
+        const category = String(item?.itemCategory ?? item?.category ?? '').toLowerCase();
+        const code = String(item?.code ?? '').toLowerCase();
+
+        if (category === 'service' || (!category && code.includes('service'))) sum.services += amount;
+        if ((category === 'investigation' || category === 'procedure') || code.includes('lab') || code.includes('scan')) {
+          sum.labs += amount;
+        }
+        if (category === 'medicine' || category === 'medication' || code.includes('med')) sum.medications += amount;
+        if (category === 'gdrg' || code.includes('gdrg') || item?.gdrgTariff || item?.gdrgAmount) sum.gdrg += amount || Number(item?.gdrgTariff?.nhiaTariff ?? item?.gdrgAmount ?? 0);
+        return sum;
+      },
+      { services: 0, labs: 0, medications: 0, gdrg: 0 }
+    );
+
+    const totalFromClaim = Number(claim?.totalClaimAmount ?? 0);
+    const fallbackTotal = totals.services + totals.labs + totals.medications + totals.gdrg;
+    const claimTotal = totalFromClaim || fallbackTotal;
+
+    if (activeTab === 'nhis') {
+      const inferredGdrg =
+        totals.gdrg > 0
+          ? totals.gdrg
+          : claim?.principalGDRG || claim?.gdrgTariff?.nhiaTariff || claim?.gdrgAmount
+            ? Number(
+                claim.principalGDRG && typeof claim.principalGDRG === 'number'
+                  ? claim.principalGDRG
+                  : claim.gdrgTariff?.nhiaTariff ?? claim.gdrgAmount ?? 0,
+              )
+            : claimTotal > 0 && totals.medications > 0
+              ? Math.max(claimTotal - totals.medications, 0)
+              : 0;
+
+      return {
+        services: 0,
+        labs: 0,
+        medications: totals.medications,
+        gdrg: inferredGdrg,
+        total: claimTotal || inferredGdrg + totals.medications,
+        claimTotal: claimTotal || inferredGdrg + totals.medications,
+      };
+    }
+
+    return {
+      ...totals,
+      total: claimTotal || fallbackTotal,
+      claimTotal: claimTotal || fallbackTotal,
+    };
+  };
+
+  const groupedClaims = useMemo(() => {
+    const groups = new Map<string, { label: string; claims: any[]; totals: { services: number; labs: number; medications: number; gdrg: number; total: number } }>();
+
+    paginatedClaims.forEach((claim: any) => {
+      const groupKey = activeTab === 'nhis'
+        ? 'NHIS'
+        : activeTab === 'corporate'
+          ? (claim.corporateAccount?.companyName || 'Unassigned corporate account')
+          : (claim.insuranceProvider?.name || 'Unassigned provider');
+      const current = groups.get(groupKey) ?? {
+        label: groupKey,
+        claims: [],
+        totals: { services: 0, labs: 0, medications: 0, gdrg: 0, total: 0 },
+      };
+
+      const summary = summarizeClaimItems(claim);
+      current.claims.push(claim);
+      current.totals.services += activeTab === 'nhis' ? 0 : summary.services;
+      current.totals.labs += activeTab === 'nhis' ? 0 : summary.labs;
+      current.totals.medications += summary.medications;
+      current.totals.gdrg += activeTab === 'nhis' ? summary.gdrg : 0;
+      current.totals.total += summary.total;
+      groups.set(groupKey, current);
+    });
+
+    return Array.from(groups.values());
+  }, [activeTab, paginatedClaims]);
+
   return (
     <div className="space-y-6 p-6 text-[var(--text-primary)]">
       {/* Header */}
@@ -511,9 +594,21 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                     <th className={TH}>Patient</th>
                     <th className={TH}>Folder #</th>
                     <th className={TH}>Attendance #</th>
-                    <th className={TH}>{activeTab === 'corporate' ? 'Corporate account' : 'Provider'}</th>
+                    {!activeTab || activeTab === 'nhis' ? null : <th className={TH}>{activeTab === 'corporate' ? 'Corporate account' : 'Provider'}</th>}
                     <th className={TH}>Status</th>
-                    <th className={cn(TH, 'text-right')}>Claim amount</th>
+                    {activeTab === 'nhis' ? (
+                      <>
+                        <th className={cn(TH, 'text-right')}>GDRG</th>
+                        <th className={cn(TH, 'text-right')}>Medications</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className={cn(TH, 'text-right')}>Services</th>
+                        <th className={cn(TH, 'text-right')}>Labs</th>
+                        <th className={cn(TH, 'text-right')}>Medications</th>
+                      </>
+                    )}
+                    <th className={cn(TH, 'text-right')}>Claim total</th>
                     <th className={cn(TH, 'text-right')}>Approved</th>
                     <th className={cn(TH, 'text-right')}>Paid</th>
                     <th className={TH}>Submitted</th>
@@ -521,77 +616,120 @@ export default function InsuranceClaims({ family }: { family: InsuranceFamily })
                   </tr>
                 </thead>
                 <tbody>
-                  {paginatedClaims.map((claim: any) => (
-                    <tr key={claim.id} className={TR}>
-                      <td className={TD_MONO}>{claim.claimNumber}</td>
-                      <td className={TD}>{getPatientFullName(claim.patient)}</td>
-                      <td className={TD_MONO}>{claim.Patient?.folderNumber || claim.patient?.folderNumber || '—'}</td>
-                      <td className={TD_MONO}>{claim.Attendance?.attendanceNumber || claim.attendance?.attendanceNumber || '—'}</td>
-                      <td className={TD}>
-                        {activeTab === 'corporate'
-                          ? claim.corporateAccount?.companyName || '—'
-                          : claim.insuranceProvider?.name || '—'}
-                      </td>
-                      <td className={TD}>
-                        <Badge tone={statusTone(claim.status)} dot size="sm">{humanStatus(claim.status)}</Badge>
-                      </td>
-                      <td className={cn(TD, 'text-right font-medium')}>GHS {claim.totalClaimAmount?.toFixed(2)}</td>
-                      <td className={cn(TD, 'text-right')}>
-                        {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
-                      </td>
-                      <td className={cn(TD, 'text-right')}>
-                        {claim.paidAmount ? `GHS ${claim.paidAmount.toFixed(2)}` : '—'}
-                      </td>
-                      <td className={TD}>
-                        {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
-                      </td>
-                      <td className={TD}>
-                        <div className="flex items-center justify-center gap-1.5">
-                          {claim.status === 'finalized' && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                iconOnly
-                                icon={Download}
-                                title="Download XML"
-                                disabled={processingClaims.has(claim.id)}
-                                onClick={() => handleDownloadXML(claim.id)}
-                              />
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                iconOnly
-                                icon={Printer}
-                                title="Print claim"
-                                disabled={processingClaims.has(claim.id)}
-                                onClick={() => handlePrintClaim(claim.id)}
-                              />
-                            </>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            iconOnly
-                            icon={Eye}
-                            title={claim.status === 'draft' ? 'Edit claim' : 'View claim'}
-                            onClick={() => navigate(`/dashboard/insurance/claims/${claim.id}/edit`)}
-                          />
-                          {claim.status === 'draft' && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              iconOnly
-                              icon={Lock}
-                              title="Finalize claim"
-                              className="text-[var(--icon-purple-text)]"
-                              disabled={processingClaims.has(claim.id)}
-                              onClick={() => handleFinalizeClaim(claim.id)}
-                            />
-                          )}
-                        </div>
-                      </td>
-                    </tr>
+                  {groupedClaims.map((group: any) => (
+                    <Fragment key={group.label}>
+                      <tr className="bg-[var(--bg-main)]">
+                        <td colSpan={activeTab === 'nhis' ? 12 : 14} className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-secondary)]">
+                          <div className="flex items-center justify-between gap-3">
+                            <span>{group.label}</span>
+                            <div className="flex items-center gap-3 text-[11px] text-[var(--text-secondary)]">
+                              {activeTab === 'nhis' ? (
+                                <>
+                                  <span>GDRG: GHS {group.totals.gdrg.toFixed(2)}</span>
+                                  <span>Medications: GHS {group.totals.medications.toFixed(2)}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <span>Services: GHS {group.totals.services.toFixed(2)}</span>
+                                  <span>Labs: GHS {group.totals.labs.toFixed(2)}</span>
+                                  <span>Medications: GHS {group.totals.medications.toFixed(2)}</span>
+                                </>
+                              )}
+                              <span className="font-bold text-[var(--text-primary)]">Total: GHS {group.totals.total.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                      {group.claims.map((claim: any) => {
+                        const itemTotals = summarizeClaimItems(claim);
+                        return (
+                          <tr key={claim.id} className={TR}>
+                            <td className={TD_MONO}>{claim.claimNumber}</td>
+                            <td className={TD}>{getPatientFullName(claim.patient)}</td>
+                            <td className={TD_MONO}>{claim.Patient?.folderNumber || claim.patient?.folderNumber || '—'}</td>
+                            <td className={TD_MONO}>{claim.Attendance?.attendanceNumber || claim.attendance?.attendanceNumber || '—'}</td>
+                            {!activeTab || activeTab === 'nhis' ? null : (
+                              <td className={TD}>
+                                {activeTab === 'corporate'
+                                  ? claim.corporateAccount?.companyName || '—'
+                                  : claim.insuranceProvider?.name || '—'}
+                              </td>
+                            )}
+                            <td className={TD}>
+                              <Badge tone={statusTone(claim.status)} dot size="sm">{humanStatus(claim.status)}</Badge>
+                            </td>
+                            {activeTab === 'nhis' ? (
+                              <>
+                                <td className={cn(TD, 'text-right')}>GHS {itemTotals.gdrg.toFixed(2)}</td>
+                                <td className={cn(TD, 'text-right')}>GHS {itemTotals.medications.toFixed(2)}</td>
+                              </>
+                            ) : (
+                              <>
+                                <td className={cn(TD, 'text-right')}>GHS {itemTotals.services.toFixed(2)}</td>
+                                <td className={cn(TD, 'text-right')}>GHS {itemTotals.labs.toFixed(2)}</td>
+                                <td className={cn(TD, 'text-right')}>GHS {itemTotals.medications.toFixed(2)}</td>
+                              </>
+                            )}
+                            <td className={cn(TD, 'text-right font-medium')}>GHS {itemTotals.total.toFixed(2)}</td>
+                            <td className={cn(TD, 'text-right')}>
+                              {claim.approvedAmount ? `GHS ${claim.approvedAmount.toFixed(2)}` : '—'}
+                            </td>
+                            <td className={cn(TD, 'text-right')}>
+                              {claim.paidAmount ? `GHS ${claim.paidAmount.toFixed(2)}` : '—'}
+                            </td>
+                            <td className={TD}>
+                              {claim.submissionDate ? new Date(claim.submissionDate).toLocaleDateString() : '—'}
+                            </td>
+                            <td className={TD}>
+                              <div className="flex items-center justify-center gap-1.5">
+                                {claim.status === 'finalized' && (
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      iconOnly
+                                      icon={Download}
+                                      title="Download XML"
+                                      disabled={processingClaims.has(claim.id)}
+                                      onClick={() => handleDownloadXML(claim.id)}
+                                    />
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      iconOnly
+                                      icon={Printer}
+                                      title="Print claim"
+                                      disabled={processingClaims.has(claim.id)}
+                                      onClick={() => handlePrintClaim(claim.id)}
+                                    />
+                                  </>
+                                )}
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  iconOnly
+                                  icon={Eye}
+                                  title={claim.status === 'draft' ? 'Edit claim' : 'View claim'}
+                                  onClick={() => navigate(`/dashboard/insurance/claims/${claim.id}/edit`)}
+                                />
+                                {claim.status === 'draft' && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    iconOnly
+                                    icon={Lock}
+                                    title="Finalize claim"
+                                    className="text-[var(--icon-purple-text)]"
+                                    disabled={processingClaims.has(claim.id)}
+                                    onClick={() => handleFinalizeClaim(claim.id)}
+                                  />
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

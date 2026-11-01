@@ -20,7 +20,7 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
   isOpen, onClose, onSuccess, attendanceId, patientId, existingPostnatal,
 }) => {
   const navigate = useNavigate();
-  const { createPostnatalRecord, updatePostnatalRecord, isLoading } = usePostnatalStore();
+  const { recordPostnatalVisit, updatePostnatalRecord, isLoading } = usePostnatalStore();
   const { success, error: toastError } = useToast();
   const [loading, setLoading] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionKey>('maternal');
@@ -193,7 +193,7 @@ export const PostnatalModal: React.FC<PostnatalModalProps> = ({
         await updatePostnatalRecord(existingPostnatal.id, data);
         success('Updated', 'Postnatal record updated successfully');
       } else {
-        await createPostnatalRecord(data);
+        await recordPostnatalVisit(data);
         success('Created', 'Postnatal examination recorded successfully');
       }
       onSuccess();

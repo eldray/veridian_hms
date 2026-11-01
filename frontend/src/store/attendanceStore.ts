@@ -33,6 +33,7 @@ import {
   getVitalsByEncounter as apiGetVitals,
   updateVitals as apiUpdateVitals,
   deleteVitals as apiDeleteVitals,
+  generateNHISClaim as apiGenerateNHISClaim,
   calculateEncounterBill as apiCalculateBill,
   getEncounterStats as apiGetAttendanceStats,
   addServiceToEncounter as apiAddService,
@@ -192,7 +193,9 @@ interface AttendanceState {
   updateVitals: (attendanceId: string, vitalsId: string, data: any) => Promise<void>;
   deleteVitals: (attendanceId: string, vitalsId: string) => Promise<void>;
 
-  // Billing operations
+  // Billing / claim operations
+  generateNHISClaim: (attendanceId: string) => Promise<any>;
+  submitNHISClaim: (attendanceId: string) => Promise<any>;
   calculateBill: (attendanceId: string) => Promise<any>;
   getAttendanceStats: (filters?: any) => Promise<void>;
 
@@ -980,8 +983,32 @@ export const useAttendanceStore = create<AttendanceState>((set, get) => ({
 
 
   // ==========================================
-  // BILLING OPERATIONS
+  // BILLING / CLAIM OPERATIONS
   // ==========================================
+
+  generateNHISClaim: async (attendanceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGenerateNHISClaim(attendanceId);
+      set({ isLoading: false, error: null });
+      return response;
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to generate NHIS claim', isLoading: false });
+      throw error;
+    }
+  },
+
+  submitNHISClaim: async (attendanceId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGenerateNHISClaim(attendanceId);
+      set({ isLoading: false, error: null });
+      return response;
+    } catch (error: any) {
+      set({ error: error.message || 'Failed to submit NHIS claim', isLoading: false });
+      throw error;
+    }
+  },
 
   // Best-effort refresh after a clinical change. The bill itself is produced by the billing
   // flow (POST /bills/generate/:encounterId), and the backend has no /calculate-bill route,

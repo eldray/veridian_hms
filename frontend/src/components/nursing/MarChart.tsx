@@ -3,7 +3,6 @@ import React, { useMemo, useState, useRef } from 'react';
 import {
   CheckCircle, Clock, AlertTriangle, XCircle, Pause, Ban,
   Syringe, Calendar, Pill, ChevronDown, ChevronRight,
-  AlertOctagon,
 } from 'lucide-react';
 import type { MarDose, DoseStatus } from '../../api/nursing';
 
@@ -338,7 +337,7 @@ const DayCard: React.FC<{
           key,
           name: d.medication.name,
           dose: d.dose || d.medication.dosage || '—',
-          route: d.route,
+          route: d.route ?? undefined,
           frequency: (d as any).frequency || d.medication?.frequency,
           dosesBySlot: {},
           allDoses: [],
