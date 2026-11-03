@@ -102,7 +102,7 @@ export class ClaimBatchController extends BaseController {
   // GENERATE
   // ==========================================
   generateBatch = this.asyncHandler(async (req: AuthRequest, res: Response) => {
-    const batch = await this.service.generateBatch(
+    const result = await this.service.generateBatch(
       {
         insuranceType: req.body.insuranceType,
         periodYear: req.body.periodYear,
@@ -113,7 +113,12 @@ export class ClaimBatchController extends BaseController {
       },
       req.user!.id,
     );
-    return this.created(res, batch, 'Claim batch generated');
+    // An NHIS month is filed one G-DRG family at a time, so one click can build several batches.
+    return this.created(
+      res,
+      result,
+      result.batches.length > 1 ? `${result.batches.length} claim batches generated` : 'Claim batch generated',
+    );
   });
 
   // ==========================================

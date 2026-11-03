@@ -251,6 +251,7 @@ export const buildLookups = async (): Promise<Lookups> => {
   const [
     users, departments, wards, beds, services, labTemplates, scanTemplates,
     procedureTemplates, diagnoses, stockItems, batches, balanceRows, providers, corporateAccounts, corporateEmployees, facility,
+    nhisCoveredRules,
   ] = await Promise.all([
     prisma.user.findMany({
       select: { id: true, username: true, fullName: true, role: true, departmentId: true },
@@ -295,6 +296,10 @@ export const buildLookups = async (): Promise<Lookups> => {
       orderBy: { employeeId: 'asc' },
     }),
     prisma.hospital.findFirst({ select: { id: true, name: true, nhisFacilityCode: true } }),
+    prisma.stockItemPayerRule.findMany({
+      where: { isCovered: true, insuranceProvider: { type: 'nhis' } },
+      select: { stockItemId: true },
+    }),
   ]);
 
   const userByUsername = new Map(users.map((u) => [u.username, { id: u.id, fullName: u.fullName, departmentId: u.departmentId, role: String(u.role) }]));
@@ -465,20 +470,28 @@ export const buildLookups = async (): Promise<Lookups> => {
     batchesByStockItem.set(b.stockItemId, list);
   }
 
+  // A facility that bills NHIS prescribes from the NHIS medicine list. The formulary also holds
+  // older hand-written items with no payer rule at all, and one of those on a claim line is enough
+  // to lose the whole claim's medicines - the payer has no tariff to pay it from. So the drug
+  // groups draw from the covered items, and the rest of the shelf stays available to the store.
+  const nhisCoveredStockIds = new Set(nhisCoveredRules.map((rule) => rule.stockItemId));
+  const prescribableStock = medicationStock.filter((item) => nhisCoveredStockIds.has(item.id));
+  const prescriptionPool = prescribableStock.length ? prescribableStock : medicationStock;
+
   const stockForDrugGroup = (group: string, salt: string): StockRow | null => {
-    if (!medicationStock.length) return null;
+    if (!prescriptionPool.length) return null;
     const preset = DRUG_GROUPS[group];
     if (!preset || preset.nameStems.length === 0) {
-      return medicationStock[hashOf(salt) % medicationStock.length];
+      return prescriptionPool[hashOf(salt) % prescriptionPool.length];
     }
     const categoryWords = (preset.categories ?? []).map((c) => c.toLowerCase());
-    const matches = medicationStock.filter((item) => {
+    const matches = prescriptionPool.filter((item) => {
       const name = item.name.toLowerCase();
       const category = item.category.toLowerCase();
       return preset.nameStems.some((stem) => name.includes(stem.toLowerCase()))
         || categoryWords.some((word) => category.includes(word));
     });
-    const pool = matches.length ? matches : medicationStock;
+    const pool = matches.length ? matches : prescriptionPool;
     return pool[hashOf(salt) % pool.length];
   };
 

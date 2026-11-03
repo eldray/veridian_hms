@@ -3,7 +3,24 @@ import { Prisma, PrismaClient } from '@prisma/client';
 import { BaseService } from '../../shared/base/BaseService';
 import { InsuranceClaimRepository } from './InsuranceClaimRepository';
 import { getCounterService } from '../../services/CounterService';
-import { mapAttendanceToNHIS } from '../../utils/nhisAttendanceMapping';
+import {
+  findSpecialtyServiceMismatch,
+  gdrgSpecialty,
+  isoDay,
+  mapAttendanceToNHIS,
+  NHIS_SERVICE_OUTCOMES,
+  nhisDatesOfService,
+  nhisServiceOutcome,
+  nhisSpecialtiesFor,
+} from '../../utils/nhisAttendanceMapping';
+import {
+  facilityLevelFromType,
+  gdrgBillsCase,
+  NHIS_FALLBACK_GDRG_CODES,
+  nhisCaseType,
+  resolvePrincipalGdrg,
+  type ResolverTariff,
+} from './helpers/NHISPrincipalGdrgResolver';
 import { approvedServicesCoverPrescription } from '../encounter/NHISPreAuthorisation';
 import { calculateNHISMedicineAllocation } from '../../utils/pricing';
 
@@ -378,6 +395,164 @@ ${claimsXml}
     return this.normalizeClaim(claim);
   }
 
+  /**
+   * The medicines this claim may bill NHIS for, priced exactly the way saving the claim prices
+   * them. A dispensed drug with no covered, in-force payer rule, no valid prescribing level or no
+   * tariff is left out of the list and reported under `unclaimable`, because the save would refuse
+   * it and the form has no amount to show for it.
+   */
+  async listNHISClaimableMedicines(claimId: string) {
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: {
+        insuranceProviderId: true,
+        Attendance: {
+          select: {
+            dateTime: true,
+            insuranceProviderId: true,
+            Admission: { select: { admissionDate: true } },
+            Medication: {
+              orderBy: { dispensedAt: 'asc' },
+              select: {
+                id: true, name: true, status: true, quantity: true, dosage: true, frequency: true, duration: true,
+                dispensedAt: true, stockItemId: true, serviceCatalogId: true,
+                StockItem: { select: { id: true, drugCode: true, name: true, unitOfMeasure: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!claim) throw new NotFoundError('Claim', claimId);
+
+    const attendance = claim.Attendance;
+    const providerId = claim.insuranceProviderId ?? attendance?.insuranceProviderId ?? null;
+    const medicines = attendance?.Medication ?? [];
+    if (!providerId || !medicines.length) return { serviceDate: null, medicines: [], unclaimable: [] };
+
+    // The same date the save quotes from: a stay is priced at its admission, a visit at its appointment.
+    const policyDate = attendance.Admission?.admissionDate ?? attendance.dateTime;
+    const stockItemIds = Array.from(new Set(medicines.map((m: any) => m.stockItemId).filter(Boolean))) as string[];
+
+    const [rules, catalogs] = await Promise.all([
+      this.prisma.stockItemPayerRule.findMany({
+        where: { insuranceProviderId: providerId, stockItemId: { in: stockItemIds } },
+        select: {
+          stockItemId: true, isCovered: true, authorizationRequired: true, prescribingLevel: true,
+          effectiveFrom: true, effectiveTo: true, tariffPrice: true,
+          copaymentMode: true, copaymentAmount: true, copaymentPercentage: true,
+        },
+      }),
+      this.prisma.serviceCatalog.findMany({
+        where: { stockItemId: { in: stockItemIds } },
+        select: {
+          id: true, code: true, stockItemId: true,
+          pricing: {
+            where: { isActive: true, effectiveDate: { lte: policyDate }, OR: [{ expiryDate: null }, { expiryDate: { gt: policyDate } }] },
+            orderBy: { effectiveDate: 'desc' },
+            take: 1,
+            select: { cashPrice: true, nhisPrice: true },
+          },
+        },
+      }),
+    ]);
+
+    const ruleByStockItem = new Map(rules.map((r: any) => [r.stockItemId, r]));
+    const catalogByStockItem = new Map(catalogs.map((c: any) => [c.stockItemId, c]));
+    const validPrescribingLevels = ['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'];
+
+    const priced: any[] = [];
+    const unclaimable: any[] = [];
+    for (const med of medicines) {
+      const stockItem = med.StockItem;
+      const label = med.name || stockItem?.name || 'this medicine';
+      // The payer is billed for what the pharmacy handed over, so a prescription the patient never
+      // collected is reported as unclaimable rather than silently dropped from the list.
+      if (med.status !== 'dispensed') {
+        unclaimable.push({
+          code: stockItem?.drugCode,
+          description: label,
+          reason: `was ${String(med.status)}, not dispensed to the patient`,
+        });
+        continue;
+      }
+      if (!stockItem) {
+        unclaimable.push({ description: label, reason: 'its stock item is missing' });
+        continue;
+      }
+      const rule = ruleByStockItem.get(stockItem.id);
+      if (!rule) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'is not on the NHIS medicine list' });
+        continue;
+      }
+      if (rule.isCovered !== true) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'is on the NHIS list but marked not covered' });
+        continue;
+      }
+      if (!validPrescribingLevels.includes(String(rule.prescribingLevel ?? '').trim().toUpperCase())) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no valid NHIS prescribing level configured' });
+        continue;
+      }
+      if ((rule.effectiveFrom && rule.effectiveFrom > policyDate) || (rule.effectiveTo && rule.effectiveTo < policyDate)) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'its payer rule is not in force on the service date' });
+        continue;
+      }
+      const catalog = catalogByStockItem.get(stockItem.id);
+      const pricing = catalog?.pricing?.[0];
+      const cashPrice = Number(pricing?.cashPrice ?? 0);
+      const tariff = Number(rule.tariffPrice ?? pricing?.nhisPrice ?? 0);
+      if (!Number.isFinite(cashPrice) || cashPrice <= 0) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no active cash price configured' });
+        continue;
+      }
+      if (!Number.isFinite(tariff) || tariff <= 0) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no NHIS tariff configured' });
+        continue;
+      }
+      let unitPrice: number;
+      try {
+        unitPrice = calculateNHISMedicineAllocation({
+          cashPrice,
+          nhisTariff: tariff,
+          covered: true,
+          copaymentMode: rule.copaymentMode,
+          copaymentAmount: rule.copaymentAmount == null ? null : Number(rule.copaymentAmount),
+          copaymentPercentage: rule.copaymentPercentage ?? null,
+        }).nhisCoveredAmount;
+      } catch (error) {
+        unclaimable.push({
+          code: stockItem.drugCode, description: label,
+          reason: `cannot be priced: ${error instanceof Error ? error.message : 'the medicine payer policy is invalid'}`,
+        });
+        continue;
+      }
+      const quantity = Number(med.quantity ?? 1);
+      if (!Number.isFinite(quantity) || quantity <= 0) {
+        unclaimable.push({ code: stockItem.drugCode, description: label, reason: 'has no dispensed quantity to claim' });
+        continue;
+      }
+      const roundedUnit = Math.round(unitPrice * 100) / 100;
+      priced.push({
+        medicationId: med.id,
+        stockItemId: stockItem.id,
+        serviceCatalogId: catalog?.id ?? med.serviceCatalogId ?? null,
+        code: stockItem.drugCode,
+        description: label,
+        unitOfMeasure: stockItem.unitOfMeasure,
+        quantity,
+        date: isoDay(med.dispensedAt ?? policyDate),
+        prescription: `${med.dosage ?? ''} ${med.frequency ?? ''} x ${med.duration ?? ''}`.trim() || 'As prescribed',
+        unitPrice: roundedUnit,
+        lineTotal: Math.round(roundedUnit * quantity * 100) / 100,
+        cashPrice: Math.round(cashPrice * 100) / 100,
+        authorizationRequired: rule.authorizationRequired === true,
+      });
+    }
+
+    priced.sort((x, y) => String(x.description).localeCompare(String(y.description)));
+    return { serviceDate: isoDay(policyDate), medicines: priced, unclaimable };
+  }
+
   async updateClaimDraft(claimId: string, data: any, userId: string) {
     const fields = ['diagnosisCodes', 'procedureCodes', 'labTestCodes', 'scanCodes', 'serviceCodes', 'medicationCodes', 'totalClaimAmount', 'notes', 'preAuthNumber', 'principalGDRG', 'typeOfService', 'serviceOutcome', 'typeOfAttendance', 'mdcCode', 'datesOfService', 'metadata'];
     const toUpdate: any = { updatedById: userId, updatedAt: new Date() };
@@ -385,32 +560,174 @@ ${claimsXml}
     return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: toUpdate });
   }
 
-  async finalizeClaim(claimId: string, userId: string) {
+  /**
+   * A draft is only finalizable when it could actually be paid. An NHIS claim whose header
+   * contradicts itself — an outpatient visit reporting a clinical specialty, a service outcome the
+   * payer does not accept, a principal G-DRG the claim carries no line for — is stopped here rather
+   * than in the batch, because the payer's answer to all three is a query.
+   */
+  private async assertClaimFinalizable(claimId: string) {
     const claim = await this.prisma.insuranceClaim.findUnique({
       where: { id: claimId },
-      include: { items: { select: { id: true } } },
+      include: {
+        InsuranceProvider: { select: { type: true } },
+        items: { select: { itemCategory: true, code: true, gdrgTariff: { select: { gdrgCode: true } } } },
+      },
     });
     if (!claim) throw new NotFoundError('Claim', claimId);
     if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
     if (!claim.items.length) {
       throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
     }
-    return this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'finalized', finalizedAt: new Date(), finalizedById: userId, updatedById: userId } });
+    if (claim.InsuranceProvider?.type !== 'nhis') return claim;
+
+    if (!(NHIS_SERVICE_OUTCOMES as readonly string[]).includes(String(claim.serviceOutcome))) {
+      throw new ValidationError(
+        `An NHIS claim must report a closed service outcome (${NHIS_SERVICE_OUTCOMES.join(', ')}). ` +
+        `This one reports "${claim.serviceOutcome ?? 'nothing'}", which the payer rejects. Finish the encounter or edit the claim first.`,
+      );
+    }
+    const carried = new Set(claim.items
+      .map((item) => item.gdrgTariff?.gdrgCode ?? (item.itemCategory === 'gdrg' ? item.code : ''))
+      .filter(Boolean));
+    // Every G-DRG the claim carries, not only the header's specialty: a draft repaired by hand can
+    // still hide a surgical code on an outpatient claim, and the payer reads the lines.
+    const reported = Array.from(new Set(
+      [claim.mdcCode ?? '', ...Array.from(carried).map(gdrgSpecialty)].map((s) => String(s).trim()).filter(Boolean)
+    ));
+    const mismatch = findSpecialtyServiceMismatch(claim.typeOfService || 'OPD', reported);
+    if (mismatch) throw new ValidationError(mismatch);
+    await this.assertOpdNotDatedInsideAnAdmission(this.prisma, {
+      patientId: claim.patientId,
+      attendanceId: claim.attendanceId,
+      typeOfService: claim.typeOfService,
+      datesOfService: claim.datesOfService,
+    });
+    if (!claim.principalGDRG) {
+      throw new ValidationError('An NHIS claim must name a principal G-DRG before it can be finalized.');
+    }
+    if (carried.size && !carried.has(claim.principalGDRG)) {
+      throw new ValidationError(
+        `The principal G-DRG "${claim.principalGDRG}" is not one of the G-DRG codes this claim carries (${Array.from(carried).join(', ')}).`,
+      );
+    }
+    return claim;
+  }
+
+  /**
+   * An outpatient claim cannot be dated on a day the same patient was an inpatient elsewhere.
+   *
+   * The Tariffs Operation Manual prices every day of a stay inside that stay's G-DRG, so a visit
+   * claimed over the top of an admission is a duplicate the payer reverses. Only stays recorded as
+   * inpatient episodes count: a day case or an observation stay holds a bed and is billed as OPD by
+   * design, and a cancelled admission was never a stay at all.
+   */
+  private async assertOpdNotDatedInsideAnAdmission(
+    db: any,
+    input: { patientId: string | null; attendanceId: string | null; typeOfService?: string | null; datesOfService: unknown }
+  ) {
+    if ((input.typeOfService || 'OPD') !== 'OPD' || !input.patientId) return;
+    const days = (Array.isArray(input.datesOfService) ? input.datesOfService : [])
+      .map(isoDay).filter(Boolean).sort();
+    if (!days.length) return;
+    const stay = await db.admission.findFirst({
+      where: {
+        status: { not: 'cancelled' },
+        attendance: {
+          patientId: input.patientId,
+          encounterCategory: 'ipd',
+          ...(input.attendanceId ? { id: { not: input.attendanceId } } : {}),
+        },
+        admissionDate: { lte: new Date(`${days[days.length - 1]}T23:59:59.999Z`) },
+        OR: [{ dischargeDate: { gte: new Date(`${days[0]}T00:00:00.000Z`) } }, { dischargeDate: null }],
+      },
+      select: { admissionNumber: true, admissionDate: true, dischargeDate: true },
+      orderBy: { admissionDate: 'asc' },
+    });
+    if (!stay) return;
+    throw new ValidationError(
+      `This outpatient claim is dated ${days.join(', ')}, which fall inside inpatient stay ${stay.admissionNumber} ` +
+      `(${isoDay(stay.admissionDate)} to ${isoDay(stay.dischargeDate) || 'still open'}) for the same patient. ` +
+      'The payer prices those days inside the admission claim, so the visit cannot be claimed separately.',
+    );
+  }
+
+  async finalizeClaim(claimId: string, userId: string) {
+    await this.assertClaimFinalizable(claimId);
+    const repriced = await this.repriceGdrgLineAtFinalize(claimId);
+    const claim = await this.prisma.insuranceClaim.update({ where: { id: claimId }, data: { status: 'finalized', finalizedAt: new Date(), finalizedById: userId, updatedById: userId } });
+    if (repriced) this.logInfo('NHIS claim re-priced at finalization', { claimId, ...repriced });
+    return claim;
+  }
+
+  /**
+   * The tariff is edited in place, so a draft priced before a price update still carries the old
+   * number. Finalizing is the last moment before the payer sees the claim, so the G-DRG line is
+   * re-read from the tariff in force for the service date and the claim total rebuilt from it —
+   * the same rule the claim editor applies when a draft is saved.
+   *
+   * A code with no tariff row in force is left alone rather than finalized at zero: the editor
+   * already refuses to save that state, so it can only be an older claim, and its batch is priced
+   * from the lines it carries.
+   */
+  private async repriceGdrgLineAtFinalize(claimId: string) {
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: {
+        id: true, principalGDRG: true, totalClaimAmount: true, createdAt: true,
+        InsuranceProvider: { select: { type: true } },
+        Attendance: { select: { dateTime: true, Admission: { select: { admissionDate: true } } } },
+        items: { select: { id: true, itemCategory: true, code: true, lineTotal: true } },
+      },
+    });
+    if (!claim || claim.InsuranceProvider?.type !== 'nhis') return null;
+    const gdrgRow = claim.items.find((item) => item.itemCategory === 'gdrg');
+    const gdrgCode = gdrgRow?.code || claim.principalGDRG;
+    if (!gdrgRow || !gdrgCode) return null;
+    const policyDate = new Date(claim.Attendance?.dateTime ?? claim.Attendance?.Admission?.admissionDate ?? claim.createdAt);
+    if (Number.isNaN(policyDate.getTime())) return null;
+    const tariff = await this.prisma.gDRGTariff.findFirst({
+      where: {
+        gdrgCode,
+        isActive: true,
+        effectiveFrom: { lte: policyDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: policyDate } }],
+      },
+      orderBy: { effectiveFrom: 'desc' },
+      select: { id: true, nhiaTariff: true },
+    });
+    if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) return null;
+
+    const amount = Math.round(Number(tariff.nhiaTariff) * 100) / 100;
+    const medicinesTotal = claim.items
+      .filter((item) => item.itemCategory === 'medicine')
+      .reduce((sum, item) => sum + toNumber(item.lineTotal), 0);
+    const total = Math.round((amount + medicinesTotal) * 100) / 100;
+    if (toNumber(gdrgRow.lineTotal) === amount && toNumber(claim.totalClaimAmount) === total) return null;
+
+    await this.prisma.$transaction([
+      this.prisma.insuranceClaimItem.update({
+        where: { id: gdrgRow.id },
+        data: { unitPrice: amount, lineTotal: amount, gdrgTariffId: tariff.id },
+      }),
+      this.prisma.insuranceClaim.update({ where: { id: claim.id }, data: { totalClaimAmount: total } }),
+    ]);
+    return {
+      gdrgCode,
+      previousLineAmount: toNumber(gdrgRow.lineTotal),
+      lineAmount: amount,
+      previousTotal: toNumber(claim.totalClaimAmount),
+      total,
+    };
   }
 
   async updateClaimStatus(claimId: string, status: string, notes: string | undefined, userId: string) {
     const valid = ['draft', 'finalized'];
     if (!valid.includes(status)) throw new Error('Invalid status');
     if (status === 'finalized') {
-      const claim = await this.prisma.insuranceClaim.findUnique({
-        where: { id: claimId },
-        include: { items: { select: { id: true } } },
-      });
-      if (!claim) throw new NotFoundError('Claim', claimId);
-      if (claim.status !== 'draft') throw new Error('Only draft claims can be finalized');
-      if (!claim.items.length) {
-        throw new ValidationError('A claim must contain at least one item before it can be finalized. Add or repair the claim items first.');
-      }
+      await this.assertClaimFinalizable(claimId);
+      const repriced = await this.repriceGdrgLineAtFinalize(claimId);
+      if (repriced) this.logInfo('NHIS claim re-priced at finalization', { claimId, ...repriced });
     }
     const toUpdate: any = { status, updatedById: userId, updatedAt: new Date() };
     if (status === 'finalized') { toUpdate.finalizedAt = new Date(); toUpdate.finalizedById = userId; }
@@ -532,11 +849,10 @@ ${claimsXml}
             `NHIS claim cannot include ${med.name ?? stockItem.name}: its prescribing level is missing or invalid. Configure the medicine payer rule before claim generation.`,
           );
         }
-        if (payerRule.authorizationRequired == null) {
-          throw new ValidationError(
-            `NHIS claim cannot include ${med.name ?? stockItem.name}: its authorisation requirement is unknown. Configure the medicine payer rule before claim generation.`,
-          );
-        }
+        // Only an explicit "authorisation required" demands a matching pre-authorisation. The NHIS
+        // medicine list the facility prices from carries no authorisation column, so a rule imported
+        // from it leaves the flag null — that means "not stated", not "unknown, refuse the claim".
+        // Reading null as a refusal would bar every covered medicine from every NHIS claim.
         if (payerRule.authorizationRequired === true) {
           const approvals = await tx.preAuthorisationRequest.findMany({
             where: {
@@ -633,46 +949,173 @@ ${claimsXml}
         });
       }
 
-      const gdrgLink = await tx.gDRGTariffDiagnosis.findFirst({ where: { diagnosisId: pd.diagnosisId }, include: { gdrgTariff: true } });
-      if (!gdrgLink) throw new ValidationError(`No G-DRG tariff is mapped to the primary diagnosis "${pd.Diagnosis?.name ?? pd.diagnosisId}". Map it in G-DRG settings or choose a mapped diagnosis.`);
-
-      const age = this.calculateAgeInYears(att.Patient.dateOfBirth, att.dateTime);
-      // G-DRG codes end in the age band (AAAANNA) and not every family publishes a child
-      // code, so resolve the band against the rows that exist instead of synthesising
-      // "MEDI31C" for a family that only provides MEDI31A.
-      const linkedTariff = gdrgLink.gdrgTariff;
-      const base = linkedTariff.gdrgCode.slice(0, -1);
-      const family = await tx.gDRGTariff.findMany({
-        where: {
-          gdrgCode: { in: [`${base}A`, `${base}C`] },
-          isActive: true,
-          effectiveFrom: { lte: servicePolicyDate },
-          OR: [{ effectiveTo: null }, { effectiveTo: { gt: servicePolicyDate } }],
-        },
+      // The principal G-DRG is decided by the case the encounter actually is, then narrowed to the
+      // age band as at the service date and to the codes this facility's NHIS level may bill. A
+      // diagnosis linked to both an inpatient family and the OPD scheme is not a coin flip: an
+      // outpatient visit bills OPDC, and a child bills the PAED family rather than an adult MEDI code.
+      const age = this.calculateAgeInYears(att.Patient.dateOfBirth, servicePolicyDate);
+      const hospital = await tx.hospital.findFirst({
+        where: { isActive: true },
+        orderBy: { createdAt: 'asc' },
+        select: { nhisFacilityType: true },
       });
-      const tariff =
-        family.find((row) =>
-          (row.minAgeYears === null || age >= row.minAgeYears) &&
-          (row.maxAgeYears === null || age <= row.maxAgeYears)) ??
-        family.find((row) => row.id === linkedTariff.id) ??
-        (family.length === 1 ? family[0] : null);
-      const finalCode = tariff?.gdrgCode ?? linkedTariff.gdrgCode;
-      if (!tariff || !Number.isFinite(Number(tariff.nhiaTariff)) || Number(tariff.nhiaTariff) <= 0) {
-        throw new ValidationError(`NHIS claim G-DRG "${finalCode}" has no valid active tariff for the service date ${servicePolicyDate.toISOString().slice(0, 10)}.`);
-      }
+      const facilityLevel = facilityLevelFromType(hospital?.nhisFacilityType);
+      const caseType = nhisCaseType({
+        attendanceType: att.attendanceType,
+        encounterCategory: att.encounterCategory,
+        admissionType: att.Admission?.admissionType,
+        hasAdmission: !!att.Admission,
+      });
+      const tariffContext = { caseType, age, facilityLevel };
+      const pricedOnServiceDate: Prisma.GDRGTariffWhereInput = {
+        isActive: true,
+        effectiveFrom: { lte: servicePolicyDate },
+        OR: [{ effectiveTo: null }, { effectiveTo: { gt: servicePolicyDate } }],
+      };
+      const diagnosisLinks = await tx.gDRGTariffDiagnosis.findMany({
+        where: { diagnosisId: pd.diagnosisId, gdrgTariff: pricedOnServiceDate },
+        include: { gdrgTariff: true },
+      });
+      const procedureCatalogIds = Array.from(new Set(
+        att.Procedure.map((p) => p.serviceCatalogId).filter((id): id is string => Boolean(id))
+      ));
+      const procedureLinks = procedureCatalogIds.length
+        ? await tx.gDRGTariffProcedure.findMany({
+            where: { procedureId: { in: procedureCatalogIds }, gdrgTariff: pricedOnServiceDate },
+            include: { gdrgTariff: true },
+          })
+        : [];
+      const fallbackTariffs = await tx.gDRGTariff.findMany({
+        where: { gdrgCode: { in: [...NHIS_FALLBACK_GDRG_CODES] }, ...pricedOnServiceDate },
+      });
+
+      const principal = resolvePrincipalGdrg({
+        ...tariffContext,
+        isSurgicalCase: att.attendanceType === 'surgery' || att.attendanceType === 'delivery',
+        links: [
+          ...diagnosisLinks.map((link) => ({
+            tariff: link.gdrgTariff,
+            isPrimary: link.isPrimary,
+            origin: 'diagnosis' as const,
+          })),
+          ...procedureLinks.map((link) => ({
+            tariff: link.gdrgTariff,
+            isPrimary: link.isPrimary,
+            origin: 'procedure' as const,
+          })),
+        ],
+        fallbacks: fallbackTariffs,
+      });
+      const tariff = principal.tariff;
 
       // nextNHISClaimNumber() already returns "NHIS-<n>" - do not prefix it again
       const claimNumber = getCounterService().nextNHISClaimNumber();
 
-      // Helper for dates of service
-      let datesOfService: string[] = [];
-      if (att.Admission) {
-        let curr = new Date(att.Admission.admissionDate);
-        const end = att.Admission.dischargeDate || new Date();
-        while (curr <= end) { datesOfService.push(curr.toISOString().split('T')[0]); curr.setDate(curr.getDate() + 1); }
-      } else { datesOfService.push(att.dateTime.toISOString().split('T')[0]); }
+      // Dates of service and specialties follow the payer's own rules, not the calendar: an
+      // admission sends its two endpoints, and an outpatient visit is billed under the OPD scheme
+      // whatever family its G-DRG belongs to. A day case or an observation stay goes out as OPD
+      // even though it held a bed, because that is how its ZOOM code is priced.
+      const { typeOfAttendance: typeOfAtt, typeOfService: mappedService } = mapAttendanceToNHIS(att.attendanceType, !!att.Admission);
+      const typeOfService = caseType === 'zoom' ? 'OPD' : mappedService;
+      const datesOfService = nhisDatesOfService(null, att, att.Admission, typeOfService);
+      await this.assertOpdNotDatedInsideAnAdmission(tx, {
+        patientId: att.patientId, attendanceId: att.id, typeOfService, datesOfService,
+      });
+      const [specialty] = nhisSpecialtiesFor(typeOfService, [tariff.gdrgCode]);
+      const serviceOutcome = nhisServiceOutcome(att.status, att.Admission?.dischargeStatus);
 
-      const { typeOfAttendance: typeOfAtt, typeOfService } = mapAttendanceToNHIS(att.attendanceType, !!att.Admission);
+      // The payer prices a bundled case from the principal G-DRG and the medicines, so these
+      // supporting lines carry no money. They exist because the claim must name every diagnosis,
+      // investigation and procedure the encounter actually produced.
+      const otherDiagnoses = await tx.attendanceDiagnosis.findMany({
+        where: { attendanceId: att.id, id: { not: pd.id } },
+        include: { Diagnosis: true },
+        orderBy: { date: 'asc' },
+      });
+      const otherDiagnosisLinks = otherDiagnoses.length
+        ? await tx.gDRGTariffDiagnosis.findMany({
+            where: { diagnosisId: { in: otherDiagnoses.map((d) => d.diagnosisId) }, gdrgTariff: pricedOnServiceDate },
+            include: { gdrgTariff: true },
+          })
+        : [];
+      // A supporting line names the G-DRG of its own diagnosis or operation, but only one that this
+      // case type can bill. A surgical tariff written on an outpatient claim is the contradiction the
+      // payer bounces, and the editor's own case filter is the rule that decides it.
+      const billableGdrgId = (links: Array<{ gdrgTariff: ResolverTariff; isPrimary: boolean }>): string => {
+        const own = links.filter((link) => gdrgBillsCase(link.gdrgTariff, tariffContext));
+        return (own.find((link) => link.isPrimary) ?? own[0])?.gdrgTariff.id ?? tariff.id;
+      };
+      const gdrgIdForDiagnosis = (diagnosisId: string): string =>
+        billableGdrgId(otherDiagnosisLinks.filter((link) => link.diagnosisId === diagnosisId));
+
+      const supportingItems: any[] = [
+        {
+          itemCategory: 'diagnosis',
+          itemType: 'D',
+          code: pd.Diagnosis?.icdCode ?? '',
+          description: pd.Diagnosis?.name ?? '',
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: pd.date,
+          diagnosisId: pd.diagnosisId,
+          gdrgTariffId: tariff.id,
+        },
+        ...otherDiagnoses.map((d) => ({
+          itemCategory: 'diagnosis',
+          itemType: 'D',
+          code: d.Diagnosis?.icdCode ?? d.icdCode ?? '',
+          description: d.Diagnosis?.name ?? '',
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: d.date,
+          diagnosisId: d.diagnosisId,
+          gdrgTariffId: gdrgIdForDiagnosis(d.diagnosisId),
+        })),
+        ...att.LabTest.map((l) => ({
+          itemCategory: 'investigation',
+          itemType: 'N',
+          code: l.ServiceCatalog?.nhisServiceCode ?? l.ServiceCatalog?.code ?? '',
+          description: l.ServiceCatalog?.name ?? '',
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: l.completedAt ?? att.dateTime,
+          labTestId: l.id,
+          serviceCatalogId: l.serviceCatalogId ?? null,
+        })),
+        ...att.Scan.map((s) => ({
+          itemCategory: 'investigation',
+          itemType: 'N',
+          code: s.ServiceCatalog?.nhisServiceCode ?? s.ServiceCatalog?.code ?? '',
+          description: s.ServiceCatalog?.name ?? '',
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: s.completedAt ?? att.dateTime,
+          scanId: s.id,
+          serviceCatalogId: s.serviceCatalogId ?? null,
+        })),
+        ...att.Procedure.map((p) => ({
+          itemCategory: 'procedure',
+          itemType: 'P',
+          code: p.ServiceCatalog?.nhisServiceCode ?? p.ServiceCatalog?.code ?? '',
+          description: p.ServiceCatalog?.name ?? '',
+          quantity: 1,
+          unitPrice: 0,
+          lineTotal: 0,
+          serviceDate: p.performedAt ?? p.scheduledDate ?? att.dateTime,
+          procedureId: p.id,
+          serviceCatalogId: p.serviceCatalogId ?? null,
+          // The claim must say which diagnosis the operation was done for; the case's own primary
+          // diagnosis is that indication, and the payer reads it off this line.
+          diagnosisId: pd.diagnosisId,
+          gdrgTariffId: p.serviceCatalogId
+            ? billableGdrgId(procedureLinks.filter((link) => link.procedureId === p.serviceCatalogId))
+            : tariff.id,
+        })),
+      ];
 
       const claim = await tx.insuranceClaim.create({
         data: {
@@ -687,13 +1130,12 @@ ${claimsXml}
           serviceCodes: safeMap(att.ServiceRendered, s => s.ServiceCatalog?.nhisServiceCode),
           gdrgCodes: [tariff.gdrgCode], nhisServiceCodes: tariff.nhisServiceCode ? [tariff.nhisServiceCode] : [],
           principalGDRG: tariff.gdrgCode, claimCheckCode: att.nhisCCC,
-          typeOfService, serviceOutcome: att.status === 'completed' ? 'DISC' : 'CONT',
-          mdcCode: tariff.gdrgCode.match(/^[A-Z]+/)?.[0] || 'MEDI', typeOfAttendance: typeOfAtt, datesOfService,
+          typeOfService, serviceOutcome,
+          mdcCode: specialty, typeOfAttendance: typeOfAtt, datesOfService,
           notes: `NHIS CCC: ${att.nhisCCC}, GDRG: ${tariff.gdrgCode}`,
           items: {
             create: [
               {
-                itemNumber: 1,
                 itemCategory: 'gdrg',
                 itemType: 'GDRG',
                 code: tariff.gdrgCode,
@@ -704,11 +1146,9 @@ ${claimsXml}
                 serviceDate: servicePolicyDate,
                 gdrgTariffId: tariff.id
               },
-              ...nhisMedicineItems.map((item, index) => ({
-                ...item,
-                itemNumber: index + 2
-              }))
-            ]
+              ...supportingItems,
+              ...nhisMedicineItems,
+            ].map((item, index) => ({ ...item, itemNumber: index + 1 }))
           }
         },
         include: { items: { orderBy: { itemNumber: 'asc' } } }
@@ -1038,6 +1478,19 @@ async generatePrivateClaim(attendanceId: string, userId: string) {
 
 /** Controller calls: service.updateDraftHeader(id, data, uid) */
 async updateDraftHeader(claimId: string, data: any, userId: string) {
+  if (data.typeOfService !== undefined || data.mdcCode !== undefined) {
+    const claim = await this.prisma.insuranceClaim.findUnique({
+      where: { id: claimId },
+      select: { typeOfService: true, mdcCode: true, InsuranceProvider: { select: { type: true } } },
+    });
+    if (claim?.InsuranceProvider?.type === 'nhis') {
+      const mismatch = findSpecialtyServiceMismatch(
+        data.typeOfService ?? claim.typeOfService ?? 'OPD',
+        [data.mdcCode ?? claim.mdcCode ?? '']
+      );
+      if (mismatch) throw new ValidationError(mismatch);
+    }
+  }
   return this.updateClaimDraft(claimId, data, userId);
 }
 
@@ -1247,10 +1700,22 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
       });
       const rule = catalog?.StockItem?.payerRules?.[0];
       const currentPricing = catalog?.pricing?.[0];
-      if (!catalog?.StockItem || !rule || rule.isCovered !== true || rule.authorizationRequired == null ||
-          !['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase()) ||
-          (rule.effectiveFrom && rule.effectiveFrom > rowPolicyDate) || (rule.effectiveTo && rule.effectiveTo < rowPolicyDate)) {
-        throw new ValidationError(`NHIS claim medicine "${row.description}" has no complete, active payer policy. Configure its coverage, prescribing level, authorization decision and effective dates.`);
+      // Say which part of the policy is missing: a medicine with no rule at all is a
+      // patient-pay item, while an uncovered or out-of-date rule is a configuration gap.
+      if (!catalog?.StockItem) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" is not a stocked medicine this claim can be billed against.`);
+      }
+      if (!rule) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no NHIS payer rule, so it is not on the medicine list this scheme pays. It is patient-pay: remove the line or replace it with a covered item.`);
+      }
+      if (rule.isCovered !== true) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" is on the NHIS list but marked not covered by this scheme.`);
+      }
+      if (!['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].includes(String(rule.prescribingLevel ?? '').trim().toUpperCase())) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has no valid prescribing level. Configure it in the medicine payer rule.`);
+      }
+      if ((rule.effectiveFrom && rule.effectiveFrom > rowPolicyDate) || (rule.effectiveTo && rule.effectiveTo < rowPolicyDate)) {
+        throw new ValidationError(`NHIS claim medicine "${row.description}" has a payer rule that is not in force on the service date ${rowPolicyDate.toISOString().slice(0, 10)}.`);
       }
       // A payer tariff alone is not enough to safely calculate the patient/NHIS
       // allocation: require an active cash-price record as the allocation ceiling.
@@ -1284,6 +1749,8 @@ async replaceClaimItems(claimId: string, items: any[], userId: string) {
         throw new ValidationError(`NHIS claim medicine "${row.description}" quantity (${row.quantity}) exceeds the quantity dispensed for this attendance (${dispensedQuantity - alreadyClaimedQuantity} remaining).`);
       }
       claimedQuantityByStockItem.set(catalog.StockItem?.id ?? '', alreadyClaimedQuantity + rowQuantity);
+      // A null authorizationRequired is the imported NHIS list not stating the flag, so only an
+      // explicit true demands a pre-authorisation.
       if (rule.authorizationRequired === true) {
         // A stock item may have more than one dispensed row/service-catalog link.
         // Accept authorisation for the canonical stock item or any exact catalog

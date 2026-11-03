@@ -58,6 +58,12 @@ export class InsuranceClaimController extends BaseController {
     return this.paginated(res, result.data, { page: result.page, limit: result.limit, total: result.total }, 'NHIS claims retrieved');
   });
 
+  /** The medicines this NHIS claim can bill, already priced - the form's only medicine source. */
+  listNHISClaimMedicines = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await this.service.listNHISClaimableMedicines(req.params.claimId as string);
+    return this.ok(res, result, 'NHIS claimable medicines retrieved');
+  });
+
   listPrivateClaims = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { page, limit } = this.getPaginationParams(req);
     const result = await this.service.listClaimsByType('private', {

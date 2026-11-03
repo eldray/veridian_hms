@@ -24,6 +24,82 @@ const PHARMACY_DEPARTMENT = 'Pharmacy';
 
 const marService = new NursingService(prisma);
 
+/**
+ * Shelf stock is opened once, at the start of the demo window, but the prescriptions are written
+ * across all of it - so a 40-unit pharmacy shelf is emptied by the first two courses and every
+ * later one is "not dispensed". That is not the story the generator tells, and it silently strips
+ * every medicine line off the NHIS claims, which price themselves only from dispensed stock.
+ *
+ * So the shelf is bought in bulk for the period first: one lot per medicine item, sized from the
+ * quantity actually prescribed against it, dated before the first course that needs it and expiring
+ * after the run. It is a normal purchase movement on the ledger, so the lot, the pharmacy balance
+ * and the hospital-wide figure all still agree.
+ */
+export const replenishShelfStock = (
+  lookups: Lookups,
+  ledger: StockLedger,
+  encounters: Map<string, EncounterIndex>,
+  departmentId: string,
+): number => {
+  interface Demand { quantity: number; firstAt: Date }
+  const demand = new Map<string, Demand>();
+
+  for (const encounter of encounters.values()) {
+    encounter.medPlans.forEach((med: GeneratedMedication, position) => {
+      if (med.status !== 'dispensed' && med.status !== 'administered') return;
+      const stock = lookups.stockForDrugGroup(med.drugGroup, `${encounter.attendanceId}:${position}`);
+      if (!stock) return;
+      const quantity = Math.max(1, med.quantity);
+      const neededAt = med.dispensedAt ?? med.prescribedAt;
+      const entry = demand.get(stock.id);
+      if (entry) {
+        entry.quantity += quantity;
+        if (neededAt.getTime() < entry.firstAt.getTime()) entry.firstAt = neededAt;
+      } else demand.set(stock.id, { quantity, firstAt: neededAt });
+    });
+  }
+
+  const stockById = new Map(
+    [...lookups.medicationStock, ...lookups.consumableStock].map((item) => [item.id, item]),
+  );
+
+  let replenishedItems = 0;
+  for (const [stockItemId, entry] of demand) {
+    const stock = stockById.get(stockItemId);
+    if (!stock) continue;
+    const onTheShelf = Math.min(
+      ledger.availableBatchQuantity(stockItemId, { departmentId }),
+      ledger.balance(stockItemId, departmentId),
+      ledger.aggregateQuantity(stockItemId),
+    );
+    // A quarter spare, so the courses the requisitions and transfers take later in the run
+    // do not turn the shelf short again.
+    const target = Math.ceil(entry.quantity * 1.25);
+    const shortfall = target - onTheShelf;
+    if (shortfall <= 0) continue;
+    const receivedAt = new Date(entry.firstAt.getTime() - 86_400_000);
+    ledger.receive({
+      stockItemId,
+      quantity: shortfall,
+      batchNumber: `LOT-${hashOf(`replenish:${stockItemId}`).toString(36).toUpperCase()}`,
+      // The lot has to be undispensed-out on the day the demo is opened, so the expiry is
+      // measured from then and not from the receipt the back-dated purchase represents.
+      expiryDate: new Date(Date.now() + 540 * 86_400_000),
+      costPrice: stock.costPrice > 0 ? stock.costPrice : 1,
+      departmentId,
+      wardId: null,
+      receivedDate: receivedAt,
+      reference: `OPENING-STOCK-${stock.drugCode || stockItemId}`,
+      notes: 'Bulk purchase to stock the shelf for the dispensing period.',
+      performedBy: lookups.actorId({ role: 'pharmacist', salt: 0 }),
+      transactionType: 'purchase',
+      transactionDate: receivedAt,
+    });
+    replenishedItems++;
+  }
+  return replenishedItems;
+};
+
 /** Doses that were due before the chart closed, split into given, late and missed. */
 interface DoseOutcome {
   status: 'scheduled' | 'due' | 'late' | 'administered' | 'missed' | 'discontinued';
@@ -66,6 +142,15 @@ export const seedMedications = async (
   const now = Date.now();
   let dispensedCount = 0;
   let shortCount = 0;
+
+  // Every seeded pharmacist works in the Pharmacy department, so the shelf the prescriptions
+  // draw from is one location for the whole run.
+  const shelfDepartmentId = lookups.departmentIdByName.get(PHARMACY_DEPARTMENT)
+    ?? lookups.actorDepartmentId({ role: 'pharmacist', salt: 0 })
+    ?? null;
+  const replenishedLots = shelfDepartmentId
+    ? replenishShelfStock(lookups, ledger, encounters, shelfDepartmentId)
+    : 0;
 
   for (const encounter of encounters.values()) {
     const closedEncounter = encounter.plan.status !== 'pending' && encounter.plan.status !== 'admitted';
@@ -188,5 +273,5 @@ export const seedMedications = async (
 
   await writeMany('medications', (part) => prisma.medication.createMany({ data: part }), medRows, stats, planned);
   await writeMany('MAR doses', (part) => prisma.medicationDose.createMany({ data: part }), doseRows, stats, planned);
-  console.log(`✅ ${dispensedCount} prescriptions dispensed against stock${shortCount ? `, ${shortCount} left un-dispensed for want of stock` : ''}`);
+  console.log(`✅ ${dispensedCount} prescriptions dispensed against stock${replenishedLots ? ` (${replenishedLots} shelf lots purchased for the dispensing period)` : ''}${shortCount ? `, ${shortCount} left un-dispensed for want of stock` : ''}`);
 };

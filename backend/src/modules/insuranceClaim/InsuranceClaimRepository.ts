@@ -252,7 +252,10 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
             InsuranceProvider: true,
             Patient: true,
             Attendance: true,
-            Bill: true
+            Bill: true,
+            // The printed batch report splits the money by what the lines actually were, and the
+            // XML builder walks the same lines.
+            items: { orderBy: { itemNumber: 'asc' } },
           }
         },
         createdBy: { select: { id: true, fullName: true, username: true } }
@@ -334,6 +337,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
     periodMonth: number,
     insuranceProviderId?: string | null,
     corporateAccountId?: string | null,
+    claimFamily = 'ALL',
   ) {
     return this.prisma.claimBatch.findFirst({
       where: {
@@ -342,6 +346,7 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         periodMonth,
         insuranceProviderId: insuranceProviderId ?? null,
         corporateAccountId: corporateAccountId ?? null,
+        claimFamily,
       },
     });
   }
@@ -363,7 +368,12 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
         Patient: true,
         Attendance: true,
         Bill: true,
-        items: true,
+        // The G-DRG line carries the family an NHIS claim is filed under, so the month is split
+        // from these rows rather than from a second query that could disagree with this one.
+        items: {
+          orderBy: { itemNumber: 'asc' },
+          include: { gdrgTariff: { select: { gdrgCode: true, mdc: true } } },
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -425,6 +435,43 @@ export class InsuranceClaimRepository extends BaseRepository<any, any, any> {
       };
       return acc;
     }, {} as Record<(typeof types)[number], { count: number; amount: number }>);
+  }
+
+  /**
+   * The same month's batchable claims split by the provider that owes them.
+   *
+   * The batching screen lists payers next to a count, and until now every payer showed the same
+   * figure — the month's total for its insurance type — so a desk member could not tell which
+   * insurer actually had claims to send. This is the one query that answers that per payer.
+   */
+  async summarizeBatchableByProvider(periodYear: number, periodMonth: number) {
+    const grouped = await this.prisma.insuranceClaim.groupBy({
+      by: ['insuranceProviderId'],
+      where: {
+        status: 'finalized',
+        batchId: null,
+        Attendance: { dateTime: monthRange(periodYear, periodMonth) },
+      },
+      _count: { _all: true },
+      _sum: { totalClaimAmount: true },
+    });
+    const ids = grouped.map((g) => g.insuranceProviderId).filter((id): id is string => !!id);
+    const providers = ids.length
+      ? await this.prisma.insuranceProvider.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, name: true, type: true },
+        })
+      : [];
+    const byId = new Map(providers.map((p) => [p.id, p]));
+    return grouped
+      .map((g) => ({
+        insuranceProviderId: g.insuranceProviderId,
+        name: byId.get(g.insuranceProviderId ?? '')?.name ?? 'Unassigned provider',
+        type: byId.get(g.insuranceProviderId ?? '')?.type ?? 'unknown',
+        count: g._count._all,
+        amount: money(g._sum.totalClaimAmount),
+      }))
+      .sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name));
   }
 
   /**

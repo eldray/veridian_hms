@@ -76,9 +76,20 @@ interface PeriodClaimsState {
   };
 }
 
+/**
+ * Generating a batch can produce several: NHIS files one G-DRG family per submission, so a month
+ * of NHIS claims becomes one batch per family. `heldBackUncoded` is what Generate refused — claims
+ * with no package code, left for coding rather than filed into a batch the payer would reject.
+ */
+export interface GenerateClaimBatchOutcome {
+  batches: ClaimBatch[];
+  heldBackUncoded: number;
+}
+
 interface InsuranceState {
   nhisClaims: InsuranceClaim[];
   privateClaims: InsuranceClaim[];
+
   corporateClaims: InsuranceClaim[];
   allClaims: InsuranceClaim[];
 
@@ -141,7 +152,7 @@ interface InsuranceState {
     insuranceProviderId?: string;
     corporateAccountId?: string;
     description?: string;
-  }) => Promise<ClaimBatch>;
+  }) => Promise<GenerateClaimBatchOutcome>;
   getClaimBatches: (filters?: any) => Promise<void>;
   getClaimBatch: (id: string) => Promise<ClaimBatch | null>;
   finalizeClaimBatch: (batchId: string) => Promise<ClaimBatch>;
@@ -586,14 +597,21 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   generateClaimBatch: async (input) => {
     set({ isLoading: true, error: null });
     try {
-      const res = await apiGenerateClaimBatch(input);
-      const batch = normalizeBatch(res.data ?? res);
+      const res = await apiGenerateClaimBatch(input) as any;
+      const payload: any = res?.data ?? res;
+      // A response that predates family batching carries one batch object instead of a list.
+      const batches: ClaimBatch[] = (Array.isArray(payload?.batches) ? payload.batches : [payload])
+        .map((b: any) => normalizeBatch(b));
+      const heldBackUncoded = Number(payload?.heldBackUncoded) || 0;
       set((state) => ({
-        batches: [batch, ...state.batches.filter((b) => b.id !== batch.id)],
-        currentBatch: batch,
+        batches: [
+          ...batches,
+          ...state.batches.filter((b) => !batches.some((created) => created.id === b.id)),
+        ],
+        currentBatch: batches[0] ?? null,
         isLoading: false,
       }));
-      return batch;
+      return { batches, heldBackUncoded };
     } catch (e: any) {
       set({ isLoading: false, error: e?.response?.data?.message || e?.message });
       throw e;

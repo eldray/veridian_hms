@@ -834,6 +834,9 @@ export const COMPLAINT_SCENARIOS: ComplaintScenario[] = [
     minAge: 15,
     maxAge: 45,
     types: ['antenatal'],
+    // A routine booking is seen and sent home. It bills the bundled antenatal OPD code, and an
+    // admission would need an obstetric inpatient G-DRG that these routine codes do not link.
+    admitChance: 0,
     specialization: 'Obstetrics',
     followUpDays: [28, 30],
     advice: 'Report bleeding per vaginam, leaking fluid, severe headache, blurred vision, swelling of the face and hands, reduced fetal movement or fever immediately. Take the iron after food and keep every antenatal date.',
@@ -854,6 +857,7 @@ export const COMPLAINT_SCENARIOS: ComplaintScenario[] = [
     minAge: 15,
     maxAge: 45,
     types: ['antenatal'],
+    admitChance: 0,
     specialization: 'Obstetrics',
     followUpDays: [14, 28],
     advice: 'Count fetal movements daily and come at once if they reduce. Keep the birth plan and transport arranged; attend immediately for pains every five minutes, bleeding or leaking fluid.',
@@ -1276,6 +1280,7 @@ export const COMPLAINT_SCENARIOS: ComplaintScenario[] = [
     minAge: 15,
     maxAge: 45,
     types: ['postnatal'],
+    admitChance: 0,
     specialization: 'Obstetrics',
     followUpDays: [28, 90],
     advice: 'Do the pelvic-floor exercises daily, keep the iron going if still tired and start the agreed contraception. Report heavy late bleeding, foul discharge, breast redness, calf pain, breathlessness or persistent low mood.',

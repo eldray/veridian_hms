@@ -4,11 +4,12 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'path';
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: '0.0.0.0',   // ← ADD THIS: listen on all interfaces
     port: 3000,
+    strictPort: true,  // ← optional: fail loudly if 3000 is taken instead of silently picking 3001
     allowedHosts: ['snap-smoky-tartness.ngrok-free.dev'],
     proxy: {
       '/api': {
@@ -23,20 +24,5 @@ export default defineConfig({
       },
     },
   },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    rollupOptions: {
-      output: {
-        entryFileNames: 'assets/[name].[hash].js',
-        chunkFileNames: 'assets/[name].[hash].js',
-        assetFileNames: 'assets/[name].[hash].[ext]'
-      }
-    }
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src')
-    }
-  }
+  // ...rest unchanged
 });

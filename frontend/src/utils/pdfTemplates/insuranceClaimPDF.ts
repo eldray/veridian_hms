@@ -1,6 +1,9 @@
 // src/utils/pdfTemplates/insuranceClaimPDF.ts - REDESIGNED PROFESSIONAL VERSION
 import type { Hospital } from '../../types';
-import { NHIS_ATTENDANCE_OPTIONS, mapAttendanceToNHIS } from '../nhisAttendanceMapping';
+import {
+  NHIS_ATTENDANCE_OPTIONS, NHIS_SERVICE_OUTCOME_LABELS, mapAttendanceToNHIS,
+  nhisSpecialtiesFor, normalizeNHISAttendanceCode, normalizeNHISOutcomeCode, OPD_SCHEME_SPECIALTY,
+} from '../nhisAttendanceMapping';
 
 // ==========================================
 // HELPER FUNCTIONS
@@ -151,13 +154,16 @@ export const generateInsuranceClaimHTML = (
   const approvedAmount = claim?.approvedAmount || 0;
   const paidAmount = claim?.paidAmount || 0;
   const principalGDRG = claim?.principalGDRG || claim?.gdrgCodes?.[0] || 'OPDC06A';
-  const mdcCode = claim?.mdcCode || principalGDRG?.slice(0, 4) || 'OPDC';
+  const mappedAttendance = mapAttendanceToNHIS(attendance?.attendanceType, !!attendance?.Admission);
+  const serviceTypeCode = claim?.typeOfService || mappedAttendance.typeOfService;
+  // The printed form states the specialty the way the claim sends it: an outpatient visit under
+  // the OPDC scheme, an admission under the clinical family that attended it.
+  const mdcCode = nhisSpecialtiesFor(serviceTypeCode, [claim?.mdcCode, principalGDRG])[0] || OPD_SCHEME_SPECIALTY;
   const ageSplit = age >= 12 ? 'A' : 'C';
   const providerName = claim?.InsuranceProvider?.name || claim?.insuranceProvider?.name || 'N/A';
-  const mappedNHIS = mapAttendanceToNHIS(attendance?.attendanceType, !!attendance?.Admission);
-  const typeOfService = mappedNHIS.typeOfService === 'IPD' ? 'In-Patient' : 'Out-Patient';
-  const serviceOutcome = attendance?.status === 'completed' ? 'Discharged' : 'Continued';
-  const typeOfAttendance = NHIS_ATTENDANCE_OPTIONS.find(o => o.value === mappedNHIS.typeOfAttendance)?.label || 'Emergency/Acute Episode';
+  const typeOfService = serviceTypeCode === 'IPD' ? 'In-Patient' : 'Out-Patient';
+  const serviceOutcome = NHIS_SERVICE_OUTCOME_LABELS[normalizeNHISOutcomeCode(claim?.serviceOutcome)] ?? 'Discharged';
+  const typeOfAttendance = NHIS_ATTENDANCE_OPTIONS.find(o => o.value === (normalizeNHISAttendanceCode(claim?.typeOfAttendance) || mappedAttendance.typeOfAttendance))?.label || 'Emergency/Acute Episode';
 
   // Calculate totals
   const medicationsTotal = medications.reduce((sum: number, m: any) => sum + ((m.quantity || 1) * (m.unitPrice || m.dispensedUnitCost || 0)), 0);

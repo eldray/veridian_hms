@@ -14,9 +14,11 @@
 // XML element names are case-sensitive, so none of that is cosmetic.
 
 import type { HttpFieldDetail } from '../../../utils/httpError';
-
-/** §2.2 - the eleven specialties CLAIM-it will accept in <specialtyAttended>. */
-const SPECIALTIES = new Set(['ENTH', 'ASUR', 'DENT', 'OPHT', 'ORTH', 'MEDI', 'PAED', 'PSUR', 'OBGY', 'RSUR', 'OPDC']);
+import {
+  isNHISClaimUnbundled,
+  nhisDatesOfService,
+  nhisSpecialtiesFor,
+} from '../../../utils/nhisAttendanceMapping';
 
 /** §2.2 - DISC / DIED / TFOT / ABSC. */
 const SERVICE_OUTCOMES = new Set(['DISC', 'DIED', 'TFOT', 'ABSC']);
@@ -100,44 +102,27 @@ const isoDate = (value: unknown): string => {
   return date.toISOString().split('T')[0];
 };
 
-/** Every calendar day the patient was under care; a plain visit is its own single date. */
-const datesOfService = (claim: any, attendance: any, admission: any): string[] => {
-  if (Array.isArray(claim?.datesOfService) && claim.datesOfService.length) {
-    return claim.datesOfService.map((d: unknown) => isoDate(d)).filter(Boolean);
-  }
-  if (admission?.admissionDate) {
-    const midnight = (value: unknown): Date => {
-      const date = value instanceof Date ? new Date(value) : new Date(String(value));
-      date.setHours(0, 0, 0, 0);
-      return date;
-    };
-    const dates: string[] = [];
-    const cursor = midnight(admission.admissionDate);
-    const end = midnight(admission.dischargeDate ?? new Date());
-    while (cursor.getTime() <= end.getTime()) {
-      const day = cursor.toISOString().slice(0, 10);
-      if (!dates.includes(day)) dates.push(day);
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return dates;
-  }
-  const single = isoDate(attendance?.dateTime ?? claim?.createdAt);
-  return single ? [single] : [];
-};
+/**
+ * The dates the payer is billed for: the ones recorded on the claim, otherwise the admission's
+ * two endpoints, otherwise the visit's own day.
+ *
+ * The August 2026 batch this facility submitted has exactly one date per outpatient claim and two
+ * per admission — 2,437 dates over 2,097 claims — so the calendar walk the spec samples seem to
+ * allow is not what this payer was sent. The rule lives with the other NHIS codes so the download
+ * XML and the API body cannot drift apart.
+ */
+const datesOfService = nhisDatesOfService;
 
 /**
- * The specialties this encounter touched, read off the GDRG codes on the claim.
+ * The specialties this encounter touched.
  *
- * A GDRG code begins with its specialty (MEDI28A is Adult Medicine), and the codes are already the
- * same eleven CLAIM-it lists, so the claim's own lines answer this. Nothing is invented: a claim
- * carrying no recognisable GDRG simply sends no specialty, and the pre-flight check names it.
+ * An outpatient visit reports the OPD scheme whatever family its codes belong to, and an admission
+ * reports the families named on its own GDRG codes — never OPDC. That is what the submitted batch
+ * does, and the rule is shared with the download XML and claim generation so the three cannot
+ * disagree about one claim.
  */
-const specialtiesFrom = (gdrgCodes: string[]): string[] => {
-  const found = gdrgCodes
-    .map((code) => String(code).match(/^[A-Z]+/)?.[0] ?? '')
-    .filter((prefix) => SPECIALTIES.has(prefix));
-  return Array.from(new Set(found));
-};
+const specialtiesFrom = (gdrgCodes: string[], typeOfService: string): string[] =>
+  nhisSpecialtiesFor(typeOfService, gdrgCodes);
 
 const memberNumber = (patient: any): string => {
   const raw = String(patient?.nhisNumber ?? '').replace(/[\s\-]/g, '');
@@ -156,16 +141,17 @@ export function buildClaimItClaim(claim: any): ClaimItClaim {
   const admission = attendance?.Admission ?? attendance?.admission ?? null;
   const items: any[] = Array.isArray(claim?.items) ? claim.items : [];
   const byCategory = (category: string) => items.filter((item) => item?.itemCategory === category);
+  const typeOfService = String(claim?.typeOfService ?? 'OPD');
 
   const diagnoses = byCategory('diagnosis').map((item) => ({
-    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? ''),
+    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? claim?.principalGDRG ?? ''),
     icd10: String(item?.diagnosis?.icdCode ?? item?.code ?? ''),
     diagnosis: String(item?.diagnosis?.name ?? item?.description ?? ''),
   }));
 
   const procedures = byCategory('procedure').map((item) => ({
     serviceDate: isoDate(item?.serviceDate ?? claim?.createdAt),
-    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? ''),
+    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? item?.code ?? ''),
     // §2.3 requires the procedure's own diagnosis: its ICD-10 and its wording.
     icd10: String(item?.diagnosis?.icdCode ?? ''),
     diagnosis: String(item?.diagnosis?.name ?? ''),
@@ -173,7 +159,8 @@ export function buildClaimItClaim(claim: any): ClaimItClaim {
 
   const investigations = byCategory('investigation').map((item) => ({
     serviceDate: isoDate(item?.serviceDate ?? claim?.createdAt),
-    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? ''),
+    // An investigation is billed by its INVE code, which the line carries as its own code.
+    gdrgCode: String(item?.gdrgTariff?.gdrgCode ?? item?.code ?? ''),
   }));
 
   const medicines = byCategory('medicine').map((item) => ({
@@ -204,11 +191,8 @@ export function buildClaimItClaim(claim: any): ClaimItClaim {
     gender,
     hospitalRecNo: String(patient?.folderNumber ?? '').trim(),
     isDependant: relationship && relationship !== 'self' ? '1' : '0',
-    typeOfService: String(claim?.typeOfService ?? ''),
-    // Bundled (0) is what the itemised claim has always been billed as. Whether a claim with
-    // separately billed lines should send 1 is a billing rule CLAIM-it applies, not something this
-    // mapping can guess from the data.
-    isUnbundled: '0',
+    typeOfService: typeOfService,
+    isUnbundled: isNHISClaimUnbundled(claim) ? '1' : '0',
     includesPharmacy: medicines.length > 0 ? '1' : '0',
     typeOfAttendance: String(claim?.typeOfAttendance ?? ''),
     serviceOutcome: outcome,
@@ -218,7 +202,7 @@ export function buildClaimItClaim(claim: any): ClaimItClaim {
       ...diagnoses.map((d) => d.gdrgCode),
       ...procedures.map((p) => p.gdrgCode),
       ...investigations.map((i) => i.gdrgCode),
-    ]),
+    ], typeOfService),
     investigation: investigations,
     procedure: procedures,
     diagnosis: diagnoses,

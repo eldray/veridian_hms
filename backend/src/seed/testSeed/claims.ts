@@ -242,6 +242,15 @@ const batchTrackingRows = (
 };
 
 /**
+ * The G-DRG family an NHIS claim is filed under — the MDC of its principal G-DRG line. Null when
+ * the claim has no package code at all, which is a claim the payer cannot be billed for.
+ */
+const nhisFamilyOf = (claim?: {
+  items?: Array<{ itemCategory: string; gdrgTariff: { mdc: string } | null } | null>;
+} | null): string | null =>
+  claim?.items?.find((item) => item?.itemCategory === 'gdrg')?.gdrgTariff?.mdc ?? null;
+
+/**
  * Claims, one per covered and billed visit, then the batches the finalised ones are
  * submitted in.
  *
@@ -262,7 +271,10 @@ export const seedClaims = async (
   const payerByAttendance = await loadPayers([...encounters.values()].map((e) => e.attendanceId));
   const claimIdByKey = new Map<string, string>();
   const notes: string[] = [];
+  const refusals: string[] = [];
   let rejected = 0;
+  let notFinalizable = 0;
+  let uncodedClaims = 0;
 
   for (const plan of claims) {
     const encounter = encounters.get(plan.attendanceKey);
@@ -282,19 +294,34 @@ export const seedClaims = async (
         where: { id: claim.id },
         data: {
           createdAt: plan.createdAt,
-          updatedAt: plan.finalizedAt ?? plan.createdAt,
-          ...(plan.status === 'finalized' && plan.finalizedAt
-            ? {
-              status: ENUMS.claimStatus.finalized,
-              finalizedAt: plan.finalizedAt,
-              finalizedById: plan.finalizedBy ? lookups.actorId(plan.finalizedBy) : createdById,
-            }
-            : {}),
           // The generator's narrative is only the payer's reply; the service's own note
           // records the CCC and the tariff, which is what the claim form prints.
           notes: plan.notes ? `${claim.notes ?? ''} ${plan.notes}`.trim() : claim.notes,
         },
       });
+
+      // A period is only ever submitted after the app has accepted it, so the demo finalizes through
+      // the same guard the Finalize button runs. A claim that fails it - a line whose G-DRG family
+      // contradicts the type of service - stays a draft instead of being stamped finalized behind the
+      // endpoints' back, and is reported so the gap gets fixed at the source.
+      let finalizedAsOf: Date | null = null;
+      if (plan.status === 'finalized' && plan.finalizedAt) {
+        const finalizerId = plan.finalizedBy ? lookups.actorId(plan.finalizedBy) : createdById;
+        try {
+          await service.finalizeClaim(claim.id, finalizerId);
+          finalizedAsOf = plan.finalizedAt;
+          await prisma.insuranceClaim.update({
+            where: { id: claim.id },
+            data: { finalizedAt: plan.finalizedAt, finalizedById: finalizerId, updatedAt: plan.finalizedAt },
+          });
+        } catch (error) {
+          notFinalizable++;
+          if (refusals.length < 5) refusals.push((error instanceof Error ? error.message : String(error)).slice(0, 110));
+        }
+      }
+      if (!finalizedAsOf) {
+        await prisma.insuranceClaim.update({ where: { id: claim.id }, data: { updatedAt: plan.createdAt } });
+      }
       claimIdByKey.set(plan.key, claim.id);
 
       const references = new Set<string>();
@@ -332,7 +359,14 @@ export const seedClaims = async (
   // ── Batches: the finalised claims grouped by payer and period ──
   const claimsById = await prisma.insuranceClaim.findMany({
     where: { id: { in: [...claimIdByKey.values()] } },
-    select: { id: true, totalClaimAmount: true, insuranceProviderId: true, status: true },
+    select: {
+      id: true,
+      totalClaimAmount: true,
+      insuranceProviderId: true,
+      corporateAccountId: true,
+      status: true,
+      items: { select: { itemCategory: true, gdrgTariff: { select: { mdc: true } } } },
+    },
   });
   const claimById = new Map(claimsById.map((claim) => [claim.id, claim]));
   const claimsByBatch = new Map<string, string[]>();
@@ -350,32 +384,54 @@ export const seedClaims = async (
   for (const plan of claimBatches) {
     const claimIds = (claimsByBatch.get(plan.key) ?? []).filter((id) => claimById.get(id)?.status === ENUMS.claimStatus.finalized);
     if (!claimIds.length) continue;
-    const totalAmount = money(claimIds.reduce((sum, id) => sum + toNumber(claimById.get(id)?.totalClaimAmount), 0));
-    const providerIds = new Set(claimIds.map((id) => claimById.get(id)?.insuranceProviderId ?? null));
-    const singleProvider = providerIds.size === 1 ? [...providerIds][0] : null;
-    const id = `seedcb-${(batchRows.length + 1).toString().padStart(4, '0')}`;
-    batchRows.push({
-      id,
-      batchNumber: plan.batchNumber,
-      insuranceType: ENUMS.insuranceType[plan.insuranceType as keyof typeof ENUMS.insuranceType] ?? ENUMS.insuranceType.nhis,
-      insuranceProviderId: singleProvider,
-      // A batch groups a payer's claims for one period; the corporate account stays on
-      // each claim, since a period batch can span several contracted employers.
-      corporateAccountId: null,
-      periodYear: plan.periodYear,
-      periodMonth: plan.periodMonth,
-      totalClaims: claimIds.length,
-      totalAmount,
-      status: ENUMS.batchStatus[plan.status as keyof typeof ENUMS.batchStatus] ?? ENUMS.batchStatus.generated,
-      generatedAt: plan.generatedAt,
-      finalizedAt: plan.finalizedAt,
-      finalizedById: plan.finalizedBy ? lookups.actorId(plan.finalizedBy) : null,
-      description: plan.description,
-      createdById: lookups.actorId(plan.createdBy),
-      createdAt: plan.generatedAt,
-    });
-    batchEventRows.push(...batchTrackingRows(id, totalAmount, plan, lookups));
-    batchLink.push({ batchId: id, claimIds });
+
+    // One batch is one payer's claim for one period — the app refuses to merge two insurers into a
+    // single submission — and NHIS splits that further: the payer adjudicates one G-DRG family at a
+    // time, so a month of NHIS claims becomes a batch per family.
+    const perFilingGroup = new Map<string, string[]>();
+    let heldBackUncoded = 0;
+    for (const id of claimIds) {
+      const claim = claimById.get(id);
+      const family = plan.insuranceType === ENUMS.insuranceType.nhis ? nhisFamilyOf(claim) : 'ALL';
+      // A claim with no G-DRG line has no package to be paid under. The app holds it back for
+      // coding, so the demo leaves it unbatched too rather than filing a batch that would bounce.
+      if (!family) { heldBackUncoded++; continue; }
+      const key = `${claim?.insuranceProviderId ?? 'none'}|${claim?.corporateAccountId ?? 'none'}|${family}`;
+      const list = perFilingGroup.get(key) ?? [];
+      list.push(id);
+      perFilingGroup.set(key, list);
+    }
+    uncodedClaims += heldBackUncoded;
+    const payerParts = [...perFilingGroup.entries()];
+
+    for (const [payerKey, partClaimIds] of payerParts) {
+      const [providerId, accountId, family] = payerKey.split('|');
+      const totalAmount = money(partClaimIds.reduce((sum, id) => sum + toNumber(claimById.get(id)?.totalClaimAmount), 0));
+      const id = `seedcb-${(batchRows.length + 1).toString().padStart(4, '0')}`;
+      batchRows.push({
+        id,
+        batchNumber: payerParts.length > 1 ? `${plan.batchNumber}-${batchRows.length + 1}` : plan.batchNumber,
+        insuranceType: ENUMS.insuranceType[plan.insuranceType as keyof typeof ENUMS.insuranceType] ?? ENUMS.insuranceType.nhis,
+        insuranceProviderId: providerId === 'none' ? null : providerId,
+        // A batch belongs to one payer; for a corporate batch that is the contracted employer, and
+        // the claims carry the same account.
+        corporateAccountId: accountId === 'none' ? null : accountId,
+        claimFamily: family,
+        periodYear: plan.periodYear,
+        periodMonth: plan.periodMonth,
+        totalClaims: partClaimIds.length,
+        totalAmount,
+        status: ENUMS.batchStatus[plan.status as keyof typeof ENUMS.batchStatus] ?? ENUMS.batchStatus.generated,
+        generatedAt: plan.generatedAt,
+        finalizedAt: plan.finalizedAt,
+        finalizedById: plan.finalizedBy ? lookups.actorId(plan.finalizedBy) : null,
+        description: family === 'ALL' ? plan.description : `${plan.description} — ${family} claims`,
+        createdById: lookups.actorId(plan.createdBy),
+        createdAt: plan.generatedAt,
+      });
+      batchEventRows.push(...batchTrackingRows(id, totalAmount, plan, lookups));
+      batchLink.push({ batchId: id, claimIds: partClaimIds });
+    }
   }
 
   await writeMany('claim batches', (part) => prisma.claimBatch.createMany({ data: part }), batchRows, stats, planned);
@@ -392,5 +448,7 @@ export const seedClaims = async (
 
   const settledBatches = new Set(batchEventRows.filter((row) => row.eventType === 'payment').map((row) => row.batchId)).size;
   console.log(`✅ ${claimIdByKey.size}/${claims.length} claims generated, ${batchRows.length} batches, ${batchEventRows.length} payer events (${settledBatches} batches with a remittance)`);
+  if (uncodedClaims) console.log(`   ${uncodedClaims} NHIS claims carry no G-DRG code and were left unbatched for coding`);
+  if (notFinalizable) console.log(`   ${notFinalizable} claims the app refuses to finalize stayed drafts - ${refusals.join(' | ')}`);
   if (rejected) console.log(`   ${rejected} claim plans could not be generated - ${notes.join(' | ') || 'no bill or no covered line'}`);
 };

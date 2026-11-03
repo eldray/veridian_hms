@@ -1,4 +1,9 @@
 import { Prisma } from '@prisma/client';
+import {
+  isNHISClaimUnbundled,
+  nhisDatesOfService,
+  nhisSpecialtiesFor,
+} from '../../../utils/nhisAttendanceMapping';
 
 /**
  * Builds NHIS batch XML in the exact format shown in the samples:
@@ -93,9 +98,12 @@ export class NHISClaimXMLBuilder {
     const typeOfService = this.esc(claim.typeOfService ?? 'OPD');
     const includesPharmacy =
       items.some((i) => i.itemCategory === 'medicine') ? '1' : '0';
+    // Unbundled cases bill each service outside the G-DRG bundle, and the flag lives on the draft
+    // the desk edited because no column was added for it.
+    const isUnbundled = isNHISClaimUnbundled(claim) ? '1' : '0';
     const typeOfAttendance = this.esc(claim.typeOfAttendance ?? 'EAE');
     const serviceOutcome = this.esc(claim.serviceOutcome ?? 'DISC');
-    const mdcCode = this.esc(claim.mdcCode ?? this.deriveMdcFromGdrg(claim.principalGDRG));
+    const mdcCode = this.esc(claim.mdcCode ?? this.deriveMdcFromGdrg(claim.principalGDRG, claim.typeOfService));
     const datesOfService = this.resolveDatesOfService(claim, attendance, admission)
       .map((d) => `        <date>${this.esc(d)}</date>`)
       .join('\n');
@@ -135,6 +143,11 @@ export class NHISClaimXMLBuilder {
       : '';
 
     // ── Procedures ──
+    // The submitted file pairs every procedure entry with the diagnosis it was done for, so the
+    // payer can price the operation against a case rather than against nothing.
+    const indicationText = this.esc(
+      items.find((i) => i.itemCategory === 'diagnosis')?.description ?? ''
+    );
     const procedureItems = items
       .filter((i) => i.itemCategory === 'procedure')
       .map((i) => {
@@ -143,6 +156,7 @@ export class NHISClaimXMLBuilder {
         return `      <entry>
         <serviceDate>${this.esc(serviceDate)}</serviceDate>
         <gdrgCode>${gdrgCode}</gdrgCode>
+        <diagnosis>${indicationText}</diagnosis>
       </entry>`;
       })
       .join('\n');
@@ -190,7 +204,7 @@ export class NHISClaimXMLBuilder {
       '    </memberInfo>',
       '    <serviceInfo>',
       `      <typeOfService>${typeOfService}</typeOfService>`,
-      '      <isUnbundled>0</isUnbundled>',
+      '      <isUnbundled>' + isUnbundled + '</isUnbundled>',
       `      <includesPharmacy>${includesPharmacy}</includesPharmacy>`,
       `      <typeOfAttendance>${typeOfAttendance}</typeOfAttendance>`,
       `      <serviceOutcome>${serviceOutcome}</serviceOutcome>`,
@@ -236,35 +250,13 @@ export class NHISClaimXMLBuilder {
     attendance: any,
     admission: any,
   ): string[] {
-    if (Array.isArray(claim.datesOfService) && claim.datesOfService.length) {
-      return claim.datesOfService.map((d: any) => String(d));
-    }
-    if (admission && admission.admissionDate) {
-      const start = this.startOfDay(new Date(admission.admissionDate));
-      const end = this.startOfDay(
-        admission.dischargeDate ? new Date(admission.dischargeDate) : new Date(),
-      );
-      const dates: string[] = [];
-      const cursor = new Date(start);
-      while (cursor <= end) {
-        dates.push(this.isoDate(cursor));
-        cursor.setDate(cursor.getDate() + 1);
-      }
-      return dates;
-    }
-    return [this.isoDate(attendance.dateTime ?? claim.createdAt)];
+    return nhisDatesOfService(claim, attendance, admission, claim.typeOfService);
   }
 
-  private deriveMdcFromGdrg(gdrg: string | null | undefined): string {
-    if (!gdrg) return '';
-    const match = gdrg.match(/^[A-Z]+/);
-    return match ? match[0] : '';
-  }
-
-  private startOfDay(d: Date): Date {
-    const copy = new Date(d);
-    copy.setHours(0, 0, 0, 0);
-    return copy;
+  private deriveMdcFromGdrg(gdrg: string | null | undefined, typeOfService?: string | null): string {
+    // An outpatient visit reports the OPD scheme whatever family its code is in; only an admission
+    // reports the clinical family. Same rule claim generation and the CLAIM-it body use.
+    return nhisSpecialtiesFor(typeOfService ?? 'OPD', [gdrg ?? ''])[0] ?? '';
   }
 
   private isoDate(value: Date | string | null | undefined): string {

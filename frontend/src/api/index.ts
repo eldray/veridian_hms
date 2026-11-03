@@ -1161,6 +1161,10 @@ export const generateNHISClaim = (attendanceId: string) =>
 export const getNHISClaims = (filters?: any) =>
   api.get('/insurance-claims/nhis', { params: filters }).then(r => r.data);
 
+/** The medicines this NHIS claim can bill, already priced; the editor's only medicine source. */
+export const getNHISClaimMedicines = (claimId: string) =>
+  api.get(`/insurance-claims/nhis/${claimId}/medicines`).then(r => r.data);
+
 export const generatePrivateInsuranceClaim = (attendanceId: string) =>
   api.post('/insurance-claims/private/generate', { attendanceId }).then(r => r.data);
 
@@ -1284,8 +1288,17 @@ export interface GenerateClaimBatchInput {
   description?: string;
 }
 
-export const generateClaimBatch = (data: GenerateClaimBatchInput) =>
-  api.post('/insurance-claims/batches/generate', data).then(r => r.data);
+export const generateClaimBatch = (data: GenerateClaimBatchInput): Promise<GenerateClaimBatchResult> =>
+  api.post('/insurance-claims/batches/generate', data).then(r => r.data?.data ?? r.data);
+
+/**
+ * An NHIS month is filed one G-DRG family at a time, so one click can build several batches.
+ * `heldBackUncoded` is what Generate refused: claims with no package code, left for coding.
+ */
+export interface GenerateClaimBatchResult {
+  batches: Array<{ id: string; batchNumber: string; claimFamily?: string; totalClaims: number }>;
+  heldBackUncoded: number;
+}
 
 export const getClaimBatches = (filters?: any) =>
   api.get('/insurance-claims/batches', { params: filters }).then(r => r.data);
@@ -1302,6 +1315,24 @@ export interface BatchEligibility {
   corporate: number;
   totalAmount: { nhis: number; private: number; corporate: number };
   overall: { count: number; totalAmount: number };
+  /** The month must have ended before a batch may be generated for it. */
+  periodIsClosed?: boolean;
+  lastClosedPeriod?: { periodYear: number; periodMonth: number };
+  /** The same month split by payer, so each provider option can carry its own number. */
+  byProvider?: Array<{
+    insuranceProviderId: string | null;
+    name: string;
+    type: string;
+    count: number;
+    amount: number;
+  }>;
+  /**
+   * The NHIS month as Generate would file it: one batch per G-DRG family (MEDI, OPDC, ASUR…),
+   * biggest first.
+   */
+  nhisFamilies?: Array<{ family: string; count: number; amount: number }>;
+  /** NHIS claims with no package code. Counted, reported, and left out of every batch. */
+  nhisUncoded?: number;
 }
 
 export const getClaimBatchEligibility = (params: {

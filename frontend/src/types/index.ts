@@ -804,6 +804,13 @@ export interface ClaimBatch {
   insuranceProviderId?: string | null;
   corporateAccountId?: string | null;
 
+  /**
+   * Which slice of the period this batch files. NHIS is billed one G-DRG family at a time (MEDI,
+   * OPDC, ASUR…), so one month is several batches; every other payer files its month whole
+   * under "ALL".
+   */
+  claimFamily?: string;
+
   periodYear: number;
   periodMonth: number;
 

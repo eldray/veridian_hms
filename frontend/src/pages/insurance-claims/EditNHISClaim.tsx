@@ -8,7 +8,6 @@ import { useAuthStore } from '../../store/authStore';
 import { canAccessPage } from '../../config/access';
 import { confirmDialog } from '../../context/ConfirmDialog';
 import { useGDRGTariffStore } from '../../store/gdrgTariffStore';
-import { useStockStore } from '../../store/stockStore';
 import { capPickerRows, PickerRowsHint, MAX_PICKER_ROWS } from '../../components/reusable/PickerLimit';
 import { useToast } from '../../store/toastStore';
 import { ClaimFrame, ClaimCard, UField, CheckItem, ListSection, TH, Hint, ClaimFooter, SPECIALTIES, ATTENDANCE_OPTIONS, fmtDate } from '../../components/claims/ClaimUI';
@@ -19,6 +18,7 @@ import {
   deleteClaimFromClaimIt,
   getClaimClaimItSubmissions,
   getClaimItStatus,
+  getNHISClaimMedicines,
   submitClaimToClaimIt,
   type ClaimItBlockedClaim,
   type ClaimItStatus,
@@ -26,7 +26,11 @@ import {
   type ClaimItSubmissionRow,
 } from '../../api';
 import { Download, Printer, XCircle, Plus, Search, Trash2, Edit, ChevronDown, Send } from 'lucide-react';
-import { mapAttendanceToNHIS, normalizeNHISAttendanceCode } from '../../utils/nhisAttendanceMapping';
+import {
+  findSpecialtyServiceMismatch, gdrgSpecialty, isNHISClaimUnbundled, mapAttendanceToNHIS,
+  NHIS_SERVICE_OUTCOME_LABELS, NHIS_SERVICE_OUTCOMES, normalizeNHISAttendanceCode,
+  normalizeNHISOutcomeCode, nhisSpecialtiesFor, OPD_SCHEME_SPECIALTY,
+} from '../../utils/nhisAttendanceMapping';
 import { nhisNumberError, sanitizeNhisInput } from '../../utils/nhisNumber';
 import { describeApiError, describeApiErrorTitle } from '../../utils/apiError';
 
@@ -79,6 +83,29 @@ interface ProcedureItem {
   date: string;
   unitPrice?: number | null;
   lineTotal?: number | null;
+}
+
+/** One dispensed medicine this claim may bill NHIS, priced by the payer rule on the server. */
+interface NhisMedicineQuote {
+  medicationId?: string;
+  stockItemId: string;
+  serviceCatalogId?: string | null;
+  code: string;
+  description: string;
+  quantity: number;
+  date: string;
+  prescription: string;
+  unitPrice: number;
+  lineTotal: number;
+  cashPrice?: number;
+  authorizationRequired?: boolean;
+}
+
+/** A medicine the patient was given that the scheme will not pay, and why. */
+interface UnclaimableMedicine {
+  code?: string;
+  description: string;
+  reason: string;
 }
 
 // Accept both camelCase (new) and PascalCase (old) claim shapes so this page
@@ -580,19 +607,21 @@ function AddInvestigationModal({ isOpen, onClose, onAdd, type, editing = null }:
 // ADD MEDICINE MODAL
 // ═══════════════════════════════════════════════════════════════════════════
 // `editing` set => the dialog edits that row (pre-filled, searchable) instead of adding a new one.
-function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: boolean; onClose: () => void; onAdd: (m: MedicineItem) => void; editing?: MedicineItem | null }) {
-  const { stockItems, getStockItems } = useStockStore();
+function AddMedicineModal({ isOpen, onClose, onAdd, editing = null, options = [] }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onAdd: (m: MedicineItem) => void;
+  editing?: MedicineItem | null;
+  /** The medicines NHIS pays for this claim, priced by the payer rule. Nothing else is offered. */
+  options: NhisMedicineQuote[];
+}) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [pickedItem, setPickedItem] = useState<any>(null);
+  const [pickedItem, setPickedItem] = useState<NhisMedicineQuote | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [serviceDate, setServiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [dosage, setDosage] = useState('');
   const [frequency, setFrequency] = useState('');
   const [duration, setDuration] = useState('');
-
-  useEffect(() => {
-    if (isOpen) getStockItems();
-  }, [isOpen, getStockItems]);
 
   // Reset / pre-fill each time the dialog opens
   useEffect(() => {
@@ -608,32 +637,37 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: 
 
   // Current selection: what the user picked, else the row being edited
   const selectedItem = pickedItem ?? (editing
-    ? (stockItems.find(i => (editing.stockItemId && i.id === editing.stockItemId) || (i.drugCode && i.drugCode === editing.code))
-        ?? { id: editing.stockItemId, name: editing.description, drugCode: editing.code })
+    ? (options.find(o => (editing.stockItemId && o.stockItemId === editing.stockItemId) || (o.code && o.code === editing.code)) ?? null)
     : null);
   const setSelectedItem = setPickedItem;
 
-  const filtered = stockItems.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.drugCode || '').toLowerCase().includes(searchTerm.toLowerCase())
+  const maxQuantity = selectedItem?.quantity ?? 0;
+  const unitPrice = selectedItem?.unitPrice ?? (editing?.unitPrice ?? 0);
+
+  const filtered = options.filter(item =>
+    item.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (item.code || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleAdd = () => {
     if (!selectedItem) return;
     const prescription = `${dosage} ${frequency} x ${duration}`.trim();
+    const claimed = Math.max(1, Math.min(Number(quantity) || 1, maxQuantity || Number(quantity) || 1));
     onAdd({
       id: editing?.id,
-      code: selectedItem.drugCode,
-      description: selectedItem.name,
-      quantity,
+      code: selectedItem.code,
+      description: selectedItem.description,
+      quantity: claimed,
       date: serviceDate,
       // keep the original prescription text when no dose details were entered
       prescription: prescription || editing?.prescription || 'As prescribed',
       dosage,
       frequency,
       duration,
-      stockItemId: selectedItem.id,
-      serviceCatalogId: editing?.serviceCatalogId,
+      stockItemId: selectedItem.stockItemId,
+      serviceCatalogId: selectedItem.serviceCatalogId ?? editing?.serviceCatalogId,
+      unitPrice,
+      lineTotal: Math.round(unitPrice * claimed * 100) / 100,
     });
     setSelectedItem(null);
     setSearchTerm('');
@@ -668,8 +702,8 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: 
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity</label>
-              <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
+              <label className="text-xs font-medium text-[var(--text-secondary)]">Quantity{maxQuantity ? ` (max ${maxQuantity} dispensed)` : ''}</label>
+              <input type="number" min="1" max={maxQuantity || undefined} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} className="w-full px-3 py-2 border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] text-sm" />
             </div>
             <div>
               <label className="text-xs font-medium text-[var(--text-secondary)]">Service Date</label>
@@ -692,21 +726,35 @@ function AddMedicineModal({ isOpen, onClose, onAdd, editing = null }: { isOpen: 
           </div>
           <div className="max-h-48 overflow-y-auto space-y-1">
             <PickerRowsHint shown={Math.min(filtered.length, MAX_PICKER_ROWS)} total={filtered.length} />
+            {filtered.length === 0 && (
+              <p className="text-xs text-[var(--text-secondary)] py-2">
+                No dispensed medicine on this visit is on the NHIS list, so there is nothing to claim here.
+              </p>
+            )}
             {capPickerRows(filtered).map((item) => (
               <button
-                key={item.id}
-                onClick={() => setSelectedItem(item)}
+                key={item.stockItemId}
+                onClick={() => { setSelectedItem(item); setQuantity(prev => Math.min(prev || 1, item.quantity) || 1); }}
                 className={`w-full text-left p-2 rounded-lg transition-colors ${
-                  selectedItem?.id === item.id
+                  selectedItem?.stockItemId === item.stockItemId
                     ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'
                     : 'hover:bg-[var(--bg-main)] text-[var(--text-primary)]'
                 }`}
               >
-                <div className="font-medium text-sm">{item.name}</div>
-                <div className="text-xs text-[var(--text-secondary)]">Code: {item.drugCode}</div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm">{item.description}</span>
+                  <span className="text-xs font-semibold">GHS {Number(item.unitPrice).toFixed(2)}</span>
+                </div>
+                <div className="text-xs text-[var(--text-secondary)]">Code: {item.code} · {item.quantity} dispensed</div>
               </button>
             ))}
           </div>
+          {selectedItem && (
+            <p className="text-xs text-[var(--text-secondary)]">
+              NHIS pays GHS {Number(selectedItem.unitPrice).toFixed(2)} per unit, so this line is GHS{' '}
+              {Math.round(unitPrice * Math.max(1, Math.min(Number(quantity) || 1, selectedItem.quantity)) * 100 / 100).toFixed(2)}.
+            </p>
+          )}
         </div>
         <div className="p-4 border-t border-[var(--border-color)] flex gap-2">
           <button onClick={handleAdd} disabled={!selectedItem} className="flex-1 px-4 py-2 bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] rounded-lg hover:bg-[var(--icon-green-text)] hover:text-white disabled:opacity-50 text-sm font-medium">
@@ -895,6 +943,10 @@ export default function EditNHISClaim() {
   const [diagnoses, setDiagnoses] = useState<DiagnosisItem[]>([]);
   const [investigations, setInvestigations] = useState<InvestigationItem[]>([]);
   const [medicines, setMedicines] = useState<MedicineItem[]>([]);
+  // The medicines NHIS pays for on this claim, priced by its payer rule. The picker offers nothing else.
+  const [nhisQuotes, setNhisQuotes] = useState<NhisMedicineQuote[]>([]);
+  const [nhisUnclaimable, setNhisUnclaimable] = useState<UnclaimableMedicine[]>([]);
+  const fillMedicinesFromQuote = useRef(false);
 
   const [principalGDRG, setPrincipalGDRG] = useState('');
   const [principalGDRGDescription, setPrincipalGDRGDescription] = useState('');
@@ -933,6 +985,46 @@ export default function EditNHISClaim() {
       getDiagnoses();
       fetchTariffs();
     }
+  }, [id]);
+
+  // The claim's own billable medicines. The server applies the payer rule, so what arrives here is
+  // exactly what the save accepts, at the amount the save prices it at.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    getNHISClaimMedicines(id)
+      .then((res: any) => {
+        if (cancelled) return;
+        const payload = res?.data ?? res;
+        const quotes: NhisMedicineQuote[] = payload?.medicines ?? [];
+        setNhisQuotes(quotes);
+        setNhisUnclaimable(payload?.unclaimable ?? []);
+        if (fillMedicinesFromQuote.current) {
+          fillMedicinesFromQuote.current = false;
+          setMedicines(quotes.map(q => ({
+            code: q.code,
+            description: q.description,
+            quantity: q.quantity,
+            date: q.date,
+            prescription: q.prescription,
+            stockItemId: q.stockItemId,
+            serviceCatalogId: q.serviceCatalogId ?? undefined,
+            unitPrice: q.unitPrice,
+            lineTotal: q.lineTotal,
+          })));
+          return;
+        }
+        // A line saved before it carried an amount is quoted the way the save would price it.
+        const byCode = new Map(quotes.map(q => [String(q.code), q]));
+        setMedicines(prev => prev.map(m => {
+          if (m.unitPrice != null || m.lineTotal != null) return m;
+          const quote = byCode.get(String(m.code));
+          if (!quote) return m;
+          return { ...m, unitPrice: quote.unitPrice, lineTotal: Math.round(quote.unitPrice * (Number(m.quantity) || 1) * 100) / 100 };
+        }));
+      })
+      .catch(() => { if (!cancelled) { setNhisQuotes([]); setNhisUnclaimable([]); } });
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
@@ -992,13 +1084,29 @@ export default function EditNHISClaim() {
       setAge(`${y} yrs`);
     }
 
-    const serviceType = currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD';
+    // Type of Attendance / Type of Service follow the attendance type (see utils/nhisAttendanceMapping.ts).
+    // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
+    const admissionRaw = attendance?.Admission ?? attendance?.admission ?? null;
+    const admissionRecord: any = admissionRaw ?? {};
+    const mapped = mapAttendanceToNHIS(attendance?.attendanceType, !!admissionRaw || currentClaim.typeOfService === 'IPD');
+    const reResolved = currentClaim.status === 'draft' && !!attendance?.attendanceType;
+    const serviceType: 'OPD' | 'IPD' = reResolved ? mapped.typeOfService : (currentClaim.typeOfService === 'IPD' ? 'IPD' : 'OPD');
     setPrimaryServiceType(serviceType);
-    setServiceOutcome(currentClaim.serviceOutcome === 'DISC' ? 'DISC' : 'CONT');
+    setTypeOfAttendance(reResolved
+      ? mapped.typeOfAttendance
+      : (normalizeNHISAttendanceCode(currentClaim.typeOfAttendance) || mapped.typeOfAttendance));
+    setServiceOutcome(normalizeNHISOutcomeCode(currentClaim.serviceOutcome));
 
-    if (currentClaim.datesOfService?.length) {
+    const isoDay = (v: any) => (v ? String(v).split('T')[0] : '');
+    const serviceDates: string[] = (currentClaim.datesOfService ?? []).map(isoDay).filter(Boolean);
+    if (serviceType === 'IPD') {
+      // An admission sends its two endpoints; the form shows them as the stay dates. Older drafts
+      // stored one date per day in hospital, so the last of the list is the day it ended.
+      setAdmissionDate(serviceDates[0] || isoDay(admissionRecord.admissionDate));
+      setDischargeDate(serviceDates[serviceDates.length - 1] || isoDay(admissionRecord.dischargeDate));
+    } else if (serviceDates.length) {
       const dates = [...visitDates];
-      currentClaim.datesOfService.forEach((date: string, i: number) => { if (i < 4) dates[i] = date; });
+      serviceDates.forEach((date: string, i: number) => { if (i < 4) dates[i] = date; });
       setVisitDates(dates);
     } else if (attendance?.dateTime) {
       setVisitDates([attendance.dateTime.split('T')[0], '', '', '']);
@@ -1086,19 +1194,10 @@ export default function EditNHISClaim() {
     } else if (meta.medicines?.length) {
       setMedicines(meta.medicines);
     } else {
-      const meds = (attendance?.medication ?? attendance?.Medication ?? []).map((m: any) => ({
-        id: m.id,
-        code: m.stockItem?.drugCode || m.StockItem?.drugCode || m.serviceCatalog?.code || m.ServiceCatalog?.code || '',
-        description: m.name,
-        quantity: m.quantity || 1,
-        date: m.dispensedAt ? new Date(m.dispensedAt).toISOString().split('T')[0] : '',
-        prescription: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-        dosage: m.dosage || '',
-        frequency: m.frequency || '',
-        duration: m.duration || '',
-        stockItemId: m.stockItemId,
-      }));
-      setMedicines(meds);
+      // Filled from the payer quote below, which lists only the dispensed medicines NHIS pays for
+      // and already carries their amounts. The raw shelf is not a claim source.
+      setMedicines([]);
+      fillMedicinesFromQuote.current = true;
     }
 
     if (procFromServer.length) {
@@ -1122,35 +1221,34 @@ export default function EditNHISClaim() {
       setProcedures(attProcs);
     }
 
-    if (meta.visitDates) setVisitDates(meta.visitDates);
-    if (meta.admissionDate) setAdmissionDate(meta.admissionDate);
-    if (meta.dischargeDate) setDischargeDate(meta.dischargeDate);
+    // Metadata is the older store for these dates; a claim that already carries dates of service
+    // uses those, so a desk edit that was saved to the claim is not silently reverted.
+    if (meta.visitDates && !serviceDates.length) setVisitDates(meta.visitDates);
+    if (serviceType === 'IPD' && !serviceDates.length) {
+      if (meta.admissionDate) setAdmissionDate(meta.admissionDate);
+      if (meta.dischargeDate) setDischargeDate(meta.dischargeDate);
+    }
     if (meta.lengthOfStay) setLengthOfStay(meta.lengthOfStay);
 
     setPrincipalGDRG(currentClaim.principalGDRG || '');
     setPreAuthNumber(currentClaim.preAuthNumber || '');
     setNotes(currentClaim.notes || '');
-    // Type of Attendance / Type of Service follow the attendance type (see utils/nhisAttendanceMapping.ts).
-    // Drafts are re-resolved from the attendance; submitted claims keep what was saved.
-    const mapped = mapAttendanceToNHIS(
-      attendance?.attendanceType,
-      !!(attendance?.Admission ?? attendance?.admission) || currentClaim.typeOfService === 'IPD'
-    );
-    if (currentClaim.status === 'draft' && attendance?.attendanceType) {
-      setTypeOfAttendance(mapped.typeOfAttendance);
-      setPrimaryServiceType(mapped.typeOfService);
-    } else {
-      setTypeOfAttendance(normalizeNHISAttendanceCode(currentClaim.typeOfAttendance) || mapped.typeOfAttendance);
-    }
 
-    setServiceFlags(meta.serviceFlags ?? {
-      diagnostic: (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
-      pharmacy: (attendance?.medication ?? attendance?.Medication ?? []).length > 0,
-      unbundled: false,
-      allInclusive: true,
+    const unbundled = isNHISClaimUnbundled(currentClaim) || meta.serviceFlags?.unbundled === true;
+    setServiceFlags({
+      diagnostic: meta.serviceFlags?.diagnostic ?? (attendance?.labTest ?? attendance?.LabTest ?? []).length > 0,
+      pharmacy: meta.serviceFlags?.pharmacy ?? (attendance?.medication ?? attendance?.Medication ?? []).length > 0,
+      unbundled,
+      allInclusive: meta.serviceFlags?.allInclusive ?? !unbundled,
     });
-    const mdc = (currentClaim.mdcCode || (currentClaim.principalGDRG || '').slice(0, 4) || '').toUpperCase();
-    setSpecialties(meta.specialties ?? ((SPECIALTIES as readonly string[]).includes(mdc) ? [mdc] : []));
+    // Every specialty is shown and ticked by the desk; what a claim may report is decided when it
+    // is saved. Only a draft that carries nothing yet is filled from its own codes.
+    const savedSpecialties: string[] = Array.isArray(meta.specialties)
+      ? meta.specialties
+      : (currentClaim.mdcCode ? [String(currentClaim.mdcCode)] : []);
+    setSpecialties(savedSpecialties.length
+      ? savedSpecialties
+      : nhisSpecialtiesFor(serviceType, [currentClaim.principalGDRG]));
     setReferringFacility(meta.referringFacility ?? attendance?.referringFacility ?? '');
     setReferralCode(meta.referralCode ?? '');
     setPhysicianId(meta.physicianId ?? '');
@@ -1191,6 +1289,10 @@ export default function EditNHISClaim() {
   );
   const claimTotal = toNum((currentClaim as any)?.totalClaimAmount) || (gdrgAmount + medicinesAmount);
   const money = (value: number) => `GHS ${value.toFixed(2)}`;
+
+  // A line the payer quote does not carry is one the save will refuse, so the desk can see which
+  // row to delete instead of reading it out of the error toast.
+  const claimableCodes = new Set(nhisQuotes.map(q => String(q.code)));
 
   const handleMemberEdit = () => {
     setIsEditingMember(true);
@@ -1277,9 +1379,42 @@ export default function EditNHISClaim() {
     const arr = [...visitDates]; arr[i] = v; setVisitDates(arr);
   };
 
+  // The codes carried on the draft that a G-DRG family could be read off.
+  const carriedGDRGCodes = [principalGDRG, ...diagnoses.map((d) => d.gdrgCode), ...procedures.map((pr) => pr.code)];
+
   const handlePrincipalGDRGChange = (code: string, desc: string) => {
     setPrincipalGDRG(code);
     setPrincipalGDRGDescription(desc);
+    // Choosing a code adds the specialty it names — the outpatient scheme for a visit, the clinical
+    // family for an admission — without clearing whatever the desk had already ticked.
+    if (code) setSpecialties((prev) => Array.from(new Set([
+      ...prev,
+      primaryServiceType === 'OPD' ? OPD_SCHEME_SPECIALTY : gdrgSpecialty(code),
+    ].filter(Boolean))));
+  };
+
+  /** Switching between a visit and an admission keeps the desk's ticks and moves the scheme. */
+  const handleServiceTypeChange = (next: 'OPD' | 'IPD') => {
+    if (next === primaryServiceType) return;
+    setPrimaryServiceType(next);
+    setSpecialties((prev) => {
+      if (next === 'OPD') return Array.from(new Set([...prev, OPD_SCHEME_SPECIALTY]));
+      const clinical = prev.filter((s) => s !== OPD_SCHEME_SPECIALTY);
+      // An admission cannot report the outpatient scheme, so if that was all it carried, fall back
+      // to the families the claim's own codes name rather than leaving the box empty.
+      return clinical.length ? clinical : nhisSpecialtiesFor('IPD', carriedGDRGCodes);
+    });
+  };
+
+  /** <mdcCode>: the scheme a visit is billed under, or the family an admission was attended by. */
+  const primarySpecialty = primaryServiceType === 'OPD'
+    ? OPD_SCHEME_SPECIALTY
+    : (specialties.find((s) => s !== OPD_SCHEME_SPECIALTY) || gdrgSpecialty(principalGDRG));
+
+  /** The dates the claim sends: the stay's endpoints for an admission, each recorded visit otherwise. */
+  const datesOfServiceForSave = (): string[] => {
+    const days = primaryServiceType === 'IPD' ? [admissionDate, dischargeDate] : visitDates;
+    return Array.from(new Set(days.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))));
   };
 
   const validateNHISClaim = () => {
@@ -1294,16 +1429,25 @@ export default function EditNHISClaim() {
     if (primaryServiceType === 'IPD') {
       if (!admissionDate) errs.push('Admission date is required');
       if (!dischargeDate) errs.push('Discharge date is required');
+      if (admissionDate && dischargeDate && dischargeDate < admissionDate) {
+        errs.push('The discharge date cannot fall before the admission date');
+      }
+    }
+    // The server refuses these on finalize; catching them here saves the desk a rejected claim.
+    const mismatch = findSpecialtyServiceMismatch(primaryServiceType, specialties);
+    if (mismatch) errs.push(mismatch);
+    if (!(NHIS_SERVICE_OUTCOMES as readonly string[]).includes(serviceOutcome)) {
+      errs.push(`The payer does not accept the outcome ${serviceOutcome}`);
     }
     return { isValid: errs.length === 0, errors: errs };
   };
 
   const handleSave = async () => {
-    if (!isDraft) return;
+    if (!isDraft) return false;
     const { isValid, errors } = validateNHISClaim();
     if (!isValid) {
       toastError('Validation Failed', errors.join(', '));
-      return;
+      return false;
     }
     try {
       setIsSubmitting(true);
@@ -1312,9 +1456,15 @@ export default function EditNHISClaim() {
         principalGDRG,
         preAuthNumber,
         notes,
-        mdcCode: principalGDRG?.slice(0, 4) || 'OPDC',
+        typeOfService: primaryServiceType,
+        typeOfAttendance,
+        serviceOutcome,
+        datesOfService: datesOfServiceForSave(),
+        mdcCode: primarySpecialty,
         metadata: {
           serviceFlags,
+          // <isUnbundled> has no column of its own; the XML and CLAIM-it builders read it here.
+          isUnbundled: serviceFlags.unbundled,
           specialties,
           referringFacility,
           referralCode,
@@ -1331,21 +1481,23 @@ export default function EditNHISClaim() {
 
       success('Saved', 'NHIS claim updated successfully');
       await getInsuranceClaim(id!);
+      return true;
     } catch (err: any) {
-      toastError('Save Failed', err.message);
+      toastError('Save Failed', describeApiError(err, err?.message || 'The claim could not be saved.'));
+      return false;
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleFinalize = async () => {
+    if (!(await handleSave())) return;
     try {
-      await handleSave();
       await finalizeClaim(id!);
       success('Finalized', 'Claim is ready for submission');
       navigate('/dashboard/insurance/nhis/claims');
     } catch (err: any) {
-      toastError('Finalize Failed', err.message);
+      toastError(describeApiErrorTitle(err, 'Finalize Failed'), describeApiError(err, 'The claim could not be finalized.'));
     }
   };
 
@@ -1509,9 +1661,9 @@ export default function EditNHISClaim() {
             <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
               <ClaimCard title="Type of Service(s)" className="md:col-span-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => setPrimaryServiceType('OPD')} disabled={locked} />
+                  <CheckItem label="Outpatient" checked={primaryServiceType === 'OPD'} onChange={() => handleServiceTypeChange('OPD')} disabled={locked} />
                   <CheckItem label="Pharmacy" checked={serviceFlags.pharmacy} onChange={v => setServiceFlags({ ...serviceFlags, pharmacy: v })} disabled={locked} />
-                  <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => setPrimaryServiceType('IPD')} disabled={locked} />
+                  <CheckItem label="Inpatient" checked={primaryServiceType === 'IPD'} onChange={() => handleServiceTypeChange('IPD')} disabled={locked} />
                   <CheckItem label="Diagnostic" checked={serviceFlags.diagnostic} onChange={v => setServiceFlags({ ...serviceFlags, diagnostic: v })} disabled={locked} />
                   <CheckItem label="UnBundled" checked={serviceFlags.unbundled} onChange={v => setServiceFlags({ ...serviceFlags, unbundled: v, allInclusive: v ? false : serviceFlags.allInclusive })} disabled={locked} />
                   <CheckItem label="All-Inclusive" checked={serviceFlags.allInclusive} onChange={v => setServiceFlags({ ...serviceFlags, allInclusive: v, unbundled: v ? false : serviceFlags.unbundled })} disabled={locked} />
@@ -1519,8 +1671,8 @@ export default function EditNHISClaim() {
               </ClaimCard>
               <ClaimCard title="Service Outcome" className="md:col-span-2">
                 <div className="grid grid-cols-1 gap-y-3">
-                  {[['DISC', 'Discharged'], ['DIED', 'Died'], ['TRFO', 'Transferred Out'], ['ABS', 'Absconded']].map(([code, label]) => (
-                    <CheckItem key={code} label={label} checked={serviceOutcome === code} onChange={() => setServiceOutcome(code)} disabled={locked} />
+                  {NHIS_SERVICE_OUTCOMES.map((code) => (
+                    <CheckItem key={code} label={NHIS_SERVICE_OUTCOME_LABELS[code]} checked={serviceOutcome === code} onChange={() => setServiceOutcome(code)} disabled={locked} />
                   ))}
                 </div>
               </ClaimCard>
@@ -1560,10 +1712,17 @@ export default function EditNHISClaim() {
             </ClaimCard>
 
             <ClaimCard title="Specialties Attended">
-              <div className="grid grid-cols-3 gap-x-2 gap-y-3 text-[14px]">
-                {SPECIALTIES.map(code => (
-                  <CheckItem key={code} label={code} checked={specialties.includes(code)} onChange={v => toggleSpecialty(code, v)} disabled={locked} />
-                ))}
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-x-2 gap-y-3 text-[14px]">
+                  {SPECIALTIES.map(code => (
+                    <CheckItem key={code} label={code} checked={specialties.includes(code)} onChange={v => toggleSpecialty(code, v)} disabled={locked} />
+                  ))}
+                </div>
+                <Hint>
+                  {primaryServiceType === 'OPD'
+                    ? `An outpatient visit is billed under the ${OPD_SCHEME_SPECIALTY} outpatient scheme. Tick the clinical families too and the save refuses them — they belong to an admission.`
+                    : `An admission reports the clinical specialties that attended it, for example the family of its principal G-DRG. ${OPD_SCHEME_SPECIALTY} is the outpatient scheme, so the save refuses it here.`}
+                </Hint>
               </div>
             </ClaimCard>
           </div>
@@ -1697,6 +1856,9 @@ export default function EditNHISClaim() {
                   <td className="px-3 py-3 text-gray-700">
                     {m.description}
                     {m.prescription && <div className="text-[10px] italic text-gray-500 mt-0.5">Rx: {m.prescription}</div>}
+                    {nhisQuotes.length > 0 && !claimableCodes.has(String(m.code)) && (
+                      <div className="text-[10px] text-red-600 mt-0.5">Not on this visit&apos;s NHIS medicine list — remove the line or the save refuses it.</div>
+                    )}
                   </td>
                   <td className="px-3 py-3 text-gray-700">{m.quantity}</td>
                   <td className="px-3 py-3 text-gray-700">{fmtDate(m.date)}</td>
@@ -1713,6 +1875,14 @@ export default function EditNHISClaim() {
             </tbody>
           </table>
         </ListSection>
+        {nhisUnclaimable.length > 0 && (
+          <div className="px-4 pt-2 pb-3 bg-[var(--bg-card)]">
+            <Hint>
+              {`${nhisUnclaimable.length} medicine${nhisUnclaimable.length > 1 ? 's' : ''} dispensed on this visit ${nhisUnclaimable.length > 1 ? 'are' : 'is'} not claimable under NHIS, so ${nhisUnclaimable.length > 1 ? 'they are' : 'it is'} not offered in the picker and the patient pays for ${nhisUnclaimable.length > 1 ? 'them' : 'it'} at the counter`}
+              {` (${nhisUnclaimable.slice(0, 3).map(u => `${u.description} — ${u.reason}`).join('; ')}${nhisUnclaimable.length > 3 ? '…' : ''}).`}
+            </Hint>
+          </div>
+        )}
 
         <ClaimCard title="Principal GDRG">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
@@ -1813,7 +1983,7 @@ export default function EditNHISClaim() {
       <AddInvestigationModal isOpen={activeModal === 'lab'} onClose={closeModal} onAdd={addInvestigation} type="lab" />
       <AddInvestigationModal isOpen={activeModal === 'scan'} onClose={closeModal} onAdd={addInvestigation} type="scan" />
       <AddInvestigationModal isOpen={editing?.kind === 'investigation'} onClose={closeModal} onAdd={addInvestigation} type="lab" editing={editing?.kind === 'investigation' ? investigations[editing.index] ?? null : null} />
-      <AddMedicineModal isOpen={activeModal === 'medicine' || editing?.kind === 'medicine'} onClose={closeModal} onAdd={addMedicine} editing={editing?.kind === 'medicine' ? medicines[editing.index] ?? null : null} />
+      <AddMedicineModal isOpen={activeModal === 'medicine' || editing?.kind === 'medicine'} onClose={closeModal} onAdd={addMedicine} editing={editing?.kind === 'medicine' ? medicines[editing.index] ?? null : null} options={nhisQuotes} />
       <AddProcedureModal isOpen={activeModal === 'procedure' || editing?.kind === 'procedure'} onClose={closeModal} onAdd={addProcedure} editing={editing?.kind === 'procedure' ? procedures[editing.index] ?? null : null} />
     </>
   );

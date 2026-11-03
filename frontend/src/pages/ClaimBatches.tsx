@@ -41,6 +41,11 @@ interface BatchRow {
   id: string;
   batchNumber: string;
   insuranceType: InsuranceType;
+  /**
+   * Which slice of the period the batch files. NHIS is filed one G-DRG family at a time, so a
+   * month can hold several batches; every other payer files the month whole under "ALL".
+   */
+  claimFamily?: string;
   periodYear: number;
   periodMonth: number;
   totalClaims: number;
@@ -76,6 +81,28 @@ const money = (value: unknown) => `GHS ${Number(value || 0).toFixed(2)}`;
 const shortDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString() : '—';
 const periodName = (year: number, month: number) => `${MONTH_NAMES[month - 1]} ${year}`;
+
+/**
+ * A batch may only be generated for a month that has ended: a mid-month batch misses every visit
+ * still to come and the payer treats the follow-up batch for that month as a duplicate.
+ */
+const isPeriodClosed = (periodYear: number, periodMonth: number, now = new Date()) => {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return periodYear < year || (periodYear === year && periodMonth < month);
+};
+
+const lastClosedPeriod = (now = new Date()) => {
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  return month === 1
+    ? { periodYear: year - 1, periodMonth: 12 }
+    : { periodYear: year, periodMonth: month - 1 };
+};
+
+/** The months of one year that a batch can still be generated for, oldest first. */
+const closedMonthsOf = (year: number) =>
+  MONTH_NAMES.map((_, i) => i + 1).filter((m) => isPeriodClosed(year, m));
 
 export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
   const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
@@ -135,6 +162,8 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
   const [formYear, setFormYear] = useState(today.getFullYear());
   const [formMonth, setFormMonth] = useState(today.getMonth() + 1);
   const [formProviderId, setFormProviderId] = useState('');
+  // The scheme this screen chose by itself, as opposed to one the operator picked.
+  const [autoProviderId, setAutoProviderId] = useState('');
   const [formCorporateId, setFormCorporateId] = useState('');
   const [formDescription, setFormDescription] = useState('');
   const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
@@ -228,6 +257,46 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
     }
   };
 
+  const totals = periodClaims?.totals ?? null;
+  const claimsPages = Math.max(1, periodClaims?.pagination?.pages ?? 1);
+  const rows = useMemo(() => periodClaims?.rows ?? [], [periodClaims]);
+
+  const providerOptions = useMemo(
+    () => providers.filter((p: any) => p.type === formType && p.isActive !== false),
+    [providers, formType],
+  );
+
+  // Each provider's own share of the month, so the picker never shows one number for every name.
+  const providerEligibility = useMemo(() => {
+    const map = new Map<string, { count: number; amount: number }>();
+    for (const row of eligible?.byProvider ?? []) {
+      if (row.insuranceProviderId) map.set(row.insuranceProviderId, { count: row.count, amount: row.amount });
+    }
+    return map;
+  }, [eligible]);
+
+  // NHIS is one national scheme. When the facility has configured exactly one, asking the operator
+  // to pick it again only invites a second, wrong choice.
+  useEffect(() => {
+    if (!showCreate || formType !== 'nhis' || formProviderId) return;
+    if (providerOptions.length === 1) {
+      setFormProviderId(providerOptions[0].id);
+      setAutoProviderId(providerOptions[0].id);
+    }
+  }, [showCreate, formType, formProviderId, providerOptions]);
+
+  // A scheme the screen chose, not the operator. It names the batch but must not narrow it: NHIS
+  // claims of one month are filed together whichever duplicate record each visit points at.
+  const previewProviderId = formProviderId && formProviderId !== autoProviderId ? formProviderId : undefined;
+
+  const providerLabel = (p: any) => {
+    if (formType === 'nhis' && providerOptions.length === 1) return p.name;
+    const own = providerEligibility.get(p.id);
+    return `${p.name} — ${own
+      ? `${own.count} claim${own.count === 1 ? '' : 's'} · ${money(own.amount)}`
+      : 'nothing waiting this month'}`;
+  };
+
   // Eligible preview whenever the create form's period or scope changes. The scope goes to the
   // server with the request, so the number on screen is the batch this form would build.
   useEffect(() => {
@@ -238,7 +307,7 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
     getEligibleClaimsForBatch({
       periodYear: formYear,
       periodMonth: formMonth,
-      insuranceProviderId: formProviderId || undefined,
+      insuranceProviderId: previewProviderId,
       corporateAccountId: formType === 'corporate' ? (formCorporateId || undefined) : undefined,
     })
       .then((r) => { if (!cancelled) setEligible(r); })
@@ -249,38 +318,78 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
       })
       .finally(() => { if (!cancelled) setEligibleLoading(false); });
     return () => { cancelled = true; };
-  }, [showCreate, formYear, formMonth, formType, formProviderId, formCorporateId, getEligibleClaimsForBatch]);
-
-  const totals = periodClaims?.totals ?? null;
-  const claimsPages = Math.max(1, periodClaims?.pagination?.pages ?? 1);
-  const rows = useMemo(() => periodClaims?.rows ?? [], [periodClaims]);
-
-  const providerOptions = useMemo(
-    () => providers.filter((p: any) => p.type === formType && p.isActive !== false),
-    [providers, formType],
-  );
+  }, [showCreate, formYear, formMonth, formType, previewProviderId, formCorporateId, getEligibleClaimsForBatch]);
 
   const eligibleForFormType = eligible ? eligible[formType] : 0;
   // Private batches are per provider and corporate batches per account — until one is chosen the
-  // count spans every payer of that kind, which is not what the batch would take.
-  const needsPayerChoice = formType === 'corporate' ? !formCorporateId : formType === 'private' && !formProviderId;
+  // count spans every payer of that kind, which is not what the batch would take. NHIS needs a
+  // choice only when more than one scheme is configured, because the server cannot guess either.
+  const needsPayerChoice = formType === 'corporate'
+    ? !formCorporateId
+    : formType === 'private'
+      ? !formProviderId
+      : providerOptions.length > 1 && !formProviderId;
+  const formPeriodIsClosed = isPeriodClosed(formYear, formMonth);
+  const selectedProviderName = providerOptions.find((p: any) => p.id === formProviderId)?.name ?? '';
+  // NHIS files one batch per G-DRG family, so a month whose claims carry no package code has
+  // nothing billable in it — the button must say so rather than generate a batch the server refuses.
+  const nhisFamilies = formType === 'nhis' ? (eligible?.nhisFamilies ?? []) : [];
+  const nhisBatchCount = nhisFamilies.length;
+  const nothingCoded = formType === 'nhis' && !!eligible?.nhisFamilies
+    && eligibleForFormType > 0 && nhisBatchCount === 0;
   const canGenerate =
-    !eligibleLoading && !!eligible && eligibleForFormType > 0 && !needsPayerChoice;
+    !eligibleLoading && !!eligible && formPeriodIsClosed && eligibleForFormType > 0
+    && !needsPayerChoice && !nothingCoded;
+
+  // The month the Generate button would build: the one on screen if it has ended, otherwise the
+  // most recent month that has. Browsing an open month stays allowed; batching it does not.
+  const latestClosed = lastClosedPeriod();
+  const batchTarget = isPeriodClosed(periodYear, periodMonth)
+    ? { periodYear, periodMonth }
+    : latestClosed;
+
+  const openCreateForm = () => {
+    setFormType(family);
+    setFormYear(batchTarget.periodYear);
+    setFormMonth(batchTarget.periodMonth);
+    setFormProviderId('');
+    setAutoProviderId('');
+    setFormCorporateId('');
+    setShowCreate(true);
+  };
+
+  const handleFormYearChange = (year: number) => {
+    setFormYear(year);
+    // A month can be open in one year and closed in the next, so keep the pair legal.
+    if (!isPeriodClosed(year, formMonth)) {
+      const months = closedMonthsOf(year);
+      setFormMonth(months[months.length - 1] ?? formMonth);
+    }
+  };
 
   const handleCreate = async () => {
     try {
       setProcessingId('__create__');
-      await generateClaimBatch({
+      const result = await generateClaimBatch({
         insuranceType: formType,
         periodYear: formYear,
         periodMonth: formMonth,
-        insuranceProviderId: formType === 'corporate' ? undefined : (formProviderId || undefined),
+        insuranceProviderId: formType === 'corporate' ? undefined : previewProviderId,
         corporateAccountId: formType === 'corporate' ? formCorporateId : undefined,
         description: formDescription || undefined,
       });
+      const batches = result?.batches ?? [];
+      const filed = batches.reduce((sum, b) => sum + Number(b.totalClaims || 0), 0);
+      const heldBack = Number(result?.heldBackUncoded || 0);
       success(
-        'Batch generated',
-        `${eligibleForFormType} ${typeLabel(formType)} claim(s) from ${periodName(formYear, formMonth)}`,
+        batches.length > 1 ? `${batches.length} batches generated` : 'Batch generated',
+        `${filed} ${typeLabel(formType)} claim(s) from ${periodName(formYear, formMonth)}`
+        + (batches.length > 1
+          ? ` — filed as ${batches.map((b) => b.claimFamily).join(', ')}, one batch per code family.`
+          : '')
+        + (heldBack
+          ? ` ${heldBack} claim(s) with no G-DRG code were left for coding.`
+          : ''),
       );
       setShowCreate(false);
       setFormDescription('');
@@ -461,14 +570,12 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
             <Button
               variant="primary"
               icon={Plus}
-              onClick={() => {
-                setFormType(family);
-                setFormYear(periodYear);
-                setFormMonth(periodMonth);
-                setShowCreate(true);
-              }}
+              onClick={openCreateForm}
+              title={isPeriodClosed(periodYear, periodMonth)
+                ? undefined
+                : `${periodName(periodYear, periodMonth)} has not ended yet — the batch is offered for ${periodName(batchTarget.periodYear, batchTarget.periodMonth)}`}
             >
-              Generate {periodName(periodYear, periodMonth)} Batch
+              Generate {periodName(batchTarget.periodYear, batchTarget.periodMonth)} Batch
             </Button>
             <Button icon={RefreshCw} loading={isLoading} onClick={loadBatches}>Refresh</Button>
           </>
@@ -600,6 +707,14 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                       <Badge tone={typeTone[b.insuranceType]}>
                         {typeLabel(b.insuranceType)}
                       </Badge>
+                      {b.claimFamily && b.claimFamily !== 'ALL' && (
+                        <span
+                          className="ml-1.5 text-[11px] font-mono text-[var(--text-secondary)]"
+                          title="The G-DRG family this batch files — NHIS bills one family per submission"
+                        >
+                          {b.claimFamily}
+                        </span>
+                      )}
                     </td>
                     {filterType !== 'nhis' && (
                       <td className={TD}>
@@ -791,13 +906,18 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                 The batch takes <strong>finalized, un-batched</strong> claims whose visit happened in
                 the selected month. Claims are not picked by hand.
               </p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Only a month that has ended can be batched — the latest available is{' '}
+                <strong>{periodName(latestClosed.periodYear, latestClosed.periodMonth)}</strong>,
+                because a mid-month batch would miss every visit still to come.
+              </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Insurance type">
                   <FilterSelect
                     className="w-full"
                     value={formType}
-                    onChange={(value) => { setFormType(value as InsuranceType); setFormProviderId(''); setFormCorporateId(''); }}
+                    onChange={(value) => { setFormType(value as InsuranceType); setFormProviderId(''); setAutoProviderId(''); setFormCorporateId(''); }}
                     options={[
                       { value: 'nhis', label: 'NHIS' },
                       { value: 'private', label: 'Private' },
@@ -819,32 +939,38 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                     className="w-full"
                     value={String(formMonth)}
                     onChange={(value) => setFormMonth(Number(value))}
-                    options={MONTH_NAMES.map((m, i) => ({ value: String(i + 1), label: m }))}
+                    options={closedMonthsOf(formYear).map((m) => ({ value: String(m), label: MONTH_NAMES[m - 1] }))}
                   />
                 </Field>
                 <Field label="Year">
                   <FilterSelect
                     className="w-full"
                     value={String(formYear)}
-                    onChange={(value) => setFormYear(Number(value))}
-                    options={yearOptions().map((y) => ({ value: String(y), label: String(y) }))}
+                    onChange={(value) => handleFormYearChange(Number(value))}
+                    options={batchYearOptions().map((y) => ({ value: String(y), label: String(y) }))}
                   />
                 </Field>
                 {formType !== 'corporate' && (
                   <div className="col-span-2">
-                    <Field label="Insurance provider" required={formType === 'private'}>
+                    <Field
+                      label="Insurance provider"
+                      required={formType === 'private' || (formType === 'nhis' && providerOptions.length > 1)}
+                      hint={formType === 'nhis' && providerOptions.length === 1
+                        ? 'The only NHIS scheme configured, so it is selected for you.'
+                        : 'The number beside each name is that payer’s own claims waiting in this month.'}
+                    >
                       <FilterSelect
                         className="w-full"
                         value={formProviderId}
-                        onChange={setFormProviderId}
+                        onChange={(value) => { setFormProviderId(value); setAutoProviderId(''); }}
                         options={[
                           {
                             value: '',
-                            label: formType === 'private'
+                            label: providerOptions.length > 1
                               ? 'Choose a provider'
-                              : 'All NHIS providers (auto-selects when only one exists)',
+                              : 'Every provider of this type',
                           },
-                          ...providerOptions.map((p: any) => ({ value: p.id, label: p.name })),
+                          ...providerOptions.map((p: any) => ({ value: p.id, label: providerLabel(p) })),
                         ]}
                       />
                     </Field>
@@ -886,10 +1012,42 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                     </div>
                     <p className="text-[11px] text-[var(--text-secondary)] mt-2">
                       {eligibleForFormType} claim(s) · {money(eligible.totalAmount[formType])}
+                      {selectedProviderName ? ` — ${selectedProviderName}` : ''}
                       {needsPayerChoice
                         ? ' — choose the payer above and this counts only their claims.'
                         : ''}
                     </p>
+                    {formType === 'nhis' && (eligible.nhisFamilies?.length ?? 0) > 0 && (
+                      <div className="mt-2 rounded-md border border-[var(--border-color)] bg-[var(--bg-card)] p-2">
+                        <p className="text-[11px] font-medium text-[var(--text-secondary)] mb-1">
+                          NHIS is filed one G-DRG family at a time, so this month becomes{' '}
+                          {(eligible.nhisFamilies ?? []).length} batch(es):
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {(eligible.nhisFamilies ?? []).map((group) => (
+                            <span
+                              key={group.family}
+                              className="px-2 py-0.5 rounded-md bg-[var(--bg-main)] border border-[var(--border-color)] text-[11px]"
+                            >
+                              <span className="font-semibold">{group.family}</span>
+                              {' · '}{group.count} claim(s) · {money(group.amount)}
+                            </span>
+                          ))}
+                        </div>
+                        {(eligible.nhisUncoded ?? 0) > 0 && (
+                          <p className="text-[11px] text-[var(--icon-orange-text)] mt-1">
+                            {eligible.nhisUncoded} claim(s) carry no G-DRG code. They stay unbilled for
+                            coding instead of going into a batch the payer would reject.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                    {nothingCoded && (
+                      <p className="text-[11px] text-[var(--icon-red-text)] mt-2">
+                        None of these claims carries a G-DRG code, so there is no package to bill.
+                        Set the principal G-DRG on the claims first.
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="text-xs text-[var(--icon-red-text)]">Could not load the month’s claims</p>
@@ -904,7 +1062,7 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                   disabled={!canGenerate}
                   onClick={handleCreate}
                 >
-                  {`Generate ${typeLabel(formType)} batch (${eligibleForFormType})`}
+                  {`Generate ${nhisBatchCount > 1 ? `${nhisBatchCount} ${typeLabel(formType)} batches` : `one ${typeLabel(formType)} batch`} (${eligibleForFormType})`}
                 </Button>
                 <Button onClick={() => setShowCreate(false)}>Cancel</Button>
               </div>
@@ -922,6 +1080,9 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
                 <h3 className="font-bold text-lg">{viewing.batchNumber}</h3>
                 <p className="text-xs text-[var(--text-secondary)]">
                   {periodName(viewing.periodYear, viewing.periodMonth)} · {typeLabel(viewing.insuranceType)}
+                  {viewing.claimFamily && viewing.claimFamily !== 'ALL'
+                    ? ` · ${viewing.claimFamily} claims`
+                    : ''}
                 </p>
               </div>
               <Button variant="ghost" iconOnly icon={XCircle} aria-label="Close" onClick={() => setViewing(null)} />
@@ -1149,6 +1310,12 @@ export default function ClaimBatches({ family }: { family: InsuranceFamily }) {
 function yearOptions(): number[] {
   const current = new Date().getFullYear();
   return Array.from({ length: 5 }, (_, i) => current - i);
+}
+
+/** Years holding at least one month a batch may still cover — the current year only until January. */
+function batchYearOptions(): number[] {
+  const newest = lastClosedPeriod().periodYear;
+  return Array.from({ length: 5 }, (_, i) => newest - i);
 }
 
 function EligibleChip({

@@ -27,6 +27,7 @@ export const createInsuranceClaimRoutes = () => {
 
   router.post('/nhis/generate', requireRole(['admin', 'accounts']), validateBody(GenerateClaimSchema), insuranceClaimController.generateNHISClaim);
   router.get('/nhis', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listNHISClaims);
+  router.get('/nhis/:claimId/medicines', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listNHISClaimMedicines);
 
   router.post('/private/generate', requireRole(['admin', 'accounts']), validateBody(GenerateClaimSchema), insuranceClaimController.generatePrivateClaim);
   router.get('/private', requireRole(['admin', 'accounts', 'doctor', 'records']), insuranceClaimController.listPrivateClaims);

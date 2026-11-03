@@ -79,13 +79,25 @@ describe('CLAIM-it claim payload', () => {
     expect(claim.principalGDRG).toBe('MEDI30A');
   });
 
-  it('repeats every day of an admission as its own date of service', () => {
-    expect(buildClaimItClaim(claimFixture()).dateOfService).toEqual(['2026-03-02', '2026-03-03', '2026-03-04']);
+  it('sends the admission endpoints, the way this facility actually submitted', () => {
+    // The August 2026 batch has 2,437 dates over 2,097 claims: one per visit, two per admission.
+    expect(buildClaimItClaim(claimFixture()).dateOfService).toEqual(['2026-03-02', '2026-03-04']);
   });
 
   it('reads the specialties off the GDRG codes on the claim', () => {
     // MEDI30A/MEDI28A are Adult Medicine and ASUR01A is Adult Surgery; INVE09D is not a specialty.
     expect(buildClaimItClaim(claimFixture()).specialtyAttended).toEqual(['MEDI', 'ASUR']);
+  });
+
+  it('reports an outpatient visit under the OPD scheme, whatever family its codes are in', () => {
+    const outpatient = buildClaimItClaim(claimFixture({ typeOfService: 'OPD', datesOfService: ['2026-03-02'] }));
+    expect(outpatient.specialtyAttended).toEqual(['OPDC']);
+    expect(outpatient.dateOfService).toEqual(['2026-03-02']);
+  });
+
+  it('bills a day case as an outpatient visit even though it held a bed', () => {
+    const zoom = buildClaimItClaim(claimFixture({ principalGDRG: 'ZOOM07A', typeOfService: 'OPD' }));
+    expect(zoom.specialtyAttended).toEqual(['OPDC']);
   });
 
   it('carries the ICD-10 and diagnosis wording that a procedure line needs', () => {
@@ -129,7 +141,7 @@ describe('CLAIM-it XML document', () => {
 
   it('emits repeated sibling elements instead of entries inside a container', () => {
     const xml = toClaimItXml([buildClaimItClaim(claimFixture())]);
-    expect(xml.match(/<dateOfService>/g)).toHaveLength(3);
+    expect(xml.match(/<dateOfService>/g)).toHaveLength(2);
     // Three, by design: §2.1 nests the diagnosis wording inside each <diagnosis> element, so the
     // procedure's own <diagnosis> and the diagnosis block's wrapper and its text all appear.
     expect(xml.match(/<diagnosis>/g)).toHaveLength(3);

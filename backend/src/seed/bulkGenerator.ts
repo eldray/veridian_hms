@@ -45,6 +45,7 @@ import {
   WAIVER_REASONS,
   type ComplaintScenario,
 } from './clinicalContent.js';
+import { billsAsNHISDayCase } from './procedureGdrgMappings';
 
 
 // ═══════════════════════════════════════════════════════════
@@ -1593,8 +1594,11 @@ const emitProcedures = (
   isLive: boolean,
 ): number => {
   if (!scenario.procedureCodes.length) return 0;
-  const wantsProcedure = isInpatient || DAYCASE_SCENARIOS.has(scenario.key) || att.attendanceType === 'surgery';
-  if (!wantsProcedure || !chance(COUNTS.proceduresPerSurgicalAttendance)) return 0;
+  // Theatre work happens where the claim can bill it: a bed, in a day case or an admission. A plain
+  // outpatient visit gets none, because its OPDC package does not cover an ASUR or PSUR procedure and
+  // the claim would carry a code the payer rejects. The visit's own 'surgery' label is not enough -
+  // a counter ticket with that label has no patient and so no admission to bill an operation from.
+  if (!isInpatient || !chance(COUNTS.proceduresPerSurgicalAttendance)) return 0;
 
   const codes = pickSomeDistinct(scenario.procedureCodes, 2, 1);
   for (const procedureCode of codes) {
@@ -2094,7 +2098,12 @@ const emitEncounter = (
   // walk-in can never be an admission or a daycase. Both worklists read patient-backed
   // encounters, and an ipd row without an admission strand the writer with no bed to bill.
   const admits = !!patient && (forcesAdmission || chance(scenario.admitChance));
-  const daycaseCandidate = !admits && !!patient && DAYCASE_SCENARIOS.has(scenario.key) && scenario.procedureCodes.length > 0;
+  // A day case is a ZOOM case: the payer only ever prices a same-day procedure under a ZOOM code, so
+  // a scenario whose work has none (tonsillectomy, cataract, lump excision) must hold a bed and be
+  // claimed as an admission under its own surgical G-DRG. Without this the demo writes an outpatient
+  // visit that carried theatre work, which no G-DRG the visit can bill covers.
+  const daycaseCandidate = !admits && !!patient && DAYCASE_SCENARIOS.has(scenario.key)
+    && billsAsNHISDayCase(scenario.procedureCodes);
   const isDaycase = daycaseCandidate && chance(0.75);
   const encounterCategory: GeneratedAttendance['encounterCategory'] = admits ? 'ipd' : isDaycase ? 'daycase' : 'opd';
 
@@ -2629,17 +2638,31 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
 
   // ── CLAIM BATCHES ────────────────────────────────────────
   const finalized = b.claims.filter((c) => c.status === 'finalized' && c.finalizedAt);
+  // A batch covers one month of VISITS, because that is how the app groups claims when it builds
+  // one. Bucketing by the finalisation date instead produced batches whose period held no claims,
+  // and the batching screen could never agree with them.
+  const visitDateByKey = new Map(b.attendances.map((a) => [a.key, a.dateTime]));
+  const periodOf = (claim: GeneratedClaim) => visitDateByKey.get(claim.attendanceKey) ?? claim.createdAt;
+  const nowForPeriods = new Date();
+  const periodHasEnded = (year: number, month: number) =>
+    year < nowForPeriods.getFullYear() ||
+    (year === nowForPeriods.getFullYear() && month < nowForPeriods.getMonth() + 1);
+
   const groups = new Map<string, GeneratedClaim[]>();
   for (const claim of finalized) {
-    const d = claim.finalizedAt!;
-    const key = `${claim.insuranceType}-${d.getFullYear()}-${d.getMonth() + 1}`;
+    const d = periodOf(claim);
+    const year = d.getFullYear();
+    const month = d.getMonth() + 1;
+    // The running month is not batchable — the app refuses it, and its visits are still arriving.
+    if (!periodHasEnded(year, month)) continue;
+    const key = `${claim.insuranceType}-${year}-${month}`;
     const list = groups.get(key) || [];
     list.push(claim);
     groups.set(key, list);
   }
   const orderedGroups = [...groups.entries()].sort((a, z) => {
-    const da = a[1][0].finalizedAt!.getTime();
-    const db = z[1][0].finalizedAt!.getTime();
+    const da = periodOf(a[1][0]).getTime();
+    const db = periodOf(z[1][0]).getTime();
     return db - da;
   }).slice(0, COUNTS.claimBatches);
 
@@ -2648,7 +2671,12 @@ export const generateAttendances = (patients: GeneratedPatient[]): GeneratedBund
     const year = Number(yearText);
     const month = Number(monthText);
     const status: GeneratedClaimBatch['status'] = claims.length > 3 && chance(0.7) ? 'finalized' : 'generated';
-    const generatedAt = new Date(year, month - 1, Math.min(28, 20));
+    // Filed after the month it covers, the way the Generate button only ever offers a closed month.
+    // The most recent month is batched days ago, not on a date that has not happened yet.
+    const filed = new Date(year, month, 20);
+    const generatedAt = filed.getTime() > nowForPeriods.getTime()
+      ? addDays(nowForPeriods, -intBetween(1, 3))
+      : filed;
     const finalizedAt = status === 'finalized' ? addDays(generatedAt, intBetween(1, 6)) : null;
     const batchNumber = `BATCH-${padNumber(++counters.receipt)}`;
     const batch: GeneratedClaimBatch = {

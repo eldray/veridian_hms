@@ -10,6 +10,12 @@ export const UpdateClaimDraftSchema = z.object({
   preAuthNumber: z.string().max(100).optional(),
   principalGDRG: z.string().max(50).optional(),
   mdcCode: z.string().max(20).optional(),
+  // The NHIS header fields the claim form edits. Without them here, validateBody strips them and
+  // the desk's edits to type of service, attendance, outcome and dates never reach the database.
+  typeOfService: z.enum(['OPD', 'IPD', 'DIA', 'PHC']).optional(),
+  typeOfAttendance: z.enum(['EAE', 'CFU', 'ANC', 'PNC']).optional(),
+  serviceOutcome: z.enum(['DISC', 'DIED', 'TFOT', 'ABSC']).optional(),
+  datesOfService: z.array(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)).min(1).max(366).optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 

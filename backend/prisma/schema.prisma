@@ -1348,6 +1348,12 @@ model ClaimBatch {
   xmlFilePath         String?
   printFilePath       String?
   description         String?
+  /**
+   * Which slice of the period this batch files. NHIS does not file a month as one claim: the
+   * payer adjudicates each G-DRG family (ASUR, MEDI, OBGY, PAED…) separately, so a month becomes
+   * one batch per family. Every other payer files its whole month together and sits under "ALL".
+   */
+  claimFamily         String             @default("ALL")
   createdById         String
   createdAt           DateTime      @default(now())
   updatedAt           DateTime      @updatedAt
@@ -1361,7 +1367,7 @@ model ClaimBatch {
 
   claimitSubmissions ClaimItSubmission[]
 
-  @@unique([insuranceType, insuranceProviderId, corporateAccountId, periodYear, periodMonth])
+  @@unique([insuranceType, insuranceProviderId, corporateAccountId, periodYear, periodMonth, claimFamily])
   @@index([periodYear, periodMonth])
   @@index([status])
   @@index([batchNumber])
