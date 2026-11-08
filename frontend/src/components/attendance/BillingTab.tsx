@@ -66,8 +66,21 @@ export const BillingTab: React.FC<BillingTabProps> = ({ attendance }) => {
   };
 
   const copyXML = () => {
-    navigator.clipboard.writeText(claimXML);
-    alert('XML copied to clipboard!');
+    // navigator.clipboard is unavailable on plain-http LAN addresses; fall back to the legacy copy command.
+    const done = () => alert('XML copied to clipboard!');
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(claimXML).then(done, () => alert('Could not copy to the clipboard.'));
+      return;
+    }
+    const area = document.createElement('textarea');
+    area.value = claimXML;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    if (copied) done(); else alert('Could not copy to the clipboard.');
   };
 
   const downloadXML = () => {

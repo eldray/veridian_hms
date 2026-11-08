@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+  <title>Veridian HMS - Server address</title>
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --text:#1f2933; --muted:#616e7c; --border:#cbd2d9; --accent:#0e7490; --accent-dark:#155e75; --err:#b42318; --ok:#067647; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --border:#374151; --accent:#22a6c4; --accent-dark:#0e7490; --err:#f97066; --ok:#47cd89; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: 'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+    main { padding:24px 28px; }
+    h1 { font-size:20px; margin:0 0 4px; }
+    p.lead { color:var(--muted); margin:0 0 18px; line-height:1.45; }
+    fieldset { border:1px solid var(--border); background:var(--card); border-radius:10px; padding:14px 16px 6px; margin:0 0 16px; }
+    legend { padding:0 6px; font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
+    label { display:block; margin:0 0 12px; font-weight:500; }
+    label small { display:block; font-weight:400; color:var(--muted); margin-top:2px; }
+    input { width:100%; margin-top:4px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font-size:14px; }
+    input:focus { outline:2px solid var(--accent); border-color:transparent; }
+    .row { display:grid; grid-template-columns: 1fr 110px; gap:12px; }
+    .actions { display:flex; gap:10px; margin-top:4px; }
+    button { padding:9px 16px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; cursor:pointer; }
+    button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; flex:1; }
+    button.primary:hover:not(:disabled) { background:var(--accent-dark); }
+    button:disabled { opacity:.55; cursor:default; }
+    #msg { margin-top:14px; padding:10px 12px; border-radius:6px; line-height:1.4; display:none; white-space:pre-wrap; }
+    #msg.err { display:block; background:rgba(180,35,24,.1); color:var(--err); border:1px solid var(--err); }
+    #msg.ok { display:block; background:rgba(6,118,71,.1); color:var(--ok); border:1px solid var(--ok); }
+    #msg.busy { display:block; background:var(--card); color:var(--text); border:1px solid var(--border); }
+    .hint { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.45; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Connect to the server</h1>
+  <p class="lead">Enter the address of the PC where Veridian HMS Server is installed. Ask whoever set up the server, or use "Show address for other PCs" from its tray icon.</p>
+  <form id="form" autocomplete="off">
+    <fieldset>
+      <legend>Server</legend>
+      <label>Server address<small>For example 192.168.1.10:5000</small><input id="url" placeholder="192.168.1.10:5000" required /></label>
+    </fieldset>
+    <div class="actions">
+      <button type="button" id="test">Test connection</button>
+      <button type="submit" id="save" class="primary">Save and connect</button>
+    </div>
+  </form>
+  <div id="msg"></div>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const api = window.clientSetupAPI;
+  function show(kind, text) { const m = $('msg'); m.className = kind; m.textContent = text; }
+  function setBusy(b) { ['test', 'save'].forEach((id) => ($(id).disabled = b)); }
+  api.get().then((s) => { if (s.serverUrl) $('url').value = s.serverUrl; });
+  $('test').addEventListener('click', async () => {
+    setBusy(true); show('busy', 'Testing connection...');
+    const r = await api.test($('url').value);
+    show(r.ok ? 'ok' : 'err', r.message);
+    setBusy(false);
+  });
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    setBusy(true); show('busy', 'Saving...');
+    const r = await api.save($('url').value);
+    if (!r.ok) { show('err', r.message); setBusy(false); }
+  });
+</script>
+</body>
+</html>

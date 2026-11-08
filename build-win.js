@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // build-win.js - builds the Windows installer.
-//   node build-win.js          -> release/VeridianHMS-Setup-<version>-x64.exe
-//   node build-win.js --dir    -> unpacked app only (fast check, no installer)
+//   node build-win.js                    -> release/standalone/VeridianHMS-Setup-<version>-x64.exe   (one PC runs everything)
+//   node build-win.js --target=server    -> release/server/VeridianHMS Server-Setup-...exe          (hospital server: API + DB link)
+//   node build-win.js --target=client    -> release/client/VeridianHMS Client-Setup-...exe          (workstation: window only)
+//   add --dir to any of them             -> unpacked app only (fast check, no installer)
+// Install ONE server per hospital and a client on every other PC. Clients never start a backend or the
+// scheduled jobs, which is what makes many workstations safe.
 // Run on Windows (or any OS with network access to npm, Prisma and electron-builder downloads).
 
 const { execSync } = require('child_process');
@@ -13,6 +17,11 @@ const BACKEND = path.join(ROOT, 'backend');
 const FRONTEND = path.join(ROOT, 'frontend');
 const STAGE = path.join(ROOT, 'build', 'backend');
 const dirOnly = process.argv.includes('--dir');
+const targetArg = (process.argv.find((a) => a.startsWith('--target=')) || '--target=standalone').split('=')[1];
+if (!['standalone', 'server', 'client'].includes(targetArg)) { console.error(`Unknown --target "${targetArg}". Use standalone, server or client.`); process.exit(1); }
+const target = targetArg;
+const builderConfig = { standalone: 'electron-builder.yml', server: 'electron-builder.server.yml', client: 'electron-builder.client.yml' }[target];
+const outDir = path.join(ROOT, 'release', target);
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
 function step(msg) { console.log(`\n=== ${msg}`); }
@@ -44,15 +53,19 @@ function findPreviousBaseline(dir, currentVersion) {
 }
 
 need(path.join(BACKEND, 'package.json'), 'Run this from the project root.');
+need(path.join(ROOT, builderConfig), 'Builder config is missing.');
 need(path.join(ROOT, 'build', 'icon.ico'), 'The installer icon is required.');
 
 step('1/7 Installing dependencies');
 run('npm install', ROOT);
+if (target !== 'client') {
 run('npm ci || npm install', BACKEND);
 run('npm ci || npm install', FRONTEND);
 
 step('2/7 Building the frontend');
-run('npm run build', FRONTEND);
+// Demo logins on the sign-in page are for development only. Force them off for the installer even if a
+// frontend/.env file (or the build machine's environment) turns them on.
+run('npm run build', FRONTEND, { VITE_ENABLE_DEMO_ACCOUNTS: 'false' });
 need(path.join(FRONTEND, 'dist', 'index.html'), 'Frontend build produced no index.html.');
 
 step('3/7 Bundling the backend (esbuild)');
@@ -134,12 +147,30 @@ fs.writeFileSync(path.join(sqlDir, 'manifest.json'), JSON.stringify({
   migrations: migrationEntries,
 }, null, 2));
 
-step('6/7 Copying seed data');
-copyDir(path.join(BACKEND, 'src', 'data'), path.join(STAGE, 'data'));
+step('6/7 Copying reference data (no demo/sample data)');
+// Only the reference data the first-run bootstrap reads. Sample content (corporate accounts with fake
+// employees) and the large source spreadsheets used by developer scripts stay out of the installer.
+const DATA_EXCLUDE = new Set(['corporateAccounts.json']);
+const dataSrc = path.join(BACKEND, 'src', 'data');
+const dataDest = path.join(STAGE, 'data');
+fs.mkdirSync(dataDest, { recursive: true });
+for (const f of fs.readdirSync(dataSrc)) {
+  if (DATA_EXCLUDE.has(f) || /\.(xlsx|xls|csv|pdf)$/i.test(f)) continue;
+  fs.copyFileSync(path.join(dataSrc, f), path.join(dataDest, f));
+}
+for (const required of ['diagnoses.json', 'departments.json', 'gdrgTariffs.json', 'labTests.json', 'scans.json', 'procedures.json', 'servicePricing.json', 'medications1.json', 'medications2.json', 'nhismedicines.json', 'consumables.json', 'insuranceProviders.json']) {
+  need(path.join(dataDest, required), 'Reference data file is missing from backend/src/data.');
+}
+for (const banned of DATA_EXCLUDE) {
+  if (fs.existsSync(path.join(dataDest, banned))) { console.error(`Sample data file ${banned} must not ship.`); process.exit(1); }
+}
 rm(path.join(STAGE, 'prisma')); // client already generated; the schema file is not needed at run time
+}
 
-step('7/7 Packaging with electron-builder');
-rm(path.join(ROOT, 'release'));
-run(`npx electron-builder --win ${dirOnly ? '--dir' : 'nsis'} --x64 --publish never`, ROOT, { CSC_IDENTITY_AUTO_DISCOVERY: 'false' });
+step(`7/7 Packaging the ${target} app with electron-builder`);
+// The role is baked into the installer: main.cjs reads build/app-mode.json to know what it is.
+fs.writeFileSync(path.join(ROOT, 'build', 'app-mode.json'), JSON.stringify({ mode: target }));
+rm(outDir);
+run(`npx electron-builder --config ${builderConfig} --win ${dirOnly ? '--dir' : 'nsis'} --x64 --publish never -c.directories.output="${outDir}"`, ROOT, { CSC_IDENTITY_AUTO_DISCOVERY: 'false' });
 
-console.log(`\nDone. Output in ${path.join(ROOT, 'release')}`);
+console.log(`\nDone. ${target} output in ${outDir}`);

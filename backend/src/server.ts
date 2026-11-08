@@ -216,7 +216,10 @@ const startServer = async () => {
   console.log('✅ Counter Service initialized');
 
   // ✅ UPDATED: Only run seed in development or if explicitly enabled
-  const shouldRunSeed = process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true';
+  // The installed desktop app never runs the demo seed, whatever RUN_SEED says (a stray variable on a
+  // clinic PC must not be able to write fake patients into a live database). First-run reference data is
+  // loaded by bootstrap.mjs from the setup screen, not from here.
+  const shouldRunSeed = !isDesktopApp && (process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true');
 
   if (shouldRunSeed) {
     console.log('🔧 Running database initialization...');
@@ -243,12 +246,8 @@ const startServer = async () => {
 
     // Additional info for development. Disabled by default so demo credentials
     // never appear in production logs or support bundles.
-    if (process.env.SHOW_DEV_CREDENTIALS === 'true') {
-      console.log('\n👤 Test User Credentials:');
-      console.log('   - doctor1 / doctor123');
-      console.log('   - nurse1 / nurse123');
-      console.log('   - admin / admin123');
-      console.log('\n📋 Test Patients: PAT-10000, PAT-10001');
+    if (process.env.SHOW_DEV_CREDENTIALS === 'true' && !isDesktopApp) {
+      console.log('\n👤 Demo logins are listed in backend/src/seed/bulkGenerator.ts (npm run seed).');
     }
   };
 

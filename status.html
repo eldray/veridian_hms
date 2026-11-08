@@ -51,6 +51,10 @@
   } else {
     document.getElementById('startMsg').textContent = msg || 'Starting...';
   }
+  if (params.get('mode') === 'client') {
+    document.querySelector('#error p').textContent = 'Check that the server PC is switched on, that Veridian HMS Server is running on it, and that you are on the same network.';
+    document.getElementById('settings').textContent = 'Change server address';
+  }
   document.getElementById('retry').onclick = () => api.retryStartup && api.retryStartup();
   document.getElementById('settings').onclick = () => api.openDatabaseSettings && api.openDatabaseSettings();
   document.getElementById('logs').onclick = () => api.openLogs && api.openLogs();

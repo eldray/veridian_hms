@@ -9,7 +9,7 @@
 //
 // Development (not packaged): loads http://localhost:3000 and expects `npm start` to be running.
 
-const { app, BrowserWindow, ipcMain, dialog, Menu, shell, safeStorage } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, Tray, nativeImage, shell, safeStorage } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs');
@@ -21,6 +21,25 @@ const crypto = require('crypto');
 const APP_TITLE = 'Veridian HMS';
 const PREFERRED_PORT = 5000; // kept stable when possible: the browser origin (and saved login) depends on it
 const HEALTH_TIMEOUT_MS = 90_000;
+
+// ==================== APP ROLE (fixed when the installer is built) ====================
+// build/app-mode.json is written by build-win.js. Three installers come from this one codebase:
+//   standalone - one PC runs everything (the original behaviour; default when the file is missing)
+//   server     - the hospital server: runs the API and the database link (and the scheduled jobs), keeps
+//                running in the tray when its window is closed, and always accepts other PCs
+//   client     - a workstation: only a window onto the server. It never starts a backend, never touches
+//                PostgreSQL and never runs scheduled jobs, so any number of clients can be installed safely.
+function readAppMode() {
+  try {
+    const m = JSON.parse(fs.readFileSync(path.join(__dirname, 'build', 'app-mode.json'), 'utf8')).mode;
+    return ['standalone', 'server', 'client'].includes(m) ? m : 'standalone';
+  } catch {
+    return 'standalone';
+  }
+}
+const APP_MODE = readAppMode();
+const IS_CLIENT = APP_MODE === 'client';
+const IS_SERVER = APP_MODE === 'server';
 const LOG_FILE_NAME = 'veridian-hms.log';
 
 let mainWindow = null;
@@ -88,6 +107,85 @@ function decryptSecret(obj) {
   }
   return obj.value || '';
 }
+// ==================== CLIENT: which server to connect to ====================
+function readRawConfig() {
+  try { return JSON.parse(fs.readFileSync(getConfigPath(), 'utf8')) || {}; } catch { return {}; }
+}
+function getClientServerUrl() {
+  const u = readRawConfig().client && readRawConfig().client.serverUrl;
+  return typeof u === 'string' ? u : '';
+}
+function saveClientServerUrl(serverUrl) {
+  const raw = readRawConfig();
+  raw.client = { serverUrl };
+  fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true });
+  fs.writeFileSync(getConfigPath(), JSON.stringify(raw, null, 2), { mode: 0o600 });
+}
+// "192.168.1.10" -> http://192.168.1.10:5000 ; keeps only protocol + host + port.
+function normalizeServerUrl(input) {
+  const text = String(input || '').trim();
+  if (!text) throw new Error('Enter the address of the Veridian HMS server.');
+  const hadScheme = /^https?:\/\//i.test(text);
+  let u;
+  try { u = new URL(hadScheme ? text : `http://${text}`); } catch { throw new Error('That is not a valid server address. Example: 192.168.1.10:5000'); }
+  if (!u.hostname) throw new Error('That is not a valid server address. Example: 192.168.1.10:5000');
+  if (!hadScheme && !u.port) u.port = String(PREFERRED_PORT);
+  return u.origin;
+}
+// The origin the main window is allowed to show: this PC's own backend, or the chosen server (client).
+function appOrigin() {
+  try { return new URL(IS_CLIENT ? getClientServerUrl() : `http://127.0.0.1:${activePort}`).origin; } catch { return ''; }
+}
+function isAppUrl(u) {
+  if (typeof u !== 'string') return false;
+  const o = appOrigin();
+  return (!!o && (u === o || u.startsWith(o + '/'))) || u.startsWith('http://localhost:3000');
+}
+function probeServer(serverUrl) {
+  return new Promise((resolve, reject) => {
+    let u;
+    try { u = new URL('/api/health', serverUrl); } catch (e) { return reject(e); }
+    const lib = u.protocol === 'https:' ? require('https') : http;
+    const req = lib.request({ hostname: u.hostname, port: u.port || (u.protocol === 'https:' ? 443 : 80), path: u.pathname, method: 'GET', timeout: 4000 }, (res) => {
+      res.resume();
+      res.statusCode >= 200 && res.statusCode < 400 ? resolve(true) : reject(new Error(`The server answered with HTTP ${res.statusCode}.`));
+    });
+    req.on('error', (e) => reject(new Error(`Could not reach ${serverUrl} (${e.code || e.message}). Check the address, that the server PC is on and running Veridian HMS Server, and that its firewall allows the port.`)));
+    req.on('timeout', () => req.destroy(Object.assign(new Error('timeout'), { code: 'timeout' })));
+    req.end();
+  });
+}
+
+// ==================== NETWORK (optional access from other PCs) ====================
+// Default: the app only listens on this PC (127.0.0.1). With `lan` on, it listens on every network
+// adapter so other PCs can open http://<this PC's address>:<port> in a browser. The database stays
+// private to this PC either way - other PCs only ever talk to the app, never to PostgreSQL.
+function normalizeNetwork(n) {
+  const port = Number(n && n.port);
+  return { lan: IS_SERVER || !!(n && n.lan), port: Number.isInteger(port) && port >= 1024 && port <= 65535 ? port : PREFERRED_PORT };
+}
+function lanAddresses() {
+  const out = [];
+  for (const list of Object.values(os.networkInterfaces())) {
+    for (const i of list || []) {
+      if (i.family === 'IPv4' && !i.internal && !i.address.startsWith('169.254.')) out.push(i.address);
+    }
+  }
+  return out;
+}
+// Windows blocks inbound connections until a firewall rule exists. Adding one needs administrator
+// rights, so Windows shows its own UAC prompt; declining it is not fatal (the setup screen says so).
+function ensureFirewallRule(port) {
+  if (process.platform !== 'win32') return Promise.resolve({ ok: true, skipped: true });
+  const inner = `/c netsh advfirewall firewall delete rule name=VeridianHMS & netsh advfirewall firewall add rule name=VeridianHMS dir=in action=allow protocol=TCP localport=${Number(port)} profile=private,domain`;
+  const ps = `Start-Process -FilePath cmd.exe -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '${inner}'`;
+  return new Promise((resolve) => {
+    const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { windowsHide: true, stdio: 'ignore' });
+    child.on('error', () => resolve({ ok: false }));
+    child.on('close', (code) => resolve({ ok: code === 0 }));
+  });
+}
+
 function loadConfig() {
   try {
     const raw = JSON.parse(fs.readFileSync(getConfigPath(), 'utf8'));
@@ -101,6 +199,7 @@ function loadConfig() {
         password: decryptSecret(raw.db.password),
       },
       bootstrapDone: !!raw.bootstrapDone,
+      network: normalizeNetwork(raw.network),
     };
   } catch {
     return null;
@@ -116,6 +215,7 @@ function saveConfig(cfg) {
       password: encryptSecret(cfg.db.password || ''),
     },
     bootstrapDone: !!cfg.bootstrapDone,
+    network: normalizeNetwork(cfg.network),
   };
   fs.mkdirSync(path.dirname(getConfigPath()), { recursive: true });
   fs.writeFileSync(getConfigPath(), JSON.stringify(out, null, 2), { mode: 0o600 });
@@ -421,16 +521,24 @@ function databaseUrl(db) {
 
 // ==================== CHILD PROCESSES (Electron's own Node runtime) ====================
 function backendEnv(db, extra) {
+  const net = normalizeNetwork((loadConfig() || {}).network);
+  const lanOrigins = net.lan ? lanAddresses().map((ip) => `http://${ip}:${activePort}`) : [];
   return {
     ...process.env,
     ELECTRON_RUN_AS_NODE: '1', // run process.execPath as plain Node: PCs do not need Node.js installed
     NODE_ENV: 'production',
     ELECTRON: 'true',
-    HOST: '127.0.0.1',
+    HOST: net.lan ? '0.0.0.0' : '127.0.0.1',
+    CORS_ALLOWED_ORIGINS: [process.env.CORS_ALLOWED_ORIGINS, ...lanOrigins].filter(Boolean).join(','),
     PORT: String(activePort),
     DATABASE_URL: databaseUrl(db),
     JWT_SECRET: getOrCreateJwtSecret(),
     SEED_DATA_DIR: path.join(getBackendDir(), 'data'),
+    // Production must never write demo data or advertise demo logins, even if these happen to be set
+    // in the PC's own environment (process.env is inherited above).
+    RUN_SEED: 'false',
+    ENABLE_SEEDING: 'false',
+    SHOW_DEV_CREDENTIALS: 'false',
     ...extra,
   };
 }
@@ -456,12 +564,15 @@ function runNodeScript(scriptName, env, { onLine } = {}) {
   });
 }
 
+function bindHost() {
+  return normalizeNetwork((loadConfig() || {}).network).lan ? '0.0.0.0' : '127.0.0.1';
+}
 function isPortFree(port) {
   return new Promise((resolve) => {
     const srv = net.createServer();
     srv.once('error', () => resolve(false));
     srv.once('listening', () => srv.close(() => resolve(true)));
-    srv.listen(port, '127.0.0.1');
+    srv.listen(port, bindHost());
   });
 }
 async function findFreePort(start) {
@@ -500,8 +611,13 @@ function stopBackend() {
 
 async function startBackend(cfg) {
   await stopBackend();
-  activePort = await findFreePort(PREFERRED_PORT);
-  if (activePort !== PREFERRED_PORT) log(`Port ${PREFERRED_PORT} is busy, using ${activePort}`);
+  const wantedPort = normalizeNetwork((loadConfig() || {}).network).port;
+  activePort = await findFreePort(wantedPort);
+  if (activePort !== wantedPort) {
+    // Other PCs are told one fixed address, so the server must not quietly move to another port.
+    if (IS_SERVER) throw new Error(`Port ${wantedPort} is already used by another program. Other PCs connect to this port, so the server will not use a different one. Close the other program, or choose another port in Database settings.`);
+    log(`Port ${wantedPort} is busy, using ${activePort}`);
+  }
 
   const script = path.join(getBackendDir(), 'server.mjs');
   if (!fs.existsSync(script)) throw new Error(`Backend not found at ${script}. The installer is incomplete.`);
@@ -559,30 +675,30 @@ async function startBackend(cfg) {
 // ==================== SETUP WINDOW ====================
 let setupResolver = null;
 
-function openSetupWindow({ firstRun }) {
+function openSetupWindow({ firstRun, client = false }) {
   return new Promise((resolve) => {
     if (setupWindow) { setupWindow.focus(); return resolve(false); }
     setupResolver = resolve;
     setupWindow = new BrowserWindow({
       width: 560,
-      height: 720,
+      height: client ? 360 : 780,
       resizable: false,
       minimizable: false,
       maximizable: false,
       parent: firstRun ? undefined : mainWindow || undefined,
       modal: !firstRun && !!mainWindow,
-      title: `${APP_TITLE} - Database setup`,
+      title: client ? `${APP_TITLE} - Server address` : `${APP_TITLE} - Database setup`,
       icon: getIconPath(),
       autoHideMenuBar: true,
       webPreferences: {
-        preload: path.join(__dirname, 'setup-preload.cjs'),
+        preload: path.join(__dirname, client ? 'client-setup-preload.cjs' : 'setup-preload.cjs'),
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
       },
     });
     setupWindow.setMenu(null);
-    setupWindow.loadFile(path.join(__dirname, 'setup.html'), { query: { firstRun: firstRun ? '1' : '0' } });
+    setupWindow.loadFile(path.join(__dirname, client ? 'client-setup.html' : 'setup.html'), { query: { firstRun: firstRun ? '1' : '0' } });
     setupWindow.on('closed', () => {
       setupWindow = null;
       const r = setupResolver;
@@ -610,7 +726,34 @@ ipcMain.handle('setup:get', () => {
     user: cfg?.db.user || 'postgres',
     hasPassword: !!cfg?.db.password,
     bootstrapDone: !!cfg?.bootstrapDone,
+    lan: !!(cfg && cfg.network.lan),
+    appPort: cfg ? cfg.network.port : PREFERRED_PORT,
+    addresses: lanAddresses(),
+    mode: APP_MODE,
   };
+});
+
+// ---- client: choose the server ----
+ipcMain.handle('client:get', () => ({ serverUrl: getClientServerUrl() }));
+ipcMain.handle('client:test', async (_e, input) => {
+  try {
+    const url = normalizeServerUrl(input);
+    await probeServer(url);
+    return { ok: true, message: `Connected to ${url}.` };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
+});
+ipcMain.handle('client:save', async (_e, input) => {
+  try {
+    const url = normalizeServerUrl(input);
+    saveClientServerUrl(url); // saved even if the server is down right now, so it can be started later
+    log(`Client will connect to ${url}`);
+    setImmediate(finishSetup);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, message: e.message };
+  }
 });
 
 ipcMain.handle('setup:test', async (_e, db) => {
@@ -637,15 +780,23 @@ ipcMain.handle('setup:save', async (event, payload) => {
     const bad = validateDbSettings(db);
     if (bad) return { ok: false, message: bad };
 
+    const network = normalizeNetwork(payload.network || (previous && previous.network));
+    if (payload.network && Number(payload.network.port) !== network.port) {
+      return { ok: false, message: 'The app port must be a number between 1024 and 65535.' };
+    }
+
     progress('Connecting to PostgreSQL...');
     await createDatabaseIfMissing(db);
     const applied = await applyMigrations(db, progress);
     const users = await userCount(db);
 
-    let bootstrapDone = users > 0 || (previous && previous.bootstrapDone && sameDb(previous.db, db));
+    // "users exist" is not proof that setup finished: an interrupted first run leaves users behind with
+    // the reference data half loaded. Only a recorded, completed bootstrap for this same database skips
+    // it; otherwise bootstrap.mjs runs and decides (it is a no-op on a complete database).
+    let bootstrapDone = !!(previous && previous.bootstrapDone && sameDb(previous.db, db));
     if (!bootstrapDone) {
       const adminPassword = payload.adminPassword || '';
-      if (adminPassword.length < 8) {
+      if (users === 0 && adminPassword.length < 8) {
         return { ok: false, message: 'This is a new database. Choose an administrator password of at least 8 characters.' };
       }
       progress('Loading hospital reference data (diagnoses, tariffs, services, stock). This takes about a minute...');
@@ -653,11 +804,21 @@ ipcMain.handle('setup:save', async (event, payload) => {
       bootstrapDone = true;
     }
 
-    saveConfig({ db, bootstrapDone });
+    saveConfig({ db, bootstrapDone, network });
+    let firewallNote = '';
+    if (network.lan) {
+      progress('Allowing other PCs through the Windows firewall (approve the Windows prompt)...');
+      const fw = await ensureFirewallRule(network.port);
+      if (!fw.ok) {
+        firewallNote = 'The firewall rule was not added, so Windows may block other PCs. Re-save and approve the prompt, or allow TCP port ' + network.port + ' in Windows Firewall.';
+        log('Firewall rule not added:', firewallNote);
+      }
+    }
+    log(`Network access: ${network.lan ? `other PCs allowed on port ${network.port}` : 'this PC only'}`);
     log(`Database settings saved (${db.host}:${db.port}/${db.database}), migrations applied: ${applied}`);
-    progress('Done.');
+    progress(firewallNote || 'Done.');
     setImmediate(finishSetup);
-    return { ok: true };
+    return { ok: true, note: firewallNote };
   } catch (e) {
     log('Setup failed:', e.stack || e.message);
     return { ok: false, message: friendlyPgError(e, payload.db || {}) };
@@ -671,11 +832,31 @@ function sameDb(a, b) {
 }
 
 // ==================== STARTUP FLOW ====================
+async function startClient() {
+  let url = getClientServerUrl();
+  if (!url) {
+    await openSetupWindow({ firstRun: true, client: true });
+    url = getClientServerUrl();
+    if (!url) { app.quit(); return; }
+  }
+  showStatusPage('starting', `Connecting to the Veridian HMS server (${url})...`);
+  try {
+    await probeServer(url);
+  } catch (e) {
+    log('Server not reachable:', e.message);
+    showStatusPage('error', e.message);
+    return;
+  }
+  log(`Connected to ${url}`);
+  await mainWindow.loadURL(url);
+}
+
 async function startApplication() {
   if (starting) return;
   starting = true;
   try {
     showStatusPage('starting', 'Starting Veridian HMS...');
+    if (IS_CLIENT) { await startClient(); return; }
 
     let cfg = loadConfig();
     if (!cfg || !cfg.bootstrapDone) {
@@ -712,7 +893,7 @@ async function startApplication() {
 
 function showStatusPage(state, message) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.loadFile(path.join(__dirname, 'status.html'), { query: { state, msg: message || '' } }).catch((e) => log('Could not show status page:', e.message));
+  mainWindow.loadFile(path.join(__dirname, 'status.html'), { query: { state, msg: message || '', mode: APP_MODE } }).catch((e) => log('Could not show status page:', e.message));
 }
 
 // ==================== WINDOW & MENU ====================
@@ -763,12 +944,38 @@ function createWindow() {
     event.preventDefault();
   });
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:\/\//i.test(url)) {
-      shell.openExternal(url);
+  // Print previews, receipts and PDFs open as pop-up windows (window.open('') + document.write, or a blob:
+  // URL). They must be allowed or nothing can be printed. They are the app's own pages only, with the same
+  // locked-down preferences as the main window (no Node, no preload, sandboxed). Anything else on the
+  // internet opens in the user's normal browser instead.
+  const isOwnPopupUrl = (u) =>
+    !u || u === 'about:blank' || u.startsWith(`blob:${appOrigin()}/`) || u.startsWith('blob:http://localhost:3000/') || isAppUrl(u);
+  const handlePopup = ({ url }) => {
+    if (isOwnPopupUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: {
+          width: 900,
+          height: 700,
+          autoHideMenuBar: true,
+          icon: getIconPath(),
+          webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true, devTools: !app.isPackaged },
+        },
+      };
     }
-    // Never let a page open a second Electron window with its own preferences.
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  };
+  const guardNavigation = (event, url) => {
+    if (isOwnPopupUrl(url)) return;
+    event.preventDefault();
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+  };
+  mainWindow.webContents.setWindowOpenHandler(handlePopup);
+  mainWindow.webContents.on('did-create-window', (child) => {
+    child.setMenuBarVisibility(false);
+    child.webContents.setWindowOpenHandler(handlePopup);
+    child.webContents.on('will-navigate', guardNavigation);
   });
   // Never let the app window navigate away to an arbitrary site. Compare full
   // origins so look-alike hosts such as 127.0.0.1:5000.example.com are rejected.
@@ -780,7 +987,7 @@ function createWindow() {
       event.preventDefault();
       return;
     }
-    const allowed = origin === `http://127.0.0.1:${activePort}` || origin === 'http://localhost:3000';
+    const allowed = origin === appOrigin() || origin === 'http://localhost:3000';
     if (!allowed) {
       event.preventDefault();
       if (/^https?:\/\//i.test(url)) shell.openExternal(url);
@@ -788,14 +995,19 @@ function createWindow() {
   });
 
   mainWindow.once('ready-to-show', () => {
+    // The server starts with Windows (minimised to the tray); everything else opens normally.
+    if (IS_SERVER && process.argv.includes('--hidden')) return;
     mainWindow.show();
     mainWindow.focus();
+  });
+  // Closing the server's window must not stop the server for every other PC: hide it to the tray instead.
+  mainWindow.on('close', (event) => {
+    if (IS_SERVER && !quitting) { event.preventDefault(); mainWindow.hide(); }
   });
   mainWindow.on('closed', () => { mainWindow = null; });
 
   // ---- Self-recovery: a frozen page used to need a full quit + restart ----
   const wc = mainWindow.webContents;
-  const isAppUrl = (u) => typeof u === 'string' && (u.startsWith(`http://127.0.0.1:${activePort}`) || u.startsWith('http://localhost:3000'));
 
   // F5 / Ctrl+F5 / Ctrl+Shift+R reload even if the menu is hidden
   wc.on('before-input-event', (event, input) => {
@@ -824,7 +1036,7 @@ function createWindow() {
     clearTimeout(hangTimer);
     log(`Page process gone (${details.reason}, exit ${details.exitCode})`);
     if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
-    if (backendReady) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(`http://127.0.0.1:${activePort}`).catch(() => {}); }, 500);
+    if (backendReady || IS_CLIENT) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(IS_CLIENT ? getClientServerUrl() : `http://127.0.0.1:${activePort}`).catch(() => {}); }, 500);
     else showStatusPage('error', 'The page stopped working and the server is not running.');
   });
 
@@ -835,7 +1047,7 @@ function createWindow() {
     log(`Page failed to load (${code} ${desc})`);
     if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
     if (loadRetries++ < 5) setTimeout(() => { if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(url).catch(() => {}); }, 1500 * loadRetries);
-    else showStatusPage('error', 'The page could not be loaded from the server.\n\nUse File > Restart server.');
+    else showStatusPage('error', IS_CLIENT ? 'The page could not be loaded from the server. Check that the server PC is on and running Veridian HMS Server.' : 'The page could not be loaded from the server.\n\nUse File > Restart server.');
   });
   wc.on('did-finish-load', () => { if (isAppUrl(wc.getURL())) loadRetries = 0; });
 }
@@ -845,12 +1057,19 @@ function createMenu() {
     {
       label: 'File',
       submenu: [
-        { label: 'Database settings...', enabled: app.isPackaged, click: () => changeDatabaseSettings() },
-        { label: 'Restart server', enabled: app.isPackaged, click: () => restartAll() },
+        ...(IS_CLIENT
+          ? [
+              { label: 'Server address...', click: () => changeDatabaseSettings() },
+              { label: 'Reconnect', click: () => restartAll() },
+            ]
+          : [
+              { label: 'Database settings...', enabled: app.isPackaged, click: () => changeDatabaseSettings() },
+              { label: 'Restart server', enabled: app.isPackaged, click: () => restartAll() },
+            ]),
         { type: 'separator' },
         { label: 'Open log folder', click: () => shell.openPath(app.getPath('logs')) },
         { type: 'separator' },
-        { label: 'Exit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+        { label: IS_SERVER ? 'Quit server' : 'Exit', accelerator: 'CmdOrCtrl+Q', click: () => quitApp() },
       ],
     },
     { label: 'Edit', submenu: [{ role: 'undo' }, { role: 'redo' }, { type: 'separator' }, { role: 'cut' }, { role: 'copy' }, { role: 'paste' }, { role: 'selectAll' }] },
@@ -871,11 +1090,14 @@ function createMenu() {
           label: `About ${APP_TITLE}`,
           click: () => {
             const info = getDatabaseInfo();
+            const where = IS_CLIENT
+              ? `Server: ${getClientServerUrl() || 'not set'}`
+              : `Database: ${info.user}@${info.host}:${info.port}/${info.database}\nStatus: ${info.status}`;
             dialog.showMessageBox(mainWindow, {
               type: 'info',
               title: `About ${APP_TITLE}`,
               message: 'Veridian Hospital Management System',
-              detail: `Version ${app.getVersion()}\nDeveloped by Emmanuel Appiah\n\nDatabase: ${info.user}@${info.host}:${info.port}/${info.database}\nStatus: ${info.status}`,
+              detail: `Version ${app.getVersion()} (${APP_MODE})\nDeveloped by Emmanuel Appiah\n\n${where}`,
               buttons: ['OK'],
             });
           },
@@ -888,13 +1110,58 @@ function createMenu() {
 }
 
 async function changeDatabaseSettings() {
-  const saved = await openSetupWindow({ firstRun: false });
+  const saved = await openSetupWindow({ firstRun: false, client: IS_CLIENT });
   if (saved) restartAll();
 }
 
 async function restartAll() {
-  await stopBackend();
+  if (!IS_CLIENT) await stopBackend();
   startApplication();
+}
+
+// Quitting the server takes every other PC offline, so ask first.
+async function quitApp() {
+  if (IS_SERVER && !quitting) {
+    const { response } = await dialog.showMessageBox(mainWindow && mainWindow.isVisible() ? mainWindow : undefined, {
+      type: 'warning',
+      buttons: ['Keep running', 'Quit server'],
+      defaultId: 0,
+      cancelId: 0,
+      title: 'Quit Veridian HMS Server',
+      message: 'Other PCs will lose access to Veridian HMS until the server is started again.',
+    });
+    if (response !== 1) return;
+  }
+  app.quit();
+}
+
+// ==================== SERVER TRAY ====================
+let tray = null;
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+function createTray() {
+  if (tray) return;
+  const icon = nativeImage.createFromPath(path.join(__dirname, 'build', 'icon.png'));
+  tray = new Tray(icon.isEmpty() ? icon : icon.resize({ width: 16, height: 16 }));
+  const addresses = () => {
+    const net = normalizeNetwork((loadConfig() || {}).network);
+    const list = lanAddresses().map((ip) => `http://${ip}:${activePort || net.port}`);
+    return list.length ? list.join('\n') : 'No network connection found.';
+  };
+  tray.setToolTip(`${APP_TITLE} Server`);
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Open Veridian HMS', click: showMainWindow },
+    { label: 'Show address for other PCs', click: () => dialog.showMessageBox({ type: 'info', title: 'Server address', message: 'Type one of these into a browser or the Veridian HMS Client on other PCs:', detail: addresses() }) },
+    { label: 'Database settings...', click: () => changeDatabaseSettings() },
+    { label: 'Open log folder', click: () => shell.openPath(app.getPath('logs')) },
+    { type: 'separator' },
+    { label: 'Quit server', click: () => quitApp() },
+  ]));
+  tray.on('double-click', showMainWindow);
 }
 
 function getDatabaseInfo() {
@@ -911,6 +1178,7 @@ if (!gotTheLock) {
   app.on('second-instance', () => {
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
       mainWindow.focus();
     }
   });
@@ -923,6 +1191,11 @@ if (!gotTheLock) {
     log('User data:', app.getPath('userData'));
 
     createWindow();
+    if (IS_SERVER && app.isPackaged) {
+      createTray();
+      // start with Windows so the server comes back by itself after a power cut or reboot
+      try { app.setLoginItemSettings({ openAtLogin: true, args: ['--hidden'] }); } catch (e) { log('Could not enable start-with-Windows:', e.message); }
+    }
 
     if (app.isPackaged) {
       startApplication();

@@ -1,0 +1,43 @@
+# Workstation CLIENT installer: only the window. No backend, no frontend bundle, no database access.
+# Built by: node build-win.js --target=client
+appId: com.veridian.hms.client
+productName: VeridianHMS Client
+copyright: Veridian HMS Client
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - main.cjs
+  - preload.js
+  - setup-preload.cjs
+  - client-setup-preload.cjs
+  - client-setup.html
+  - status.html
+  - build/icon.png
+  - build/icon.ico
+  - build/app-mode.json
+  - package.json
+  - "!build/backend/**"
+
+asar: true
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Veridian HMS
+  deleteAppDataOnUninstall: false
+
+publish: null

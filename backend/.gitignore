@@ -62,3 +62,6 @@ temp/
 # runtime uploads — never commit
 backend/uploads/
 uploads/
+
+# Local seed progress marker (written by `npm run seed`; never commit)
+src/seed/.seed_status.json

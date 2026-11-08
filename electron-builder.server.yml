@@ -1,0 +1,54 @@
+# Hospital SERVER installer: API + database link + frontend, keeps running in the tray.
+# Built by: node build-win.js --target=server
+appId: com.veridian.hms.server
+productName: VeridianHMS Server
+copyright: Veridian HMS Server
+
+directories:
+  output: release
+  buildResources: build
+
+# Electron shell files (inside app.asar)
+files:
+  - main.cjs
+  - preload.js
+  - setup-preload.cjs
+  - setup.html
+  - status.html
+  - build/icon.png
+  - build/icon.ico
+  - build/app-mode.json
+  - package.json
+  - "!build/backend/**"
+
+# Backend + frontend live outside the asar so the embedded Node can run them
+extraResources:
+  - from: build/backend
+    to: backend
+    filter:
+      - "**/*"
+      - "node_modules/**/*"
+  - from: frontend/dist
+    to: frontend/dist
+
+afterPack: after-pack.js
+asar: true
+npmRebuild: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  icon: build/icon.ico
+  artifactName: ${productName}-Setup-${version}-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Veridian HMS Server
+  deleteAppDataOnUninstall: false
+
+publish: null

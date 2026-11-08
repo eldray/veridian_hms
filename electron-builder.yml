@@ -15,6 +15,7 @@ files:
   - status.html
   - build/icon.png
   - build/icon.ico
+  - build/app-mode.json
   - package.json
   - "!build/backend/**"
 

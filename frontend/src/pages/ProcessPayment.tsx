@@ -1,5 +1,6 @@
 // src/pages/ProcessPayment.tsx - FIXED VERSION
 import { useState, FormEvent, useEffect, useRef } from 'react'; 
+import { uuid } from '../utils/uuid';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useBillingStore } from '../store/billingStore';
 import { usePatientStore } from '../store/patientStore';
@@ -38,13 +39,13 @@ const getOrCreatePaymentAttemptKey = (billId: string) => {
     const storageKey = paymentAttemptStorageKey(billId);
     const existingKey = sessionStorage.getItem(storageKey);
     if (existingKey) return existingKey;
-    const newKey = crypto.randomUUID();
+    const newKey = uuid();
     sessionStorage.setItem(storageKey, newKey);
     return newKey;
   } catch {
     // Storage may be unavailable in restricted browser contexts; in-memory
     // idempotency still protects retries while this page remains mounted.
-    return crypto.randomUUID();
+    return uuid();
   }
 };
 
@@ -171,7 +172,7 @@ export default function ProcessPayment() {
           finalStatus = await checkMomoPaymentStatus(intent.id);
         }
         if (finalStatus.status === 'failed') {
-          paymentAttemptKey.current = crypto.randomUUID();
+          paymentAttemptKey.current = uuid();
           try { if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current); } catch { /* optional storage */ }
           throw new Error(finalStatus.failureReason || 'The mobile money transaction failed or was declined.');
         }
@@ -195,7 +196,7 @@ export default function ProcessPayment() {
 
       // Rotate only after the server confirms success. If the response is lost,
       // a reload/retry still uses the same key and cannot post the payment twice.
-      paymentAttemptKey.current = crypto.randomUUID();
+      paymentAttemptKey.current = uuid();
       try {
         if (billId) sessionStorage.setItem(paymentAttemptStorageKey(billId), paymentAttemptKey.current);
       } catch {

@@ -550,10 +550,37 @@ export const seedDiagnosisReferenceData = async () => {
 // ─────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────
-export const seedCoreData = async (force: boolean = false) => {
-  console.log('🏥 Starting core data seeding...');
+// Seed profiles
+//   'development' (default, used by `npm run seed`): the full reference set PLUS the sample content the
+//                 demo dataset leans on - well-known logins, a fake hospital record, sample corporate
+//                 accounts, and opening stock of 100 units per item.
+//   'production'  (used by the installed desktop app's first-run bootstrap): reference data only. No
+//                 default passwords, no fake hospital details, no sample corporate accounts or
+//                 employees, no invented wards/beds, and NO opening stock - the catalogue is loaded but
+//                 every item starts at zero until the facility receives real stock.
+export type SeedProfile = 'development' | 'production';
+export interface SeedCoreOptions {
+  profile?: SeedProfile;
+  /** Required for the production profile: the password the first administrator accounts are created with. */
+  adminPassword?: string;
+}
+
+export const seedCoreData = async (force: boolean = false, options: SeedCoreOptions = {}) => {
+  // The packaged desktop app (ELECTRON=true) can only ever run the production profile, whatever a caller asks for.
+  const profile: SeedProfile = process.env.ELECTRON === 'true' ? 'production' : (options.profile ?? 'development');
+  const isProdProfile = profile === 'production';
+  console.log(`🏥 Starting core data seeding (profile: ${profile})...`);
 
   try {
+    if (isProdProfile) {
+      // Only needed while an administrator account still has to be created; a re-run that finds both
+      // accounts never touches their passwords.
+      const existingAdmins = await prisma.user.count({ where: { username: { in: ['superadmin', 'admin'] } } });
+      if (existingAdmins < 2 && (!options.adminPassword || options.adminPassword.length < 8)) {
+        throw new Error('The production seed profile needs adminPassword (at least 8 characters); it never creates default passwords');
+      }
+    }
+
     if (process.env.NODE_ENV === 'production' && !force) {
       console.log('🚨 PRODUCTION SAFETY: Core data seeding disabled in production');
       return { success: false, message: 'Disabled in production', productionSafety: true };
@@ -569,14 +596,15 @@ export const seedCoreData = async (force: boolean = false) => {
 
     // ── STEP 1: Administrator accounts ────────────────────────
     // super_admin outranks admin: it is the only role holding `users.manage`, so it is the
-    // only account that can manage users and roles. bootstrap.ts replaces both default
-    // passwords on a first-run install; `update: { isActive: true }` keeps re-seeding from
-    // overwriting a password an operator already changed.
+    // only account that can manage users and roles. The production profile creates both accounts
+    // directly with the password chosen during setup, so a default password never exists in an
+    // installed database - not even briefly, and not if a later seed step fails. `update:
+    // { isActive: true }` keeps re-seeding from overwriting a password an operator already changed.
     const superAdminUser = await prisma.user.upsert({
       where: { username: 'superadmin' },
       create: {
         username: 'superadmin',
-        password: hashPassword('superadmin123'),
+        password: hashPassword(isProdProfile ? (options.adminPassword ?? '') : 'superadmin123'),
         fullName: 'Super Administrator',
         role: UserRole.super_admin,
         seniority: Seniority.PRINCIPAL,
@@ -593,7 +621,7 @@ export const seedCoreData = async (force: boolean = false) => {
       where: { username: 'admin' },
       create: {
         username: 'admin',
-        password: hashPassword('admin123'),
+        password: hashPassword(isProdProfile ? (options.adminPassword ?? '') : 'admin123'),
         fullName: 'System Administrator',
         role: UserRole.admin,
         seniority: Seniority.PRINCIPAL,
@@ -618,29 +646,47 @@ export const seedCoreData = async (force: boolean = false) => {
     console.log('✅ RBAC roles and permissions configured');
 
     // ── STEP 2: Hospital ──────────────────────────────────────
-    await prisma.hospital.upsert({
-      where: { nhisFacilityCode: 'GH001' },
-      create: {
-        name: 'General Hospital',
-        address: '123 Medical Center Drive, Accra',
-        phone: '+233-24-123-4567',
-        email: 'info@generalhospital.gov.gh',
-        nhisFacilityCode: 'GH001',
-        nhisFacilityType: 'Secondary',
-        nhisAccreditationNumber: 'NHIS/ACC/2024/001',
-        nhisAccreditationDate: new Date('2024-01-15'),
-        nhisAccreditationExpiry: new Date('2025-01-14'),
-        bankName: 'Ghana Commercial Bank',
-        bankAccountNumber: '1234567890',
-        bankBranch: 'Accra Central',
-        nhisContactPerson: 'Dr. Kwame Mensah',
-        nhisContactPhone: '+233-24-765-4321',
-        nhisContactEmail: 'nhis@generalhospital.gov.gh',
-        isActive: true,
-      },
-      update: {},
-    });
-    console.log('✅ Hospital configured');
+    if (isProdProfile) {
+      // A neutral, clearly-unconfigured record (the same 'PENDING' code SettingsService uses) that the
+      // administrator completes in Settings. No invented address, bank account or NHIS accreditation.
+      if (!(await prisma.hospital.findFirst())) {
+        await prisma.hospital.create({
+          data: {
+            name: 'Hospital name not set',
+            address: '',
+            phone: '',
+            email: '',
+            nhisFacilityCode: 'PENDING',
+            isActive: true,
+          },
+        });
+      }
+      console.log('✅ Hospital placeholder created (complete it in Settings)');
+    } else {
+      await prisma.hospital.upsert({
+        where: { nhisFacilityCode: 'GH001' },
+        create: {
+          name: 'General Hospital',
+          address: '123 Medical Center Drive, Accra',
+          phone: '+233-24-123-4567',
+          email: 'info@generalhospital.gov.gh',
+          nhisFacilityCode: 'GH001',
+          nhisFacilityType: 'Secondary',
+          nhisAccreditationNumber: 'NHIS/ACC/2024/001',
+          nhisAccreditationDate: new Date('2024-01-15'),
+          nhisAccreditationExpiry: new Date('2025-01-14'),
+          bankName: 'Ghana Commercial Bank',
+          bankAccountNumber: '1234567890',
+          bankBranch: 'Accra Central',
+          nhisContactPerson: 'Dr. Kwame Mensah',
+          nhisContactPhone: '+233-24-765-4321',
+          nhisContactEmail: 'nhis@generalhospital.gov.gh',
+          isActive: true,
+        },
+        update: {},
+      });
+      console.log('✅ Hospital configured');
+    }
 
     // ── STEP 3: Departments ───────────────────────────────────
     const departmentsData = readJSON('departments.json');
@@ -697,8 +743,12 @@ export const seedCoreData = async (force: boolean = false) => {
     console.log(`✅ ${providers.length} insurance providers configured`);
 
     // ── STEP 4.5: Corporate accounts ──────────────────────────
-    const corporateAccountsData = readJSON('corporateAccounts.json');
-    if (corporateAccountsData?.corporateAccounts) {
+    // Sample companies and their employees are demo content: a real facility creates its own corporate
+    // accounts. Never loaded by the production profile.
+    const corporateAccountsData = isProdProfile ? null : readJSON('corporateAccounts.json');
+    if (isProdProfile) {
+      console.log('⏭️ Production profile: sample corporate accounts skipped');
+    } else if (corporateAccountsData?.corporateAccounts) {
       console.log('🏢 Seeding corporate accounts and employees...');
       for (const corp of corporateAccountsData.corporateAccounts) {
         const insuranceProvider = await prisma.insuranceProvider.upsert({
@@ -969,15 +1019,18 @@ export const seedCoreData = async (force: boolean = false) => {
           const stockData = addSchemaDefaults({
             ...item,
             isMedication,
-            currentStock: item.currentStock ?? 100,
+            // Production profile: the catalogue is loaded but nothing is in stock until real stock is received.
+            currentStock: isProdProfile ? 0 : (item.currentStock ?? 100),
             reorderLevel: item.reorderLevel ?? 50,
             costPrice: item.costPrice ?? item.unitPrice ?? 0,
           }, 'stockItem');
 
+          // Re-running the seed must never zero (or reset) quantities the facility has since received.
+          const { currentStock: _seedStock, ...stockUpdate } = stockData as any;
           const stockItem = await prisma.stockItem.upsert({
             where: { drugCode: item.drugCode },
             create: stockData,
-            update: stockData,
+            update: isProdProfile ? stockUpdate : stockData,
           });
           stockItemMap.set(item.drugCode, stockItem);
           if (file === 'nhismedicines.json') {
@@ -1121,7 +1174,10 @@ export const seedCoreData = async (force: boolean = false) => {
     let placedCount = 0;
     const perDepartment: Record<string, number> = {};
 
+    if (isProdProfile) console.log('⏭️ Production profile: no opening stock batches or balances are created');
     for (const [drugCode, stockItem] of stockItemMap) {
+      // Production: never place opening stock, whatever quantity a re-run finds on the item.
+      if (isProdProfile) break;
       const total = stockItem.currentStock ?? 0;
       if (total <= 0) continue;
       const source = sourceByDrugCode.get(drugCode) || {};
@@ -1334,7 +1390,11 @@ export const seedCoreData = async (force: boolean = false) => {
     const wardsData = readJSON('wards.json');
     const existingWardCount = await prisma.ward.count();
 
-    if (existingWardCount === 0) {
+    if (isProdProfile) {
+      // Ward names, bed counts and daily rates are facility-specific. They are created by the administrator
+      // (Wards screen) instead of being invented here.
+      console.log('⏭️ Production profile: default wards and beds skipped');
+    } else if (existingWardCount === 0) {
       const defaultWards = [
         { wardName: 'General Ward A', wardType: 'general', totalBeds: 20, dailyCashRate: 100, dailyNHISRate: 50, dailyInsuranceRate: 80 },
         { wardName: 'Maternity Ward', wardType: 'maternity', totalBeds: 12, dailyCashRate: 120, dailyNHISRate: 60, dailyInsuranceRate: 100 },

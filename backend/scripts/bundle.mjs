@@ -33,6 +33,28 @@ const neutraliseDirectRun = {
   },
 };
 
+// The installed app must not contain the demo seed at all. server.ts lazily imports ./seed/seedData for
+// `npm run dev`; in this bundle that import resolves to a stub, so testSeed / bulkGenerator (fake patients,
+// staff, bills, well-known logins) are never compiled in and cannot be triggered by any env var or flag.
+// Only coreSeed (reference data, production profile) ships, via bootstrap.mjs.
+const stubDemoSeed = {
+  name: 'stub-demo-seed',
+  setup(b) {
+    b.onResolve({ filter: /(^|[\\/])(seedData|testSeed|bulkGenerator|cleanTestData)(\.js|\.ts)?$/ }, (args) => ({
+      path: args.path,
+      namespace: 'demo-seed-stub',
+    }));
+    b.onResolve({ filter: /.*/, namespace: 'demo-seed-stub' }, (args) => ({ path: args.path, namespace: 'demo-seed-stub' }));
+    b.onLoad({ filter: /.*/, namespace: 'demo-seed-stub' }, () => ({
+      contents:
+        "const off = async () => { throw new Error('Demo data seeding is not part of the installed application.'); };\n" +
+        'export const seedDatabase = off;\nexport const seedTestData = off;\nexport const hasNonDemoPatients = off;\n' +
+        'export default off;',
+      loader: 'js',
+    }));
+  },
+};
+
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -54,7 +76,7 @@ await build({
   // import ("node-cron", "express" ...) to a file path, so `packages: 'external'` no longer applies and the
   // CommonJS packages get inlined into the ESM bundle (and break on __dirname). Pass only what matters.
   tsconfigRaw: { compilerOptions: { target: 'ES2020', useDefineForClassFields: false } },
-  plugins: [neutraliseDirectRun],
+  plugins: [stubDemoSeed, neutraliseDirectRun],
   banner: {
     // some bundled code paths still use require()/__dirname-style helpers
     js: "import { createRequire as __createRequire } from 'node:module';\nconst require = __createRequire(import.meta.url);",
@@ -66,6 +88,17 @@ for (const f of ['server.mjs', 'bootstrap.mjs']) {
   const code = fs.readFileSync(path.join(outDir, f), 'utf8');
   if (/import\.meta\.url === `file:\/\/\$\{process\.argv\[1\]\}`/.test(code)) {
     console.error(`❌ ${f} still contains an unguarded "run directly" block`);
+    process.exit(1);
+  }
+}
+
+// Safety net: fail the build if demo-seed code or demo credentials reached either bundle.
+const demoMarkers = ['seedpat-', 'seedmed-', 'seedreq-', 'generatePatients', 'seedTestData(', 'doctor123', 'nurse123'];
+for (const f of ['server.mjs', 'bootstrap.mjs']) {
+  const code = fs.readFileSync(path.join(outDir, f), 'utf8');
+  const hit = demoMarkers.filter((m) => code.includes(m));
+  if (hit.length) {
+    console.error(`❌ ${f} contains demo-seed code (${hit.join(', ')}). The installed app must ship reference data only.`);
     process.exit(1);
   }
 }
