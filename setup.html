@@ -50,7 +50,7 @@
 
     <fieldset>
       <legend>Access from other computers (optional)</legend>
-      <label id="lanLabel" style="flex-direction:row;align-items:center;gap:8px"><input id="lan" type="checkbox" style="width:auto" /> Let other PCs on this network open Veridian HMS in their browser</label>
+      <label style="flex-direction:row;align-items:center;gap:8px"><input id="lan" type="checkbox" style="width:auto" /> Let other PCs on this network open Veridian HMS in their browser</label>
       <label>App port<small>Other PCs use http://&lt;this PC's address&gt;:&lt;port&gt;. Windows will ask for administrator approval to open this port.</small><input id="appPort" type="number" value="5000" min="1024" max="65535" /></label>
       <small id="addresses"></small>
       <small>Traffic on the network is not encrypted. Only enable this on a trusted, private network, and keep this PC switched on and Veridian HMS open while others use it.</small>
@@ -87,8 +87,7 @@
 
   window.setupAPI.getSettings().then((s) => {
     $('host').value = s.host; $('port').value = s.port; $('database').value = s.database; $('user').value = s.user;
-    if (s.mode === 'server') { $('lan').checked = true; $('lan').disabled = true; $('lanLabel').firstChild && ($('lanLabel').lastChild.textContent = ' This is the hospital server: other PCs are always allowed'); }
-    $('lan').checked = !!s.lan || s.mode === 'server'; $('appPort').value = s.appPort || 5000;
+    $('lan').checked = !!s.lan; $('appPort').value = s.appPort || 5000;
     $('addresses').textContent = s.addresses && s.addresses.length ? 'This PC\'s address: ' + s.addresses.map((a) => 'http://' + a + ':' + ($('appPort').value || 5000)).join('   ') : '';
     hasStoredPassword = s.hasPassword;
     needsAdmin = !s.bootstrapDone;
