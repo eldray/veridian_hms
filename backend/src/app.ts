@@ -33,6 +33,8 @@ router.get('/health', async (req, res) => {
       version: process.env.APP_VERSION || '1.0.0',
       architecture: 'modular',
       database: 'up',
+      // seconds since this process started: lets the desktop shell confirm that a restart really happened
+      uptime: Math.round(process.uptime()),
     });
   } catch (error) {
     res.status(503).json({

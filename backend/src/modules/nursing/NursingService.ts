@@ -77,6 +77,17 @@ export class NursingService extends BaseService {
     if (['qds', 'qid', 'four times daily', 'four times a day', 'q.i.d'].includes(f)) return { intervalHours: 6, dosesPerDay: 4 };
     if (['prn', 'as needed', 'sos'].includes(f)) return { intervalHours: 24, dosesPerDay: 1 };
 
+    // "five times daily", "5 times a day", "three times per day" ... (e.g. acyclovir 5x daily).
+    const timesWords: Record<string, number> = { once: 1, one: 1, twice: 2, two: 2, thrice: 3, three: 3, four: 4, five: 5, six: 6 };
+    const times = f.match(/^(\d+|once|one|twice|two|thrice|three|four|five|six)\s*(?:x|times?)?\s*(?:a|per)?\s*(?:day|daily)$/);
+    if (times) {
+      const n = /^\d+$/.test(times[1]) ? Number(times[1]) : timesWords[times[1]];
+      if (!Number.isInteger(n) || n < 1 || n > 6) {
+        throw new ValidationError('Medication frequency must be between 1 and 6 times a day');
+      }
+      return { intervalHours: 24 / n, dosesPerDay: n };
+    }
+
     throw new ValidationError('Unsupported medication frequency. Use a recognized schedule such as stat, OD, BD, TDS, QDS or every 8 hours');
   }
 

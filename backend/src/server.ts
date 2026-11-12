@@ -184,7 +184,11 @@ const runSeedScript = async () => {
     const { seedDatabase } = await import('./seed/seedData');
     const result = await seedDatabase();
 
-    if ((result as any).results?.testData?.success) {
+    const outcome = result as any;
+    if (outcome?.success === false) {
+      // seedDatabase reports a failed step by returning, not throwing; do not mistake that for "nothing to do"
+      console.error(`❌ Database seeding did not complete: ${(outcome.errors || []).join('; ') || 'unknown error'}`);
+    } else if (outcome.results?.testData?.success) {
       console.log('✅ New data was seeded successfully');
     } else {
       console.log('ℹ️ Database already has data, no seeding needed');

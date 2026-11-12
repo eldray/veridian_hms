@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+  <title>Veridian HMS - Reset database</title>
+  <style>
+    :root { --bg:#f4f6f8; --card:#fff; --text:#1f2933; --muted:#616e7c; --border:#cbd2d9; --accent:#0e7490; --danger:#b42318; --danger-dark:#912018; --ok:#067647; }
+    @media (prefers-color-scheme: dark) { :root { --bg:#111827; --card:#1f2937; --text:#f3f4f6; --muted:#9ca3af; --border:#374151; --accent:#22a6c4; --danger:#f97066; --danger-dark:#d92d20; --ok:#47cd89; } }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); font-size:14px; }
+    main { padding:22px 28px; }
+    h1 { font-size:20px; margin:0 0 6px; color:var(--danger); }
+    p.lead { color:var(--muted); margin:0 0 14px; line-height:1.45; }
+    .warn { border:1px solid var(--danger); background:rgba(180,35,24,.08); border-radius:8px; padding:10px 14px; margin:0 0 14px; line-height:1.45; }
+    .warn ul { margin:6px 0 0 18px; padding:0; }
+    .target { font-family:Consolas, monospace; background:var(--card); border:1px solid var(--border); border-radius:6px; padding:8px 10px; margin:0 0 14px; word-break:break-all; }
+    label { display:block; margin:0 0 12px; font-weight:500; }
+    label small { display:block; font-weight:400; color:var(--muted); margin-top:2px; }
+    input[type=password], input[type=text] { width:100%; margin-top:4px; padding:8px 10px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text); font-size:14px; }
+    input:focus { outline:2px solid var(--accent); border-color:transparent; }
+    label.check { display:flex; gap:8px; align-items:flex-start; font-weight:400; }
+    label.check input { margin-top:3px; }
+    .actions { display:flex; gap:10px; margin-top:6px; }
+    button { padding:9px 16px; border-radius:6px; border:1px solid var(--border); background:var(--card); color:var(--text); font-size:14px; cursor:pointer; }
+    button.danger { background:var(--danger); border-color:var(--danger); color:#fff; font-weight:600; flex:1; }
+    button.danger:hover:not(:disabled) { background:var(--danger-dark); }
+    button:disabled { opacity:.55; cursor:default; }
+    #msg { margin-top:14px; padding:10px 12px; border-radius:6px; line-height:1.4; display:none; white-space:pre-wrap; word-break:break-word; }
+    #msg.err { display:block; background:rgba(180,35,24,.1); color:var(--danger); border:1px solid var(--danger); }
+    #msg.busy { display:block; background:var(--card); color:var(--text); border:1px solid var(--border); }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Reset database</h1>
+  <p class="lead">This erases the hospital database and rebuilds it as a brand new installation.</p>
+
+  <div class="warn">
+    <strong>Everything in this database will be permanently deleted:</strong>
+    <ul>
+      <li>patients, attendances, bills, claims and every clinical record</li>
+      <li>all staff accounts. Only a new administrator is created.</li>
+      <li>stock levels, tariffs and settings you changed (reference data is reloaded as shipped)</li>
+    </ul>
+    <p id="serverNote" class="hidden" style="margin:8px 0 0">Other PCs lose access to Veridian HMS until the reset finishes.</p>
+  </div>
+
+  <div class="target" id="target">Loading...</div>
+
+  <label class="check hidden" id="noBackupRow">
+    <input type="checkbox" id="noBackup" />
+    <span>PostgreSQL's <b>pg_dump</b> tool was not found, so <b>no backup can be made first</b>. I understand the data cannot be recovered.</span>
+  </label>
+  <p id="backupNote" class="lead hidden">A backup of the current database is saved first, in the app's data folder (backups/pre-reset).</p>
+
+  <label>New administrator password
+    <input type="password" id="pw1" autocomplete="new-password" />
+    <small>At least 8 characters. It is used for both the <b>superadmin</b> and <b>admin</b> accounts.</small>
+  </label>
+  <label>Repeat the password
+    <input type="password" id="pw2" autocomplete="new-password" />
+  </label>
+  <label>Type the database name to confirm
+    <input type="text" id="confirm" autocomplete="off" spellcheck="false" />
+  </label>
+
+  <div class="actions">
+    <button id="cancel">Cancel</button>
+    <button class="danger" id="go" disabled>Erase and rebuild</button>
+  </div>
+  <div id="msg"></div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let info = null;
+  let running = false;
+
+  function setMsg(kind, text) { const m = $('msg'); m.className = kind || ''; m.textContent = text || ''; }
+
+  function valid() {
+    if (!info || running) return false;
+    if ($('pw1').value.length < 8 || $('pw1').value !== $('pw2').value) return false;
+    if ($('confirm').value.trim() !== info.database) return false;
+    if (!info.pgDump && !$('noBackup').checked) return false;
+    return true;
+  }
+  function refresh() { $('go').disabled = !valid(); }
+
+  window.resetAPI.info().then((i) => {
+    info = i;
+    if (!i) { setMsg('err', 'Could not read the database settings.'); return; }
+    $('target').textContent = i.database + '  on  ' + i.host + ':' + i.port;
+    $('serverNote').classList.toggle('hidden', !i.isServer);
+    $('noBackupRow').classList.toggle('hidden', !!i.pgDump);
+    $('backupNote').classList.toggle('hidden', !i.pgDump);
+    refresh();
+  });
+
+  ['pw1', 'pw2', 'confirm', 'noBackup'].forEach((id) => $(id).addEventListener('input', refresh));
+  $('cancel').addEventListener('click', () => { if (!running) window.resetAPI.cancel(); });
+
+  window.resetAPI.onProgress((m) => setMsg('busy', m));
+
+  $('go').addEventListener('click', async () => {
+    if (!valid()) return;
+    running = true;
+    ['pw1', 'pw2', 'confirm', 'noBackup', 'cancel', 'go'].forEach((id) => { $(id).disabled = true; });
+    setMsg('busy', 'Starting...');
+    let result;
+    try {
+      result = await window.resetAPI.run({
+        confirmName: $('confirm').value.trim(),
+        adminPassword: $('pw1').value,
+        acceptNoBackup: $('noBackup').checked,
+      });
+    } catch (e) {
+      result = { ok: false, message: e.message || String(e) };
+    }
+    running = false;
+    if (result && result.ok) return; // the window closes itself and the server restarts
+    setMsg('err', (result && result.message) || 'The reset failed.');
+    ['pw1', 'pw2', 'confirm', 'noBackup', 'cancel'].forEach((id) => { $(id).disabled = false; });
+    $('pw1').value = ''; $('pw2').value = '';
+    refresh();
+  });
+</script>
+</body>
+</html>
