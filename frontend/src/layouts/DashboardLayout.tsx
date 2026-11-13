@@ -8,6 +8,7 @@ import { useThemeStore } from '../store/themeStore';
 import { useLiveRefresh } from '../api/realtime';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 import { QuickAccessFab } from '../components/QuickAccessFab';
+import VeridianLogo from '../components/VeridianLogo';
 import { navGroupsFor } from '../config/access';
 import {
   LogOut, Menu, X, User, ChevronDown, Settings, Bell, Heart,
@@ -175,12 +176,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
 
             <div className="flex items-center gap-2.5">
-              <div
-                className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                style={{ background: 'var(--icon-cyan-text)' }}
-              >
-                <Heart className="w-3.5 h-3.5 text-white" />
-              </div>
+              <VeridianLogo size={30} />
               <span
                 className="hidden sm:block text-xs font-semibold tracking-wide leading-none"
                 style={{ color: 'var(--text-primary)' }}
