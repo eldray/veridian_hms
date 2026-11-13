@@ -1,9 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 72" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 360" fill="none">
   <defs>
-    <linearGradient id="bg" x1="5" y1="4" x2="43" y2="45" gradientUnits="userSpaceOnUse"><stop stop-color="#123B52"/><stop offset="1" stop-color="#087F72"/></linearGradient>
-    <linearGradient id="v" x1="9" y1="9" x2="38" y2="40" gradientUnits="userSpaceOnUse"><stop stop-color="#75E0B1"/><stop offset="1" stop-color="#27B6A0"/></linearGradient>
+    <linearGradient id="veridian-blue" x1="18" y1="18" x2="142" y2="145" gradientUnits="userSpaceOnUse"><stop stop-color="#078ACB"/><stop offset="1" stop-color="#063A78"/></linearGradient>
+    <linearGradient id="veridian-green" x1="52" y1="12" x2="151" y2="140" gradientUnits="userSpaceOnUse"><stop stop-color="#63D51D"/><stop offset=".55" stop-color="#00A83B"/><stop offset="1" stop-color="#007C48"/></linearGradient>
+    <linearGradient id="veridian-swoosh" x1="12" y1="135" x2="145" y2="155" gradientUnits="userSpaceOnUse"><stop stop-color="#063A78"/><stop offset=".52" stop-color="#00A8C9"/><stop offset="1" stop-color="#00A83B"/></linearGradient>
   </defs>
-  <g transform="translate(4 12)"><rect x="1" y="1" width="46" height="46" rx="13" fill="url(#bg)"/><path d="M10 11.5H17.2L24 29.2L30.8 11.5H38L25.8 39H22.2L10 11.5Z" fill="url(#v)"/><path d="M21.25 16.2H26.75V21.05H31.6V26.55H26.75V31.4H21.25V26.55H16.4V21.05H21.25V16.2Z" fill="#F5FFFC" stroke="#087F72" stroke-width="1.1" stroke-linejoin="round"/></g>
-  <text x="64" y="39" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="750" letter-spacing="-0.8" fill="#123B52">veridian</text>
-  <text x="65" y="55" font-family="Inter, Arial, sans-serif" font-size="9" font-weight="650" letter-spacing="2.1" fill="#087F72">HOSPITAL MANAGEMENT SYSTEM</text>
+  <g transform="translate(15 70) scale(1.75)">
+    <path d="M13 44H43L88 112L132 44H161L101 137H75L13 44Z" fill="url(#veridian-blue)"/>
+    <path d="M48 36C84 10 127 4 148 16C166 27 156 58 140 78L105 126L83 126L121 69C137 44 137 29 122 25C103 20 76 28 48 36Z" fill="url(#veridian-green)"/>
+    <path d="M20 91C3 119 15 139 48 145C84 152 127 140 161 119C132 148 82 160 42 154C3 148 -4 119 20 91Z" fill="url(#veridian-swoosh)"/>
+    <rect x="70" y="23" width="46" height="55" rx="7" fill="#064887"/>
+    <path d="M85 23V9H101V23H116V39H101V55H85V39H70V23H85Z" fill="#07539A"/>
+    <path d="M74 46H84L89 39L94 55L101 30L107 46H113" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="350" y="190" font-family="Arial, Helvetica, sans-serif" font-size="142" font-weight="800" letter-spacing="2" fill="#07366F">VERIDIAN</text>
+  <path d="M352 225H560" stroke="#00A83B" stroke-width="5"/><path d="M866 225H1125" stroke="#00A83B" stroke-width="5"/>
+  <text x="575" y="273" font-family="Arial, Helvetica, sans-serif" font-size="92" font-weight="800" font-style="italic" fill="#00A83B">HMS</text>
+  <text x="354" y="322" font-family="Arial, Helvetica, sans-serif" font-size="38" font-style="italic" letter-spacing=".5" fill="#07366F">Smarter Healthcare. Better Care.</text>
 </svg>
