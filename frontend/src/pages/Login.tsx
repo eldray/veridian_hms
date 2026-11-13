@@ -310,7 +310,7 @@ export default function Login() {
                     letterSpacing: '.03em',
                   }}
                 >
-                  Hospital Management System
+                  Smarter Healthcare. Better Care.
                 </p>
               </div>
             </div>
