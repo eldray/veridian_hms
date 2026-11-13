@@ -4,6 +4,7 @@ import { useAuthStore, LoginError } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
 import { forgotPassword } from '../api/auth';
+import VeridianLogo from '../components/VeridianLogo';
 import {
   Hospital, Lock, User, Eye, EyeOff,
   Users, Stethoscope, Shield, Activity, Pill, Receipt, LogIn, CheckCircle,
@@ -288,21 +289,7 @@ export default function Login() {
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 10,
-                  flexShrink: 0,
-                  background: 'rgba(56,149,180,0.12)',
-                  border: '1px solid rgba(56,149,180,0.22)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Hospital style={{ width: 18, height: 18, color: '#5BAEC8' }} />
-              </div>
+              <VeridianLogo size={40} />
               <div>
                 <p
                   style={{
