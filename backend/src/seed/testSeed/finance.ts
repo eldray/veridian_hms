@@ -64,17 +64,23 @@ export const resolveEstimateLine = (
         'Consultation',
         1,
       );
+    // A plan carries the template CODE, but serviceBy*Template is keyed by the template ID, so the code has to be
+    // turned into an id first (the same two steps diagnostics.ts and procedures.ts take). Looking the code up
+    // directly never matches, which silently dropped every lab, scan and procedure line.
     case 'lab': {
       const plan = encounter.labPlans[line.index];
-      return plan ? fromService(lookups.serviceByLabTemplate.get(plan.testCode), 'Laboratory test', line.quantity) : null;
+      const template = plan ? lookups.labTemplateByCode.get(plan.testCode) : undefined;
+      return template ? fromService(lookups.serviceByLabTemplate.get(template.id), 'Laboratory test', line.quantity) : null;
     }
     case 'scan': {
       const plan = encounter.scanPlans[line.index];
-      return plan ? fromService(lookups.serviceByScanTemplate.get(plan.scanCode), 'Imaging study', line.quantity) : null;
+      const template = plan ? lookups.scanTemplateByCode.get(plan.scanCode) : undefined;
+      return template ? fromService(lookups.serviceByScanTemplate.get(template.id), 'Imaging study', line.quantity) : null;
     }
     case 'procedure': {
       const plan = encounter.procPlans[line.index];
-      return plan ? fromService(lookups.serviceByProcedureTemplate.get(plan.procedureCode), 'Procedure', line.quantity) : null;
+      const template = plan ? lookups.procedureTemplateByCode.get(plan.procedureCode) : undefined;
+      return template ? fromService(lookups.serviceByProcedureTemplate.get(template.id), 'Procedure', line.quantity) : null;
     }
     case 'medication': {
       const plan = encounter.medPlans[line.index];

@@ -15,6 +15,7 @@ import { runDailyWardChargeJob } from './cron/wardChargeCron';
 import { initCounterService } from './services/CounterService';
 import prisma from './core/database/prisma.client';
 import { toHttpError } from './utils/httpError';
+import { startupGate, trackSeedProgress } from './middleware/startupGate';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -94,6 +95,11 @@ app.use('/api', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();
 });
+
+// Development only: while the demo seed runs the server is already listening but not ready. It answers 503
+// with the seed's progress (see middleware/startupGate.ts). Placed before the request logger so the desktop
+// shell polling /api/health during a long seed does not flood the terminal.
+app.use(startupGate);
 
 // Logging. Search and filter query strings can contain patient names or MRNs,
 // so the path is logged without the query string.
@@ -225,9 +231,37 @@ const startServer = async () => {
   // loaded by bootstrap.mjs from the setup screen, not from here.
   const shouldRunSeed = !isDesktopApp && (process.env.NODE_ENV === 'development' || process.env.RUN_SEED === 'true');
 
+  const onListening = () => {
+    console.log(`🏥 Hospital Management System API running on port ${PORT}`);
+    console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
+    if (shouldRunSeed) console.log('⏳ Demo data is being prepared: the API answers 503 until that finishes.');
+
+    // Additional info for development. Disabled by default so demo credentials
+    // never appear in production logs or support bundles.
+    if (process.env.SHOW_DEV_CREDENTIALS === 'true' && !isDesktopApp) {
+      console.log('\n👤 Demo logins are listed in backend/src/seed/bulkGenerator.ts (npm run seed).');
+    }
+  };
+
+  // Desktop app binds to 127.0.0.1 only (HOST is set by main.cjs). In dev, keep Node's default
+  // dual-stack bind so `localhost` (IPv4 or IPv6) keeps working for the Vite proxy / ngrok.
+  // Listening happens BEFORE the (slow) dev seed so clients get a 503 with progress instead of a refused
+  // connection; startupGate keeps every API call out until the seed is done.
+  const httpServer = process.env.HOST
+    ? app.listen(Number(PORT), process.env.HOST, onListening)
+    : app.listen(PORT, onListening);
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    console.error(`🚨 Could not start HTTP server on port ${PORT}: ${err.code || ''} ${err.message}`);
+    process.exit(1);
+  });
+
   if (shouldRunSeed) {
     console.log('🔧 Running database initialization...');
-    await runSeedScript();
+    await trackSeedProgress(runSeedScript);
+    console.log('✅ Database initialization finished: the API is ready');
   } else {
     console.log('🏭 Production: Skipping auto-seeding');
   }
@@ -241,30 +275,6 @@ const startServer = async () => {
   });
 
   console.log('✅ Daily ward charge cron job scheduled for midnight UTC');
-
-  const onListening = () => {
-    console.log(`🏥 Hospital Management System API running on port ${PORT}`);
-    console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🌱 Auto-seeding: ${shouldRunSeed ? 'enabled' : 'disabled'}`);
-
-    // Additional info for development. Disabled by default so demo credentials
-    // never appear in production logs or support bundles.
-    if (process.env.SHOW_DEV_CREDENTIALS === 'true' && !isDesktopApp) {
-      console.log('\n👤 Demo logins are listed in backend/src/seed/bulkGenerator.ts (npm run seed).');
-    }
-  };
-
-  // Desktop app binds to 127.0.0.1 only (HOST is set by main.cjs). In dev, keep Node's default
-  // dual-stack bind so `localhost` (IPv4 or IPv6) keeps working for the Vite proxy / ngrok.
-  const httpServer = process.env.HOST
-    ? app.listen(Number(PORT), process.env.HOST, onListening)
-    : app.listen(PORT, onListening);
-
-  httpServer.on('error', (err: NodeJS.ErrnoException) => {
-    console.error(`🚨 Could not start HTTP server on port ${PORT}: ${err.code || ''} ${err.message}`);
-    process.exit(1);
-  });
 
   // Drain connections and close Prisma before exiting so scheduled work and
   // in-flight database queries are not killed mid-write.

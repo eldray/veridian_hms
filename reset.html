@@ -29,7 +29,7 @@
     #msg { margin-top:14px; padding:10px 12px; border-radius:6px; line-height:1.4; display:none; white-space:pre-wrap; word-break:break-word; }
     #msg.err { display:block; background:rgba(180,35,24,.1); color:var(--danger); border:1px solid var(--danger); }
     #msg.busy { display:block; background:var(--card); color:var(--text); border:1px solid var(--border); }
-    .hidden { display:none; }
+    .hidden { display:none !important; } /* must beat label.check { display:flex } */
   </style>
 </head>
 <body>
@@ -78,7 +78,10 @@
   let info = null;
   let running = false;
 
-  function setMsg(kind, text) { const m = $('msg'); m.className = kind || ''; m.textContent = text || ''; }
+  function setMsg(kind, text) {
+    const m = $('msg'); m.className = kind || ''; m.textContent = text || '';
+    if (text) m.scrollIntoView({ block: 'nearest' }); // an error can land below the fold
+  }
 
   function valid() {
     if (!info || running) return false;

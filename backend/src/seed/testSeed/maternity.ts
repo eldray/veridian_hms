@@ -133,10 +133,14 @@ export const seedAntenatalBookings = async (
   const rows: Prisma.AntenatalBookingCreateManyInput[] = [];
   /** The plan each row was written from, so the read-back can be re-keyed off real dates. */
   const rowPlans: GeneratedAntenatalBooking[] = [];
+  let skippedCancelled = 0;
+  let skippedNoVisit = 0;
 
   for (const plan of bookings) {
     const encounter = encounters.get(plan.attendanceKey);
-    if (!encounter || !encounter.patientId || encounter.plan.status === 'cancelled') continue;
+    // A booking belongs to a real visit: one whose visit was cancelled (or never became a patient visit) is not written.
+    if (!encounter || !encounter.patientId) { skippedNoVisit++; continue; }
+    if (encounter.plan.status === 'cancelled') { skippedCancelled++; continue; }
     const midwifeId = lookups.actorId({ role: 'midwife', salt: hashOf(plan.bookingKey) });
     rowPlans.push(plan);
     rows.push({
@@ -198,7 +202,11 @@ export const seedAntenatalBookings = async (
     list.push(ref);
     index.byPatient.set(row.patientId, list);
   }
-  console.log(`✅ ${written}/${bookings.length} antenatal bookings`);
+  const skippedNote = [
+    skippedCancelled ? `${skippedCancelled} on a cancelled visit` : '',
+    skippedNoVisit ? `${skippedNoVisit} with no patient visit` : '',
+  ].filter(Boolean).join(', ');
+  console.log(`✅ ${written}/${bookings.length} antenatal bookings${skippedNote ? ` (skipped: ${skippedNote})` : ''}`);
   return index;
 };
 
@@ -351,10 +359,13 @@ export const seedDeliveries = async (
 ): Promise<DeliveryIndex> => {
   const rows: Prisma.DeliveryRecordCreateManyInput[] = [];
   const rowPlans: GeneratedDeliveryRecord[] = [];
+  let skippedCancelled = 0;
+  let skippedNoVisit = 0;
 
   for (const plan of deliveries) {
     const encounter = encounters.get(plan.attendanceKey);
-    if (!encounter || !encounter.patientId || encounter.plan.status === 'cancelled') continue;
+    if (!encounter || !encounter.patientId) { skippedNoVisit++; continue; }
+    if (encounter.plan.status === 'cancelled') { skippedCancelled++; continue; }
     const midwifeId = lookups.actorId({ role: 'midwife', salt: hashOf(plan.deliveryKey) });
     const deliveryOutcome = pickEnum(ENUMS.deliveryOutcome, plan.deliveryOutcome) ?? ENUMS.deliveryOutcome.live_birth;
     rowPlans.push(plan);
@@ -442,7 +453,11 @@ export const seedDeliveries = async (
     }
   }
 
-  console.log(`✅ ${written}/${deliveries.length} deliveries, ${linked} attached to their booking`);
+  const skippedNote = [
+    skippedCancelled ? `${skippedCancelled} on a cancelled visit` : '',
+    skippedNoVisit ? `${skippedNoVisit} with no patient visit` : '',
+  ].filter(Boolean).join(', ');
+  console.log(`✅ ${written}/${deliveries.length} deliveries${skippedNote ? ` (skipped: ${skippedNote})` : ''}, ${linked} attached to their booking`);
   return index;
 };
 

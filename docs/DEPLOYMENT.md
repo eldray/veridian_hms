@@ -45,3 +45,12 @@ server really restarted.
   Only works when `DATABASE_URL` points at this PC.
 
 The reset can only be started from the native menu. It is deliberately not available to the web page.
+
+### Development: the server listens while it seeds
+
+In development (`npm start` / `npm run dev`) the demo seed can take 25+ minutes. The API now starts
+listening first: until the seed finishes, `/api/health` answers `503` with `{ "phase": "seeding",
+"progress": "..." }` and every other API call answers a clear `503`, instead of the connection being
+refused. The Electron window shows "Waiting for the development server..." and then the seed progress
+live, and opens the app when the API is ready. This never applies to the installed app, which does not
+seed demo data.

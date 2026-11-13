@@ -1,152 +1,89 @@
 // src/components/ThemePicker.tsx
-// A settings panel where users choose their color scheme and light/dark mode.
-// Drop this into your Settings page or a sidebar drawer.
-
-import { useState } from 'react';
-import { Palette, Sun, Moon, Check } from 'lucide-react';
+// Appearance picker — redesigned to FILL the Settings tab like every other tab.
+// Previous version was max-w-3xl + big airy cards, so it looked huge and left
+// half the tab empty. This version:
+//  - Full width, no max-width. Grid stretches: 2 cols -> 3 -> 4 on xl.
+//  - Header row: heading left, mode toggle right — same header + actions
+//    pattern as PageHeader on every other page, instead of a stacked block.
+//  - Denser cards: smaller padding, shorter swatches, tighter text, so the
+//    whole picker fits on screen instead of towering down it.
+//  - Scheme names/descriptions still use the SCHEME's own text colours,
+//    on purpose: each card's background IS that scheme's preview bg, so
+//    the current theme's text colours would be unreadable on it.
+import { Sun, Moon, Check } from 'lucide-react';
 import { useThemeStore } from '../store/themeStore';
 import { COLOR_SCHEMES } from '../styles/themes';
 
 export default function ThemePicker() {
   const { schemeId, mode, setScheme, setMode } = useThemeStore();
-  const [hovered, setHovered] = useState<string | null>(null);
 
   return (
-    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] shadow-sm overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-color)]">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-[var(--icon-purple-bg)] rounded-lg flex items-center justify-center">
-            <Palette className="w-4 h-4 text-[var(--icon-purple-text)]" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-[var(--text-primary)]">Appearance</p>
-            <p className="text-xs text-[var(--text-secondary)]">Color scheme &amp; display mode</p>
-          </div>
+    <div className="w-full space-y-4">
+      {/* Header row — heading left, mode toggle right, like PageHeader + actions */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-[var(--text-primary)]">Appearance</h2>
+          <p className="text-sm text-[var(--text-secondary)] mt-0.5">
+            Choose a color scheme and display mode. Your preference is saved to this device.
+          </p>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex items-center gap-1 bg-[var(--bg-main)] rounded-lg p-1 border border-[var(--border-color)]">
-          <button
-            onClick={() => setMode('light')}
-            title="Light mode"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              mode === 'light'
-                ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <Sun className="w-3.5 h-3.5" />
-            Light
-          </button>
-          <button
-            onClick={() => setMode('dark')}
-            title="Dark mode"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-              mode === 'dark'
-                ? 'bg-[var(--bg-card)] text-[var(--text-primary)] shadow-sm'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <Moon className="w-3.5 h-3.5" />
-            Dark
-          </button>
+        {/* Display mode — same Segmented pill bar as the page tab bars */}
+        <div className="inline-flex shrink-0 bg-[var(--bg-main)] rounded-lg border border-[var(--border-color)] p-1 gap-1">
+          {([
+            { id: 'light' as const, label: 'Light', Icon: Sun },
+            { id: 'dark' as const, label: 'Dark', Icon: Moon },
+          ]).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setMode(id)}
+              title={`${label} mode`}
+              aria-pressed={mode === id}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                mode === id
+                  ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]'
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Scheme grid */}
-      <div className="p-5">
-        <p className="text-xs font-medium text-[var(--text-secondary)] mb-3 uppercase tracking-wide">
-          Color Scheme
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* Color scheme — full-width grid, denser cards */}
+      <div>
+        <p className="text-xs font-medium text-[var(--text-secondary)] mb-2.5 uppercase tracking-wide">Color Scheme</p>
+        <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
           {COLOR_SCHEMES.map((scheme) => {
             const isActive = schemeId === scheme.id;
-            const isHovered = hovered === scheme.id;
             const bg = mode === 'light' ? scheme.previewBg.light : scheme.previewBg.dark;
-
+            const card = mode === 'light' ? scheme.light : scheme.dark;
             return (
               <button
                 key={scheme.id}
                 onClick={() => setScheme(scheme.id)}
-                onMouseEnter={() => setHovered(scheme.id)}
-                onMouseLeave={() => setHovered(null)}
-                className={`relative text-left rounded-xl border-2 p-3 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${
+                className={`relative text-left rounded-xl border p-2.5 transition-all focus:outline-none focus:ring-2 focus:ring-[var(--icon-cyan-text)] ${
                   isActive
                     ? 'border-[var(--icon-cyan-text)] shadow-sm'
                     : 'border-[var(--border-color)] hover:border-[var(--icon-cyan-text)]'
                 }`}
-                style={{
-                  background: bg,
-                }}
+                style={{ background: bg }}
                 aria-pressed={isActive}
                 aria-label={`${scheme.name} theme`}
               >
-                {/* Preview swatch strip */}
-                <div className="flex gap-1 mb-2.5">
-                  {/* bg-card preview */}
-                  <div
-                    className="h-6 flex-1 rounded-md border"
-                    style={{
-                      background: mode === 'light' ? scheme.light['--bg-card'] : scheme.dark['--bg-card'],
-                      borderColor: mode === 'light' ? scheme.light['--border-color'] : scheme.dark['--border-color'],
-                    }}
-                  />
-                  {/* accent color */}
-                  <div
-                    className="h-6 w-6 rounded-md flex-shrink-0"
-                    style={{ background: scheme.previewAccent }}
-                  />
-                  {/* green */}
-                  <div
-                    className="h-6 w-5 rounded-md flex-shrink-0"
-                    style={{
-                      background: mode === 'light'
-                        ? scheme.light['--icon-green-bg']
-                        : scheme.dark['--icon-green-bg'],
-                    }}
-                  />
-                  {/* yellow */}
-                  <div
-                    className="h-6 w-5 rounded-md flex-shrink-0"
-                    style={{
-                      background: mode === 'light'
-                        ? scheme.light['--icon-yellow-bg']
-                        : scheme.dark['--icon-yellow-bg'],
-                    }}
-                  />
+                <div className="flex gap-1 mb-2">
+                  <div className="h-5 flex-1 rounded border" style={{ background: card['--bg-card'], borderColor: card['--border-color'] }} />
+                  <div className="h-5 w-5 rounded flex-shrink-0" style={{ background: scheme.previewAccent }} />
+                  <div className="h-5 w-4 rounded flex-shrink-0" style={{ background: card['--icon-green-bg'] }} />
+                  <div className="h-5 w-4 rounded flex-shrink-0" style={{ background: card['--icon-yellow-bg'] }} />
                 </div>
-
-                {/* Name & description */}
-                <p
-                  className="text-xs font-semibold leading-tight"
-                  style={{
-                    color: mode === 'light'
-                      ? scheme.light['--text-primary']
-                      : scheme.dark['--text-primary'],
-                  }}
-                >
-                  {scheme.name}
-                </p>
-                <p
-                  className="text-xs mt-0.5 leading-snug"
-                  style={{
-                    color: mode === 'light'
-                      ? scheme.light['--text-secondary']
-                      : scheme.dark['--text-secondary'],
-                    fontSize: '10px',
-                  }}
-                >
-                  {scheme.description}
-                </p>
-
-                {/* Active checkmark */}
+                <p className="text-[13px] font-semibold leading-tight truncate" style={{ color: card['--text-primary'] }}>{scheme.name}</p>
+                <p className="mt-0.5 leading-snug line-clamp-2" style={{ color: card['--text-secondary'], fontSize: '11px' }}>{scheme.description}</p>
                 {isActive && (
-                  <div
-                    className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center"
-                    style={{ background: scheme.previewAccent }}
-                  >
-                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                  <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center" style={{ background: scheme.previewAccent }}>
+                    <Check className="w-2.5 h-2.5 text-white" strokeWidth={3} />
                   </div>
                 )}
               </button>
@@ -154,18 +91,10 @@ export default function ThemePicker() {
           })}
         </div>
 
-        {/* Active scheme info */}
-        <div className="mt-4 pt-4 border-t border-[var(--border-color)]">
+        <div className="mt-3 pt-3 border-t border-[var(--border-color)]">
           <p className="text-xs text-[var(--text-tertiary)]">
-            Currently using{' '}
-            <span className="font-medium text-[var(--text-secondary)]">
-              {COLOR_SCHEMES.find(s => s.id === schemeId)?.name}
-            </span>{' '}
-            in{' '}
-            <span className="font-medium text-[var(--text-secondary)]">
-              {mode} mode
-            </span>.
-            Your preference is saved automatically.
+            Currently using <span className="font-medium text-[var(--text-secondary)]">{COLOR_SCHEMES.find((s) => s.id === schemeId)?.name}</span>
+            {' '}in <span className="font-medium text-[var(--text-secondary)]">{mode} mode</span>. Your preference is saved automatically.
           </p>
         </div>
       </div>

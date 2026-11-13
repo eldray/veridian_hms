@@ -1,4 +1,6 @@
 // src/pages/Departments.tsx - REDESIGNED (both pickers now searchable)
+// Aligned to Patients / Attendance shell: PageHeader + SearchInput + Segmented.
+// No pagination / sort / date filter — departments are a short list, those would be clutter.
 import React, { useEffect, useMemo, useState } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import { useDepartmentStore } from '../store/departmentStore';
@@ -8,12 +10,13 @@ import { getAllUsers } from '../api';
 import { describeApiError } from '../utils/apiError';
 import AsyncSelect from 'react-select/async';
 import {
-  Plus, Search, Building, Users, Edit, Trash2, RefreshCw,
-  UserCheck, Calendar, Crown, ArrowLeft, Grid3x3, List,
+  Plus, Building, Users, Edit, Trash2, RefreshCw,
+  Calendar, Crown, Grid3x3, List,
   CheckCircle, XCircle, User, UserPlus, UserMinus, Shield,
-  TrendingUp, GraduationCap, Loader, X, ChevronRight,
+  TrendingUp, GraduationCap, Loader, X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Button, PageHeader, SearchInput, Segmented } from '../components/ui';
 
 // ── Seniority Badge ───────────────────────────────────────────────────────────
 const SENIORITY_CONFIG: Record<string, { label: string; bg: string; text: string; icon: any }> = {
@@ -114,7 +117,7 @@ export default function Departments() {
     getDepartmentUsers, assignUserToDepartment, removeUserFromDepartment,
     eligibleHeads, departmentUsers, isLoading,
   } = useDepartmentStore();
-const { user, hasRole } = useAuthStore();
+  const { hasRole } = useAuthStore();
   const { success, error } = useToast();
   const navigate = useNavigate();
 
@@ -138,12 +141,13 @@ const { user, hasRole } = useAuthStore();
     name: '', description: '', color: '#0891b2', icon: 'building', isActive: true,
   });
 
-  useEffect(() => { loadData(); }, []);
-
+  // loadData defined BEFORE the effect that calls it (was defined below it)
   const loadData = async () => {
     try { await getDepartments(); await getEligibleHeads(); }
     catch { error('Load Failed', 'Failed to load department data'); }
   };
+
+  useEffect(() => { loadData(); }, []);
 
   const loadAllUsers = async () => {
     setLoadingUsers(true);
@@ -282,59 +286,31 @@ const { user, hasRole } = useAuthStore();
   const isAdmin = hasRole(['admin', 'super_admin']);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
 
-      {/* ── HEADER ──────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button onClick={() => navigate('/dashboard')}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium">
-            <ArrowLeft className="w-3.5 h-3.5" /> Dashboard
-          </button>
-          <div className="h-5 w-px bg-[var(--border-color)]" />
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-              <Building className="w-4 h-4 text-[var(--icon-cyan-text)]" />
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-[var(--text-primary)] leading-tight">Departments</h1>
-              <p className="text-[10px] text-[var(--text-tertiary)] leading-tight">
-                {departments.length} department{departments.length !== 1 ? 's' : ''} configured
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="flex gap-0.5 p-0.5 rounded-lg bg-[var(--bg-main)] border border-[var(--border-color)]">
-            {(['list', 'grid'] as const).map(m => (
-              <button key={m} onClick={() => setViewMode(m)}
-                className={`p-1.5 rounded-md transition-all ${viewMode === m ? 'bg-[var(--bg-card)] text-[var(--icon-cyan-text)] shadow-sm' : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'}`}>
-                {m === 'list' ? <List className="w-3.5 h-3.5" /> : <Grid3x3 className="w-3.5 h-3.5" />}
-              </button>
-            ))}
-          </div>
-
-          <button onClick={loadData} disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-all text-xs font-medium disabled:opacity-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
-          </button>
-
+      {/* ── HEADER — shared PageHeader, same as Patients / Attendance ── */}
+      <PageHeader title="Departments" subtitle="Manage departments, heads and staff"
+        meta={`${departments.length} department${departments.length !== 1 ? 's' : ''} configured`}
+        icon={Building} accent="cyan" backTo="/dashboard"
+        actions={<>
+          <Button icon={RefreshCw} loading={isLoading} onClick={loadData}>
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
           {isAdmin && (
-            <button onClick={() => setShowForm(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all">
-              <Plus className="w-3.5 h-3.5" /> New Department
-            </button>
+            <Button variant="soft" accent="cyan" icon={Plus} onClick={() => setShowForm(true)}>
+              New Department
+            </Button>
           )}
-        </div>
-      </div>
+        </>} />
 
-      {/* ── SEARCH ──────────────────────────────────────────────────────── */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--text-tertiary)]" />
-        <input type="text" placeholder="Search departments…" value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          className={`${inputCls} pl-9`} />
+      {/* ── CONTROLS — Search + View, same shell as Patients / Attendance ── */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-3 sm:p-4 shadow-sm border border-[var(--border-color)]">
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+          <SearchInput className="w-full lg:max-w-sm" value={searchTerm} onChange={setSearchTerm} placeholder="Search departments…" />
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <Segmented aria-label="Department layout" accent="cyan" value={viewMode} onChange={(v) => setViewMode(v as 'grid' | 'list')} options={[{ value: 'list', label: 'List', icon: List }, { value: 'grid', label: 'Grid', icon: Grid3x3 }]} />
+          </div>
+        </div>
       </div>
 
       {/* ── CONTENT ─────────────────────────────────────────────────────── */}

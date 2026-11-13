@@ -1,4 +1,20 @@
-// src/pages/Referrals.tsx — Enhanced UI/UX with Pagination
+// src/pages/Referrals.tsx — consistent with Patients / Shift / Leave:
+// shared PageHeader + SearchInput + FilterSelect + Segmented + Pagination
+// from components/ui, no hard-coded Tailwind colours (all var(--*) tokens).
+//
+// AUTO-FILL — when a patient is picked, their register details automatically
+// fill every identity field in the referral form, so nobody re-types them:
+//   Part I: name, folder number, age, sex, contact, address, DOB, occupation,
+//           marital status, next of kin (only for keys the form actually has)
+//   Visit:  visit number / date / type (only for keys the form actually has)
+//   Part II: receiving facility + receiver name/title come from the hospital
+//            and the signed-in clinician (already done in resetForm/prefill).
+// Only keys already present in the part object are written, so this never
+// invents fields the form doesn't render. Switching patient re-fills the
+// identity keys with the NEW patient (old code only filled empty fields, so
+// it kept the previous patient's name). Clinical fields the user typed
+// (complaints, findings, diagnosis, reason…) are never overwritten.
+// Additional Notes now sits at the BOTTOM of the form, after Part I / Part II.
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useToast } from '../store/toastStore';
@@ -30,18 +46,16 @@ import {
   getReferralStats,
 } from '../api';
 import {
-  ArrowLeft, Send, Printer, UserPlus,
-  Users, Clock, CheckCircle, XCircle, Activity,
-  Filter, RefreshCw, Building, Stethoscope,
-  MessageSquare, ChevronRight, AlertCircle,
+  ArrowLeft, Send, Printer, UserPlus, Clock, CheckCircle, XCircle, Activity,
+  RefreshCw, Building, Stethoscope, MessageSquare, AlertCircle,
   ArrowUpRight, ArrowDownLeft, LayoutGrid, List,
-  Search, X, Info, MapPin, Calendar, FileText,
-  Phone, User, ClipboardList, Target, TrendingUp,
-  ChevronDown, Check, BadgeCheck, Hash, AlertTriangle,
-  ChevronLeft, ChevronsRight, ChevronsLeft, Eye,
+  X, Calendar, FileText, User, ClipboardList, Target,
+  Check, BadgeCheck, Hash, Eye,
 } from 'lucide-react';
-
-// ── Types ─────────────────────────────────────────────────────────────────────
+import {
+  Badge, Button, FilterSelect, INPUT, PageHeader,
+  Pagination, SearchInput, Segmented, TABLE_SHELL, TD, TH, TH_ROW, TR,
+} from '../components/ui';
 
 interface Referral {
   id: string;
@@ -58,35 +72,20 @@ interface Referral {
   referredFromDoctor?: string;
   referralDate: string;
   patient: {
-    id: string;
-    surname: string;
-    otherNames: string;
-    folderNumber: string;
-    dateOfBirth: string;
-    gender: string;
-    contact: string;
+    id: string; surname: string; otherNames: string; folderNumber: string;
+    dateOfBirth: string; gender: string; contact: string;
   };
-  // The visit the referral was raised from — shown beside the folder so the desk knows which
-  // encounter is being referred without opening it.
   attendance?: {
-    id: string;
-    attendanceNumber: string;
-    dateTime?: string;
-    attendanceType?: string;
-    encounterCategory?: string;
+    id: string; attendanceNumber: string; dateTime?: string;
+    attendanceType?: string; encounterCategory?: string;
   } | null;
   createdBy?: { fullName: string; role: string };
   outcomeNotes?: string;
-  structuredForm?: {
-    partI?: Record<string, unknown>;
-    partII?: Record<string, unknown>;
-  } | null;
+  structuredForm?: { partI?: Record<string, unknown>; partII?: Record<string, unknown> } | null;
 }
-
 type ViewMode = 'table' | 'cards';
 
-// ── Badge helpers ─────────────────────────────────────────────────────────────
-
+// ── Badges — var(--*) tokens only, no hard-coded colours ─────────────────────
 const StatusBadge: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status, size = 'sm' }) => {
   const map: Record<string, { cls: string; Icon: React.ElementType; label: string }> = {
     pending:   { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]', Icon: Clock,       label: 'Pending' },
@@ -96,333 +95,153 @@ const StatusBadge: React.FC<{ status: string; size?: 'sm' | 'md' }> = ({ status,
   };
   const cfg = map[status] || map.pending;
   const Icon = cfg.Icon;
-  const cls = size === 'sm'
-    ? 'px-2 py-0.5 text-[10px] gap-1'
-    : 'px-2.5 py-1 text-xs gap-1.5';
-  const iconCls = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3';
   return (
-    <span className={`inline-flex items-center rounded-full font-semibold ${cfg.cls} ${cls}`}>
-      <Icon className={iconCls} />
-      {cfg.label}
+    <span className={`inline-flex items-center rounded-full font-semibold ${cfg.cls} ${size === 'sm' ? 'px-2 py-0.5 text-[10px] gap-1' : 'px-2.5 py-1 text-xs gap-1.5'}`}>
+      <Icon className={size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3'} />{cfg.label}
     </span>
   );
 };
-
 const UrgencyBadge: React.FC<{ urgency: string; size?: 'sm' | 'md' }> = ({ urgency, size = 'sm' }) => {
   const map: Record<string, { cls: string; label: string; dot: string }> = {
     routine: { cls: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border border-[var(--border-color)]', label: 'Routine', dot: 'bg-[var(--text-tertiary)]' },
-    urgent:  { cls: 'bg-orange-100 text-orange-700 border border-orange-200',                              label: 'Urgent',  dot: 'bg-orange-500' },
-    stat:    { cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]/30', label: 'STAT', dot: 'bg-red-500' },
+    urgent:  { cls: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border border-[var(--icon-yellow-text)]/30', label: 'Urgent', dot: 'bg-[var(--icon-yellow-text)]' },
+    stat:    { cls: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border border-[var(--icon-red-text)]/30', label: 'STAT', dot: 'bg-[var(--icon-red-text)]' },
   };
   const cfg = map[urgency] || map.routine;
-  const cls = size === 'sm'
-    ? 'px-2 py-0.5 text-[10px] gap-1'
-    : 'px-2.5 py-1 text-xs gap-1.5';
   return (
-    <span className={`inline-flex items-center rounded-full font-bold ${cfg.cls} ${cls}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${urgency === 'stat' ? 'animate-pulse' : ''}`} />
-      {cfg.label}
+    <span className={`inline-flex items-center rounded-full font-bold ${cfg.cls} ${size === 'sm' ? 'px-2 py-0.5 text-[10px] gap-1' : 'px-2.5 py-1 text-xs gap-1.5'}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot} ${urgency === 'stat' ? 'animate-pulse' : ''}`} />{cfg.label}
     </span>
   );
 };
-
 const TypeBadge: React.FC<{ type: 'outgoing' | 'incoming'; size?: 'sm' | 'md' }> = ({ type, size = 'sm' }) => {
-  const cls = size === 'sm'
-    ? 'px-2 py-0.5 text-[10px] gap-1'
-    : 'px-2.5 py-1 text-xs gap-1.5';
+  const cls = size === 'sm' ? 'px-2 py-0.5 text-[10px] gap-1' : 'px-2.5 py-1 text-xs gap-1.5';
   const iconCls = size === 'sm' ? 'w-2.5 h-2.5' : 'w-3 h-3';
-  if (type === 'outgoing') {
-    return (
-      <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] ${cls}`}>
-        <ArrowUpRight className={iconCls} /> Outgoing
-      </span>
-    );
-  }
+  if (type === 'outgoing') return (
+    <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-blue-bg)] text-[var(--icon-blue-text)] ${cls}`}>
+      <ArrowUpRight className={iconCls} /> Outgoing
+    </span>
+  );
   return (
     <span className={`inline-flex items-center rounded-full font-semibold bg-[var(--icon-green-bg)] text-[var(--icon-green-text)] ${cls}`}>
       <ArrowDownLeft className={iconCls} /> Incoming
     </span>
   );
 };
-
 const initials = (name: string) =>
   name.split(' ').filter(Boolean).slice(0, 2).map(p => p[0]?.toUpperCase() ?? '').join('');
 
-// ═════════════════════════════════════════════════════════════════════════════
-// Pagination
-// ═════════════════════════════════════════════════════════════════════════════
-interface PaginationProps {
-  currentPage: number;
-  totalPages: number;
-  pageSize: number;
-  totalItems: number;
-  startIndex: number;
-  endIndex: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  pageSizeOptions: number[];
-}
-
-const Pagination: React.FC<PaginationProps> = ({
-  currentPage,
-  totalPages,
-  pageSize,
-  totalItems,
-  startIndex,
-  endIndex,
-  onPageChange,
-  onPageSizeChange,
-  pageSizeOptions,
-}) => {
-  if (totalItems === 0) return null;
-
-  // Compact page window: 1 … 4 5 [6] 7 8 … 20
-  const pageWindow = useMemo(() => {
-    const pages: (number | 'ellipsis-l' | 'ellipsis-r')[] = [];
-    const add = (p: number | 'ellipsis-l' | 'ellipsis-r') => pages.push(p);
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) add(i);
-      return pages;
-    }
-
-    add(1);
-    if (currentPage > 4) add('ellipsis-l');
-
-    const from = Math.max(2, currentPage - 1);
-    const to = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = from; i <= to; i++) add(i);
-
-    if (currentPage < totalPages - 3) add('ellipsis-r');
-    add(totalPages);
-
-    return pages;
-  }, [currentPage, totalPages]);
-
-  const navBtn =
-    'inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-semibold transition-all border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed';
-
-  return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)]">
-      {/* Left: count + page size */}
-      <div className="flex items-center gap-3 text-xs text-[var(--text-secondary)]">
-        <span>
-          Showing <b className="text-[var(--text-primary)]">{startIndex + 1}</b>–
-          <b className="text-[var(--text-primary)]">{Math.min(endIndex, totalItems)}</b> of{' '}
-          <b className="text-[var(--text-primary)]">{totalItems}</b>
-        </span>
-
-        <span className="hidden sm:inline text-[var(--border-color)]">·</span>
-
-        <label className="hidden sm:flex items-center gap-1.5">
-          <span>Per page</span>
-          <select
-            value={pageSize}
-            onChange={e => onPageSizeChange(parseInt(e.target.value, 10))}
-            className="px-2 py-1 text-xs border border-[var(--border-color)] rounded-md bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500"
-          >
-            {pageSizeOptions.map(sz => (
-              <option key={sz} value={sz}>{sz}</option>
-            ))}
-          </select>
-        </label>
-      </div>
-
-      {/* Right: page buttons */}
-      <div className="flex items-center gap-1">
-        <button
-          type="button"
-          className={navBtn}
-          onClick={() => onPageChange(1)}
-          disabled={currentPage === 1}
-          title="First page"
-        >
-          <ChevronsLeft className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          className={navBtn}
-          onClick={() => onPageChange(currentPage - 1)}
-          disabled={currentPage === 1}
-          title="Previous"
-        >
-          <ChevronLeft className="w-3.5 h-3.5" />
-        </button>
-
-        {pageWindow.map((p, i) =>
-          typeof p === 'number' ? (
-            <button
-              key={`p-${p}`}
-              type="button"
-              onClick={() => onPageChange(p)}
-              className={`inline-flex items-center justify-center h-8 min-w-8 px-2 rounded-md text-xs font-bold transition-all border ${
-                p === currentPage
-                  ? 'bg-cyan-600 text-white border-cyan-600 shadow-sm shadow-cyan-500/20'
-                  : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-main)]'
-              }`}
-            >
-              {p}
-            </button>
-          ) : (
-            <span key={`e-${i}`} className="px-1 text-[var(--text-tertiary)] text-xs">
-              …
-            </span>
-          ),
-        )}
-
-        <button
-          type="button"
-          className={navBtn}
-          onClick={() => onPageChange(currentPage + 1)}
-          disabled={currentPage === totalPages}
-          title="Next"
-        >
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
-          className={navBtn}
-          onClick={() => onPageChange(totalPages)}
-          disabled={currentPage === totalPages}
-          title="Last page"
-        >
-          <ChevronsRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
-    </div>
-  );
+// ── Auto-fill helpers ─────────────────────────────────────────────────────────
+// Only write a value when the form actually has that key, and never clobber
+// a clinical field the user already typed.
+const onlyKnownKeys = <T extends Record<string, unknown>>(prev: T, values: Record<string, unknown>): Partial<T> => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(values)) {
+    if (k in prev && v !== undefined && v !== null && v !== '') out[k] = v;
+  }
+  return out as Partial<T>;
 };
-
-// ═════════════════════════════════════════════════════════════════════════════
-// Main page
-// ═════════════════════════════════════════════════════════════════════════════
+const ageFromDob = (dob: any): string => {
+  if (!dob) return '';
+  const d = new Date(dob);
+  if (!Number.isFinite(d.getTime())) return '';
+  const now = new Date();
+  let years = now.getFullYear() - d.getFullYear();
+  if (now.getMonth() < d.getMonth() || (now.getMonth() === d.getMonth() && now.getDate() < d.getDate())) years -= 1;
+  return years >= 0 && years <= 125 ? `${years} years` : '';
+};
+const fmtDate = (v: any) => {
+  if (!v) return '';
+  const d = new Date(v);
+  return Number.isFinite(d.getTime()) ? d.toLocaleDateString() : String(v);
+};
 
 export default function Referrals() {
   const navigate = useNavigate();
   const location = useLocation();
   const [urlSearchParams] = useSearchParams();
-  // Clinical context is passed through router state rather than URL query strings.
-  // This avoids exposing it in the address bar, copied URLs, and URL-based referrer/log data.
-  // Note: router state can still persist in the browser's session history; it is not a
-  // substitute for access controls or minimizing sensitive clinical details.
-  // URL parameters remain supported for older bookmarks/integrations, but new clinical
-  // navigation always uses state.
   const searchParams = useMemo(() => {
     const context = (location.state as { referralContext?: Record<string, string> } | null)?.referralContext;
     if (!context) return urlSearchParams;
     const params = new URLSearchParams();
-    Object.entries(context).forEach(([key, value]) => {
-      if (typeof value === 'string') params.set(key, value);
-    });
+    Object.entries(context).forEach(([key, value]) => { if (typeof value === 'string') params.set(key, value); });
     return params;
   }, [location.state, urlSearchParams]);
   const { success, error: toastError } = useToast();
   const { hospital } = useHospitalStore();
   const { user } = useAuthStore();
-
   const { patients, loadPatients } = usePatientStore();
   const { attendances, getAttendances, getAttendance } = useAttendanceStore();
 
-  // ── State ──────────────────────────────────────────────────────────────────
-  const [referrals,     setReferrals]     = useState<Referral[]>([]);
-  const [stats,         setStats]         = useState<any>(null);
-  const [isLoading,     setIsLoading]     = useState(false);
-  const [refreshing,    setRefreshing]    = useState(false);
-  const [showModal,     setShowModal]     = useState(false);
-  const [showStats,     setShowStats]     = useState(true);
-  const [filterStatus,  setFilterStatus]  = useState('all');
-  const [filterType,    setFilterType]    = useState('all');
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showStats, setShowStats] = useState(true);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterType, setFilterType] = useState('all');
   const [filterUrgency, setFilterUrgency] = useState('all');
-  const [referralType,  setReferralType]  = useState<'outgoing' | 'incoming'>('outgoing');
-  const [printingId,    setPrintingId]    = useState<string | null>(null);
+  const [referralType, setReferralType] = useState<'outgoing' | 'incoming'>('outgoing');
+  const [printingId, setPrintingId] = useState<string | null>(null);
   const [showSendModal, setShowSendModal] = useState(false);
-  const [sendReferral,  setSendReferral]  = useState<Referral | null>(null);
+  const [sendReferral, setSendReferral] = useState<Referral | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const saved = localStorage.getItem('referralsViewMode');
     return (saved as ViewMode) || 'table';
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [showFilters, setShowFilters] = useState(false);
-
-  // ── Pagination state ───────────────────────────────────────────────────────
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(() => {
     const saved = localStorage.getItem('referralsPageSize');
     return saved ? parseInt(saved, 10) : 20;
   });
-  const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
-
-  const [selectedPatientId,    setSelectedPatientId]    = useState('');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
   const [selectedAttendanceId, setSelectedAttendanceId] = useState('');
   const [prefilledAttendance, setPrefilledAttendance] = useState<any>(null);
-
   const [formData, setFormData] = useState({
-    referralReason:      '',
-    referralNotes:       '',
-    referredToFacility:  '',
-    referredToDoctor:    '',
-    referredToDepartment:'',
-    referredFromFacility:'',
-    referredFromDoctor:  '',
+    referralReason: '', referralNotes: '',
+    referredToFacility: '', referredToDoctor: '', referredToDepartment: '',
+    referredFromFacility: '', referredFromDoctor: '',
     urgency: 'routine' as 'routine' | 'urgent' | 'stat',
   });
-
   const [partI, setPartI] = useState<ReferralPartI>(() => emptyPartI());
   const [partII, setPartII] = useState<ReferralPartII>(() => emptyPartII());
   const [formErrors, setFormErrors] = useState<string[]>([]);
-
-  // The referral a row was opened for, and the one awaiting a Part II report back.
   const [detailReferral, setDetailReferral] = useState<Referral | null>(null);
   const [acceptTarget, setAcceptTarget] = useState<Referral | null>(null);
   const [acceptPartII, setAcceptPartII] = useState<Record<string, string>>(() => emptyPartII());
   const [accepting, setAccepting] = useState(false);
-
   const hasLoaded = useRef(false);
+  const lastAutoPatientId = useRef('');
+  const lastAutoAttendanceId = useRef('');
 
-  useEffect(() => {
-    localStorage.setItem('referralsViewMode', viewMode);
-  }, [viewMode]);
+  useEffect(() => { localStorage.setItem('referralsViewMode', viewMode); }, [viewMode]);
+  useEffect(() => { localStorage.setItem('referralsPageSize', String(pageSize)); }, [pageSize]);
 
-  useEffect(() => {
-    localStorage.setItem('referralsPageSize', String(pageSize));
-  }, [pageSize]);
-
-  // ── Data fetching ──────────────────────────────────────────────────────────
   const loadData = async (force = false) => {
     if (!force && hasLoaded.current) return;
     try {
       setRefreshing(true);
       await Promise.all([loadPatients(), getAttendances({ live: true, limit: 500 })]);
       hasLoaded.current = true;
-    } catch (err: any) {
-      toastError('Load failed', err.message);
-    } finally {
-      setRefreshing(false);
-    }
+    } catch (err: any) { toastError('Load failed', err.message); }
+    finally { setRefreshing(false); }
   };
-
   const fetchReferrals = async () => {
     try {
       const params: any = {};
       if (filterStatus !== 'all') params.status = filterStatus;
-      if (filterType   !== 'all') params.referralType = filterType;
-
+      if (filterType !== 'all') params.referralType = filterType;
       const response = await getReferrals(params);
       let data: Referral[] = [];
-      if (Array.isArray(response))             data = response;
-      else if (Array.isArray(response?.data))  data = response.data;
-
+      if (Array.isArray(response)) data = response;
+      else if (Array.isArray(response?.data)) data = response.data;
       setReferrals(data.map(r => ({ ...r, id: r.id || (r as any)._id })));
-    } catch (err: any) {
-      toastError('Error', err.response?.data?.message || 'Failed to fetch referrals');
-    }
+    } catch (err: any) { toastError('Error', err.response?.data?.message || 'Failed to fetch referrals'); }
   };
-
   const fetchStats = async () => {
-    try {
-      const res = await getReferralStats();
-      setStats(res?.data || res);
-    } catch { /* optional */ }
+    try { const res = await getReferralStats(); setStats(res?.data || res); } catch { /* optional */ }
   };
 
   const prefillKeyApplied = useRef('');
@@ -441,14 +260,13 @@ export default function Referrals() {
       referralReason: searchParams.get('reason') || '',
       referralNotes: searchParams.get('notes') || '',
       referredToFacility: searchParams.get('facility') || '',
-      referredToDoctor: '',
-      referredToDepartment: '',
-      referredFromFacility: '',
-      referredFromDoctor: '',
+      referredToDoctor: '', referredToDepartment: '',
+      referredFromFacility: '', referredFromDoctor: '',
       urgency: (['routine', 'urgent', 'stat'].includes(searchParams.get('urgency') || '')
-        ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat'
-        : 'routine'),
+        ? searchParams.get('urgency') as 'routine' | 'urgent' | 'stat' : 'routine'),
     });
+    // Clinical prefill (complaints / diagnosis / treatment) still comes from the
+    // navigation context; identity fields are filled by the patient effect below.
     setPartI(emptyPartI({
       clientName: searchParams.get('patientName') || '',
       clinicName: source,
@@ -472,7 +290,6 @@ export default function Referrals() {
   useEffect(() => {
     const requestedAttendanceId = searchParams.get('attendanceId');
     const requestedPatientId = searchParams.get('patientId');
-    // Clear stale visit details while the new referral context is checked.
     setPrefilledAttendance(null);
     if (!requestedAttendanceId || !requestedPatientId) {
       if (!requestedAttendanceId) setSelectedAttendanceId('');
@@ -482,223 +299,85 @@ export default function Referrals() {
     getAttendance(requestedAttendanceId).then((visit: any) => {
       if (cancelled) return;
       const linkedPatient = visit?.patientId || visit?.patient?.id || visit?.patient?._id;
-      const linkedPatientId = typeof linkedPatient === 'object'
-        ? linkedPatient.id || linkedPatient._id
-        : linkedPatient;
+      const linkedPatientId = typeof linkedPatient === 'object' ? linkedPatient.id || linkedPatient._id : linkedPatient;
       if (String(linkedPatientId || '') !== requestedPatientId) {
-        setSelectedAttendanceId('');
-        setPrefilledAttendance(null);
+        setSelectedAttendanceId(''); setPrefilledAttendance(null);
         toastError('Visit mismatch', 'The linked visit belongs to a different patient. Select the correct visit before submitting the referral.');
         return;
       }
       setPrefilledAttendance(visit);
     }).catch(() => {
       if (cancelled) return;
-      setSelectedAttendanceId('');
-      setPrefilledAttendance(null);
+      setSelectedAttendanceId(''); setPrefilledAttendance(null);
       toastError('Visit unavailable', 'The linked visit could not be loaded. Select the correct visit before submitting the referral.');
     });
     return () => { cancelled = true; };
   }, [searchParams, getAttendance, toastError]);
 
-  // Identity and signature answers come from the register and the signed-in clinician, so
-  // Part I only asks for what a person actually has to assess.
+  // ── AUTO-FILL: patient → Part I identity fields ────────────────────────────
+  // Runs whenever the picked patient changes (including prefill). Identity keys
+  // are overwritten with the NEW patient; clinical keys are left alone.
+  const selectedPatient: any = useMemo(
+    () => patients.find((item: any) => String(item.id || item._id || '') === String(selectedPatientId)) ?? null,
+    [patients, selectedPatientId],
+  );
   useEffect(() => {
-    if (!selectedPatientId) return;
-    const patient: any = patients.find((item: any) =>
-      String(item.id || item._id || '') === String(selectedPatientId)
-    );
-    if (!patient) return;
-    const birthDateValue = patient.dateOfBirth || patient.dob || patient.birthDate;
-    let calculatedAge = patient.ageDisplay || patient.age || '';
-    if (!calculatedAge && birthDateValue) {
-      const birthDate = new Date(birthDateValue);
-      if (Number.isFinite(birthDate.getTime())) {
-        const now = new Date();
-        let years = now.getFullYear() - birthDate.getFullYear();
-        const birthdayPending = now.getMonth() < birthDate.getMonth() ||
-          (now.getMonth() === birthDate.getMonth() && now.getDate() < birthDate.getDate());
-        if (birthdayPending) years -= 1;
-        if (years >= 0 && years <= 125) calculatedAge = String(years);
-      }
-    }
+    if (!selectedPatientId || !selectedPatient) { lastAutoPatientId.current = ''; return; }
+    if (lastAutoPatientId.current === String(selectedPatientId)) return;
+    lastAutoPatientId.current = String(selectedPatientId);
+    const p = selectedPatient;
+    const dob = p.dateOfBirth || p.dob || p.birthDate || '';
+    const age = p.ageDisplay || p.age || ageFromDob(dob);
+    const contact = p.contact || p.phone || p.phoneNumber || p.telephone || p.mobile || '';
+    const address = p.address || p.residentialAddress || p.homeAddress || '';
+    const nok = p.nextOfKin || p.nextOfKinName || p.emergencyContactName || '';
+    const nokContact = p.nextOfKinContact || p.nextOfKinPhone || p.emergencyContact || '';
     setPartI(prev => ({
       ...prev,
-      clientName: prev.clientName || getPatientName(patient),
-      age: prev.age || (calculatedAge !== '' && calculatedAge != null ? `${calculatedAge} years` : ''),
-      sex: prev.sex || String(patient.gender || patient.sex || ''),
-      contactBackName: prev.contactBackName || user?.fullName || '',
-      referrerName: prev.referrerName || user?.fullName || '',
-      referrerTitle: prev.referrerTitle || (user?.role ? String(user.role).replace(/_/g, ' ') : ''),
-    }));
-  }, [patients, selectedPatientId, user]);
-
-  // The register and the live visit list are only used by the picker inside the referral form,
-  // so they load when that form opens instead of on every visit to this page.
-  useEffect(() => {
-    if (showModal) void loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showModal]);
-  useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
-
-  // Reset to page 1 whenever the filter set changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filterStatus, filterType, filterUrgency, searchQuery, pageSize]);
-
-  // ── Create referral ────────────────────────────────────────────────────────
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedPatientId) { toastError('Error', 'Please select a patient'); return; }
-    if (referralType === 'outgoing' && searchParams.get('attendanceId') && !selectedAttendanceId) {
-      toastError('Visit required', 'Select and verify the visit for this clinical referral before submitting.');
-      return;
-    }
-    if (referralType === 'outgoing' && !formData.referredToFacility) {
-      toastError('Error', 'Please enter the facility to refer to'); return;
-    }
-    if (referralType === 'incoming' && !formData.referredFromFacility) {
-      toastError('Error', 'Please enter the facility that referred the patient'); return;
-    }
-
-    // The structured part is the referral document, so its required answers gate submission.
-    const sections = referralType === 'outgoing' ? PART_I_SECTIONS : PART_II_SECTIONS;
-    const values = referralType === 'outgoing' ? partI : partII;
-    const missing = missingRequired(sections, values as unknown as Record<string, string>);
-    if (missing.length) {
-      setFormErrors(missing);
-      toastError('Incomplete form', `Complete ${missing.length} required field${missing.length > 1 ? 's' : ''}`);
-      return;
-    }
-    setFormErrors([]);
-
-    const reason = referralType === 'outgoing' ? partI.reasonForReferral : partII.findings;
-
-    setIsLoading(true);
-    try {
-      if (referralType === 'outgoing') {
-        await createOutgoingReferral({
-          patientId:           selectedPatientId,
-          attendanceId:        selectedAttendanceId || undefined,
-          referralReason:      reason,
-          referralNotes:       formData.referralNotes,
-          urgency:             formData.urgency,
-          referredToFacility:  formData.referredToFacility,
-          referredToDoctor:    formData.referredToDoctor,
-          referredToDepartment: formData.referredToDepartment,
-          structuredForm:      { partI }
-        });
-        success('Success', 'Outgoing referral created');
-      } else {
-        await createIncomingReferral({
-          patientId:           selectedPatientId,
-          referralReason:      reason,
-          referralNotes:       formData.referralNotes,
-          urgency:             formData.urgency,
-          referredFromFacility: formData.referredFromFacility,
-          referredFromDoctor:  formData.referredFromDoctor,
-          structuredForm:      { partII }
-        });
-        success('Success', 'Incoming referral recorded');
-      }
-      setShowModal(false);
-      resetForm();
-      setTimeout(() => { fetchReferrals(); fetchStats(); }, 500);
-    } catch (err: any) {
-      toastError('Error', err.response?.data?.message || 'Failed to create referral');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ── Accept with the Part II report back ─────────────────────────────────────
-  const openAcceptDialog = (referral: Referral) => {
-    setAcceptTarget(referral);
-    setAcceptPartII({
-      ...emptyPartII({
-        institutionName: hospital?.name || '',
-        receiverName: user?.fullName || '',
-        receiverTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
+      ...onlyKnownKeys(prev as unknown as Record<string, unknown>, {
+        clientName: getPatientName(p), patientName: getPatientName(p), fullName: getPatientName(p),
+        folderNumber: p.folderNumber || p.folderNo || '', folderNo: p.folderNumber || '',
+        age: age !== '' && age != null ? `${age} years` : '',
+        sex: p.gender || p.sex || '', gender: p.gender || p.sex || '',
+        dateOfBirth: fmtDate(dob), dob: fmtDate(dob),
+        contact, phone: contact, phoneNumber: contact, telephone: contact,
+        address, residentialAddress: address, homeAddress: address,
+        occupation: p.occupation || '', maritalStatus: p.maritalStatus || '',
+        nextOfKin: nok, nextOfKinName: nok, nextOfKinContact: nokContact,
+        contactBackName: user?.fullName || '',
+        referrerName: user?.fullName || '',
+        referrerTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
       }),
-      ...(referral.structuredForm?.partII as Record<string, string> | undefined),
-    });
-  };
+    }));
+  }, [selectedPatientId, selectedPatient, user]);
 
-  const handleAcceptWithReportBack = async (partIIValues: Record<string, string>) => {
-    if (!acceptTarget) return;
-    setAccepting(true);
-    try {
-      await updateReferralStatus(acceptTarget.id, 'accepted', undefined, partIIValues);
-      success('Referral accepted', 'Part II report back recorded');
-      setAcceptTarget(null);
-      fetchReferrals();
-      fetchStats();
-    } catch (err: any) {
-      toastError('Error', err.response?.data?.message || 'Failed to accept referral');
-    } finally {
-      setAccepting(false);
-    }
-  };
+  // ── AUTO-FILL: visit → Part I visit fields ─────────────────────────────────
+  const selectedAttendance = useMemo(
+    () => [...attendances, ...(prefilledAttendance ? [prefilledAttendance] : [])]
+      .find((a: any) => String(a.id || a._id) === selectedAttendanceId),
+    [attendances, prefilledAttendance, selectedAttendanceId],
+  );
+  useEffect(() => {
+    if (!selectedAttendanceId || !selectedAttendance) { lastAutoAttendanceId.current = ''; return; }
+    if (lastAutoAttendanceId.current === String(selectedAttendanceId)) return;
+    lastAutoAttendanceId.current = String(selectedAttendanceId);
+    const v = selectedAttendance;
+    setPartI(prev => ({
+      ...prev,
+      ...onlyKnownKeys(prev as unknown as Record<string, unknown>, {
+        attendanceNumber: v.attendanceNumber || '', visitNumber: v.attendanceNumber || '',
+        visitDate: fmtDate(v.dateTime || v.date), dateOfVisit: fmtDate(v.dateTime || v.date),
+        attendanceType: v.attendanceType || '', encounterCategory: v.encounterCategory || '',
+        clinicName: v.clinicName || v.clinic || '',
+      }),
+    }));
+  }, [selectedAttendanceId, selectedAttendance]);
 
-  // ── Status update ──────────────────────────────────────────────────────────
-  const handleStatusUpdate = async (id: string, status: string) => {
-    try {
-      await updateReferralStatus(id, status);
-      success('Updated', `Referral marked as ${status}`);
-      fetchReferrals();
-      fetchStats();
-    } catch (err: any) {
-      toastError('Error', err.response?.data?.message || 'Failed to update status');
-    }
-  };
-
-  // ── Print referral letter ──────────────────────────────────────────────────
-  const handlePrintLetter = async (referral: Referral) => {
-    if (!referral?.id) { toastError('Error', 'Referral ID is missing'); return; }
-    setPrintingId(referral.id);
-    try {
-      const patientName = referral.patient
-        ? `${referral.patient.surname} ${referral.patient.otherNames}`.trim()
-        : 'Unknown Patient';
-
-      const structuredForm = referral.structuredForm ?? null;
-      // Rows created before the structured form only carry the flat columns, so they still
-      // print as the letter; anything with Part I / Part II content prints the form itself.
-      const hasStructured = partHasContent(structuredForm?.partI) || partHasContent(structuredForm?.partII);
-      const html = generatePDF(hasStructured ? 'referralForm' : 'referral', {
-        referral: {
-          ...referral,
-          referralNumber: referral.referralNumber,
-          referralDate: referral.referralDate,
-          referralType: referral.referralType,
-          urgency: referral.urgency,
-          referralReason: referral.referralReason,
-          referralNotes: referral.referralNotes || '',
-          referredToFacility: referral.referredToFacility || '',
-          referredToDoctor: referral.referredToDoctor || '',
-          referredToDepartment: referral.referredToDepartment || '',
-          referredFromFacility: referral.referredFromFacility || '',
-          referredFromDoctor: referral.referredFromDoctor || '',
-          structuredForm,
-        },
-        patient: {
-          ...referral.patient,
-          fullName: patientName,
-        },
-      }, hospital);
-
-      openPrintWindow(html, `Referral_${referral.referralNumber}`);
-      success('Print ready', hasStructured ? 'Referral form opened' : 'Referral letter opened');
-    } catch (err) {
-      console.error('Print error:', err);
-      toastError('Print failed', 'Could not generate referral letter');
-    } finally {
-      setPrintingId(null);
-    }
-  };
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
+  // Reset the auto-fill trackers when the form is cleared, so picking the same
+  // patient again after a reset still fills.
   const resetForm = () => {
+    lastAutoPatientId.current = '';
+    lastAutoAttendanceId.current = '';
     setSelectedPatientId('');
     setSelectedAttendanceId('');
     setFormData({
@@ -720,15 +399,132 @@ export default function Referrals() {
     setFormErrors([]);
   };
 
-  const selectedAttendance = [...attendances, ...(prefilledAttendance ? [prefilledAttendance] : [])]
-    .find((a: any) => String(a.id || a._id) === selectedAttendanceId);
+  useEffect(() => { if (showModal) void loadData(); }, [showModal]);
+  useEffect(() => { fetchReferrals(); fetchStats(); }, [filterStatus, filterType]);
+  useEffect(() => { setCurrentPage(1); }, [filterStatus, filterType, filterUrgency, searchQuery, pageSize]);
 
-  // Client-side filtering (search + urgency) on top of server filters
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatientId) { toastError('Error', 'Please select a patient'); return; }
+    if (referralType === 'outgoing' && searchParams.get('attendanceId') && !selectedAttendanceId) {
+      toastError('Visit required', 'Select and verify the visit for this clinical referral before submitting.');
+      return;
+    }
+    if (referralType === 'outgoing' && !formData.referredToFacility) {
+      toastError('Error', 'Please enter the facility to refer to'); return;
+    }
+    if (referralType === 'incoming' && !formData.referredFromFacility) {
+      toastError('Error', 'Please enter the facility that referred the patient'); return;
+    }
+    const sections = referralType === 'outgoing' ? PART_I_SECTIONS : PART_II_SECTIONS;
+    const values = referralType === 'outgoing' ? partI : partII;
+    const missing = missingRequired(sections, values as unknown as Record<string, string>);
+    if (missing.length) {
+      setFormErrors(missing);
+      toastError('Incomplete form', `Complete ${missing.length} required field${missing.length > 1 ? 's' : ''}`);
+      return;
+    }
+    setFormErrors([]);
+    const reason = referralType === 'outgoing' ? partI.reasonForReferral : partII.findings;
+    setIsLoading(true);
+    try {
+      if (referralType === 'outgoing') {
+        await createOutgoingReferral({
+          patientId: selectedPatientId,
+          attendanceId: selectedAttendanceId || undefined,
+          referralReason: reason,
+          referralNotes: formData.referralNotes,
+          urgency: formData.urgency,
+          referredToFacility: formData.referredToFacility,
+          referredToDoctor: formData.referredToDoctor,
+          referredToDepartment: formData.referredToDepartment,
+          structuredForm: { partI },
+        });
+        success('Success', 'Outgoing referral created');
+      } else {
+        await createIncomingReferral({
+          patientId: selectedPatientId,
+          referralReason: reason,
+          referralNotes: formData.referralNotes,
+          urgency: formData.urgency,
+          referredFromFacility: formData.referredFromFacility,
+          referredFromDoctor: formData.referredFromDoctor,
+          structuredForm: { partII },
+        });
+        success('Success', 'Incoming referral recorded');
+      }
+      setShowModal(false);
+      resetForm();
+      setTimeout(() => { fetchReferrals(); fetchStats(); }, 500);
+    } catch (err: any) { toastError('Error', err.response?.data?.message || 'Failed to create referral'); }
+    finally { setIsLoading(false); }
+  };
+
+  const openAcceptDialog = (referral: Referral) => {
+    setAcceptTarget(referral);
+    setAcceptPartII({
+      ...emptyPartII({
+        institutionName: hospital?.name || '',
+        receiverName: user?.fullName || '',
+        receiverTitle: user?.role ? String(user.role).replace(/_/g, ' ') : '',
+      }),
+      ...(referral.structuredForm?.partII as Record<string, string> | undefined),
+    });
+  };
+  const handleAcceptWithReportBack = async (partIIValues: Record<string, string>) => {
+    if (!acceptTarget) return;
+    setAccepting(true);
+    try {
+      await updateReferralStatus(acceptTarget.id, 'accepted', undefined, partIIValues);
+      success('Referral accepted', 'Part II report back recorded');
+      setAcceptTarget(null);
+      fetchReferrals(); fetchStats();
+    } catch (err: any) { toastError('Error', err.response?.data?.message || 'Failed to accept referral'); }
+    finally { setAccepting(false); }
+  };
+  const handleStatusUpdate = async (id: string, status: string) => {
+    try {
+      await updateReferralStatus(id, status);
+      success('Updated', `Referral marked as ${status}`);
+      fetchReferrals(); fetchStats();
+    } catch (err: any) { toastError('Error', err.response?.data?.message || 'Failed to update status'); }
+  };
+  const handlePrintLetter = async (referral: Referral) => {
+    if (!referral?.id) { toastError('Error', 'Referral ID is missing'); return; }
+    setPrintingId(referral.id);
+    try {
+      const patientName = referral.patient ? `${referral.patient.surname} ${referral.patient.otherNames}`.trim() : 'Unknown Patient';
+      const structuredForm = referral.structuredForm ?? null;
+      const hasStructured = partHasContent(structuredForm?.partI) || partHasContent(structuredForm?.partII);
+      const html = generatePDF(hasStructured ? 'referralForm' : 'referral', {
+        referral: {
+          ...referral,
+          referralNumber: referral.referralNumber,
+          referralDate: referral.referralDate,
+          referralType: referral.referralType,
+          urgency: referral.urgency,
+          referralReason: referral.referralReason,
+          referralNotes: referral.referralNotes || '',
+          referredToFacility: referral.referredToFacility || '',
+          referredToDoctor: referral.referredToDoctor || '',
+          referredToDepartment: referral.referredToDepartment || '',
+          referredFromFacility: referral.referredFromFacility || '',
+          referredFromDoctor: referral.referredFromDoctor || '',
+          structuredForm,
+        },
+        patient: { ...referral.patient, fullName: patientName },
+      }, hospital);
+      openPrintWindow(html, `Referral_${referral.referralNumber}`);
+      success('Print ready', hasStructured ? 'Referral form opened' : 'Referral letter opened');
+    } catch (err) {
+      console.error('Print error:', err);
+      toastError('Print failed', 'Could not generate referral letter');
+    } finally { setPrintingId(null); }
+  };
+
   const displayedReferrals = useMemo(() => {
     let list = referrals;
-    if (filterUrgency !== 'all') {
-      list = list.filter(r => r.urgency === filterUrgency);
-    }
+    if (filterUrgency !== 'all') list = list.filter(r => r.urgency === filterUrgency);
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter(r =>
@@ -744,22 +540,15 @@ export default function Referrals() {
     return list;
   }, [referrals, filterUrgency, searchQuery]);
 
-  // ── Pagination slice ───────────────────────────────────────────────────────
   const totalPages = Math.max(1, Math.ceil(displayedReferrals.length / pageSize));
   const safePage = Math.min(currentPage, totalPages);
   const startIndex = (safePage - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
   const paginatedReferrals = useMemo(
-    () => displayedReferrals.slice(startIndex, endIndex),
-    [displayedReferrals, startIndex, endIndex],
+    () => displayedReferrals.slice(startIndex, startIndex + pageSize),
+    [displayedReferrals, startIndex, pageSize],
   );
+  useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages); }, [currentPage, totalPages]);
 
-  // Clamp currentPage if filters shrink the list below it
-  useEffect(() => {
-    if (currentPage > totalPages) setCurrentPage(totalPages);
-  }, [currentPage, totalPages]);
-
-  // Reference number generator for the create modal preview
   const previewRefNo = useMemo(() => {
     const prefix = referralType === 'outgoing' ? 'REF-OUT' : 'REF-IN';
     const d = new Date();
@@ -768,67 +557,38 @@ export default function Referrals() {
   }, [referralType]);
 
   const activeFilterCount =
-    (filterStatus !== 'all' ? 1 : 0) +
-    (filterType !== 'all' ? 1 : 0) +
-    (filterUrgency !== 'all' ? 1 : 0) +
-    (searchQuery ? 1 : 0);
+    (filterStatus !== 'all' ? 1 : 0) + (filterType !== 'all' ? 1 : 0) +
+    (filterUrgency !== 'all' ? 1 : 0) + (searchQuery ? 1 : 0);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const rowActions = (ref: Referral) => (
+    <div className="flex items-center gap-0.5">
+      <Button variant="soft" accent="cyan" size="sm" iconOnly icon={Eye} aria-label="Open referral form" onClick={() => setDetailReferral(ref)} />
+      <Button variant="soft" accent="cyan" size="sm" iconOnly icon={Printer} aria-label="Print referral form" disabled={printingId === ref.id} onClick={() => handlePrintLetter(ref)} />
+      <Button variant="soft" accent="green" size="sm" iconOnly icon={MessageSquare} aria-label="Send referral" onClick={() => { setSendReferral(ref); setShowSendModal(true); }} />
+      {ref.status === 'pending' && (
+        <>
+          <Button variant="soft" accent="green" size="sm" iconOnly icon={CheckCircle} aria-label="Accept and record the Part II report back" onClick={() => openAcceptDialog(ref)} />
+          <Button variant="dangerSoft" size="sm" iconOnly icon={XCircle} aria-label="Cancel" onClick={() => handleStatusUpdate(ref.id, 'cancelled')} />
+        </>
+      )}
+      {ref.status === 'accepted' && (
+        <Button variant="soft" accent="cyan" size="sm" iconOnly icon={CheckCircle} aria-label="Complete" onClick={() => handleStatusUpdate(ref.id, 'completed')} />
+      )}
+    </div>
+  );
+
   return (
-    <div className="space-y-5 p-4 sm:p-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <PageHeader title="Patient Referrals" subtitle="Manage outgoing and incoming referrals"
+        icon={Send} accent="cyan"
+        meta={<>{referrals.length} referrals loaded</>}
+        actions={<>
+          <Button icon={ArrowLeft} variant="secondary" onClick={() => navigate(-1)}>Back</Button>
+          <Button icon={RefreshCw} loading={refreshing} onClick={() => { loadData(true); fetchReferrals(); fetchStats(); }}>Refresh</Button>
+          <Button variant="secondary" icon={Activity} onClick={() => setShowStats(s => !s)}>{showStats ? 'Hide stats' : 'Stats'}</Button>
+          <Button variant="soft" accent="cyan" icon={UserPlus} onClick={() => { resetForm(); setShowModal(true); }}>New Referral</Button>
+        </>} />
 
-      {/* ── HEADER ──────────────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 rounded-lg border border-[var(--border-color)] hover:bg-[var(--bg-card)] transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 text-[var(--text-secondary)]" />
-          </button>
-          <div className="w-10 h-10 bg-gradient-to-br from-cyan-500 to-teal-600 rounded-xl flex items-center justify-center shadow-sm shadow-cyan-500/20">
-            <Send className="w-5 h-5 text-white" />
-          </div>
-          <div>
-            <h1 className="text-lg font-bold text-[var(--text-primary)]">Patient Referrals</h1>
-            <p className="text-xs text-[var(--text-secondary)]">
-              Manage outgoing and incoming referrals
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => { loadData(true); fetchReferrals(); fetchStats(); }}
-            disabled={refreshing}
-            className="p-2 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)] transition-colors disabled:opacity-50"
-            title="Refresh"
-          >
-            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={() => setShowStats(s => !s)}
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-all border ${
-              showStats
-                ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-text)]/20'
-                : 'border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-card)]'
-            }`}
-          >
-            <Activity className="w-4 h-4" />
-            <span className="hidden sm:inline">Stats</span>
-          </button>
-          <button
-            onClick={() => { resetForm(); setShowModal(true); }}
-            className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-all text-sm font-semibold shadow-sm shadow-cyan-500/20"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span className="hidden sm:inline">New Referral</span>
-            <span className="sm:hidden">New</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── SEND DOCUMENT MODAL ─────────────────────────────────────────────── */}
       {sendReferral && (
         <SendDocumentModal
           open={showSendModal}
@@ -838,25 +598,19 @@ export default function Referrals() {
           entityId={sendReferral.id}
         />
       )}
-
-      {/* ── REFERRAL FORM (read) + PART II REPORT BACK ────────────────────────── */}
       <ReferralDetailModal
-        open={!!detailReferral}
-        referral={detailReferral}
+        open={!!detailReferral} referral={detailReferral}
         onClose={() => setDetailReferral(null)}
         onPrint={detailReferral ? () => handlePrintLetter(detailReferral) : undefined}
       />
       <ReferralReportBackModal
-        open={!!acceptTarget}
-        referral={acceptTarget}
-        submitting={accepting}
-        values={acceptPartII}
-        onValuesChange={setAcceptPartII}
+        open={!!acceptTarget} referral={acceptTarget} submitting={accepting}
+        values={acceptPartII} onValuesChange={setAcceptPartII}
         onClose={() => { if (!accepting) setAcceptTarget(null); }}
         onSubmit={handleAcceptWithReportBack}
       />
 
-      {/* ── STATS ───────────────────────────────────────────────────────────── */}
+      {/* Stats — same shape as Patients */}
       {showStats && stats && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
@@ -864,666 +618,241 @@ export default function Referrals() {
             { label: 'Outgoing', value: stats.byType?.find((t: any) => t.referralType === 'outgoing')?._count || 0, Icon: ArrowUpRight, bg: 'bg-[var(--icon-blue-bg)]', color: 'text-[var(--icon-blue-text)]' },
             { label: 'Incoming', value: stats.byType?.find((t: any) => t.referralType === 'incoming')?._count || 0, Icon: ArrowDownLeft, bg: 'bg-[var(--icon-green-bg)]', color: 'text-[var(--icon-green-text)]' },
             { label: 'Pending', value: stats.byStatus?.find((s: any) => s.status === 'pending')?._count || 0, Icon: Clock, bg: 'bg-[var(--icon-yellow-bg)]', color: 'text-[var(--icon-yellow-text)]' },
-          ].map(s => {
-            const Icon = s.Icon;
-            return (
-              <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] hover:shadow-sm transition-shadow">
-                <div className="flex items-start justify-between mb-2">
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${s.bg}`}>
-                    <Icon className={`w-5 h-5 ${s.color}`} />
-                  </div>
-                </div>
-                <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
-                <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
-              </div>
-            );
-          })}
+          ].map(s => (
+            <div key={s.label} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center justify-between">
+              <div><p className="text-xs text-[var(--text-secondary)]">{s.label}</p><p className="text-2xl font-bold text-[var(--text-primary)] mt-1">{s.value}</p></div>
+              <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center`}><s.Icon className={`w-5 h-5 ${s.color}`} /></div>
+            </div>
+          ))}
         </div>
       )}
 
-      {/* ── FILTER BAR ──────────────────────────────────────────────────────── */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] shadow-sm">
-        <div className="p-3">
-          <div className="flex flex-col lg:flex-row gap-3">
-            {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-              <input
-                type="text"
-                placeholder="Search by referral #, patient name, folder, or facility…"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-9 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-
-            {/* Desktop filters */}
-            <div className="hidden lg:flex items-center gap-2">
-              <select
-                value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="accepted">Accepted</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <select
-                value={filterType}
-                onChange={e => setFilterType(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="all">All Types</option>
-                <option value="outgoing">Outgoing</option>
-                <option value="incoming">Incoming</option>
-              </select>
-              <select
-                value={filterUrgency}
-                onChange={e => setFilterUrgency(e.target.value)}
-                className="px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500"
-              >
-                <option value="all">All Urgencies</option>
-                <option value="routine">Routine</option>
-                <option value="urgent">Urgent</option>
-                <option value="stat">STAT</option>
-              </select>
-
-              {/* View toggle */}
-              <div className="flex items-center bg-[var(--bg-main)] rounded-lg p-1 border border-[var(--border-color)]">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'table'
-                      ? 'bg-[var(--bg-card)] text-cyan-700 shadow-sm'
-                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <List className="w-4 h-4" />
-                  Table
-                </button>
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'cards'
-                      ? 'bg-[var(--bg-card)] text-cyan-700 shadow-sm'
-                      : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)]'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" />
-                  Cards
-                </button>
-              </div>
-            </div>
-
-            {/* Mobile filter toggle */}
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="lg:hidden flex items-center justify-center gap-2 px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium"
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-              {activeFilterCount > 0 && (
-                <span className="w-5 h-5 rounded-full bg-cyan-500 text-white text-[10px] font-bold flex items-center justify-center">
-                  {activeFilterCount}
-                </span>
-              )}
-            </button>
+      {/* Filter bar — Patients pattern */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 sm:p-4">
+        <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
+          <SearchInput className="w-full lg:max-w-sm" value={searchQuery} onChange={setSearchQuery} placeholder="Search by referral #, patient name, folder, or facility…" />
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <FilterSelect aria-label="Status" value={filterStatus} onChange={setFilterStatus}
+              options={[{ value: 'all', label: 'All Statuses' }, { value: 'pending', label: 'Pending' }, { value: 'accepted', label: 'Accepted' }, { value: 'completed', label: 'Completed' }, { value: 'cancelled', label: 'Cancelled' }]} />
+            <FilterSelect aria-label="Type" value={filterType} onChange={setFilterType}
+              options={[{ value: 'all', label: 'All Types' }, { value: 'outgoing', label: 'Outgoing' }, { value: 'incoming', label: 'Incoming' }]} />
+            <FilterSelect aria-label="Urgency" value={filterUrgency} onChange={setFilterUrgency}
+              options={[{ value: 'all', label: 'All Urgencies' }, { value: 'routine', label: 'Routine' }, { value: 'urgent', label: 'Urgent' }, { value: 'stat', label: 'STAT' }]} />
+            <Segmented aria-label="Referral layout" accent="cyan" value={viewMode} onChange={(v) => setViewMode(v as ViewMode)}
+              options={[{ value: 'table', label: 'Table', icon: List }, { value: 'cards', label: 'Cards', icon: LayoutGrid }]} />
           </div>
-
-          {/* Mobile filters expanded */}
-          {showFilters && (
-            <div className="lg:hidden mt-3 pt-3 border-t border-[var(--border-color)] space-y-2">
-              <select
-                value={filterStatus}
-                onChange={e => setFilterStatus(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-              >
-                <option value="all">All Statuses</option>
-                <option value="pending">Pending</option>
-                <option value="accepted">Accepted</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-              <select
-                value={filterType}
-                onChange={e => setFilterType(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-              >
-                <option value="all">All Types</option>
-                <option value="outgoing">Outgoing</option>
-                <option value="incoming">Incoming</option>
-              </select>
-              <select
-                value={filterUrgency}
-                onChange={e => setFilterUrgency(e.target.value)}
-                className="w-full px-3 py-2.5 text-sm border border-[var(--border-color)] rounded-lg bg-[var(--bg-main)] text-[var(--text-primary)]"
-              >
-                <option value="all">All Urgencies</option>
-                <option value="routine">Routine</option>
-                <option value="urgent">Urgent</option>
-                <option value="stat">STAT</option>
-              </select>
-              <div className="flex items-center bg-[var(--bg-main)] rounded-lg p-1 border border-[var(--border-color)]">
-                <button
-                  onClick={() => setViewMode('table')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'table' ? 'bg-[var(--bg-card)] text-cyan-700 shadow-sm' : 'text-[var(--text-tertiary)]'
-                  }`}
-                >
-                  <List className="w-4 h-4" /> Table
-                </button>
-                <button
-                  onClick={() => setViewMode('cards')}
-                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-all ${
-                    viewMode === 'cards' ? 'bg-[var(--bg-card)] text-cyan-700 shadow-sm' : 'text-[var(--text-tertiary)]'
-                  }`}
-                >
-                  <LayoutGrid className="w-4 h-4" /> Cards
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Active filter chips */}
-          {activeFilterCount > 0 && (
-            <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-color)] flex-wrap">
-              <span className="text-xs text-[var(--text-tertiary)] font-medium">Active:</span>
-              {searchQuery && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md text-xs font-medium">
-                  Search: "{searchQuery}"
-                  <button onClick={() => setSearchQuery('')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              {filterStatus !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md text-xs font-medium capitalize">
-                  Status: {filterStatus}
-                  <button onClick={() => setFilterStatus('all')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              {filterType !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md text-xs font-medium capitalize">
-                  Type: {filterType}
-                  <button onClick={() => setFilterType('all')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              {filterUrgency !== 'all' && (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-cyan-50 text-cyan-700 rounded-md text-xs font-medium uppercase">
-                  Urgency: {filterUrgency}
-                  <button onClick={() => setFilterUrgency('all')} className="hover:text-cyan-900"><X className="w-3 h-3" /></button>
-                </span>
-              )}
-              <span className="ml-auto text-xs text-[var(--text-tertiary)]">
-                {displayedReferrals.length} of {referrals.length}
-                {displayedReferrals.length > pageSize && <> · page {safePage}/{totalPages}</>}
-              </span>
-            </div>
-          )}
         </div>
+        {activeFilterCount > 0 && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-[var(--border-color)] flex-wrap">
+            <span className="text-xs text-[var(--text-tertiary)] font-medium">Active:</span>
+            {searchQuery && <Badge tone="cyan">Search: "{searchQuery}"<button onClick={() => setSearchQuery('')} aria-label="Clear search"><X className="w-3 h-3" /></button></Badge>}
+            {filterStatus !== 'all' && <Badge tone="cyan" className="capitalize">Status: {filterStatus}<button onClick={() => setFilterStatus('all')} aria-label="Clear status filter"><X className="w-3 h-3" /></button></Badge>}
+            {filterType !== 'all' && <Badge tone="cyan" className="capitalize">Type: {filterType}<button onClick={() => setFilterType('all')} aria-label="Clear type filter"><X className="w-3 h-3" /></button></Badge>}
+            {filterUrgency !== 'all' && <Badge tone="cyan" className="uppercase">Urgency: {filterUrgency}<button onClick={() => setFilterUrgency('all')} aria-label="Clear urgency filter"><X className="w-3 h-3" /></button></Badge>}
+            <Button variant="secondary" size="sm" onClick={() => { setSearchQuery(''); setFilterStatus('all'); setFilterType('all'); setFilterUrgency('all'); }}>Clear all</Button>
+            <span className="ml-auto text-xs text-[var(--text-tertiary)]">{displayedReferrals.length} of {referrals.length}</span>
+          </div>
+        )}
       </div>
 
-      {/* ── REFERRALS DISPLAY ───────────────────────────────────────────────── */}
+      {/* List */}
       {displayedReferrals.length === 0 ? (
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center shadow-sm">
+        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-12 text-center">
           <div className="w-16 h-16 bg-[var(--bg-main)] rounded-full flex items-center justify-center mx-auto mb-4">
             <Send className="w-8 h-8 text-[var(--text-tertiary)] opacity-40" />
           </div>
           <p className="text-sm font-semibold text-[var(--text-primary)]">No referrals found</p>
           <p className="text-xs text-[var(--text-tertiary)] mt-1 max-w-xs mx-auto">
-            {activeFilterCount > 0
-              ? 'Try adjusting your filters or search query'
-              : 'Create your first referral to get started'}
+            {activeFilterCount > 0 ? 'Try adjusting your filters or search query' : 'Create your first referral to get started'}
           </p>
         </div>
       ) : viewMode === 'table' ? (
-        /* ═══════ TABLE VIEW ═══════ */
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-          <div className="overflow-x-auto">
+        <>
+          <div className={TABLE_SHELL}>
             <table className="w-full text-sm">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                <tr>
-                  {['Ref No.', 'Patient', 'Folder #', 'Attendance #', 'Type', 'To / From', 'Urgency', 'Status', 'Date', 'Actions'].map(h => (
-                    <th key={h} className="px-4 py-3 text-left text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[var(--border-color)]">
+              <thead><tr className={TH_ROW}>
+                <th className={TH}>Ref No.</th><th className={TH}>Patient</th>
+                <th className={TH}>Folder #</th><th className={TH}>Attendance #</th>
+                <th className={TH}>Type</th><th className={TH}>To / From</th>
+                <th className={TH}>Urgency</th><th className={TH}>Status</th>
+                <th className={`${TH} whitespace-nowrap`}>Date</th><th className={TH}>Actions</th>
+              </tr></thead>
+              <tbody>
                 {paginatedReferrals.map(ref => (
-                  <tr key={ref.id} className="hover:bg-cyan-50/30 transition-colors group">
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-main)] px-2 py-1 rounded">
-                        {ref.referralNumber}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
+                  <tr key={ref.id} className={TR}>
+                    <td className={TD}><span className="font-mono text-xs font-semibold text-[var(--text-primary)] bg-[var(--bg-main)] px-2 py-1 rounded">{ref.referralNumber}</span></td>
+                    <td className={`${TD} sticky left-0 z-10 bg-[var(--bg-card)]`}>
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-100 to-cyan-50 border border-cyan-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-[10px] font-bold text-cyan-700">
-                            {initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}
-                          </span>
+                        <div className="w-8 h-8 rounded-full bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                          <span className="text-[10px] font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm text-[var(--text-primary)] truncate">
-                            {ref.patient?.surname} {ref.patient?.otherNames}
-                          </p>
-                        </div>
+                        <p className="font-medium text-sm text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-[var(--text-primary)]">
-                        {ref.patient?.folderNumber || '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-mono text-xs text-[var(--text-primary)]">
-                        {ref.attendance?.attendanceNumber || '—'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3"><TypeBadge type={ref.referralType} /></td>
-                    <td className="px-4 py-3 max-w-[200px]">
-                      <p className="text-xs font-medium text-[var(--text-primary)] truncate">
-                        {ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}
-                      </p>
+                    <td className={`${TD} font-mono text-xs`}>{ref.patient?.folderNumber || '—'}</td>
+                    <td className={`${TD} font-mono text-xs`}>{ref.attendance?.attendanceNumber || '—'}</td>
+                    <td className={TD}><TypeBadge type={ref.referralType} /></td>
+                    <td className={TD}>
+                      <p className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[200px]">{ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}</p>
                       {(ref.referredToDoctor || ref.referredFromDoctor) && (
-                        <p className="text-[10px] text-[var(--text-tertiary)] truncate flex items-center gap-1">
-                          <Stethoscope className="w-2.5 h-2.5" />
-                          Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}
-                        </p>
+                        <p className="text-[10px] text-[var(--text-tertiary)] truncate flex items-center gap-1"><Stethoscope className="w-2.5 h-2.5" />Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}</p>
                       )}
                     </td>
-                    <td className="px-4 py-3"><UrgencyBadge urgency={ref.urgency} /></td>
-                    <td className="px-4 py-3"><StatusBadge status={ref.status} /></td>
-                    <td className="px-4 py-3 text-xs text-[var(--text-secondary)] whitespace-nowrap">
-                      {new Date(ref.referralDate).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-0.5">
-                        <button
-                          onClick={() => setDetailReferral(ref)}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
-                          title="Open referral form"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handlePrintLetter(ref)}
-                          disabled={printingId === ref.id}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
-                          title="Print referral form"
-                        >
-                          <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
-                        </button>
-                        <button
-                          onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-                          title="Send referral"
-                        >
-                          <MessageSquare className="w-3.5 h-3.5" />
-                        </button>
-                        {ref.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => openAcceptDialog(ref)}
-                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
-                              title="Accept and record the Part II report back"
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={() => handleStatusUpdate(ref.id, 'cancelled')}
-                              className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"
-                              title="Cancel"
-                            >
-                              <XCircle className="w-3.5 h-3.5" />
-                            </button>
-                          </>
-                        )}
-                        {ref.status === 'accepted' && (
-                          <button
-                            onClick={() => handleStatusUpdate(ref.id, 'completed')}
-                            className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
-                            title="Complete"
-                          >
-                            <CheckCircle className="w-3.5 h-3.5" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                    <td className={TD}><UrgencyBadge urgency={ref.urgency} /></td>
+                    <td className={TD}><StatusBadge status={ref.status} /></td>
+                    <td className={`${TD} whitespace-nowrap text-xs text-[var(--text-secondary)]`}>{new Date(ref.referralDate).toLocaleDateString()}</td>
+                    <td className={TD}>{rowActions(ref)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-
-          {/* Pagination footer */}
-          <Pagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalItems={displayedReferrals.length}
-            startIndex={startIndex}
-            endIndex={endIndex}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </div>
+          <Pagination page={safePage} totalPages={totalPages} itemsPerPage={pageSize} totalItems={displayedReferrals.length} noun="referrals" onChange={setCurrentPage} />
+        </>
       ) : (
-        /* ═══════ CARDS VIEW ═══════ */
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4">
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {paginatedReferrals.map(ref => (
-              <div
-                key={ref.id}
-                className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-cyan-400 hover:shadow-lg transition-all overflow-hidden group flex flex-col"
-              >
-                {/* Header */}
-                <div className="p-4 pb-3 border-b border-[var(--border-color)] bg-gradient-to-r from-gray-50 to-white">
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <TypeBadge type={ref.referralType} size="md" />
-                    <UrgencyBadge urgency={ref.urgency} size="md" />
-                  </div>
+              <div key={ref.id} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:border-[var(--icon-cyan-text)]/40 hover:shadow-lg transition-all overflow-hidden flex flex-col">
+                <div className="p-4 pb-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]">
+                  <div className="flex items-start justify-between gap-3 mb-3"><TypeBadge type={ref.referralType} size="md" /><UrgencyBadge urgency={ref.urgency} size="md" /></div>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-100 to-cyan-50 border border-cyan-200 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs font-bold text-cyan-700">
-                        {initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}
-                      </span>
+                    <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                      <span className="text-xs font-bold text-[var(--icon-cyan-text)]">{initials(`${ref.patient?.surname} ${ref.patient?.otherNames}`)}</span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">
-                        {ref.patient?.surname} {ref.patient?.otherNames}
-                      </p>
-                      <p className="text-[10px] text-[var(--text-tertiary)] font-mono">
-                        {ref.patient?.folderNumber}
-                      </p>
+                      <p className="text-sm font-bold text-[var(--text-primary)] truncate">{ref.patient?.surname} {ref.patient?.otherNames}</p>
+                      <p className="text-[10px] text-[var(--text-tertiary)] font-mono">{ref.patient?.folderNumber}</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Body */}
                 <div className="p-4 space-y-3 flex-1">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[var(--text-tertiary)] flex items-center gap-1">
-                      <Hash className="w-3 h-3" /> Ref No.
-                    </span>
-                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
-                      {ref.referralNumber}
-                    </span>
+                    <span className="text-[var(--text-tertiary)] flex items-center gap-1"><Hash className="w-3 h-3" /> Ref No.</span>
+                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">{ref.referralNumber}</span>
                   </div>
-
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-[var(--text-tertiary)] flex items-center gap-1">
-                      <Hash className="w-3 h-3" /> Attendance #
-                    </span>
-                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">
-                      {ref.attendance?.attendanceNumber || '—'}
-                    </span>
+                    <span className="text-[var(--text-tertiary)] flex items-center gap-1"><Hash className="w-3 h-3" /> Attendance #</span>
+                    <span className="font-mono text-[11px] font-semibold text-[var(--text-primary)]">{ref.attendance?.attendanceNumber || '—'}</span>
                   </div>
-
                   <div>
-                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
-                      {ref.referralType === 'outgoing' ? 'Referred To' : 'Referred From'}
-                    </p>
-                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate flex items-center gap-1.5">
-                      <Building className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />
-                      {ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}
-                    </p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">{ref.referralType === 'outgoing' ? 'Referred To' : 'Referred From'}</p>
+                    <p className="text-sm font-semibold text-[var(--text-primary)] truncate flex items-center gap-1.5"><Building className="w-3.5 h-3.5 text-[var(--text-tertiary)] flex-shrink-0" />{ref.referralType === 'outgoing' ? ref.referredToFacility : ref.referredFromFacility}</p>
                     {(ref.referredToDoctor || ref.referredFromDoctor) && (
-                      <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5 flex items-center gap-1.5">
-                        <Stethoscope className="w-3 h-3 text-[var(--text-tertiary)]" />
-                        Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}
-                      </p>
+                      <p className="text-[11px] text-[var(--text-secondary)] truncate mt-0.5 flex items-center gap-1.5"><Stethoscope className="w-3 h-3 text-[var(--text-tertiary)]" />Dr. {ref.referralType === 'outgoing' ? ref.referredToDoctor : ref.referredFromDoctor}</p>
                     )}
                   </div>
-
                   <div>
-                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">
-                      Reason
-                    </p>
-                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">
-                      {ref.referralReason}
-                    </p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold mb-1">Reason</p>
+                    <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{ref.referralReason}</p>
                   </div>
-
-                  <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] pt-2">
-                    <Calendar className="w-3 h-3" />
-                    {new Date(ref.referralDate).toLocaleDateString()}
-                  </div>
+                  <div className="flex items-center gap-2 text-[11px] text-[var(--text-tertiary)] pt-2"><Calendar className="w-3 h-3" />{new Date(ref.referralDate).toLocaleDateString()}</div>
                 </div>
-
-                {/* Footer */}
                 <div className="px-4 py-3 bg-[var(--bg-main)] border-t border-[var(--border-color)] flex items-center justify-between gap-2">
                   <StatusBadge status={ref.status} />
-                  <div className="flex items-center gap-0.5">
-                    <button
-                      onClick={() => setDetailReferral(ref)}
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
-                      title="Open referral form"
-                    >
-                      <Eye className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={() => handlePrintLetter(ref)}
-                      disabled={printingId === ref.id}
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-cyan-600 hover:bg-cyan-50 transition-all disabled:opacity-40"
-                      title="Print referral form"
-                    >
-                      <Printer className={`w-3.5 h-3.5 ${printingId === ref.id ? 'animate-pulse' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => { setSendReferral(ref); setShowSendModal(true); }}
-                      className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-green-600 hover:bg-green-50 transition-all"
-                      title="Send referral"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                    </button>
-                    {ref.status === 'pending' && (
-                      <>
-                        <button
-                          onClick={() => openAcceptDialog(ref)}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-green-text)] hover:bg-[var(--icon-green-bg)] transition-all"
-                          title="Accept and record the Part II report back"
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleStatusUpdate(ref.id, 'cancelled')}
-                          className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] transition-all"
-                          title="Cancel"
-                        >
-                          <XCircle className="w-3.5 h-3.5" />
-                        </button>
-                      </>
-                    )}
-                    {ref.status === 'accepted' && (
-                      <button
-                        onClick={() => handleStatusUpdate(ref.id, 'completed')}
-                        className="p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-[var(--icon-blue-text)] hover:bg-[var(--icon-blue-bg)] transition-all"
-                        title="Complete"
-                      >
-                        <CheckCircle className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
+                  {rowActions(ref)}
                 </div>
               </div>
             ))}
           </div>
-
-          {/* Pagination footer */}
-          <Pagination
-            currentPage={safePage}
-            totalPages={totalPages}
-            pageSize={pageSize}
-            totalItems={displayedReferrals.length}
-            startIndex={startIndex}
-            endIndex={endIndex}
-            onPageChange={setCurrentPage}
-            onPageSizeChange={setPageSize}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        </div>
+          <Pagination page={safePage} totalPages={totalPages} itemsPerPage={pageSize} totalItems={displayedReferrals.length} noun="referrals" onChange={setCurrentPage} />
+        </>
       )}
 
-      {/* ── CREATE REFERRAL MODAL ────────────────────────────────────────────── */}
+      {/* ── CREATE REFERRAL MODAL ─────────────────────────────────────────── */}
       {showModal && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => { setShowModal(false); resetForm(); }} />
           <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
             <div className="relative bg-[var(--bg-card)] rounded-2xl w-full max-w-3xl max-h-[94vh] flex flex-col overflow-hidden border border-[var(--border-color)] shadow-2xl">
-
-              {/* Header */}
-              <div className="relative bg-gradient-to-br from-slate-800 via-slate-800 to-slate-900 px-6 py-5 text-white flex-shrink-0">
-                <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-cyan-400 via-teal-400 to-transparent" />
+              {/* Header — bg-main, not the old slate gradient */}
+              <div className="px-6 py-5 bg-[var(--bg-main)] border-b border-[var(--border-color)] flex-shrink-0">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-xl bg-cyan-500/15 border border-cyan-400/30 flex items-center justify-center flex-shrink-0">
-                      <Send className="w-6 h-6 text-cyan-300" />
+                    <div className="w-11 h-11 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center flex-shrink-0">
+                      <Send className="w-6 h-6 text-[var(--icon-cyan-text)]" />
                     </div>
                     <div className="min-w-0">
-                      <h2 className="text-lg font-bold truncate text-white">Create New Referral</h2>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        Fill in referral details for {referralType === 'outgoing' ? 'external' : 'internal'} transfer
-                      </p>
+                      <h2 className="text-lg font-bold truncate text-[var(--text-primary)]">Create New Referral</h2>
+                      <p className="text-xs text-[var(--text-secondary)] mt-0.5">Fill in referral details for {referralType === 'outgoing' ? 'external' : 'internal'} transfer</p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => { setShowModal(false); resetForm(); }}
-                    className="p-1.5 hover:bg-white/10 rounded-lg transition-colors flex-shrink-0 text-slate-300 hover:text-white"
-                    aria-label="Close"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+                  <button onClick={() => { setShowModal(false); resetForm(); }} className="p-1.5 hover:bg-[var(--bg-card)] rounded-lg transition-colors flex-shrink-0 text-[var(--text-secondary)] hover:text-[var(--text-primary)]" aria-label="Close"><X className="w-5 h-5" /></button>
                 </div>
-
-                {/* Referral type toggle in header */}
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setReferralType('outgoing')}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      referralType === 'outgoing'
-                        ? 'bg-cyan-500 text-white shadow-sm shadow-cyan-500/30'
-                        : 'bg-white/[0.06] border border-white/10 text-slate-300 hover:bg-white/10'
-                    }`}
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                    Outgoing
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReferralType('incoming')}
-                    className={`flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-                      referralType === 'incoming'
-                        ? 'bg-green-500 text-white shadow-sm shadow-green-500/30'
-                        : 'bg-white/[0.06] border border-white/10 text-slate-300 hover:bg-white/10'
-                    }`}
-                  >
-                    <ArrowDownLeft className="w-4 h-4" />
-                    Incoming
-                  </button>
-                </div>
-
-                {/* Preview strip */}
-                <div className="mt-3 flex items-center gap-2 bg-white/[0.06] border border-white/10 rounded-lg px-3 py-2">
-                  <Hash className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0" />
+                <Segmented aria-label="Referral type" accent="cyan" value={referralType} onChange={(v) => setReferralType(v as 'outgoing' | 'incoming')}
+                  options={[{ value: 'outgoing', label: 'Outgoing', icon: ArrowUpRight }, { value: 'incoming', label: 'Incoming', icon: ArrowDownLeft }]} />
+                <div className="mt-3 flex items-center gap-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg px-3 py-2">
+                  <Hash className="w-3.5 h-3.5 text-[var(--icon-cyan-text)] flex-shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Preview Reference Number</p>
-                    <p className="text-sm font-mono font-bold text-white truncate">{previewRefNo}</p>
+                    <p className="text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider font-semibold">Preview Reference Number</p>
+                    <p className="text-sm font-mono font-bold text-[var(--text-primary)] truncate">{previewRefNo}</p>
                   </div>
                   <UrgencyBadge urgency={formData.urgency} />
                 </div>
               </div>
 
-              {/* Body */}
               <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-5" style={{ scrollbarWidth: 'thin' }}>
-
-                {/* Patient selector section */}
+                {/* 1 — Patient: pick once, everything below auto-fills */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <User className="w-4 h-4 text-cyan-600" />
+                    <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                     <h3 className="text-sm font-bold text-[var(--text-primary)]">Patient Information</h3>
+                    {selectedPatient && <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]">Details auto-filled from register</span>}
                   </div>
                   <div className="bg-[var(--bg-main)] rounded-xl p-4 border border-[var(--border-color)]">
                     <PatientAttendanceSelector
                       patients={patients}
                       attendances={prefilledAttendance && !attendances.some((item: any) => String(item.id || item._id) === String(prefilledAttendance.id || prefilledAttendance._id))
-                        ? [...attendances, prefilledAttendance]
-                        : attendances}
+                        ? [...attendances, prefilledAttendance] : attendances}
                       selectedPatientId={selectedPatientId}
                       selectedAttendanceId={selectedAttendanceId}
                       onPatientSelect={setSelectedPatientId}
                       onAttendanceSelect={setSelectedAttendanceId}
                       onClearSelection={() => { setSelectedPatientId(''); setSelectedAttendanceId(''); }}
-                      // Avoid silently substituting a different visit if a prefilled visit fails validation.
                       autoSelectMostRecent={!searchParams.get('attendanceId')}
                     />
                   </div>
+                  {/* Auto-filled patient summary — read-only, so the desk can verify
+                      at a glance instead of re-typing name / folder / age / sex. */}
+                  {selectedPatient && (
+                    <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-xl px-4 py-3">
+                      <div><span className="text-[var(--text-tertiary)] block">Patient</span><b className="text-[var(--text-primary)]">{getPatientName(selectedPatient)}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Folder #</span><b className="text-[var(--text-primary)]">{selectedPatient.folderNumber || '—'}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Age / Sex</span><b className="text-[var(--text-primary)]">{(selectedPatient.ageDisplay || selectedPatient.age || ageFromDob(selectedPatient.dateOfBirth || selectedPatient.dob)) || '—'} · {selectedPatient.gender || selectedPatient.sex || '—'}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Contact</span><b className="text-[var(--text-primary)]">{selectedPatient.contact || selectedPatient.phone || selectedPatient.phoneNumber || '—'}</b></div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Current visit info */}
                 {selectedPatientId && selectedAttendance && (
-                  <div className="px-4 py-3 bg-cyan-50 border border-cyan-100 rounded-lg">
-                    <p className="text-xs font-semibold text-cyan-700 mb-2 flex items-center gap-1.5">
-                      <Stethoscope className="w-3.5 h-3.5" /> Current Visit
-                    </p>
+                  <div className="px-4 py-3 bg-[var(--icon-cyan-bg)]/50 border border-[var(--border-color)] rounded-lg">
+                    <p className="text-xs font-semibold text-[var(--icon-cyan-text)] mb-2 flex items-center gap-1.5"><Stethoscope className="w-3.5 h-3.5" /> Current Visit</p>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-                      <div>
-                        <span className="text-[var(--text-tertiary)] block">Visit #</span>
-                        <b className="text-[var(--text-primary)]">{selectedAttendance.attendanceNumber}</b>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-tertiary)] block">Date</span>
-                        <b className="text-[var(--text-primary)]">{new Date(selectedAttendance.dateTime).toLocaleDateString()}</b>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-tertiary)] block">Type</span>
-                        <b className="text-[var(--text-primary)] capitalize">{selectedAttendance.attendanceType}</b>
-                      </div>
-                      <div>
-                        <span className="text-[var(--text-tertiary)] block">Status</span>
-                        <b className="text-[var(--text-primary)] capitalize">{selectedAttendance.status}</b>
-                      </div>
+                      <div><span className="text-[var(--text-tertiary)] block">Visit #</span><b className="text-[var(--text-primary)]">{selectedAttendance.attendanceNumber}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Date</span><b className="text-[var(--text-primary)]">{new Date(selectedAttendance.dateTime).toLocaleDateString()}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Type</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.attendanceType}</b></div>
+                      <div><span className="text-[var(--text-tertiary)] block">Status</span><b className="text-[var(--text-primary)] capitalize">{selectedAttendance.status}</b></div>
                     </div>
                   </div>
                 )}
 
-                {/* Transfer details */}
+                {/* 2 — Transfer details */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <Building className="w-4 h-4 text-cyan-600" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                      {referralType === 'outgoing' ? 'Refer To' : 'Referred From'}
-                    </h3>
+                    <Building className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">{referralType === 'outgoing' ? 'Refer To' : 'Referred From'}</h3>
                   </div>
                   <div className="space-y-3">
                     {referralType === 'outgoing' ? (
                       <>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                            Facility <span className="text-red-500">*</span>
-                          </label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Facility <span className="text-[var(--icon-red-text)]">*</span></label>
                           <div className="relative">
                             <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input
-                              type="text"
-                              required
-                              value={formData.referredToFacility}
+                            <input type="text" required value={formData.referredToFacility}
                               onChange={e => setFormData(p => ({ ...p, referredToFacility: e.target.value }))}
-                              placeholder="e.g., Korle Bu Teaching Hospital"
-                              className="w-full pl-10 pr-4 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
-                            />
+                              placeholder="e.g., Korle Bu Teaching Hospital" className={`${INPUT} pl-10`} />
                           </div>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1531,26 +860,18 @@ export default function Referrals() {
                             <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Doctor</label>
                             <div className="relative">
                               <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                              <input
-                                type="text"
-                                value={formData.referredToDoctor}
+                              <input type="text" value={formData.referredToDoctor}
                                 onChange={e => setFormData(p => ({ ...p, referredToDoctor: e.target.value }))}
-                                placeholder="Doctor's name"
-                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500 transition-all"
-                              />
+                                placeholder="Doctor's name" className={`${INPUT} pl-10`} />
                             </div>
                           </div>
                           <div>
                             <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Department</label>
                             <div className="relative">
                               <Target className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                              <input
-                                type="text"
-                                value={formData.referredToDepartment}
+                              <input type="text" value={formData.referredToDepartment}
                                 onChange={e => setFormData(p => ({ ...p, referredToDepartment: e.target.value }))}
-                                placeholder="e.g., Cardiology"
-                                className="w-full pl-10 pr-4 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500 transition-all"
-                              />
+                                placeholder="e.g., Cardiology" className={`${INPUT} pl-10`} />
                             </div>
                           </div>
                         </div>
@@ -1558,32 +879,21 @@ export default function Referrals() {
                     ) : (
                       <>
                         <div>
-                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                            Facility <span className="text-red-500">*</span>
-                          </label>
+                          <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Facility <span className="text-[var(--icon-red-text)]">*</span></label>
                           <div className="relative">
                             <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input
-                              type="text"
-                              required
-                              value={formData.referredFromFacility}
+                            <input type="text" required value={formData.referredFromFacility}
                               onChange={e => setFormData(p => ({ ...p, referredFromFacility: e.target.value }))}
-                              placeholder="e.g., Ridge Hospital"
-                              className="w-full pl-10 pr-4 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500 transition-all"
-                            />
+                              placeholder="e.g., Ridge Hospital" className={`${INPUT} pl-10`} />
                           </div>
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">Referring Doctor</label>
                           <div className="relative">
                             <Stethoscope className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-tertiary)]" />
-                            <input
-                              type="text"
-                              value={formData.referredFromDoctor}
+                            <input type="text" value={formData.referredFromDoctor}
                               onChange={e => setFormData(p => ({ ...p, referredFromDoctor: e.target.value }))}
-                              placeholder="Doctor's name"
-                              className="w-full pl-10 pr-4 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] focus:ring-2 focus:ring-cyan-500 transition-all"
-                            />
+                              placeholder="Doctor's name" className={`${INPUT} pl-10`} />
                           </div>
                         </div>
                       </>
@@ -1591,67 +901,26 @@ export default function Referrals() {
                   </div>
                 </div>
 
-                {/* Clinical details */}
+                {/* 3 — Urgency */}
                 <div>
                   <div className="flex items-center gap-2 mb-3">
-                    <FileText className="w-4 h-4 text-cyan-600" />
-                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Additional Notes</h3>
-                  </div>
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-[var(--text-primary)] mb-1.5">
-                        Additional Notes
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={formData.referralNotes}
-                        onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
-                        placeholder="Anything the receiving facility should know that does not fit the form…"
-                        className="w-full px-3 py-2.5 text-sm bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-[var(--text-primary)] resize-none focus:ring-2 focus:ring-cyan-500 transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Urgency picker */}
-                <div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <AlertCircle className="w-4 h-4 text-cyan-600" />
+                    <AlertCircle className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                     <h3 className="text-sm font-bold text-[var(--text-primary)]">Urgency</h3>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {[
-                      { value: 'routine', label: 'Routine', description: 'Standard timeframe', color: 'slate' },
-                      { value: 'urgent', label: 'Urgent', description: 'Within 24 hours', color: 'orange' },
-                      { value: 'stat', label: 'STAT', description: 'Immediate attention', color: 'red' },
+                      { value: 'routine', label: 'Routine', description: 'Standard timeframe', tone: 'bg-[var(--bg-main)] text-[var(--text-secondary)] border-[var(--border-color)]' },
+                      { value: 'urgent', label: 'Urgent', description: 'Within 24 hours', tone: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] border-[var(--icon-yellow-text)]/40' },
+                      { value: 'stat', label: 'STAT', description: 'Immediate attention', tone: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] border-[var(--icon-red-text)]/40' },
                     ].map(opt => {
                       const isActive = formData.urgency === opt.value;
                       return (
-                        <button
-                          key={opt.value}
-                          type="button"
+                        <button key={opt.value} type="button"
                           onClick={() => setFormData(p => ({ ...p, urgency: opt.value as any }))}
-                          className={`p-3 rounded-lg border-2 text-left transition-all ${
-                            isActive
-                              ? opt.color === 'red'
-                                ? 'bg-red-50 border-red-400 shadow-sm'
-                                : opt.color === 'orange'
-                                  ? 'bg-orange-50 border-orange-400 shadow-sm'
-                                  : 'bg-slate-50 border-slate-400 shadow-sm'
-                              : 'border-[var(--border-color)] bg-[var(--bg-main)] hover:border-cyan-200'
-                          }`}
-                        >
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${isActive ? opt.tone + ' shadow-sm' : 'border-[var(--border-color)] bg-[var(--bg-main)] hover:border-[var(--icon-cyan-text)]/40'}`}>
                           <div className="flex items-center justify-between mb-0.5">
-                            <span className={`text-sm font-bold ${
-                              isActive
-                                ? opt.color === 'red' ? 'text-red-700' : opt.color === 'orange' ? 'text-orange-700' : 'text-slate-700'
-                                : 'text-[var(--text-primary)]'
-                            }`}>
-                              {opt.label}
-                            </span>
-                            {isActive && <BadgeCheck className={`w-3.5 h-3.5 ${
-                              opt.color === 'red' ? 'text-red-600' : opt.color === 'orange' ? 'text-orange-600' : 'text-slate-600'
-                            }`} />}
+                            <span className={`text-sm font-bold ${isActive ? '' : 'text-[var(--text-primary)]'}`}>{opt.label}</span>
+                            {isActive && <BadgeCheck className="w-3.5 h-3.5" />}
                           </div>
                           <p className="text-[10px] text-[var(--text-secondary)]">{opt.description}</p>
                         </button>
@@ -1660,42 +929,27 @@ export default function Referrals() {
                   </div>
                 </div>
 
-                {/* The referral document — Part I when sending, Part II when receiving */}
+                {/* 4 — The referral document: Part I when sending, Part II when receiving.
+                       Identity fields inside it are already auto-filled above. */}
                 <div className="border-t border-[var(--border-color)] pt-4 space-y-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <ClipboardList className={`w-4 h-4 ${referralType === 'outgoing' ? 'text-cyan-600' : 'text-green-600'}`} />
+                      <ClipboardList className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                       <h3 className="text-sm font-bold text-[var(--text-primary)]">
-                        {referralType === 'outgoing'
-                          ? 'Part I — Referral by the health worker'
-                          : 'Part II — Report back by the receiving facility'}
+                        {referralType === 'outgoing' ? 'Part I — Referral by the health worker' : 'Part II — Report back by the receiving facility'}
                       </h3>
                     </div>
-                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${
-                      referralType === 'outgoing'
-                        ? 'text-cyan-700 bg-cyan-50 border-cyan-100'
-                        : 'text-green-700 bg-green-50 border-green-100'
-                    }`}>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${referralType === 'outgoing' ? 'text-[var(--icon-blue-text)] bg-[var(--icon-blue-bg)] border-[var(--border-color)]' : 'text-[var(--icon-green-text)] bg-[var(--icon-green-bg)] border-[var(--border-color)]'}`}>
                       {referralType === 'outgoing' ? 'Travels with the patient' : 'Filed against the referral'}
                     </span>
                   </div>
-
                   {referralType === 'outgoing' ? (
-                    <ReferralPartFields
-                      sections={PART_I_SECTIONS}
-                      values={partI as unknown as Record<string, string>}
-                      onChange={(key, value) => setPartI(prev => ({ ...prev, [key]: value }))}
-                      tone="cyan"
-                    />
+                    <ReferralPartFields sections={PART_I_SECTIONS} values={partI as unknown as Record<string, string>}
+                      onChange={(key, value) => setPartI(prev => ({ ...prev, [key]: value }))} tone="cyan" />
                   ) : (
-                    <ReferralPartFields
-                      sections={PART_II_SECTIONS}
-                      values={partII as unknown as Record<string, string>}
-                      onChange={(key, value) => setPartII(prev => ({ ...prev, [key]: value }))}
-                      tone="green"
-                    />
+                    <ReferralPartFields sections={PART_II_SECTIONS} values={partII as unknown as Record<string, string>}
+                      onChange={(key, value) => setPartII(prev => ({ ...prev, [key]: value }))} tone="green" />
                   )}
-
                   {formErrors.length > 0 && (
                     <div className="rounded-lg border border-[var(--icon-red-text)]/30 bg-[var(--icon-red-bg)] px-3 py-2.5">
                       <p className="text-xs font-semibold text-[var(--icon-red-text)]">Complete these before submitting</p>
@@ -1706,39 +960,26 @@ export default function Referrals() {
                   )}
                 </div>
 
+                {/* 5 — Additional Notes: LAST, so the form reads top-to-bottom
+                       (patient → destination → urgency → referral document → notes). */}
+                <div className="border-t border-[var(--border-color)] pt-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" />
+                    <h3 className="text-sm font-bold text-[var(--text-primary)]">Additional Notes</h3>
+                  </div>
+                  <textarea rows={2} value={formData.referralNotes}
+                    onChange={e => setFormData(p => ({ ...p, referralNotes: e.target.value }))}
+                    placeholder="Anything the receiving facility should know that does not fit the form…"
+                    className={`${INPUT} resize-none`} />
+                </div>
               </form>
 
-              {/* Footer */}
               <div className="px-6 py-4 border-t border-[var(--border-color)] bg-[var(--bg-card)] flex items-center justify-between gap-3 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={() => { setShowModal(false); resetForm(); }}
-                  className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium transition-all"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSubmit as any}
-                  disabled={isLoading || !selectedPatientId}
-                  className={`flex items-center gap-2 px-5 py-2 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold shadow-sm transition-all ${
-                    referralType === 'outgoing'
-                      ? 'bg-cyan-600 hover:bg-cyan-700 shadow-cyan-500/20'
-                      : 'bg-green-600 hover:bg-green-700 shadow-green-500/20'
-                  }`}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Creating…
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-4 h-4" />
-                      Create {referralType === 'outgoing' ? 'Outgoing' : 'Incoming'} Referral
-                    </>
-                  )}
-                </button>
+                <Button variant="secondary" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</Button>
+                <Button variant="soft" accent={referralType === 'outgoing' ? 'cyan' : 'green'} icon={Send} loading={isLoading}
+                  disabled={isLoading || !selectedPatientId} onClick={handleSubmit as any}>
+                  {isLoading ? 'Creating…' : `Create ${referralType === 'outgoing' ? 'Outgoing' : 'Incoming'} Referral`}
+                </Button>
               </div>
             </div>
           </div>

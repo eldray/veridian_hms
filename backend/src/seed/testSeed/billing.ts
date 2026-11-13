@@ -14,9 +14,7 @@ import type { GeneratedBill, GeneratedWaiver } from '../bulkGenerator.js';
 import { ENUMS, type Lookups } from './lookups.js';
 import type { EncounterIndex } from './encounters.js';
 import { hashOf, money, prisma, toNumber, writeMany, type SeedStats } from './shared.js';
-
-/** The demo history is one year deep; this tariff is back-dated a little further. */
-const PRICING_HISTORY_DAYS = 420;
+import { PRICING_HISTORY_DAYS } from './constants.js';
 
 /**
  * Every bill is several sequential transactions (generate, waive, pay, re-date), so a
@@ -164,8 +162,14 @@ export const seedBills = async (
     try {
       generated = await repository.generateFromEncounter(encounter.attendanceId, createdById);
     } catch (error: any) {
+      const message = String(error?.message ?? error).replace(/\s+/g, ' ');
       // A visit with nothing completed and nothing dispensed genuinely has no bill.
-      note(/No billable items|legacy bill/i.test(String(error?.message)) ? 'skipped: nothing billable' : `rejected: ${String(error?.message).slice(0, 60)}`);
+      if (/No billable items|legacy bill/i.test(message)) { note('skipped: nothing billable'); continue; }
+      const reason = `rejected: ${message.slice(0, 60)}`;
+      // The per-reason summary is printed only when billing ends, many minutes away. Say what the first bill of each
+      // new kind was rejected for right now, in full, so a problem is visible while the run is still going.
+      if (!(reason in outcomes)) console.warn(`   ⚠️ first bill rejected for this reason (visit ${plan.attendanceKey}): ${message.slice(0, 400)}`);
+      note(reason);
       continue;
     }
     if (!generated?.id) { note('skipped: nothing billable'); continue; }

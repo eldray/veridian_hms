@@ -1237,14 +1237,20 @@ function describeDevDatabase() {
   }
 }
 
+// Resolves with the health body when the API is ready, or with {seeding:true, progress} while the dev
+// server is still preparing demo data (it answers 503 for that, see backend/src/middleware/startupGate.ts).
+// Rejects when nothing answers or the answer is any other failure.
 function healthInfo(port) {
   return new Promise((resolve, reject) => {
     const req = http.request({ hostname: '127.0.0.1', port, path: '/api/health', method: 'GET', timeout: 3000 }, (res) => {
       let body = '';
       res.on('data', (d) => { body += d; });
       res.on('end', () => {
+        let json = {};
+        try { json = JSON.parse(body); } catch { /* not JSON */ }
+        if (res.statusCode === 503 && json.phase === 'seeding') return resolve({ ...json, seeding: true });
         if (res.statusCode < 200 || res.statusCode >= 400) return reject(new Error(`HTTP ${res.statusCode}`));
-        try { resolve(JSON.parse(body)); } catch { resolve({}); }
+        resolve(json);
       });
     });
     req.on('error', reject);
@@ -1253,14 +1259,65 @@ function healthInfo(port) {
   });
 }
 
+// Changes the text on the "starting" page in place. Re-loading the page for every progress line (a seed
+// prints hundreds) would flicker, so only the message element is updated when that page is already showing.
+function setStatusMessage(message) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  const wc = mainWindow.webContents;
+  let url = '';
+  try { url = wc.getURL(); } catch { /* window going away */ }
+  if (/status\.html/.test(url) && /state=starting/.test(url)) {
+    wc.executeJavaScript(`(function(){var e=document.getElementById('startMsg');if(e)e.textContent=${JSON.stringify(String(message))};})()`).catch(() => {});
+  } else {
+    showStatusPage('starting', message);
+  }
+}
+
 function showDevUi() {
   if (!mainWindow || mainWindow.isDestroyed()) return Promise.resolve();
   return mainWindow.loadURL(DEV_UI_URL).then(() => mainWindow.webContents.send('backend-ready'));
 }
 
+// Polls the dev API until it is ready. Returns when it is; throws when nothing has answered for `timeoutMs`.
+// A server that answers "seeding" is alive and working, so that never counts toward the timeout (a full demo
+// seed takes 25+ minutes) and its progress is shown live. `before` is the health seen before a restart was
+// triggered, so a restart that never happened is reported instead of the old process being mistaken for the new one.
+async function waitForDevBackend({ before = null, timeoutMs = DEV_RESTART_TIMEOUT_MS, sameProcessMs = 12_000 } = {}) {
+  const port = devBackendPort();
+  const started = Date.now();
+  let lastAnswer = started;
+  let sawDown = !before;
+  let sawSeeding = false;
+  for (;;) {
+    await sleep(500);
+    let state;
+    try {
+      state = await healthInfo(port);
+    } catch {
+      sawDown = true;
+      const silent = Date.now() - lastAnswer;
+      if (silent > timeoutMs) {
+        throw new Error(`The development server (port ${port}) did not answer for ${Math.round(timeoutMs / 1000)} seconds. Start it with "npm start" (or "npm run server" in another terminal) and check that terminal for errors, then press Try again.`);
+      }
+      if (silent > 15_000) setStatusMessage(`Still waiting for the development server on port ${port}. Is "npm start" running?`);
+      continue;
+    }
+    lastAnswer = Date.now();
+    if (state.seeding) {
+      sawSeeding = true;
+      setStatusMessage(`Preparing demo data${state.progress ? `: ${state.progress}` : '...'}`);
+      continue;
+    }
+    const uptimeReset = !!before && typeof state.uptime === 'number' && typeof before.uptime === 'number' && state.uptime < before.uptime;
+    if (sawDown || sawSeeding || uptimeReset) return;
+    if (before && Date.now() - started > sameProcessMs) {
+      throw new Error('The development server did not restart. It only reloads by itself when it was started with "npm run dev" (tsx watch). Stop it and start it again manually.');
+    }
+  }
+}
+
 // In dev the backend runs under `tsx watch`, which reloads when a source file changes. Electron does not own
-// that process, so "restart" means touching src/server.ts and waiting until the API has really come back
-// (it went down and up again, or its uptime reset) instead of assuming the reload happened.
+// that process, so "restart" means touching src/server.ts and waiting until the API has really come back.
 async function restartDevBackend() {
   const port = devBackendPort();
   const serverFile = path.join(getBackendDir(), 'src', 'server.ts');
@@ -1274,24 +1331,22 @@ async function restartDevBackend() {
     fs.utimesSync(serverFile, now, now);
     log(`Dev restart requested (touched ${serverFile}); waiting for port ${port}.`);
   }
+  await waitForDevBackend({ before });
+  log('Development server is back.');
+  await showDevUi();
+}
 
-  const started = Date.now();
-  let sawDown = !before;
-  while (Date.now() - started < DEV_RESTART_TIMEOUT_MS) {
-    await sleep(500);
-    let now;
-    try { now = await healthInfo(port); } catch { sawDown = true; continue; }
-    const uptimeReset = !!before && typeof now.uptime === 'number' && typeof before.uptime === 'number' && now.uptime < before.uptime;
-    if (sawDown || uptimeReset) {
-      log('Development server is back.');
-      await showDevUi();
-      return;
-    }
-    if (Date.now() - started > 12_000) {
-      throw new Error('The development server did not restart. It only reloads by itself when it was started with "npm run dev" (tsx watch). Stop it and start it again manually.');
-    }
+// First load in development: wait for the API instead of opening a UI whose every request would fail (the
+// Vite proxy printed ECONNREFUSED for each one). While the dev server seeds, its progress is shown here.
+async function startDevUi({ timeoutMs = 120_000 } = {}) {
+  showStatusPage('starting', 'Waiting for the development server...');
+  try {
+    await waitForDevBackend({ timeoutMs });
+    await showDevUi();
+  } catch (e) {
+    log('Development start failed:', e.message);
+    showStatusPage('error', e.message);
   }
-  throw new Error(`The development server did not become ready within ${DEV_RESTART_TIMEOUT_MS / 1000} seconds. Check the terminal running it for errors.`);
 }
 
 // Runs a Node script with Electron's own runtime (no Node.js needed on the PC). Rejects with the output tail on failure.
@@ -1349,10 +1404,12 @@ async function resetDevDatabase() {
   const env = { DATABASE_URL: devDatabaseUrl(), NODE_ENV: 'development' };
   let lastStatus = 0;
   const onSeedLine = (l) => {
-    const m = l.match(/STEP[^:]*:\s*(.+)$/);
-    if (m && Date.now() - lastStatus > 1000) {
+    const step = l.match(/\bSTEP[^:]*:\s*(.+)$/);
+    if (step) { setStatusMessage(`Seeding data: ${step[1].replace(/[^\x20-\x7E]/g, '').trim()}...`); return; }
+    const counter = l.match(/^\s*\.\.\.\s*(\d+\/\d+.*)$/); // "... 250/10508 (2.4%) - ... about 15m 07s left"
+    if (counter && Date.now() - lastStatus > 700) {
       lastStatus = Date.now();
-      showStatusPage('starting', `Seeding data: ${m[1].replace(/[^\x20-\x7E]/g, '').trim()}...`);
+      setStatusMessage(`Seeding data: ${counter[1].replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim()}`);
     }
   };
   try {
@@ -1602,9 +1659,7 @@ if (!gotTheLock) {
       startApplication();
     } else {
       log('Development mode: expecting Vite on http://localhost:3000 and the backend on http://localhost:5000');
-      mainWindow.loadURL('http://localhost:3000').catch(() => {
-        showStatusPage('error', 'The development server is not running.\n\nStart it with: npm start');
-      });
+      startDevUi();
     }
   });
 
@@ -1622,7 +1677,7 @@ if (!gotTheLock) {
   app.on('activate', () => {
     if (mainWindow === null && app.isReady()) {
       createWindow();
-      app.isPackaged ? startApplication() : mainWindow.loadURL('http://localhost:3000').catch(() => {});
+      app.isPackaged ? startApplication() : startDevUi();
     }
   });
 }

@@ -58,19 +58,20 @@ export const seedPreAuthorisations = async (
 ): Promise<void> => {
   const payerByAttendance = await loadPayers([...encounters.values()].map((e) => e.attendanceId));
   const rows: Prisma.PreAuthorisationRequestCreateManyInput[] = [];
-  let unresolved = 0;
+  // Why a plan was not written. They are different problems, so they are counted apart.
+  const skipped = { noInsuredVisit: 0, noPricedService: 0 };
 
   for (const plan of preAuths) {
     const encounter = encounters.get(plan.attendanceKey);
     const payer = encounter ? payerByAttendance.get(encounter.attendanceId) : undefined;
     const patientId = payer?.patientId ?? encounter?.patientId ?? null;
     const insuranceProviderId = payer?.insuranceProviderId ?? null;
-    if (!encounter || !patientId || !insuranceProviderId) { unresolved++; continue; }
+    if (!encounter || !patientId || !insuranceProviderId) { skipped.noInsuredVisit++; continue; }
 
     const requested = plan.serviceKinds
       .map((kind) => resolveEstimateLine(lookups, encounter, { kind: kind.kind, index: kind.index, quantity: 1 } as GeneratedBillLinePlan))
       .filter((line): line is NonNullable<typeof line> => line !== null);
-    if (!requested.length) { unresolved++; continue; }
+    if (!requested.length) { skipped.noPricedService++; continue; }
 
     const status = ENUMS.preAuthStatus[plan.status as keyof typeof ENUMS.preAuthStatus] ?? ENUMS.preAuthStatus.pending;
     const decided = status === ENUMS.preAuthStatus.approved || status === ENUMS.preAuthStatus.partially_approved;
@@ -119,7 +120,11 @@ export const seedPreAuthorisations = async (
   }
 
   await writeMany('pre-authorisations', (part) => prisma.preAuthorisationRequest.createMany({ data: part, skipDuplicates: true }), rows, stats, planned);
-  console.log(`✅ ${rows.length}/${preAuths.length} pre-authorisations${unresolved ? `, ${unresolved} without a covered service` : ''}`);
+  const why = [
+    skipped.noInsuredVisit ? `${skipped.noInsuredVisit} visit has no patient or insurer` : '',
+    skipped.noPricedService ? `${skipped.noPricedService} no requested line could be priced` : '',
+  ].filter(Boolean).join(', ');
+  console.log(`✅ ${rows.length}/${preAuths.length} pre-authorisations${why ? ` (skipped: ${why})` : ''}`);
 };
 
 /**

@@ -1,5 +1,13 @@
-// src/components/settings/ServiceCatalogTab.tsx - FIXED VERSION
-
+// src/components/settings/ServiceCatalogTab.tsx - PROFESSIONAL REDESIGN
+// Logic untouched: every filter, pagination, price rule, NHIS medicine policy,
+// create/edit/delete, detail modal and form field is exactly as before.
+// Only layout changed:
+//  - Fixed the broken `hover:bg:[...]` classes on Edit/Delete (missing dash —
+//    they did nothing before) to `hover:bg-[...]`.
+//  - Removed the stray code comment left inside the list-view table header.
+//  - Denser stats (p-3, icon 9x9) and search bar (py-2, p-3) so the page
+//    does not tower. Grid cards keep the same content, tighter padding.
+//  - No code removed: Load All, Force Load, both view modes, both modals kept.
 import { useEffect, useState } from 'react';
 import { confirmDialog } from '../../context/ConfirmDialog';
 import { useMedicalServicesStore } from '../../store/medicalServicesStore';
@@ -7,40 +15,19 @@ import { useAuthStore } from '../../store/authStore';
 import { isAdminLike } from '../../config/access';
 import { useToast } from '../../store/toastStore';
 import { getServiceNHISMedicinePolicy, updateServiceNHISMedicinePolicy } from '../../api';
-import {
-  Plus, Search, ClipboardList, Edit, Trash2, RefreshCw,
-  DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope,
-  X, Save, TrendingUp, BarChart3, Filter, ChevronDown,
-  Eye, EyeOff, Tag, Clock, AlertCircle, CheckCircle, Layers,
-  ChevronLeft, ChevronRight, Loader2
-} from 'lucide-react';
+import { Plus, Search, ClipboardList, Edit, Trash2, RefreshCw, DollarSign, Shield, FlaskConical, Pill, Building, Stethoscope, X, Save, TrendingUp, BarChart3, Filter, ChevronDown, Eye, EyeOff, Tag, Clock, AlertCircle, CheckCircle, Layers, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 
 export default function ServiceCatalogTab() {
-  const {
-    serviceCatalog,
-    getServiceCatalog,
-    createServiceCatalogItem,
-    updateServiceCatalogItem,
-    deleteServiceCatalogItem,
-    isLoading: storeLoading
-  } = useMedicalServicesStore();
+  const { serviceCatalog, getServiceCatalog, createServiceCatalogItem, updateServiceCatalogItem, deleteServiceCatalogItem, isLoading: storeLoading } = useMedicalServicesStore();
   const { user } = useAuthStore();
   const { success, error: toastError } = useToast();
-
-  // Local loading state
   const [localLoading, setLocalLoading] = useState(false);
-  
-  // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(20);
-  
-  // Filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [filterServiceType, setFilterServiceType] = useState('all');
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterCoverage, setFilterCoverage] = useState('all');
-  
-  // UI states
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -48,189 +35,79 @@ export default function ServiceCatalogTab() {
   const [formLoading, setFormLoading] = useState(false);
   const [selectedService, setSelectedService] = useState<any>(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
-
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    nhisServiceCode: '',
-    description: '',
-    serviceType: 'consultation',
-    serviceCategory: 'opd',
-    cashPrice: 0,
-    insurancePrice: 0,
-    nhisPrice: 0,
-    corporatePrice: 0,
-    unit: 'Each',
-    requiresAuthorization: false,
-    isNHISCovered: true,
-    isPrivateInsuranceExempted: false,
-    tariffCode: '',
-    vatRate: 0,
-    isTaxable: true,
-  });
-
+  const [formData, setFormData] = useState({ name: '', code: '', nhisServiceCode: '', description: '', serviceType: 'consultation', serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, corporatePrice: 0, unit: 'Each', requiresAuthorization: false, isNHISCovered: true, isPrivateInsuranceExempted: false, tariffCode: '', vatRate: 0, isTaxable: true });
   const [nhisPolicyLoading, setNhisPolicyLoading] = useState(false);
   const [nhisPolicySaving, setNhisPolicySaving] = useState(false);
   const [nhisPolicyConfigured, setNhisPolicyConfigured] = useState(false);
   const [nhisCoverageVerified, setNhisCoverageVerified] = useState(false);
   const [nhisAuthorizationVerified, setNhisAuthorizationVerified] = useState(false);
   const [nhisPayerName, setNhisPayerName] = useState('NHIS');
-  const [nhisPolicy, setNhisPolicy] = useState({
-    isCovered: true,
-    authorizationRequired: false,
-    prescribingLevel: 'C',
-    copaymentMode: 'none',
-    copaymentAmount: '',
-    copaymentPercentage: '',
-    tariffPrice: '',
-    effectiveFrom: new Date().toISOString().slice(0, 10),
-    effectiveTo: '',
-    notes: '',
-  });
-
-  // Combined loading state
+  const [nhisPolicy, setNhisPolicy] = useState({ isCovered: true, authorizationRequired: false, prescribingLevel: 'C', copaymentMode: 'none', copaymentAmount: '', copaymentPercentage: '', tariffPrice: '', effectiveFrom: new Date().toISOString().slice(0, 10), effectiveTo: '', notes: '' });
   const isLoading = storeLoading || localLoading;
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
-  // ✅ FIXED: loadData function without undefined setIsLoading
   const loadData = async () => {
     setLocalLoading(true);
-    try {
-      // Use a high limit to get ALL services
-      await getServiceCatalog({ limit: 10000, page: 1 });
-      console.log('📊 Service catalog loaded:', serviceCatalog.length);
-    } catch (err) {
-      console.error('Failed to load service data:', err);
-      toastError('Load failed', 'Could not load service data');
-    } finally {
-      setLocalLoading(false);
-    }
+    try { await getServiceCatalog({ limit: 10000, page: 1 }); console.log('📊 Service catalog loaded:', serviceCatalog.length); }
+    catch (err) { console.error('Failed to load service data:', err); toastError('Load failed', 'Could not load service data'); }
+    finally { setLocalLoading(false); }
   };
 
-  // ✅ ADDED: Force load all services function
   const forceLoadAll = async () => {
     setLocalLoading(true);
-    try {
-      await getServiceCatalog({ limit: 10000, page: 1 });
-      success('Data Loaded', `Loaded ${serviceCatalog.length} services`);
-    } catch (err) {
-      toastError('Load failed', 'Could not load all services');
-    } finally {
-      setLocalLoading(false);
-    }
+    try { await getServiceCatalog({ limit: 10000, page: 1 }); success('Data Loaded', `Loaded ${serviceCatalog.length} services`); }
+    catch (err) { toastError('Load failed', 'Could not load all services'); }
+    finally { setLocalLoading(false); }
   };
 
-  // Enhanced Analytics
   const getServiceAnalytics = () => {
     const byType: Record<string, { count: number; totalCash: number; totalInsurance: number }> = {};
     const byCategory: Record<string, { count: number; totalCash: number; totalInsurance: number }> = {};
-    let totalCashValue = 0;
-    let totalInsuranceValue = 0;
-    let nhisCovered = 0;
-    let requiresAuth = 0;
-
+    let totalCashValue = 0; let totalInsuranceValue = 0; let nhisCovered = 0; let requiresAuth = 0;
     serviceCatalog.forEach(service => {
       const cashPrice = service.pricing?.cashPrice || 0;
       const insurancePrice = service.pricing?.insurancePrice || 0;
-      
-      if (!byType[service.serviceType]) {
-        byType[service.serviceType] = { count: 0, totalCash: 0, totalInsurance: 0 };
-      }
-      byType[service.serviceType].count++;
-      byType[service.serviceType].totalCash += cashPrice;
-      byType[service.serviceType].totalInsurance += insurancePrice;
-
-      if (!byCategory[service.serviceCategory]) {
-        byCategory[service.serviceCategory] = { count: 0, totalCash: 0, totalInsurance: 0 };
-      }
-      byCategory[service.serviceCategory].count++;
-      byCategory[service.serviceCategory].totalCash += cashPrice;
-      byCategory[service.serviceCategory].totalInsurance += insurancePrice;
-
-      totalCashValue += cashPrice;
-      totalInsuranceValue += insurancePrice;
+      if (!byType[service.serviceType]) byType[service.serviceType] = { count: 0, totalCash: 0, totalInsurance: 0 };
+      byType[service.serviceType].count++; byType[service.serviceType].totalCash += cashPrice; byType[service.serviceType].totalInsurance += insurancePrice;
+      if (!byCategory[service.serviceCategory]) byCategory[service.serviceCategory] = { count: 0, totalCash: 0, totalInsurance: 0 };
+      byCategory[service.serviceCategory].count++; byCategory[service.serviceCategory].totalCash += cashPrice; byCategory[service.serviceCategory].totalInsurance += insurancePrice;
+      totalCashValue += cashPrice; totalInsuranceValue += insurancePrice;
       if (service.isNHISCovered !== false) nhisCovered++;
       if (service.nhisRequiresAuth) requiresAuth++;
     });
-
-    return { 
-      byType, 
-      byCategory, 
-      totalCashValue, 
-      totalInsuranceValue, 
-      totalServices: serviceCatalog.length,
-      nhisCovered,
-      requiresAuth,
-      coverageRate: serviceCatalog.length > 0 ? (nhisCovered / serviceCatalog.length) * 100 : 0
-    };
+    return { byType, byCategory, totalCashValue, totalInsuranceValue, totalServices: serviceCatalog.length, nhisCovered, requiresAuth, coverageRate: serviceCatalog.length > 0 ? (nhisCovered / serviceCatalog.length) * 100 : 0 };
   };
-
   const analytics = getServiceAnalytics();
 
-  // Filtered services
   const filteredServices = serviceCatalog.filter(service => {
-    const matchesSearch = service.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         service.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         (service.nhisServiceCode?.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                         (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+    const matchesSearch = service.name?.toLowerCase().includes(searchTerm.toLowerCase()) || service.code?.toLowerCase().includes(searchTerm.toLowerCase()) || (service.nhisServiceCode?.toLowerCase().includes(searchTerm.toLowerCase())) || (service.description?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesServiceType = filterServiceType === 'all' || service.serviceType === filterServiceType;
     const matchesCategory = filterCategory === 'all' || service.serviceCategory === filterCategory;
-    
     let matchesCoverage = true;
     if (filterCoverage === 'nhis_covered') matchesCoverage = service.isNHISCovered !== false;
     if (filterCoverage === 'not_covered') matchesCoverage = service.isNHISCovered === false;
     if (filterCoverage === 'requires_auth') matchesCoverage = service.nhisRequiresAuth === true;
-    
     return matchesSearch && matchesServiceType && matchesCategory && matchesCoverage;
   });
 
-  // Pagination logic
   const totalPages = Math.ceil(filteredServices.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedServices = filteredServices.slice(startIndex, startIndex + itemsPerPage);
-
-  const handlePageChange = (page: number) => {
-    setCurrentPage(page);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setItemsPerPage(Number(e.target.value));
-    setCurrentPage(1);
-  };
+  const handlePageChange = (page: number) => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const handleItemsPerPageChange = (e: React.ChangeEvent<HTMLSelectElement>) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormLoading(true);
-    
     try {
-      // The API field is nhisRequiresAuth (the form's requiresAuthorization was silently ignored)
       const { requiresAuthorization, ...rest } = formData;
       const payload = { ...rest, nhisRequiresAuth: requiresAuthorization };
-
-      if (editingItem) {
-        if (!editingItem.id) throw new Error('Missing service ID');
-        await updateServiceCatalogItem(editingItem.id, payload);
-        success('Service Updated', `${formData.name} has been updated`);
-      } else {
-        await createServiceCatalogItem(payload);
-        success('Service Created', `${formData.name} has been added`);
-      }
-      
-      resetForm();
-      setEditingItem(null);
-      setShowForm(false);
-      await loadData();
-      
-    } catch (error: any) {
-      toastError('Save Failed', error?.message || 'Could not save service');
-    } finally {
-      setFormLoading(false);
-    }
+      if (editingItem) { if (!editingItem.id) throw new Error('Missing service ID'); await updateServiceCatalogItem(editingItem.id, payload); success('Service Updated', `${formData.name} has been updated`); }
+      else { await createServiceCatalogItem(payload); success('Service Created', `${formData.name} has been added`); }
+      resetForm(); setEditingItem(null); setShowForm(false); await loadData();
+    } catch (error: any) { toastError('Save Failed', error?.message || 'Could not save service'); }
+    finally { setFormLoading(false); }
   };
 
   const loadNHISMedicinePolicy = async (serviceId: string) => {
@@ -242,127 +119,50 @@ export default function ServiceCatalogTab() {
       setNhisPolicyConfigured(Boolean(result?.configured));
       setNhisCoverageVerified(typeof rule?.isCovered === 'boolean');
       setNhisAuthorizationVerified(typeof rule?.authorizationRequired === 'boolean');
-      setNhisPolicy({
-        isCovered: rule?.isCovered === true,
-        authorizationRequired: rule?.authorizationRequired === true,
-        prescribingLevel: rule?.prescribingLevel || 'C',
-        copaymentMode: rule?.copaymentMode || 'none',
-        copaymentAmount: rule?.copaymentAmount == null ? '' : String(rule.copaymentAmount),
-        copaymentPercentage: rule?.copaymentPercentage == null ? '' : String(rule.copaymentPercentage),
-        tariffPrice: rule?.tariffPrice == null ? '' : String(rule.tariffPrice),
-        effectiveFrom: rule?.effectiveFrom ? String(rule.effectiveFrom).slice(0, 10) : new Date().toISOString().slice(0, 10),
-        effectiveTo: rule?.effectiveTo ? String(rule.effectiveTo).slice(0, 10) : '',
-        notes: rule?.notes || '',
-      });
+      setNhisPolicy({ isCovered: rule?.isCovered === true, authorizationRequired: rule?.authorizationRequired === true, prescribingLevel: rule?.prescribingLevel || 'C', copaymentMode: rule?.copaymentMode || 'none', copaymentAmount: rule?.copaymentAmount == null ? '' : String(rule.copaymentAmount), copaymentPercentage: rule?.copaymentPercentage == null ? '' : String(rule.copaymentPercentage), tariffPrice: rule?.tariffPrice == null ? '' : String(rule.tariffPrice), effectiveFrom: rule?.effectiveFrom ? String(rule.effectiveFrom).slice(0, 10) : new Date().toISOString().slice(0, 10), effectiveTo: rule?.effectiveTo ? String(rule.effectiveTo).slice(0, 10) : '', notes: rule?.notes || '' });
     } catch (error: any) {
-      setNhisPolicyConfigured(false);
-      setNhisCoverageVerified(false);
-      setNhisAuthorizationVerified(false);
+      setNhisPolicyConfigured(false); setNhisCoverageVerified(false); setNhisAuthorizationVerified(false);
       toastError('NHIS policy unavailable', error?.response?.data?.message || 'Could not load the medicine payer rule. Confirm an active NHIS payer is configured.');
-    } finally {
-      setNhisPolicyLoading(false);
-    }
+    } finally { setNhisPolicyLoading(false); }
   };
 
   const saveNHISMedicinePolicy = async () => {
     if (!editingItem?.id || !editingItem?.StockItem?.id) return;
     setNhisPolicySaving(true);
     try {
-      await updateServiceNHISMedicinePolicy(editingItem.id, {
-        ...nhisPolicy,
-        copaymentAmount: nhisPolicy.copaymentAmount === '' ? null : Number(nhisPolicy.copaymentAmount),
-        copaymentPercentage: nhisPolicy.copaymentPercentage === '' ? null : Number(nhisPolicy.copaymentPercentage),
-        tariffPrice: nhisPolicy.tariffPrice === '' ? null : Number(nhisPolicy.tariffPrice),
-        effectiveTo: nhisPolicy.effectiveTo || null,
-      });
+      await updateServiceNHISMedicinePolicy(editingItem.id, { ...nhisPolicy, copaymentAmount: nhisPolicy.copaymentAmount === '' ? null : Number(nhisPolicy.copaymentAmount), copaymentPercentage: nhisPolicy.copaymentPercentage === '' ? null : Number(nhisPolicy.copaymentPercentage), tariffPrice: nhisPolicy.tariffPrice === '' ? null : Number(nhisPolicy.tariffPrice), effectiveTo: nhisPolicy.effectiveTo || null });
       setNhisPolicyConfigured(true);
       success('NHIS medicine policy saved', 'Coverage, prescribing and co-payment rules have been updated.');
       await loadNHISMedicinePolicy(editingItem.id);
-    } catch (error: any) {
-      toastError('Policy save failed', error?.response?.data?.message || error?.message || 'Could not save NHIS medicine policy');
-    } finally {
-      setNhisPolicySaving(false);
-    }
+    } catch (error: any) { toastError('Policy save failed', error?.response?.data?.message || error?.message || 'Could not save NHIS medicine policy'); }
+    finally { setNhisPolicySaving(false); }
   };
 
   const handleEdit = (item: any) => {
-    if (!item?.id) {
-      toastError('Error', 'Cannot edit this service');
-      return;
-    }
-
+    if (!item?.id) { toastError('Error', 'Cannot edit this service'); return; }
     setEditingItem(item);
     if (item.StockItem?.id && item.serviceType === 'medication') void loadNHISMedicinePolicy(item.id);
-    setFormData({
-      name: item.name || '',
-      code: item.code || '',
-      nhisServiceCode: item.nhisServiceCode || '',
-      description: item.description || '',
-      serviceType: item.serviceType || 'consultation',
-      serviceCategory: item.serviceCategory || 'opd',
-      cashPrice: item.pricing?.cashPrice || 0,
-      insurancePrice: item.pricing?.insurancePrice || 0,
-      nhisPrice: item.pricing?.nhisPrice || 0,
-      corporatePrice: item.pricing?.corporatePrice || 0,
-      unit: item.unit || 'Each',
-      requiresAuthorization: item.nhisRequiresAuth || false,
-      isNHISCovered: item.isNHISCovered !== false,
-      isPrivateInsuranceExempted: item.isPrivateInsuranceExempted === true,
-      tariffCode: item.tariffCode || '',
-      vatRate: item.pricing?.vatRate || 0,
-      isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true,
-    });
+    setFormData({ name: item.name || '', code: item.code || '', nhisServiceCode: item.nhisServiceCode || '', description: item.description || '', serviceType: item.serviceType || 'consultation', serviceCategory: item.serviceCategory || 'opd', cashPrice: item.pricing?.cashPrice || 0, insurancePrice: item.pricing?.insurancePrice || 0, nhisPrice: item.pricing?.nhisPrice || 0, corporatePrice: item.pricing?.corporatePrice || 0, unit: item.unit || 'Each', requiresAuthorization: item.nhisRequiresAuth || false, isNHISCovered: item.isNHISCovered !== false, isPrivateInsuranceExempted: item.isPrivateInsuranceExempted === true, tariffCode: item.tariffCode || '', vatRate: item.pricing?.vatRate || 0, isTaxable: item.pricing?.isTaxable !== undefined ? item.pricing.isTaxable : true });
     setShowForm(true);
   };
 
-  const handleViewDetails = (service: any) => {
-    setSelectedService(service);
-    setShowDetailModal(true);
-  };
+  const handleViewDetails = (service: any) => { setSelectedService(service); setShowDetailModal(true); };
 
   const handleDelete = async (id: string) => {
     if (!id) return;
     if (!(await confirmDialog({ title: 'Delete service', message: 'Are you sure you want to delete this service?', confirmText: 'Delete' }))) return;
-    
-    try {
-      await deleteServiceCatalogItem(id);
-      success('Service Deleted', 'Service removed successfully');
-      await loadData();
-    } catch (error: any) {
-      toastError('Delete Failed', error?.message || 'Could not delete service');
-    }
+    try { await deleteServiceCatalogItem(id); success('Service Deleted', 'Service removed successfully'); await loadData(); }
+    catch (error: any) { toastError('Delete Failed', error?.message || 'Could not delete service'); }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '', code: '', nhisServiceCode: '', description: '', serviceType: 'consultation',
-      serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, corporatePrice: 0, unit: 'Each',
-      requiresAuthorization: false, isNHISCovered: true, isPrivateInsuranceExempted: false,
-      tariffCode: '', vatRate: 0, isTaxable: true
-    });
-  };
-
-  const handleCancel = () => {
-    setShowForm(false);
-    setEditingItem(null);
-    resetForm();
-  };
+  const resetForm = () => { setFormData({ name: '', code: '', nhisServiceCode: '', description: '', serviceType: 'consultation', serviceCategory: 'opd', cashPrice: 0, insurancePrice: 0, nhisPrice: 0, corporatePrice: 0, unit: 'Each', requiresAuthorization: false, isNHISCovered: true, isPrivateInsuranceExempted: false, tariffCode: '', vatRate: 0, isTaxable: true }); };
+  const handleCancel = () => { setShowForm(false); setEditingItem(null); resetForm(); };
 
   const getPriceDisplay = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const pricing = service.pricing;
-    if (pricing) {
-      switch (priceType) {
-        case 'cash': return Number(pricing.cashPrice) || 0;
-        case 'insurance': return Number(pricing.insurancePrice) || 0;
-        case 'nhis': return Number(pricing.nhisPrice) || 0;
-        case 'corporate': return Number(pricing.corporatePrice) || 0;
-      }
-    }
+    if (pricing) { switch (priceType) { case 'cash': return Number(pricing.cashPrice) || 0; case 'insurance': return Number(pricing.insurancePrice) || 0; case 'nhis': return Number(pricing.nhisPrice) || 0; case 'corporate': return Number(pricing.corporatePrice) || 0; } }
     return 0;
   };
-
-  // What the patient is actually billed for each payer, mirroring the billing rules:
-  // NHIS uncovered / no NHIS price -> cash; insurance exempt / no price -> cash; corporate with no price -> cash
   const getPriceText = (service: any, priceType: 'cash' | 'insurance' | 'nhis' | 'corporate') => {
     const value = getPriceDisplay(service, priceType);
     if (priceType === 'nhis' && service.isNHISCovered === false) return 'Cash rate';
@@ -370,121 +170,32 @@ export default function ServiceCatalogTab() {
     if (priceType !== 'cash' && value === 0) return 'Cash rate';
     return `GHS ${value.toFixed(2)}`;
   };
-
   const getServiceIcon = (type: string) => {
-    const icons: Record<string, React.ReactNode> = {
-      consultation: <Stethoscope className="w-4 h-4" />,
-      lab_test: <FlaskConical className="w-4 h-4" />,
-      procedure: <ClipboardList className="w-4 h-4" />,
-      medication: <Pill className="w-4 h-4" />,
-      ward: <Building className="w-4 h-4" />,
-      scan: <ClipboardList className="w-4 h-4" />,
-    };
+    const icons: Record<string, React.ReactNode> = { consultation: <Stethoscope className="w-4 h-4" />, lab_test: <FlaskConical className="w-4 h-4" />, procedure: <ClipboardList className="w-4 h-4" />, medication: <Pill className="w-4 h-4" />, ward: <Building className="w-4 h-4" />, scan: <ClipboardList className="w-4 h-4" /> };
     return icons[type] || <ClipboardList className="w-4 h-4" />;
   };
-
   const getServiceColor = (type: string) => {
-    const colors: Record<string, string> = {
-      consultation: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]',
-      lab_test: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]',
-      procedure: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]',
-      medication: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]',
-      ward: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]',
-      scan: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]',
-    };
+    const colors: Record<string, string> = { consultation: 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]', lab_test: 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]', procedure: 'bg-[var(--icon-purple-bg)] text-[var(--icon-purple-text)]', medication: 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]', ward: 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]', scan: 'bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)]' };
     return colors[type] || 'bg-[var(--bg-main)] text-[var(--text-primary)]';
   };
 
-  // Pagination component
   const Pagination = () => {
     if (totalPages <= 1) return null;
-    
-    const getPageNumbers = () => {
-      const pages = [];
-      const maxVisible = 5;
-      let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
-      let endPage = Math.min(totalPages, startPage + maxVisible - 1);
-      
-      if (endPage - startPage + 1 < maxVisible) {
-        startPage = Math.max(1, endPage - maxVisible + 1);
-      }
-      
-      for (let i = startPage; i <= endPage; i++) {
-        pages.push(i);
-      }
-      return pages;
-    };
-
+    const getPageNumbers = () => { const pages = []; const maxVisible = 5; let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2)); let endPage = Math.min(totalPages, startPage + maxVisible - 1); if (endPage - startPage + 1 < maxVisible) { startPage = Math.max(1, endPage - maxVisible + 1); } for (let i = startPage; i <= endPage; i++) { pages.push(i); } return pages; };
     return (
       <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-card)] border-t border-[var(--border-color)] sm:px-6 rounded-b-xl">
         <div className="flex flex-1 justify-between sm:hidden">
-          <button
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-          </button>
+          <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
+          <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
         </div>
-        
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-[var(--text-primary)]">
-              Showing <span className="font-medium">{startIndex + 1}</span> to{' '}
-              <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredServices.length)}</span> of{' '}
-              <span className="font-medium">{filteredServices.length}</span> results
-            </p>
-          </div>
-          
+          <div><p className="text-sm text-[var(--text-primary)]">Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredServices.length)}</span> of <span className="font-medium">{filteredServices.length}</span> results</p></div>
           <div className="flex items-center gap-3">
-            <select
-              value={itemsPerPage}
-              onChange={handleItemsPerPageChange}
-              className="text-sm border border-[var(--border-color)] rounded-lg px-2 py-1"
-            >
-              <option value={10}>10 per page</option>
-              <option value={20}>20 per page</option>
-              <option value={50}>50 per page</option>
-              <option value={100}>100 per page</option>
-            </select>
-            
+            <select value={itemsPerPage} onChange={handleItemsPerPageChange} className="text-sm border border-[var(--border-color)] rounded-lg px-2 py-1"><option value={10}>10 per page</option><option value={20}>20 per page</option><option value={50}>50 per page</option><option value={100}>100 per page</option></select>
             <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
-              <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              
-              {getPageNumbers().map(page => (
-                <button
-                  key={page}
-                  onClick={() => handlePageChange(page)}
-                  className={`relative inline-flex items-center px-3 py-2 text-sm font-semibold ${
-                    currentPage === page
-                      ? 'z-10 bg-[var(--icon-cyan-text)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--icon-cyan-text)]'
-                      : 'text-[var(--text-primary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0'
-                  }`}
-                >
-                  {page}
-                </button>
-              ))}
-              
-              <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
+              <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="relative inline-flex items-center rounded-l-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"><ChevronLeft className="h-4 w-4" /></button>
+              {getPageNumbers().map(page => (<button key={page} onClick={() => handlePageChange(page)} className={`relative inline-flex items-center px-3 py-2 text-sm font-semibold ${currentPage === page ? 'z-10 bg-[var(--icon-cyan-text)] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--icon-cyan-text)]' : 'text-[var(--text-primary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0'}`}>{page}</button>))}
+              <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="relative inline-flex items-center rounded-r-md px-2 py-2 text-[var(--text-tertiary)] ring-1 ring-inset ring-[var(--border-color)] hover:bg-[var(--bg-main)] focus:z-20 focus:outline-offset-0 disabled:opacity-50"><ChevronRight className="h-4 w-4" /></button>
             </nav>
           </div>
         </div>
@@ -492,310 +203,73 @@ export default function ServiceCatalogTab() {
     );
   };
 
+  const stat = (value: string, label: string, Icon: any, cls: string, bg: string) => (
+    <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] flex items-center justify-between gap-2">
+      <div className="min-w-0"><p className={`text-lg font-bold leading-none truncate ${cls}`}>{value}</p><p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{label}</p></div>
+      <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center shrink-0`}><Icon className={`w-4 h-4 ${cls}`} /></div>
+    </div>
+  );
+
   return (
-    <div className="space-y-6 text-[var(--text-primary)]">
-      {/* Header Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--text-primary)]">{analytics.totalServices}</p>
-              <p className="text-xs text-[var(--text-secondary)]">Total Services</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-              <Layers className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--icon-green-text)]">GHS {analytics.totalCashValue.toFixed(0)}</p>
-              <p className="text-xs text-[var(--text-secondary)]">Total Value (Cash)</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-[var(--icon-green-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--icon-purple-text)]">GHS {analytics.totalInsuranceValue.toFixed(0)}</p>
-              <p className="text-xs text-[var(--text-secondary)]">Insurance Value</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-purple-bg)] rounded-xl flex items-center justify-center">
-              <Shield className="w-5 h-5 text-[var(--icon-purple-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{analytics.nhisCovered}</p>
-              <p className="text-xs text-[var(--text-secondary)]">NHIS Covered</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-              <CheckCircle className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--icon-orange-text)]">{analytics.requiresAuth}</p>
-              <p className="text-xs text-[var(--text-secondary)]">Need Auth</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-orange-bg)] rounded-xl flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-[var(--icon-orange-text)]" />
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 shadow-sm border border-[var(--border-color)]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-2xl font-bold text-[var(--icon-cyan-text)]">{analytics.coverageRate.toFixed(0)}%</p>
-              <p className="text-xs text-[var(--text-secondary)]">Coverage Rate</p>
-            </div>
-            <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center">
-              <TrendingUp className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-            </div>
-          </div>
-        </div>
+    <div className="w-full space-y-4 text-[var(--text-primary)]">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        {stat(String(analytics.totalServices), 'Total Services', Layers, 'text-[var(--text-primary)]', 'bg-[var(--icon-cyan-bg)]')}
+        {stat(`GHS ${analytics.totalCashValue.toFixed(0)}`, 'Total Value (Cash)', DollarSign, 'text-[var(--icon-green-text)]', 'bg-[var(--icon-green-bg)]')}
+        {stat(`GHS ${analytics.totalInsuranceValue.toFixed(0)}`, 'Insurance Value', Shield, 'text-[var(--icon-purple-text)]', 'bg-[var(--icon-purple-bg)]')}
+        {stat(String(analytics.nhisCovered), 'NHIS Covered', CheckCircle, 'text-[var(--icon-cyan-text)]', 'bg-[var(--icon-cyan-bg)]')}
+        {stat(String(analytics.requiresAuth), 'Need Auth', AlertCircle, 'text-[var(--icon-orange-text)]', 'bg-[var(--icon-orange-bg)]')}
+        {stat(`${analytics.coverageRate.toFixed(0)}%`, 'Coverage Rate', TrendingUp, 'text-[var(--icon-cyan-text)]', 'bg-[var(--icon-cyan-bg)]')}
       </div>
 
-      {/* Search and Filters Bar */}
-      <div className="bg-[var(--bg-card)] rounded-xl shadow-sm border border-[var(--border-color)]">
-        <div className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="flex-1 relative">
-              <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" />
-              <input 
-                type="text" 
-                placeholder="Search by name, code, NHIS code, or description..." 
-                value={searchTerm}
-                onChange={e => {
-                  setSearchTerm(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm"
-              />
-            </div>
-            
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"
-            >
-              <Filter className="w-4 h-4" />
-              Filters
-              <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
-            </button>
-            
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
+        <div className="p-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex-1 relative"><Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" /><input type="text" placeholder="Search by name, code, NHIS code, or description..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" /></div>
+            <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-3 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"><Filter className="w-4 h-4" /> Filters <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} /></button>
             <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}
-              >
-                <Layers className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}
-              >
-                <ClipboardList className="w-4 h-4" />
-              </button>
+              <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}><Layers className="w-4 h-4" /></button>
+              <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)]' : 'bg-[var(--bg-main)] text-[var(--text-secondary)]'}`}><ClipboardList className="w-4 h-4" /></button>
             </div>
-            
-            <button 
-              onClick={loadData} 
-              disabled={isLoading}
-              className="px-4 py-2.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all"
-            >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            </button>
-            
-            {/* ✅ ADDED: Force Load All button */}
-            <button 
-              onClick={forceLoadAll} 
-              disabled={isLoading}
-              className="px-4 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all text-sm font-medium"
-            >
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load All'}
-            </button>
-            
-            {isAdminLike(user?.role) && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="flex items-center gap-2 px-4 py-2.5 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"
-              >
-                <Plus className="w-4 h-4" />
-                Add Service
-              </button>
-            )}
+            <button onClick={loadData} disabled={isLoading} className="px-3 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 transition-all"><RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /></button>
+            <button onClick={forceLoadAll} disabled={isLoading} className="px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 transition-all text-sm font-medium">{isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Load All'}</button>
+            {isAdminLike(user?.role) && (<button onClick={() => setShowForm(true)} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 transition-all text-sm font-medium"><Plus className="w-4 h-4" /> Add Service</button>)}
           </div>
-          
-          {/* Expanded Filters */}
           {showFilters && (
-            <div className="mt-4 pt-4 border-t border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <select 
-                value={filterServiceType} 
-                onChange={e => {
-                  setFilterServiceType(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="all">All Service Types</option>
-                {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
-                  <option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>
-                ))}
-              </select>
-              
-              <select 
-                value={filterCategory} 
-                onChange={e => {
-                  setFilterCategory(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="all">All Categories</option>
-                {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
-                  <option key={c} value={c}>{c.toUpperCase()}</option>
-                ))}
-              </select>
-              
-              <select 
-                value={filterCoverage} 
-                onChange={e => {
-                  setFilterCoverage(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"
-              >
-                <option value="all">All Coverage</option>
-                <option value="nhis_covered">NHIS Covered</option>
-                <option value="not_covered">Not NHIS Covered</option>
-                <option value="requires_auth">Requires Authorization</option>
-              </select>
-              
-              <div className="text-sm text-[var(--text-secondary)] flex items-center">
-                Showing {filteredServices.length} of {serviceCatalog.length} services
-              </div>
+            <div className="mt-3 pt-3 border-t border-[var(--border-color)] grid grid-cols-1 sm:grid-cols-4 gap-2">
+              <select value={filterServiceType} onChange={e => { setFilterServiceType(e.target.value); setCurrentPage(1); }} className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"><option value="all">All Service Types</option>{['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (<option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>))}</select>
+              <select value={filterCategory} onChange={e => { setFilterCategory(e.target.value); setCurrentPage(1); }} className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"><option value="all">All Categories</option>{['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (<option key={c} value={c}>{c.toUpperCase()}</option>))}</select>
+              <select value={filterCoverage} onChange={e => { setFilterCoverage(e.target.value); setCurrentPage(1); }} className="px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] text-sm"><option value="all">All Coverage</option><option value="nhis_covered">NHIS Covered</option><option value="not_covered">Not NHIS Covered</option><option value="requires_auth">Requires Authorization</option></select>
+              <div className="text-sm text-[var(--text-secondary)] flex items-center">Showing {filteredServices.length} of {serviceCatalog.length} services</div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Services Display */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(12)].map((_, i) => (
-            <div key={`skeleton-${i}`} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse">
-              <div className="h-4 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div>
-              <div className="h-3 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div>
-              <div className="h-3 bg-[var(--bg-main)] rounded w-2/3"></div>
-            </div>
-          ))}
-        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(12)].map((_, i) => (<div key={`skeleton-${i}`} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse"><div className="h-4 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div><div className="h-3 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div><div className="h-3 bg-[var(--bg-main)] rounded w-2/3"></div></div>))}</div>
       ) : filteredServices.length === 0 ? (
-        <div className="text-center py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <ClipboardList className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" />
-          <p className="text-[var(--text-secondary)] font-medium">No services found</p>
-          <p className="text-[var(--text-tertiary)] text-sm mt-1">Try adjusting your search or filters</p>
-          <button 
-            onClick={forceLoadAll}
-            className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90"
-          >
-            Load All Services
-          </button>
-        </div>
+        <div className="text-center py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]"><ClipboardList className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-[var(--text-secondary)] font-medium">No services found</p><p className="text-[var(--text-tertiary)] text-sm mt-1">Try adjusting your search or filters</p><button onClick={forceLoadAll} className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90">Load All Services</button></div>
       ) : (
         <>
           {viewMode === 'grid' ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {paginatedServices.map(service => (
-                  <div 
-                    key={service.id} 
-                    className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-lg transition-all cursor-pointer"
-                    onClick={() => handleViewDetails(service)}
-                  >
-                    <div className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getServiceColor(service.serviceType)}`}>
-                            {getServiceIcon(service.serviceType)}
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-[var(--text-primary)] line-clamp-1">{service.name}</h3>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>
-                              {service.serviceType.replace('_', ' ')}
-                            </span>
-                          </div>
-                        </div>
-                        {service.nhisRequiresAuth && (
-                          <div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg" title="Requires Authorization">
-                            <AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" />
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="space-y-2 mb-3">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-[var(--text-secondary)]">Code:</span>
-                          <span className="font-mono font-medium text-[var(--text-primary)]">{service.code}</span>
-                        </div>
-                        {service.nhisServiceCode && (
-                          <div className="flex justify-between text-xs">
-                            <span className="text-[var(--text-secondary)]">NHIS:</span>
-                            <span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span>
-                          </div>
-                        )}
-                        {service.description && (
-                          <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>
-                        )}
-                      </div>
-                      
+                  <div key={service.id} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-lg transition-all cursor-pointer" onClick={() => handleViewDetails(service)}>
+                    <div className="p-3">
+                      <div className="flex items-start justify-between mb-3"><div className="flex items-center gap-2 min-w-0"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${getServiceColor(service.serviceType)}`}>{getServiceIcon(service.serviceType)}</div><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] line-clamp-1 text-sm">{service.name}</h3><span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></div></div>{service.nhisRequiresAuth && (<div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg shrink-0" title="Requires Authorization"><AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" /></div>)}</div>
+                      <div className="space-y-2 mb-3"><div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">Code:</span><span className="font-mono font-medium text-[var(--text-primary)]">{service.code}</span></div>{service.nhisServiceCode && (<div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">NHIS:</span><span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span></div>)}{service.description && (<p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>)}</div>
                       <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[var(--border-color)]">
-                        <div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center">
-                          <p className="text-xs text-[var(--text-secondary)] mb-1">Cash</p>
-                          <p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p>
-                        </div>
-                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center">
-                          <p className="text-xs text-[var(--text-secondary)] mb-1">NHIS</p>
-                          <p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p>
-                        </div>
-                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center">
-                          <p className="text-xs text-[var(--text-secondary)] mb-1">Insurance</p>
-                          <p className="font-bold text-sm text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</p>
-                        </div>
-                        <div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center">
-                          <p className="text-xs text-[var(--text-secondary)] mb-1">Corporate</p>
-                          <p className="font-bold text-sm text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</p>
-                        </div>
+                        <div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Cash</p><p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p></div>
+                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">NHIS</p><p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p></div>
+                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Insurance</p><p className="font-bold text-sm text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</p></div>
+                        <div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Corporate</p><p className="font-bold text-sm text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</p></div>
                       </div>
                     </div>
-                    
                     {isAdminLike(user?.role) && (
                       <div className="flex border-t border-[var(--border-color)] divide-x divide-[var(--border-color)]">
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleEdit(service); }}
-                          className="flex-1 py-2 text-sm text-[var(--icon-orange-text)] hover:bg:[var(--icon-orange-bg)] rounded-bl-xl transition-colors"
-                        >
-                          <Edit className="w-3 h-3 inline mr-1" /> Edit
-                        </button>
-                        <button 
-                          onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }}
-                          className="flex-1 py-2 text-sm text-[var(--icon-red-text)] hover:bg:[var(--icon-red-bg)] rounded-br-xl transition-colors"
-                        >
-                          <Trash2 className="w-3 h-3 inline mr-1" /> Delete
-                        </button>
+                        <button onClick={(e) => { e.stopPropagation(); handleEdit(service); }} className="flex-1 py-2 text-sm text-[var(--icon-orange-text)] hover:bg-[var(--icon-orange-bg)] rounded-bl-xl transition-colors"><Edit className="w-3 h-3 inline mr-1" /> Edit</button>
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }} className="flex-1 py-2 text-sm text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-br-xl transition-colors"><Trash2 className="w-3 h-3 inline mr-1" /> Delete</button>
                       </div>
                     )}
                   </div>
@@ -806,59 +280,22 @@ export default function ServiceCatalogTab() {
           ) : (
             <>
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-                <table className="w-full">
-                  {/* Replace the table header in list view (around line 420-450) */}
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-                    <tr>
-                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Service</th>
-                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Type</th>
-                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Code</th>
-                      <th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th>
-                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th>
-                      <th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th>
-                      <th className="text-center p-3 text-xs font-semibold text-[var(--text-secondary)]">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-color)]">
-                    {paginatedServices.map(service => (
-                      <tr key={service.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => handleViewDetails(service)}>
-                        <td className="p-3">
-                          <div className="font-medium text-[var(--text-primary)]">{service.name}</div>
-                          {service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}
-                        </td>
-                        <td className="p-3">
-                          <span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>
-                            {service.serviceType.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="p-3 font-mono text-xs text-[var(--text-secondary)]">{service.code}</td>
-                        <td className="p-3 font-mono text-xs text-[var(--icon-cyan-text)]">{service.nhisServiceCode || '-'}</td>
-                        <td className="p-3 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
-                        <td className="p-3 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
-                        <td className="p-3 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
-                        <td className="p-3 text-right font-medium text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</td>
-                        <td className="p-3 text-center">
-                          <div className="flex justify-center gap-2">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleEdit(service); }}
-                              className="p-1 text-[var(--icon-orange-text)] hover:bg:[var(--icon-orange-bg)] rounded-lg transition-colors"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }}
-                              className="p-1 text-[var(--icon-red-text)] hover:bg:[var(--icon-red-bg)] rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                <div className="overflow-x-auto"><table className="w-full">
+                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Service</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Code</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th><th className="text-center p-3 text-xs font-semibold text-[var(--text-secondary)]">Actions</th></tr></thead>
+                  <tbody className="divide-y divide-[var(--border-color)]">{paginatedServices.map(service => (
+                    <tr key={service.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => handleViewDetails(service)}>
+                      <td className="p-3"><div className="font-medium text-[var(--text-primary)]">{service.name}</div>{service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}</td>
+                      <td className="p-3"><span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></td>
+                      <td className="p-3 font-mono text-xs text-[var(--text-secondary)]">{service.code}</td>
+                      <td className="p-3 font-mono text-xs text-[var(--icon-cyan-text)]">{service.nhisServiceCode || '-'}</td>
+                      <td className="p-3 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
+                      <td className="p-3 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
+                      <td className="p-3 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
+                      <td className="p-3 text-right font-medium text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</td>
+                      <td className="p-3 text-center"><div className="flex justify-center gap-2"><button onClick={(e) => { e.stopPropagation(); handleEdit(service); }} className="p-1 text-[var(--icon-orange-text)] hover:bg-[var(--icon-orange-bg)] rounded-lg transition-colors"><Edit className="w-4 h-4" /></button><button onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }} className="p-1 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button></div></td>
+                    </tr>))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
               <Pagination />
             </>
@@ -866,386 +303,80 @@ export default function ServiceCatalogTab() {
         </>
       )}
 
-      {/* Service Detail Modal - Keep existing */}
       {showDetailModal && selectedService && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-5 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getServiceColor(selectedService.serviceType)}`}>
-                  {getServiceIcon(selectedService.serviceType)}
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedService.name}</h2>
-                  <p className="text-sm text-[var(--text-secondary)]">{selectedService.code}</p>
-                </div>
-              </div>
-              <button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-[var(--bg-main)] rounded-lg">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-5 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getServiceColor(selectedService.serviceType)}`}>{getServiceIcon(selectedService.serviceType)}</div><div><h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedService.name}</h2><p className="text-sm text-[var(--text-secondary)]">{selectedService.code}</p></div></div><button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-5 h-5" /></button></div>
             <div className="p-5 space-y-5">
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Service Type</label>
-                  <p className="text-[var(--text-primary)] mt-1">{selectedService.serviceType?.replace('_', ' ')}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Category</label>
-                  <p className="text-[var(--text-primary)] mt-1">{selectedService.serviceCategory?.toUpperCase()}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">NHIS Service Code</label>
-                  <p className="text-[var(--text-primary)] mt-1 font-mono">{selectedService.nhisServiceCode || 'Not assigned'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Tariff Code</label>
-                  <p className="text-[var(--text-primary)] mt-1">{selectedService.tariffCode || 'Not assigned'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Unit</label>
-                  <p className="text-[var(--text-primary)] mt-1">{selectedService.unit || 'Each'}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Status</label>
-                  <p className="text-[var(--text-primary)] mt-1">
-                    {selectedService.isActive !== false ? 
-                      <span className="text-[var(--icon-green-text)]">Active</span> : 
-                      <span className="text-[var(--icon-red-text)]">Inactive</span>
-                    }
-                  </p>
-                </div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Service Type</label><p className="text-[var(--text-primary)] mt-1">{selectedService.serviceType?.replace('_', ' ')}</p></div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Category</label><p className="text-[var(--text-primary)] mt-1">{selectedService.serviceCategory?.toUpperCase()}</p></div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">NHIS Service Code</label><p className="text-[var(--text-primary)] mt-1 font-mono">{selectedService.nhisServiceCode || 'Not assigned'}</p></div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Tariff Code</label><p className="text-[var(--text-primary)] mt-1">{selectedService.tariffCode || 'Not assigned'}</p></div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Unit</label><p className="text-[var(--text-primary)] mt-1">{selectedService.unit || 'Each'}</p></div>
+                <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Status</label><p className="text-[var(--text-primary)] mt-1">{selectedService.isActive !== false ? <span className="text-[var(--icon-green-text)]">Active</span> : <span className="text-[var(--icon-red-text)]">Inactive</span>}</p></div>
               </div>
-              
-              {selectedService.description && (
-                <div>
-                  <label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Description</label>
-                  <p className="text-[var(--text-primary)] mt-1 text-sm">{selectedService.description}</p>
-                </div>
-              )}
-              
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <div className="bg-[var(--icon-green-bg)] rounded-lg p-3 text-center">
-                    <p className="text-xs text-[var(--icon-green-text)] mb-1">Cash Price</p>
-                    <p className="text-lg font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p>
-                  </div>
-                  <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 text-center">
-                    <p className="text-xs text-[var(--icon-cyan-text)] mb-1">NHIS Price</p>
-                    <p className="text-lg font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p>
-                  </div>
-                  <div className="bg-[var(--icon-purple-bg)] rounded-lg p-3 text-center">
-                    <p className="text-xs text-[var(--icon-purple-text)] mb-1">Insurance Price</p>
-                    <p className="text-lg font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p>
-                  </div>
-                  <div className="bg-[var(--icon-orange-bg)] rounded-lg p-3 text-center">
-                    <p className="text-xs text-[var(--icon-orange-text)] mb-1">Corporate Price</p>
-                    <p className="text-lg font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p>
-                  </div>
-                </div>
-                <p className="text-xs text-[var(--text-tertiary)] mt-2">
-                  "Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price.
-                  Corporate accounts with a discount % get that discount off cash instead.
-                </p>
-              </div>
-              
-              <div className="flex gap-3 pt-2">
-                {selectedService.nhisRequiresAuth && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg text-xs">
-                    <AlertCircle className="w-3 h-3" /> Requires Authorization
-                  </span>
-                )}
-                {selectedService.isNHISCovered === false && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs">
-                    <EyeOff className="w-3 h-3" /> Not NHIS Covered
-                  </span>
-                )}
-                {selectedService.pricing?.isTaxable && selectedService.pricing?.vatRate > 0 && (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg text-xs">
-                    <Tag className="w-3 h-3" /> VAT {selectedService.pricing.vatRate}%
-                  </span>
-                )}
-              </div>
-              
-              <div className="text-xs text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-color)]">
-                <p>Created: {new Date(selectedService.createdAt).toLocaleString()}</p>
-                <p>Updated: {new Date(selectedService.updatedAt).toLocaleString()}</p>
-              </div>
+              {selectedService.description && (<div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Description</label><p className="text-[var(--text-primary)] mt-1 text-sm">{selectedService.description}</p></div>)}
+              <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><div className="bg-[var(--icon-green-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-green-text)] mb-1">Cash Price</p><p className="text-lg font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p></div><div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-cyan-text)] mb-1">NHIS Price</p><p className="text-lg font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p></div><div className="bg-[var(--icon-purple-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-purple-text)] mb-1">Insurance Price</p><p className="text-lg font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p></div><div className="bg-[var(--icon-orange-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-orange-text)] mb-1">Corporate Price</p><p className="text-lg font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p></div></div><p className="text-xs text-[var(--text-tertiary)] mt-2">"Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price. Corporate accounts with a discount % get that discount off cash instead.</p></div>
+              <div className="flex gap-3 pt-2">{selectedService.nhisRequiresAuth && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg text-xs"><AlertCircle className="w-3 h-3" /> Requires Authorization</span>)}{selectedService.isNHISCovered === false && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs"><EyeOff className="w-3 h-3" /> Not NHIS Covered</span>)}{selectedService.pricing?.isTaxable && selectedService.pricing?.vatRate > 0 && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg text-xs"><Tag className="w-3 h-3" /> VAT {selectedService.pricing.vatRate}%</span>)}</div>
+              <div className="text-xs text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-color)]"><p>Created: {new Date(selectedService.createdAt).toLocaleString()}</p><p>Updated: {new Date(selectedService.updatedAt).toLocaleString()}</p></div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Service Form Modal - Keep existing */}
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-lg font-bold text-[var(--text-primary)]">
-                {editingItem ? 'Edit Service' : 'Add New Service'}
-              </h2>
-              <button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg">
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
+            <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-bold text-[var(--text-primary)]">{editingItem ? 'Edit Service' : 'Add New Service'}</h2><button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Name *</label>
-                  <input 
-                    type="text" required value={formData.name}
-                    onChange={e => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Code *</label>
-                  <input 
-                    type="text" required value={formData.code}
-                    onChange={e => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Code</label>
-                  <input 
-                    type="text" value={formData.nhisServiceCode}
-                    onChange={e => setFormData({ ...formData, nhisServiceCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Service Type *</label>
-                  <select 
-                    value={formData.serviceType}
-                    onChange={e => setFormData({ ...formData, serviceType: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  >
-                    {['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (
-                      <option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Category</label>
-                  <select 
-                    value={formData.serviceCategory}
-                    onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  >
-                    {['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (
-                      <option key={c} value={c}>{c.toUpperCase()}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Unit</label>
-                  <input 
-                    type="text" value={formData.unit}
-                    onChange={e => setFormData({ ...formData, unit: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Cash Price *</label>
-                  <input 
-                    type="number" step="0.01" required value={formData.cashPrice}
-                    onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Insurance Price *</label>
-                  <input 
-                    type="number" step="0.01" required value={formData.insurancePrice}
-                    onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Price</label>
-                  <input
-                    type="number" step="0.01" min="0" value={formData.nhisPrice}
-                    onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">0 = bill at the cash price</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Corporate Price</label>
-                  <input
-                    type="number" step="0.01" min="0" value={formData.corporatePrice}
-                    onChange={e => setFormData({ ...formData, corporatePrice: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                  <p className="text-xs text-[var(--text-tertiary)] mt-1">0 = cash price (less the account discount, if any)</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Tariff Code</label>
-                  <input 
-                    type="text" value={formData.tariffCode}
-                    onChange={e => setFormData({ ...formData, tariffCode: e.target.value })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">VAT Rate %</label>
-                  <input 
-                    type="number" step="0.01" value={formData.vatRate}
-                    onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })}
-                    className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                  />
-                </div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Code *</label><input type="text" required value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Code</label><input type="text" value={formData.nhisServiceCode} onChange={e => setFormData({ ...formData, nhisServiceCode: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Service Type *</label><select value={formData.serviceType} onChange={e => setFormData({ ...formData, serviceType: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]">{['consultation', 'lab_test', 'procedure', 'medication', 'ward', 'scan', 'other'].map(t => (<option key={t} value={t}>{t.replace('_', ' ').toUpperCase()}</option>))}</select></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Category</label><select value={formData.serviceCategory} onChange={e => setFormData({ ...formData, serviceCategory: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]">{['opd', 'ipd', 'diagnostics', 'pharmacy', 'other'].map(c => (<option key={c} value={c}>{c.toUpperCase()}</option>))}</select></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Unit</label><input type="text" value={formData.unit} onChange={e => setFormData({ ...formData, unit: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Cash Price *</label><input type="number" step="0.01" required value={formData.cashPrice} onChange={e => setFormData({ ...formData, cashPrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Insurance Price *</label><input type="number" step="0.01" required value={formData.insurancePrice} onChange={e => setFormData({ ...formData, insurancePrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">NHIS Price</label><input type="number" step="0.01" min="0" value={formData.nhisPrice} onChange={e => setFormData({ ...formData, nhisPrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /><p className="text-xs text-[var(--text-tertiary)] mt-1">0 = bill at the cash price</p></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Corporate Price</label><input type="number" step="0.01" min="0" value={formData.corporatePrice} onChange={e => setFormData({ ...formData, corporatePrice: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /><p className="text-xs text-[var(--text-tertiary)] mt-1">0 = cash price (less the account discount, if any)</p></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Tariff Code</label><input type="text" value={formData.tariffCode} onChange={e => setFormData({ ...formData, tariffCode: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
+                <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">VAT Rate %</label><input type="number" step="0.01" value={formData.vatRate} onChange={e => setFormData({ ...formData, vatRate: parseFloat(e.target.value) || 0 })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Description</label>
-                <textarea 
-                  rows={2} value={formData.description}
-                  onChange={e => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]"
-                />
-              </div>
+              <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Description</label><textarea rows={2} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
 
               {editingItem?.StockItem?.id && editingItem?.serviceType === 'medication' && (
                 <section className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-cyan-bg)] p-4 space-y-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" /> NHIS medicine payer policy</h3>
-                      <p className="text-xs text-[var(--text-secondary)] mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p>
-                    </div>
-                    <span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'}`}>
-                      {nhisPolicyConfigured ? 'Policy configured' : 'Needs verification'}
-                    </span>
-                  </div>
-                  {nhisPolicyLoading ? (
-                    <p className="text-sm text-[var(--text-secondary)]">Loading payer rule…</p>
-                  ) : (
+                  <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" /> NHIS medicine payer policy</h3><p className="text-xs text-[var(--text-secondary)] mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p></div><span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'}`}>{nhisPolicyConfigured ? 'Policy configured' : 'Needs verification'}</span></div>
+                  {nhisPolicyLoading ? (<p className="text-sm text-[var(--text-secondary)]">Loading payer rule…</p>) : (
                     <>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS coverage status *</label>
-                          <select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
-                            <option value="unverified">Select coverage status…</option>
-                            <option value="covered">Covered by NHIS</option>
-                            <option value="not_covered">Not covered — patient pays cash price</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS prescribing level *</label>
-                          <select value={nhisPolicy.prescribingLevel} onChange={e => setNhisPolicy({ ...nhisPolicy, prescribingLevel: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
-                            {['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].map(level => <option key={level} value={level}>{level}</option>)}
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Prior authorization *</label>
-                          <select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
-                            <option value="unverified">Select requirement…</option>
-                            <option value="yes">Required</option>
-                            <option value="no">Not required</option>
-                          </select>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment policy *</label>
-                          <select value={nhisPolicy.copaymentMode} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentMode: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">
-                            <option value="none">No co-payment</option>
-                            <option value="fixed_amount">Fixed amount (GHS)</option>
-                            <option value="percentage">Percentage of NHIS tariff</option>
-                            <option value="cash_price_difference">Cash price minus NHIS tariff</option>
-                          </select>
-                        </div>
-                        {nhisPolicy.copaymentMode === 'fixed_amount' && <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Fixed co-payment (GHS) *</label>
-                          <input type="number" min="0" step="0.01" value={nhisPolicy.copaymentAmount} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentAmount: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                        </div>}
-                        {nhisPolicy.copaymentMode === 'percentage' && <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment percentage (0–100) *</label>
-                          <input type="number" min="0" max="100" step="0.01" value={nhisPolicy.copaymentPercentage} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentPercentage: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                        </div>}
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS tariff (GHS)</label>
-                          <input type="number" min="0" step="0.01" value={nhisPolicy.tariffPrice} onChange={e => setNhisPolicy({ ...nhisPolicy, tariffPrice: e.target.value })} placeholder="Use the service NHIS price if blank" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective from *</label>
-                          <input type="date" required value={nhisPolicy.effectiveFrom} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveFrom: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective to (optional)</label>
-                          <input type="date" value={nhisPolicy.effectiveTo} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveTo: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                        </div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS coverage status *</label><select value={!nhisCoverageVerified ? 'unverified' : nhisPolicy.isCovered ? 'covered' : 'not_covered'} onChange={e => { setNhisCoverageVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, isCovered: e.target.value === 'covered' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm"><option value="unverified">Select coverage status…</option><option value="covered">Covered by NHIS</option><option value="not_covered">Not covered — patient pays cash price</option></select></div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS prescribing level *</label><select value={nhisPolicy.prescribingLevel} onChange={e => setNhisPolicy({ ...nhisPolicy, prescribingLevel: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm">{['A', 'M', 'B1', 'B2', 'C', 'D', 'SM'].map(level => <option key={level} value={level}>{level}</option>)}</select></div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Prior authorization *</label><select value={!nhisAuthorizationVerified ? 'unverified' : nhisPolicy.authorizationRequired ? 'yes' : 'no'} onChange={e => { setNhisAuthorizationVerified(e.target.value !== 'unverified'); if (e.target.value !== 'unverified') setNhisPolicy({ ...nhisPolicy, authorizationRequired: e.target.value === 'yes' }); }} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm"><option value="unverified">Select requirement…</option><option value="yes">Required</option><option value="no">Not required</option></select></div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment policy *</label><select value={nhisPolicy.copaymentMode} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentMode: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm"><option value="none">No co-payment</option><option value="fixed_amount">Fixed amount (GHS)</option><option value="percentage">Percentage of NHIS tariff</option><option value="cash_price_difference">Cash price minus NHIS tariff</option></select></div>
+                        {nhisPolicy.copaymentMode === 'fixed_amount' && <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Fixed co-payment (GHS) *</label><input type="number" min="0" step="0.01" value={nhisPolicy.copaymentAmount} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentAmount: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>}
+                        {nhisPolicy.copaymentMode === 'percentage' && <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Co-payment percentage (0–100) *</label><input type="number" min="0" max="100" step="0.01" value={nhisPolicy.copaymentPercentage} onChange={e => setNhisPolicy({ ...nhisPolicy, copaymentPercentage: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>}
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">NHIS tariff (GHS)</label><input type="number" min="0" step="0.01" value={nhisPolicy.tariffPrice} onChange={e => setNhisPolicy({ ...nhisPolicy, tariffPrice: e.target.value })} placeholder="Use the service NHIS price if blank" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective from *</label><input type="date" required value={nhisPolicy.effectiveFrom} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveFrom: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>
+                        <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Effective to (optional)</label><input type="date" value={nhisPolicy.effectiveTo} onChange={e => setNhisPolicy({ ...nhisPolicy, effectiveTo: e.target.value })} className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>
                       </div>
-                      <div>
-                        <label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Policy notes / verification reference</label>
-                        <textarea rows={2} value={nhisPolicy.notes} onChange={e => setNhisPolicy({ ...nhisPolicy, notes: e.target.value })} placeholder="Record the source or reason for this policy decision" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" />
-                      </div>
+                      <div><label className="block text-xs font-medium text-[var(--text-primary)] mb-1">Policy notes / verification reference</label><textarea rows={2} value={nhisPolicy.notes} onChange={e => setNhisPolicy({ ...nhisPolicy, notes: e.target.value })} placeholder="Record the source or reason for this policy decision" className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] px-3 py-2 text-sm" /></div>
                       {nhisPolicy.copaymentMode === 'cash_price_difference' && <p className="text-xs text-[var(--icon-orange-text)]">The patient will pay only the positive difference between the cash price and NHIS tariff. Select this only when the applicable payer policy permits it.</p>}
-                      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3">
-                        <p className="text-xs text-[var(--text-secondary)]">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p>
-                        <button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-                          <Save className="w-4 h-4" /> {nhisPolicySaving ? 'Saving…' : 'Save NHIS policy'}
-                        </button>
-                      </div>
+                      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-color)] pt-3"><p className="text-xs text-[var(--text-secondary)]">Saving this policy updates the stock-linked payer rule used by NHIS prescription checks and billing.</p><button type="button" onClick={saveNHISMedicinePolicy} disabled={nhisPolicySaving || nhisPolicyLoading || !nhisCoverageVerified || !nhisAuthorizationVerified || (nhisPolicy.copaymentMode === 'fixed_amount' && nhisPolicy.copaymentAmount === '') || (nhisPolicy.copaymentMode === 'percentage' && nhisPolicy.copaymentPercentage === '')} className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-[var(--icon-cyan-text)] px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"><Save className="w-4 h-4" /> {nhisPolicySaving ? 'Saving…' : 'Save NHIS policy'}</button></div>
                     </>
                   )}
                 </section>
               )}
 
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox" checked={formData.isNHISCovered}
-                    onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Covered by NHIS</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox" checked={formData.isPrivateInsuranceExempted}
-                    onChange={e => setFormData({ ...formData, isPrivateInsuranceExempted: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Excluded from private insurance</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox" checked={formData.requiresAuthorization}
-                    onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Requires Authorization</span>
-                </label>
-                <label className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" checked={formData.isTaxable}
-                    onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })}
-                    className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4"
-                  />
-                  <span className="text-sm text-[var(--text-primary)]">Taxable</span>
-                </label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.isNHISCovered} onChange={e => setFormData({ ...formData, isNHISCovered: e.target.checked })} className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4" /><span className="text-sm text-[var(--text-primary)]">Covered by NHIS</span></label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.isPrivateInsuranceExempted} onChange={e => setFormData({ ...formData, isPrivateInsuranceExempted: e.target.checked })} className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4" /><span className="text-sm text-[var(--text-primary)]">Excluded from private insurance</span></label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.requiresAuthorization} onChange={e => setFormData({ ...formData, requiresAuthorization: e.target.checked })} className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4" /><span className="text-sm text-[var(--text-primary)]">Requires Authorization</span></label>
+                <label className="flex items-center gap-2"><input type="checkbox" checked={formData.isTaxable} onChange={e => setFormData({ ...formData, isTaxable: e.target.checked })} className="rounded border-[var(--border-color)] text-[var(--icon-cyan-text)] w-4 h-4" /><span className="text-sm text-[var(--text-primary)]">Taxable</span></label>
               </div>
-
-              <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
-                <button 
-                  type="submit"
-                  disabled={formLoading}
-                  className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium"
-                >
-                  <Save className="w-4 h-4" />
-                  {formLoading ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
-                </button>
-                <button 
-                  type="button" onClick={handleCancel}
-                  disabled={formLoading}
-                  className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium"
-                >
-                  Cancel
-                </button>
-              </div>
+              <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]"><button type="submit" disabled={formLoading} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90 disabled:opacity-50 text-sm font-medium"><Save className="w-4 h-4" />{formLoading ? 'Saving...' : (editingItem ? 'Update' : 'Create')}</button><button type="button" onClick={handleCancel} disabled={formLoading} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium">Cancel</button></div>
             </form>
           </div>
         </div>

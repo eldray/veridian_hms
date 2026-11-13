@@ -1,5 +1,11 @@
 // src/pages/Estimates.tsx - Proforma invoices (patient/corporate estimates) list
-import { useEffect, useMemo, useState } from 'react';
+// Aligned to Patients / Attendance shell. Fixes vs the pasted version:
+// 1. Patient / Company was ONE combined cell — split into Patient, Folder #, Company,
+//    one data point per column, same rule as every other page.
+// 2. Search only filters the current page (server pagination), but Pagination
+//    still showed the server total — now the page strip is hidden while a quick
+//    search is active and the meta + a note say exactly what is being shown.
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useEstimatesStore, type EstimateStatus } from '../store/estimatesStore';
 import { useToast } from '../store/toastStore';
@@ -34,7 +40,8 @@ export default function Estimates() {
   const [statusFilter, setStatusFilter] = useState<EstimateStatus | 'all'>('all');
   const [page, setPage] = useState(1);
 
-  const load = async () => {
+  // useCallback so the effect below can list it without re-running every render.
+  const load = useCallback(async () => {
     try {
       await Promise.all([
         loadEstimates({ page, limit: 20, status: statusFilter === 'all' ? undefined : statusFilter }),
@@ -43,10 +50,14 @@ export default function Estimates() {
     } catch (e: any) {
       toastError('Load failed', e?.response?.data?.message || e.message);
     }
-  };
+  }, [page, statusFilter, loadEstimates, loadStatistics, toastError]);
 
-  useEffect(() => { load(); }, [page, statusFilter]);
+  useEffect(() => { void load(); }, [load]);
 
+  // Client-side quick search over the CURRENT PAGE only — the store's
+  // loadEstimates has no search param, so this cannot reach other pages.
+  // The Pagination strip is hidden while it is active (see below) so the
+  // server total can never be read as the search result count.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return estimates.filter((e) => {
@@ -67,19 +78,23 @@ export default function Estimates() {
   const statusCount = (s: string): number =>
     (statistics?.byStatus || []).find((b: any) => b.status === s)?.count ?? 0;
 
+  const isSearching = Boolean(search.trim());
+
   return (
     <div className="space-y-6 p-6 text-[var(--text-primary)]">
       {/* Header */}
       <PageHeader
         title="Estimates / Proforma Invoices"
         subtitle="Patient and corporate cost estimates"
-        meta={`${filtered.length} of ${pagination.total || filtered.length} estimate(s)`}
+        meta={isSearching
+          ? `${pagination.total || filtered.length} estimate(s) · ${filtered.length} matching on this page`
+          : `${pagination.total || filtered.length} estimate(s)`}
         icon={FileText}
         accent="cyan"
         backTo="/dashboard"
         actions={(
           <>
-            <Button icon={RefreshCw} loading={isLoading} onClick={load}>Refresh</Button>
+            <Button icon={RefreshCw} loading={isLoading} onClick={() => void load()}>Refresh</Button>
             <Button variant="primary" onClick={() => navigate('/dashboard/estimates/new')}>New estimate</Button>
           </>
         )}
@@ -100,7 +115,7 @@ export default function Estimates() {
         <SearchInput
           className="flex-1"
           value={search}
-          onChange={setSearch}
+          onChange={(v) => { setSearch(v); setPage(1); }}
           placeholder="Search by reference, patient, company, folder no..."
         />
         <FilterSelect
@@ -113,15 +128,22 @@ export default function Estimates() {
           options={STATUSES.map((s) => ({ value: s, label: s === 'all' ? 'All Statuses' : s }))}
         />
       </div>
+      {isSearching && (
+        <p className="text-[11px] text-[var(--text-tertiary)] -mt-3">
+          Quick filter only applies to this page — clear it to page through all estimates.
+        </p>
+      )}
 
-      {/* Table */}
+      {/* Table — one data point per column */}
       <div className={TABLE_SHELL}>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className={TH_ROW}>
               <tr>
                 <th className={TH}>Reference</th>
-                <th className={TH}>Patient / Company</th>
+                <th className={TH}>Patient</th>
+                <th className={TH}>Folder #</th>
+                <th className={TH}>Company</th>
                 <th className={TH}>Total</th>
                 <th className={TH}>Status</th>
                 <th className={TH}>Created</th>
@@ -130,20 +152,25 @@ export default function Estimates() {
             </thead>
             <tbody className="text-sm">
               {isLoading && filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-[var(--text-tertiary)]">Loading…</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-[var(--text-tertiary)]">Loading…</td></tr>
               )}
               {!isLoading && filtered.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-10 text-center text-[var(--text-tertiary)]">No estimates found</td></tr>
+                <tr><td colSpan={8} className="px-4 py-10 text-center text-[var(--text-tertiary)]">No estimates found</td></tr>
               )}
               {filtered.map((e) => (
                 <tr key={e.id} className={cn(TR, 'cursor-pointer')} onClick={() => navigate(`/dashboard/estimates/${e.id}`)}>
                   <td className={cn(TD_MONO, 'text-xs')}>{e.referenceNumber}</td>
                   <td className={TD}>
                     <div className="font-medium text-[var(--text-primary)]">{clientName(e.patient)}</div>
-                    {e.corporateAccount && (
-                      <div className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1">
+                  </td>
+                  <td className={cn(TD_MONO, 'text-xs')}>{e.patient?.folderNumber || '—'}</td>
+                  <td className={TD}>
+                    {e.corporateAccount ? (
+                      <span className="text-xs text-[var(--icon-cyan-text)] flex items-center gap-1">
                         <Briefcase className="w-3 h-3" /> {e.corporateAccount.companyName}
-                      </div>
+                      </span>
+                    ) : (
+                      <span className="text-[var(--text-tertiary)]">—</span>
                     )}
                   </td>
                   <td className={cn(TD, 'font-semibold')}>GHS {fmt(e.totalAmount)}</td>
@@ -168,14 +195,20 @@ export default function Estimates() {
           </table>
         </div>
       </div>
-      <Pagination
-        page={page}
-        totalPages={pagination.totalPages}
-        itemsPerPage={20}
-        totalItems={pagination.total}
-        noun="estimates"
-        onChange={setPage}
-      />
+      {isSearching ? (
+        <p className="text-xs text-[var(--text-secondary)]">
+          Showing {filtered.length} matching estimate(s) on this page.
+        </p>
+      ) : (
+        <Pagination
+          page={page}
+          totalPages={pagination.totalPages}
+          itemsPerPage={20}
+          totalItems={pagination.total}
+          noun="estimates"
+          onChange={setPage}
+        />
+      )}
     </div>
   );
 }

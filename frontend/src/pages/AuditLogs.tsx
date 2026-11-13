@@ -1,13 +1,18 @@
 // src/pages/AuditLogs.tsx
+// Aligned to Patients / Attendance shell: PageHeader + SearchInput + page-number pagination.
+// Preserved: server-side pagination / filters via auditStore, JSON diff panels, detail drawer, CSV export.
+// Deliberately NOT added: client-side sort — sorting audit logs must happen server-side
+// (a client sort would only reorder the current page and lie about the rest).
 import { useEffect, useMemo, useState } from 'react';
 import { useAuditStore } from '../store/auditStore';
 import { useToast } from '../store/toastStore';
 import { AuditLogEntry } from '../api/audit';
 import {
-  ScrollText, Search, Filter, X, RefreshCw, Download, Eye,
+  ScrollText, Filter, X, RefreshCw, Download, Eye,
   ChevronLeft, ChevronRight, Activity, User as UserIcon, Clock,
-  Globe, FileJson, ChevronDown, ChevronUp, AlertCircle,
+  Globe, FileJson, ChevronDown, ChevronUp,
 } from 'lucide-react';
+import { Button, PageHeader, SearchInput } from '../components/ui';
 
 // ─────────────────────────────────────────────
 // Helpers
@@ -66,6 +71,23 @@ const humanizeEntity = (s: string) =>
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Page numbers with ellipsis, same shape as Patients / Appointments / Counter.
+// Server-driven: every click calls the store's setPage, so it pages across the
+// whole filtered set, not just the rows on screen.
+const pageNumbers = (page: number, totalPages: number): (number | '…')[] => {
+  if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1);
+  const pages = new Set<number>([1, 2, page - 1, page, page + 1, totalPages - 1, totalPages]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= totalPages).sort((a, b) => a - b);
+  const out: (number | '…')[] = [];
+  let prev = 0;
+  for (const p of sorted) {
+    if (prev && p - prev > 1) out.push('…');
+    out.push(p);
+    prev = p;
+  }
+  return out;
+};
 
 // ─────────────────────────────────────────────
 // JSON diff panel (collapsible)
@@ -261,7 +283,8 @@ export default function AuditLogs() {
     }
   }, [error, toastError, clearError]);
 
-  // Client-side quick search over visible rows
+  // Client-side quick search over visible rows ONLY — it does not reach other
+  // pages. Server filters above are the ones that search the whole trail.
   const visibleLogs = useMemo(() => {
     if (!searchQuery.trim()) return logs;
     const q = searchQuery.toLowerCase();
@@ -306,52 +329,42 @@ export default function AuditLogs() {
     'px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]';
 
   return (
-    <div className="space-y-5 p-6">
-      {/* Header */}
-      <div className="flex items-start justify-between flex-wrap gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--icon-cyan-bg)] flex items-center justify-center">
-            <ScrollText className="w-5 h-5 text-[var(--icon-cyan-text)]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Audit Logs</h1>
-            <p className="text-sm text-[var(--text-secondary)]">
-              Immutable trail of system activity
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      {/* Header — shared PageHeader, same as Patients / Attendance */}
+      <PageHeader title="Audit Logs" subtitle="Immutable trail of system activity"
+        meta={`${pagination.total.toLocaleString()} entr${pagination.total === 1 ? 'y' : 'ies'} · Page ${pagination.page} of ${pagination.totalPages}`}
+        icon={ScrollText} accent="cyan" backTo="/dashboard"
+        actions={<>
           <button
             onClick={() => setShowFilters((v) => !v)}
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-all ${
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
               showFilters
                 ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-text)]'
                 : 'bg-[var(--bg-card)] text-[var(--text-primary)] border-[var(--border-color)] hover:bg-[var(--bg-main)]'
             }`}
           >
-            <Filter className="w-4 h-4" /> Filters
+            <Filter className="w-3.5 h-3.5" /> Filters
             {hasActiveFilters && (
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--icon-cyan-text)]" />
             )}
           </button>
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <Download className={`w-4 h-4 ${isExporting ? 'animate-pulse' : ''}`} />
+          <Button icon={Download} loading={isExporting} onClick={handleExport}>
             {isExporting ? 'Exporting…' : 'Export CSV'}
-          </button>
-          <button
-            onClick={() => void fetchLogs()}
-            disabled={isLoading}
-            className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-card)] border border-[var(--border-color)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium text-[var(--text-primary)] disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+          </Button>
+          <Button icon={RefreshCw} loading={isLoading} onClick={() => void fetchLogs()}>
+            {isLoading ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </>} />
+
+      {/* Controls — Search, same shell as Patients / Attendance */}
+      <div className="bg-[var(--bg-card)] rounded-xl p-3 sm:p-4 shadow-sm border border-[var(--border-color)]">
+        <SearchInput className="w-full lg:max-w-sm" value={searchQuery} onChange={setSearchQuery}
+          placeholder="Filter visible rows by user, entity, action, or ID…" />
+        {searchQuery.trim() && (
+          <p className="text-[11px] text-[var(--text-tertiary)] mt-2">
+            Quick filter only applies to this page — use the filters below to search the whole trail.
+          </p>
+        )}
       </div>
 
       {/* Filters */}
@@ -454,21 +467,7 @@ export default function AuditLogs() {
         </div>
       )}
 
-      {/* Quick search */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3">
-        <div className="relative">
-          <Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Filter visible rows by user, entity, action, or ID…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)]"
-          />
-        </div>
-      </div>
-
-      {/* Table */}
+      {/* Table — every data point already in its own column, unchanged */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
         {isLoading ? (
           <div className="p-10 text-center">
@@ -492,25 +491,31 @@ export default function AuditLogs() {
             <table className="w-full">
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     When
                   </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
+                    Date &amp; Time
+                  </th>
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Action
                   </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Entity
                   </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden lg:table-cell">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden lg:table-cell whitespace-nowrap">
                     Entity ID
                   </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     User
                   </th>
-                  <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden xl:table-cell">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
+                    Username
+                  </th>
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden xl:table-cell whitespace-nowrap">
                     IP
                   </th>
-                  <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+                  <th className="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     &nbsp;
                   </th>
                 </tr>
@@ -522,15 +527,17 @@ export default function AuditLogs() {
                     className="hover:bg-[var(--bg-main)] cursor-pointer"
                     onClick={() => setSelectedLog(log)}
                   >
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-[var(--text-primary)]">
                         {formatRelative(log.timestamp)}
                       </div>
-                      <div className="text-[10px] text-[var(--text-tertiary)]">
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="text-xs text-[var(--text-secondary)]">
                         {formatDateTime(log.timestamp)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <span
                         className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${actionStyle(
                           log.action,
@@ -539,30 +546,32 @@ export default function AuditLogs() {
                         {log.action}
                       </span>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-[var(--text-primary)]">
                         {humanizeEntity(log.entityType)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell">
                       <div className="text-xs font-mono text-[var(--text-secondary)] max-w-[200px] truncate">
                         {log.entityId}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-sm text-[var(--text-primary)]">
                         {log.performedBy?.fullName || '—'}
                       </div>
-                      <div className="text-[10px] text-[var(--text-tertiary)]">
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="text-xs text-[var(--text-secondary)]">
                         @{log.performedBy?.username || log.performedById}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap hidden xl:table-cell">
+                    <td className="px-3 py-3 whitespace-nowrap hidden xl:table-cell">
                       <div className="text-xs font-mono text-[var(--text-secondary)]">
                         {log.ipAddress || '—'}
                       </div>
                     </td>
-                    <td className="px-4 py-3 whitespace-nowrap text-right">
+                    <td className="px-3 py-3 whitespace-nowrap text-right">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -581,15 +590,16 @@ export default function AuditLogs() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination — page numbers, server-driven via setPage */}
         {!isLoading && visibleLogs.length > 0 && (
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-[var(--border-color)] bg-[var(--bg-card)]">
             <div className="text-xs text-[var(--text-secondary)]">
               Page <strong>{pagination.page}</strong> of{' '}
               <strong>{pagination.totalPages}</strong> · {pagination.total.toLocaleString()} entries
+              {searchQuery.trim() && ` · showing ${visibleLogs.length} on this page`}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               <select
                 value={pagination.limit}
                 onChange={(e) => setLimit(Number(e.target.value))}
@@ -606,15 +616,35 @@ export default function AuditLogs() {
                 onClick={() => setPage(Math.max(1, pagination.page - 1))}
                 disabled={pagination.page <= 1 || isLoading}
                 className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Previous page"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
+              {pageNumbers(pagination.page, pagination.totalPages).map((p, i) =>
+                p === '…' ? (
+                  <span key={`e-${i}`} className="px-1 text-xs text-[var(--text-tertiary)]">…</span>
+                ) : (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    disabled={isLoading}
+                    className={`min-w-[28px] px-1.5 py-1.5 rounded-lg border text-xs font-medium transition-all disabled:opacity-40 ${
+                      p === pagination.page
+                        ? 'bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] border-[var(--icon-cyan-text)]'
+                        : 'border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)]'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ),
+              )}
               <button
                 onClick={() =>
                   setPage(Math.min(pagination.totalPages, pagination.page + 1))
                 }
                 disabled={pagination.page >= pagination.totalPages || isLoading}
                 className="p-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-primary)] hover:bg-[var(--bg-main)] disabled:opacity-40 disabled:cursor-not-allowed"
+                aria-label="Next page"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
