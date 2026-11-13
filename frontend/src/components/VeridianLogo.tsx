@@ -1,5 +1,3 @@
-import React from 'react';
-
 type VeridianLogoProps = {
   size?: number;
   className?: string;
