@@ -1,5 +1,5 @@
 // src/layouts/DashboardLayout.tsx
-import { ReactNode, Suspense, useState, useRef, useEffect, useCallback } from 'react';
+import { ReactNode, Suspense, useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { useNotificationStore } from '../store/notificationStore';
@@ -175,15 +175,17 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <Menu className="w-4 h-4" />
             </button>
 
-            <div className="flex items-center gap-2.5">
-              <VeridianLogo size={30} />
-              <span
-                className="hidden sm:block text-xs font-semibold tracking-wide leading-none"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                Veridian HMS
+            {/* Brand */}
+            <Link to="/dashboard" className="flex items-center" aria-label="Veridian HMS home">
+              {/* Phones: icon only */}
+              <span className="sm:hidden">
+                <VeridianLogo variant="emblem" size={34} />
               </span>
-            </div>
+              {/* Tablet and up: icon + wordmark, white text in dark mode */}
+              <span className="hidden sm:block">
+                <VeridianLogo variant="full" size={40} tagline={false} dark={mode === 'dark'} />
+              </span>
+            </Link>
           </div>
 
           {/* Center: hospital info (flex-based, not absolute) */}

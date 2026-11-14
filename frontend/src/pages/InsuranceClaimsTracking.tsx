@@ -1,283 +1,35 @@
+// Tracking: Batch | Finalized | Period | Sent | Payer | Claims | Submitted | Paid | Outstanding | Status | Entries | Actions (was: batch+finalized stacked, period+sent stacked, button+count stacked)
 import { FormEvent, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  AlertCircle, Banknote, CalendarClock, Clock3, Layers, Loader2,
-  Plus, RefreshCw, Send, X,
-} from 'lucide-react';
+import { AlertCircle, Banknote, CalendarClock, Clock3, Layers, Loader2, Plus, RefreshCw, Send, X } from 'lucide-react';
 import { getClaimBatchTracking, recordClaimBatchTrackingEvent } from '../api';
 import InsuranceTabs, { INSURANCE_FAMILIES, type InsuranceFamily } from '../components/InsuranceTabs';
-import {
-  Badge, Button, cn, Field, FilterSelect, humanStatus, INPUT, PageHeader, Pagination,
-  SearchInput, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR,
-} from '../components/ui';
+import { Badge, Button, cn, Field, FilterSelect, humanStatus, INPUT, PageHeader, Pagination, SearchInput, statusTone, TABLE_SHELL, TD, TD_MONO, TH, TH_ROW, TR } from '../components/ui';
 import { useToast } from '../store/toastStore';
-
-type BatchEvent = {
-  id: string; eventType: string; status?: string | null; submissionDate?: string | null;
-  payerReference?: string | null; amount?: number | string | null; paymentReference?: string | null;
-  paymentMethod?: string | null; notes?: string | null; createdAt: string;
-  recordedBy?: { fullName?: string; username?: string } | null;
-};
-
-/** A submitted period, with whatever the payer has answered against it. */
-type BatchRow = {
-  id: string; batchNumber: string; insuranceType: string;
-  periodYear: number; periodMonth: number;
-  totalClaims: number; totalAmount: number | string; status: string;
-  finalizedAt?: string | null; description?: string | null;
-  insuranceProvider?: { name?: string; type?: string } | null;
-  corporateAccount?: { companyName?: string } | null;
-  createdBy?: { fullName?: string; username?: string } | null;
-  trackingEvents: BatchEvent[];
-  tracking: {
-    amountSubmitted: number; totalPaid: number; outstanding: number;
-    latestStatus: string; submittedAt: string | null;
-  };
-};
-
-const money = (value: unknown) => new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS', maximumFractionDigits: 2 }).format(Number(value || 0));
-const periodLabel = (row: BatchRow) => new Intl.DateTimeFormat('en-GH', { month: 'long', year: 'numeric' }).format(new Date(row.periodYear, row.periodMonth - 1, 1));
-const payerLabel = (row: BatchRow) => row.corporateAccount?.companyName || row.insuranceProvider?.name || 'Unassigned payer';
-const shortDate = (value?: string | null) => (value ? new Date(value).toLocaleDateString('en-GB') : '—');
-
-/** The API's `insuranceType` filter for each payer family tab. */
-const FAMILY_PARAM: Record<InsuranceFamily, string> = {
-  nhis: 'nhis',
-  private: 'private',
-  corporate: 'corporate',
-};
-
-export default function InsuranceClaimsTracking({ family }: { family: InsuranceFamily }) {
-  const { success, error: toastError } = useToast();
-  const type = FAMILY_PARAM[family];
-  const [batches, setBatches] = useState<BatchRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  // Search text, page and page size travel together: a filter change has to reset the page in
-  // the same update, or the list fetches once with the dying page and again with page one.
-  const [listParams, setListParams] = useState({ text: '', page: 1, size: 25 });
-  const [pagination, setPagination] = useState({ page: 1, pages: 1, total: 0 });
-  const [summary, setSummary] = useState({ batches: 0, claims: 0, amount: 0, paid: 0 });
-
-  const [selected, setSelected] = useState<BatchRow | null>(null);
-  const [eventType, setEventType] = useState<'submission' | 'adjudication' | 'payment'>('submission');
-  const [status, setStatus] = useState('acknowledged');
-  const [payerReference, setPayerReference] = useState('');
-  const [paymentReference, setPaymentReference] = useState('');
-  const [amount, setAmount] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
-  const [submissionDate, setSubmissionDate] = useState(new Date().toISOString().slice(0, 10));
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const text = search.trim();
-      setListParams((current) => (current.text === text ? current : { ...current, text, page: 1 }));
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search]);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await getClaimBatchTracking({
-        page: listParams.page,
-        limit: listParams.size,
-        search: listParams.text || undefined,
-        insuranceType: type,
-      });
-      const body = response?.data ?? {};
-      setBatches(Array.isArray(body.data) ? body.data : []);
-      setPagination({
-        page: Number(body.pagination?.page) || 1,
-        pages: Math.max(1, Number(body.pagination?.pages) || 1),
-        total: Number(body.pagination?.total) || 0,
-      });
-      setSummary({
-        batches: Number(body.summary?.batches) || 0,
-        claims: Number(body.summary?.claims) || 0,
-        amount: Number(body.summary?.amount) || 0,
-        paid: Number(body.summary?.paid) || 0,
-      });
-    } catch (err: any) {
-      toastError('Could not load claims tracking', err?.response?.data?.message || err?.message || 'Please try again.');
-    } finally { setLoading(false); }
-  }, [listParams, type, toastError]);
-
-  useEffect(() => { void load(); }, [load]);
-
-  const outstanding = useMemo(() => Math.max(0, summary.amount - summary.paid), [summary]);
-
-  const openRecord = (batch: BatchRow) => {
-    setSelected(batch);
-    setEventType('submission');
-    setStatus('acknowledged');
-    setPayerReference('');
-    setPaymentReference('');
-    setAmount('');
-    setPaymentMethod('bank_transfer');
-    setSubmissionDate(new Date().toISOString().slice(0, 10));
-    setNotes('');
-  };
-
-  const submitEvent = async (event: FormEvent) => {
-    event.preventDefault();
-    if (!selected) return;
-    if (eventType === 'payment' && (!paymentReference.trim() || !(Number(amount) > 0))) {
-      toastError('Payment details required', 'Enter a unique remittance reference and a payment amount greater than zero.');
-      return;
-    }
-    if (eventType === 'submission' && !payerReference.trim()) {
-      toastError('Submission reference required', 'Enter the payer or submission batch reference.');
-      return;
-    }
-    setSaving(true);
-    try {
-      const body: Parameters<typeof recordClaimBatchTrackingEvent>[1] = {
-        eventType, notes: notes.trim() || undefined,
-      };
-      if (eventType === 'submission') Object.assign(body, { payerReference: payerReference.trim(), submissionDate });
-      if (eventType === 'adjudication') Object.assign(body, { status, payerReference: payerReference.trim() || undefined });
-      if (eventType === 'payment') Object.assign(body, { amount: Number(amount), paymentReference: paymentReference.trim(), paymentMethod, payerReference: payerReference.trim() || undefined });
-      await recordClaimBatchTrackingEvent(selected.id, body);
-      success('Batch tracking updated', eventType === 'payment' ? 'Remittance recorded against the batch.' : 'Tracking event recorded.');
-      setSelected(null);
-      await load();
-    } catch (err: any) {
-      toastError('Could not record tracking event', err?.response?.data?.message || err?.message || 'Please review the details and retry.');
-    } finally { setSaving(false); }
-  };
-
-  const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
-  // NHIS is one national payer, so a provider column repeats the same word down every row.
-  const showPayer = family !== 'nhis';
-  const columns = 7 + (showPayer ? 1 : 0);
-
-  return (
-    <div className="p-4 md:p-6 space-y-5 text-[var(--text-primary)]">
-      <PageHeader
-        title={`${familyMeta.label} · Tracking & payments`}
-        subtitle="What was submitted to the payer for each month, what they have paid and what is still owed."
-        icon={familyMeta.icon}
-        accent={familyMeta.accent}
-        actions={<Button icon={RefreshCw} loading={loading} onClick={() => void load()}>Refresh</Button>}
-        tabs={<InsuranceTabs family={family} section="tracking" />}
-      />
-
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <SummaryCard label="Amount submitted" value={money(summary.amount)} hint={`${summary.batches} batches · ${summary.claims} claims`} icon={<Layers size={20} />} />
-        <SummaryCard label="Payments received" value={money(summary.paid)} icon={<Banknote size={20} />} />
-        <SummaryCard label="Still outstanding" value={money(outstanding)} icon={<Clock3 size={20} />} />
-      </div>
-
-      <SearchInput value={search} onChange={setSearch} placeholder="Search batch number or description…" />
-
-      <div className={TABLE_SHELL}>
-        {loading ? <div className="flex items-center justify-center gap-2 py-16 text-[var(--text-secondary)]"><Loader2 className="animate-spin" size={20} /> Loading submitted batches…</div> :
-        batches.length === 0 ? <div className="py-16 text-center"><AlertCircle size={28} className="mx-auto text-[var(--text-tertiary)] mb-2" /><p className="font-medium text-[var(--text-primary)]">No batches found</p><p className="text-sm text-[var(--text-secondary)] mt-1">Generate and finalize a batch on the Claim batches tab; a finalized batch is what gets submitted and paid.</p></div> :
-        <div className="overflow-x-auto"><table className="w-full text-sm text-left">
-          <thead className={TH_ROW}><tr>
-            <th className={TH}>Batch</th>
-            <th className={TH}>Submitted for</th>
-            {showPayer && <th className={TH}>Payer</th>}
-            <th className={cn(TH, 'text-right')}>Claims</th>
-            <th className={cn(TH, 'text-right')}>Amount submitted</th>
-            <th className={cn(TH, 'text-right')}>Paid</th>
-            <th className={cn(TH, 'text-right')}>Outstanding</th>
-            <th className={TH}>Payer status</th>
-            <th className={TH}>Activity</th>
-          </tr></thead>
-          <tbody>
-            {batches.map(batch => (
-              <tr key={batch.id} className={TR}>
-                <td className={TD}>
-                  <div className="font-semibold text-[var(--text-primary)]">{batch.batchNumber}</div>
-                  <div className="text-xs text-[var(--text-secondary)]">{batch.finalizedAt ? `Finalized ${shortDate(batch.finalizedAt)}` : 'Not finalized'}</div>
-                </td>
-                <td className={TD}>
-                  <div className="flex items-center gap-1.5"><CalendarClock size={14} className="text-[var(--text-tertiary)]" />{periodLabel(batch)}</div>
-                  {batch.tracking.submittedAt && <div className="text-xs text-[var(--text-secondary)]">Sent {shortDate(batch.tracking.submittedAt)}</div>}
-                </td>
-                {showPayer && <td className={TD}><div className="font-medium">{payerLabel(batch)}</div></td>}
-                <td className={cn(TD, 'text-right')}>{batch.totalClaims}</td>
-                <td className={cn(TD_MONO, 'text-right font-semibold')}>{money(batch.tracking.amountSubmitted)}</td>
-                <td className={cn(TD_MONO, 'text-right text-[var(--icon-green-text)]')}>{money(batch.tracking.totalPaid)}</td>
-                <td className={cn(TD_MONO, 'text-right font-medium')}>{money(batch.tracking.outstanding)}</td>
-                <td className={TD}><Badge dot size="sm" tone={statusTone(batch.tracking.latestStatus)}>{humanStatus(batch.tracking.latestStatus)}</Badge></td>
-                <td className={TD}>
-                  <Button size="sm" variant="primary" icon={Plus} onClick={() => openRecord(batch)}>Record activity</Button>
-                  <div className="mt-1 text-xs text-[var(--text-secondary)]">{batch.trackingEvents.length} {batch.trackingEvents.length === 1 ? 'entry' : 'entries'}</div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table></div>}
-      </div>
-
-      <Pagination
-        page={pagination.page}
-        totalPages={pagination.pages}
-        itemsPerPage={listParams.size}
-        totalItems={pagination.total}
-        noun="batches"
-        onChange={(page) => setListParams((current) => ({ ...current, page }))}
-        pageSizeOptions={[10, 25, 50]}
-        onPageSizeChange={(size) => setListParams((current) => ({ ...current, size, page: 1 }))}
-      />
-
-      <p className="text-xs text-[var(--text-secondary)]">
-        Remittances are recorded against the batch submitted for the month — the payer answers the period, not the
-        individual claim. They do not alter patient cash payments or the original bill ledger.
-      </p>
-
-      {selected && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onMouseDown={e => { if (e.target === e.currentTarget && !saving) setSelected(null); }}>
-        <div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl">
-          <div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4">
-            <div>
-              <h2 className="text-lg font-bold">Record batch activity</h2>
-              <p className="text-sm text-[var(--text-secondary)]">{selected.batchNumber} · {periodLabel(selected)} · {showPayer ? payerLabel(selected) : familyMeta.label}</p>
-            </div>
-            <Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={() => setSelected(null)} disabled={saving} />
-          </div>
-          <div className="p-5">
-            <div className="mb-4 grid grid-cols-3 gap-2 rounded-lg bg-[var(--bg-main)] p-3 text-sm">
-              <div><div className="text-xs text-[var(--text-secondary)]">Submitted</div><strong>{money(selected.tracking.amountSubmitted)}</strong></div>
-              <div><div className="text-xs text-[var(--text-secondary)]">Paid</div><strong className="text-[var(--icon-green-text)]">{money(selected.tracking.totalPaid)}</strong></div>
-              <div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(selected.tracking.outstanding)}</strong></div>
-            </div>
-            <form onSubmit={submitEvent} className="space-y-4">
-              <Field label="Activity type">
-                <FilterSelect
-                  className="w-full"
-                  value={eventType}
-                  onChange={(v) => setEventType(v as typeof eventType)}
-                  options={[
-                    { value: 'submission', label: 'Record submission' },
-                    { value: 'adjudication', label: 'Update payer decision' },
-                    { value: 'payment', label: 'Record payment' },
-                  ]}
-                />
-              </Field>
-              {eventType === 'submission' && <><Field label="Payer / submission reference" required><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Portal or remittance advice reference" className={cn(INPUT, 'w-full')} /></Field><Field label="Submission date"><input type="date" value={submissionDate} onChange={e => setSubmissionDate(e.target.value)} className={cn(INPUT, 'w-full')} /></Field></>}
-              {eventType === 'adjudication' && <><Field label="Payer decision"><FilterSelect className="w-full" value={status} onChange={setStatus} options={[{ value: 'acknowledged', label: 'Acknowledged' }, { value: 'under_review', label: 'Under review' }, { value: 'queried', label: 'Queried / needs correction' }, { value: 'approved', label: 'Approved' }, { value: 'partially_approved', label: 'Partially approved' }, { value: 'rejected', label: 'Rejected' }]} /></Field><Field label="Payer reference (optional)"><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Remittance or query reference" className={cn(INPUT, 'w-full')} /></Field></>}
-              {eventType === 'payment' && <><Field label="Amount received (GHS)" required hint={`Cannot take the batch past the ${money(selected.tracking.amountSubmitted)} submitted.`}><input type="number" min="0.01" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00" className={cn(INPUT, 'w-full')} /></Field><Field label="Unique payment / remittance reference" required hint="A duplicate reference is rejected by the payer ledger."><input value={paymentReference} onChange={e => setPaymentReference(e.target.value)} placeholder="Bank advice or remittance number" className={cn(INPUT, 'w-full')} /></Field><Field label="Payment method"><FilterSelect className="w-full" value={paymentMethod} onChange={setPaymentMethod} options={[{ value: 'bank_transfer', label: 'Bank transfer' }, { value: 'cheque', label: 'Cheque' }, { value: 'mobile_money', label: 'Mobile money' }, { value: 'other', label: 'Other' }]} /></Field><Field label="Payer remittance reference (optional)"><input value={payerReference} onChange={e => setPayerReference(e.target.value)} placeholder="Advice number" className={cn(INPUT, 'w-full')} /></Field></>}
-              <Field label="Notes (optional)"><textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} placeholder="Queries, deductions, follow-up details or receipt notes" className={cn(INPUT, 'w-full')} /></Field>
-              {selected.trackingEvents.length > 0 && <div><h3 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Previous activity</h3><div className="max-h-40 space-y-2 overflow-y-auto">{selected.trackingEvents.slice().reverse().map(ev => <div key={ev.id} className="rounded-lg border border-[var(--border-color)] p-3 text-xs"><div className="flex justify-between gap-2"><strong>{humanStatus(ev.eventType)}{ev.status ? ` · ${humanStatus(ev.status)}` : ''}</strong><span className="text-[var(--text-secondary)]">{new Date(ev.createdAt).toLocaleDateString()}</span></div>{ev.amount != null && <div className="mt-1">{money(ev.amount)} · {ev.paymentReference}</div>}{ev.payerReference && <div className="mt-1 text-[var(--text-secondary)]">Reference: {ev.payerReference}</div>}{ev.recordedBy?.fullName && <div className="mt-1 text-[var(--text-secondary)]">Recorded by {ev.recordedBy.fullName}</div>}{ev.notes && <p className="mt-1 text-[var(--text-secondary)]">{ev.notes}</p>}</div>)}</div></div>}
-              <div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-4"><Button onClick={() => setSelected(null)} disabled={saving}>Cancel</Button><Button type="submit" variant="primary" icon={Send} loading={saving}>Save activity</Button></div>
-            </form>
-          </div>
-        </div>
-      </div>}
-    </div>
-  );
-}
-
-function SummaryCard({ label, value, hint, icon }: { label: string; value: string; hint?: string; icon: ReactNode }) {
-  return (
-    <div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4">
-      <div className="flex items-center justify-between text-[var(--text-secondary)]"><span className="text-sm">{label}</span>{icon}</div>
-      <div className="mt-2 text-xl font-bold text-[var(--text-primary)]">{value}</div>
-      {hint && <div className="mt-1 text-xs text-[var(--text-secondary)]">{hint}</div>}
-    </div>
-  );
-}
+type BatchEvent={id:string;eventType:string;status?:string|null;submissionDate?:string|null;payerReference?:string|null;amount?:number|string|null;paymentReference?:string|null;paymentMethod?:string|null;notes?:string|null;createdAt:string;recordedBy?:{fullName?:string;username?:string}|null};
+type BatchRow={id:string;batchNumber:string;insuranceType:string;periodYear:number;periodMonth:number;totalClaims:number;totalAmount:number|string;status:string;finalizedAt?:string|null;description?:string|null;insuranceProvider?:{name?:string;type?:string}|null;corporateAccount?:{companyName?:string}|null;createdBy?:{fullName?:string;username?:string}|null;trackingEvents:BatchEvent[];tracking:{amountSubmitted:number;totalPaid:number;outstanding:number;latestStatus:string;submittedAt:string|null}};
+const money=(v:unknown)=>new Intl.NumberFormat('en-GH',{style:'currency',currency:'GHS',maximumFractionDigits:2}).format(Number(v||0));
+const periodLabel=(r:BatchRow)=>new Intl.DateTimeFormat('en-GH',{month:'long',year:'numeric'}).format(new Date(r.periodYear,r.periodMonth-1,1));
+const payerLabel=(r:BatchRow)=>r.corporateAccount?.companyName||r.insuranceProvider?.name||'Unassigned payer';
+const shortDate=(v?:string|null)=>(v?new Date(v).toLocaleDateString('en-GB'):'—');
+const FAMILY_PARAM:Record<InsuranceFamily,string>={nhis:'nhis',private:'private',corporate:'corporate'};
+export default function InsuranceClaimsTracking({family}:{family:InsuranceFamily}){
+ const {success,error:toastError}=useToast(); const type=FAMILY_PARAM[family];
+ const [batches,setBatches]=useState<BatchRow[]>([]); const [loading,setLoading]=useState(true); const [search,setSearch]=useState('');
+ const [listParams,setListParams]=useState({text:'',page:1,size:25}); const [pagination,setPagination]=useState({page:1,pages:1,total:0}); const [summary,setSummary]=useState({batches:0,claims:0,amount:0,paid:0});
+ const [selected,setSelected]=useState<BatchRow|null>(null); const [eventType,setEventType]=useState<'submission'|'adjudication'|'payment'>('submission'); const [status,setStatus]=useState('acknowledged');
+ const [payerReference,setPayerReference]=useState(''); const [paymentReference,setPaymentReference]=useState(''); const [amount,setAmount]=useState(''); const [paymentMethod,setPaymentMethod]=useState('bank_transfer'); const [submissionDate,setSubmissionDate]=useState(new Date().toISOString().slice(0,10)); const [notes,setNotes]=useState(''); const [saving,setSaving]=useState(false);
+ useEffect(()=>{ const t=setTimeout(()=>{ const text=search.trim(); setListParams(c=>c.text===text?c:{...c,text,page:1}); },300); return ()=>clearTimeout(t); },[search]);
+ const load=useCallback(async()=>{ setLoading(true); try{ const res=await getClaimBatchTracking({page:listParams.page,limit:listParams.size,search:listParams.text||undefined,insuranceType:type}); const body=res?.data??{}; setBatches(Array.isArray(body.data)?body.data:[]); setPagination({page:Number(body.pagination?.page)||1,pages:Math.max(1,Number(body.pagination?.pages)||1),total:Number(body.pagination?.total)||0}); setSummary({batches:Number(body.summary?.batches)||0,claims:Number(body.summary?.claims)||0,amount:Number(body.summary?.amount)||0,paid:Number(body.summary?.paid)||0}); } catch(e:any){ toastError('Could not load claims tracking', e?.response?.data?.message||e?.message||'Please try again.'); } finally{ setLoading(false); } },[listParams,type,toastError]);
+ useEffect(()=>{ void load(); },[load]); const outstanding=useMemo(()=>Math.max(0,summary.amount-summary.paid),[summary]);
+ const openRecord=(b:BatchRow)=>{ setSelected(b); setEventType('submission'); setStatus('acknowledged'); setPayerReference(''); setPaymentReference(''); setAmount(''); setPaymentMethod('bank_transfer'); setSubmissionDate(new Date().toISOString().slice(0,10)); setNotes(''); };
+ const submitEvent=async(e:FormEvent)=>{ e.preventDefault(); if(!selected) return; if(eventType==='payment'&&(!paymentReference.trim()||!(Number(amount)>0))){ toastError('Payment details required','Enter a unique remittance reference and a payment amount greater than zero.'); return; } if(eventType==='submission'&&!payerReference.trim()){ toastError('Submission reference required','Enter the payer or submission batch reference.'); return; } setSaving(true); try{ const body:any={eventType,notes:notes.trim()||undefined}; if(eventType==='submission') Object.assign(body,{payerReference:payerReference.trim(),submissionDate}); if(eventType==='adjudication') Object.assign(body,{status,payerReference:payerReference.trim()||undefined}); if(eventType==='payment') Object.assign(body,{amount:Number(amount),paymentReference:paymentReference.trim(),paymentMethod,payerReference:payerReference.trim()||undefined}); await recordClaimBatchTrackingEvent(selected.id,body); success('Batch tracking updated', eventType==='payment'?'Remittance recorded against the batch.':'Tracking event recorded.'); setSelected(null); await load(); } catch(err:any){ toastError('Could not record tracking event', err?.response?.data?.message||err?.message||'Please review the details and retry.'); } finally{ setSaving(false); } };
+ const familyMeta=INSURANCE_FAMILIES.find(f=>f.key===family)??INSURANCE_FAMILIES[0]; const showPayer=family!=='nhis';
+ return (<div className="p-4 md:p-6 space-y-5 text-[var(--text-primary)]"><PageHeader title={`${familyMeta.label} · Tracking & payments`} subtitle="What was submitted to the payer for each month, what they have paid and what is still owed." icon={familyMeta.icon} accent={familyMeta.accent} tabs={<InsuranceTabs family={family} section="tracking" />} actions={<Button icon={RefreshCw} loading={loading} onClick={()=>void load()}>Refresh</Button>} />
+ <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><SummaryCard label="Amount submitted" value={money(summary.amount)} hint={`${summary.batches} batches · ${summary.claims} claims`} icon={<Layers size={20} />} /><SummaryCard label="Payments received" value={money(summary.paid)} icon={<Banknote size={20} />} /><SummaryCard label="Still outstanding" value={money(outstanding)} icon={<Clock3 size={20} />} /></div>
+ <SearchInput value={search} onChange={setSearch} placeholder="Search batch number or description…" />
+ <div className={TABLE_SHELL}>{loading?<div className="flex items-center justify-center gap-2 py-16 text-[var(--text-secondary)]"><Loader2 className="animate-spin" size={20} /> Loading submitted batches…</div>:batches.length===0?<div className="py-16 text-center"><AlertCircle size={28} className="mx-auto text-[var(--text-tertiary)] mb-2" /><p className="font-medium text-[var(--text-primary)]">No batches found</p><p className="text-sm text-[var(--text-secondary)] mt-1">Generate and finalize a batch on the Claim batches tab; a finalized batch is what gets submitted and paid.</p></div>:<div className="overflow-x-auto"><table className="w-full text-sm text-left"><thead className={TH_ROW}><tr><th className={TH}>Batch</th><th className={TH}>Finalized</th><th className={TH}>Period</th><th className={TH}>Sent</th>{showPayer&&<th className={TH}>Payer</th>}<th className={cn(TH,'text-right')}>Claims</th><th className={cn(TH,'text-right')}>Amount submitted</th><th className={cn(TH,'text-right')}>Paid</th><th className={cn(TH,'text-right')}>Outstanding</th><th className={TH}>Payer status</th><th className={cn(TH,'text-right')}>Entries</th><th className={cn(TH,'text-right')}>Actions</th></tr></thead><tbody>{batches.map(b=>(<tr key={b.id} className={TR}><td className={TD}><div className="font-semibold text-[var(--text-primary)]">{b.batchNumber}</div></td><td className={TD}>{b.finalizedAt?shortDate(b.finalizedAt):'Not finalized'}</td><td className={TD}><div className="flex items-center gap-1.5"><CalendarClock size={14} className="text-[var(--text-tertiary)]" />{periodLabel(b)}</div></td><td className={TD}>{b.tracking.submittedAt?shortDate(b.tracking.submittedAt):'—'}</td>{showPayer&&<td className={TD}><div className="font-medium">{payerLabel(b)}</div></td>}<td className={cn(TD,'text-right')}>{b.totalClaims}</td><td className={cn(TD_MONO,'text-right font-semibold')}>{money(b.tracking.amountSubmitted)}</td><td className={cn(TD_MONO,'text-right text-[var(--icon-green-text)]')}>{money(b.tracking.totalPaid)}</td><td className={cn(TD_MONO,'text-right font-medium')}>{money(b.tracking.outstanding)}</td><td className={TD}><Badge dot size="sm" tone={statusTone(b.tracking.latestStatus)}>{humanStatus(b.tracking.latestStatus)}</Badge></td><td className={cn(TD,'text-right')}>{b.trackingEvents.length}</td><td className={cn(TD,'text-right')}><Button size="sm" variant="primary" icon={Plus} onClick={()=>openRecord(b)}>Record activity</Button></td></tr>))}</tbody></table></div>}</div>
+ <Pagination page={pagination.page} totalPages={pagination.pages} itemsPerPage={listParams.size} totalItems={pagination.total} noun="batches" onChange={p=>setListParams(c=>({...c,page:p}))} pageSizeOptions={[10,25,50]} onPageSizeChange={s=>setListParams(c=>({...c,size:s,page:1}))} />
+ <p className="text-xs text-[var(--text-secondary)]">Remittances are recorded against the batch submitted for the month — the payer answers the period, not the individual claim. They do not alter patient cash payments or the original bill ledger.</p>
+ {selected&&<div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-3" onMouseDown={e=>{if(e.target===e.currentTarget&&!saving) setSelected(null);}}><div className="w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] shadow-xl"><div className="flex items-start justify-between border-b border-[var(--border-color)] px-5 py-4"><div><h2 className="text-lg font-bold">Record batch activity</h2><p className="text-sm text-[var(--text-secondary)]">{selected.batchNumber} · {periodLabel(selected)} · {showPayer?payerLabel(selected):familyMeta.label}</p></div><Button variant="ghost" iconOnly icon={X} aria-label="Close" onClick={()=>setSelected(null)} disabled={saving} /></div><div className="p-5"><div className="mb-4 grid grid-cols-3 gap-2 rounded-lg bg-[var(--bg-main)] p-3 text-sm"><div><div className="text-xs text-[var(--text-secondary)]">Submitted</div><strong>{money(selected.tracking.amountSubmitted)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Paid</div><strong className="text-[var(--icon-green-text)]">{money(selected.tracking.totalPaid)}</strong></div><div><div className="text-xs text-[var(--text-secondary)]">Outstanding</div><strong>{money(selected.tracking.outstanding)}</strong></div></div><form onSubmit={submitEvent} className="space-y-4"><Field label="Activity type"><FilterSelect className="w-full" value={eventType} onChange={v=>setEventType(v as typeof eventType)} options={[{value:'submission',label:'Record submission'},{value:'adjudication',label:'Update payer decision'},{value:'payment',label:'Record payment'}]} /></Field>{eventType==='submission'&&<><Field label="Payer / submission reference" required><input value={payerReference} onChange={e=>setPayerReference(e.target.value)} placeholder="Portal or remittance advice reference" className={cn(INPUT,'w-full')} /></Field><Field label="Submission date"><input type="date" value={submissionDate} onChange={e=>setSubmissionDate(e.target.value)} className={cn(INPUT,'w-full')} /></Field></>}{eventType==='adjudication'&&<><Field label="Payer decision"><FilterSelect className="w-full" value={status} onChange={setStatus} options={[{value:'acknowledged',label:'Acknowledged'},{value:'under_review',label:'Under review'},{value:'queried',label:'Queried / needs correction'},{value:'approved',label:'Approved'},{value:'partially_approved',label:'Partially approved'},{value:'rejected',label:'Rejected'}]} /></Field><Field label="Payer reference (optional)"><input value={payerReference} onChange={e=>setPayerReference(e.target.value)} placeholder="Remittance or query reference" className={cn(INPUT,'w-full')} /></Field></>}{eventType==='payment'&&<><Field label="Amount received (GHS)" required hint={`Cannot take the batch past the ${money(selected.tracking.amountSubmitted)} submitted.`}><input type="number" min="0.01" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="0.00" className={cn(INPUT,'w-full')} /></Field><Field label="Unique payment / remittance reference" required hint="A duplicate reference is rejected by the payer ledger."><input value={paymentReference} onChange={e=>setPaymentReference(e.target.value)} placeholder="Bank advice or remittance number" className={cn(INPUT,'w-full')} /></Field><Field label="Payment method"><FilterSelect className="w-full" value={paymentMethod} onChange={setPaymentMethod} options={[{value:'bank_transfer',label:'Bank transfer'},{value:'cheque',label:'Cheque'},{value:'mobile_money',label:'Mobile money'},{value:'other',label:'Other'}]} /></Field><Field label="Payer remittance reference (optional)"><input value={payerReference} onChange={e=>setPayerReference(e.target.value)} placeholder="Advice number" className={cn(INPUT,'w-full')} /></Field></>}<Field label="Notes (optional)"><textarea value={notes} onChange={e=>setNotes(e.target.value)} rows={3} placeholder="Queries, deductions, follow-up details or receipt notes" className={cn(INPUT,'w-full')} /></Field>{selected.trackingEvents.length>0&&<div><h3 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Previous activity</h3><div className="max-h-40 space-y-2 overflow-y-auto">{selected.trackingEvents.slice().reverse().map(ev=><div key={ev.id} className="rounded-lg border border-[var(--border-color)] p-3 text-xs"><div className="flex justify-between gap-2"><strong>{humanStatus(ev.eventType)}{ev.status?` · ${humanStatus(ev.status)}`:''}</strong><span className="text-[var(--text-secondary)]">{new Date(ev.createdAt).toLocaleDateString()}</span></div>{ev.amount!=null&&<div className="mt-1">{money(ev.amount)} · {ev.paymentReference}</div>}{ev.payerReference&&<div className="mt-1 text-[var(--text-secondary)]">Reference: {ev.payerReference}</div>}{ev.recordedBy?.fullName&&<div className="mt-1 text-[var(--text-secondary)]">Recorded by {ev.recordedBy.fullName}</div>}{ev.notes&&<p className="mt-1 text-[var(--text-secondary)]">{ev.notes}</p>}</div>)}</div></div>}<div className="flex justify-end gap-2 border-t border-[var(--border-color)] pt-4"><Button onClick={()=>setSelected(null)} disabled={saving}>Cancel</Button><Button type="submit" variant="primary" icon={Send} loading={saving}>Save activity</Button></div></form></div></div></div>}
+ </div>);}
+function SummaryCard({label,value,hint,icon}:{label:string;value:string;hint?:string;icon:ReactNode}){ return (<div className="rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-4"><div className="flex items-center justify-between text-[var(--text-secondary)]"><span className="text-sm">{label}</span>{icon}</div><div className="mt-2 text-xl font-bold text-[var(--text-primary)]">{value}</div>{hint&&<div className="mt-1 text-xs text-[var(--text-secondary)]">{hint}</div>}</div>); }
