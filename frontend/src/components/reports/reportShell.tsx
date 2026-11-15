@@ -327,7 +327,7 @@ const PERCENT_NAME = /(percent|pct|share|rate|positivity|proportion)/i;
 export function safeValueText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return safeValueText(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return `${value}`;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : value.toISOString();
   if (typeof value === 'object') {
     for (const name of ['name', 'label', 'title', 'fullName', 'companyName', 'code', 'id']) {
