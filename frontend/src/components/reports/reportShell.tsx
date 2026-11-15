@@ -323,6 +323,22 @@ const COUNT_NAME = /(^|_)(count|total|quantity|qty|cases|visits|attendances|pati
 const DATE_NAME = /(date|time|expiry|expires|birth|dob|day|month|created|updated|started|completed|resulted|performed|verified|dispensed|admitted|discharged|submitted|finalized|visit)/i;
 const PERCENT_NAME = /(percent|pct|share|rate|positivity|proportion)/i;
 
+/** Convert report values to text without invoking unsafe object-to-primitive coercion. */
+export function safeValueText(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : value.toISOString();
+  if (typeof value === 'object') {
+    for (const name of ['name', 'label', 'title', 'fullName', 'companyName', 'code', 'id']) {
+      const candidate = readPath(value, name);
+      if (typeof candidate === 'string' && candidate.trim()) return candidate;
+    }
+    try { return JSON.stringify(value) || ''; } catch { return ''; }
+  }
+  return '';
+}
+
 function isBlank(value: unknown): boolean {
   return value === undefined || value === null || value === '' || (typeof value === 'number' && Number.isNaN(value));
 }
@@ -361,8 +377,8 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 /** "14/Jan/2026" — the day is never read as a month, which is how a report gets rejected. */
 function formatDate(value: unknown, withTime: boolean): string {
   if (isBlank(value)) return '';
-  const asDate = value instanceof Date ? value : new Date(String(value));
-  if (Number.isNaN(asDate.getTime())) return String(value);
+  const asDate = value instanceof Date ? value : new Date(safeValueText(value));
+  if (Number.isNaN(asDate.getTime())) return safeValueText(value);
   const day = asDate.getUTCDate();
   const month = MONTHS[asDate.getUTCMonth()];
   const year = asDate.getUTCFullYear();
@@ -435,7 +451,7 @@ export function columnMeta(column: ReportColumn, rows: any[]): ColumnMeta {
 
 export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, currency: string, raw?: boolean): string {
   if (isBlank(value)) return '—';
-  if (raw) return String(value);
+  if (raw) return safeValueText(value);
   switch (kind) {
     case 'bool': {
       if (typeof value === 'boolean') return value ? 'Yes' : 'No';
@@ -450,7 +466,7 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
       return formatDate(value, true);
     case 'number': {
       const asNumber = toNumber(value);
-      if (asNumber === null) return String(value);
+      if (asNumber === null) return safeValueText(value);
       const digits = Number.isInteger(asNumber) ? 0 : 2;
       return asNumber.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
     }
@@ -472,7 +488,7 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
         }
         return '—';
       }
-      return prettyToken(String(value));
+      return prettyToken(safeValueText(value));
     }
   }
 }
@@ -508,7 +524,7 @@ export function sortRows(rows: any[], metas: ColumnMeta[], field: string | null,
       const asDate = raw instanceof Date ? raw : new Date(String(raw));
       return Number.isNaN(asDate.getTime()) ? 0 : asDate.getTime();
     }
-    return String(raw).toLowerCase();
+    return safeValueText(raw).toLowerCase();
   };
   return [...rows].sort((a, b) => {
     const left = key(a);
