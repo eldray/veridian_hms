@@ -327,7 +327,7 @@ const PERCENT_NAME = /(percent|pct|share|rate|positivity|proportion)/i;
 export function safeValueText(value: unknown): string {
   if (value == null) return '';
   if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return safeValueText(value);
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? '' : value.toISOString();
   if (typeof value === 'object') {
     for (const name of ['name', 'label', 'title', 'fullName', 'companyName', 'code', 'id']) {
@@ -455,10 +455,10 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
   switch (kind) {
     case 'bool': {
       if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-      const text = String(value).toLowerCase();
+      const text = safeValueText(value).toLowerCase();
       if (['true', 'yes', 'y', '1'].includes(text)) return 'Yes';
       if (['false', 'no', 'n', '0'].includes(text)) return 'No';
-      return String(value);
+      return safeValueText(value);
     }
     case 'date':
       return formatDate(value, false);
@@ -472,12 +472,12 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
     }
     case 'money': {
       const asNumber = toNumber(value);
-      if (asNumber === null) return String(value);
+      if (asNumber === null) return safeValueText(value);
       return `${currency} ${asNumber.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
     case 'percent': {
       const asNumber = toNumber(value);
-      if (asNumber === null) return String(value);
+      if (asNumber === null) return safeValueText(value);
       return `${Math.round(asNumber * 10) / 10}%`;
     }
     default: {
@@ -497,7 +497,7 @@ export function formatCell(value: unknown, kind: Exclude<ColumnValue, 'auto'>, c
 export function rowKeyOf(table: ReportTable, row: any, index: number): string {
   if (table.rowKey) {
     const value = readPath(row, table.rowKey);
-    if (value != null) return String(value);
+    if (value != null) return safeValueText(value);
   }
   for (const candidate of ['id', 'billNumber', 'claimNumber', 'referenceNumber', 'folderNumber', 'testNumber', 'key', 'date', 'month']) {
     const value = readPath(row, candidate);
@@ -521,7 +521,7 @@ export function sortRows(rows: any[], metas: ColumnMeta[], field: string | null,
       return asNumber === null ? 0 : asNumber;
     }
     if (meta.value === 'date' || meta.value === 'datetime') {
-      const asDate = raw instanceof Date ? raw : new Date(String(raw));
+      const asDate = raw instanceof Date ? raw : new Date(safeValueText(raw));
       return Number.isNaN(asDate.getTime()) ? 0 : asDate.getTime();
     }
     return safeValueText(raw).toLowerCase();
