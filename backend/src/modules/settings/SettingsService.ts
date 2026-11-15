@@ -7,7 +7,31 @@ import prisma from '../../core/database/prisma.client';
 // ==========================================
 
 export const getHospitalDetails = async () => {
-  return prisma.hospital.findFirst();
+  // Return only the facility profile used by staff screens and printed documents.
+  // Financial account details and NHIS API configuration remain private to admins.
+  return prisma.hospital.findFirst({
+    select: {
+      id: true,
+      name: true,
+      address: true,
+      phone: true,
+      email: true,
+      imageUrl: true,
+      nhisFacilityCode: true,
+      nhisFacilityType: true,
+      nhisAccreditationNumber: true,
+      nhisAccreditationDate: true,
+      nhisAccreditationExpiry: true,
+      nhisContactPerson: true,
+      nhisContactPhone: true,
+      nhisContactEmail: true,
+      ghsDistrictCode: true,
+      ghaHFCode: true,
+      isActive: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
 };
 
 export const updateHospitalDetails = async (hospitalData: {
