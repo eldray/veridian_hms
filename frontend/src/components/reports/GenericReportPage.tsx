@@ -49,7 +49,7 @@ const REPORT_LOADERS: Record<string, (params: any) => Promise<any>> = {
 };
 
 const labelOf = (value: unknown): string =>
-  String(value).replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
+  safeValueText(value).replace(/_/g, ' ').replace(/\b\w/g, character => character.toUpperCase());
 
 /**
  * The period printed on the page. Some services echo the query strings back ("2026-10-01") and
