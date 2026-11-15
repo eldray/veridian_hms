@@ -20,7 +20,7 @@ import { useToast } from '../../store/toastStore';
 import { useAuthStore } from '../../store/authStore';
 import {
   currencyOf, columnMeta, EmptyRows, formatCell, isReportEmpty, kindFor, Pager, pickRows,
-  readPath, REPORT_EXPORT_ROLES, resolveFilter, resolveTotals, rowKeyOf, SHELL_PAGE_SIZES,
+  readPath, REPORT_EXPORT_ROLES, resolveFilter, resolveTotals, rowKeyOf, safeValueText, SHELL_PAGE_SIZES,
   SortIcons, sumColumn, unwrapReport, useSortedRows,
   type ReportShape, type ReportTable,
 } from './reportShell';
@@ -89,7 +89,7 @@ const ShellTable = ({
       const value = readPath(row, column.field);
       if (value == null) return false;
       const shown = formatCell(value, metas[columnIndex].value, currency, column.raw).toLowerCase();
-      return shown.includes(needle) || String(value).toLowerCase().includes(needle);
+      return shown.includes(needle) || safeValueText(value).toLowerCase().includes(needle);
     }));
   }, [rows, needle, table.columns, metas, currency]);
 
