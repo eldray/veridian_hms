@@ -74,77 +74,36 @@ export const useHospitalStore = create<HospitalState>((set, get) => ({
 // src/store/hospitalStore.ts - FIXED fetchHospital
 
 fetchHospital: async () => {
-  set({ isLoading: true, error: null });
-  try {
-    console.log('🏥 Fetching hospital details...');
-    
-    let hospitalData = null;
-    
+    set({ isLoading: true, error: null });
     try {
-      // Try getHospitalDetails() first
+      // This read-only profile endpoint is available to every authenticated staff role.
+      // The /hospital collection endpoint is admin-only and must not be used as a fallback.
       const response = await getHospitalDetails();
-      console.log('📦 getHospitalDetails response:', response);
-      
-      // Extract data from various response structures
-      hospitalData = response?.data?.hospital || 
-                     response?.hospital || 
-                     response?.data ||
-                     response;
-      
-      if (hospitalData && hospitalData.id) {
-        console.log('✅ Hospital loaded from getHospitalDetails');
-      } else {
-        throw new Error('No valid hospital data');
+      const hospitalData = response?.data?.hospital || response?.hospital || response?.data || response;
+
+      if (!hospitalData || !hospitalData.id) {
+        throw new Error('Hospital profile is not configured');
       }
-    } catch (firstError) {
-      console.log('First attempt failed, trying getHospitals...', firstError);
-      
-      try {
-        const hospitalsResponse = await getHospitals();
-        const hospitals = hospitalsResponse?.data?.hospitals || 
-                         hospitalsResponse?.hospitals || 
-                         hospitalsResponse?.data ||
-                         hospitalsResponse;
-        
-        if (hospitals && Array.isArray(hospitals) && hospitals.length > 0) {
-          hospitalData = hospitals[0];
-          console.log('✅ Hospital loaded from getHospitals');
-        } else {
-          throw new Error('No hospitals found');
-        }
-      } catch (secondError) {
-        console.log('All attempts failed, using default');
-        hospitalData = DEFAULT_HOSPITAL;
-      }
+
+      const finalHospital = {
+        ...DEFAULT_HOSPITAL,
+        ...hospitalData,
+        id: hospitalData.id,
+        name: hospitalData.name || DEFAULT_HOSPITAL.name,
+      };
+
+      set({ hospital: finalHospital, isLoading: false, error: null });
+    } catch (error: unknown) {
+      const message = (error as any)?.response?.data?.message
+        || (error instanceof Error ? error.message : 'Failed to fetch hospital profile');
+      console.error('Hospital profile fetch failed:', message);
+      set({
+        hospital: DEFAULT_HOSPITAL,
+        error: message,
+        isLoading: false,
+      });
     }
-    
-    // Ensure hospitalData has required fields
-    const finalHospital = {
-      ...DEFAULT_HOSPITAL,
-      ...hospitalData,
-      id: hospitalData?.id || DEFAULT_HOSPITAL.id,
-      name: hospitalData?.name || DEFAULT_HOSPITAL.name
-    };
-    
-    console.log('✅ Hospital loaded:', {
-      name: finalHospital.name,
-      id: finalHospital.id,
-      type: finalHospital.nhisFacilityType
-    });
-    
-    set({ 
-      hospital: finalHospital, 
-      isLoading: false 
-    });
-  } catch (error: unknown) {
-    console.error('❌ Hospital fetch failed:', error);
-    set({ 
-      hospital: DEFAULT_HOSPITAL, 
-      error: error?.response?.data?.message || 'Failed to fetch hospital',
-      isLoading: false 
-    });
-  }
-},
+  },
 
   // Get specific hospital by ID
   getHospital: async (id: string) => {
