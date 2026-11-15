@@ -20,7 +20,11 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Uncaught error:', error, errorInfo);
+    const message = error instanceof Error ? error.message : 'Unknown rendering error';
+    const componentStack = typeof errorInfo?.componentStack === 'string' ? errorInfo.componentStack : '';
+    // Log strings only: passing complex React/Axios objects to console can trigger
+    // secondary serialization errors and hide the original rendering failure.
+    console.error(`Uncaught error: ${message}${componentStack ? `\n${componentStack}` : ''}`);
   }
 
   public render() {
