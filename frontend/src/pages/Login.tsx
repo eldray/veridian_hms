@@ -1,5 +1,5 @@
-// src/pages/Login.tsx — COMPLETE FILE
-import { useState, FormEvent } from 'react';
+// src/pages/Login.tsx — COMPLETE FILE (Your Layout, Polished)
+import { useState, useId, FormEvent } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { useAuthStore, LoginError } from '../store/authStore';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +10,7 @@ import {
   Lock, User, Eye, EyeOff,
   Users, Stethoscope, Shield, Activity, Pill, Receipt, LogIn, CheckCircle,
   FlaskConical, ScanLine, BriefcaseBusiness, Calculator,
-  HeartPulse, Archive, ArrowLeft, KeyRound,
+  HeartPulse, Archive, ArrowLeft, KeyRound, ShieldCheck, Info,
 } from 'lucide-react';
 
 // ── Feature flag ─────────────────────────────────────────────────────────────
@@ -83,10 +83,10 @@ function FormHeader({ title, subtitle }: { title: string; subtitle: string }) {
       <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
         <VeridianLogo variant="emblem" size={48} />
       </div>
-      <p style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-.01em' }}>
+      <h1 style={{ margin: '0 0 6px', fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', letterSpacing: '-.01em' }}>
         {title}
-      </p>
-      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
+      </h1>
+      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
         {subtitle}
       </p>
     </div>
@@ -94,6 +94,7 @@ function FormHeader({ title, subtitle }: { title: string; subtitle: string }) {
 }
 
 export default function Login() {
+  const uid = useId();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -167,50 +168,66 @@ export default function Login() {
     setUsername(acc.username);
     setPassword(acc.password);
     setMode('login');
-    info('Demo account loaded', `${acc.role} credentials ready`, 2000);
+    info?.('Demo account loaded', `${acc.role} credentials ready`, 2000);
   };
 
   return (
     <>
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-        .login-card { animation: fadeUp .45s ease both; }
-        .login-brand { color-scheme: dark; }
-        .login-brand .brand-title { color: #C8DCF0; margin: 0; }
-        .login-brand .brand-sub { color: #5A8099; margin: 0; }
-        .login-brand .brand-copyright { color: #1E3A50; }
-        .login-brand .feature-tile { padding: 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.06); background: rgba(255,255,255,0.04); transition: background .2s; }
-        .login-brand .feature-tile:hover { background: rgba(255,255,255,0.07); }
-        .field-group { display: flex; flex-direction: column; gap: 6px; }
-        .field-label { display: block; font-size: 11px; font-weight: 600; color: var(--text-secondary); letter-spacing: .02em; text-transform: uppercase; }
-        .field-input { display: block; width: 100%; box-sizing: border-box; padding: 10px 12px 10px 38px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 13px; color: var(--text-primary); background: var(--bg-main); outline: none; font-family: inherit; transition: border-color .15s, box-shadow .15s; }
-        .field-input:focus { border-color: var(--icon-cyan-text); box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-cyan-text) 12%, transparent); }
-        .field-input::placeholder { color: var(--text-tertiary); }
-        .field-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: var(--text-tertiary); pointer-events: none; }
-        .field-toggle { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; padding: 2px; color: var(--text-tertiary); display: flex; align-items: center; border-radius: 4px; }
-        .field-toggle:hover { color: var(--text-secondary); }
-        .field-toggle:focus-visible { outline: 2px solid var(--icon-cyan-text); outline-offset: 2px; }
-        .btn-primary { width: 100%; padding: 11px 0; border-radius: 8px; border: none; background: var(--icon-cyan-text); color: var(--text-on-accent, #fff); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity .15s, background .15s; letter-spacing: .01em; }
-        .btn-primary:hover:not(:disabled) { opacity: .9; }
-        .btn-primary:focus-visible { outline: 2px solid var(--icon-cyan-text); outline-offset: 2px; }
-        .btn-primary:disabled { opacity: .6; cursor: not-allowed; background: var(--text-tertiary); }
-        .link-btn { background: none; border: none; cursor: pointer; font-size: 12px; color: var(--icon-cyan-text); font-weight: 500; padding: 2px; border-radius: 4px; }
-        .link-btn:hover { text-decoration: underline; }
-        .link-btn:focus-visible { outline: 2px solid var(--icon-cyan-text); outline-offset: 2px; }
-        .link-btn--back { display: inline-flex; align-items: center; gap: 6px; }
-        .demo-btn { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; min-height: 36px; padding: 6px 10px; text-align: left; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); cursor: pointer; transition: background .15s, border-color .15s; }
-        .demo-btn:hover:not(:disabled) { background: var(--icon-cyan-bg); border-color: var(--icon-cyan-text); }
-        .demo-btn:focus-visible { outline: 2px solid var(--icon-cyan-text); outline-offset: 2px; }
-        .demo-btn:disabled { opacity: .55; cursor: not-allowed; }
-        .demo-btn .demo-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
-        .demo-btn .demo-meta p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
-        .demo-icon { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; background: var(--bg-card); border: 1px solid var(--border-color); display: flex; align-items: center; justify-content: center; }
-        .demo-group-label { margin: 0 0 6px 2px; font-size: 9px; font-weight: 700; color: var(--text-tertiary); text-transform: uppercase; letter-spacing: .08em; }
-        .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .demo-group:not(:last-child) { margin-bottom: 12px; }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .login-wrapper {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          position: relative;
+          background-color: var(--bg-main);
+        }
+        
+        /* Exact background from your design */
+        .login-bg {
+          position: absolute; inset: 0;
+          background-image: url("https://images.unsplash.com/photo-1516549655169-df83a0774514?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80");
+          background-size: cover;
+          background-position: center 30%;
+          opacity: 0.12;
+          z-index: 0;
+        }
+        .login-overlay {
+          position: absolute; inset: 0;
+          background: rgba(8,14,26,0.65);
+          z-index: 1;
+        }
 
-        /* ── Left brand panel: distribute vertically so footer pins to bottom ── */
+        .login-card {
+          position: relative;
+          z-index: 10;
+          width: 100%;
+          max-width: 1060px;
+          display: grid;
+          grid-template-columns: 1fr 460px;
+          border-radius: 16px;
+          overflow: hidden;
+          border: 1px solid rgba(255,255,255,0.08);
+          box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04);
+          max-height: 92vh;
+          animation: fadeUp 0.4s ease both;
+        }
+
+        /* ── Brand Panel ── */
+        .login-brand {
+          color-scheme: dark;
+          background: rgba(10,17,32,0.96);
+          backdrop-filter: blur(20px);
+          padding: 40px;
+          display: flex;
+          flex-direction: column;
+          overflow-y: auto;
+          min-height: 0;
+        }
         .brand-inner {
           display: flex;
           flex-direction: column;
@@ -219,155 +236,372 @@ export default function Login() {
           flex: 1;
           min-height: 0;
         }
-        .brand-middle { display: flex; flex-direction: column; gap: 24px; }
+        .brand-middle {
+          display: flex;
+          flex-direction: column;
+          gap: 28px;
+          margin-top: 40px;
+        }
+        .brand-title {
+          color: #FFFFFF;
+          font-size: 26px;
+          font-weight: 600;
+          line-height: 1.35;
+          letter-spacing: -0.02em;
+          margin: 0 0 12px 0;
+        }
+        .brand-sub {
+          color: #7B9EB6;
+          font-size: 13.5px;
+          line-height: 1.6;
+          max-width: 320px;
+          margin: 0;
+        }
+        
+        /* Feature Tiles - styled to match your dark aesthetic */
+        .feature-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 12px;
+        }
+        .feature-tile {
+          padding: 16px;
+          border-radius: 12px;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(255,255,255,0.03);
+          transition: background 0.2s, border-color 0.2s;
+        }
+        .feature-tile:hover {
+          background: rgba(255,255,255,0.06);
+          border-color: rgba(255,255,255,0.15);
+        }
+        .feature-icon {
+          color: #4F8EA8;
+          margin-bottom: 12px;
+          display: block;
+        }
+        .feature-label {
+          color: #E2EDF4;
+          font-size: 13px;
+          font-weight: 600;
+          margin: 0 0 4px 0;
+        }
+        .feature-desc {
+          color: #5E7A8F;
+          font-size: 11.5px;
+          margin: 0;
+        }
 
-        /* ── Right panel rhythm ── */
+        .brand-copyright {
+          color: #2A4A63;
+          font-size: 11px;
+          margin: 0;
+          padding-top: 20px;
+        }
+
+        /* ── Form Panel ── */
+        .form-panel {
+          background: var(--bg-card);
+          overflow-y: auto;
+          min-height: 0;
+        }
         .form-panel-scroll {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          padding: 36px 32px;
+          padding: 40px;
           box-sizing: border-box;
           min-height: 100%;
         }
-        .form-stack { display: flex; flex-direction: column; gap: 18px; }
-        .form-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color); }
+        .form-stack { display: flex; flex-direction: column; gap: 16px; }
+        .form-section { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--border-color); }
         .form-section--plain { margin-top: 20px; padding-top: 0; border-top: none; }
 
+        /* ── Fields ── */
+        .field-group { display: flex; flex-direction: column; gap: 6px; }
+        .field-label {
+          font-size: 11px; font-weight: 600;
+          color: var(--text-secondary);
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+        }
+        .field-wrap { position: relative; }
+        .field-input {
+          display: block; width: 100%; box-sizing: border-box;
+          min-height: 44px;
+          padding: 10px 12px 10px 38px;
+          border: 1px solid var(--border-color);
+          border-radius: 8px;
+          font-size: 13.5px;
+          color: var(--text-primary);
+          background: #FFFFFF; /* Clean white background */
+          outline: none;
+          font-family: inherit;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .field-input:focus {
+          border-color: var(--icon-cyan-text);
+          box-shadow: 0 0 0 3px color-mix(in srgb, var(--icon-cyan-text) 15%, transparent);
+        }
+        .field-input::placeholder { color: var(--text-tertiary); }
+        .field-icon {
+          position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+          width: 14px; height: 14px; color: var(--text-tertiary); pointer-events: none;
+        }
+        .field-toggle {
+          position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+          background: none; border: none; cursor: pointer;
+          width: 28px; height: 28px;
+          display: flex; align-items: center; justify-content: center;
+          color: var(--text-tertiary); border-radius: 4px;
+        }
+        .field-toggle:hover { color: var(--text-secondary); background: var(--bg-main); }
+
+        /* ── Buttons ── */
+        .btn-primary {
+          width: 100%; min-height: 44px;
+          padding: 10px 0;
+          border-radius: 8px;
+          border: none;
+          background: var(--icon-cyan-text);
+          color: var(--text-on-accent, #fff);
+          font-size: 13.5px; font-weight: 600;
+          cursor: pointer;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+          transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+          box-shadow: 0 4px 12px color-mix(in srgb, var(--icon-cyan-text) 25%, transparent);
+        }
+        .btn-primary:hover:not(:disabled) { opacity: 0.95; }
+        .btn-primary:active:not(:disabled) { transform: translateY(1px); }
+        .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; background: var(--text-tertiary); box-shadow: none; }
+
+        .link-btn {
+          background: none; border: none; cursor: pointer;
+          font-size: 12px; color: var(--icon-cyan-text); font-weight: 500;
+          padding: 2px; border-radius: 4px;
+        }
+        .link-btn:hover { text-decoration: underline; }
+        .link-btn--back { display: inline-flex; align-items: center; gap: 6px; }
+
+        /* ── Demo Grid (Scrollable) ── */
+        .demo-scroll {
+          max-height: 220px;
+          overflow-y: auto;
+          padding-right: 8px;
+          scrollbar-width: thin;
+          -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent 100%);
+                  mask-image: linear-gradient(to bottom, #000 calc(100% - 20px), transparent 100%);
+        }
+        /* Custom scrollbar for webkit */
+        .demo-scroll::-webkit-scrollbar { width: 4px; }
+        .demo-scroll::-webkit-scrollbar-track { background: transparent; }
+        .demo-scroll::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+        .demo-scroll::-webkit-scrollbar-thumb:hover { background: var(--text-tertiary); }
+
+        .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .demo-group:not(:last-child) { margin-bottom: 12px; }
+        .demo-group-label {
+          margin: 0 0 6px 2px;
+          font-size: 10px; font-weight: 700;
+          color: var(--text-tertiary);
+          text-transform: uppercase; letter-spacing: 0.08em;
+        }
+        .demo-btn {
+          display: flex; align-items: center; gap: 8px;
+          width: 100%; min-width: 0; min-height: 38px;
+          padding: 6px 10px; text-align: left;
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+          background: var(--bg-main);
+          cursor: pointer;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .demo-btn:hover:not(:disabled) {
+          background: color-mix(in srgb, var(--icon-cyan-text) 6%, var(--bg-main));
+          border-color: color-mix(in srgb, var(--icon-cyan-text) 40%, var(--border-color));
+        }
+        .demo-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .demo-btn .demo-meta { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1px; }
+        .demo-btn .demo-meta p { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; }
+        .demo-icon {
+          width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+          background: var(--bg-card);
+          border: 1px solid var(--border-color);
+          display: flex; align-items: center; justify-content: center;
+        }
+
+        .info-strip {
+          padding: 10px 12px;
+          border-radius: 8px;
+          border: 1px solid var(--border-color);
+          background: var(--bg-main);
+          display: flex; align-items: flex-start; gap: 8px;
+        }
+
+        /* ── Responsive ── */
         @media (max-width: 900px) {
           .login-card { grid-template-columns: 1fr !important; max-width: 440px !important; max-height: none !important; }
           .login-brand { display: none !important; }
           .form-panel { overflow-y: auto !important; max-height: none !important; }
-          .form-panel-scroll { padding: 28px 24px !important; justify-content: flex-start !important; }
+          .form-panel-scroll { padding: 32px 24px !important; justify-content: flex-start !important; }
         }
       `}</style>
 
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.5rem', position: 'relative', background: 'var(--bg-main)' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url("https://images.unsplash.com/photo-1516549655169-df83a0774514?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80")', backgroundSize: 'cover', backgroundPosition: 'center 30%', opacity: 0.14 }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(8,14,26,0.65)' }} />
+      <div className="login-wrapper">
+        <div className="login-bg" />
+        <div className="login-overlay" />
 
-        <div
-          className="login-card"
-          style={{
-            position: 'relative',
-            zIndex: 10,
-            width: '100%',
-            maxWidth: 1080,
-            display: 'grid',
-            gridTemplateColumns: '1fr 460px',
-            borderRadius: 16,
-            overflow: 'hidden',
-            border: '1px solid rgba(255,255,255,0.08)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.04)',
-            maxHeight: '90vh',
-          }}
-        >
-          {/* ── Branding panel ── */}
-          <div
-            className="login-brand"
-            style={{
-              background: 'rgba(8,16,30,0.92)',
-              backdropFilter: 'blur(20px)',
-              padding: '36px 32px',
-              display: 'flex',
-              flexDirection: 'column',
-              overflowY: 'auto',
-              minHeight: 0,
-            }}
-          >
+        <div className="login-card">
+          {/* ── Branding Panel ── */}
+          <div className="login-brand">
             <div className="brand-inner">
-              {/* Top: logo — pushed down slightly, reduced size */}
-              <div style={{ display: 'flex', justifyContent: 'flex-start', paddingTop: 12 }}>
-                <VeridianLogo variant="wordmark" size={96} dark />
+              
+              {/* Top: Logo */}
+              <div>
+                <VeridianLogo variant="wordmark" size={110} dark />
               </div>
 
-              {/* Middle: headline + subtitle + feature tiles */}
+              {/* Middle: Headline & Features */}
               <div className="brand-middle">
                 <div>
-                  <p className="brand-title" style={{ fontSize: 23, fontWeight: 600, lineHeight: 1.35, letterSpacing: '-.02em', marginBottom: 8 }}>
+                  <h2 className="brand-title">
                     Comprehensive care,<br />one platform.
-                  </p>
-                  <p className="brand-sub" style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 300 }}>
+                  </h2>
+                  <p className="brand-sub">
                     Patient records, clinical workflows, pharmacy, billing, and reporting — built for modern Ghanaian healthcare.
                   </p>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                <div className="feature-grid">
                   {FEATURES.map((f) => (
                     <div key={f.label} className="feature-tile">
-                      <f.Icon style={{ width: 16, height: 16, color: '#5BAEC8', marginBottom: 8, display: 'block' }} />
-                      <p style={{ margin: '0 0 2px', fontSize: 12, fontWeight: 600, color: '#A8C4D8', lineHeight: 1.4 }}>{f.label}</p>
-                      <p style={{ margin: 0, fontSize: 11, color: '#3D607A', lineHeight: 1.4 }}>{f.desc}</p>
+                      <f.Icon className="feature-icon" style={{ width: 18, height: 18 }} />
+                      <p className="feature-label">{f.label}</p>
+                      <p className="feature-desc">{f.desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Bottom: copyright pinned via space-between */}
-              <p className="brand-copyright" style={{ margin: 0, paddingTop: 16, fontSize: 11 }}>
+              {/* Bottom: Copyright */}
+              <p className="brand-copyright">
                 © {new Date().getFullYear()} Veridian Health Systems
               </p>
             </div>
           </div>
 
-          {/* ── Form panel ── */}
-          <div
-            className="form-panel"
-            style={{ background: 'var(--bg-card)', overflowY: 'auto', minHeight: 0 }}
-          >
+          {/* ── Form Panel ── */}
+          <div className="form-panel">
             <div className="form-panel-scroll">
               {mode === 'login' && (
                 <>
                   <FormHeader title="Sign in" subtitle="Enter your credentials to continue" />
 
-                  <form onSubmit={handleSubmit} className="form-stack">
+                  <form onSubmit={handleSubmit} className="form-stack" aria-busy={loading}>
                     <div className="field-group">
-                      <label htmlFor="username" className="field-label">Username</label>
-                      <div style={{ position: 'relative' }}>
-                        <User className="field-icon" />
-                        <input id="username" type="text" value={username} required autoFocus autoComplete="username" onChange={(e) => setUsername(e.target.value)} placeholder="Enter username" disabled={loading} className="field-input" />
+                      <label htmlFor={`${uid}-username`} className="field-label">Username</label>
+                      <div className="field-wrap">
+                        <User className="field-icon" aria-hidden="true" />
+                        <input
+                          id={`${uid}-username`}
+                          type="text"
+                          value={username}
+                          required
+                          autoFocus
+                          autoComplete="username"
+                          onChange={(e) => setUsername(e.target.value)}
+                          placeholder="Enter username"
+                          disabled={loading}
+                          className="field-input"
+                        />
                       </div>
                     </div>
 
                     <div className="field-group" style={{ marginTop: -2 }}>
-                      <label htmlFor="password" className="field-label">Password</label>
-                      <div style={{ position: 'relative' }}>
-                        <Lock className="field-icon" />
-                        <input id="password" type={showPassword ? 'text' : 'password'} value={password} required autoComplete="current-password" onChange={(e) => setPassword(e.target.value)} placeholder="Enter password" disabled={loading} className="field-input" style={{ paddingRight: 38 }} />
-                        <button type="button" onClick={() => setShowPassword((v) => !v)} disabled={loading} aria-label={showPassword ? 'Hide password' : 'Show password'} className="field-toggle">
-                          {showPassword ? <EyeOff style={{ width: 14, height: 14 }} /> : <Eye style={{ width: 14, height: 14 }} />}
+                      <label htmlFor={`${uid}-password`} className="field-label">Password</label>
+                      <div className="field-wrap">
+                        <Lock className="field-icon" aria-hidden="true" />
+                        <input
+                          id={`${uid}-password`}
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          required
+                          autoComplete="current-password"
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="Enter password"
+                          disabled={loading}
+                          className="field-input"
+                          style={{ paddingRight: 44 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword((v) => !v)}
+                          disabled={loading}
+                          aria-label={showPassword ? 'Hide password' : 'Show password'}
+                          className="field-toggle"
+                        >
+                          {showPassword
+                            ? <EyeOff style={{ width: 15, height: 15 }} aria-hidden="true" />
+                            : <Eye style={{ width: 15, height: 15 }} aria-hidden="true" />}
                         </button>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 2 }}>
-                        <button type="button" onClick={() => setMode('forgot')} disabled={loading} className="link-btn">Forgot password?</button>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                        <button type="button" onClick={() => setMode('forgot')} disabled={loading} className="link-btn">
+                          Forgot password?
+                        </button>
                       </div>
                     </div>
 
                     <button type="submit" disabled={loading} className="btn-primary" style={{ marginTop: 4 }}>
                       {loading ? (
-                        <><div style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--text-on-accent, #fff)', animation: 'spin .7s linear infinite' }} />Signing in…</>
+                        <>
+                          <span
+                            style={{
+                              width: 14, height: 14, borderRadius: '50%',
+                              border: '2px solid rgba(255,255,255,0.3)',
+                              borderTopColor: 'var(--text-on-accent, #fff)',
+                              animation: 'spin .7s linear infinite',
+                            }}
+                            aria-hidden="true"
+                          />
+                          Signing in…
+                        </>
                       ) : (
-                        <><LogIn style={{ width: 14, height: 14 }} />Sign in</>
+                        <>
+                          <LogIn style={{ width: 16, height: 16 }} aria-hidden="true" />
+                          Sign in
+                        </>
                       )}
                     </button>
                   </form>
 
                   {DEMO_ENABLED && TOTAL_DEMO_ACCOUNTS > 0 && (
                     <div className="form-section">
-                      <p style={{ margin: '0 0 10px', fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '.08em', textAlign: 'center' }}>
-                        Quick demo access · {TOTAL_DEMO_ACCOUNTS} accounts
-                      </p>
-                      <div style={{ maxHeight: 260, overflowY: 'auto', paddingRight: 4, scrollbarWidth: 'thin' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginBottom: 10 }}>
+                        <Info style={{ width: 13, height: 13, color: 'var(--text-tertiary)' }} aria-hidden="true" />
+                        <p style={{ margin: 0, fontSize: 10, fontWeight: 700, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                          Demo access · {TOTAL_DEMO_ACCOUNTS} accounts
+                        </p>
+                      </div>
+                      <div className="demo-scroll">
                         {DEMO_GROUPS.map((group) => (
                           <div key={group.label} className="demo-group">
-                            <p className="demo-group-label">{group.label}</p>
+                            <h3 className="demo-group-label">{group.label}</h3>
                             <div className="demo-grid">
                               {group.accounts.map((acc) => (
-                                <button key={acc.username} type="button" onClick={() => fillDemo(acc)} disabled={loading} className="demo-btn">
-                                  <div className="demo-icon"><acc.Icon style={{ width: 12, height: 12, color: acc.color }} /></div>
+                                <button
+                                  key={acc.username}
+                                  type="button"
+                                  onClick={() => fillDemo(acc)}
+                                  disabled={loading}
+                                  className="demo-btn"
+                                >
+                                  <div className="demo-icon" aria-hidden="true">
+                                    <acc.Icon style={{ width: 13, height: 13, color: acc.color }} />
+                                  </div>
                                   <div className="demo-meta">
-                                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{acc.role}</p>
-                                    <p style={{ fontSize: 10, color: 'var(--text-tertiary)', fontFamily: 'monospace' }}>{acc.username}</p>
+                                    <p style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-primary)' }}>{acc.role}</p>
+                                    <p style={{ fontSize: 10, color: 'var(--text-tertiary)', fontFamily: 'ui-monospace, monospace' }}>{acc.username}</p>
                                   </div>
                                 </button>
                               ))}
@@ -378,9 +612,11 @@ export default function Login() {
                     </div>
                   )}
 
-                  <div className="form-section--plain" style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--bg-main)', display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    <CheckCircle style={{ width: 14, height: 14, color: 'var(--icon-green-text)', flexShrink: 0, marginTop: 1 }} />
-                    <p style={{ margin: 0, fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>Secure &amp; HIPAA-compliant. Unauthorised access is prohibited and logged.</p>
+                  <div className="form-section--plain info-strip">
+                    <ShieldCheck style={{ width: 15, height: 15, color: 'var(--icon-green-text)', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+                    <p style={{ margin: 0, fontSize: 11.5, color: 'var(--text-tertiary)', lineHeight: 1.55 }}>
+                      Secure &amp; HIPAA-compliant. Unauthorised access is prohibited and logged.
+                    </p>
                   </div>
                 </>
               )}
@@ -389,29 +625,66 @@ export default function Login() {
                 <>
                   <FormHeader
                     title="Reset your password"
-                    subtitle={resetSent ? 'Ask a system administrator to reset it for you' : 'Enter your username to be told how a reset is done here'}
+                    subtitle={resetSent ? 'Ask a system administrator to reset it for you' : 'Enter your username to see how a reset is handled here'}
                   />
 
                   {resetSent ? (
-                    <div style={{ padding: '14px 16px', borderRadius: 8, border: '1px solid var(--border-color)', background: 'var(--icon-cyan-bg)' }}>
-                      <p style={{ margin: 0, fontSize: 12, color: 'var(--icon-cyan-text)', lineHeight: 1.6 }}>
-                        This facility runs without an email service, so passwords are reset by a system administrator. Ask one to open <strong>Staff management</strong> for <strong>{resetUsername}</strong>, set a new password and hand it to you in person. Signing in with it closes every other session of that account.
+                    <div
+                      role="status"
+                      style={{
+                        padding: '16px',
+                        borderRadius: 8,
+                        border: '1px solid color-mix(in srgb, var(--icon-cyan-text) 30%, var(--border-color))',
+                        background: 'var(--icon-cyan-bg)',
+                        display: 'flex',
+                        gap: 10,
+                        alignItems: 'flex-start',
+                      }}
+                    >
+                      <CheckCircle style={{ width: 18, height: 18, color: 'var(--icon-cyan-text)', flexShrink: 0, marginTop: 1 }} aria-hidden="true" />
+                      <p style={{ margin: 0, fontSize: 12.5, color: 'var(--icon-cyan-text)', lineHeight: 1.6 }}>
+                        This facility runs without an email service, so passwords are reset by a system administrator. Ask one to open <strong>Staff management</strong> for <strong>{resetUsername}</strong>, set a new password and hand it to you in person.
                       </p>
                     </div>
                   ) : (
-                    <form onSubmit={handleForgotSubmit} className="form-stack">
+                    <form onSubmit={handleForgotSubmit} className="form-stack" aria-busy={resetLoading}>
                       <div className="field-group">
-                        <label htmlFor="resetUsername" className="field-label">Username</label>
-                        <div style={{ position: 'relative' }}>
-                          <User className="field-icon" />
-                          <input id="resetUsername" type="text" value={resetUsername} required autoFocus autoComplete="off" onChange={(e) => setResetUsername(e.target.value)} placeholder="Enter your username" disabled={resetLoading} className="field-input" />
+                        <label htmlFor={`${uid}-reset`} className="field-label">Username</label>
+                        <div className="field-wrap">
+                          <User className="field-icon" aria-hidden="true" />
+                          <input
+                            id={`${uid}-reset`}
+                            type="text"
+                            value={resetUsername}
+                            required
+                            autoFocus
+                            autoComplete="off"
+                            onChange={(e) => setResetUsername(e.target.value)}
+                            placeholder="Enter your username"
+                            disabled={resetLoading}
+                            className="field-input"
+                          />
                         </div>
                       </div>
                       <button type="submit" disabled={resetLoading} className="btn-primary">
                         {resetLoading ? (
-                          <><div style={{ width: 13, height: 13, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)', borderTopColor: 'var(--text-on-accent, #fff)', animation: 'spin .7s linear infinite' }} />Sending…</>
+                          <>
+                            <span
+                              style={{
+                                width: 14, height: 14, borderRadius: '50%',
+                                border: '2px solid rgba(255,255,255,0.3)',
+                                borderTopColor: 'var(--text-on-accent, #fff)',
+                                animation: 'spin .7s linear infinite',
+                              }}
+                              aria-hidden="true"
+                            />
+                            Sending…
+                          </>
                         ) : (
-                          <><KeyRound style={{ width: 14, height: 14 }} />Request reset</>
+                          <>
+                            <KeyRound style={{ width: 16, height: 16 }} aria-hidden="true" />
+                            Request reset
+                          </>
                         )}
                       </button>
                     </form>
@@ -419,7 +692,8 @@ export default function Login() {
 
                   <div className="form-section--plain" style={{ display: 'flex', justifyContent: 'center' }}>
                     <button type="button" onClick={backToLogin} className="link-btn link-btn--back">
-                      <ArrowLeft style={{ width: 13, height: 13 }} />Back to sign in
+                      <ArrowLeft style={{ width: 14, height: 14 }} aria-hidden="true" />
+                      Back to sign in
                     </button>
                   </div>
                 </>

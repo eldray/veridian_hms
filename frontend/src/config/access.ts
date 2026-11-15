@@ -20,7 +20,7 @@ import {
   Building, Calendar, Clipboard, ClipboardList, DollarSign, FileText,
   Heart, HeartPulse, LayoutDashboard, Microscope, Package, Pill, Scan,
   ScrollText, Scissors, Send, Settings as SettingsIcon, Shield, Store, Stethoscope,
-  Syringe, TrendingUp, Users, Warehouse,
+  Syringe, TrendingUp, Users, Warehouse, Briefcase, GraduationCap,
 } from 'lucide-react';
 
 export type Role =
@@ -46,6 +46,7 @@ export type PageKey =
   | 'billing' | 'insurance_claims' | 'insurance_providers' | 'corporate'
   | 'estimates' | 'counter'
   | 'user_management' | 'shifts' | 'leaves'
+  | 'staff_directory' | 'staff_profile' | 'job_grades' | 'payslip_management'
   | 'departments' | 'audit_logs' | 'settings';
 
 interface PageDef {

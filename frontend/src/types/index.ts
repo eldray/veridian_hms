@@ -1549,6 +1549,102 @@ export interface ConsultationType {
 }
 
 // ======================
+// HR & STAFFING (aligned with backend Prisma models)
+// ======================
+
+export type EmploymentType = 'permanent' | 'contract' | 'temporary' | 'part_time';
+export type LeaveType = 'annual' | 'sick' | 'maternity' | 'paternity' | 'emergency' | 'unpaid';
+export type LeaveStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type ShiftType = 'morning' | 'afternoon' | 'night' | 'on_call';
+export type ShiftStatus = 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+export type DocumentStatus = 'pending' | 'verified' | 'expired' | 'rejected';
+
+export interface JobGrade {
+  id: string;
+  name: string;
+  code: string;
+  level: number;
+  baseSalary: number | string;
+  description?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  steps?: SalaryStep[];
+  staffCount?: number;
+}
+
+export interface SalaryStep {
+  id: string;
+  gradeId: string;
+  stepNumber: number;
+  baseSalary: number | string;
+  allowance: number | string;
+  effectiveFrom: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StaffProfile {
+  id: string;
+  userId: string;
+  employeeId: string;
+  jobGradeId?: string | null;
+  salaryStepId?: string | null;
+  departmentId?: string | null;
+  hireDate: string;
+  confirmationDate?: string | null;
+  employmentType: EmploymentType;
+  isActive: boolean;
+  yearsOfService?: number;
+  createdAt: string;
+  updatedAt: string;
+  user?: User;
+  jobGrade?: JobGrade;
+  department?: Department;
+}
+
+export interface Document {
+  id: string;
+  staffId: string;
+  documentType: string;
+  documentNumber?: string | null;
+  issuingAuthority?: string | null;
+  issueDate?: string | null;
+  expiryDate?: string | null;
+  fileUrl?: string | null;
+  isVerified: boolean;
+  verifiedById?: string | null;
+  verifiedAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PayrollRecord {
+  id: string;
+  staffId: string;
+  month: number;
+  year: number;
+  baseSalary: number | string;
+  allowances: number | string;
+  deductions: number | string;
+  netPay: number | string;
+  isPaid: boolean;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  staff?: StaffProfile;
+  lineItems?: PayslipLineItem[];
+}
+
+// ======================
+// GENERATOR-DERIVED TYPES
+// ======================
+// Re-exported so consuming code can `import { ... } from '../types'`
+// and get both hand-written types and the generation script outputs.
+export * from './backendTypes';
+
+// ======================
 // HOSPITAL
 // ======================
 

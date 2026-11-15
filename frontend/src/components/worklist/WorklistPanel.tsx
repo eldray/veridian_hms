@@ -239,9 +239,9 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                           </div>
                         )}
 
-                        {department === 'theatre' && item.procedureName && (
+                        {department === 'theatre' && (item as any).procedureName && (
                           <div className="col-span-2">
-                            Procedure: <span className="font-medium text-[var(--text-primary)]">{item.procedureName}</span>
+                            Procedure: <span className="font-medium text-[var(--text-primary)]">{ (item as any).procedureName }</span>
                           </div>
                         )}
 
@@ -254,9 +254,9 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                           </div>
                         )}
 
-                        {item.diagnosis && (
+                        {(item as any).diagnosis && (
                           <div className="col-span-2">
-                            Diagnosis: <span className="font-medium text-[var(--text-primary)]">{item.diagnosis}</span>
+                            Diagnosis: <span className="font-medium text-[var(--text-primary)]">{ (item as any).diagnosis }</span>
                           </div>
                         )}
                       </div>
@@ -272,9 +272,9 @@ export const WorklistPanel: React.FC<WorklistPanelProps> = ({
                       <TrendingUp className="w-5 h-5 text-[var(--text-tertiary)]" />
                       <span className="text-xs text-[var(--text-secondary)]">
                         {item.attendanceDateTime ? new Date(item.attendanceDateTime).toLocaleDateString() :
-                         item.admittedAt ? new Date(item.admittedAt).toLocaleDateString() :
-                         item.requestedAt ? new Date(item.requestedAt).toLocaleDateString() :
-                         item.scheduledDate ? new Date(item.scheduledDate).toLocaleDateString() : 'N/A'}
+                         (item as any).admittedAt ? new Date((item as any).admittedAt).toLocaleDateString() :
+                         (item as any).requestedAt ? new Date((item as any).requestedAt).toLocaleDateString() :
+                         (item as any).scheduledDate ? new Date((item as any).scheduledDate).toLocaleDateString() : 'N/A'}
                       </span>
                     </div>
                   </div>

@@ -1,6 +1,9 @@
 // src/pages/AuditLogs.tsx
 // Aligned to Patients / Attendance shell: PageHeader + SearchInput + page-number pagination.
 // Preserved: server-side pagination / filters via auditStore, JSON diff panels, detail drawer, CSV export.
+// 2026-11-15 pass: removed the duplicated When column (same timestamp as Date & Time),
+// added Role as its own column (was drawer-only), un-hid Entity ID / IP so every column
+// is present at every viewport instead of vanishing at lg/xl.
 // Deliberately NOT added: client-side sort — sorting audit logs must happen server-side
 // (a client sort would only reorder the current page and lie about the rest).
 import { useEffect, useMemo, useState } from 'react';
@@ -492,9 +495,6 @@ export default function AuditLogs() {
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
                   <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
-                    When
-                  </th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Date &amp; Time
                   </th>
                   <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
@@ -503,7 +503,7 @@ export default function AuditLogs() {
                   <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Entity
                   </th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden lg:table-cell whitespace-nowrap">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Entity ID
                   </th>
                   <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
@@ -512,7 +512,10 @@ export default function AuditLogs() {
                   <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     Username
                   </th>
-                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] hidden xl:table-cell whitespace-nowrap">
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
+                    Role
+                  </th>
+                  <th className="px-3 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
                     IP
                   </th>
                   <th className="px-3 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)] whitespace-nowrap">
@@ -528,13 +531,11 @@ export default function AuditLogs() {
                     onClick={() => setSelectedLog(log)}
                   >
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="text-sm text-[var(--text-primary)]">
-                        {formatRelative(log.timestamp)}
-                      </div>
-                    </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <div className="text-xs text-[var(--text-secondary)]">
+                      <div className="text-xs text-[var(--text-primary)]">
                         {formatDateTime(log.timestamp)}
+                      </div>
+                      <div className="text-[11px] text-[var(--text-tertiary)]">
+                        {formatRelative(log.timestamp)}
                       </div>
                     </td>
                     <td className="px-3 py-3 whitespace-nowrap">
@@ -551,7 +552,7 @@ export default function AuditLogs() {
                         {humanizeEntity(log.entityType)}
                       </div>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-xs font-mono text-[var(--text-secondary)] max-w-[200px] truncate">
                         {log.entityId}
                       </div>
@@ -566,7 +567,12 @@ export default function AuditLogs() {
                         @{log.performedBy?.username || log.performedById}
                       </div>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap hidden xl:table-cell">
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="text-xs text-[var(--text-secondary)] capitalize">
+                        {log.performedBy?.role ? log.performedBy.role.replace(/_/g, ' ') : '—'}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
                       <div className="text-xs font-mono text-[var(--text-secondary)]">
                         {log.ipAddress || '—'}
                       </div>

@@ -67,6 +67,24 @@ export const createUserRoutes = (prisma: any): Router => {
   router.patch('/:id/full-profile', selfOrRoles(ADMIN_HR), controller.updateFullProfile);
 
   // ==========================================
+  // USER UPDATE & DEACTIVATE
+  // ==========================================
+
+  // Updating a user's core fields (role, department, seniority, etc.) — admin only.
+  router.put(
+    '/:id',
+    requireRole([...ADMIN_ONLY]),
+    controller.updateUser,
+  );
+
+  // Deactivate/reactivate a staff account — admin only.
+  router.patch(
+    '/:id/deactivate',
+    requireRole([...ADMIN_ONLY]),
+    controller.deactivateUser,
+  );
+
+  // ==========================================
   // PAYROLL — static routes FIRST
   // ==========================================
 
@@ -134,6 +152,19 @@ export const createUserRoutes = (prisma: any): Router => {
     validateBody(ResetUserPasswordSchema),
     controller.resetUserPassword,
   );
+
+  // ==========================================
+  // USER-SPECIFIC PAYROLLS (HR/admin view of another user's payslips)
+  // ==========================================
+
+  router.get('/:id/payslips', requireRole([...ADMIN_HR]), controller.getUserPayslips);
+  router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
+
+  // ==========================================
+  // USER-SPECIFIC DOCUMENTS (HR/admin view of another user's documents)
+  // ==========================================
+
+  router.get('/:id/documents', selfOrRoles(ADMIN_HR), controller.getUserDocuments);
 
   // ==========================================
   // SHIFTS
