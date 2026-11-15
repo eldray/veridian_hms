@@ -23,7 +23,9 @@ export const createSettingsRoutes = () => {
   // HOSPITAL DETAILS ROUTES (Admin only)
   // ==========================================
 
-  router.get('/hospital', requireRole(['admin']), settingsController.getHospitalDetails);
+  // Facility identity is needed across clinical, billing and document screens.
+  // The router already applies protect; keep writes restricted to admins below.
+  router.get('/hospital', settingsController.getHospitalDetails);
 
   router.put(
     '/hospital',
