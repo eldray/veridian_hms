@@ -25,18 +25,22 @@ const esc = (s: any): string =>
     .replace(/'/g, '&apos;');
 
 /**
- * How a claim's lines group on a payer summary.
- *
- * Every line falls in exactly one bucket, so the columns add up to the claim total — which is what
- * a private insurer or employer checks the invoice against, since they are paid from this printout
- * rather than from an XML file.
+ * Payer-specific payable categories. NHIS is priced as its G-DRG package plus
+ * eligible medicines (the same calculation used when NHIS claims are generated).
+ * Private and corporate claims are priced from their insurer-covered bill lines;
+ * they never carry a G-DRG charge.
  */
-const COST_BUCKETS: Array<{ label: string; categories: string[] }> = [
-  { label: 'Labs & imaging', categories: ['investigation'] },
-  { label: 'Services & procedures', categories: ['service', 'procedure'] },
-  { label: 'Medications', categories: ['medicine'] },
-  { label: 'G-DRG & diagnoses', categories: ['gdrg', 'diagnosis'] },
-];
+const costBucketsFor = (insuranceType: string): Array<{ label: string; categories: string[] }> =>
+  insuranceType === 'nhis'
+    ? [
+        { label: 'NHIS G-DRG package', categories: ['gdrg'] },
+        { label: 'NHIS medications', categories: ['medicine'] },
+      ]
+    : [
+        { label: 'Labs & imaging', categories: ['investigation'] },
+        { label: 'Services & procedures', categories: ['service', 'procedure'] },
+        { label: 'Medications', categories: ['medicine'] },
+      ];
 
 export class ClaimPrintService {
   private repo: InsuranceClaimRepository;
@@ -282,7 +286,7 @@ export class ClaimPrintService {
     // printout. Keep the claim-to-batch links in the database for audit and adjudication,
     // but aggregate every line into the month-level cost buckets shown on this document.
     const allItems = claims.flatMap((claim) => claim.items ?? []);
-    const bucketTotals = COST_BUCKETS.map((bucket) => {
+    const costBuckets = costBucketsFor(insuranceType);\n    const bucketTotals = costBuckets.map((bucket) => {
       const matchingItems = allItems.filter((item: any) =>
         bucket.categories.includes(String(item.itemCategory)),
       );
@@ -295,7 +299,7 @@ export class ClaimPrintService {
         ),
       };
     });
-    const categorizedTypes = new Set(COST_BUCKETS.flatMap((bucket) => bucket.categories));
+    const categorizedTypes = new Set(costBuckets.flatMap((bucket) => bucket.categories));
     const otherItems = allItems.filter((item: any) => !categorizedTypes.has(String(item.itemCategory)));
     if (otherItems.length) {
       bucketTotals.push({
