@@ -874,13 +874,19 @@ export interface InsuranceClaim {
   createdAt: string;
   updatedAt: string;
 
-  // Relations (present when included by the API)
+  // Relations (present when included by the API). The store normalizes both
+  // Prisma's capitalized relation names and the camelCase names used by screens.
   items?: InsuranceClaimItem[];
   InsuranceProvider?: InsuranceProvider;
+  insuranceProvider?: InsuranceProvider | null;
   Patient?: Patient;
+  patient?: Patient | null;
   Attendance?: Attendance;
+  attendance?: Attendance | null;
   Bill?: Bill;
+  bill?: Bill | null;
   CorporateAccount?: CorporateAccount;
+  corporateAccount?: CorporateAccount | null;
   finalizedBy?: User | null;
   batch?: ClaimBatch | null;
 }
