@@ -301,7 +301,11 @@ export class ClaimPrintService {
     });
     const categorizedTypes = new Set(costBuckets.flatMap((bucket) => bucket.categories));
     const otherItems = allItems.filter((item: any) => {
-      const category = String(item.itemCategory ?? '').toLowerCase();\n      // G-DRG is an NHIS-only payable component; never leak it into a private or corporate invoice.\n      if (insuranceType !== 'nhis' && (category === 'gdrg' || category === 'diagnosis')) return false;\n      return !categorizedTypes.has(category);\n    });
+      const category = String(item.itemCategory ?? '').toLowerCase();
+      // G-DRG is an NHIS-only payable component; never leak it into a private or corporate invoice.
+      if (insuranceType !== 'nhis' && (category === 'gdrg' || category === 'diagnosis')) return false;
+      return !categorizedTypes.has(category);
+    });
     if (otherItems.length) {
       bucketTotals.push({
         label: 'Other services & items',
