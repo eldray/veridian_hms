@@ -4416,30 +4416,28 @@ export default {
   // Auth
   login, register, verifyToken, logout, getUsers, getProfile, updateProfile, changePassword,
 
-  // Add new helpers
+  // Seniority helpers
   hasMinSeniority,
   getUserSeniority,
   getSeniorityLabel,
 
-  // User Management (NEW - separate module)
+  // User Management
   adminCreateUser, getAllUsers, getUserById, updateUser, deactivateUser, adminResetUserPassword, getUserProfile, updateUserProfile, changeUserPassword, getCurrentUserPermissions,
 
-  // Shift Management (NEW)
-  getShifts, getShiftById, createShift, updateShift, deleteShift, 
+  // Shift Management
+  getShifts, getShiftById, createShift, updateShift, deleteShift,
 
-  approveLeave, rejectLeave, cancelLeave,
-
-  // Leave Management (NEW)
+  // Leave Management
   getLeaves, getLeaveById, createLeave, updateLeave, deleteLeave,
+  approveLeave, rejectLeave, cancelLeave,
 
   // Full Profile & HR
   getFullProfile, updateFullProfile,
   getMyPayslips, getUserPayslips, getAllPayslips,
   generatePayslip, runPayroll, updatePayslip,
   getMyDocuments, getUserDocuments, getAllDocuments, getDocumentById,
-uploadUserDocument, updateDocument, verifyDocument, unverifyDocument, deleteDocument,
-
-getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem,
+  uploadUserDocument, updateDocument, verifyDocument, unverifyDocument, deleteDocument,
+  getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem,
 
   // Settings
   getHospitalDetails, updateHospitalDetails,
@@ -4457,18 +4455,21 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getDiagnosesByGDRG, linkDiagnosisToGDRG, unlinkDiagnosisFromGDRG, getGDRGByDiagnosis,
   linkProcedureToGDRG, unlinkProcedureFromGDRG, getProceduresByGDRG, getGDRGByProcedure,
 
-  // Insurance
+  // Insurance Providers
   getInsuranceProviders, getInsuranceProvider, createInsuranceProvider, updateInsuranceProvider, toggleInsuranceProviderStatus, deleteInsuranceProvider,
 
   // Insurance Claims
   getInsuranceClaims, getNHISClaims, getPrivateInsuranceClaims, getCorporateClaims, getInsuranceClaim, getClaimByEncounterId,
   generateNHISClaim, generatePrivateInsuranceClaim, generateCorporateClaim,
-  updateInsuranceClaim, updateClaimDraft, finalizeClaim,
+  updateInsuranceClaim, updateClaimDraft, replaceClaimItems, finalizeClaim,
+  getNHISClaimMedicines,
   getClaimsSummary, getInsuranceClaimsTracking, recordInsuranceClaimTrackingEvent, downloadClaimXml, generateClaimPrint, generateClaimXML,
 
   // Claim Batches
   generateClaimBatch, getClaimBatches, getClaimBatch, finalizeClaimBatch, deleteClaimBatch,
   downloadBatchXml, printClaimBatch,
+  getClaimBatchEligibility, getClaimPeriodClaims,
+  getClaimBatchTracking, recordClaimBatchTrackingEvent,
 
   // CLAIM-it (NHIS claims server)
   getClaimItStatus, testClaimItConnection, submitClaimToClaimIt, getClaimClaimItSubmissions, deleteClaimFromClaimIt,
@@ -4476,26 +4477,28 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
 
   // Corporate Accounts
   getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount, deleteCorporateAccount,
-  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee, 
+  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee, deleteCorporateEmployee,
+  getCorporateStatistics, generateCorporateMonthlyBill, getCorporateMonthlyBills,
 
   // Patients
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
+  getPatientAllergies,
 
   // Encounters
   getEncounters, getEncounter, createEncounter, updateEncounter, deleteEncounter, updateEncounterStatus, finalizeEncounterClinicalRecord,
 
   // Worklist
-  getVitalsWorklist, getMedicalWorklist, getLabWorklist, getPharmacyWorklist, getWorklistSummary,
+  getVitalsWorklist, getMedicalWorklist, getOutstandingWorklist, getLabWorklist, getPharmacyWorklist, getWorklistSummary,
   getScansWorklist, getTheatreWorklist, getMaternalWorklist,
 
   // Encounter Operations
   addDiagnosisToEncounter, removeDiagnosisFromEncounter,
   addLabTestToEncounter, updateLabTestInEncounter, removeLabTestFromEncounter,
   addProcedureToEncounter, updateProcedureStatus, removeProcedureFromEncounter,
-  addMedicationToEncounter, updateMedicationStatus, removeMedicationFromEncounter,
+  addMedicationToEncounter, updateMedicationStatus, dispenseMedication, removeMedicationFromEncounter,
   addScanToEncounter, updateScanStatus, removeScanFromEncounter,
-  addServiceToEncounter, removeServiceFromEncounter,
-  addVitalsToEncounter, getVitalsByEncounter, updateVitals, deleteVitals,
+  addServiceToEncounter, addServicesToEncounter, removeServiceFromEncounter,
+  addVitalsToEncounter, getVitalsByEncounter, getLatestVitals, getVitalsForEncounters, updateVitals, deleteVitals,
   getBillingBreakdown, calculateEncounterBill, getEncounterStats,
 
   // Bills
@@ -4504,13 +4507,14 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   generateBillReport, getBillingBreakdownForBill, updateBillStatus, getBillStatistics,
   getBillLineItems, voidBillLineItem, getBillingCollections, getBillingRevenueLines,
 
-  // Consumables (non-medication stock used during the visit)   ← add these
+  // Consumables (non-medication stock used during the visit)
   recordEncounterConsumableUse,
   updateEncounterConsumableUse,
   removeEncounterConsumableUse,
   getEncounterConsumables,
+  getEncounterConsumableUses,
+  getEncounterConsumableUse,
   deleteEncounterConsumableUse,
-
 
   // Waivers
   createWaiverRequest, getWaivers, getWaiverById, updateWaiverStatus, approveWaiver, rejectWaiver,
@@ -4520,22 +4524,23 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getWardCharges, generateDailyWardCharges,
 
   // Admissions
-  getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission,
+  getAdmissions, getAdmission, createAdmission, updateAdmission, deleteAdmission, cancelAdmission,
   addDailyNotesToAdmission, getAdmissionStats, getAdmissionsByPatientId,
 
   // Wards & Beds
   getWards, getWard, createWard, updateWard, deleteWard, getAvailableBeds, getBedOccupancy,
   getBeds, getBed, createBed, updateBed, deleteBed,
 
-  // Daycase/Observation
+  // Daycase / Observation / Detention
   getDaycasePatients, convertDaycaseToIPD,
+  getDetentionPatients, getFormalIPDPatients, convertDetentionToIPD,
 
-  // Discharge
-  dischargeFromEncounter,    referFromEncounter, abscondFromEncounter, completeEncounter,
+  // Discharge / Refer / Abscond / Complete
+  dischargeFromEncounter, referFromEncounter, abscondFromEncounter, completeEncounter,
 
   // Stock
   getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,
-  getStockCategories, updateStockLevel, getStockItemTransactionHistory,
+  getStockCategories, updateStockLevel, allocateStockToDepartment, getStockItemTransactionHistory,
   getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport, getSupplierReport, getRequisitionSummary,
   getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction, deleteStockTransaction,
   getStockMovementReport, getLowStockAlerts,
@@ -4563,6 +4568,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getScanCategories, getScanBodyParts, getScanTypes, bulkUpdateScanTemplates,
   getServiceCatalog, getServiceCatalogItem, createServiceCatalogItem, updateServiceCatalogItem, deleteServiceCatalogItem,
   getServiceMetadata, getNHISReadinessReport, getServiceByNHISCode, getServicesByCategory,
+  getServiceNHISMedicinePolicy, updateServiceNHISMedicinePolicy,
   checkServiceCoverage, calculateServiceCost,
 
   // Consultation Types
@@ -4598,7 +4604,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getTemplates, createTemplate, updateTemplate, deleteTemplate,
 
   // Reports
-  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSFormAReport,
+  getGHSOPDReport, getGHSIPDReport, getGHSIDSRReport, getGHSMalariaReport, getGHSDeliveryReport, getGHSFormAReport,
   getMorbidityMortalityReport, getTopDiagnoses, getFamilyPlanningReport, getConsultingRoomRegister,
   getReportSubmissions, getReportSubmissionById, exportGHSReportToCSV,
   getFinancialReport, getInsuranceClaimsReport, getClinicalReport, getEncounterReport,
@@ -4608,7 +4614,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   // NHIS Reports
   getNhisExpiryReport, getNhisClaimsSummary, getNhisExpiringSoon,
 
-  // Antenatal Records (updated names)
+  // Antenatal Records
   getAntenatalRecords,
   getAntenatalRecordByEncounter,
   getActiveAntenatalRecordByPatient,
@@ -4618,32 +4624,31 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   closeAntenatalRecord,
   deleteAntenatalRecord,
 
-  // ANC Visits (updated names)
+  // ANC Visits
   recordANCVisit,
   getANCVisitsByAntenatalRecord,
   getANCVisitById,
   updateANCVisit,
   deleteANCVisit,
 
-  // Delivery Records (updated names)
+  // Delivery Records
   getDeliveryRecords,
   getDeliveryRecord,
   recordDelivery,
   updateDeliveryRecord,
   deleteDeliveryRecord,
 
-  // Postnatal Records (updated names)
+  // Postnatal Records
   getPostnatalRecords,
   getPostnatalRecord,
   recordPostnatalVisit,
   updatePostnatalRecord,
   deletePostnatalRecord,
 
-  // Statistics (updated names)
+  // Statistics
   getAntenatalStatistics,
   getDeliveryStatistics,
   getPostnatalStatistics,
-
 
   // Proforma Invoices
   getEstimates, getEstimate, createEstimate, updateEstimate, deleteEstimate, sendEstimate,
@@ -4651,7 +4656,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getExpiringEstimates, getEstimatesByPatient, getEstimatesByCorporateAccount,
 
   // Communications
-  sendSMS, getCommunicationLogs, getCommunicationTemplates,
+  sendSMS, sendWhatsApp, sendMessage, getCommunicationLogs, getCommunicationTemplates,
   createCommunicationTemplate,
 
   // Family Planning
@@ -4659,7 +4664,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getCurrentFPMethod, getFPHistory, getFPClientDetails, getFPStatistics, getFPMethodMix, getGHSFPReport,
 
   // Counter (walk-in tickets)
-  searchCounterClients, searchCounterPatients, listCounterTickets, getCounterTicket,
+  searchCounterClients, searchCounterPatients, listCounterTickets, getCounterSummary, getCounterStockAvailability, getCounterTicket,
   createCounterTicket, addCounterSaleItem, dispenseCounterItem, removeCounterSaleItem,
   addCounterLabOrder, removeCounterLabOrder, addCounterScanOrder, removeCounterScanOrder,
   getCounterBill, raiseCounterBill, closeCounterTicket, linkCounterClient,
