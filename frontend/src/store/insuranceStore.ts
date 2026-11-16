@@ -198,13 +198,30 @@ interface InsuranceState {
 
 const normalizeClaim = (claim: any): InsuranceClaim => {
   if (!claim) return claim;
+
+  // Prisma returns claim relations with their schema relation names (for example,
+  // CorporateAccount and Patient). The claims screens use the API's camelCase
+  // shape (corporateAccount and patient). Keep BOTH aliases in sync so the
+  // corporate account, patient and provider remain visible/searchable regardless
+  // of which endpoint supplied the claim.
+  const insuranceProvider = claim.InsuranceProvider ?? claim.insuranceProvider ?? null;
+  const patient = claim.Patient ?? claim.patient ?? null;
+  const attendance = claim.Attendance ?? claim.attendance ?? null;
+  const bill = claim.Bill ?? claim.bill ?? null;
+  const corporateAccount = claim.CorporateAccount ?? claim.corporateAccount ?? null;
+
   return {
     ...claim,
-    InsuranceProvider: claim.InsuranceProvider ?? claim.insuranceProvider,
-    Patient: claim.Patient ?? claim.patient,
-    Attendance: claim.Attendance ?? claim.attendance,
-    Bill: claim.Bill ?? claim.bill,
-    CorporateAccount: claim.CorporateAccount ?? claim.corporateAccount,
+    InsuranceProvider: insuranceProvider,
+    insuranceProvider,
+    Patient: patient,
+    patient,
+    Attendance: attendance,
+    attendance,
+    Bill: bill,
+    bill,
+    CorporateAccount: corporateAccount,
+    corporateAccount,
     totalClaimAmount: Number(claim.totalClaimAmount) || 0,
     items: (claim.items ?? []).map((i: any) => ({
       ...i,
