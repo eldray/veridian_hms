@@ -283,32 +283,22 @@ export class ClaimPrintService {
       (s, c) => s + parseFloat(c.totalClaimAmount?.toString?.() ?? '0'),
       0,
     );
-    const bucketTotals = COST_BUCKETS.map((bucket) => ({
-      label: bucket.label,
-      amount: claims.reduce((s, c) => s + bucketAmount(c.items ?? [], bucket.categories), 0),
-    }));
-
-    const rows = claims
-      .map(
-        (c, idx) => {
-          const items = c.items ?? [];
-          const cells = COST_BUCKETS
-            .map((b) => `<td style="text-align:right">${formatMoney(bucketAmount(items, b.categories))}</td>`)
-            .join('\n          ');
-          return `
-        <tr>
-          <td>${idx + 1}</td>
-          <td><code>${esc(c.claimNumber)}</code></td>
-          <td>${esc(c.Patient?.surname ?? '')} ${esc(c.Patient?.otherNames ?? '')}</td>
-          <td>${esc(c.Patient?.folderNumber ?? '')}</td>
-          <td>${formatDate(c.Attendance?.dateTime)}</td>
-          <td style="text-align:center">${esc(c.serviceOutcome ?? '—')}</td>
-          ${cells}
-          <td style="text-align:right">${formatMoney(c.totalClaimAmount)}</td>
-        </tr>`;
-        },
-      )
-      .join('');
+    // A payer receives one consolidated monthly statement, not a patient-by-patient
+    // printout. Keep the claim-to-batch links in the database for audit and adjudication,
+    // but aggregate every line into the month-level cost buckets shown on this document.
+    const bucketTotals = COST_BUCKETS.map((bucket) => {
+      const matchingItems = claims.flatMap((claim) =>
+        (claim.items ?? []).filter((item: any) => bucket.categories.includes(String(item.itemCategory))),
+      );
+      return {
+        label: bucket.label,
+        itemCount: matchingItems.length,
+        amount: matchingItems.reduce(
+          (sum: number, item: any) => sum + parseFloat(item.lineTotal?.toString?.() ?? '0'),
+          0,
+        ),
+      };
+    });
 
     const labelMap: Record<string, string> = {
       nhis: 'NHIS CLAIM BATCH',
@@ -393,32 +383,38 @@ export class ClaimPrintService {
       ${batch.finalizedAt ? `<div class="info-card"><div class="label">Finalized</div><div class="value">${formatDate(batch.finalizedAt)}</div></div>` : ''}
     </div>
 
-    <div class="section-title">Claims in Batch</div>
+    <div class="section-title">Consolidated Monthly Claim Summary</div>
+    <p style="font-size:12px;color:#64748b;margin-bottom:12px">
+      This statement consolidates all finalized claims for the selected payer and month.
+      Patient-level claim records remain linked to this batch in the hospital system for audit
+      and follow-up; they are not itemized on this monthly submission summary.
+    </p>
     <table>
       <thead>
         <tr>
-          <th style="width:50px">#</th>
-          <th>Claim No.</th>
-          <th>Patient</th>
-          <th>Folder No.</th>
-          <th>Visit Date</th>
-          <th style="text-align:center">Outcome</th>
-          ${COST_BUCKETS.map((b) => `<th style="text-align:right">${esc(b.label)} (GHS)</th>`).join('\n          ')}
-          <th style="text-align:right">Claim total (GHS)</th>
+          <th>Service category</th>
+          <th style="text-align:right">Line items</th>
+          <th style="text-align:right">Consolidated amount (GHS)</th>
         </tr>
       </thead>
       <tbody>
-        ${rows || `<tr><td colspan="${COST_BUCKETS.length + 7}" style="text-align:center;color:#94a3b8;padding:20px;">No claims in this batch.</td></tr>`}
+        ${bucketTotals.map((b) => `
+        <tr>
+          <td>${esc(b.label)}</td>
+          <td style="text-align:right">${b.itemCount}</td>
+          <td style="text-align:right">${formatMoney(b.amount)}</td>
+        </tr>`).join('')}
       </tbody>
     </table>
 
     <div class="totals">
       <table class="totals-table">
-        <tr><td>Total Claims</td><td>${claims.length}</td></tr>
+        <tr><td>Claims included in month</td><td>${claims.length}</td></tr>
+        <tr><td>Total service line items</td><td>${bucketTotals.reduce((sum, b) => sum + b.itemCount, 0)}</td></tr>
         ${bucketTotals
           .map((b) => `<tr><td>${esc(b.label)}</td><td>${formatMoney(b.amount)}</td></tr>`)
           .join('\n        ')}
-        <tr><td>Grand Total (GHS)</td><td>${formatMoney(totalAmount)}</td></tr>
+        <tr><td>Monthly amount claimed (GHS)</td><td>${formatMoney(totalAmount)}</td></tr>
       </table>
     </div>
 
