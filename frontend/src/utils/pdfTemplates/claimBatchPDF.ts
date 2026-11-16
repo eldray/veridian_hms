@@ -48,7 +48,8 @@ export const generateClaimBatchHTML = (batch: any, hospital: any): string => {
   const categorized = new Set(buckets.flatMap((bucket) => bucket.categories));
   const otherItems = items.filter((item) => {
     const category = String(item?.itemCategory ?? '').toLowerCase();
-    // G-DRG and diagnosis coding are NHIS-specific and are not private/corporate charges.\n    return category !== 'diagnosis' && (insuranceType === 'nhis' || category !== 'gdrg') && !categorized.has(category);
+    // G-DRG and diagnosis coding are NHIS-specific and are not private/corporate charges.
+    return category !== 'diagnosis' && (insuranceType === 'nhis' || category !== 'gdrg') && !categorized.has(category);
   });
   if (otherItems.length) {
     bucketTotals.push({
