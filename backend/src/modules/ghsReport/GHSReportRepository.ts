@@ -99,8 +99,6 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       },
     });
 
-    // Counter tickets are excluded above, so every attendance left names a patient.
-    // The filter keeps that true for rows written before the exclusion existed.
     const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const priorRows = await this.prisma.attendance.groupBy({
       by: ['patientId'],
@@ -201,15 +199,30 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
         },
         include: { attendance: { select: { attendanceType: true } }, patient: { select: { dateOfBirth: true } } },
       }),
+      // ── HEP B FIX ──
+      // Before: only lab tests whose Attendance was antenatal/postnatal were returned.
+      // Hep B is often ordered from a general / OPD / lab attendance, so those rows were
+      // dropped and Form A showed 0. Syphilis/HIV survived only because they also have
+      // a booking-form fallback (vdrl / hivStatus). Hep B's booking fallback exists
+      // (hepatitisBStatus) but the lab path was still cut off here.
+      // Now: keep the ANC/postnatal rule for all other tests, PLUS pull Hep B template
+      // tests from any non-cancelled attendance. Hep C is explicitly excluded so
+      // 'Hepatitis C Antibody' can never count as Hep B.
       p.labTest.findMany({
         where: {
           requestedAt: { gte: startDate, lte: endDate },
-          Attendance: {
-            is: {
-              status: { not: 'cancelled' },
-              attendanceType: { in: ['antenatal', 'postnatal'] },
+          Attendance: { is: { status: { not: 'cancelled' } } },
+          OR: [
+            { Attendance: { is: { attendanceType: { in: ['antenatal', 'postnatal'] } } } },
+            {
+              AND: [
+                { LabTestTemplate: { name: { contains: 'hepatitis', mode: 'insensitive' } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hepatitis c', mode: 'insensitive' } } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hep c', mode: 'insensitive' } } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hcv', mode: 'insensitive' } } } },
+              ],
             },
-          },
+          ],
         },
         include: { LabTestTemplate: true },
       }),
@@ -236,66 +249,85 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       }),
       p.hospital.findFirst(),
     ]);
+    // NOTE: `hospital` is returned on purpose — buildFormA reads it for the
+    // EMONC / Services available table (Blood / PMTCT / EID / Baby Friendly).
+    // The caller must pass it through: buildFormA({ ...inputs, hospital }, flags).
+    // Availability is a facility fact, not a period count, so it must never be n/c.
     return { bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications, shortMothers: shortMothers.length, hospital };
   }
 
   async getFormAData(startDate: Date, endDate: Date) {
     return Promise.all([
-      this.prisma.antenatalBooking.findMany({ 
-        where: { bookingDate: { gte: startDate, lte: endDate }, isActive: true }, 
-        include: { patient: { select: { dateOfBirth: true } } } 
+      this.prisma.antenatalBooking.findMany({
+        where: { bookingDate: { gte: startDate, lte: endDate }, isActive: true },
+        include: { patient: { select: { dateOfBirth: true } } }
       }),
-      this.prisma.aNCVisit.findMany({ 
-        where: { visitDate: { gte: startDate, lte: endDate } }, 
-        include: { booking: { include: { patient: true } } } 
+      this.prisma.aNCVisit.findMany({
+        where: { visitDate: { gte: startDate, lte: endDate } },
+        include: { booking: { include: { patient: true } } }
       }),
-      this.prisma.deliveryRecord.findMany({ 
-        where: { deliveryDate: { gte: startDate, lte: endDate } }, 
-        include: { Newborn: true, patient: { select: { dateOfBirth: true } }, attendance: { select: { paymentMode: true } } } 
+      this.prisma.deliveryRecord.findMany({
+        where: { deliveryDate: { gte: startDate, lte: endDate } },
+        include: { Newborn: true, patient: { select: { dateOfBirth: true } }, attendance: { select: { paymentMode: true } } }
       }),
-      this.prisma.attendance.findMany({ 
-        where: { attendanceType: 'postnatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, 
-        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, Medication: true, AttendanceDiagnosis: { include: { Diagnosis: true } } } 
+      this.prisma.attendance.findMany({
+        where: { attendanceType: 'postnatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, Medication: true, AttendanceDiagnosis: { include: { Diagnosis: true } } }
       }),
-      this.prisma.attendance.findMany({ 
-        where: { attendanceType: 'antenatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } }, 
-        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, LabTest: { include: { LabTestTemplate: true } }, Medication: { include: { StockItem: true } } } 
+      this.prisma.attendance.findMany({
+        where: { attendanceType: 'antenatal', dateTime: { gte: startDate, lte: endDate }, status: { not: 'cancelled' } },
+        include: { Patient: { select: { dateOfBirth: true } }, Vitals: true, LabTest: { include: { LabTestTemplate: true } }, Medication: { include: { StockItem: true } } }
       }),
-      this.prisma.labTest.findMany({ 
-        where: { requestedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal'] } } }, 
-        include: { Attendance: { select: { attendanceType: true } }, LabTestTemplate: true } 
+      // ── HEP B FIX (same fix as getFormAInputs) ──
+      this.prisma.labTest.findMany({
+        where: {
+          requestedAt: { gte: startDate, lte: endDate },
+          Attendance: { is: { status: { not: 'cancelled' } } },
+          OR: [
+            { Attendance: { is: { attendanceType: { in: ['antenatal', 'postnatal'] } } } },
+            {
+              AND: [
+                { LabTestTemplate: { name: { contains: 'hepatitis', mode: 'insensitive' } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hepatitis c', mode: 'insensitive' } } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hep c', mode: 'insensitive' } } } },
+                { NOT: { LabTestTemplate: { name: { contains: 'hcv', mode: 'insensitive' } } } },
+              ],
+            },
+          ],
+        },
+        include: { Attendance: { select: { attendanceType: true } }, LabTestTemplate: true }
       }),
-      this.prisma.medication.findMany({ 
-        where: { prescribedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal', 'delivery'] } } }, 
-        include: { Attendance: { select: { attendanceType: true } }, StockItem: true } 
+      this.prisma.medication.findMany({
+        where: { prescribedAt: { gte: startDate, lte: endDate }, Attendance: { attendanceType: { in: ['antenatal', 'postnatal', 'delivery'] } } },
+        include: { Attendance: { select: { attendanceType: true } }, StockItem: true }
       }),
-      this.prisma.referralRecord.findMany({ 
-        where: { 
-          referralDate: { gte: startDate, lte: endDate }, 
-          attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } } 
-        }, 
-        include: { 
-          attendance: { 
-            select: { attendanceType: true, Patient: { select: { dateOfBirth: true } } } 
-          }, 
-          patient: { select: { dateOfBirth: true } } 
-        } 
+      this.prisma.referralRecord.findMany({
+        where: {
+          referralDate: { gte: startDate, lte: endDate },
+          attendance: { attendanceType: { in: ['antenatal', 'delivery', 'postnatal'] } }
+        },
+        include: {
+          attendance: {
+            select: { attendanceType: true, Patient: { select: { dateOfBirth: true } } }
+          },
+          patient: { select: { dateOfBirth: true } }
+        }
       }),
-      this.prisma.abortionRecord.findMany({ 
-        where: { abortionDate: { gte: startDate, lte: endDate } }, 
-        include: { patient: { select: { dateOfBirth: true } } } 
+      this.prisma.abortionRecord.findMany({
+        where: { abortionDate: { gte: startDate, lte: endDate } },
+        include: { patient: { select: { dateOfBirth: true } } }
       }),
-      this.prisma.vitals.findMany({ 
-        where: { 
-          recordedAt: { gte: startDate, lte: endDate }, 
-          height: { lt: 150 }, 
-          Attendance: { attendanceType: 'antenatal' } 
-        }, 
-        distinct: ['patientId'] 
+      this.prisma.vitals.findMany({
+        where: {
+          recordedAt: { gte: startDate, lte: endDate },
+          height: { lt: 150 },
+          Attendance: { attendanceType: 'antenatal' }
+        },
+        distinct: ['patientId']
       }),
       this.prisma.hospital.findFirst(),
-      this.prisma.newbornRecord.findMany({ 
-        where: { deliveryRecord: { deliveryDate: { gte: startDate, lte: endDate } } } 
+      this.prisma.newbornRecord.findMany({
+        where: { deliveryRecord: { deliveryDate: { gte: startDate, lte: endDate } } }
       })
     ]);
   }
@@ -333,8 +365,6 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       include: { Patient: { select: { id: true, dateOfBirth: true, gender: true, paymentMode: true, nhisActive: true, nhisExpiryDate: true, nhisNumber: true } } },
     });
 
-    // Counter tickets are excluded above, so every attendance left names a patient.
-    // The filter keeps that true for rows written before the exclusion existed.
     const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({
@@ -374,8 +404,6 @@ export class GHSReportRepository extends BaseRepository<any, any, any> {
       orderBy: { dateTime: 'asc' },
     });
 
-    // Counter tickets are excluded above, so every attendance left names a patient.
-    // The filter keeps that true for rows written before the exclusion existed.
     const patientIds = [...new Set(attendances.map(a => a.patientId).filter((id): id is string => !!id))];
     const calendarYearStart = new Date(startDate.getFullYear(), 0, 1);
     const priorRows = await this.prisma.attendance.groupBy({

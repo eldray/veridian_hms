@@ -24,3 +24,7 @@ npx prisma generate
 npm run seed -- --force
 # or
 npx ts-node src/scripts/seedData.ts --force
+
+
+psql -h localhost -p 5432 -U postgres -d veridian_hms
+"C:\Program Files\PostgreSQL\16\bin\psql.exe" -h localhost -p 5432 -U postgres -d veridian_hms

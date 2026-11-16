@@ -8,7 +8,8 @@ import { buildFPReturns } from './fpReturns';
 // ─── Types & Constants (Keep exactly as you defined them) ────────────────────
 export type GHSAgeGroup = '<28d' | '1-11m' | '1-4' | '5-9' | '10-14' | '15-17' | '18-19' | '20-34' | '35-49' | '50-59' | '60-69' | '70+';
 export type OPD_AgeGroup = '0-28d' | '1-11m' | '1-4y' | '5-9y' | '10-14y' | '15-17y' | '18-19y' | '20-34y' | '35-49y' | '50-59y' | '60-69y' | '70+y';
-export type IPD_AgeGroup = '0-28d' | '1-11m' | '5-9y' | '10-14y';
+// Inpatient returns use the same twelve age bands as the OPD return.
+export type IPD_AgeGroup = OPD_AgeGroup;
 
 export interface AgeSexBreakdown { [ageGroup: string]: { male: number; female: number }; }
 export interface TopDiagnosis { diagnosisId: string; diagnosisName: string; icdCode: string; morbidityGroup: string; totalCases: number; male: number; female: number; byAgeGroup: Record<GHSAgeGroup, { male: number; female: number }>; }
@@ -22,7 +23,7 @@ export interface OPDReport { period: { startDate: Date; endDate: Date; year: num
 
 export const AGE_GROUPS: GHSAgeGroup[] = ['<28d', '1-11m', '1-4', '5-9', '10-14', '15-17', '18-19', '20-34', '35-49', '50-59', '60-69', '70+'];
 export const OPD_AGE_GROUPS: OPD_AgeGroup[] = ['0-28d', '1-11m', '1-4y', '5-9y', '10-14y', '15-17y', '18-19y', '20-34y', '35-49y', '50-59y', '60-69y', '70+y'];
-export const IPD_AGE_GROUPS: IPD_AgeGroup[] = ['0-28d', '1-11m', '5-9y', '10-14y'];
+export const IPD_AGE_GROUPS: IPD_AgeGroup[] = OPD_AGE_GROUPS;
 
 const MORBIDITY_SECTION_MAP = new Map<string, string>([
   ['afp_polio','communicableImmunizable'],['meningitis','communicableImmunizable'],['neonatal_tetanus','communicableImmunizable'],['pertussis_whooping_cough','communicableImmunizable'],['diphtheria','communicableImmunizable'],['measles','communicableImmunizable'],['yellow_fever','communicableImmunizable'],['tetanus','communicableImmunizable'],['tuberculosis','communicableImmunizable'],
@@ -63,7 +64,8 @@ export const isNewHMISDiagnosisCase = (
 
 function getMorbidityAgeGroup(dob: Date, ref: Date): GHSAgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '<28d'; if (months < 12) return '1-11m'; if (years < 5) return '1-4'; if (years < 10) return '5-9'; if (years < 15) return '10-14'; if (years < 18) return '15-17'; if (years < 20) return '18-19'; if (years < 35) return '20-34'; if (years < 50) return '35-49'; if (years < 60) return '50-59'; if (years < 70) return '60-69'; return '70+'; }
 function getOPDAgeGroup(dob: Date, ref: Date): OPD_AgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '0-28d'; if (months < 12) return '1-11m'; if (years < 5) return '1-4y'; if (years < 10) return '5-9y'; if (years < 15) return '10-14y'; if (years < 18) return '15-17y'; if (years < 20) return '18-19y'; if (years < 35) return '20-34y'; if (years < 50) return '35-49y'; if (years < 60) return '50-59y'; if (years < 70) return '60-69y'; return '70+y'; }
-function getIPDAgeGroup(dob: Date, ref: Date): IPD_AgeGroup { const days = Math.floor((ref.getTime() - dob.getTime()) / 86_400_000); const months = days / 30.44; const years = days / 365.25; if (days < 28) return '0-28d'; if (months < 12) return '1-11m'; if (years < 10) return '5-9y'; return '10-14y'; }
+// Was a 4-band version that put every child aged 1-9 in '5-9y' and everyone from 10 up (adults included) in '10-14y'.
+const getIPDAgeGroup = (dob: Date, ref: Date): IPD_AgeGroup => getOPDAgeGroup(dob, ref);
 
 export class GHSReportService extends BaseService {
   private repository: GHSReportRepository;
@@ -415,7 +417,8 @@ export class GHSReportService extends BaseService {
     
     const diseases = NOTIFIABLE_DISEASES.map(disease => {
       const count = attendances.filter((a: any) => a.AttendanceDiagnosis?.some((dx: any) => dx.Diagnosis?.name.toLowerCase().includes(disease.name.toLowerCase()))).length;
-      return { disease: disease.name, code: disease.code, suspected: count, confirmed: Math.floor(count * 0.7), deaths: 0 };
+      // confirmed / deaths are not recorded per disease; null means "not captured", never an estimate
+      return { disease: disease.name, code: disease.code, suspected: count, confirmed: null, deaths: null };
     });
     return { period: { startDate, endDate, year: startDate.getFullYear(), month: startDate.getMonth() + 1 }, facility: { name: facility?.name ?? '', district: facility?.ghsDistrictCode ?? '', ghfCode: facility?.ghaHFCode ?? '' }, diseases };
   }

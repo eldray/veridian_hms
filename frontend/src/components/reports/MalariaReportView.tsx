@@ -1,4 +1,21 @@
-// src/components/reports/MalariaReportView.tsx
+// src/components/reports/MalariaReportView.tsx — PROFESSIONAL REDESIGN
+// Logic / data untouched: every field, total, positivity rate and stock-out check
+// is exactly as before. Only layout changed:
+//  - Density: space-y-6 p-6 / px-5 py-4 / px-4 py-3 -> space-y-3 p-3 / px-3 py-2.
+//  - Header: compact, facility meta in a 3-col row instead of stacked lines.
+//  - NEW summary strip: Total Suspected / Tested / Confirmed / Treated with ACT /
+//    overall positivity — all derived from the same data, nothing new fetched.
+//  - Section 5 was 7 near-identical cards repeating Opening/Dispensed/Closing/
+//    Stock Out. Replaced with ONE table: Commodity | Opening | Dispensed |
+//    Closing | Stock Out >7 days. Same 10 commodities, same fields, far less bulk.
+//    (DHAP, Quinine tablet, Quinine injection, RDT kits, SP, Artesunate 30/60/120,
+//     Arthemeter 40/80.)
+//  - Rectal Artesunate: same treatment — card pair -> one table row per strength.
+//  - Stock Out is now a pill badge (Yes = red, No = green), like Status pills
+//    everywhere else, instead of plain Yes/No text.
+//  - AL table: headers were missing all styling classes — now match ASAQ/OPD.
+//  - ASAQ + AL: added a Totals footer row, matching the OPD table.
+//  - No code removed: every commodity, every field still rendered.
 import React from 'react';
 
 interface MalariaReportData {
@@ -43,8 +60,9 @@ interface Props {
   dateRange: { start: string; end: string };
 }
 
+type Commodity = { openingStock: number; dispensed: number; closingStock: number; stockOutDays: number };
+
 export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
-  // ✅ Add defensive check at the beginning
   if (!data || !data.facility) {
     console.error('MalariaReportView: Invalid data structure', data);
     return (
@@ -55,67 +73,122 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
   }
 
   const hasStockOut = (stock: any) => stock?.stockOutDays > 7;
+  const stockOutPill = (stock: any) => (
+    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${hasStockOut(stock) ? 'bg-[var(--icon-red-bg)] text-[var(--icon-red-text)]' : 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]'}`}>
+      {hasStockOut(stock) ? 'Yes' : 'No'}
+    </span>
+  );
+
+  // ── Derived totals (same data, no new fields) ──
+  const totalSuspected = data.opdMalaria.under5.suspected + data.opdMalaria.above5.suspected;
+  const totalTested = data.opdMalaria.under5.tested + data.opdMalaria.above5.tested;
+  const totalConfirmed = data.opdMalaria.under5.confirmed + data.opdMalaria.above5.confirmed;
+  const totalACT = data.opdMalaria.under5.treatedWithACT + data.opdMalaria.above5.treatedWithACT;
+  const overallPositivity = totalTested > 0 ? ((totalConfirmed / totalTested) * 100).toFixed(1) : '0.0';
+  const positivity = (positive: number, tested: number) => (tested > 0 ? ((positive / tested) * 100).toFixed(1) : '0.0');
+
+  const th = 'px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]';
+  const td = 'px-3 py-2 text-[var(--text-primary)]';
+  const tdC = `${td} text-center`;
+  const sectionHead = 'px-3 py-2 bg-[var(--bg-main)] border-b border-[var(--border-color)] flex items-center justify-between';
+  const sectionTitle = 'text-sm font-semibold text-[var(--text-primary)]';
+
+  const commodityRow = (label: string, c: Commodity) => (
+    <tr key={label} className="hover:bg-[var(--bg-main)]">
+      <td className={`${td} font-medium`}>{label}</td>
+      <td className={tdC}>{c.openingStock}</td>
+      <td className={tdC}>{c.dispensed}</td>
+      <td className={`${tdC} font-semibold`}>{c.closingStock}</td>
+      <td className={tdC}>{stockOutPill(c)}</td>
+    </tr>
+  );
+  const commodityTotal = (label: string, rows: Commodity[]) => (
+    <tr className="font-semibold bg-[var(--bg-main)] border-t border-[var(--border-color)]">
+      <td className={td}>{label}</td>
+      <td className={tdC}>{rows.reduce((s, r) => s + r.openingStock, 0)}</td>
+      <td className={tdC}>{rows.reduce((s, r) => s + r.dispensed, 0)}</td>
+      <td className={tdC}>{rows.reduce((s, r) => s + r.closingStock, 0)}</td>
+      <td className={tdC}>—</td>
+    </tr>
+  );
+  const stockHead = (
+    <tr>
+      <th className={`${th} text-left`}>Commodity / Age Group</th>
+      <th className={`${th} text-center`}>Opening Stock</th>
+      <th className={`${th} text-center`}>Dispensed</th>
+      <th className={`${th} text-center`}>Closing Stock</th>
+      <th className={`${th} text-center`}>Stock Out &gt;7 days</th>
+    </tr>
+  );
+
+  const summary = [
+    { label: 'Suspected', value: totalSuspected, cls: 'text-[var(--text-primary)]' },
+    { label: 'Tested', value: totalTested, cls: 'text-[var(--text-primary)]' },
+    { label: 'Confirmed', value: totalConfirmed, cls: 'text-[var(--icon-green-text)]' },
+    { label: 'Treated with ACT', value: totalACT, cls: 'text-[var(--icon-cyan-text)]' },
+    { label: 'Positivity Rate', value: `${overallPositivity}%`, cls: 'text-[var(--icon-red-text)]' },
+  ];
 
   return (
-    <div className="printable-report space-y-6 text-[var(--text-primary)]" id="malaria-report">
-      {/* Header */}
-      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-6 text-center">
-        <h2 className="text-xl font-bold text-[var(--text-primary)]">GHANA HEALTH SERVICE</h2>
-        <h3 className="text-lg font-semibold text-[var(--text-primary)] mt-1">MONTHLY MALARIA DATA RETURNS ON ANTI-MALARIAS</h3>
-        <div className="mt-3 text-sm">
-          <p className="font-medium">{data.facility.name}</p>
-          <p className="text-[var(--text-secondary)]">District: {data.facility.district} | GHF Code: {data.facility.ghfCode}</p>
-          <p className="text-[var(--text-secondary)] mt-1">Reporting Period: {dateRange.start} to {dateRange.end}</p>
+    <div className="printable-report space-y-3 text-[var(--text-primary)]" id="malaria-report">
+      {/* Header — compact, meta in one row */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-3 text-center">
+        <h2 className="text-base font-bold text-[var(--text-primary)]">GHANA HEALTH SERVICE</h2>
+        <h3 className="text-sm font-semibold text-[var(--text-primary)] mt-0.5">MONTHLY MALARIA DATA RETURNS ON ANTI-MALARIAS</h3>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-1 text-xs text-[var(--text-secondary)]">
+          <p><span className="font-medium text-[var(--text-primary)]">{data.facility.name}</span></p>
+          <p>District: {data.facility.district} | GHF Code: {data.facility.ghfCode}</p>
+          <p>Reporting Period: {dateRange.start} to {dateRange.end}</p>
         </div>
+      </div>
+
+      {/* Summary strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+        {summary.map(s => (
+          <div key={s.label} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] p-2.5 text-center">
+            <p className={`text-base font-bold ${s.cls}`}>{s.value}</p>
+            <p className="text-xs text-[var(--text-secondary)] mt-0.5">{s.label}</p>
+          </div>
+        ))}
       </div>
 
       {/* SECTION 1: OPD Malaria Cases */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-          <h3 className="font-bold text-[var(--text-primary)]">OPD Malaria Cases</h3>
-        </div>
+        <div className={sectionHead}><h3 className={sectionTitle}>OPD Malaria Cases</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Age Group</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Suspected</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Tested</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Confirmed</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Treated with ACT</th>
+                <th className={`${th} text-left`}>Age Group</th>
+                <th className={`${th} text-center`}>Suspected</th>
+                <th className={`${th} text-center`}>Tested</th>
+                <th className={`${th} text-center`}>Confirmed</th>
+                <th className={`${th} text-center`}>Treated with ACT</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
               <tr className="hover:bg-[var(--bg-main)]">
-                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">Under 5 years</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.under5.suspected}</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.under5.tested}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-green-text)]">{data.opdMalaria.under5.confirmed}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-cyan-text)]">{data.opdMalaria.under5.treatedWithACT}</td>
+                <td className={`${td} font-medium`}>Under 5 years</td>
+                <td className={tdC}>{data.opdMalaria.under5.suspected}</td>
+                <td className={tdC}>{data.opdMalaria.under5.tested}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-green-text)]`}>{data.opdMalaria.under5.confirmed}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-cyan-text)]`}>{data.opdMalaria.under5.treatedWithACT}</td>
               </tr>
               <tr className="hover:bg-[var(--bg-main)]">
-                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">5 years and Above</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.above5.suspected}</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.opdMalaria.above5.tested}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-green-text)]">{data.opdMalaria.above5.confirmed}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-cyan-text)]">{data.opdMalaria.above5.treatedWithACT}</td>
+                <td className={`${td} font-medium`}>5 years and Above</td>
+                <td className={tdC}>{data.opdMalaria.above5.suspected}</td>
+                <td className={tdC}>{data.opdMalaria.above5.tested}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-green-text)]`}>{data.opdMalaria.above5.confirmed}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-cyan-text)]`}>{data.opdMalaria.above5.treatedWithACT}</td>
               </tr>
             </tbody>
-            <tfoot className="bg-[var(--bg-main)] border-t">
+            <tfoot className="bg-[var(--bg-main)] border-t border-[var(--border-color)]">
               <tr className="font-semibold">
-                <td className="px-4 py-3 text-[var(--text-primary)]">Total</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
-                  {data.opdMalaria.under5.suspected + data.opdMalaria.above5.suspected}
-                </td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
-                  {data.opdMalaria.under5.tested + data.opdMalaria.above5.tested}
-                </td>
-                <td className="px-4 py-3 text-center text-[var(--icon-green-text)]">
-                  {data.opdMalaria.under5.confirmed + data.opdMalaria.above5.confirmed}
-                </td>
-                <td className="px-4 py-3 text-center text-[var(--icon-cyan-text)]">
-                  {data.opdMalaria.under5.treatedWithACT + data.opdMalaria.above5.treatedWithACT}
-                </td>
+                <td className={td}>Total</td>
+                <td className={tdC}>{totalSuspected}</td>
+                <td className={tdC}>{totalTested}</td>
+                <td className={`${tdC} text-[var(--icon-green-text)]`}>{totalConfirmed}</td>
+                <td className={`${tdC} text-[var(--icon-cyan-text)]`}>{totalACT}</td>
               </tr>
             </tfoot>
           </table>
@@ -124,224 +197,115 @@ export const MalariaReportView: React.FC<Props> = ({ data, dateRange }) => {
 
       {/* SECTION 2: Testing Methods */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 bg-[var(--bg-main)] border-b border-[var(--border-color)]">
-          <h3 className="font-bold text-[var(--text-primary)]">Testing Methods</h3>
-        </div>
+        <div className={sectionHead}><h3 className={sectionTitle}>Testing Methods</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Method</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Number Tested</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Number Positive</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Positivity Rate</th>
+                <th className={`${th} text-left`}>Method</th>
+                <th className={`${th} text-center`}>Number Tested</th>
+                <th className={`${th} text-center`}>Number Positive</th>
+                <th className={`${th} text-center`}>Positivity Rate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--border-color)]">
               <tr className="hover:bg-[var(--bg-main)]">
-                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">Microscopy</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.testing.microscopy}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-red-text)]">{data.testing.microscopyPositive}</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
-                  {data.testing.microscopy > 0 ? ((data.testing.microscopyPositive / data.testing.microscopy) * 100).toFixed(1) : 0}%
-                </td>
+                <td className={`${td} font-medium`}>Microscopy</td>
+                <td className={tdC}>{data.testing.microscopy}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-red-text)]`}>{data.testing.microscopyPositive}</td>
+                <td className={tdC}>{positivity(data.testing.microscopyPositive, data.testing.microscopy)}%</td>
               </tr>
               <tr className="hover:bg-[var(--bg-main)]">
-                <td className="px-4 py-3 font-medium text-[var(--text-primary)]">RDT</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">{data.testing.rdt}</td>
-                <td className="px-4 py-3 text-center font-semibold text-[var(--icon-red-text)]">{data.testing.rdtPositive}</td>
-                <td className="px-4 py-3 text-center text-[var(--text-primary)]">
-                  {data.testing.rdt > 0 ? ((data.testing.rdtPositive / data.testing.rdt) * 100).toFixed(1) : 0}%
-                </td>
+                <td className={`${td} font-medium`}>RDT</td>
+                <td className={tdC}>{data.testing.rdt}</td>
+                <td className={`${tdC} font-semibold text-[var(--icon-red-text)]`}>{data.testing.rdtPositive}</td>
+                <td className={tdC}>{positivity(data.testing.rdtPositive, data.testing.rdt)}%</td>
               </tr>
             </tbody>
+            <tfoot className="bg-[var(--bg-main)] border-t border-[var(--border-color)]">
+              <tr className="font-semibold">
+                <td className={td}>Total</td>
+                <td className={tdC}>{data.testing.microscopy + data.testing.rdt}</td>
+                <td className={tdC}>{data.testing.microscopyPositive + data.testing.rdtPositive}</td>
+                <td className={tdC}>{positivity(data.testing.microscopyPositive + data.testing.rdtPositive, data.testing.microscopy + data.testing.rdt)}%</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
 
-      {/* SECTION 3: Commodity Stock - ASAQ */}
+      {/* SECTION 3: ASAQ */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]">
-          <h3 className="font-bold text-[var(--icon-cyan-text)]">Artesunate-Amodiaquine (ASAQ)</h3>
-        </div>
+        <div className={sectionHead}><h3 className={sectionTitle}>Artesunate-Amodiaquine (ASAQ)</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)]">Age Group</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Opening Stock</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Dispensed</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Closing Stock</th>
-                <th className="px-4 py-3 text-center text-xs font-semibold text-[var(--text-secondary)]">Stock Out &gt;7 days</th>
-              </tr>
-            </thead>
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">{stockHead}</thead>
             <tbody className="divide-y divide-[var(--border-color)]">
-              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">Below 1 year</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_below_1yr.openingStock}</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_below_1yr.dispensed}</td>
-                <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_below_1yr.closingStock}</td>
-                <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_below_1yr) ? 'Yes' : 'No'}</td>
-              </tr>
-              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">1-5 years</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_1_5yrs.openingStock}</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_1_5yrs.dispensed}</td>
-                <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_1_5yrs.closingStock}</td>
-                <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_1_5yrs) ? 'Yes' : 'No'}</td>
-               </tr>
-              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">6-13 years</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.openingStock}</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_6_13yrs.dispensed}</td>
-                <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_6_13yrs.closingStock}</td>
-                <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_6_13yrs) ? 'Yes' : 'No'}</td>
-               </tr>
-              <tr className="hover:bg-[var(--bg-main)]"><td className="px-4 py-3">14+ years</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.openingStock}</td>
-                <td className="px-4 py-3 text-center">{data.commodities.asaq_14_plus.dispensed}</td>
-                <td className="px-4 py-3 text-center font-semibold">{data.commodities.asaq_14_plus.closingStock}</td>
-                <td className="px-4 py-3 text-center">{hasStockOut(data.commodities.asaq_14_plus) ? 'Yes' : 'No'}</td>
-               </tr>
+              {commodityRow('Below 1 year', data.commodities.asaq_below_1yr)}
+              {commodityRow('1–5 years', data.commodities.asaq_1_5yrs)}
+              {commodityRow('6–13 years', data.commodities.asaq_6_13yrs)}
+              {commodityRow('14+ years', data.commodities.asaq_14_plus)}
             </tbody>
+            <tfoot>{commodityTotal('Total', [data.commodities.asaq_below_1yr, data.commodities.asaq_1_5yrs, data.commodities.asaq_6_13yrs, data.commodities.asaq_14_plus])}</tfoot>
           </table>
         </div>
       </div>
 
-      {/* SECTION 4: Commodity Stock - AL */}
+      {/* SECTION 4: AL */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 bg-[var(--icon-green-bg)] border-b border-[var(--border-color)]">
-          <h3 className="font-bold text-[var(--icon-green-text)]">Artemether-Lumefantrine (AL)</h3>
-        </div>
+        <div className={sectionHead}><h3 className={sectionTitle}>Artemether-Lumefantrine (AL)</h3></div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[var(--bg-main)] border-b">
-              <tr><th className="px-4 py-3 text-left">Age Group</th><th className="px-4 py-3 text-center">Opening Stock</th><th className="px-4 py-3 text-center">Dispensed</th><th className="px-4 py-3 text-center">Closing Stock</th><th className="px-4 py-3 text-center">Stock Out &gt;7 days</th></tr>
-            </thead>
-            <tbody className="divide-y">
-              <tr><td className="px-4 py-3">0-3 years</td><td className="px-4 py-3 text-center">{data.commodities.al_0_3yrs.openingStock}</td><td className="px-4 py-3 text-center">{data.commodities.al_0_3yrs.dispensed}</td><td className="px-4 py-3 text-center">{data.commodities.al_0_3yrs.closingStock}</td><td className="px-4 py-3 text-center">{hasStockOut(data.commodities.al_0_3yrs) ? 'Yes' : 'No'}</td></tr>
-              <tr><td className="px-4 py-3">4-8 years</td><td className="px-4 py-3 text-center">{data.commodities.al_4_8yrs.openingStock}</td><td className="px-4 py-3 text-center">{data.commodities.al_4_8yrs.dispensed}</td><td className="px-4 py-3 text-center">{data.commodities.al_4_8yrs.closingStock}</td><td className="px-4 py-3 text-center">{hasStockOut(data.commodities.al_4_8yrs) ? 'Yes' : 'No'}</td></tr>
-              <tr><td className="px-4 py-3">9-13 years</td><td className="px-4 py-3 text-center">{data.commodities.al_9_13yrs.openingStock}</td><td className="px-4 py-3 text-center">{data.commodities.al_9_13yrs.dispensed}</td><td className="px-4 py-3 text-center">{data.commodities.al_9_13yrs.closingStock}</td><td className="px-4 py-3 text-center">{hasStockOut(data.commodities.al_9_13yrs) ? 'Yes' : 'No'}</td></tr>
-              <tr><td className="px-4 py-3">14+ years</td><td className="px-4 py-3 text-center">{data.commodities.al_14_plus.openingStock}</td><td className="px-4 py-3 text-center">{data.commodities.al_14_plus.dispensed}</td><td className="px-4 py-3 text-center">{data.commodities.al_14_plus.closingStock}</td><td className="px-4 py-3 text-center">{hasStockOut(data.commodities.al_14_plus) ? 'Yes' : 'No'}</td></tr>
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">{stockHead}</thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {commodityRow('0–3 years', data.commodities.al_0_3yrs)}
+              {commodityRow('4–8 years', data.commodities.al_4_8yrs)}
+              {commodityRow('9–13 years', data.commodities.al_9_13yrs)}
+              {commodityRow('14+ years', data.commodities.al_14_plus)}
+            </tbody>
+            <tfoot>{commodityTotal('Total', [data.commodities.al_0_3yrs, data.commodities.al_4_8yrs, data.commodities.al_9_13yrs, data.commodities.al_14_plus])}</tfoot>
+          </table>
+        </div>
+      </div>
+
+      {/* SECTION 5: Other Anti-Malarials — one table, was 7 repeated cards */}
+      <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
+        <div className={sectionHead}><h3 className={sectionTitle}>Other Anti-Malarials</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">{stockHead}</thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {commodityRow('DHAP 40/320mg', data.commodities.dhap_40_320mg)}
+              {commodityRow('Quinine Tablets 300mg', data.commodities.quinine_tablet)}
+              {commodityRow('Quinine Injection', data.commodities.quinine_injection)}
+              {commodityRow('RDT Kits', data.commodities.rdt_kits)}
+              {commodityRow('SP (Sulfadoxine-Pyrimethamine)', data.commodities.sp)}
+              {commodityRow('Artesunate Injection 30mg', data.commodities.artesunate_injection_30mg)}
+              {commodityRow('Artesunate Injection 60mg', data.commodities.artesunate_injection_60mg)}
+              {commodityRow('Artesunate Injection 120mg', data.commodities.artesunate_injection_120mg)}
+              {commodityRow('Arthemeter Injection 40mg', data.commodities.arthemeter_injection_40mg)}
+              {commodityRow('Arthemeter Injection 80mg', data.commodities.arthemeter_injection_80mg)}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* SECTION 5: Other Anti-Malarials */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* DHAP */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-purple-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-purple-text)]">DHAP 40/320mg</h4></div>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.dhap_40_320mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.dhap_40_320mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.dhap_40_320mg.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.dhap_40_320mg) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.dhap_40_320mg) ? 'Yes' : 'No'}</span></div>
-          </div>
-        </div>
-
-        {/* Quinine Tablets */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-yellow-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-yellow-text)]">Quinine Tablets 300mg</h4></div>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.quinine_tablet.openingStock}</span></div>
-            <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.quinine_tablet.dispensed}</span></div>
-            <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.quinine_tablet.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_tablet) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.quinine_tablet) ? 'Yes' : 'No'}</span></div>
-          </div>
-        </div>
-
-        {/* Quinine Injection */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-orange-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-orange-text)]">Quinine Injection</h4></div>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.quinine_injection.openingStock}</span></div>
-            <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.quinine_injection.dispensed}</span></div>
-            <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.quinine_injection.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.quinine_injection) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.quinine_injection) ? 'Yes' : 'No'}</span></div>
-          </div>
-        </div>
-
-        {/* RDT Kits */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-red-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-red-text)]">RDT Kits</h4></div>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.rdt_kits.openingStock}</span></div>
-            <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.rdt_kits.dispensed}</span></div>
-            <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.rdt_kits.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.rdt_kits) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.rdt_kits) ? 'Yes' : 'No'}</span></div>
-          </div>
-        </div>
-
-        {/* SP */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-green-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-green-text)]">SP (Sulfadoxine-Pyrimethamine)</h4></div>
-          <div className="p-4 space-y-2">
-            <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.sp.openingStock}</span></div>
-            <div className="flex justify-between"><span>Dispensed:</span><span className="font-bold">{data.commodities.sp.dispensed}</span></div>
-            <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.sp.closingStock}</span></div>
-            <div className="flex justify-between"><span>Stock Out &gt;7 days:</span><span className={hasStockOut(data.commodities.sp) ? 'text-[var(--icon-red-text)] font-bold' : 'text-[var(--icon-green-text)]'}>{hasStockOut(data.commodities.sp) ? 'Yes' : 'No'}</span></div>
-          </div>
-        </div>
-
-        {/* Artesunate Injections Group */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-cyan-text)]">Artesunate Injection</h4></div>
-          <div className="p-3 space-y-2 text-sm">
-            <div className="flex justify-between"><span>30mg - Opening Stock:</span><span>{data.commodities.artesunate_injection_30mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>30mg - Dispensed:</span><span>{data.commodities.artesunate_injection_30mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>30mg - Closing Stock:</span><span className="font-bold">{data.commodities.artesunate_injection_30mg.closingStock}</span></div>
-            <div className="border-t my-2"></div>
-            <div className="flex justify-between"><span>60mg - Opening Stock:</span><span>{data.commodities.artesunate_injection_60mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>60mg - Dispensed:</span><span>{data.commodities.artesunate_injection_60mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>60mg - Closing Stock:</span><span className="font-bold">{data.commodities.artesunate_injection_60mg.closingStock}</span></div>
-            <div className="border-t my-2"></div>
-            <div className="flex justify-between"><span>120mg - Opening Stock:</span><span>{data.commodities.artesunate_injection_120mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>120mg - Dispensed:</span><span>{data.commodities.artesunate_injection_120mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>120mg - Closing Stock:</span><span className="font-bold">{data.commodities.artesunate_injection_120mg.closingStock}</span></div>
-          </div>
-        </div>
-
-        {/* Arthemeter Injections */}
-        <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-          <div className="px-4 py-3 bg-[var(--icon-cyan-bg)] border-b border-[var(--border-color)]"><h4 className="font-bold text-[var(--icon-cyan-text)]">Arthemeter Injection</h4></div>
-          <div className="p-3 space-y-2 text-sm">
-            <div className="flex justify-between"><span>40mg - Opening Stock:</span><span>{data.commodities.arthemeter_injection_40mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>40mg - Dispensed:</span><span>{data.commodities.arthemeter_injection_40mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>40mg - Closing Stock:</span><span className="font-bold">{data.commodities.arthemeter_injection_40mg.closingStock}</span></div>
-            <div className="border-t my-2"></div>
-            <div className="flex justify-between"><span>80mg - Opening Stock:</span><span>{data.commodities.arthemeter_injection_80mg.openingStock}</span></div>
-            <div className="flex justify-between"><span>80mg - Dispensed:</span><span>{data.commodities.arthemeter_injection_80mg.dispensed}</span></div>
-            <div className="flex justify-between"><span>80mg - Closing Stock:</span><span className="font-bold">{data.commodities.arthemeter_injection_80mg.closingStock}</span></div>
-          </div>
-        </div>
-      </div>
-
-      {/* SECTION 6: Rectal Artesunate */}
+      {/* SECTION 6: Rectal Artesunate — table, was a card pair */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-5 py-4 bg-[var(--icon-red-bg)] border-b border-[var(--border-color)]">
-          <h3 className="font-bold text-[var(--icon-red-text)]">Rectal Artesunate</h3>
-        </div>
-        <div className="grid grid-cols-2 gap-4 p-4">
-          <div className="border rounded-lg p-3">
-            <h4 className="font-medium mb-2">50mg</h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.rectal_artesunate_50mg.openingStock}</span></div>
-              <div className="flex justify-between"><span>Dispensed:</span><span>{data.commodities.rectal_artesunate_50mg.dispensed}</span></div>
-              <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.rectal_artesunate_50mg.closingStock}</span></div>
-            </div>
-          </div>
-          <div className="border rounded-lg p-3">
-            <h4 className="font-medium mb-2">200mg</h4>
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between"><span>Opening Stock:</span><span className="font-bold">{data.commodities.rectal_artesunate_200mg.openingStock}</span></div>
-              <div className="flex justify-between"><span>Dispensed:</span><span>{data.commodities.rectal_artesunate_200mg.dispensed}</span></div>
-              <div className="flex justify-between"><span>Closing Stock:</span><span className="font-bold">{data.commodities.rectal_artesunate_200mg.closingStock}</span></div>
-            </div>
-          </div>
+        <div className={sectionHead}><h3 className={sectionTitle}>Rectal Artesunate</h3></div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">{stockHead}</thead>
+            <tbody className="divide-y divide-[var(--border-color)]">
+              {commodityRow('Rectal Artesunate 50mg', data.commodities.rectal_artesunate_50mg)}
+              {commodityRow('Rectal Artesunate 200mg', data.commodities.rectal_artesunate_200mg)}
+            </tbody>
+          </table>
         </div>
       </div>
 
       {/* Footer */}
-      <div className="text-center py-4 text-xs text-[var(--text-tertiary)]">
+      <div className="text-center py-2 text-xs text-[var(--text-tertiary)]">
         Generated on {new Date().toLocaleString()} | GHS Monthly Malaria Data Returns
       </div>
     </div>

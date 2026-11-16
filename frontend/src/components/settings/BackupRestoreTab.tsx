@@ -4,6 +4,9 @@
 // TABLE (Filename | Created | Size | Actions) — one data point per column,
 // same as Patients / Audit Logs / Service Catalog list view. No stacked cells,
 // no card-inside-card, no huge centered stat cards.
+// DENSITY PASS (2026-11-15): stats p-4 -> p-2.5, action bar p-4 -> p-2.5,
+// table cells px-4/py-3 -> px-3/py-2, loading/empty p-8 -> p-6, delete modal
+// p-6 -> p-4. Same content, fits the viewport like the other Settings tabs.
 import { useState, useEffect } from 'react';
 import { confirmDialog } from '../../context/ConfirmDialog';
 import { useToast } from '../../store/toastStore';
@@ -213,7 +216,7 @@ export default function BackupRestoreTab() {
   const backupList = Array.isArray(backups) ? backups : [];
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-3">
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="flex items-center gap-2 text-red-800 text-sm">
@@ -225,39 +228,39 @@ export default function BackupRestoreTab() {
       )}
 
       {/* Stats — dense, icon-left, same pattern as Patients / Service Catalog */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center gap-3">
-          <div className="w-10 h-10 bg-[var(--icon-cyan-bg)] rounded-xl flex items-center justify-center shrink-0"><Database className="w-5 h-5 text-[var(--icon-cyan-text)]" /></div>
-          <div><p className="text-xl font-bold leading-none text-[var(--text-primary)]">{backupList.length}</p><p className="text-xs text-[var(--text-secondary)] mt-1">Backups Available</p></div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)] flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-lg flex items-center justify-center shrink-0"><Database className="w-4 h-4 text-[var(--icon-cyan-text)]" /></div>
+          <div><p className="text-base font-bold leading-none text-[var(--text-primary)]">{backupList.length}</p><p className="text-xs text-[var(--text-secondary)] mt-1">Backups Available</p></div>
         </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center gap-3">
-          <div className="w-10 h-10 bg-[var(--icon-green-bg)] rounded-xl flex items-center justify-center shrink-0"><Download className="w-5 h-5 text-[var(--icon-green-text)]" /></div>
-          <div><p className="text-xl font-bold leading-none text-[var(--text-primary)]">{backupList.length}</p><p className="text-xs text-[var(--text-secondary)] mt-1">Ready to Download</p></div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)] flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-[var(--icon-green-bg)] rounded-lg flex items-center justify-center shrink-0"><Download className="w-4 h-4 text-[var(--icon-green-text)]" /></div>
+          <div><p className="text-base font-bold leading-none text-[var(--text-primary)]">{backupList.length}</p><p className="text-xs text-[var(--text-secondary)] mt-1">Ready to Download</p></div>
         </div>
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] flex items-center gap-3">
-          <div className="w-10 h-10 bg-[var(--icon-yellow-bg)] rounded-xl flex items-center justify-center shrink-0"><Upload className="w-5 h-5 text-[var(--icon-yellow-text)]" /></div>
-          <div><p className="text-xl font-bold leading-none text-[var(--text-primary)]">{selectedFile ? '1' : '0'}</p><p className="text-xs text-[var(--text-secondary)] mt-1">{canRestoreBackup ? 'Selected for Restore' : 'Restore Restricted'}</p></div>
+        <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)] flex items-center gap-2.5">
+          <div className="w-8 h-8 bg-[var(--icon-yellow-bg)] rounded-lg flex items-center justify-center shrink-0"><Upload className="w-4 h-4 text-[var(--icon-yellow-text)]" /></div>
+          <div><p className="text-base font-bold leading-none text-[var(--text-primary)]">{selectedFile ? '1' : '0'}</p><p className="text-xs text-[var(--text-secondary)] mt-1">{canRestoreBackup ? 'Selected for Restore' : 'Restore Restricted'}</p></div>
         </div>
       </div>
 
       {/* Actions — single row, header pattern, not a big padded card */}
-      <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+      <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)]">
         <div className="flex flex-wrap items-center gap-2">
-          <button onClick={handleCreateBackup} disabled={creatingBackup || restoring} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
+          <button onClick={handleCreateBackup} disabled={creatingBackup || restoring} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
             {creatingBackup ? <Loader className="w-4 h-4 animate-spin" /> : <Database className="w-4 h-4" />}{creatingBackup ? 'Creating...' : 'Create Backup'}
           </button>
           {canRestoreBackup && (
-            <label className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] cursor-pointer text-sm font-medium transition-all">
+            <label className="flex items-center gap-2 px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] cursor-pointer text-sm font-medium transition-all">
               <Upload className="w-4 h-4" /> Select Backup File
               <input type="file" accept=".sql,.backup,.dump" onChange={handleFileSelect} className="hidden" />
             </label>
           )}
           {canRestoreBackup && (
-            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || !selectedFile} className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
+            <button onClick={handleRestoreBackup} disabled={restoring || creatingBackup || !selectedFile} className="flex items-center gap-2 px-3 py-1.5 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white disabled:opacity-50 transition-all text-sm font-medium">
               {restoring ? <Loader className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}{restoring ? 'Restoring...' : 'Restore Backup'}
             </button>
           )}
-          <button onClick={loadBackups} disabled={isLoading} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium">
+          <button onClick={loadBackups} disabled={isLoading} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 flex items-center gap-2 text-sm font-medium">
             <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
@@ -271,34 +274,34 @@ export default function BackupRestoreTab() {
 
       {/* Backup list — TABLE: Filename | Created | Size | Actions */}
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-        <div className="px-4 py-3 border-b border-[var(--border-color)] flex items-center gap-2">
+        <div className="px-3 py-2 border-b border-[var(--border-color)] flex items-center gap-2">
           <Database className="w-4 h-4 text-[var(--icon-cyan-text)]" />
           <h4 className="font-semibold text-[var(--text-primary)] text-sm">Available Backups</h4>
         </div>
         {isLoading && backupList.length === 0 ? (
-          <div className="p-8 text-center"><Loader className="w-8 h-8 animate-spin text-[var(--icon-cyan-text)] mx-auto mb-3" /><p className="text-[var(--text-secondary)] text-sm">Loading backups...</p></div>
+          <div className="p-6 text-center"><Loader className="w-8 h-8 animate-spin text-[var(--icon-cyan-text)] mx-auto mb-3" /><p className="text-[var(--text-secondary)] text-sm">Loading backups...</p></div>
         ) : backupList.length === 0 ? (
-          <div className="p-8 text-center"><Database className="w-12 h-12 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)] text-sm">No backups found</p>
-            <button onClick={handleCreateBackup} disabled={creatingBackup} className="mt-3 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50">Create Your First Backup</button>
+          <div className="p-6 text-center"><Database className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)] text-sm">No backups found</p>
+            <button onClick={handleCreateBackup} disabled={creatingBackup} className="mt-3 px-3 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white transition-all text-sm font-medium disabled:opacity-50">Create Your First Backup</button>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
                 <tr>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]">Filename</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]">Created</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]">Size</th>
-                  <th className="text-center px-4 py-2.5 text-xs font-semibold text-[var(--text-secondary)]">Actions</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">Filename</th>
+                  <th className="text-left px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">Created</th>
+                  <th className="text-right px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">Size</th>
+                  <th className="text-center px-3 py-2 text-xs font-semibold text-[var(--text-secondary)]">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
                 {backupList.map(backup => (
                   <tr key={backup.filename} className="hover:bg-[var(--bg-main)] transition-colors">
-                    <td className="px-4 py-3"><div className="flex items-center gap-2.5 min-w-0"><Database className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" /><span className="font-medium text-[var(--text-primary)] text-sm truncate">{backup.filename}</span></div></td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] whitespace-nowrap">{formatDate(backup.createdAt)}</td>
-                    <td className="px-4 py-3 text-sm text-[var(--text-secondary)] text-right whitespace-nowrap">{backup.size ? (backup.sizeFormatted || formatFileSize(backup.size)) : '-'}</td>
-                    <td className="px-4 py-3"><div className="flex items-center justify-center gap-1">
+                    <td className="px-3 py-2"><div className="flex items-center gap-2.5 min-w-0"><Database className="w-4 h-4 text-[var(--text-tertiary)] shrink-0" /><span className="font-medium text-[var(--text-primary)] text-sm truncate">{backup.filename}</span></div></td>
+                    <td className="px-3 py-2 text-sm text-[var(--text-secondary)] whitespace-nowrap">{formatDate(backup.createdAt)}</td>
+                    <td className="px-3 py-2 text-sm text-[var(--text-secondary)] text-right whitespace-nowrap">{backup.size ? (backup.sizeFormatted || formatFileSize(backup.size)) : '-'}</td>
+                    <td className="px-3 py-2"><div className="flex items-center justify-center gap-1">
                       <button onClick={() => handleDownloadBackup(backup)} disabled={downloadingBackup === backup.filename} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-cyan-text)] hover:bg-[var(--icon-cyan-bg)]/20 rounded-lg disabled:opacity-50" title="Download Backup">{downloadingBackup === backup.filename ? <Loader className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</button>
                       <button onClick={() => setDeletingBackup(backup)} className="p-2 text-[var(--text-secondary)] hover:text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)]/20 rounded-lg" title="Delete Backup"><Trash2 className="w-4 h-4" /></button>
                     </div></td>
@@ -309,18 +312,18 @@ export default function BackupRestoreTab() {
           </div>
         )}
         {pagination && pagination.total > 0 && (
-          <div className="bg-[var(--bg-main)] px-4 py-2 border-t border-[var(--border-color)] text-center"><p className="text-xs text-[var(--text-secondary)]">Total backups: {pagination.total} | Total size: {pagination.totalSizeFormatted || formatFileSize(pagination.totalSize || 0)}</p></div>
+          <div className="bg-[var(--bg-main)] px-3 py-1.5 border-t border-[var(--border-color)] text-center"><p className="text-xs text-[var(--text-secondary)]">Total backups: {pagination.total} | Total size: {pagination.totalSizeFormatted || formatFileSize(pagination.totalSize || 0)}</p></div>
         )}
       </div>
 
       {deletingBackup && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-md border border-[var(--border-color)]">
-            <div className="flex items-center gap-3 mb-4"><div className="w-10 h-10 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center"><Trash2 className="w-5 h-5 text-[var(--icon-red-text)]" /></div><div><h3 className="text-lg font-bold text-[var(--text-primary)]">Delete Backup</h3><p className="text-sm text-[var(--text-secondary)]">This action cannot be undone.</p></div></div>
-            <p className="text-[var(--text-secondary)] mb-6 text-sm">Are you sure you want to delete <strong className="font-semibold text-[var(--text-primary)]">{deletingBackup.filename}</strong>? This backup file will be permanently removed.</p>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 w-full max-w-md border border-[var(--border-color)]">
+            <div className="flex items-center gap-2.5 mb-3"><div className="w-9 h-9 bg-[var(--icon-red-bg)] rounded-lg flex items-center justify-center"><Trash2 className="w-4 h-4 text-[var(--icon-red-text)]" /></div><div><h3 className="text-base font-bold text-[var(--text-primary)]">Delete Backup</h3><p className="text-sm text-[var(--text-secondary)]">This action cannot be undone.</p></div></div>
+            <p className="text-[var(--text-secondary)] mb-4 text-sm">Are you sure you want to delete <strong className="font-semibold text-[var(--text-primary)]">{deletingBackup.filename}</strong>? This backup file will be permanently removed.</p>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setDeletingBackup(null)} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium">Cancel</button>
-              <button onClick={handleDeleteBackup} className="px-4 py-2 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium">Delete Backup</button>
+              <button onClick={() => setDeletingBackup(null)} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] text-sm font-medium">Cancel</button>
+              <button onClick={handleDeleteBackup} className="px-3 py-1.5 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg hover:bg-[var(--icon-red-text)] hover:text-white transition-all text-sm font-medium">Delete Backup</button>
             </div>
           </div>
         </div>

@@ -380,29 +380,85 @@ export default function Reports() {
   const renderIDSRReport = () => {
     const report = idsrReport as any;
     if (!report) return <EmptyState message="No IDSR data available" />;
+    const diseases = report.diseases || [];
+    const num = (v: any) => (v == null ? null : Number(v) || 0);
+    const totalSuspected = diseases.reduce((s: number, d: any) => s + (num(d.suspected) || 0), 0);
+    const totalConfirmed = diseases.reduce((s: number, d: any) => s + (num(d.confirmed) || 0), 0);
+    const hasAnyConfirmed = diseases.some((d: any) => d.confirmed != null);
+    const totalDeaths = diseases.reduce((s: number, d: any) => s + (num(d.deaths) || 0), 0);
+    const hasAnyDeaths = diseases.some((d: any) => d.deaths != null);
+    // Number columns: right-aligned + tabular-nums + fixed width, so figures line
+    // up down the column instead of drifting with the disease name (the old table
+    // centred everything and mixed "—" with numbers, which is what looked off).
+    const numTH = 'px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] w-[110px]';
+    const numTD = 'px-3 py-2 text-right text-xs tabular-nums text-[var(--text-primary)]';
     return (
-      <Card title="Notifiable Diseases (IDSR)" icon={AlertTriangle} accent="orange">
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className={TH}>Disease</th><th className={`${TH} text-center`}>Suspected</th><th className={`${TH} text-center`}>Confirmed</th><th className={`${TH} text-center`}>Deaths</th></tr></thead>
-            <tbody className="divide-y divide-[var(--border-color)]">
-              {(report.diseases || []).map((d: any, i: number) => (
-                <tr key={i} className="hover:bg-[var(--bg-main)] transition-colors">
-                  <td className={`${TD} text-[var(--text-primary)] font-medium`}>{d.disease}</td>
-                  <td className={`${TD} text-center`}>{d.suspected}</td><td className={`${TD} text-center`}>{d.confirmed}</td>
-                  <td className={`${TD} text-center`}><span className="font-bold text-[var(--icon-red-text)]">{d.deaths}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <StatCard label="Diseases Reported" value={diseases.length} icon={AlertTriangle} accent="orange" />
+          <StatCard label="Total Suspected" value={totalSuspected.toLocaleString()} icon={Users} accent="cyan" />
+          <StatCard label="Total Confirmed" value={hasAnyConfirmed ? totalConfirmed.toLocaleString() : '—'} icon={Shield} accent="green" />
+          <StatCard label="Total Deaths" value={hasAnyDeaths ? totalDeaths.toLocaleString() : '—'} icon={AlertTriangle} accent="red" />
         </div>
-      </Card>
+        <Card title="Notifiable Diseases (IDSR)" icon={AlertTriangle} accent="orange" padded={false}>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Disease</th>
+                  <th className={numTH}>Suspected</th>
+                  <th className={numTH}>Confirmed</th>
+                  <th className={numTH}>Deaths</th>
+                  <th className={numTH}>CFR</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-color)]">
+                {diseases.map((d: any, i: number) => {
+                  const suspected = num(d.suspected), confirmed = num(d.confirmed), deaths = num(d.deaths);
+                  const cfr = confirmed != null && confirmed > 0 && deaths != null ? `${((deaths / confirmed) * 100).toFixed(1)}%` : '—';
+                  return (
+                    <tr key={d.disease || i} className="hover:bg-[var(--bg-main)] transition-colors">
+                      <td className={`${TD} text-[var(--text-primary)] font-medium`}>{d.disease}</td>
+                      <td className={numTD}>{suspected ?? '—'}</td>
+                      <td className={numTD}>{confirmed ?? '—'}</td>
+                      <td className={`${numTD} ${deaths ? 'font-bold text-[var(--icon-red-text)]' : ''}`}>{deaths ?? '—'}</td>
+                      <td className={numTD}>{cfr}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              <tfoot className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                <tr>
+                  <td className={`${TD} font-bold`}>TOTAL</td>
+                  <td className={`${numTD} font-bold`}>{totalSuspected.toLocaleString()}</td>
+                  <td className={`${numTD} font-bold`}>{hasAnyConfirmed ? totalConfirmed.toLocaleString() : '—'}</td>
+                  <td className={`${numTD} font-bold`}>{hasAnyDeaths ? totalDeaths.toLocaleString() : '—'}</td>
+                  <td className={`${numTD} font-bold`}>{hasAnyConfirmed && totalConfirmed > 0 && hasAnyDeaths ? `${((totalDeaths / totalConfirmed) * 100).toFixed(1)}%` : '—'}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          {(diseases.some((d: any) => d.confirmed == null || d.deaths == null)) && (
+            <p className="px-4 py-3 text-[11px] text-[var(--text-tertiary)] border-t border-[var(--border-color)]">
+              Suspected counts the attendances diagnosed with each disease in the period. Laboratory-confirmed cases and deaths are not recorded per
+              disease in the system yet, so they are left blank (—) instead of estimated. Complete them by hand before submitting the IDSR return.
+            </p>
+          )}
+        </Card>
+      </div>
     );
   };
   const renderFamilyPlanningReport = () => {
     const report = familyPlanningReport as any;
     if (!report) return <EmptyState message="No family planning data available" />;
     if (report.returns) return <FormAReportView data={{ ...report, form: report.returns, title: 'Monthly Family Planning Returns', filePrefix: 'GHS_FP_Returns' }} />;
+    // Method Mix: was Method | Count with the count left-aligned and no total, so
+    // figures drifted. Now: Method | Count (right, tabular) | Share % (right,
+    // tabular) + a TOTAL footer, same alignment as IDSR / OPD tables.
+    const methodEntries = Object.entries(report.methodMix || {}) as [string, any][];
+    const methodTotal = methodEntries.reduce((sum, [, c]) => sum + (Number(c) || 0), 0);
+    const numTH = 'px-3 py-2.5 text-right text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] w-[110px]';
+    const numTD = 'px-3 py-2 text-right text-xs tabular-nums text-[var(--text-primary)]';
     return (
       <div className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -410,15 +466,35 @@ export default function Reports() {
           <StatCard label="FP Visits" value={report.summary?.totalFPVisits || 0} icon={Calendar} accent="green" />
           <StatCard label="New Acceptors" value={report.summary?.newAcceptors || 0} icon={UserCheck} accent="cyan" />
         </div>
-        <Card title="Method Mix" icon={PieChart} accent="cyan">
+        <Card title="Method Mix" icon={PieChart} accent="cyan" padded={false}>
           <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className={TH}>Method</th><th className={TH}>Count</th></tr></thead>
+            <table className="w-full text-xs border-collapse">
+              <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]">
+                <tr>
+                  <th className="px-3 py-2.5 text-left text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Method</th>
+                  <th className={numTH}>Count</th>
+                  <th className={numTH}>Share</th>
+                </tr>
+              </thead>
               <tbody className="divide-y divide-[var(--border-color)]">
-                {Object.entries(report.methodMix || {}).map(([m, c]: [string, any]) => (
-                  <tr key={m} className="hover:bg-[var(--bg-main)]"><td className={`${TD} text-[var(--text-primary)]`}>{humanize(m)}</td><td className={`${TD} font-bold text-[var(--text-primary)]`}>{c}</td></tr>
-                ))}
+                {methodEntries.map(([m, c]) => {
+                  const count = Number(c) || 0;
+                  return (
+                    <tr key={m} className="hover:bg-[var(--bg-main)] transition-colors">
+                      <td className={`${TD} text-[var(--text-primary)] font-medium`}>{humanize(m)}</td>
+                      <td className={`${numTD} font-bold`}>{count.toLocaleString()}</td>
+                      <td className={numTD}>{methodTotal > 0 ? `${((count / methodTotal) * 100).toFixed(1)}%` : '—'}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              <tfoot className="bg-[var(--bg-main)] border-t-2 border-[var(--border-color)]">
+                <tr>
+                  <td className={`${TD} font-bold`}>TOTAL</td>
+                  <td className={`${numTD} font-bold`}>{methodTotal.toLocaleString()}</td>
+                  <td className={`${numTD} font-bold`}>{methodTotal > 0 ? '100.0%' : '—'}</td>
+                </tr>
+              </tfoot>
             </table>
           </div>
         </Card>

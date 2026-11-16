@@ -45,14 +45,23 @@ const Cell: React.FC<{ v: number | string; captured?: boolean }> = ({ v, capture
 //     → render AS-IS: the age labels ARE the column headers, the tally is the row.
 //     Transposing these was the bug: it collapsed the ages into one header and left
 //     only the tally, so the ages disappeared.
-// Detection: a table is an age table when its columns look like ages, OR when it has
-// more value-columns than indicator-rows (wide, not tall).
+//  C) GROUP/TYPE LABELS FIX: t.groups was only used in CSV, and the transposed mode
+//     dropped t.columns — so a table like Deliveries (columns Male/Female/Total) rendered
+//     as anonymous value-rows. Both are now rendered: groups as a spanning header row,
+//     and t.columns[ci] as the leading 'Type / Group' cell of every transposed value-row.
+// Detection: a table is rendered AS-IS (not transposed) when it has more than one
+// value-column — e.g. Births by outcome and sex (Male / Female / Total),
+// Birth weight (< 2.5 / >= 2.5 / Not weighed), Referrals (In / Out / Total).
+// Transposing those turned the real column headers into anonymous row labels
+// and left the numbers with no Type / Group next to them. Only single-column
+// indicator tables are transposed (indicators -> column headers).
+// Age tables are a subset of the as-is case: ages stay as column headers.
 const AGE_COL = /^(<|≤|≥|>=|<=)?\s*\d+\s*([-–+]|to)?\s*\d*\s*(d|m|y|yrs|years|months|days)?$/i;
 const isAgeTable = (t: FormATable) => {
   if (!t.rows.length) return false;
   const valueCols = Math.max(0, ...t.rows.map(r => r.values.length));
+  if (valueCols > 1) return true;
   if (t.columns.length > 1 && t.columns.some(c => AGE_COL.test(c.trim()))) return true;
-  if (valueCols > 1 && valueCols >= t.rows.length) return true;
   return false;
 };
 const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
@@ -61,7 +70,7 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
   const header = (label: string) => (
     <h4 className="text-[11px] font-bold uppercase tracking-wide text-[var(--text-primary)] bg-[var(--bg-main)] border border-b-0 border-[var(--border-color)] px-2 py-1.5 text-center">{label}</h4>
   );
-  // ── B) Age table: ages across the top, tally row underneath ──
+  // ── B) As-is table: columns across the top (ages, or Male/Female/Total, …), one labelled row per indicator ──
   if (isAgeTable(t)) {
     return (
       <div className="mb-4 break-inside-avoid">
@@ -69,8 +78,16 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
         <div className="overflow-x-auto">
           <table className="w-full border border-[var(--border-color)] border-collapse text-[11px]">
             <thead>
+              {t.groups?.length ? (
+                <tr className="bg-[var(--bg-main)]">
+                  <th className="border border-[var(--border-color)] px-2 py-1.5" />
+                  {t.groups.map((g, gi) => (
+                    <th key={gi} colSpan={g.span} className="border border-[var(--border-color)] px-1.5 py-1.5 text-center font-bold text-[var(--text-primary)]">{g.label}</th>
+                  ))}
+                </tr>
+              ) : null}
               <tr className="bg-[var(--bg-main)]">
-                <th className="border border-[var(--border-color)] px-2 py-1.5 text-left font-semibold text-[var(--text-secondary)] min-w-[160px]">Age group</th>
+                <th className="border border-[var(--border-color)] px-2 py-1.5 text-left font-semibold text-[var(--text-secondary)] min-w-[160px]">{t.columns.some(c => AGE_COL.test(c.trim())) ? 'Age group' : 'Indicator'}</th>
                 {t.columns.map((c, i) => (
                   <th key={i} className="border border-[var(--border-color)] px-1.5 py-1.5 text-center font-semibold text-[var(--text-secondary)] min-w-[56px]">{c}</th>
                 ))}
@@ -101,7 +118,16 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
       <div className="overflow-x-auto">
         <table className="w-full border border-[var(--border-color)] border-collapse text-[11px]">
           <thead>
+            {t.groups?.length ? (
+              <tr className="bg-[var(--bg-main)]">
+                <th className="border border-[var(--border-color)] px-2 py-1.5" />
+                {t.groups.map((g, gi) => (
+                  <th key={gi} colSpan={g.span} className="border border-[var(--border-color)] px-1.5 py-1.5 text-center font-bold text-[var(--text-primary)]">{g.label}</th>
+                ))}
+              </tr>
+            ) : null}
             <tr className="bg-[var(--bg-main)]">
+              <th className="border border-[var(--border-color)] px-2 py-1.5 text-left font-semibold text-[var(--text-secondary)] min-w-[110px]">Type / Group</th>
               {rows.map((r, i) => (
                 <th key={i} className="border border-[var(--border-color)] px-1.5 py-1.5 text-center font-semibold text-[var(--text-secondary)] align-bottom min-w-[72px] leading-tight">
                   {r.label}{r.note && <span className="block text-[9px] font-normal text-[var(--text-tertiary)]">({r.note})</span>}
@@ -112,6 +138,7 @@ const TableView: React.FC<{ t: FormATable }> = ({ t }) => {
           <tbody>
             {Array.from({ length: valueColCount }, (_, ci) => (
               <tr key={ci}>
+                <td className="border border-[var(--border-color)] px-2 py-1.5 font-medium text-[var(--text-primary)] whitespace-nowrap">{t.columns[ci] ?? `Value ${ci + 1}`}</td>
                 {rows.map((r, ri) => (
                   <td key={ri} className="border border-[var(--border-color)] px-1.5 py-1.5 text-center tabular-nums text-[var(--text-primary)]">
                     {r.values[ci] === undefined ? '' : <Cell v={r.values[ci]} captured={r.captured} />}

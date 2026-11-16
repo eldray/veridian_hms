@@ -49,8 +49,7 @@ export type OPD_AgeGroup =
   | '0-28d' | '1-11m' | '1-4y' | '5-9y' | '10-14y'
   | '15-17y' | '18-19y' | '20-34y' | '35-49y' | '50-59y' | '60-69y' | '70+y';
 
-export type IPD_AgeGroup =
-  | '0-28d' | '1-11m' | '5-9y' | '10-14y';
+export type IPD_AgeGroup = OPD_AgeGroup;
 
 // ========== BASE TYPES ==========
 export interface AgeSexBreakdown {

@@ -7,6 +7,11 @@
 //  - Removed the stray code comment left inside the list-view table header.
 //  - Denser stats (p-3, icon 9x9) and search bar (py-2, p-3) so the page
 //    does not tower. Grid cards keep the same content, tighter padding.
+//  - DENSITY PASS 2 (2026-11-15): the tab still towered — 6 stat cards + 4 price
+//    boxes per grid card + p-5/p-6 modals + py-16 empty state. Now: stats p-2.5 /
+//    icon 8x8 / text-base, search bar p-2.5, grid cards p-2.5 with p-1.5 price
+//    boxes, pagination py-2 text-xs, modals p-3/p-4 with smaller headers,
+//    empty state py-10. Same content everywhere, just fits the viewport.
 //  - No code removed: Load All, Force Load, both view modes, both modals kept.
 import { useEffect, useState } from 'react';
 import { confirmDialog } from '../../context/ConfirmDialog';
@@ -183,13 +188,13 @@ export default function ServiceCatalogTab() {
     if (totalPages <= 1) return null;
     const getPageNumbers = () => { const pages = []; const maxVisible = 5; let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2)); let endPage = Math.min(totalPages, startPage + maxVisible - 1); if (endPage - startPage + 1 < maxVisible) { startPage = Math.max(1, endPage - maxVisible + 1); } for (let i = startPage; i <= endPage; i++) { pages.push(i); } return pages; };
     return (
-      <div className="flex items-center justify-between px-4 py-3 bg-[var(--bg-card)] border-t border-[var(--border-color)] sm:px-6 rounded-b-xl">
+      <div className="flex items-center justify-between px-3 py-2 bg-[var(--bg-card)] border-t border-[var(--border-color)] sm:px-4 rounded-b-xl">
         <div className="flex flex-1 justify-between sm:hidden">
           <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed">Previous</button>
           <button onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} className="relative ml-3 inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)] bg-[var(--bg-card)] border border-[var(--border-color)] rounded-md hover:bg-[var(--bg-main)] disabled:opacity-50 disabled:cursor-not-allowed">Next</button>
         </div>
         <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
-          <div><p className="text-sm text-[var(--text-primary)]">Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredServices.length)}</span> of <span className="font-medium">{filteredServices.length}</span> results</p></div>
+          <div><p className="text-xs text-[var(--text-primary)]">Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(startIndex + itemsPerPage, filteredServices.length)}</span> of <span className="font-medium">{filteredServices.length}</span> results</p></div>
           <div className="flex items-center gap-3">
             <select value={itemsPerPage} onChange={handleItemsPerPageChange} className="text-sm border border-[var(--border-color)] rounded-lg px-2 py-1"><option value={10}>10 per page</option><option value={20}>20 per page</option><option value={50}>50 per page</option><option value={100}>100 per page</option></select>
             <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm">
@@ -204,15 +209,15 @@ export default function ServiceCatalogTab() {
   };
 
   const stat = (value: string, label: string, Icon: any, cls: string, bg: string) => (
-    <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)] flex items-center justify-between gap-2">
-      <div className="min-w-0"><p className={`text-lg font-bold leading-none truncate ${cls}`}>{value}</p><p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{label}</p></div>
-      <div className={`w-9 h-9 ${bg} rounded-xl flex items-center justify-center shrink-0`}><Icon className={`w-4 h-4 ${cls}`} /></div>
+    <div className="bg-[var(--bg-card)] rounded-xl p-2.5 border border-[var(--border-color)] flex items-center justify-between gap-2">
+      <div className="min-w-0"><p className={`text-base font-bold leading-none truncate ${cls}`}>{value}</p><p className="text-xs text-[var(--text-secondary)] mt-1 truncate">{label}</p></div>
+      <div className={`w-8 h-8 ${bg} rounded-lg flex items-center justify-center shrink-0`}><Icon className={`w-3.5 h-3.5 ${cls}`} /></div>
     </div>
   );
 
   return (
-    <div className="w-full space-y-4 text-[var(--text-primary)]">
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+    <div className="w-full space-y-3 text-[var(--text-primary)]">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         {stat(String(analytics.totalServices), 'Total Services', Layers, 'text-[var(--text-primary)]', 'bg-[var(--icon-cyan-bg)]')}
         {stat(`GHS ${analytics.totalCashValue.toFixed(0)}`, 'Total Value (Cash)', DollarSign, 'text-[var(--icon-green-text)]', 'bg-[var(--icon-green-bg)]')}
         {stat(`GHS ${analytics.totalInsuranceValue.toFixed(0)}`, 'Insurance Value', Shield, 'text-[var(--icon-purple-text)]', 'bg-[var(--icon-purple-bg)]')}
@@ -222,7 +227,7 @@ export default function ServiceCatalogTab() {
       </div>
 
       <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]">
-        <div className="p-3">
+        <div className="p-2.5">
           <div className="flex flex-col sm:flex-row gap-2">
             <div className="flex-1 relative"><Search className="w-4 h-4 text-[var(--text-tertiary)] absolute left-3 top-1/2 transform -translate-y-1/2" /><input type="text" placeholder="Search by name, code, NHIS code, or description..." value={searchTerm} onChange={e => { setSearchTerm(e.target.value); setCurrentPage(1); }} className="w-full pl-10 pr-4 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] text-sm" /></div>
             <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-3 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] transition-all text-sm font-medium"><Filter className="w-4 h-4" /> Filters <ChevronDown className={`w-3 h-3 transition-transform ${showFilters ? 'rotate-180' : ''}`} /></button>
@@ -246,24 +251,24 @@ export default function ServiceCatalogTab() {
       </div>
 
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{[...Array(12)].map((_, i) => (<div key={`skeleton-${i}`} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse"><div className="h-4 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div><div className="h-3 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div><div className="h-3 bg-[var(--bg-main)] rounded w-2/3"></div></div>))}</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">{[...Array(12)].map((_, i) => (<div key={`skeleton-${i}`} className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)] animate-pulse"><div className="h-4 bg-[var(--bg-main)] rounded w-3/4 mb-3"></div><div className="h-3 bg-[var(--bg-main)] rounded w-1/2 mb-2"></div><div className="h-3 bg-[var(--bg-main)] rounded w-2/3"></div></div>))}</div>
       ) : filteredServices.length === 0 ? (
-        <div className="text-center py-16 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]"><ClipboardList className="w-16 h-16 text-[var(--text-tertiary)] mx-auto mb-4" /><p className="text-[var(--text-secondary)] font-medium">No services found</p><p className="text-[var(--text-tertiary)] text-sm mt-1">Try adjusting your search or filters</p><button onClick={forceLoadAll} className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90">Load All Services</button></div>
+        <div className="text-center py-10 bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]"><ClipboardList className="w-10 h-10 text-[var(--text-tertiary)] mx-auto mb-3" /><p className="text-[var(--text-secondary)] font-medium">No services found</p><p className="text-[var(--text-tertiary)] text-sm mt-1">Try adjusting your search or filters</p><button onClick={forceLoadAll} className="mt-4 px-4 py-2 bg-[var(--icon-cyan-text)] text-white rounded-lg hover:opacity-90">Load All Services</button></div>
       ) : (
         <>
           {viewMode === 'grid' ? (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
                 {paginatedServices.map(service => (
                   <div key={service.id} className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] hover:shadow-lg transition-all cursor-pointer" onClick={() => handleViewDetails(service)}>
-                    <div className="p-3">
-                      <div className="flex items-start justify-between mb-3"><div className="flex items-center gap-2 min-w-0"><div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${getServiceColor(service.serviceType)}`}>{getServiceIcon(service.serviceType)}</div><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] line-clamp-1 text-sm">{service.name}</h3><span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></div></div>{service.nhisRequiresAuth && (<div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg shrink-0" title="Requires Authorization"><AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" /></div>)}</div>
-                      <div className="space-y-2 mb-3"><div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">Code:</span><span className="font-mono font-medium text-[var(--text-primary)]">{service.code}</span></div>{service.nhisServiceCode && (<div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">NHIS:</span><span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span></div>)}{service.description && (<p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>)}</div>
-                      <div className="grid grid-cols-2 gap-2 pt-3 border-t border-[var(--border-color)]">
-                        <div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Cash</p><p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p></div>
-                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">NHIS</p><p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p></div>
-                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Insurance</p><p className="font-bold text-sm text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</p></div>
-                        <div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center"><p className="text-xs text-[var(--text-secondary)] mb-1">Corporate</p><p className="font-bold text-sm text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</p></div>
+                    <div className="p-2.5">
+                      <div className="flex items-start justify-between mb-2"><div className="flex items-center gap-2 min-w-0"><div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${getServiceColor(service.serviceType)}`}>{getServiceIcon(service.serviceType)}</div><div className="min-w-0"><h3 className="font-semibold text-[var(--text-primary)] line-clamp-1 text-sm">{service.name}</h3><span className={`text-xs px-2 py-0.5 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></div></div>{service.nhisRequiresAuth && (<div className="bg-[var(--icon-orange-bg)] p-1 rounded-lg shrink-0" title="Requires Authorization"><AlertCircle className="w-3 h-3 text-[var(--icon-orange-text)]" /></div>)}</div>
+                      <div className="space-y-1.5 mb-2.5"><div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">Code:</span><span className="font-mono font-medium text-[var(--text-primary)]">{service.code}</span></div>{service.nhisServiceCode && (<div className="flex justify-between text-xs"><span className="text-[var(--text-secondary)]">NHIS:</span><span className="font-mono font-medium text-[var(--icon-cyan-text)]">{service.nhisServiceCode}</span></div>)}{service.description && (<p className="text-xs text-[var(--text-secondary)] line-clamp-2">{service.description}</p>)}</div>
+                      <div className="grid grid-cols-2 gap-1.5 pt-2.5 border-t border-[var(--border-color)]">
+                        <div className="bg-[var(--icon-green-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">Cash</p><p className="font-bold text-sm text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</p></div>
+                        <div className="bg-[var(--icon-cyan-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">NHIS</p><p className="font-bold text-sm text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</p></div>
+                        <div className="bg-[var(--icon-purple-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">Insurance</p><p className="font-bold text-sm text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</p></div>
+                        <div className="bg-[var(--icon-orange-bg)] rounded-lg p-1.5 text-center"><p className="text-[11px] text-[var(--text-secondary)]">Corporate</p><p className="font-bold text-sm text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</p></div>
                       </div>
                     </div>
                     {isAdminLike(user?.role) && (
@@ -281,18 +286,18 @@ export default function ServiceCatalogTab() {
             <>
               <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
                 <div className="overflow-x-auto"><table className="w-full">
-                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Service</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">Code</th><th className="text-left p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th><th className="text-right p-3 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th><th className="text-center p-3 text-xs font-semibold text-[var(--text-secondary)]">Actions</th></tr></thead>
+                  <thead className="bg-[var(--bg-main)] border-b border-[var(--border-color)]"><tr><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Service</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Type</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Code</th><th className="text-left p-2.5 text-xs font-semibold text-[var(--text-secondary)]">NHIS Code</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Cash (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">NHIS (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Insurance (GHS)</th><th className="text-right p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Corporate (GHS)</th><th className="text-center p-2.5 text-xs font-semibold text-[var(--text-secondary)]">Actions</th></tr></thead>
                   <tbody className="divide-y divide-[var(--border-color)]">{paginatedServices.map(service => (
                     <tr key={service.id} className="hover:bg-[var(--bg-main)] cursor-pointer" onClick={() => handleViewDetails(service)}>
-                      <td className="p-3"><div className="font-medium text-[var(--text-primary)]">{service.name}</div>{service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}</td>
-                      <td className="p-3"><span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></td>
+                      <td className="p-2.5"><div className="font-medium text-[var(--text-primary)]">{service.name}</div>{service.description && <div className="text-xs text-[var(--text-secondary)] line-clamp-1">{service.description}</div>}</td>
+                      <td className="p-2.5"><span className={`text-xs px-2 py-1 rounded-full ${getServiceColor(service.serviceType)}`}>{service.serviceType.replace('_', ' ')}</span></td>
                       <td className="p-3 font-mono text-xs text-[var(--text-secondary)]">{service.code}</td>
                       <td className="p-3 font-mono text-xs text-[var(--icon-cyan-text)]">{service.nhisServiceCode || '-'}</td>
-                      <td className="p-3 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
-                      <td className="p-3 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
-                      <td className="p-3 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
-                      <td className="p-3 text-right font-medium text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</td>
-                      <td className="p-3 text-center"><div className="flex justify-center gap-2"><button onClick={(e) => { e.stopPropagation(); handleEdit(service); }} className="p-1 text-[var(--icon-orange-text)] hover:bg-[var(--icon-orange-bg)] rounded-lg transition-colors"><Edit className="w-4 h-4" /></button><button onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }} className="p-1 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button></div></td>
+                      <td className="p-2.5 text-right font-medium text-[var(--icon-green-text)]">{getPriceText(service, 'cash')}</td>
+                      <td className="p-2.5 text-right font-medium text-[var(--icon-cyan-text)]">{getPriceText(service, 'nhis')}</td>
+                      <td className="p-2.5 text-right font-medium text-[var(--icon-purple-text)]">{getPriceText(service, 'insurance')}</td>
+                      <td className="p-2.5 text-right font-medium text-[var(--icon-orange-text)]">{getPriceText(service, 'corporate')}</td>
+                      <td className="p-2.5 text-center"><div className="flex justify-center gap-2"><button onClick={(e) => { e.stopPropagation(); handleEdit(service); }} className="p-1 text-[var(--icon-orange-text)] hover:bg-[var(--icon-orange-bg)] rounded-lg transition-colors"><Edit className="w-4 h-4" /></button><button onClick={(e) => { e.stopPropagation(); handleDelete(service.id); }} className="p-1 text-[var(--icon-red-text)] hover:bg-[var(--icon-red-bg)] rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button></div></td>
                     </tr>))}
                   </tbody>
                 </table></div>
@@ -305,9 +310,9 @@ export default function ServiceCatalogTab() {
 
       {showDetailModal && selectedService && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[85vh] overflow-y-auto">
-            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-5 flex items-center justify-between"><div className="flex items-center gap-3"><div className={`w-12 h-12 rounded-xl flex items-center justify-center ${getServiceColor(selectedService.serviceType)}`}>{getServiceIcon(selectedService.serviceType)}</div><div><h2 className="text-xl font-bold text-[var(--text-primary)]">{selectedService.name}</h2><p className="text-sm text-[var(--text-secondary)]">{selectedService.code}</p></div></div><button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-5 h-5" /></button></div>
-            <div className="p-5 space-y-5">
+          <div className="bg-[var(--bg-card)] rounded-xl max-w-2xl w-full max-h-[88vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[var(--bg-card)] border-b border-[var(--border-color)] p-3 flex items-center justify-between"><div className="flex items-center gap-2.5"><div className={`w-9 h-9 rounded-lg flex items-center justify-center ${getServiceColor(selectedService.serviceType)}`}>{getServiceIcon(selectedService.serviceType)}</div><div><h2 className="text-base font-bold text-[var(--text-primary)]">{selectedService.name}</h2><p className="text-sm text-[var(--text-secondary)]">{selectedService.code}</p></div></div><button onClick={() => setShowDetailModal(false)} className="p-2 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-5 h-5" /></button></div>
+            <div className="p-3 space-y-3">
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Service Type</label><p className="text-[var(--text-primary)] mt-1">{selectedService.serviceType?.replace('_', ' ')}</p></div>
                 <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Category</label><p className="text-[var(--text-primary)] mt-1">{selectedService.serviceCategory?.toUpperCase()}</p></div>
@@ -317,7 +322,7 @@ export default function ServiceCatalogTab() {
                 <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Status</label><p className="text-[var(--text-primary)] mt-1">{selectedService.isActive !== false ? <span className="text-[var(--icon-green-text)]">Active</span> : <span className="text-[var(--icon-red-text)]">Inactive</span>}</p></div>
               </div>
               {selectedService.description && (<div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase">Description</label><p className="text-[var(--text-primary)] mt-1 text-sm">{selectedService.description}</p></div>)}
-              <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><div className="bg-[var(--icon-green-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-green-text)] mb-1">Cash Price</p><p className="text-lg font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p></div><div className="bg-[var(--icon-cyan-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-cyan-text)] mb-1">NHIS Price</p><p className="text-lg font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p></div><div className="bg-[var(--icon-purple-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-purple-text)] mb-1">Insurance Price</p><p className="text-lg font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p></div><div className="bg-[var(--icon-orange-bg)] rounded-lg p-3 text-center"><p className="text-xs text-[var(--icon-orange-text)] mb-1">Corporate Price</p><p className="text-lg font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p></div></div><p className="text-xs text-[var(--text-tertiary)] mt-2">"Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price. Corporate accounts with a discount % get that discount off cash instead.</p></div>
+              <div><label className="text-xs font-medium text-[var(--text-secondary)] uppercase mb-2 block">Pricing</label><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><div className="bg-[var(--icon-green-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-green-text)]">Cash Price</p><p className="text-base font-bold text-[var(--icon-green-text)]">{getPriceText(selectedService, 'cash')}</p></div><div className="bg-[var(--icon-cyan-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-cyan-text)]">NHIS Price</p><p className="text-base font-bold text-[var(--icon-cyan-text)]">{getPriceText(selectedService, 'nhis')}</p></div><div className="bg-[var(--icon-purple-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-purple-text)]">Insurance Price</p><p className="text-base font-bold text-[var(--icon-purple-text)]">{getPriceText(selectedService, 'insurance')}</p></div><div className="bg-[var(--icon-orange-bg)] rounded-lg p-2 text-center"><p className="text-[11px] text-[var(--icon-orange-text)]">Corporate Price</p><p className="text-base font-bold text-[var(--icon-orange-text)]">{getPriceText(selectedService, 'corporate')}</p></div></div><p className="text-xs text-[var(--text-tertiary)] mt-2">"Cash rate" = no separate price is set (or the service isn't covered), so the patient is billed the cash price. Corporate accounts with a discount % get that discount off cash instead.</p></div>
               <div className="flex gap-3 pt-2">{selectedService.nhisRequiresAuth && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)] rounded-lg text-xs"><AlertCircle className="w-3 h-3" /> Requires Authorization</span>)}{selectedService.isNHISCovered === false && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--icon-red-bg)] text-[var(--icon-red-text)] rounded-lg text-xs"><EyeOff className="w-3 h-3" /> Not NHIS Covered</span>)}{selectedService.pricing?.isTaxable && selectedService.pricing?.vatRate > 0 && (<span className="inline-flex items-center gap-1 px-2 py-1 bg-[var(--bg-main)] text-[var(--text-primary)] rounded-lg text-xs"><Tag className="w-3 h-3" /> VAT {selectedService.pricing.vatRate}%</span>)}</div>
               <div className="text-xs text-[var(--text-tertiary)] pt-3 border-t border-[var(--border-color)]"><p>Created: {new Date(selectedService.createdAt).toLocaleString()}</p><p>Updated: {new Date(selectedService.updatedAt).toLocaleString()}</p></div>
             </div>
@@ -327,8 +332,8 @@ export default function ServiceCatalogTab() {
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-          <div className="bg-[var(--bg-card)] rounded-xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-5"><h2 className="text-lg font-bold text-[var(--text-primary)]">{editingItem ? 'Edit Service' : 'Add New Service'}</h2><button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-4 h-4" /></button></div>
+          <div className="bg-[var(--bg-card)] rounded-xl p-4 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3"><h2 className="text-base font-bold text-[var(--text-primary)]">{editingItem ? 'Edit Service' : 'Add New Service'}</h2><button onClick={handleCancel} className="p-1 hover:bg-[var(--bg-main)] rounded-lg"><X className="w-4 h-4" /></button></div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Name *</label><input type="text" required value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
@@ -347,7 +352,7 @@ export default function ServiceCatalogTab() {
               <div><label className="block text-sm font-medium text-[var(--text-primary)] mb-1">Description</label><textarea rows={2} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} className="w-full px-3 py-2 text-sm border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)]" /></div>
 
               {editingItem?.StockItem?.id && editingItem?.serviceType === 'medication' && (
-                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-cyan-bg)] p-4 space-y-4">
+                <section className="rounded-xl border border-[var(--border-color)] bg-[var(--icon-cyan-bg)] p-3 space-y-3">
                   <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2"><Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" /> NHIS medicine payer policy</h3><p className="text-xs text-[var(--text-secondary)] mt-1">Stock-linked medicine rule for {nhisPayerName}. Unconfigured medicines must not be treated as NHIS-covered.</p></div><span className={`rounded-full px-2 py-1 text-xs font-medium ${nhisPolicyConfigured ? 'bg-[var(--icon-green-bg)] text-[var(--icon-green-text)]' : 'bg-[var(--icon-orange-bg)] text-[var(--icon-orange-text)]'}`}>{nhisPolicyConfigured ? 'Policy configured' : 'Needs verification'}</span></div>
                   {nhisPolicyLoading ? (<p className="text-sm text-[var(--text-secondary)]">Loading payer rule…</p>) : (
                     <>

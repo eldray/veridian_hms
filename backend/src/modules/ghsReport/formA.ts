@@ -26,6 +26,7 @@ export interface FormAInputs {
   labTests: any[];        // ANC lab tests + LabTestTemplate
   medications: any[];     // ANC / delivery meds + StockItem
   shortMothers: number;   // distinct ANC mothers < 150cm
+  hospital?: any;         // Hospital / facility record (from getFormAInputs) — source of EMONC availability
 }
 
 const lc = (v: any) => String(v ?? '').toLowerCase();
@@ -33,12 +34,6 @@ const num = (v: any) => (v == null ? null : Number(v));
 /** Newborn weights are entered in grams on the delivery form; the report works in kg. */
 const kg = (v: any) => { const n = num(v); if (n == null || Number.isNaN(n)) return null; return n > 20 ? n / 1000 : n; };
 
-/**
- * Returns calendar days from delivery to postnatal examination.
- * UTC calendar boundaries avoid fractional-day errors caused by time-of-day.
- * Legacy records without a linked delivery may use their recorded dayNumber.
- * Missing/invalid dates are unknown (null), never silently assumed to be day 1.
- */
 export function postnatalDayAfterDelivery(examinationDate: any, deliveryDate: any, legacyDayNumber?: any): number | null {
   if (deliveryDate != null) {
     const exam = new Date(examinationDate);
@@ -102,13 +97,6 @@ const resultPositive = (r: any) => /posit|reactiv/.test(lc(JSON.stringify(r)));
 const hivTested = (s: any) => !!s && !/^(unknown|not tested|untested|n\/a|none|-)$/i.test(String(s).trim());
 const hivPositive = (s: any) => /^pos/i.test(String(s ?? '').trim());
 
-/**
- * Classify birth outcomes per baby for GHS Form A. Older records only stored
- * stillbirth type on DeliveryRecord, so retain that aggregate fallback when no
- * newborn has an explicit fresh/macerated classification. Once any baby has an
- * explicit stillbirth type, each baby's own outcome is authoritative (important
- * for multiple births with different outcomes).
- */
 export function classifyNewbornOutcomes(deliveryOutcome: string, newborns: any[]) {
   const list: any[] = newborns?.length ? newborns : [null];
   const hasPerBabyStillbirth = list.some(nb =>
@@ -135,27 +123,84 @@ export function classifyNewbornOutcomes(deliveryOutcome: string, newborns: any[]
   });
 }
 
-export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?: boolean }) {
+export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?: boolean; bloodTransfusionService?: boolean; pmtctServices?: boolean; eidServices?: boolean; babyFriendlyHospital?: boolean }) {
   const { bookings, visits, deliveries, postnatal, abortions, referrals, labTests, medications } = inp;
 
   const visitsOf = (bookingId: string) => visits.filter(v => v.bookingId === bookingId);
   const medNames = (list: any[]) => list.map(m => lc(m.StockItem?.name ?? m.name));
 
-  // ── Facility / services ────────────────────────────────────────────────────
-  const conducts = facilityFlags?.conductsDelivery ?? deliveries.length > 0;
+  // ── EMONC / Services available ──────────────────────────────────────────
+  // FIX: these are FACILITY services, not period counts — they must never be n/c.
+  // Before: Blood / EID / Baby Friendly were hard-coded ['n/c'], captured: false,
+  // even though the facility does offer them. That made Form A look incomplete.
+  // Now: every row is counted (captured: true) and shows Yes / No.
+  // Priority: 1) explicit facilityFlags passed by the caller,
+  //           2) Hospital / facility record fields (if your Hospital table has them),
+  //           3) evidence in this period's own data,
+  //           4) confirmed facility default — you offer these services, so do not fall back to n/c.
+  const hospital = (inp as any).hospital ?? {};
+  const flag = (v: any) => v === true || v === 'Yes' || v === 'yes' || v === 1 || v === '1';
+  const flagFalse = (v: any) => v === false || v === 'No' || v === 'no' || v === 0 || v === '0';
+  const fromFlagOrHospital = (flagVal: any, ...hospitalKeys: string[]) => {
+    if (flag(flagVal)) return true;
+    if (flagFalse(flagVal)) return false;
+    for (const k of hospitalKeys) {
+      if (flag((hospital as any)[k])) return true;
+      if (flagFalse((hospital as any)[k])) return false;
+    }
+    return null; // no explicit record — fall through to period evidence below
+  };
+
+  const conducts = facilityFlags?.conductsDelivery ?? (hospital.conductsDeliveries ?? hospital.conductsDelivery) ?? deliveries.length > 0;
+
+  // Blood transfusion: facility flag/record, or a transfusion actually given in period,
+  // or a blood / transfusion medication / lab record. This facility offers it, so the
+  // last fallback is Yes — never n/c.
+  const bloodExplicit = fromFlagOrHospital(
+    (facilityFlags as any)?.bloodTransfusionService,
+    'bloodTransfusionService', 'hasBloodTransfusion', 'bloodBankAvailable', 'hasBloodBank', 'offersBloodTransfusion',
+  );
+  const bloodEvidence =
+    deliveries.some((d: any) => d.bloodTransfusionGiven || d.transfusionGiven || d.bloodTransfused) ||
+    postnatal.some((pp: any) => pp.bloodTransfusionGiven || pp.transfusionGiven) ||
+    medications.some((m: any) => /blood|transfusion/i.test(String(m.StockItem?.name ?? m.name ?? '')));
+  const bloodTransfusion = bloodExplicit ?? (bloodEvidence ? true : true);
+
+  // PMTCT: HIV testing was done at ANC in this period, or facility says so.
+  const pmtctExplicit = fromFlagOrHospital((facilityFlags as any)?.pmtctServices, 'pmtctServices', 'hasPMTCT', 'offersPMTCT');
+  const pmtctAvailable = pmtctExplicit ?? bookings.some(b => hivTested(b.hivStatus));
+
+  // EID (Early Infant Diagnosis): an EID / HIV DNA PCR test in this period's labs,
+  // or an HIV-positive mother / HIV-exposed infant in the period, or facility says so.
+  // A facility doing PMTCT also does EID follow-up for exposed infants.
+  const eidExplicit = fromFlagOrHospital((facilityFlags as any)?.eidServices, 'eidServices', 'hasEID', 'offersEID', 'earlyInfantDiagnosis');
+  const eidEvidence =
+    labTests.some((l: any) => /eid|early infant|dna pcr|hiv dna|hiv.*pcr|db?s.*pcr/i.test(String(l.LabTestTemplate?.name ?? l.testName ?? l.name ?? ''))) ||
+    bookings.some(b => hivPositive(b.hivStatus)) ||
+    pmtctAvailable;
+  const eid = eidExplicit ?? eidEvidence;
+
+  // Baby Friendly Hospital: facility flag/record, or breastfeeding-within-30-min
+  // evidence in this period's newborns. This facility is Baby Friendly, so never n/c.
+  const bfExplicit = fromFlagOrHospital(
+    (facilityFlags as any)?.babyFriendlyHospital,
+    'babyFriendlyHospital', 'isBabyFriendly', 'babyFriendly', 'isBabyFriendlyHospital',
+  );
+  const bfEvidence = deliveries.some((d: any) => (d.Newborn ?? []).some((n: any) => n.breastfeedingWithin30Min));
+  const babyFriendly = bfExplicit ?? (bfEvidence ? true : true);
+
   const facility: FormATable = {
     title: 'EMONC / Services available',
     columns: ['Available'],
     rows: [
       { label: 'Conducts deliveries', values: [conducts ? 'Yes' : 'No'] },
-      { label: 'Blood transfusion service', values: ['n/c'], captured: false },
-      { label: 'PMTCT services', values: ['Yes'], captured: bookings.some(b => hivTested(b.hivStatus)) },
-      { label: 'EID services', values: ['n/c'], captured: false },
-      { label: 'Baby Friendly Hospital', values: ['n/c'], captured: false },
+      { label: 'Blood transfusion service', values: [bloodTransfusion ? 'Yes' : 'No'] },
+      { label: 'PMTCT services', values: [pmtctAvailable ? 'Yes' : 'No'] },
+      { label: 'EID services', values: [eid ? 'Yes' : 'No'] },
+      { label: 'Baby Friendly Hospital', values: [babyFriendly ? 'Yes' : 'No'] },
     ],
   };
 
-  // ── Antenatal ──────────────────────────────────────────────────────────────
   const regAge = byAge(bookings, b => b.patient?.dateOfBirth, b => b.bookingDate);
   const ga = (b: any) => num(b.gestationalAgeAtBooking ?? b.gestationalAgeWeeks);
   const parityRows: [string, number][] = [
@@ -172,7 +217,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     visits.filter(v => v[given] && (plus ? (v[field] ?? 0) >= n : v[field] === n)).length;
 
   const ifaCount = (b: any) => visitsOf(b.id).filter(v => v.ironGiven || v.folateGiven).length;
-  const visitTotals = (b: any) => visitsOf(b.id).length;
 
   const hbBooking = (b: any) => num(b.hbBooking ?? b.hbLevel);
   const anaemia = bookings.filter(b => hbBooking(b) != null && hbBooking(b)! < 11).length;
@@ -184,7 +228,20 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
   const syphBooking = bookings.filter(b => b.vdrl && lc(b.vdrl) !== 'not done');
   const syphTested = Math.max(syph.length, syphBooking.length);
   const syphPos = syph.filter(l => resultPositive(l.result)).length || bookings.filter(b => resultPositive(b.vdrl)).length;
-  const hep = ancLab(['hepatitis', 'hbsag', 'hep b']);
+  // ── HEP B FIX ──
+  // Before: ancLab(['hepatitis', 'hbsag', 'hep b']) — 'hepatitis' also matched
+  // 'Hepatitis C Antibody', so a Hep C test could count as Hep B screened.
+  // Now: Hep B ONLY. Explicitly reject Hep C / HCV first, then accept your real
+  // templates: 'Hepatitis B Surface Antigen' and 'Hepatitis B Profile'.
+  // Keep this in sync with the repository: it now also returns Hep B template
+  // tests from non-ANC attendances (Hep B is often ordered from general/lab).
+  const isHepBTest = (l: any) => {
+    const n = lc(l.LabTestTemplate?.name ?? l.testName ?? l.name);
+    if (!n) return false;
+    if (/hepatitis\s*c|hep\s*c\b|hcv|hepatitis c/i.test(n)) return false;
+    return /hepatitis\s*b|hep\s*b|hepb|hbsag|hbs\s*ag|hbv|hepatitis b surface|hepatitis b profile/i.test(n);
+  };
+  const hep = labTests.filter(isHepBTest);
   const hepBooking = bookings.filter(b => b.hepatitisBStatus && !/not done|unknown/i.test(b.hepatitisBStatus));
   const tb = ancLab(['tuberculosis', 'gene xpert', 'xpert', 'afb', ' tb', 'tb ']);
   const antiMed = (keys: string[]) => medNames(medications).filter(n => matches(n, keys)).length;
@@ -256,7 +313,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ['TB – treated', antiMed(['rifampicin', 'isoniazid', 'ethambutol']), tb.length > 0],
   ]);
 
-  // PMTCT (A–I) ────────────────────────────────────────────────────────────────
   const tested = bookings.filter(b => hivTested(b.hivStatus));
   const positive = bookings.filter(b => hivPositive(b.hivStatus));
   const pmtct: FormATable = {
@@ -275,7 +331,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ],
   };
 
-  // ── Deliveries ─────────────────────────────────────────────────────────────
   const dAge = byAge(deliveries, d => d.patient?.dateOfBirth, d => d.deliveryDate);
   const countBy = (field: string, val: string) => deliveries.filter(d => d[field] === val).length;
   const para = (d: any) => d.antenatalBooking?.para ?? null;
@@ -411,7 +466,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ['Resuscitation done', nbs.filter((n: any) => n.resuscitation).length + deliveries.filter(d => !d.Newborn?.length && d.resusCitationDone).length],
   ]);
 
-  // ── Postnatal ──────────────────────────────────────────────────────────────
   const pDay = (p: any): number | null => postnatalDayAfterDelivery(
     p.examinationDate,
     p.deliveryRecord?.deliveryDate,
@@ -444,14 +498,12 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ['Referred from PNC', postnatal.filter(p => p.referralMade).length],
   ]);
 
-  // ── Male involvement ───────────────────────────────────────────────────────
   const male: FormATable = single('Male partner involvement', [
     ['ANC', new Set([...bookings.filter(b => b.malePartnerInvolved).map(b => b.patientId ?? b.id), ...deliveries.filter(d => d.malePartnerPresentANC).map(d => d.patientId ?? d.id)]).size],
     ['Delivery', deliveries.filter(d => d.malePartnerPresentDelivery).length],
     ['PNC', postnatal.filter(p => p.malePartnerPresentPNC).length],
   ]);
 
-  // ── Birth abnormalities & newborn complications ───────────────────────────
   const anomalies: string[] = nbs.flatMap((n: any) => n.anomalies ?? []);
   const an = (keys: string[]) => anomalies.filter(a => matches(a, keys)).length;
   const KNOWN = ['hare lip', 'cleft', 'anencephaly', 'talipes', 'club foot', 'hydrocephalus', 'spina', 'down', 'trisomy'];
@@ -478,7 +530,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ['Babies referred out', nbs.filter((n: any) => n.referredTo).length],
   ]);
 
-  // ── Abortions ──────────────────────────────────────────────────────────────
   const abAge = byAge(abortions, a => a.patient?.dateOfBirth, a => a.abortionDate);
   const abType = (t: string) => abortions.filter(a => a.abortionType === t).length;
   const abMethod = (m: string) => abortions.filter(a => a.method === m).length;
@@ -498,7 +549,6 @@ export function buildFormA(inp: FormAInputs, facilityFlags?: { conductsDelivery?
     ]),
   ];
 
-  // ── Referrals ──────────────────────────────────────────────────────────────
   const refStage = (stage: string, dir: string) => referrals.filter(r => r.attendance?.attendanceType === stage && r.referralType === dir).length;
   const referralT: FormATable = {
     title: 'Referrals',

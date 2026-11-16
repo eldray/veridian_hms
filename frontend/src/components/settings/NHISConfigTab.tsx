@@ -6,6 +6,11 @@
 //  - Sections are bg-card (not bg-main) with p-4, same as every other page.
 //  - Denser: space-y-4, gap-4, p-4, text-md -> text-sm headings.
 //  - No code removed.
+//  - DENSITY PASS 2 (2026-11-15): still towered — space-y-4 -> space-y-3, section
+//    p-4 -> p-3, grids gap-4 -> gap-3, headings mb-4 -> mb-3, footer pt-4 -> pt-3,
+//    buttons px-4 py-2 -> px-3 py-1.5, loading p-8 -> p-6.
+//  - TOKENS: hard-coded green/red/gray colours (toggle + banners) replaced with
+//    var(--icon-*) tokens, like every other tab. No logic touched.
 import { useState, useEffect } from 'react';
 import { useToast } from '../../store/toastStore';
 import { Save, Shield, Building, FileText, Globe, Key, CheckCircle, Loader, AlertCircle, X, TestTube } from 'lucide-react';
@@ -101,31 +106,31 @@ export default function NHISConfigTab() {
   const handleReset = () => { loadNHISConfig(); setHasChanges(false); setTestResult(null); };
 
   if (isLoading && !formData.nhisFacilityCode) {
-    return (<div className="w-full space-y-4"><div className="bg-[var(--bg-card)] rounded-xl p-8 border border-[var(--border-color)] text-center"><Loader className="w-8 h-8 animate-spin text-[var(--icon-cyan-text)] mx-auto mb-4" /><p className="text-[var(--text-secondary)] text-sm">Loading NHIS configuration...</p></div></div>);
+    return (<div className="w-full space-y-3"><div className="bg-[var(--bg-card)] rounded-xl p-6 border border-[var(--border-color)] text-center"><Loader className="w-8 h-8 animate-spin text-[var(--icon-cyan-text)] mx-auto mb-4" /><p className="text-[var(--text-secondary)] text-sm">Loading NHIS configuration...</p></div></div>);
   }
 
   const inputCls = "w-full px-3 py-2 text-[var(--text-primary)] bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg focus:ring-2 focus:ring-[var(--icon-cyan-text)] focus:border-[var(--icon-cyan-text)] focus:outline-none text-sm";
   const labelCls = "text-sm font-medium text-[var(--text-primary)] mb-1 block";
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-3">
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3"><div className="flex items-center gap-2 text-red-800 text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" /><span className="font-medium">Error:</span><span>{error}</span><button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button></div></div>
+        <div className="bg-[var(--icon-red-bg)] border border-[var(--border-color)] rounded-lg p-3"><div className="flex items-center gap-2 text-[var(--icon-red-text)] text-sm"><AlertCircle className="w-4 h-4 flex-shrink-0" /><span className="font-medium">Error:</span><span>{error}</span><button onClick={() => setError(null)} className="ml-auto"><X className="w-4 h-4" /></button></div></div>
       )}
       {testResult && (
-        <div className={`rounded-lg p-3 border ${testResult.success ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}><div className="flex items-center gap-2 text-sm">{testResult.success ? <CheckCircle className="w-4 h-4 text-green-600" /> : <AlertCircle className="w-4 h-4 text-red-600" />}<span className={testResult.success ? 'text-green-800' : 'text-red-800'}>{testResult.message}</span><button onClick={() => setTestResult(null)} className="ml-auto"><X className="w-4 h-4" /></button></div></div>
+        <div className={`rounded-lg p-3 border ${testResult.success ? 'bg-[var(--icon-green-bg)] border-[var(--border-color)]' : 'bg-[var(--icon-red-bg)] border-[var(--border-color)]'}`}><div className="flex items-center gap-2 text-sm">{testResult.success ? <CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" /> : <AlertCircle className="w-4 h-4 text-[var(--icon-red-text)]" />}<span className={testResult.success ? 'text-[var(--icon-green-text)]' : 'text-[var(--icon-red-text)]'}>{testResult.message}</span><button onClick={() => setTestResult(null)} className="ml-auto"><X className="w-4 h-4" /></button></div></div>
       )}
 
       {/* Header row — replaces the standalone header card */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div><h3 className="text-base font-semibold text-[var(--text-primary)] flex items-center gap-2"><Shield className="w-4 h-4 text-[var(--icon-cyan-text)]" /> NHIS Configuration</h3><p className="text-sm text-[var(--text-secondary)] mt-0.5">Configure NHIS settings for billing and claims processing.</p></div>
-        {formData.nhisApiActive && (<span className="text-green-600 font-medium text-sm inline-flex items-center gap-1 shrink-0"><CheckCircle className="w-3 h-3" /> Integration Active</span>)}
+        {formData.nhisApiActive && (<span className="text-[var(--icon-green-text)] font-medium text-sm inline-flex items-center gap-1 shrink-0"><CheckCircle className="w-3 h-3" /> Integration Active</span>)}
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-4">Facility Information</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)]">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-3">Facility Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div><label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-1"><Building className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Facility Code *</label><input type="text" name="nhisFacilityCode" required value={formData.nhisFacilityCode} onChange={handleChange} className={inputCls} placeholder="GH-12345" /><p className="text-xs text-[var(--text-tertiary)] mt-1">Your NHIS facility code</p></div>
             <div><label className={labelCls}>Facility Type</label><select name="nhisFacilityType" value={formData.nhisFacilityType} onChange={handleChange} className={inputCls}>{facilityTypes.map(type => (<option key={type} value={type}>{type.replace('_', ' ')}</option>))}</select></div>
             <div><label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-1"><FileText className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Accreditation Number *</label><input type="text" name="nhisAccreditationNumber" required value={formData.nhisAccreditationNumber} onChange={handleChange} className={inputCls} placeholder="ACC-2024-001" /></div>
@@ -135,9 +140,9 @@ export default function NHISConfigTab() {
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
-          <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-4">API Configuration</h4>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)]">
+          <h4 className="text-sm font-semibold text-[var(--text-primary)] mb-3">API Configuration</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="md:col-span-2"><label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-1"><Globe className="w-4 h-4 text-[var(--icon-cyan-text)]" /> API Base URL</label><input type="url" name="nhisApiBaseUrl" value={formData.nhisApiBaseUrl || ''} onChange={handleChange} className={inputCls} placeholder="https://api.nhis.gov.gh/v1" /></div>
             <div><label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-1"><Key className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Client ID</label><input type="text" name="nhisApiClientId" value={formData.nhisApiClientId || ''} onChange={handleChange} className={inputCls} /></div>
             <div><label className="flex items-center gap-2 text-sm font-medium text-[var(--text-primary)] mb-1"><Key className="w-4 h-4 text-[var(--icon-cyan-text)]" /> Client Secret</label><input type="password" name="nhisApiClientSecret" value={formData.nhisApiClientSecret || ''} onChange={handleChange} className={inputCls} /></div>
@@ -147,22 +152,22 @@ export default function NHISConfigTab() {
           </div>
         </div>
 
-        <div className="bg-[var(--bg-card)] rounded-xl p-4 border border-[var(--border-color)]">
+        <div className="bg-[var(--bg-card)] rounded-xl p-3 border border-[var(--border-color)]">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div><h4 className="text-sm font-semibold text-[var(--text-primary)] mb-1">NHIS Integration Status</h4><p className="text-sm text-[var(--text-secondary)]">{formData.nhisApiActive ? 'NHIS claims and billing are currently enabled' : 'NHIS integration is currently disabled'}</p></div>
             <label className="flex items-center gap-3 cursor-pointer">
-              <div className="relative"><input type="checkbox" name="nhisApiActive" checked={formData.nhisApiActive} onChange={handleChange} className="sr-only" /><div className={`w-12 h-6 rounded-full transition-colors ${formData.nhisApiActive ? 'bg-green-500' : 'bg-gray-300'}`}></div><div className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.nhisApiActive ? 'transform translate-x-6' : ''}`}></div></div>
-              <div className="flex items-center gap-2">{formData.nhisApiActive ? (<><CheckCircle className="w-4 h-4 text-green-600" /><span className="text-sm font-medium text-green-600">Active</span></>) : (<span className="text-sm font-medium text-[var(--text-secondary)]">Inactive</span>)}</div>
+              <div className="relative"><input type="checkbox" name="nhisApiActive" checked={formData.nhisApiActive} onChange={handleChange} className="sr-only" /><div className={`w-10 h-5 rounded-full transition-colors ${formData.nhisApiActive ? 'bg-[var(--icon-green-text)]' : 'bg-[var(--bg-main)]'}`}></div><div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${formData.nhisApiActive ? 'transform translate-x-5' : ''}`}></div></div>
+              <div className="flex items-center gap-2">{formData.nhisApiActive ? (<><CheckCircle className="w-4 h-4 text-[var(--icon-green-text)]" /><span className="text-sm font-medium text-[var(--icon-green-text)]">Active</span></>) : (<span className="text-sm font-medium text-[var(--text-secondary)]">Inactive</span>)}</div>
             </label>
           </div>
         </div>
 
-        <div className="flex items-center justify-between flex-wrap gap-3 pt-4 border-t border-[var(--border-color)]">
+        <div className="flex items-center justify-between flex-wrap gap-3 pt-3 border-t border-[var(--border-color)]">
           <div className="flex gap-2">
-            <button type="button" onClick={testNHISConnection} disabled={isTesting} className="flex items-center gap-2 px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium transition-colors">{isTesting ? <Loader className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}{isTesting ? 'Testing...' : 'Test Connection'}</button>
-            {hasChanges && (<button type="button" onClick={handleReset} disabled={isLoading} className="px-4 py-2 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium transition-colors">Discard Changes</button>)}
+            <button type="button" onClick={testNHISConnection} disabled={isTesting} className="flex items-center gap-2 px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium transition-colors">{isTesting ? <Loader className="w-4 h-4 animate-spin" /> : <TestTube className="w-4 h-4" />}{isTesting ? 'Testing...' : 'Test Connection'}</button>
+            {hasChanges && (<button type="button" onClick={handleReset} disabled={isLoading} className="px-3 py-1.5 border border-[var(--border-color)] text-[var(--text-primary)] rounded-lg hover:bg-[var(--bg-main)] disabled:opacity-50 text-sm font-medium transition-colors">Discard Changes</button>)}
           </div>
-          <button type="submit" disabled={isLoading || !hasChanges} className="flex items-center gap-2 px-6 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 text-sm font-medium transition-colors">{isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{isLoading ? 'Saving...' : 'Save Configuration'}</button>
+          <button type="submit" disabled={isLoading || !hasChanges} className="flex items-center gap-2 px-4 py-1.5 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white disabled:opacity-50 text-sm font-medium transition-colors">{isLoading ? <Loader className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}{isLoading ? 'Saving...' : 'Save Configuration'}</button>
         </div>
       </form>
     </div>
