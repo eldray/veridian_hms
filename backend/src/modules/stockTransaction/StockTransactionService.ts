@@ -226,15 +226,13 @@ export class StockTransactionService extends BaseService {
       return { stockItemId: item.id, itemName: item.name, category: item.category, unit: item.unitOfMeasure, openingStock: closingStock - netChange, purchases, transfersIn, sales, requisitions, writeOffs, transfersOut, adjustments: adjustmentIn + adjustmentOut, adjustmentIn, adjustmentOut, closingStock, netChange };
     });
 
-    const reportItems = movementSummary.filter(item =>
-      item.purchases > 0 || item.transfersIn > 0 || item.sales > 0 ||
-      item.requisitions > 0 || item.writeOffs > 0 || item.transfersOut > 0 ||
-      item.adjustments !== 0
-    );
+    // Include ALL stock items in the report — even those with zero activity
+    // so the report is never empty and shows the complete catalogue position.
+    const reportItems = movementSummary;
 
-    // Keep totals consistent with the item rows shown in the report.
-    // Untouched catalogue items should not inflate opening/closing totals.
-    const totals = reportItems.reduce((acc, item) => {
+    // Totals are calculated across all items (including zero-activity ones)
+    // so the report balances correctly.
+    const totals = movementSummary.reduce((acc, item) => {
       acc.totalPurchases += item.purchases;
       acc.totalTransfersIn += item.transfersIn;
       acc.totalSales += item.sales;
