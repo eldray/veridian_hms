@@ -13,6 +13,12 @@
 //  6. VIEWPORT FIX: Antenatal, Ward and Bed columns REMOVED (not needed). Table is now 14 cols pending /
 //     12 cols recent, text-xs + table-fixed + truncated patient name + short visit date, so it fits
 //     a normal viewport instead of overflowing sideways.
+//  7. FIX: column set is now driven by `isPendingQueue` (view === 'pending' && activeTab === 'pending'),
+//     not by activeTab alone — when the worklist view is completed / awaiting-results the table no
+//     longer shows Pending-only Priority/Abnormal columns for a non-pending queue (and vice versa).
+//  8. FIX: <colgroup> widths added — table-fixed without widths still divides space evenly and
+//     overflows. Patient gets the wide slot, vitals get narrow numeric slots.
+//  9. FIX: waitTime guarded — undefined waitTime rendered "NaNh NaNm".
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useWorklistStore } from '../store/worklistStore';
@@ -75,6 +81,22 @@ const PriorityBadge = ({ priority }: { priority: string }) => {
   );
 };
 
+const formatWaitTime = (waitTime?: number | null) => {
+  if (waitTime == null || Number.isNaN(Number(waitTime))) return '—';
+  const mins = Math.max(0, Math.floor(Number(waitTime)));
+  return `${Math.floor(mins / 60)}h ${mins % 60}m`;
+};
+
+const formatVisitDate = (value?: string | null) => {
+  if (!value) return '—';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '—';
+  return `${d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })} ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const formatGender = (value?: string | null) =>
+  value ? value.charAt(0).toUpperCase() + value.slice(1).toLowerCase() : '—';
+
 export default function VitalsWaitingList() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -118,6 +140,10 @@ export default function VitalsWaitingList() {
     return worklistItems.filter(item => item.hasVitalsToday);
   }, [worklistItems]);
 
+  // Priority / Abnormal columns belong to the pending queue only. When the worklist view is
+  // completed / awaiting-results, activeTab is meaningless — the queue itself decides.
+  const isPendingQueue = view === 'pending' && activeTab === 'pending';
+
   // Filter based on search and active tab. The completed and awaiting-results queues are already
   // narrowed by the server, so the pending/done-today split only applies to the to-do queue.
   const filteredPatients = useMemo(() => {
@@ -137,17 +163,17 @@ export default function VitalsWaitingList() {
     return [...searched].sort((a: any, b: any) => {
       const aVal = sortKey === 'visit'
         ? new Date(a.attendanceDateTime || 0).getTime()
-        : sortKey === 'waiting' && activeTab === 'pending'
+        : sortKey === 'waiting' && isPendingQueue
           ? Number(a.waitTime || 0)
           : new Date(a.vitalsRecordedAt || a.attendanceDateTime || 0).getTime();
       const bVal = sortKey === 'visit'
         ? new Date(b.attendanceDateTime || 0).getTime()
-        : sortKey === 'waiting' && activeTab === 'pending'
+        : sortKey === 'waiting' && isPendingQueue
           ? Number(b.waitTime || 0)
           : new Date(b.vitalsRecordedAt || b.attendanceDateTime || 0).getTime();
       return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
     });
-  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view, sortKey, sortDir]);
+  }, [pendingPatients, recentPatients, worklistItems, searchQuery, activeTab, view, sortKey, sortDir, isPendingQueue]);
 
   // Pagination - clamped so filtering can never strand you on an empty page
   const totalPages = Math.max(1, Math.ceil(filteredPatients.length / itemsPerPage));
@@ -214,7 +240,7 @@ export default function VitalsWaitingList() {
       <PageHeader
         title="Vital Signs"
         subtitle="Record and monitor patient vital signs"
-        meta={`${filteredPatients.length} shown \u2022 ${pendingPatients.length} due \u2022 ${recentPatients.length} done today`}
+        meta={`${filteredPatients.length} shown • ${pendingPatients.length} due • ${recentPatients.length} done today`}
         icon={HeartPulse}
         accent="red"
         backTo="/dashboard"
@@ -319,7 +345,7 @@ export default function VitalsWaitingList() {
       <div className={TABLE_SHELL}>
         <div className="bg-[var(--bg-main)] px-6 py-3 border-b border-[var(--border-color)]">
           <h2 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
-            {activeTab === 'pending' ? (
+            {isPendingQueue ? (
               <>
                 <Heart className="w-4 h-4 text-[var(--icon-red-text)]" />
                 Vitals Waiting List ({filteredPatients.length} patients)
@@ -335,7 +361,7 @@ export default function VitalsWaitingList() {
 
         {filteredPatients.length === 0 ? (
           <div className="p-8 text-center">
-            {activeTab === 'pending' ? (
+            {isPendingQueue ? (
               <>
                 <CheckCircle className="w-12 h-12 text-[var(--icon-green-text)] mx-auto mb-3 opacity-50" />
                 <p className="text-[var(--text-secondary)]">No patients waiting for vitals</p>
@@ -352,6 +378,26 @@ export default function VitalsWaitingList() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-xs table-fixed">
+              <colgroup>
+                <col style={{ width: '17%' }} />
+                <col style={{ width: '5%' }} />
+                <col style={{ width: '7%' }} />
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '10%' }} />
+                <col style={{ width: '11%' }} />
+                <col style={{ width: '6%' }} />
+                <col style={{ width: '6%' }} />
+                <col style={{ width: '6%' }} />
+                <col style={{ width: '6%' }} />
+                {isPendingQueue && (
+                  <>
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '7%' }} />
+                  </>
+                )}
+                <col style={{ width: '9%' }} />
+                <col style={{ width: '6%' }} />
+              </colgroup>
               <thead className={TH_ROW}>
                 <tr>
                   <th className={TH}>Patient</th>
@@ -373,7 +419,7 @@ export default function VitalsWaitingList() {
                   <th className={cn(TH, 'text-right')}>Temp</th>
                   <th className={cn(TH, 'text-right')}>Pulse</th>
                   <th className={cn(TH, 'text-right')}>SpO2</th>
-                  {activeTab === 'pending' && (
+                  {isPendingQueue && (
                     <>
                       <th className={TH}>Priority</th>
                       <th className={TH}>Abnormal</th>
@@ -385,7 +431,7 @@ export default function VitalsWaitingList() {
                       className="inline-flex items-center gap-1"
                       onClick={() => toggleSort('waiting')}
                     >
-                      {activeTab === 'pending' ? 'Waiting Time' : 'Recorded At'}
+                      {isPendingQueue ? 'Waiting Time' : 'Recorded At'}
                       <ArrowUpDown className="w-3 h-3" />
                     </button>
                   </th>
@@ -401,48 +447,46 @@ export default function VitalsWaitingList() {
                   >
                     <td className={TD}>
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
+                        <div className="w-8 h-8 shrink-0 bg-[var(--icon-cyan-bg)] rounded-full flex items-center justify-center">
                           <User className="w-4 h-4 text-[var(--icon-cyan-text)]" />
                         </div>
-                        <span className="font-medium text-[var(--text-primary)] text-sm max-w-[170px] truncate" title={patient.patient?.name}>
+                        <span className="font-medium text-[var(--text-primary)] text-sm truncate" title={patient.patient?.name}>
                           {patient.patient?.name}
                         </span>
                       </div>
                     </td>
                     <td className={cn(TD, 'text-right')}>
-                      {patient.patient?.age != null ? `${patient.patient.age} years` : '\u2014'}
+                      {patient.patient?.age != null ? `${patient.patient.age} years` : '—'}
                     </td>
                     <td className={TD}>
-                      {patient.patient?.gender || '\u2014'}
+                      {formatGender(patient.patient?.gender)}
                     </td>
                     <td className={TD_MONO}>
                       {patient.patient?.folderNumber}
                     </td>
                     <td className={TD_MONO}>
-                      {patient.attendanceNumber || '\u2014'}
+                      {patient.attendanceNumber || '—'}
                     </td>
                     <td className={cn(TD, 'text-xs text-[var(--text-secondary)]')}>
-                      {patient.attendanceDateTime
-                        ? new Date(patient.attendanceDateTime).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + new Date(patient.attendanceDateTime).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-                        : '\u2014'}
+                      {formatVisitDate(patient.attendanceDateTime)}
                     </td>
                     <td className={cn(TD, 'text-right')}>
-                      {patient.lastVitals?.bloodPressure || '\u2014'}
+                      {patient.lastVitals?.bloodPressure || '—'}
                     </td>
                     <td className={cn(TD, 'text-right')}>
                       {patient.lastVitals?.temperature != null
-                        ? `${patient.lastVitals.temperature}\u00b0C`
-                        : '\u2014'}
+                        ? `${patient.lastVitals.temperature}°C`
+                        : '—'}
                     </td>
                     <td className={cn(TD, 'text-right')}>
-                      {patient.lastVitals?.pulse ?? '\u2014'}
+                      {patient.lastVitals?.pulse ?? '—'}
                     </td>
                     <td className={cn(TD, 'text-right')}>
                       {patient.lastVitals?.spo2 != null
                         ? `${patient.lastVitals.spo2}%`
-                        : '\u2014'}
+                        : '—'}
                     </td>
-                    {activeTab === 'pending' && (
+                    {isPendingQueue && (
                       <>
                         <td className={TD}>
                           <PriorityBadge priority={patient.priority} />
@@ -453,20 +497,20 @@ export default function VitalsWaitingList() {
                               Abnormal
                             </Badge>
                           ) : (
-                            '\u2014'
+                            '—'
                           )}
                         </td>
                       </>
                     )}
                     <td className={TD}>
                       <div className="flex items-center gap-1 text-[var(--text-secondary)]">
-                        <Clock className="w-3.5 h-3.5" />
+                        <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span>
-                          {activeTab === 'pending'
-                            ? `${Math.floor(patient.waitTime / 60)}h ${patient.waitTime % 60}m`
+                          {isPendingQueue
+                            ? formatWaitTime(patient.waitTime)
                             : patient.vitalsRecordedAt
                               ? new Date(patient.vitalsRecordedAt).toLocaleTimeString()
-                              : '\u2014'
+                              : '—'
                           }
                         </span>
                       </div>
@@ -476,8 +520,8 @@ export default function VitalsWaitingList() {
                         variant="ghost"
                         size="sm"
                         iconOnly
-                        icon={activeTab === 'pending' ? Eye : Edit3}
-                        aria-label={activeTab === 'pending' ? 'Record Vitals' : 'Edit Vitals'}
+                        icon={isPendingQueue ? Eye : Edit3}
+                        aria-label={isPendingQueue ? 'Record Vitals' : 'Edit Vitals'}
                         className="mx-auto"
                         onClick={(e) => { e.stopPropagation(); handlePatientClick(patient); }}
                       />

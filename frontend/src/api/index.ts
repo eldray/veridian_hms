@@ -1103,6 +1103,10 @@ export const updateCorporateAccount = (id: string, data: any) =>
 export const deactivateCorporateAccount = (id: string) =>
   api.delete(`/corporate/${id}`).then(r => r.data);
 
+// Alias kept for stores/components that import the delete name.
+// Same endpoint as deactivateCorporateAccount.
+export const deleteCorporateAccount = deactivateCorporateAccount;
+
 export const getCorporateEmployees = (accountId: string) =>
   api.get(`/corporate/${accountId}/employees`).then(r => r.data);
 
@@ -2287,6 +2291,8 @@ const getAdmissionsPage = (filters?: {
   wardId?: string;
   admissionType?: string;
   excludeDetention?: boolean;
+  admittedFrom?: string;
+  admittedTo?: string;
   page?: number;
   limit?: number;
 }) =>
@@ -2315,6 +2321,8 @@ export const getAdmissions = async (filters?: {
   wardId?: string;
   admissionType?: string;
   excludeDetention?: boolean;
+  admittedFrom?: string;
+  admittedTo?: string;
   page?: number;
   limit?: number;
 }) => {
@@ -2620,6 +2628,9 @@ export const getStockMovementReport = (filters?: any) =>
 export const getLowStockAlerts = () =>
   api.get('/stock-transactions/alerts/low-stock').then(r => r.data);
 
+
+export const deleteStockTransaction = (id: string) =>
+  api.delete(`/stock-transactions/${id}`).then(r => r.data);
 // ──────────────────────────────────────────────
 // REQUISITIONS
 // ──────────────────────────────────────────────
@@ -4464,8 +4475,8 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   submitBatchToClaimIt, getBatchClaimItSubmissions, deleteBatchFromClaimIt,
 
   // Corporate Accounts
-  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount,
-  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee,
+  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount, deleteCorporateAccount,
+  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee, 
 
   // Patients
   getPatients, getPatient, createPatient, updatePatient, uploadPatientImage, uploadPatientImageBase64, deletePatient,
@@ -4526,7 +4537,7 @@ getPayslipById, addPayslipLineItem, updatePayslipLineItem, deletePayslipLineItem
   getStockItems, getStockItem, createStockItem, updateStockItem, deleteStockItem, getLowStockItems,
   getStockCategories, updateStockLevel, getStockItemTransactionHistory,
   getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport, getSupplierReport, getRequisitionSummary,
-  getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction,
+  getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction, deleteStockTransaction,
   getStockMovementReport, getLowStockAlerts,
   getStockTransfers, getStockTransfer, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer,
 

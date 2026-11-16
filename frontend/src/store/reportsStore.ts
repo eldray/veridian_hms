@@ -234,6 +234,14 @@ export const useReportsStore = create<ReportsState>((set) => ({
     } catch (e: any) { set({ error: e.message, isLoading: false }); throw e; }
   },
 
+  getStockMovementReport: async (filters) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = unwrap(await getStockMovementReport(filters));
+      set({ stockMovementReport: data, isLoading: false });
+    } catch (e: any) { set({ error: e.message, isLoading: false }); throw e; }
+  },
+
   getInsuranceClaimsReport: async (filters) => {
     set({ isLoading: true, error: null });
     try {

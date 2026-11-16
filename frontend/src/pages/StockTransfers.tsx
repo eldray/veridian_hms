@@ -1,8 +1,22 @@
+// src/pages/StockTransfers.tsx - SAME UI UPDATE as StockTransactions / StockManagement
+//  - One data point per column (Transfer No. | Date | Time | Origin | Destination | Items | Status | Actions)
+//    — was: Transfer/Date stacked, Route (origin -> destination) stacked.
+//  - Date and Time are separate columns (was: date + time stacked in one Date cell).
+//  - Details opens a modal, NOT an inline expand (was: a 270px box cramped inside the Actions
+//    column — item names wrapped, quantities stacked 2x2, and the reconciliation warning
+//    repeated twice). The modal gives the items a real table and the warning one banner.
+//  - Row actions are a single segmented pill tab-group (Details | Approve | Dispatch | Receive),
+//    not loose buttons — one container, one height, active Details state, icon + label on each tab.
+//  - Pagination always rendered in the same place (not only when rows exist), totalPages never 0,
+//    current page clamped to a safe page so filtering/search can never strand you on an empty page.
+//  - Search / status filter reset to page 1. Per-page selector like StockTransactions.
+//  - var(--*) tokens only, shared PageHeader / StatCard / TABLE_SHELL / Pagination.
+//  - All handlers, API calls, CSV export, picker cap, permissions and reconciliation logic preserved.
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { confirmDialog } from '../context/ConfirmDialog';
 import {
   AlertTriangle, ArrowDownToLine, ArrowLeftRight, ArrowRight,
-  ClipboardList, Download, Eye, Package, Plus, RefreshCw,
+  Check, ClipboardList, Download, Eye, Package, Plus, RefreshCw,
   Send, Truck, X,
 } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
@@ -11,7 +25,7 @@ import { useStockStore } from '../store/stockStore';
 import { capPickerRows, MAX_PICKER_ROWS } from '../components/reusable/PickerLimit';
 import { getStockTransfers, getDepartments, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer } from '../api';
 import {
-  Badge, Button, cn, FilterSelect, humanStatus, PageHeader, SearchInput, StatCard, statusTone,
+  Badge, Button, cn, FilterSelect, humanStatus, INPUT, PageHeader, Pagination, SearchInput, SELECT, StatCard, statusTone,
   TABLE_SHELL, TD, TH, TH_ROW, TR,
   type Accent, type BadgeTone,
 } from '../components/ui';
@@ -105,7 +119,9 @@ export default function StockTransfers() {
   const [showRequestForm, setShowRequestForm] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(15);
+  const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
   const [originId, setOriginId] = useState(user?.departmentId || '');
   const [destinationId, setDestinationId] = useState('');
   const [notes, setNotes] = useState('');
@@ -166,6 +182,12 @@ export default function StockTransfers() {
     ].some(value => String(value || '').toLowerCase().includes(q));
   }), [transfers, statusFilter, search]);
 
+  // Pagination — same shape as StockTransactions / Referrals: never 0 pages, never stranded.
+  const totalPages = Math.max(1, Math.ceil(filteredTransfers.length / itemsPerPage));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedTransfers = filteredTransfers.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
+  const handlePageChange = (page: number) => setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+
   const summary = useMemo(() => ({
     total: transfers.length,
     awaitingApproval: transfers.filter(t => t.status === 'requested').length,
@@ -212,6 +234,7 @@ export default function StockTransfers() {
       setNotes('');
       setDestinationId('');
       setRequestItems([{ stockItemId: '', quantityRequested: '1' }]);
+      setCurrentPage(1);
       await loadData();
     } catch (error: any) {
       toastError('Request failed', error?.response?.data?.message || 'Could not create the transfer request.');
@@ -280,12 +303,12 @@ export default function StockTransfers() {
         </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="text-sm text-[var(--text-secondary)]">Origin department
-            <select required disabled={!isAdmin} value={originId} onChange={e => setOriginId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
+            <select required disabled={!isAdmin} value={originId} onChange={e => setOriginId(e.target.value)} className={cn(SELECT, 'mt-1 w-full')}>
               <option value="">Select origin</option>{departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
           <label className="text-sm text-[var(--text-secondary)]">Destination department
-            <select required value={destinationId} onChange={e => setDestinationId(e.target.value)} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
+            <select required value={destinationId} onChange={e => setDestinationId(e.target.value)} className={cn(SELECT, 'mt-1 w-full')}>
               <option value="">Select destination</option>{departments.filter(d => d.id !== originId).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </label>
@@ -296,17 +319,17 @@ export default function StockTransfers() {
               value={itemQuery}
               onChange={e => setItemQuery(e.target.value)}
               placeholder="Name or drug code"
-              className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]"
+              className={cn(INPUT, 'mt-1 w-full')}
             />
           </label>
           {requestItems.map((item, index) => <div key={index} className="grid gap-2 md:grid-cols-[minmax(0,1fr)_140px_44px]">
             <label className="text-sm text-[var(--text-secondary)]">Stock item
-              <select required value={item.stockItemId} onChange={e => setRequestItems(rows => rows.map((row, i) => i === index ? { ...row, stockItemId: e.target.value } : row))} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]">
+              <select required value={item.stockItemId} onChange={e => setRequestItems(rows => rows.map((row, i) => i === index ? { ...row, stockItemId: e.target.value } : row))} className={cn(SELECT, 'mt-1 w-full')}>
                 <option value="">Select item</option>{pickerItems.map(s => <option key={s.id} value={s.id}>{s.name}{s.drugCode ? ` · ${s.drugCode}` : ''}</option>)}
               </select>
             </label>
             <label className="text-sm text-[var(--text-secondary)]">Quantity
-              <input required type="number" min="1" step="1" value={item.quantityRequested} onChange={e => setRequestItems(rows => rows.map((row, i) => i === index ? { ...row, quantityRequested: e.target.value } : row))} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]" />
+              <input required type="number" min="1" step="1" value={item.quantityRequested} onChange={e => setRequestItems(rows => rows.map((row, i) => i === index ? { ...row, quantityRequested: e.target.value } : row))} className={cn(INPUT, 'mt-1 w-full')} />
             </label>
             <Button variant="ghost" iconOnly icon={X} aria-label="Remove item" className="mt-5" disabled={requestItems.length === 1} onClick={() => setRequestItems(rows => rows.filter((_, i) => i !== index))} />
           </div>)}
@@ -318,7 +341,7 @@ export default function StockTransfers() {
           <Button type="button" variant="ghost" icon={Plus} className="text-[var(--icon-cyan-text)]" onClick={() => setRequestItems(rows => [...rows, { stockItemId: '', quantityRequested: '1' }])}>Add another item</Button>
         </div>
         <label className="block text-sm text-[var(--text-secondary)]">Reason / notes (optional)
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} maxLength={1000} className="mt-1 w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-main)] p-2.5 text-[var(--text-primary)]" />
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} maxLength={1000} className={cn(INPUT, 'mt-1 w-full resize-none')} />
         </label>
         <div className="flex justify-end">
           <Button type="submit" variant="primary" icon={Send} disabled={saving}>
@@ -328,11 +351,11 @@ export default function StockTransfers() {
       </form>}
 
       <section className="flex flex-col gap-3 rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)] p-3 md:flex-row">
-        <SearchInput value={search} onChange={setSearch} placeholder="Search transfer number, department, item…" />
+        <SearchInput value={search} onChange={(v) => { setSearch(v); setCurrentPage(1); }} placeholder="Search transfer number, department, item…" />
         <FilterSelect
           aria-label="Filter by status"
           value={statusFilter}
-          onChange={setStatusFilter}
+          onChange={(v) => { setStatusFilter(v); setCurrentPage(1); }}
           options={[
             { value: '', label: 'All statuses' },
             { value: 'requested', label: 'Requested' },
@@ -342,27 +365,37 @@ export default function StockTransfers() {
             { value: 'cancelled', label: 'Cancelled' },
           ]}
         />
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-[var(--text-secondary)]">Show:</span>
+          <FilterSelect value={String(itemsPerPage)} onChange={(v) => { setItemsPerPage(Number(v)); setCurrentPage(1); }}
+            options={[{ value: '10', label: '10' }, { value: '15', label: '15' }, { value: '25', label: '25' }, { value: '50', label: '50' }, { value: '100', label: '100' }]} />
+          <span className="text-sm text-[var(--text-secondary)]">per page</span>
+        </div>
       </section>
 
       <section className={TABLE_SHELL}>
         {loading ? <div className="p-12 text-center text-sm text-[var(--text-secondary)]"><RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin" />Loading transfer register…</div>
           : filteredTransfers.length === 0 ? <div className="p-12 text-center"><ArrowLeftRight className="mx-auto mb-3 h-8 w-8 text-[var(--text-secondary)]" /><p className="font-medium text-[var(--text-primary)]">No stock transfers found</p><p className="mt-1 text-sm text-[var(--text-secondary)]">Try changing your search or request a new transfer.</p></div>
           : <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left text-sm">
+            <table className="w-full min-w-[1120px] text-left text-sm">
               <thead className={TH_ROW}>
-                <tr>{['Transfer / Date', 'Route', 'Items', 'Status', 'Actions'].map(h => <th key={h} className={TH}>{h}</th>)}</tr>
+                <tr>{['Transfer No.', 'Date', 'Time', 'Origin', 'Destination', 'Items', 'Status', 'Actions'].map(h => <th key={h} className={TH}>{h}</th>)}</tr>
               </thead>
               <tbody>
-                {filteredTransfers.map(transfer => <tr key={transfer.id} className={cn(TR, 'align-top')}>
+                {paginatedTransfers.map(transfer => <tr key={transfer.id} className={cn(TR, 'align-top')}>
                   <td className={cn(TD, 'align-top')}>
                     <div className="font-semibold text-[var(--text-primary)] font-mono">{transfer.transferNumber || transfer.id}</div>
-                    <div className="mt-1 text-xs text-[var(--text-secondary)]">{transfer.createdAt ? new Date(transfer.createdAt).toLocaleString() : 'Date unavailable'}</div>
                     {transfer.hasReconciliationIssues && <div className="mt-2"><Badge tone="orange" size="sm"><AlertTriangle className="w-3 h-3" /> Reconciliation required</Badge></div>}
                   </td>
+                  <td className={cn(TD, 'align-top whitespace-nowrap')}>
+                    <span className="text-[var(--text-primary)]">{transfer.createdAt ? new Date(transfer.createdAt).toLocaleDateString() : 'Date unavailable'}</span>
+                  </td>
+                  <td className={cn(TD, 'align-top whitespace-nowrap')}>
+                    <span className="text-[var(--text-secondary)]">{transfer.createdAt ? new Date(transfer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</span>
+                  </td>
+                  <td className={cn(TD, 'align-top')}><div className="font-medium text-[var(--text-primary)]">{transfer.origin?.name || 'Unknown origin'}</div></td>
                   <td className={cn(TD, 'align-top')}>
-                    <div className="font-medium text-[var(--text-primary)]">{transfer.origin?.name || 'Unknown origin'}</div>
-                    <div className="my-1 flex items-center gap-1 text-xs text-[var(--text-secondary)]"><ArrowRight className="h-3 w-3" /> to</div>
-                    <div className="font-medium text-[var(--text-primary)]">{transfer.destination?.name || 'Unknown destination'}</div>
+                    <div className="flex items-center gap-1 font-medium text-[var(--text-primary)]"><ArrowRight className="h-3 w-3 shrink-0 text-[var(--text-secondary)]" />{transfer.destination?.name || 'Unknown destination'}</div>
                   </td>
                   <td className={cn(TD, 'align-top whitespace-normal')}>
                     <div className="font-medium text-[var(--text-primary)]">{transfer.items?.length || 0} item(s)</div>
@@ -373,36 +406,154 @@ export default function StockTransfers() {
                     <Badge tone={transferTone(transfer.status)} dot size="sm">{humanStatus(transfer.status)}</Badge>
                     {transfer.status === 'dispatched' && <div className="mt-2 text-xs text-[var(--text-secondary)]">{(transfer.items || []).reduce((n, item) => n + (Number(item.quantityInTransit) || 0), 0)} unit(s) in transit</div>}
                   </td>
-                  <td className={cn(TD, 'align-top whitespace-normal')}>
-                    <div className="flex flex-wrap gap-2">
-                      <button onClick={() => setExpandedId(expandedId === transfer.id ? null : transfer.id)} className="inline-flex items-center gap-1 rounded-lg border border-[var(--border-color)] px-2.5 py-1.5 text-xs font-medium text-[var(--text-primary)]"><Eye className="h-3.5 w-3.5" /> {expandedId === transfer.id ? 'Hide' : 'Details'}</button>
-                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'requested' && <Button size="sm" variant="soft" accent="blue" onClick={() => void performAction(transfer, 'approve')}>Approve</Button>}
-                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'approved' && <Button size="sm" variant="soft" accent="purple" icon={Truck} onClick={() => void performAction(transfer, 'dispatch')}>Dispatch</Button>}
-                      {(isAdmin || user?.departmentId === transfer.destinationId) && transfer.status === 'dispatched' && <Button size="sm" variant="soft" accent="green" icon={ArrowDownToLine} onClick={() => void performAction(transfer, 'receive')}>Receive</Button>}
+                  <td className={cn(TD, 'align-top whitespace-nowrap')}>
+                    {/* Action tabs — one segmented pill group per row, same height / padding / radius
+                        on every tab. Details is the toggle tab (active = expanded, card wash);
+                        Approve / Dispatch / Receive only appear for the status that allows them. */}
+                    <div className="inline-flex items-center gap-1 rounded-full border border-[var(--border-color)] bg-[var(--bg-main)] p-1">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTransfer(transfer)}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]"
+                      >
+                        <Eye className="h-3.5 w-3.5" /> Details
+                      </button>
+                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'requested' && (
+                        <button type="button" onClick={() => void performAction(transfer, 'approve')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--icon-blue-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--icon-blue-text)] transition-colors hover:brightness-95">
+                          <Check className="h-3.5 w-3.5" /> Approve
+                        </button>
+                      )}
+                      {canManage && (isAdmin || user?.departmentId === transfer.originId) && transfer.status === 'approved' && (
+                        <button type="button" onClick={() => void performAction(transfer, 'dispatch')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--icon-purple-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--icon-purple-text)] transition-colors hover:brightness-95">
+                          <Truck className="h-3.5 w-3.5" /> Dispatch
+                        </button>
+                      )}
+                      {(isAdmin || user?.departmentId === transfer.destinationId) && transfer.status === 'dispatched' && (
+                        <button type="button" onClick={() => void performAction(transfer, 'receive')}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--icon-green-bg)] px-3 py-1.5 text-xs font-semibold text-[var(--icon-green-text)] transition-colors hover:brightness-95">
+                          <ArrowDownToLine className="h-3.5 w-3.5" /> Receive
+                        </button>
+                      )}
                     </div>
-                    {expandedId === transfer.id && <div className="mt-3 min-w-[270px] rounded-lg border border-[var(--border-color)] p-3">
-                      <div className="mb-2 text-xs text-[var(--text-secondary)]">Requested by: {transfer.requestedBy?.fullName || 'Not recorded'}</div>
-                      {transfer.notes && <p className="mb-3 text-xs text-[var(--text-secondary)]">Notes: {transfer.notes}</p>}
-                      <div className="space-y-3">
-                        {(transfer.items || []).map((item, i) => <div key={item.id || i} className="border-t border-[var(--border-color)] pt-2">
-                          <div className="font-medium text-[var(--text-primary)]">{item.stockItem?.name || item.stockItemId}</div>
-                          <div className="mt-1 grid grid-cols-2 gap-1 text-xs text-[var(--text-secondary)]">
-                            <span>Requested: {item.quantityRequested ?? '—'}</span><span>Sent: {item.quantitySent ?? '—'}</span>
-                            <span>Received: {item.quantityReceived ?? '—'}</span><span>In transit: {item.quantityInTransit ?? 0}</span>
-                          </div>
-                          {(item.batchAllocations || []).length > 0 && <div className="mt-2 text-xs text-[var(--text-secondary)]">Lots: {item.batchAllocations?.map(b => `${b.batchNumber || 'Unknown lot'} (qty ${b.quantity ?? '—'})`).join(', ')}</div>}
-                          {(item.reconciliationIssues || []).map((issue, issueIndex) => <div key={issueIndex} className="mt-2 flex items-start gap-1 rounded-md bg-[var(--icon-yellow-bg)] p-2 text-xs text-[var(--icon-yellow-text)]"><AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{issue}</div>)}
-                        </div>)}
-                      </div>
-                      {(transfer.reconciliationIssues || []).map((issue, i) => <div key={i} className="mt-2 rounded-md bg-[var(--icon-yellow-bg)] p-2 text-xs text-[var(--icon-yellow-text)]">{issue.stockItemName}: {issue.issue}</div>)}
-                    </div>}
                   </td>
                 </tr>)}
               </tbody>
             </table>
           </div>}
       </section>
+
+      {/* Pagination — always in the same place, like StockTransactions, even with 0 rows */}
+      <Pagination page={safePage} totalPages={totalPages} itemsPerPage={itemsPerPage} totalItems={filteredTransfers.length} noun="transfers" onChange={handlePageChange} />
+
       <p className="text-xs text-[var(--text-secondary)]">Internal transfers move stock between locations; they must not be counted as new purchases or additional hospital-wide stock. Reconciliation warnings are diagnostic and require review rather than automatic correction.</p>
+
+      {/* ----- Transfer details modal ----- */}
+      {selectedTransfer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setSelectedTransfer(null)}>
+          <div
+            role="dialog" aria-modal="true" aria-label={`Transfer ${selectedTransfer.transferNumber || selectedTransfer.id} details`}
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-[var(--bg-card)] shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header: number + status, close */}
+            <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-[var(--border-color)] bg-[var(--bg-card)] px-5 py-4">
+              <div>
+                <h2 className="font-mono text-lg font-semibold text-[var(--text-primary)]">{selectedTransfer.transferNumber || selectedTransfer.id}</h2>
+                <p className="mt-0.5 text-sm text-[var(--text-secondary)]">
+                  {selectedTransfer.createdAt ? new Date(selectedTransfer.createdAt).toLocaleDateString() : 'Date unavailable'}
+                  {selectedTransfer.createdAt ? ` · ${new Date(selectedTransfer.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge tone={transferTone(selectedTransfer.status)} dot size="sm">{humanStatus(selectedTransfer.status)}</Badge>
+                <Button variant="ghost" iconOnly icon={X} aria-label="Close details" onClick={() => setSelectedTransfer(null)} />
+              </div>
+            </div>
+
+            <div className="space-y-5 px-5 py-4">
+              {/* Route + who asked — one fact per line, nothing repeated later */}
+              <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
+                <div><dt className="text-xs text-[var(--text-tertiary)]">Origin</dt><dd className="mt-0.5 text-sm font-medium text-[var(--text-primary)]">{selectedTransfer.origin?.name || 'Unknown origin'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-tertiary)]">Destination</dt><dd className="mt-0.5 flex items-center gap-1 text-sm font-medium text-[var(--text-primary)]"><ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--text-secondary)]" />{selectedTransfer.destination?.name || 'Unknown destination'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-tertiary)]">Requested by</dt><dd className="mt-0.5 text-sm text-[var(--text-primary)]">{selectedTransfer.requestedBy?.fullName || 'Not recorded'}</dd></div>
+                <div><dt className="text-xs text-[var(--text-tertiary)]">Items</dt><dd className="mt-0.5 text-sm text-[var(--text-primary)]">{selectedTransfer.items?.length || 0} item(s)</dd></div>
+              </dl>
+              {selectedTransfer.notes && (
+                <div className="rounded-lg bg-[var(--bg-main)] p-3">
+                  <p className="text-xs font-medium text-[var(--text-tertiary)]">Notes</p>
+                  <p className="mt-1 text-sm text-[var(--text-primary)]">{selectedTransfer.notes}</p>
+                </div>
+              )}
+
+              {/* One reconciliation banner for the whole transfer — the per-item warning
+                  used to repeat the same message a second time underneath. */}
+              {selectedTransfer.hasReconciliationIssues && (
+                <div className="flex items-start gap-2 rounded-lg bg-[var(--icon-yellow-bg)] p-3 text-sm text-[var(--icon-yellow-text)]">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Reconciliation required</p>
+                    {(selectedTransfer.reconciliationIssues || []).length > 0
+                      ? (selectedTransfer.reconciliationIssues || []).map((issue, i) => <p key={i} className="mt-0.5">{issue.stockItemName ? `${issue.stockItemName}: ` : ''}{issue.issue}</p>)
+                      : <p className="mt-0.5">Quantities do not match across the request, dispatch and receipt. Review the rows below.</p>}
+                  </div>
+                </div>
+              )}
+
+              {/* Items — a real table now: one column per quantity, lots on their own line */}
+              <div>
+                <h3 className="mb-2 text-sm font-semibold text-[var(--text-primary)]">Items</h3>
+                {(selectedTransfer.items || []).length === 0
+                  ? <p className="text-sm text-[var(--text-secondary)]">No items on this transfer.</p>
+                  : <div className="overflow-x-auto rounded-lg border border-[var(--border-color)]">
+                    <table className="w-full text-left text-sm">
+                      <thead className={TH_ROW}>
+                        <tr><th className={TH}>Item</th><th className={cn(TH, 'text-right')}>Requested</th><th className={cn(TH, 'text-right')}>Sent</th><th className={cn(TH, 'text-right')}>Received</th><th className={cn(TH, 'text-right')}>In transit</th></tr>
+                      </thead>
+                      <tbody>
+                        {(selectedTransfer.items || []).map((item, i) => {
+                          const mismatch = Number(item.quantitySent ?? item.quantityRequested) !== Number(item.quantityRequested);
+                          return (
+                            <tr key={item.id || i} className={cn(TR, 'align-top')}>
+                              <td className={cn(TD, 'whitespace-normal')}>
+                                <div className="font-medium text-[var(--text-primary)]">{item.stockItem?.name || item.stockItemId}</div>
+                                {(item.batchAllocations || []).length > 0 && (
+                                  <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                                    Lots: {item.batchAllocations?.map(b => `${b.batchNumber || 'Unknown lot'} (qty ${b.quantity ?? '—'})`).join(', ')}
+                                  </div>
+                                )}
+                                {(item.reconciliationIssues || []).map((issue, issueIndex) => (
+                                  <div key={issueIndex} className="mt-2 flex items-start gap-1 text-xs text-[var(--icon-yellow-text)]">
+                                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{issue}
+                                  </div>
+                                ))}
+                                {/* Per-item issue only if it says something the banner above didn't already say */}
+                                {mismatch && !(item.reconciliationIssues || []).length && (
+                                  <div className="mt-2 flex items-start gap-1 text-xs text-[var(--icon-yellow-text)]">
+                                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />Quantity sent does not match the originally requested quantity.
+                                  </div>
+                                )}
+                              </td>
+                              <td className={cn(TD, 'text-right')}>{item.quantityRequested ?? '—'}</td>
+                              <td className={cn(TD, 'text-right')}>{item.quantitySent ?? '—'}</td>
+                              <td className={cn(TD, 'text-right')}>{item.quantityReceived ?? '—'}</td>
+                              <td className={cn(TD, 'text-right')}>{item.quantityInTransit ?? 0}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>}
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="secondary" onClick={() => setSelectedTransfer(null)}>Close</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

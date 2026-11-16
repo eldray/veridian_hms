@@ -181,7 +181,7 @@ interface AdmissionStore {
   detentionSummary: { totalDetention: number; readyForDecision: number; avgObservationHours: number } | null;
   
   // Core Admission Operations
-  getAdmissions: (filters?: { status?: 'active' | 'discharged'; wardId?: string; page?: number; limit?: number; admissionType?: string; excludeDetention?: boolean }, options?: { silent?: boolean }) => Promise<void>;
+  getAdmissions: (filters?: { status?: 'active' | 'discharged'; wardId?: string; page?: number; limit?: number; admissionType?: string; excludeDetention?: boolean; admittedFrom?: string; admittedTo?: string }, options?: { silent?: boolean; alsoActive?: boolean }) => Promise<void>;
   getAdmission: (id: string) => Promise<Admission | null>;
   createAdmission: (data: { 
     attendanceId: string; 
@@ -327,7 +327,15 @@ getAdmissions: async (filters = {}, options = {}) => {
     // No page/limit given -> load every admission (the backend returns 100 per request)
     const f: any = { ...filters };
     if (f.page === undefined && f.limit === undefined) f.limit = 2000;
-    const data = await apiGetAdmissions(f);
+    let data: any = await apiGetAdmissions(f);
+    // A date-windowed list still needs every current inpatient, however long ago they were
+    // admitted, so add the active admissions and drop the duplicates.
+    if (options.alsoActive && (f.admittedFrom || f.admittedTo)) {
+      const { admittedFrom: _from, admittedTo: _to, ...rest } = f;
+      const active = await apiGetAdmissions({ ...rest, status: 'active' });
+      const seen = new Set((Array.isArray(data) ? data : []).map((a: any) => (a.admission || a).id));
+      data = [...(Array.isArray(data) ? data : []), ...(Array.isArray(active) ? active : []).filter((a: any) => !seen.has((a.admission || a).id))];
+    }
     
     // Ensure data is an array
     let admissionsArray = Array.isArray(data) ? data : [];

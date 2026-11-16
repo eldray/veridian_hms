@@ -9,8 +9,8 @@ import { getPatientName } from '../../utils/patient';
 export interface HeaderField {
   label: string;
   value: ReactNode;
-  /** Numbers that must not be re-flowed (folder and visit numbers). */
   mono?: boolean;
+  tone?: 'default' | 'money' | 'moneyZero' | 'pill';
 }
 
 export interface PatientVisitHeaderProps {
@@ -18,22 +18,63 @@ export interface PatientVisitHeaderProps {
   attendance: any;
   icon?: LucideIcon;
   accent?: Accent;
-  /** Additional labelled data shown after the standard identity fields. */
   fields?: HeaderField[];
-  /** Chips and buttons on the right, e.g. payment mode or the page's own actions. */
   aside?: ReactNode;
 }
 
-const Field = ({ label, value, mono }: HeaderField) => (
-  <div className="min-w-0">
-    <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] leading-none">
-      {label}
-    </p>
-    <p className={cn('text-xs font-semibold text-[var(--text-primary)] mt-1.5 truncate', mono && 'font-mono')}>
-      {value ?? '—'}
-    </p>
-  </div>
-);
+/* ── Field cell ─────────────────────────────────────────────────────── */
+
+const Field = ({ label, value, mono, tone = 'default' }: HeaderField) => {
+  const isEmpty = value == null || value === '' || value === '—';
+
+  if (tone === 'pill') {
+    return (
+      <div className="flex flex-col gap-1 min-w-0">
+        <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] leading-none">
+          {label}
+        </span>
+        <span
+          className={cn(
+            'inline-flex items-center self-start rounded px-2 py-0.5 whitespace-nowrap',
+            'text-[10px] font-semibold uppercase tracking-wide leading-tight',
+            'bg-[var(--bg-subtle,rgba(148,163,184,0.12))] text-[var(--text-secondary)]',
+            'border border-[var(--border-color)]',
+          )}
+        >
+          {value ?? '—'}
+        </span>
+      </div>
+    );
+  }
+
+  const moneyColor = isEmpty
+    ? 'text-[var(--text-tertiary)]'
+    : tone === 'moneyZero'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : 'text-[var(--text-primary)]';
+
+  return (
+    <div className="flex flex-col gap-1 min-w-0">
+      <span className="text-[9.5px] font-semibold uppercase tracking-[0.08em] text-[var(--text-tertiary)] leading-none">
+        {label}
+      </span>
+      <span
+        className={cn(
+          'leading-tight truncate tabular-nums',
+          tone === 'money' || tone === 'moneyZero'
+            ? cn('text-[13px] font-bold', moneyColor)
+            : 'text-[12.5px] font-semibold text-[var(--text-primary)]',
+          mono && 'font-mono text-[12px] tracking-tight',
+        )}
+        title={typeof value === 'string' ? value : undefined}
+      >
+        {value ?? '—'}
+      </span>
+    </div>
+  );
+};
+
+/* ── Helpers ────────────────────────────────────────────────────────── */
 
 const sexLabel = (gender?: string) =>
   gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : '—';
@@ -59,10 +100,16 @@ const visitDate = (attendance: any): string => {
   return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
 };
 
-/**
- * Who the clinician is working on, and which visit. Every number is labelled so a folder
- * number can never be mistaken for an attendance number.
- */
+const initialsOf = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? '')
+    .join('');
+
+/* ── Component ──────────────────────────────────────────────────────── */
+
 export function PatientVisitHeader({
   patient,
   attendance,
@@ -72,52 +119,133 @@ export function PatientVisitHeader({
   aside,
 }: PatientVisitHeaderProps) {
   const ward = attendance?.Bed?.Ward?.wardName || attendance?.Ward?.wardName;
-  const identity: HeaderField[] = [
+
+  const base: HeaderField[] = [
+    // Split Sex and Age into separate fields
+    { label: 'Sex', value: sexLabel(patient?.gender) },
+    { label: 'Age', value: yearsOld(patient) },
     { label: 'Folder No.', value: patient?.folderNumber || '—', mono: true },
     { label: 'Visit No.', value: attendance?.attendanceNumber || 'New Visit', mono: true },
     { label: 'Visit Date', value: visitDate(attendance) },
     ...(patient?.contact ? [{ label: 'Phone', value: patient.contact }] : []),
     ...(ward
-      ? [{ label: 'Location', value: attendance?.Bed?.bedNumber ? `${ward} · Bed ${attendance.Bed.bedNumber}` : ward }]
+      ? [{
+          label: 'Location',
+          value: attendance?.Bed?.bedNumber
+            ? `${ward} · Bed ${attendance.Bed.bedNumber}`
+            : ward,
+        }]
       : []),
-    ...(fields || []),
   ];
 
-  return (
-    <div className="bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)] overflow-hidden">
-      <div className="px-5 py-4">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          {/* Name and the two facts that identify the person, not the record. */}
-          <div className="flex items-center gap-3 min-w-0">
-            <div
-              className="w-11 h-11 rounded-xl border border-[var(--border-color)] flex items-center justify-center flex-shrink-0"
-              style={{ background: accentVar(accent, 'bg'), color: accentVar(accent, 'text') }}
-            >
-              <Icon className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h2 className="font-bold text-[var(--text-primary)] text-base leading-tight truncate">
-                {getPatientName(patient)}
-              </h2>
-              <p className="text-xs text-[var(--text-secondary)] mt-1">
-                {sexLabel(patient?.gender)} · {yearsOld(patient)}
-              </p>
-            </div>
-          </div>
+  const extra = (fields ?? []).map<HeaderField>((f) => {
+    if (f.tone) return f;
+    const l = f.label.toLowerCase();
+    if (l === 'payment' || l === 'payment mode' || l.includes('method')) {
+      return { ...f, label: 'Payment Mode', tone: 'pill' };
+    }
+    if (l === 'balance') {
+      const n = Number(String(f.value ?? '').replace(/[^0-9.-]/g, ''));
+      return { ...f, tone: Number.isFinite(n) && n === 0 ? 'moneyZero' : 'money' };
+    }
+    return f;
+  });
 
-          <div className="flex flex-wrap items-center gap-2">
-            {attendance?.status && (
-              <Badge tone={statusTone(attendance.status)} dot size="sm">
-                {humanStatus(attendance.status)}
-              </Badge>
+  const isFinancial = (f: HeaderField) =>
+    f.tone === 'pill' || f.tone === 'money' || f.tone === 'moneyZero';
+  const facts = [...base, ...extra.filter((f) => !isFinancial(f))];
+  const financials = extra.filter(isFinancial);
+
+  const displayName = getPatientName(patient);
+  const initials = initialsOf(displayName);
+
+  return (
+    <div
+      className={cn(
+        'group relative bg-[var(--bg-card)] rounded-xl border border-[var(--border-color)]',
+        'shadow-[0_1px_2px_rgba(16,24,40,0.04),0_1px_3px_rgba(16,24,40,0.06)]',
+        'overflow-hidden',
+      )}
+    >
+      <div
+        aria-hidden
+        className="absolute inset-x-0 top-0 h-[2px] opacity-60"
+        style={{
+          background: `linear-gradient(90deg, transparent, ${accentVar(accent, 'text')}, transparent)`,
+        }}
+      />
+
+      <div className="flex flex-col sm:flex-row sm:items-stretch">
+        {/* ── Zone 1: identity ─────────────────────────────────────────── */}
+        <div className="flex items-center gap-2.5 px-4 py-3 sm:flex-shrink-0 sm:max-w-[280px]">
+          <div
+            className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border"
+            style={{
+              background: accentVar(accent, 'bg'),
+              borderColor: accentVar(accent, 'border') ?? 'var(--border-color)',
+              color: accentVar(accent, 'text'),
+            }}
+          >
+            {initials ? (
+              <span className="text-[12px] font-bold tracking-wide">{initials}</span>
+            ) : (
+              <Icon className="w-4 h-4" />
             )}
-            {aside}
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-bold text-[var(--text-primary)] text-[14px] leading-tight truncate">
+              {displayName || 'Unnamed patient'}
+            </h2>
+            <span className="block text-[10.5px] text-[var(--text-secondary)] leading-tight mt-0.5 truncate">
+              {sexLabel(patient?.gender)} · {yearsOld(patient)}
+              {ward && <span className="text-[var(--text-tertiary)]"> · {ward}</span>}
+            </span>
           </div>
         </div>
 
-        {/* Every record number, each under its own label. */}
-        <div className="mt-4 pt-3 border-t border-[var(--border-color)] grid grid-cols-2 sm:grid-cols-4 gap-x-5 gap-y-3">
-          {identity.map((field) => <Field key={field.label} {...field} />)}
+        {/* ── Zone 2: facts + locked financial pair ────────────────────── */}
+        <div
+          className={cn(
+            'min-w-0 px-4 pb-3 sm:py-3 sm:flex-1',
+            'border-t border-[var(--border-color)] sm:border-t-0 sm:border-l',
+            // Changed to justify-between to stretch the items evenly
+            'flex flex-wrap items-center justify-between gap-x-5 gap-y-2.5',
+          )}
+        >
+          <div className="flex flex-wrap items-center gap-x-8 gap-y-2.5">
+            {facts.map((field) => (
+              <Field key={field.label} {...field} />
+            ))}
+          </div>
+
+          {/* Payment Mode + Balance: flex-nowrap pair, pinned right */}
+          {financials.length > 0 && (
+            <div
+              className={cn(
+                'flex flex-nowrap items-start gap-x-5',
+                'sm:pl-5 sm:border-l sm:border-[var(--border-color)]',
+              )}
+            >
+              {financials.map((field) => (
+                <Field key={field.label} {...field} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Zone 3: aside ───────────────────────────────────────────── */}
+        <div
+          className={cn(
+            'flex items-center gap-2 px-4 pb-3 sm:py-3 sm:flex-shrink-0',
+            'border-t border-[var(--border-color)] sm:border-t-0 sm:border-l',
+          )}
+        >
+          {attendance?.status && (
+            <Badge tone={statusTone(attendance.status)} dot size="sm">
+              {humanStatus(attendance.status)}
+            </Badge>
+          )}
+          {aside}
         </div>
       </div>
     </div>

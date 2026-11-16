@@ -232,8 +232,6 @@ export default function Admissions() {
     convertDaycaseToIPD,
     dischargePatient,
     deleteAdmission,
-    getDetentionPatients,
-    getFormalIPDPatients,
   } = useAdmissionStore();
   // Admission rows arrive with their patient already attached; the register is only consulted as
   // a last-resort name fallback, so this page never downloads it on open.
@@ -306,6 +304,16 @@ export default function Admissions() {
   }, [dateFilter, customStartDate, customEndDate]);
 
   // ── Data loading ────────────────────────────────────────────────────────
+  const fetchAdmissionRows = (silent: boolean) => {
+    const range = getDateRange();
+    return getAdmissions(
+      range
+        ? { limit: 2000, admittedFrom: range.startDate.toISOString(), admittedTo: range.endDate.toISOString() }
+        : { limit: 2000 },
+      { silent, alsoActive: Boolean(range) },
+    );
+  };
+
   const loadData = useCallback(async () => {
     try {
       setRefreshing(true);
@@ -313,9 +321,9 @@ export default function Admissions() {
       // Avoid starting several large paginated database queries at once.
       // This page intentionally loads these lists sequentially to prevent API/DB
       // overload and the 30-second Axios timeouts seen during initial page load.
-      await getAdmissions({ limit: 2000 });
-      await getDetentionPatients();
-      await getFormalIPDPatients();
+      // One request covers formal IPD and detention (the page splits them itself), and a dated
+      // view only downloads that window plus the current inpatients.
+      await fetchAdmissionRows(false);
       // Only admitted encounters are needed here (the day-surgery and IPD census rows), and
       // deliberately without the date filter: an inpatient stays on the list however long ago
       // they were admitted. Every admission row already carries its patient, so this screen
@@ -328,16 +336,14 @@ export default function Admissions() {
       setRefreshing(false);
       setHasLoadedOnce(true);
     }
-  }, [getAdmissions, getAttendances, getDetentionPatients, getFormalIPDPatients, hasLoadedOnce, error]);
+  }, [getAdmissions, getAttendances, getDateRange, hasLoadedOnce, error]);
 
   // ── Live refresh ────────────────────────────────────────────────────────
   useLiveRefresh(
     ['admissions', 'encounters', 'nursing'],
     async () => {
       // Keep live refreshes from competing for database connections.
-      await getAdmissions({ limit: 2000 }, { silent: true });
-      await getDetentionPatients();
-      await getFormalIPDPatients();
+      await fetchAdmissionRows(true);
       await getAttendances({ status: 'admitted', limit: 500 }, { silent: true });
     },
     !(dateFilter === 'custom' && !(customStartDate && customEndDate)),

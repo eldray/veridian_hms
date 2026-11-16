@@ -9,6 +9,7 @@
     "start": "tsx src/server.ts",
     "predev": "prisma generate --schema=prisma/schema.prisma",
     "dev": "tsx watch src/server.ts",
+    "dev:nogen": "tsx watch src/server.ts",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "typecheck": "tsc --noEmit",

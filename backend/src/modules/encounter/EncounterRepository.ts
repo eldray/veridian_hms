@@ -2433,6 +2433,19 @@ async addProcedure(encounterId: string, data: any, userId: string) {
   private admissionListInclude() {
     return {
       attendance: {
+        // The list never shows the clinical write-up (history, examination, assessment, plan).
+        // Those columns made each page of 100 admissions ~670 KB; the details page loads the
+        // full attendance on its own.
+        omit: {
+          historyPresentingComplaint: true,
+          reviewOfSystems: true,
+          physicalExamination: true,
+          physicalExamStructured: true,
+          assessment: true,
+          treatmentPlan: true,
+          allergyReviewNotes: true,
+          clinicalNotes: true,
+        },
         include: {
           Patient: { select: { id: true, surname: true, otherNames: true, folderNumber: true, contact: true, gender: true, dateOfBirth: true, paymentMode: true } },
           Ward: { select: { id: true, wardName: true, wardType: true } },
@@ -2507,9 +2520,17 @@ async addProcedure(encounterId: string, data: any, userId: string) {
       where.attendance = { OR: [{ wardId: filters.wardId }, { Bed: { wardId: filters.wardId } }] };
     }
 
+    // Optional admission-date window, so a screen showing "today" need not download the history.
+    const from = filters.admittedFrom ? new Date(filters.admittedFrom) : null;
+    const to = filters.admittedTo ? new Date(filters.admittedTo) : null;
+    if (from && !isNaN(from.getTime())) where.admissionDate = { ...(where.admissionDate || {}), gte: from };
+    if (to && !isNaN(to.getTime())) where.admissionDate = { ...(where.admissionDate || {}), lte: to };
+
     if (this.isTrue(filters.readyForDecision)) {
       const hours = Number(filters.observationHours) > 0 ? Number(filters.observationHours) : 24;
-      where.admissionDate = { lte: new Date(Date.now() - hours * 3_600_000) };
+      const cutoff = new Date(Date.now() - hours * 3_600_000);
+      const current = where.admissionDate?.lte;
+      where.admissionDate = { ...(where.admissionDate || {}), lte: current && current < cutoff ? current : cutoff };
     }
     return where;
   }

@@ -1887,3 +1887,43 @@ export interface PatientFilters {
   district?: string;
   town?: string;
 }
+
+// PASTE into src/types/index.ts, right after the CorporateAccount interface
+// (after its closing brace, before the PATIENT section).
+// These two types did not exist — that is why
+//   import type { CorporateAccount, CorporateEmployee, CorporateBill } from '../types';
+// was highlighted. Fields are exactly what CorporateAccounts.tsx reads/writes.
+
+export interface CorporateEmployee {
+  id: string;
+  corporateAccountId: string;
+  firstName: string;
+  lastName: string;
+  otherNames?: string | null;
+  employeeId?: string | null;
+  department?: string | null;
+  position?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CorporateBillStatus = 'draft' | 'pending' | 'partial' | 'paid' | 'cancelled';
+
+export interface CorporateBill {
+  id: string;
+  corporateAccountId: string;
+  billNumber: string;
+  periodYear: number;
+  periodMonth: number;
+  totalAmount: number;
+  paidAmount?: number;
+  balance?: number;
+  status: CorporateBillStatus | string;
+  dueDate?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

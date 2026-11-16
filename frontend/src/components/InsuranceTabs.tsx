@@ -51,13 +51,39 @@ const SECTIONS: Record<InsuranceFamily, SectionDef[]> = {
   ],
 };
 
+// CRASH FIX — the old code did `SECTIONS[family].filter(...)` with no guard.
+// If `family` is undefined / a stale route value / not one of the three keys,
+// SECTIONS[family] is undefined and .filter() throws:
+//   "Cannot read properties of undefined (reading 'filter')" at line 60,
+// inside <InsuranceTabs>, which ErrorBoundary then turns into a blank page.
+// Normalise the family first, so the lookup can never be undefined.
+function safeFamily(family: InsuranceFamily | string | undefined | null): InsuranceFamily {
+  return (family === 'nhis' || family === 'private' || family === 'corporate') ? family : 'nhis';
+}
+
+// canAccessPage(role, pageKey) is also not safe to call with role === undefined
+// (auth store still loading) — some implementations index a per-role table by role.
+// While the user is still loading, show the tabs; the route guards still enforce
+// access on the pages themselves. Never let a permission lookup crash the nav.
+function safeCanAccess(role: string | undefined | null, pageKey: PageKey): boolean {
+  if (!role) return true;
+  try {
+    return canAccessPage(role, pageKey) !== false;
+  } catch {
+    return true;
+  }
+}
+
 export function insuranceSectionPath(family: InsuranceFamily, section: InsuranceSection): string {
-  return `${BASE}/${family}/${section}`;
+  return `${BASE}/${safeFamily(family)}/${section}`;
 }
 
 /** Sections a role may open, in tab order. */
 export function visibleInsuranceSections(family: InsuranceFamily, role?: string) {
-  return SECTIONS[family].filter((section) => canAccessPage(role, section.pageKey));
+  // FIXED: SECTIONS[safeFamily(family)] is always a real array — never undefined,
+  // so this .filter() can never throw, no matter what `family` arrives as.
+  const sections: SectionDef[] = SECTIONS[safeFamily(family)] ?? [];
+  return sections.filter((section) => safeCanAccess(role, section.pageKey));
 }
 
 function firstAllowedSection(family: InsuranceFamily, role?: string): InsuranceSection {
@@ -79,15 +105,26 @@ export default function InsuranceTabs({ family, section }: InsuranceTabsProps) {
   const { user } = useAuthStore();
   const role = user?.role;
 
-  const accent = INSURANCE_FAMILIES.find((f) => f.key === family)?.accent ?? 'cyan';
-  const sections = visibleInsuranceSections(family, role);
+  // FIXED: normalise both props. A caller that passes section="corporate"
+  // (the old CorporateAccounts value) used to leave no tab active; it now maps
+  // to the corporate family's real first section, "accounts".
+  const safeFamilyValue = safeFamily(family);
+  const sections = visibleInsuranceSections(safeFamilyValue, role);
+  const safeSection: InsuranceSection =
+    sections.some((s) => s.key === section)
+      ? section
+      : (safeFamilyValue === 'corporate' && section === ('corporate' as unknown as InsuranceSection)
+          ? 'accounts'
+          : (sections[0]?.key ?? 'claims'));
+
+  const accent = INSURANCE_FAMILIES.find((f) => f.key === safeFamilyValue)?.accent ?? 'cyan';
 
   return (
     <div className="space-y-3">
       <Segmented
         aria-label="Payer family"
         accent={accent}
-        value={family}
+        value={safeFamilyValue}
         onChange={(nextFamily) => navigate(insuranceSectionPath(nextFamily, firstAllowedSection(nextFamily, role)))}
         options={INSURANCE_FAMILIES
           .filter((f) => visibleInsuranceSections(f.key, role).length > 0)
@@ -96,8 +133,8 @@ export default function InsuranceTabs({ family, section }: InsuranceTabsProps) {
       <Tabs
         aria-label="Insurance sections"
         accent={accent}
-        active={section}
-        onChange={(key) => navigate(insuranceSectionPath(family, key))}
+        active={safeSection}
+        onChange={(key) => navigate(insuranceSectionPath(safeFamilyValue, key))}
         tabs={sections.map((s) => ({ key: s.key, label: s.label, icon: s.icon }))}
       />
     </div>

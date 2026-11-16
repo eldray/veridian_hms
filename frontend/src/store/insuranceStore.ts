@@ -36,8 +36,21 @@ import {
   updateInsuranceProvider as apiUpdateInsuranceProvider,
   toggleInsuranceProviderStatus as apiToggleInsuranceProviderStatus,
   deleteInsuranceProvider as apiDeleteInsuranceProvider,
+
+  // Corporate accounts / employees / bills
+  getCorporateAccounts as apiGetCorporateAccounts,
+  createCorporateAccount as apiCreateCorporateAccount,
+  updateCorporateAccount as apiUpdateCorporateAccount,
+  deleteCorporateAccount as apiDeleteCorporateAccount,
+  getCorporateEmployees as apiGetCorporateEmployees,
+  addCorporateEmployee as apiAddCorporateEmployee,
+  updateCorporateEmployee as apiUpdateCorporateEmployee,
+  deleteCorporateEmployee as apiDeleteCorporateEmployee,
+  getCorporateBills as apiGetCorporateBills,
+  generateCorporateBill as apiGenerateCorporateBill,
+  markCorporateBillPaid as apiMarkCorporateBillPaid,
 } from '../api';
-import type { InsuranceProvider, InsuranceClaim, ClaimBatch, Pagination } from '../types';
+import type { InsuranceProvider, InsuranceClaim, ClaimBatch, Pagination, CorporateAccount, CorporateEmployee, CorporateBill } from '../types';
 import type { BatchEligibility, PeriodClaimRow } from '../api';
 
 interface ClaimStats {
@@ -96,6 +109,11 @@ interface InsuranceState {
   providers: InsuranceProvider[];
   batches: ClaimBatch[];
 
+  // Corporate accounts / employees / bills — what CorporateAccounts.tsx destructures.
+  corporateAccounts: CorporateAccount[];
+  corporateEmployees: CorporateEmployee[];
+  corporateBills: CorporateBill[];
+
   currentClaim: InsuranceClaim | null;
   currentDraft: InsuranceClaim | null;
   currentBatch: ClaimBatch | null;
@@ -143,6 +161,19 @@ interface InsuranceState {
   getFinalizedClaimsTotal: (
     input?: 'nhis' | 'private' | 'corporate' | { type?: 'nhis' | 'private' | 'corporate' }
   ) => Promise<void>;
+
+  // Corporate accounts / employees / bills
+  getCorporateAccounts: (filters?: any) => Promise<void>;
+  createCorporateAccount: (data: any) => Promise<CorporateAccount>;
+  updateCorporateAccount: (id: string, data: any) => Promise<CorporateAccount>;
+  deleteCorporateAccount: (id: string) => Promise<void>;
+  getCorporateEmployees: (corporateAccountId: string) => Promise<void>;
+  addCorporateEmployee: (corporateAccountId: string, data: any) => Promise<CorporateEmployee>;
+  updateCorporateEmployee: (id: string, data: any) => Promise<CorporateEmployee>;
+  deleteCorporateEmployee: (id: string) => Promise<void>;
+  getCorporateBills: (corporateAccountId: string) => Promise<void>;
+  generateCorporateBill: (corporateAccountId: string, period: { year: number; month: number }) => Promise<CorporateBill>;
+  markCorporateBillPaid: (billId: string) => Promise<CorporateBill>;
 
   // Batches
   generateClaimBatch: (input: {
@@ -264,6 +295,29 @@ const extractBatches = (response: any): ClaimBatch[] => {
 const extractPagination = (response: any): Pagination | null =>
   response?.pagination ?? response?.meta ?? response?.data?.pagination ?? null;
 
+// Corporate extractors — accept a bare array, { data }, { data: { data } }, or the named key.
+const extractCorporateAccounts = (response: any): CorporateAccount[] => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.accounts)) return response.accounts;
+  return [];
+};
+const extractCorporateEmployees = (response: any): CorporateEmployee[] => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.employees)) return response.employees;
+  return [];
+};
+const extractCorporateBills = (response: any): CorporateBill[] => {
+  if (Array.isArray(response)) return response;
+  if (Array.isArray(response?.data)) return response.data;
+  if (Array.isArray(response?.data?.data)) return response.data.data;
+  if (Array.isArray(response?.bills)) return response.bills;
+  return [];
+};
+
 const EMPTY_STATS: ClaimStats = {
   total: 0,
   draft: 0,
@@ -310,6 +364,9 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
   allClaims: [],
   providers: [],
   batches: [],
+  corporateAccounts: [],
+  corporateEmployees: [],
+  corporateBills: [],
   currentClaim: null,
   currentDraft: null,
   currentBatch: null,
@@ -594,6 +651,160 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     return get().getClaimsSummary(type);
   },
 
+  // ----- Corporate accounts -----
+  getCorporateAccounts: async (filters = {}) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetCorporateAccounts(filters);
+      set({
+        corporateAccounts: extractCorporateAccounts(response),
+        pagination: extractPagination(response),
+        isLoading: false,
+      });
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message || 'Failed to fetch corporate accounts' });
+      throw e;
+    }
+  },
+
+  createCorporateAccount: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiCreateCorporateAccount(data);
+      const account: CorporateAccount = res?.data ?? res;
+      set((state) => ({ corporateAccounts: [account, ...state.corporateAccounts], isLoading: false }));
+      return account;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  updateCorporateAccount: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiUpdateCorporateAccount(id, data);
+      const account: CorporateAccount = res?.data ?? res;
+      set((state) => ({
+        corporateAccounts: state.corporateAccounts.map((a) => (a.id === id ? { ...a, ...account } : a)),
+        isLoading: false,
+      }));
+      return account;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  deleteCorporateAccount: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeleteCorporateAccount(id);
+      set((state) => ({
+        corporateAccounts: state.corporateAccounts.filter((a) => a.id !== id),
+        corporateEmployees: state.corporateEmployees.filter((e) => e.corporateAccountId !== id),
+        corporateBills: state.corporateBills.filter((b) => b.corporateAccountId !== id),
+        isLoading: false,
+      }));
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  // ----- Corporate employees -----
+  getCorporateEmployees: async (corporateAccountId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetCorporateEmployees(corporateAccountId);
+      set({ corporateEmployees: extractCorporateEmployees(response), isLoading: false });
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message || 'Failed to fetch employees' });
+      throw e;
+    }
+  },
+
+  addCorporateEmployee: async (corporateAccountId, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiAddCorporateEmployee(corporateAccountId, data);
+      const employee: CorporateEmployee = res?.data ?? res;
+      set((state) => ({ corporateEmployees: [employee, ...state.corporateEmployees], isLoading: false }));
+      return employee;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  updateCorporateEmployee: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiUpdateCorporateEmployee(id, data);
+      const employee: CorporateEmployee = res?.data ?? res;
+      set((state) => ({
+        corporateEmployees: state.corporateEmployees.map((e) => (e.id === id ? { ...e, ...employee } : e)),
+        isLoading: false,
+      }));
+      return employee;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  deleteCorporateEmployee: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await apiDeleteCorporateEmployee(id);
+      set((state) => ({ corporateEmployees: state.corporateEmployees.filter((e) => e.id !== id), isLoading: false }));
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  // ----- Corporate bills -----
+  getCorporateBills: async (corporateAccountId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await apiGetCorporateBills(corporateAccountId);
+      set({ corporateBills: extractCorporateBills(response), isLoading: false });
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message || 'Failed to fetch bills' });
+      throw e;
+    }
+  },
+
+  generateCorporateBill: async (corporateAccountId, period) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiGenerateCorporateBill(corporateAccountId, period);
+      const bill: CorporateBill = res?.data ?? res;
+      set((state) => ({ corporateBills: [bill, ...state.corporateBills], isLoading: false }));
+      return bill;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
+  markCorporateBillPaid: async (billId) => {
+    set({ isLoading: true, error: null });
+    try {
+      const res = await apiMarkCorporateBillPaid(billId);
+      const bill: CorporateBill = res?.data ?? res;
+      set((state) => ({
+        corporateBills: state.corporateBills.map((b) => (b.id === billId ? { ...b, ...bill } : b)),
+        isLoading: false,
+      }));
+      return bill;
+    } catch (e: any) {
+      set({ isLoading: false, error: e?.response?.data?.message || e?.message });
+      throw e;
+    }
+  },
+
   generateClaimBatch: async (input) => {
     set({ isLoading: true, error: null });
     try {
@@ -747,8 +958,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
     }
   },
 
-  
-
   updateInsuranceProvider: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
@@ -800,9 +1009,6 @@ export const useInsuranceStore = create<InsuranceState>((set, get) => ({
       throw e;
     }
   },
-
-
-  // Add to the create(...) body:
 
   getEligibleClaimsForBatch: async ({ periodYear, periodMonth, insuranceProviderId, corporateAccountId }) => {
     try {

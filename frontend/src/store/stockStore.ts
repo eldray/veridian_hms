@@ -16,7 +16,10 @@ import {
   getStockTransaction as apiGetStockTransaction,
   createStockTransaction as apiCreateStockTransaction,
   updateStockTransaction as apiUpdateStockTransaction,
+  deleteStockTransaction as apiDeleteStockTransaction,
   getStockMovementReport as apiGetStockMovementReport,
+  getStockValuation as apiGetStockValuation,
+  getRequisitionTransactions as apiGetRequisitionTransactions,
   getRequisitions as apiGetRequisitions,
   getRequisition as apiGetRequisition,
   createRequisition as apiCreateRequisition,
@@ -1066,5 +1069,53 @@ getStockItems: async (filters = {}) => {
 
   clearError: () => {
     set({ error: null });
+  },
+
+  deleteStockTransaction: async (id: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiDeleteStockTransaction(id);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to delete stock transaction' });
+      throw error;
+    }
+  },
+
+  getStockValuation: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetStockValuation();
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get stock valuation' });
+      throw error;
+    }
+  },
+
+  getRequisitionTransactions: async (filters?: any) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetRequisitionTransactions(filters);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get requisition transactions' });
+      throw error;
+    }
+  },
+
+  getMovementSummaryReport: async (filters?: { startDate?: string; endDate?: string; category?: string; stockItemId?: string; transactionType?: string }) => {
+    set({ isLoading: true, error: null });
+    try {
+      const data = await apiGetStockMovementReport(filters);
+      set({ isLoading: false });
+      return data;
+    } catch (error: unknown) {
+      set({ isLoading: false, error: (error as any).response?.data?.message || 'Failed to get movement summary report' });
+      throw error;
+    }
   },
 }));

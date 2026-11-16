@@ -12,7 +12,29 @@ import { Badge, Button, Card, cn, Field, FilterSelect, humanStatus, INPUT, PageH
 export default function CorporateAccounts({ family }: { family: Extract<InsuranceFamily, 'corporate'> }) {
   const familyMeta = INSURANCE_FAMILIES.find((f) => f.key === family) ?? INSURANCE_FAMILIES[0];
   const { success, error: toastError } = useToast();
-  const { corporateAccounts, getCorporateAccounts, createCorporateAccount, updateCorporateAccount, deleteCorporateAccount, corporateEmployees, getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, deleteCorporateEmployee, corporateBills, getCorporateBills, generateCorporateBill, markCorporateBillPaid, isLoading } = useInsuranceStore();
+  const {
+  corporateAccounts: corporateAccountsRaw,
+  getCorporateAccounts,
+  createCorporateAccount,
+  updateCorporateAccount,
+  deleteCorporateAccount,
+  corporateEmployees: corporateEmployeesRaw,
+  getCorporateEmployees,
+  addCorporateEmployee,
+  updateCorporateEmployee,
+  deleteCorporateEmployee,
+  corporateBills: corporateBillsRaw,
+  getCorporateBills,
+  generateCorporateBill,
+  markCorporateBillPaid,
+  isLoading,
+} = useInsuranceStore();
+  // CRASH FIX: store arrays are `undefined` until the first fetch resolves.
+  // `.filter/.length/.slice/.reduce` on `undefined` = "Cannot read properties of undefined (reading 'filter')".
+  // Normalise once here so every use below is safe, even on first render.
+  const corporateAccounts = corporateAccountsRaw ?? [];
+  const corporateEmployees = corporateEmployeesRaw ?? [];
+  const corporateBills = corporateBillsRaw ?? [];
   const [searchTerm, setSearchTerm] = useState(''); const [filterStatus, setFilterStatus] = useState('all'); const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showForm, setShowForm] = useState(false); const [editingAccount, setEditingAccount] = useState<CorporateAccount | null>(null); const [selectedAccount, setSelectedAccount] = useState<CorporateAccount | null>(null);
   const [showEmployeeForm, setShowEmployeeForm] = useState(false); const [editingEmployee, setEditingEmployee] = useState<CorporateEmployee | null>(null);
@@ -24,7 +46,7 @@ export default function CorporateAccounts({ family }: { family: Extract<Insuranc
   const [saving, setSaving] = useState(false); const [billing, setBilling] = useState(false);
   useEffect(() => { getCorporateAccounts().catch(() => undefined); }, []);
   useEffect(() => { if (selectedAccount) { getCorporateEmployees(selectedAccount.id); getCorporateBills(selectedAccount.id); } }, [selectedAccount]);
-  const filteredAccounts = useMemo(() => { const q = searchTerm.trim().toLowerCase(); const list = corporateAccounts.filter((a) => { const mS = !q || a.companyName?.toLowerCase().includes(q) || a.contactPerson?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q); const mSt = filterStatus === 'all' || (filterStatus === 'active' ? a.isActive : !a.isActive); return mS && mSt; }); return [...list].sort((a, b) => { const av = sortKey === 'company' ? (a.companyName || '') : Number((a as any).outstandingBalance ?? (a as any).balance ?? 0); const bv = sortKey === 'company' ? (b.companyName || '') : Number((b as any).outstandingBalance ?? (b as any).balance ?? 0); if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv as string) : (bv as string).localeCompare(av); return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number); }); }, [corporateAccounts, searchTerm, filterStatus, sortKey, sortDir]);
+  const filteredAccounts = useMemo(() => { const q = searchTerm.trim().toLowerCase(); const list = (corporateAccounts ?? []).filter((a) => { const mS = !q || a.companyName?.toLowerCase().includes(q) || a.contactPerson?.toLowerCase().includes(q) || a.email?.toLowerCase().includes(q); const mSt = filterStatus === 'all' || (filterStatus === 'active' ? a.isActive : !a.isActive); return mS && mSt; }); return [...list].sort((a, b) => { const av = sortKey === 'company' ? (a.companyName || '') : Number((a as any).outstandingBalance ?? (a as any).balance ?? 0); const bv = sortKey === 'company' ? (b.companyName || '') : Number((b as any).outstandingBalance ?? (b as any).balance ?? 0); if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv as string) : (bv as string).localeCompare(av); return sortDir === 'asc' ? (av as number) - (bv as number) : (bv as number) - (av as number); }); }, [corporateAccounts, searchTerm, filterStatus, sortKey, sortDir]);
   const totalPages = Math.max(1, Math.ceil(filteredAccounts.length / 15)); const safePage = Math.min(page, totalPages); const pagedAccounts = filteredAccounts.slice((safePage - 1) * 15, safePage * 15);
   const empTotalPages = Math.max(1, Math.ceil(corporateEmployees.length / 15)); const empSafePage = Math.min(empPage, empTotalPages); const pagedEmployees = corporateEmployees.slice((empSafePage - 1) * 15, empSafePage * 15);
   useEffect(() => { setPage(1); }, [searchTerm, filterStatus, viewMode]); useEffect(() => { setEmpPage(1); }, [selectedAccount, viewTab]);
@@ -43,7 +65,7 @@ export default function CorporateAccounts({ family }: { family: Extract<Insuranc
   const exportCsv = () => { const rows = [['Company','Registration','Contact','Email','Phone','Credit limit','Balance','Terms','Employees','Status']]; filteredAccounts.forEach((a) => rows.push([a.companyName, (a as any).registrationNumber ?? '', a.contactPerson ?? '', a.email ?? '', a.phone ?? '', String((a as any).creditLimit ?? ''), String((a as any).outstandingBalance ?? (a as any).balance ?? ''), String((a as any).paymentTerms ?? ''), String((a as any).employeeCount ?? ''), a.isActive ? 'Active' : 'Inactive'])); const blob = new Blob([rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n')], { type: 'text/csv' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'corporate-accounts.csv'; a.click(); URL.revokeObjectURL(url); };
   return (
     <div className="space-y-5 p-4 md:p-6 text-[var(--text-primary)]">
-      <PageHeader title="Corporate accounts" subtitle="Companies that pay for their staff — accounts, employees and monthly bills." meta={`${corporateAccounts.length} accounts · ${stats.active} active`} icon={Building2} accent={familyMeta.accent} backTo="/dashboard" tabs={<InsuranceTabs family={family} section="corporate" />} actions={<><Button variant="soft" accent="green" icon={Plus} onClick={openAdd}>Add account</Button><Button variant="secondary" icon={Download} onClick={exportCsv}>Export CSV</Button><Button icon={RefreshCw} loading={isLoading} onClick={() => void getCorporateAccounts()}>Refresh</Button></>} />
+      <PageHeader title="Corporate accounts" subtitle="Companies that pay for their staff — accounts, employees and monthly bills." meta={`${corporateAccounts.length} accounts · ${stats.active} active`} icon={Building2} accent={familyMeta.accent} backTo="/dashboard" tabs={<InsuranceTabs family={family} section="accounts" />} actions={<><Button variant="soft" accent="green" icon={Plus} onClick={openAdd}>Add account</Button><Button variant="secondary" icon={Download} onClick={exportCsv}>Export CSV</Button><Button icon={RefreshCw} loading={isLoading} onClick={() => void getCorporateAccounts()}>Refresh</Button></>} />
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4"><StatCard label="Total accounts" value={stats.total} /><StatCard label="Active" value={stats.active} accent="green" /><StatCard label="Total credit" size="money" value={`GHS ${stats.totalCredit.toFixed(2)}`} /><StatCard label="Outstanding" size="money" accent="orange" value={`GHS ${stats.totalBalance.toFixed(2)}`} /></div>
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center"><SearchInput value={searchTerm} onChange={setSearchTerm} placeholder="Search by company, contact or email…" /><FilterSelect aria-label="Account status" value={filterStatus} onChange={setFilterStatus} options={[{ value: 'all', label: 'All statuses' }, { value: 'active', label: 'Active only' }, { value: 'inactive', label: 'Inactive only' }]} /><Segmented aria-label="Accounts layout" accent={familyMeta.accent} value={viewMode} onChange={setViewMode} options={[{ value: 'grid', label: 'Grid', icon: Grid3X3 }, { value: 'list', label: 'List', icon: List }]} /></div>
 

@@ -685,6 +685,53 @@ export const REPORT_REGISTRY: ReportShape[] = [
   },
 ];
 
+/** Stock report definitions (stock keeps its own screen, but also appears on Reports). */
+export const STOCK_REPORTS: ReportShape[] = [
+  {
+    key: 'stock-movement',
+    label: 'Stock Movement Summary',
+    group: 'financial',
+    description:
+      'Every stock movement in the period: the precise numbers that moved, when, and between which balances. The overview today shows what the ledger knows.',
+    source: { api: 'getStockMovementReport' },
+    roles: ['admin', 'accounts', 'pharmacist'],
+    periodField: 'period',
+    filters: [
+      { key: 'startDate', label: 'Start Date', kind: 'date' },
+      { key: 'endDate', label: 'End Date', kind: 'date' },
+      { key: 'category', label: 'Stock Category', kind: 'select', options: [] },
+      { key: 'departmentId', label: 'Department', kind: 'select', options: [] },
+      { key: 'includeAllStockLocations', label: 'All Locations', kind: 'checkbox' },
+    ],
+    cards: [
+      { label: 'Transactions', field: 'summary.totalTransactions', value: 'number', hint: 'Stock movements in the period' },
+      { label: 'Units in', field: 'summary.totalIn', value: 'number' },
+      { label: 'Units out', field: 'summary.totalOut', value: 'number' },
+      { label: 'Net change', field: 'summary.netChange', value: 'number' },
+      { label: 'Opening stock', field: 'summary.openingStock', value: 'number' },
+      { label: 'Closing stock', field: 'summary.closingStock', value: 'number' },
+    ],
+    tables: [
+      countTable('By type', 'summary.byType', 'Type', 'Count / Units'),
+      {
+        title: 'By item',
+        source: 'items',
+        rowKey: 'itemName',
+        defaultSort: 'quantityIn + quantityOut',
+        columns: [
+          { header: 'Item', field: 'itemName', value: 'text', width: 200 },
+          { header: 'Opening', field: 'openingStock', value: 'number' },
+          { header: 'In', field: 'quantityIn', value: 'number' },
+          { header: 'Out', field: 'quantityOut', value: 'number' },
+          { header: 'Closing', field: 'closingStock', value: 'number' },
+          { header: 'Net change', field: 'netChange', value: 'number' },
+        ],
+      },
+    ],
+    emptyNote: 'No stock movement was recorded in this period.',
+  },
+];
+
 /** Everything the shell can render, keyed by report key. */
 export const SHELL_REPORT_BY_KEY: Record<string, ReportShape> = Object.fromEntries(
   REPORT_REGISTRY.map(shape => [shape.key, shape]),

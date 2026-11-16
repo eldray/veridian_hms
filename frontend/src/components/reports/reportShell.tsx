@@ -126,6 +126,18 @@ export const SERVICE_TYPE_OPTIONS = [
   { value: 'miscellaneous', label: 'Miscellaneous' },
 ];
 
+/** Stock item categories (mirrors Prisma StockItem.category). */
+export const SERVICE_CATEGORY_OPTIONS = [
+  { value: '', label: 'Any category' },
+  { value: 'medication', label: 'Medication' },
+  { value: 'consumable', label: 'Consumable' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'furniture', label: 'Furniture' },
+  { value: 'other', label: 'Other' },
+];
+
+/** The ClaimStatus enum, again because the value goes into a Prisma `where`. Tracking events have their own richer vocabulary (submitted, approved, paid), but a claim row itself is only ever `draft` or `finalized`, and offering the others would fail the request. */
+
 /**
  * The ClaimStatus enum, again because the value goes into a Prisma `where`. Tracking events have
  * their own richer vocabulary (submitted, approved, paid), but a claim row itself is only ever
