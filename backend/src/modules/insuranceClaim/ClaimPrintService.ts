@@ -38,11 +38,6 @@ const COST_BUCKETS: Array<{ label: string; categories: string[] }> = [
   { label: 'G-DRG & diagnoses', categories: ['gdrg', 'diagnosis'] },
 ];
 
-const bucketAmount = (items: any[], categories: string[]): number =>
-  items
-    .filter((i) => categories.includes(String(i.itemCategory)))
-    .reduce((sum, i) => sum + parseFloat(i.lineTotal?.toString?.() ?? '0'), 0);
-
 export class ClaimPrintService {
   private repo: InsuranceClaimRepository;
   private prisma: PrismaClient;
@@ -286,9 +281,10 @@ export class ClaimPrintService {
     // A payer receives one consolidated monthly statement, not a patient-by-patient
     // printout. Keep the claim-to-batch links in the database for audit and adjudication,
     // but aggregate every line into the month-level cost buckets shown on this document.
+    const allItems = claims.flatMap((claim) => claim.items ?? []);
     const bucketTotals = COST_BUCKETS.map((bucket) => {
-      const matchingItems = claims.flatMap((claim) =>
-        (claim.items ?? []).filter((item: any) => bucket.categories.includes(String(item.itemCategory))),
+      const matchingItems = allItems.filter((item: any) =>
+        bucket.categories.includes(String(item.itemCategory)),
       );
       return {
         label: bucket.label,
@@ -299,6 +295,18 @@ export class ClaimPrintService {
         ),
       };
     });
+    const categorizedTypes = new Set(COST_BUCKETS.flatMap((bucket) => bucket.categories));
+    const otherItems = allItems.filter((item: any) => !categorizedTypes.has(String(item.itemCategory)));
+    if (otherItems.length) {
+      bucketTotals.push({
+        label: 'Other services & items',
+        itemCount: otherItems.length,
+        amount: otherItems.reduce(
+          (sum: number, item: any) => sum + parseFloat(item.lineTotal?.toString?.() ?? '0'),
+          0,
+        ),
+      });
+    }
 
     const labelMap: Record<string, string> = {
       nhis: 'NHIS CLAIM BATCH',
