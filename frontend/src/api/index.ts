@@ -1081,52 +1081,50 @@ export const deleteInsuranceProvider = (id: string) =>
 // CORPORATE ACCOUNTS (UNIFIED - NO DUPLICATES)
 // ──────────────────────────────────────────────
 
-// ✅ SINGLE DEFINITION - Remove the duplicate at line ~420
+  // ──────────────────────────────────────────────
+// CORPORATE ACCOUNTS — CANONICAL NAMES ONLY. NO ALIASES.
+// Backend: modules/corporate/CorporateRoutes.ts -> CorporateController
+// ──────────────────────────────────────────────
 const getCorporateAccountsPage = (filters?: any) =>
   api.get('/corporate', { params: filters }).then(r => handleResponse<any>(r.data));
-
-// limit > 100 walks all pages (backend maximum is 100 per request)
 export const getCorporateAccounts = (filters?: any) =>
   wantsMoreThanOnePage(filters)
     ? fetchAllPages<any>(getCorporateAccountsPage, filters, { maxItems: Number(filters.limit) })
     : getCorporateAccountsPage(filters);
-
 export const getCorporateAccount = (id: string) =>
   api.get(`/corporate/${id}`).then(r => r.data);
-
 export const createCorporateAccount = (data: any) =>
   api.post('/corporate', data).then(r => r.data);
-
 export const updateCorporateAccount = (id: string, data: any) =>
   api.put(`/corporate/${id}`, data).then(r => r.data);
-
+// DELETE /corporate/:id -> controller.deactivateAccount
 export const deactivateCorporateAccount = (id: string) =>
   api.delete(`/corporate/${id}`).then(r => r.data);
-
-// Alias kept for stores/components that import the delete name.
-// Same endpoint as deactivateCorporateAccount.
-export const deleteCorporateAccount = deactivateCorporateAccount;
-
 export const getCorporateEmployees = (accountId: string) =>
   api.get(`/corporate/${accountId}/employees`).then(r => r.data);
-
+export const getCorporateEmployee = (id: string) =>
+  api.get(`/corporate/employees/${id}`).then(r => r.data);
 export const addCorporateEmployee = (accountId: string, data: any) =>
   api.post(`/corporate/${accountId}/employees`, data).then(r => r.data);
-
 export const updateCorporateEmployee = (id: string, data: any) =>
   api.put(`/corporate/employees/${id}`, data).then(r => r.data);
-
+// DELETE /corporate/employees/:id -> controller.removeEmployee
 export const removeCorporateEmployee = (id: string) =>
   api.delete(`/corporate/employees/${id}`).then(r => r.data);
-
 export const getCorporateStatistics = () =>
   api.get('/corporate/statistics').then(r => r.data);
-
+// POST /corporate/:id/bills -> controller.generateMonthlyBill
 export const generateCorporateMonthlyBill = (accountId: string, data: any) =>
   api.post(`/corporate/${accountId}/bills`, data).then(r => r.data);
-
+// GET /corporate/:id/bills -> controller.getMonthlyBills
 export const getCorporateMonthlyBills = (accountId: string, filters?: any) =>
   api.get(`/corporate/${accountId}/bills`, { params: filters }).then(r => r.data);
+// Default-export line for api/index.ts (corporate only):
+// getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount,
+// deactivateCorporateAccount, getCorporateEmployees, getCorporateEmployee, addCorporateEmployee,
+// updateCorporateEmployee, removeCorporateEmployee, getCorporateStatistics,
+// generateCorporateMonthlyBill, getCorporateMonthlyBills,
+
 
 // ──────────────────────────────────────────────
 // INSURANCE CLAIMS — GENERAL
@@ -2631,6 +2629,13 @@ export const getLowStockAlerts = () =>
 
 export const deleteStockTransaction = (id: string) =>
   api.delete(`/stock-transactions/${id}`).then(r => r.data);
+
+export const getStockValuation = (filters?: any) =>
+  api.get('/stock-transactions/valuation', { params: filters }).then(r => r.data);
+
+export const getRequisitionTransactions = (filters?: any) =>
+  api.get('/stock-transactions/requisitions', { params: filters }).then(r => r.data);
+
 // ──────────────────────────────────────────────
 // REQUISITIONS
 // ──────────────────────────────────────────────
@@ -2658,12 +2663,65 @@ export const dispatchStockTransfer = (id: string) =>
 export const receiveStockTransfer = (id: string) =>
   api.patch(`/stock-transfers/${id}/receive`).then(r => r.data?.data ?? r.data);
 
-// ──────────────────────────────────────────────
-// REQUISITIONS
-// ──────────────────────────────────────────────
 
-export const getRequisitions = (filters?: any) =>
-  api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
+// ============================================
+// REQUISITION TYPES (aligned with backend)
+// ============================================
+// ============================================
+// REQUISITION TYPES (aligned with backend)
+// ============================================
+
+export interface RequisitionItem {
+  id: string;
+  requisitionId?: string;
+  stockItemId: string;
+  quantityRequested: number;
+  quantityApproved?: number | null;
+  quantityFulfilled?: number | null;
+  purpose?: string | null;
+  notes?: string | null;
+  performedBy?: string | null;
+  StockItem?: {
+    id: string;
+    name: string;
+    drugCode?: string | null;
+    unitOfMeasure: string;
+    currentStock?: number;
+    reorderLevel?: number;
+    costPrice?: number;
+  };
+  /** Injected by GET /requisitions/:id */
+  supplierQty?: number;
+  requesterQty?: number;
+}
+
+export interface Requisition {
+  id: string;
+  requisitionNumber: string;
+  requestingDepartmentId?: string | null;
+  requestingWardId?: string | null;
+  supplyingDepartmentId?: string | null;
+  supplyingDepartment?: { id?: string; name: string } | null;
+  departments?: { id?: string; name: string } | null;
+  ward?: { id?: string; wardName: string } | null;
+  requestedById: string;
+  urgency: 'routine' | 'urgent' | 'emergency';
+  requiredDate?: string | null;
+  purpose?: string | null;
+  notes?: string | null;
+  status: 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
+  approvedById?: string | null;
+  approvedAt?: string | null;
+  fulfilledById?: string | null;
+  fulfilledAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  /** Prisma relation name used by every screen */
+  RequisitionItem?: RequisitionItem[];
+  User_Requisition_requestedByIdToUser?: { fullName: string; role?: string; username?: string } | null;
+  User_Requisition_approvedByIdToUser?: { fullName: string; role?: string } | null;
+  User_Requisition_fulfilledByIdToUser?: { fullName: string; role?: string } | null;
+}
 
 export interface RequisitionStockLookupItem {
   id: string;
@@ -2677,7 +2735,14 @@ export interface RequisitionStockLookupItem {
   reorderLevel: number;
 }
 
-/** Search stock items with the supplying department's (and our own) usable quantities */
+// ───
+// ──────────────────────────────────────────────
+// REQUISITIONS
+// ──────────────────────────────────────────────
+
+export const getRequisitions = (filters?: any) =>
+  api.get('/requisitions', { params: filters }).then(r => handleResponse<Requisition>(r.data));
+
 export const lookupRequisitionStock = (params: {
   supplierDepartmentId: string;
   requesterDepartmentId?: string;
@@ -2703,12 +2768,14 @@ export const updateRequisitionStatus = (id: string, status: string, additionalDa
   api.patch(`/requisitions/${id}/status`, { status, ...(additionalData || {}) }).then(r => r.data?.data || r.data);
 
 export const submitRequisition = (id: string) => updateRequisitionStatus(id, 'submitted');
-export const approveRequisition = (id: string) => updateRequisitionStatus(id, 'approved');
 export const fulfillRequisition = (id: string, data?: any) => updateRequisitionStatus(id, 'fulfilled', data);
 export const cancelRequisition = (id: string) => updateRequisitionStatus(id, 'cancelled');
 
-export const approveRequisitionItems = (id: string, data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }) =>
-  api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data?.data || r.data);
+/** Audited approval — the ONLY valid way to move submitted → approved */
+export const approveRequisitionItems = (
+  id: string,
+  data: { approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }> }
+) => api.post(`/requisitions/${id}/approve-items`, data).then(r => r.data?.data || r.data);
 
 // ──────────────────────────────────────────────
 // REFERRALS
@@ -3026,6 +3093,27 @@ export const getScanTypes = () =>
 export const bulkUpdateScanTemplates = (data: any) =>
   api.post('/scan-templates/bulk-update', data).then(r => r.data);
 
+
+export const presetPayslip = (
+  userId: string,
+  month: number,
+  year: number,
+  data: {
+    baseSalary?: number;
+    allowances?: number;
+    deductions?: number;
+    notes?: string | null;
+    lineItems?: Array<{
+      type: 'earning' | 'deduction';
+      category: string;
+      description?: string;
+      amount: number;
+      taxable?: boolean;
+    }>;
+  },
+) =>
+  api.post(`/users/${userId}/payslips/preset`, { month, year, ...data }).then(r => r.data?.data || r.data);
+  
 // ──────────────────────────────────────────────
 // SERVICE CATALOG
 // ──────────────────────────────────────────────
@@ -4476,8 +4564,8 @@ export default {
   submitBatchToClaimIt, getBatchClaimItSubmissions, deleteBatchFromClaimIt,
 
   // Corporate Accounts
-  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount, deleteCorporateAccount,
-  getCorporateEmployees, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee, deleteCorporateEmployee,
+  getCorporateAccounts, getCorporateAccount, createCorporateAccount, updateCorporateAccount, deactivateCorporateAccount,
+  getCorporateEmployees, getCorporateEmployee, addCorporateEmployee, updateCorporateEmployee, removeCorporateEmployee,
   getCorporateStatistics, generateCorporateMonthlyBill, getCorporateMonthlyBills,
 
   // Patients
@@ -4543,15 +4631,15 @@ export default {
   getStockCategories, updateStockLevel, allocateStockToDepartment, getStockItemTransactionHistory,
   getStockValueSummary, getExpiryReport, getMovementSummary, getUsageReport, getSupplierReport, getRequisitionSummary,
   getStockTransactions, getStockTransaction, createStockTransaction, updateStockTransaction, deleteStockTransaction,
-  getStockMovementReport, getLowStockAlerts,
+  getStockMovementReport, getLowStockAlerts, getStockValuation, getRequisitionTransactions,
   getStockTransfers, getStockTransfer, createStockTransfer, approveStockTransfer, dispatchStockTransfer, receiveStockTransfer,
 
   // Purchase Invoices
   getPurchaseInvoices, getPurchaseInvoice, createPurchaseInvoice, updatePurchaseInvoice, deletePurchaseInvoice,
 
   // Requisitions
-  getRequisitions, getRequisition, lookupRequisitionStock, createRequisition, updateRequisition, deleteRequisition,
-  updateRequisitionStatus, submitRequisition, approveRequisition, fulfillRequisition, cancelRequisition, approveRequisitionItems,
+  getRequisitions, getRequisition, lookupRequisitionStock, createRequisition, updateRequisition, deleteRequisition,   updateRequisitionStatus,
+  approveRequisitionItems, submitRequisition, fulfillRequisition, cancelRequisition,
 
   // Referrals
   getReferrals, getReferralById, createOutgoingReferral, createIncomingReferral, updateReferralStatus,
@@ -4668,6 +4756,9 @@ export default {
   createCounterTicket, addCounterSaleItem, dispenseCounterItem, removeCounterSaleItem,
   addCounterLabOrder, removeCounterLabOrder, addCounterScanOrder, removeCounterScanOrder,
   getCounterBill, raiseCounterBill, closeCounterTicket, linkCounterClient,
+
+
+  presetPayslip,
 
   // Upload
   servePatientImages, serveScanImages, serveDocuments

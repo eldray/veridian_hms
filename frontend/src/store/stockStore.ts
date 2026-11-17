@@ -25,6 +25,7 @@ import {
   createRequisition as apiCreateRequisition,
   updateRequisition as apiUpdateRequisition,
   deleteRequisition as apiDeleteRequisition,
+  
   // ✅ RENAMED: Invoices → PurchaseInvoices
   getPurchaseInvoices as apiGetPurchaseInvoices,
   getPurchaseInvoice as apiGetPurchaseInvoice,
@@ -101,6 +102,7 @@ interface Requisition {
   requisitionNumber: string;
   requestingDepartmentId?: string | null;
   requestingWardId?: string | null;
+  supplyingDepartmentId?: string | null;
   requestedById: string;
   urgency: 'routine' | 'urgent' | 'emergency';
   requiredDate?: string;
@@ -115,7 +117,11 @@ interface Requisition {
   updatedAt: string;
   departments?: { name: string } | null;
   ward?: { wardName: string } | null;
+  supplyingDepartment?: { name: string } | null;
   RequisitionItem?: any[];
+  User_Requisition_requestedByIdToUser?: { fullName: string } | null;
+  User_Requisition_approvedByIdToUser?: { fullName: string } | null;
+  User_Requisition_fulfilledByIdToUser?: { fullName: string } | null;
 }
 
 // ✅ RENAMED: Invoice → PurchaseInvoice
@@ -649,6 +655,7 @@ getStockItems: async (filters = {}) => {
   },
 
   // ==================== REQUISITIONS ====================
+  // ==================== REQUISITIONS ====================
 
   getRequisitions: async (filters = {}) => {
     set({ error: null, isLoading: get().requisitions.length === 0 });
@@ -684,9 +691,9 @@ getStockItems: async (filters = {}) => {
       return requisition;
     } catch (error: unknown) {
       console.error('Failed to fetch requisition:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to fetch requisition' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to fetch requisition'
       });
       throw error;
     }
@@ -698,17 +705,17 @@ getStockItems: async (filters = {}) => {
       const result = await apiCreateRequisition(data);
       const newRequisition = result.requisition || result;
       const { requisitions } = get();
-      set({ 
+      set({
         requisitions: [newRequisition, ...requisitions],
-        isLoading: false 
+        isLoading: false
       });
       invalidateCollection('requisitions');
       return newRequisition;
     } catch (error: unknown) {
       console.error('Failed to create requisition:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to create requisition' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to create requisition'
       });
       throw error;
     }
@@ -720,17 +727,17 @@ getStockItems: async (filters = {}) => {
       const response = await apiUpdateRequisition(id, data);
       const updatedRequisition = response?.data || response;
       const { requisitions } = get();
-      set({ 
+      set({
         requisitions: requisitions.map(req => req.id === id ? updatedRequisition : req),
-        isLoading: false 
+        isLoading: false
       });
       invalidateCollection('requisitions');
       return updatedRequisition;
     } catch (error: unknown) {
       console.error('Failed to update requisition:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to update requisition' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to update requisition'
       });
       throw error;
     }
@@ -741,16 +748,16 @@ getStockItems: async (filters = {}) => {
     try {
       await apiDeleteRequisition(id);
       const { requisitions } = get();
-      set({ 
+      set({
         requisitions: requisitions.filter(req => req.id !== id),
-        isLoading: false 
+        isLoading: false
       });
       invalidateCollection('requisitions');
     } catch (error: unknown) {
       console.error('Failed to delete requisition:', error);
-      set({ 
-        isLoading: false, 
-        error: (error as any).response?.data?.message || 'Failed to delete requisition' 
+      set({
+        isLoading: false,
+        error: (error as any).response?.data?.message || 'Failed to delete requisition'
       });
       throw error;
     }
@@ -770,10 +777,28 @@ getStockItems: async (filters = {}) => {
     }
   },
 
+  /**
+   * Approve every line at the requested quantity.
+   * This is the ONLY valid path to move a requisition from submitted → approved.
+   * Do not call updateRequisitionStatus(..., 'approved') — the backend rejects it.
+   */
   approveRequisition: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await updateRequisitionStatus(id, 'approved');
+      // Need the lines so we can build the audited payload
+      const full = await apiGetRequisition(id);
+      const requisition = full?.data || full;
+      const lines: any[] = requisition?.RequisitionItem || [];
+      if (lines.length === 0) {
+        throw new Error('This requisition has no lines to approve');
+      }
+
+      const approvedItems = lines.map((line: any) => ({
+        requisitionItemId: line.id,
+        quantityApproved: Number(line.quantityRequested) || 0,
+      }));
+
+      const result = await approveRequisitionItems(id, { approvedItems });
       invalidateCollection('requisitions');
       await get().getRequisitions();
       set({ isLoading: false });
@@ -784,7 +809,10 @@ getStockItems: async (filters = {}) => {
     }
   },
 
-  approveRequisitionItems: async (id: string, approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }>) => {
+  approveRequisitionItems: async (
+    id: string,
+    approvedItems: Array<{ requisitionItemId: string; quantityApproved: number; notes?: string }>
+  ) => {
     set({ isLoading: true, error: null });
     try {
       const result = await approveRequisitionItems(id, { approvedItems });
@@ -801,9 +829,10 @@ getStockItems: async (filters = {}) => {
   fulfillRequisition: async (id: string, data = {}) => {
     set({ isLoading: true, error: null });
     try {
+      // Controller special-cases status=fulfilled and runs the atomic stock movement
       const result = await updateRequisitionStatus(id, 'fulfilled', data);
       invalidateCollection('requisitions');
-      // Fulfilment moves stock, so the cached item list is no longer valid.
+      // Fulfilment moves stock
       invalidateCollection('stockItems');
       await get().getRequisitions();
       set({ isLoading: false });

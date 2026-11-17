@@ -397,48 +397,104 @@ export class UserRepository extends BaseRepository<any, any, any> {
     });
   }
 
-  async upsertPayslipForStaff(staffId: string, month: number, year: number) {
-    const profile = await this.prisma.staffProfile.findUnique({
-      where: { id: staffId },
-      include: { salaryStep: true },
-    });
-    if (!profile) throw new Error('Staff profile not found');
+async upsertPayslipForStaff(staffId: string, month: number, year: number) {
+  const profile = await this.prisma.staffProfile.findUnique({
+    where: { id: staffId },
+    include: { salaryStep: true },
+  });
+  if (!profile) throw new Error('Staff profile not found');
 
-    const baseSalary = Number(profile.salaryStep?.amount ?? 0);
+  const baseSalary = Number(profile.salaryStep?.amount ?? 0);
 
-    const existing = await this.prisma.payrollRecord.findUnique({
-      where: { staffId_month_year: { staffId, month, year } },
-    });
+  const existing = await this.prisma.payrollRecord.findUnique({
+    where: { staffId_month_year: { staffId, month, year } },
+    include: { lineItems: true },
+  });
 
-    let record;
-    if (existing) {
-      record = existing;
-      const baseItem = await this.prisma.payslipLineItem.findFirst({
-        where: { payrollRecordId: existing.id, category: 'base_salary' },
-      });
-      if (baseItem && Number(baseItem.amount) !== baseSalary) {
-        await this.prisma.payslipLineItem.update({
-          where: { id: baseItem.id },
-          data: { amount: baseSalary },
-        });
-        await this.recomputePayrollTotals(existing.id);
-      }
-    } else {
-      record = await this.prisma.payrollRecord.create({
-        data: {
-          staffId, month, year,
-          baseSalary, allowances: 0, deductions: 0, netPay: 0, isPaid: false,
-        },
-      });
-      await this.seedDefaultLineItems(record.id, baseSalary);
-      await this.recomputePayrollTotals(record.id);
-    }
-
+  // ── PRESET WINS ──
+  // If this payslip already exists with line items you set in Preset,
+  // Run Payroll must NOT touch it. Just return it.
+  if (existing) {
     return this.prisma.payrollRecord.findUnique({
-      where: { id: record.id },
+      where: { id: existing.id },
       include: { lineItems: true },
     });
   }
+
+  // ── Brand-new only: create + seed defaults ──
+  const record = await this.prisma.payrollRecord.create({
+    data: {
+      staffId, month, year,
+      baseSalary, allowances: 0, deductions: 0, netPay: 0, isPaid: false,
+    },
+  });
+  await this.seedDefaultLineItems(record.id, baseSalary);
+  await this.recomputePayrollTotals(record.id);
+
+  return this.prisma.payrollRecord.findUnique({
+    where: { id: record.id },
+    include: { lineItems: true },
+  });
+}
+
+// ── NEW: Set payslip values BEFORE Run Payroll ──
+// Creates the draft if it doesn't exist, replaces its line items
+// with what HR sent, recomputes totals, and saves it.
+// Run Payroll later will see it already exists and leave it alone.
+async presetPayslipForStaff(
+  staffId: string,
+  month: number,
+  year: number,
+  lineItems: Array<{
+    type: 'earning' | 'deduction';
+    category: string;
+    description?: string;
+    amount: number;
+    taxable?: boolean;
+  }>,
+) {
+  let record = await this.prisma.payrollRecord.findUnique({
+    where: { staffId_month_year: { staffId, month, year } },
+  });
+
+  if (!record) {
+    record = await this.prisma.payrollRecord.create({
+      data: {
+        staffId, month, year,
+        baseSalary: 0, allowances: 0, deductions: 0, netPay: 0,
+        isPaid: false,
+        notes: 'PRESET', // marker: set before Run Payroll
+      },
+    });
+  } else if (record.isPaid) {
+    throw new Error('Cannot preset a payslip that is already marked Paid');
+  }
+
+  // Replace ALL line items with the preset values
+  await this.prisma.payslipLineItem.deleteMany({
+    where: { payrollRecordId: record.id },
+  });
+
+  if (lineItems.length > 0) {
+    await this.prisma.payslipLineItem.createMany({
+      data: lineItems.map((i) => ({
+        payrollRecordId: record.id,
+        type: i.type,
+        category: i.category,
+        description: i.description ?? null,
+        amount: Number(i.amount) || 0,
+        taxable: i.taxable ?? true,
+      })),
+    });
+  }
+
+  await this.recomputePayrollTotals(record.id);
+
+  return this.prisma.payrollRecord.findUnique({
+    where: { id: record.id },
+    include: { lineItems: true },
+  });
+}
 
   async runPayrollForAllActive(month: number, year: number) {
     const profiles = await this.prisma.staffProfile.findMany({

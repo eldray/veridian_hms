@@ -7,9 +7,10 @@ import { useAuthStore } from '../store/authStore';
 import { useToast } from '../store/toastStore';
 import {
   ChevronLeft, Save, User as UserIcon, Briefcase, DollarSign,
-  FileText, Play, Check, Clock, Plus, X, Trash2,
+  FileText, Play, Check, Clock, Plus, X, Trash2, Pencil,
 } from 'lucide-react';
 import PayslipEditor from '../components/PayslipEditor';
+import PayslipPresetModal from '../components/PayslipPresetModal';
 
 const formatCedis = (v: number | string | undefined | null) => {
   const n = typeof v === 'string' ? parseFloat(v) : Number(v ?? 0);
@@ -117,8 +118,8 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
   const expiryBadge = (d: any) => {
     const days = daysUntilExpiry(d);
     if (days === null) return null;
-    if (days < 0) return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">EXPIRED</span>;
-    if (days < 30) return <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700">Expires in {days}d</span>;
+    if (days < 0) return <span className="px-2 py-0.5 rounded-full text- font-bold bg-red-100 text-red-700">EXPIRED</span>;
+    if (days < 30) return <span className="px-2 py-0.5 rounded-full text- font-bold bg-orange-100 text-orange-700">Expires in {days}d</span>;
     return null;
   };
 
@@ -154,7 +155,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="font-medium text-[var(--text-primary)] truncate">{doc.title}</p>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
+                  <span className="px-2 py-0.5 rounded-full text- font-semibold bg-[var(--bg-card)] text-[var(--text-secondary)] border border-[var(--border-color)]">
                     {doc.type.replace(/_/g, ' ')}
                   </span>
                   {expiryBadge(doc.expiryDate)}
@@ -165,7 +166,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                <span className={`px-2 py-0.5 rounded-full text- font-medium ${
                   doc.isVerified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                 }`}>
                   {doc.isVerified ? 'Verified' : 'Pending'}
@@ -261,7 +262,7 @@ const DocumentsTab: React.FC<{ userId: string }> = ({ userId }) => {
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]"
                   required
                 />
-                <p className="text-[10px] text-[var(--text-tertiary)] mt-1">PDF, JPG, PNG, DOC, DOCX · Max 10 MB</p>
+                <p className="text- text-[var(--text-tertiary)] mt-1">PDF, JPG, PNG, DOC, DOCX · Max 10 MB</p>
               </div>
 
               <div className="flex gap-3 pt-3 border-t border-[var(--border-color)]">
@@ -327,6 +328,7 @@ export default function UserDetail() {
   const [payslips, setPayslips] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
   const [editingPayslipId, setEditingPayslipId] = useState<string | null>(null);
+  const [showPresetModal, setShowPresetModal] = useState(false);
 
   useEffect(() => {
     if (id) getFullProfile(id);
@@ -414,6 +416,7 @@ export default function UserDetail() {
 
   const p = currentFullProfile;
   const sp = p.staffProfile;
+  const payslipForPeriod = payslips.find((r) => Number(r.month) === payrollMonth && Number(r.year) === payrollYear) ?? null;
 
   return (
     <div className="space-y-6 p-6">
@@ -485,8 +488,6 @@ export default function UserDetail() {
                 <label className="block text-sm font-medium text-[var(--text-primary)] mb-1.5">Role</label>
                 <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })}
                   className="w-full px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-                  {/* Without this option a super administrator's record shows as "Admin" here,
-                      and the next save silently demotes them. */}
                   {(canManageSuperAdmin || userForm.role === 'super_admin') && (
                     <option value="super_admin" disabled={!canManageSuperAdmin}>Super Admin</option>
                   )}
@@ -600,29 +601,43 @@ export default function UserDetail() {
           </div>
         )}
 
+        {/* ── Payslips — same look as the other tabs ── */}
         {tab === 'payslips' && (
           <div className="space-y-4">
-            <div className="flex flex-wrap items-end gap-3">
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Month</label>
-                <select value={payrollMonth} onChange={(e) => setPayrollMonth(Number(e.target.value))}
-                  className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-                  {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                    <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' })}</option>
-                  ))}
-                </select>
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Month</label>
+                  <select value={payrollMonth} onChange={(e) => setPayrollMonth(Number(e.target.value))}
+                    className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                    {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                      <option key={m} value={m}>{new Date(2000, m - 1, 1).toLocaleString('default', { month: 'long' })}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Year</label>
+                  <select value={payrollYear} onChange={(e) => setPayrollYear(Number(e.target.value))}
+                    className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
+                    {[0, 1, 2].map((i) => { const y = new Date().getFullYear() - i; return <option key={y} value={y}>{y}</option>; })}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">Year</label>
-                <select value={payrollYear} onChange={(e) => setPayrollYear(Number(e.target.value))}
-                  className="px-3 py-2 bg-[var(--bg-main)] border border-[var(--border-color)] rounded-lg text-sm text-[var(--text-primary)]">
-                  {[0, 1, 2].map((i) => { const y = new Date().getFullYear() - i; return <option key={y} value={y}>{y}</option>; })}
-                </select>
+
+              {/* Buttons on the right, same size / style as Save / Upload */}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowPresetModal(true)}
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-yellow-bg)] text-[var(--icon-yellow-text)] rounded-lg hover:bg-[var(--icon-yellow-text)] hover:text-white text-sm font-medium"
+                >
+                  <Pencil className="w-4 h-4" />
+                  {payslipForPeriod ? 'Edit Payslip Values' : 'Set Payslip Values Before Run'}
+                </button>
+                <button onClick={handleGenerateOne}
+                  className="flex items-center gap-2 px-3 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium">
+                  <Play className="w-4 h-4" /> Generate for {payrollMonth}/{payrollYear}
+                </button>
               </div>
-              <button onClick={handleGenerateOne}
-                className="flex items-center gap-2 px-4 py-2 bg-[var(--icon-cyan-bg)] text-[var(--icon-cyan-text)] rounded-lg hover:bg-[var(--icon-cyan-text)] hover:text-white text-sm font-medium">
-                <Play className="w-4 h-4" /> Generate for {payrollMonth}/{payrollYear}
-              </button>
             </div>
 
             {payslips.length === 0 ? (
@@ -650,7 +665,7 @@ export default function UserDetail() {
                         <td className="px-4 py-2 text-right">{formatCedis(r.deductions)}</td>
                         <td className="px-4 py-2 text-right font-semibold">{formatCedis(r.netPay)}</td>
                         <td className="px-4 py-2 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium ${
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text- font-medium ${
                             r.isPaid ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
                           }`}>
                             {r.isPaid ? <Check className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
@@ -681,6 +696,18 @@ export default function UserDetail() {
         <PayslipEditor
           payslipId={editingPayslipId}
           onClose={() => setEditingPayslipId(null)}
+          onSaved={refreshPayslips}
+        />
+      )}
+
+      {showPresetModal && id && (
+        <PayslipPresetModal
+          userId={id}
+          userName={p.fullName}
+          month={payrollMonth}
+          year={payrollYear}
+          existingPayslip={payslipForPeriod}
+          onClose={() => setShowPresetModal(false)}
           onSaved={refreshPayslips}
         />
       )}

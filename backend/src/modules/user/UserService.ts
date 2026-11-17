@@ -706,6 +706,33 @@ export class UserService extends BaseService {
     return this.repository.upsertPayslipForStaff(profile.id, month, year);
   }
 
+  async presetPayslipForUser(
+  userId: string,
+  month: number,
+  year: number,
+  lineItems: Array<{
+    type: 'earning' | 'deduction';
+    category: string;
+    description?: string;
+    amount: number;
+    taxable?: boolean;
+  }>,
+) {
+  const profile = await this.repository.prisma.staffProfile.findUnique({
+    where: { userId },
+    select: { id: true },
+  });
+  if (!profile) {
+    throw new Error(
+      'This user has no staff profile yet. Save their HR details first, then set payslip values.',
+    );
+  }
+  if (!Array.isArray(lineItems) || lineItems.length === 0) {
+    throw new Error('Send at least one earning or deduction to preset');
+  }
+  return this.repository.presetPayslipForStaff(profile.id, month, year, lineItems);
+}
+
   async runPayrollForMonth(month: number, year: number) {
     return this.repository.runPayrollForAllActive(month, year);
   }

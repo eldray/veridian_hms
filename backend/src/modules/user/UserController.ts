@@ -241,6 +241,21 @@ export class UserController extends BaseController {
     return this.created(res, record, 'Payslip generated');
   });
 
+  presetPayslip = this.asyncHandler(async (req: AuthRequest, res: Response) => {
+  const userId = req.params.id;
+  const { month, year, lineItems } = req.body;
+  if (!month || !year) return this.badRequest(res, 'month and year are required');
+  if (!Array.isArray(lineItems)) return this.badRequest(res, 'lineItems must be an array');
+
+  const record = await this.service.presetPayslipForUser(
+    userId,
+    Number(month),
+    Number(year),
+    lineItems,
+  );
+  return this.ok(res, record, 'Payslip values saved. They will be used when payroll runs.');
+});
+
   runPayroll = this.asyncHandler(async (req: AuthRequest, res: Response) => {
     const { month, year } = req.body;
     if (!month || !year) return this.badRequest(res, 'month and year are required');

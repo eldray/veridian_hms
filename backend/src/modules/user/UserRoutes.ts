@@ -115,6 +115,9 @@ export const createUserRoutes = (prisma: any): Router => {
   // variants are the HR/admin view and must not be open to every role.
   router.get('/:id/payslips', selfOrRoles(ADMIN_HR), controller.getUserPayslips);
   router.post('/:id/payslips', requireRole([...ADMIN_HR]), controller.generatePayslip);
+  // Set payslip values BEFORE Run Payroll — HR presets earnings/deductions,
+// they are saved as a draft, and Run Payroll will not overwrite them.
+router.post('/:id/payslips/preset', requireRole([...ADMIN_HR]), controller.presetPayslip);
   router.get('/:id/documents', selfOrRoles(ADMIN_HR), controller.getUserDocuments);
   router.post('/:id/documents', selfOrRoles(ADMIN_HR), uploadSingleDocument, handleUploadError, controller.uploadUserDocument);
 

@@ -28,6 +28,7 @@ import {
   getMyPayslips as getMyPayslipsApi,
   getAllPayslips as getAllPayslipsApi,
   generatePayslip as generatePayslipApi,
+  presetPayslip as presetPayslipApi,
   runPayroll as runPayrollApi,
   updatePayslip as updatePayslipApi,
   getPayslipById as getPayslipByIdApi,
@@ -125,6 +126,20 @@ export interface Payslip {
     jobGrade?: any;
     salaryStep?: any;
   };
+}
+
+export interface PayslipPresetInput {
+  baseSalary?: number;
+  allowances?: number;
+  deductions?: number;
+  notes?: string | null;
+  lineItems?: Array<{
+    type: 'earning' | 'deduction';
+    category: string;
+    description?: string;
+    amount: number;
+    taxable?: boolean;
+  }>;
 }
 
 export interface FullProfile {
@@ -246,6 +261,7 @@ interface UserState {
   getUserPayslips: (userId: string) => Promise<Payslip[]>;
   getAllPayslips: (filters?: { month?: number; year?: number; userId?: string; isPaid?: boolean; page?: number; limit?: number }) => Promise<void>;
   generatePayslip: (userId: string, month: number, year: number) => Promise<Payslip>;
+  presetPayslip: (userId: string, month: number, year: number, data: PayslipPresetInput) => Promise<Payslip>;
   runPayroll: (month: number, year: number) => Promise<any>;
   updatePayslip: (payslipId: string, data: { isPaid?: boolean; payslipUrl?: string | null; notes?: string | null }) => Promise<Payslip>;
   getPayslipById: (payslipId: string) => Promise<Payslip>;
@@ -705,6 +721,34 @@ export const useUserStore = create<UserState>((set, get) => ({
       return record;
     } catch (error: any) {
       set({ isLoading: false, error: error?.response?.data?.message || 'Failed to generate payslip' });
+      throw error;
+    }
+  },
+
+  presetPayslip: async (userId, month, year, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      const record = await presetPayslipApi(userId, month, year, data);
+      // Keep an already-loaded payroll list in sync so the preset shows
+      // immediately and is not wiped out by the next Run Payroll refresh.
+      const all = get().allPayslips;
+      if (all && Array.isArray(all.records)) {
+        const exists = all.records.some((r) => r.id === record?.id);
+        set({
+          allPayslips: {
+            ...all,
+            records: exists
+              ? all.records.map((r) => (r.id === record.id ? record : r))
+              : [record, ...all.records],
+          },
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false });
+      }
+      return record;
+    } catch (error: any) {
+      set({ isLoading: false, error: error?.response?.data?.message || 'Failed to preset payslip' });
       throw error;
     }
   },
