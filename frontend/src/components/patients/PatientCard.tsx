@@ -1,6 +1,7 @@
 // src/components/patients/PatientCard.tsx
 import { Link } from 'react-router-dom';
-import { User, Calendar, Phone, CreditCard, Eye, Stethoscope, Edit } from 'lucide-react';
+import { Calendar, Phone, CreditCard, Eye, Stethoscope, Edit } from 'lucide-react';
+import { PatientAvatar } from './PatientAvatar';
 
 interface PatientCardProps {
   patient: any;
@@ -21,19 +22,7 @@ export const PatientCard: React.FC<PatientCardProps> = ({
     <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200 hover:shadow-md transition-all duration-200 group">
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-teal-500 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
-            {patient.imageUrl ? (
-              <img 
-                src={patient.imageUrl} 
-                alt={patient.fullName}
-                className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            ) : null}
-            {!patient.imageUrl && <User className="w-4 h-4 text-white" />}
-          </div>
+          <PatientAvatar imageUrl={patient.imageUrl} name={patient.fullName} size="md" className="rounded-lg shadow-sm bg-gradient-to-r from-blue-500 to-teal-500" />
           <div>
             <h3 className="font-semibold text-gray-900 text-sm leading-tight">{patient.fullName}</h3>
             <p className="text-xs text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border mt-0.5">
