@@ -63,36 +63,6 @@ export interface PurchaseInvoiceItem {
   expiryDate?: string;
 }
 
-export interface Requisition {
-  id: string;
-  requisitionNumber: string;
-  requestingDepartmentId?: string | null;
-  requestingWardId?: string | null;
-  supplyingDepartmentId?: string | null;
-  supplyingDepartment?: { id?: string; name: string } | null;
-  departments?: { id?: string; name: string } | null;
-  ward?: { id?: string; wardName: string } | null;
-  requestedById: string;
-  urgency: 'routine' | 'urgent' | 'emergency';
-  requiredDate?: string;
-  purpose?: string;
-  status: 'draft' | 'submitted' | 'approved' | 'fulfilled' | 'cancelled';
-  createdAt: string;
-  updatedAt: string;
-  items?: RequisitionItem[];
-}
-
-export interface RequisitionItem {
-  id: string;
-  requisitionId: string;
-  stockItemId: string;
-  quantityRequested: number;
-  quantityApproved?: number;
-  quantityFulfilled?: number;
-  purpose?: string;
-  notes?: string;
-}
-
 // ============================================
 // ANTENATAL TYPES
 // ============================================

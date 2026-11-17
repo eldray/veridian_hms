@@ -17,6 +17,7 @@ import { ConsumableModal } from '../components/medical-entries/modals/Consumable
 import { ConsumableUsesPanel } from '../components/medical-entries/ConsumableUsesPanel';
 import { deleteEncounterConsumableUse, getEncounterConsumableUses, getPharmacyWorklist } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { PrintFormatToggle, getPrintFormat } from '../components/PrintFormatToggle';
 import { getPatientName } from '../utils/patient';
 import { pickVisit } from '../utils/visitSelection';
 import {
@@ -462,7 +463,7 @@ export default function DispensePatient() {
     if (!meds.length) { toastError('Nothing to print', 'No prescribed medications'); return; }
     setPrintingId(med?.id || 'all');
     try {
-      const html = generatePDF('combinedPrescription', {
+      const html = generatePDF(getPrintFormat('prescription') === 'slip' ? 'thermalPrescription' : 'combinedPrescription', {
         medications: meds.map((m: any) => ({
           name: m.name,
           dosage: m.dosage || 'As directed',
@@ -588,6 +589,7 @@ export default function DispensePatient() {
                 Add Prescription
               </Button>
             )}
+            {prescribedMeds.length > 0 && <PrintFormatToggle doc="prescription" />}
             {prescribedMeds.length > 0 && (
               <Button size="sm" icon={Printer} disabled={printingId === 'all'} onClick={() => handlePrint()}>
                 Print All

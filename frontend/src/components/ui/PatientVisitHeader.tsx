@@ -182,7 +182,8 @@ export function PatientVisitHeader({
             className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 border"
             style={{
               background: accentVar(accent, 'bg'),
-              borderColor: accentVar(accent, 'border') ?? 'var(--border-color)',
+              // The theme defines no border variable per accent; tint the text colour instead.
+              borderColor: `color-mix(in srgb, ${accentVar(accent, 'text')} 30%, transparent)`,
               color: accentVar(accent, 'text'),
             }}
           >

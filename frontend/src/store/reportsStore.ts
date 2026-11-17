@@ -9,6 +9,7 @@ import {
   getMorbidityMortalityReport,
   getTopDiagnoses,
   getFinancialReport,
+  getStockMovementReport,
   getInsuranceClaimsReport,
   getClinicalReport,
   getEncounterReport,          // aliased as getAttendanceReport in store actions
@@ -55,6 +56,7 @@ interface ReportsState {
 
   // ── Financial / clinical ──────────────────────
   financialReport: any | null;
+  stockMovementReport: any | null;
   insuranceClaimsReport: any | null;
   clinicalReport: any | null;
   attendanceReport: any | null;
@@ -89,6 +91,7 @@ interface ReportsState {
 
   // ── Actions: Financial / clinical ────────────
   getFinancialReport: (filters: ReportFilter) => Promise<void>;
+  getStockMovementReport: (filters: ReportFilter) => Promise<void>;
   getInsuranceClaimsReport: (filters: ReportFilter) => Promise<void>;
   getClinicalReport: (filters: ReportFilter) => Promise<void>;
   getAttendanceReport: (filters: ReportFilter) => Promise<void>;
@@ -143,7 +146,7 @@ export const useReportsStore = create<ReportsState>((set) => ({
   opdReport: null, ipdReport: null, idsrReport: null, malariaReport: null,
   formAReport: null, morbidityMortalityReport: null, topDiagnoses: null,
   familyPlanningReport: null, consultingRoomRegister: null,
-  financialReport: null, insuranceClaimsReport: null, clinicalReport: null,
+  financialReport: null, stockMovementReport: null, insuranceClaimsReport: null, clinicalReport: null,
   attendanceReport: null, revenueReport: null, demographicReport: null,
   labReport: null, scanReport: null, procedureReport: null,
   medicationReport: null, vitalsReport: null,
@@ -387,7 +390,7 @@ export const useReportsStore = create<ReportsState>((set) => ({
     opdReport: null, ipdReport: null, idsrReport: null, malariaReport: null,
     formAReport: null, morbidityMortalityReport: null, topDiagnoses: null,
     familyPlanningReport: null, consultingRoomRegister: null,
-    financialReport: null, insuranceClaimsReport: null, clinicalReport: null,
+    financialReport: null, stockMovementReport: null, insuranceClaimsReport: null, clinicalReport: null,
     attendanceReport: null, revenueReport: null, demographicReport: null,
     labReport: null, scanReport: null, procedureReport: null,
     medicationReport: null, vitalsReport: null,

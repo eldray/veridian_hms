@@ -333,6 +333,13 @@ export default function GenericReportPage({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
+            ) : filter.kind === 'checkbox' ? (
+              <input
+                type="checkbox"
+                checked={values[filter.stateKey || filter.key] === 'true'}
+                onChange={event => onFilterChange(filter.stateKey || filter.key, event.target.checked ? 'true' : '')}
+                className="h-4 w-4 mt-1.5 accent-[var(--icon-cyan-text)]"
+              />
             ) : (
               <input
                 type="text"

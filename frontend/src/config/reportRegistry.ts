@@ -697,8 +697,6 @@ export const STOCK_REPORTS: ReportShape[] = [
     roles: ['admin', 'accounts', 'pharmacist'],
     periodField: 'period',
     filters: [
-      { key: 'startDate', label: 'Start Date', kind: 'date' },
-      { key: 'endDate', label: 'End Date', kind: 'date' },
       { key: 'category', label: 'Stock Category', kind: 'select', options: [] },
       { key: 'departmentId', label: 'Department', kind: 'select', options: [] },
       { key: 'includeAllStockLocations', label: 'All Locations', kind: 'checkbox' },

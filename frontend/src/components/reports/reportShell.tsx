@@ -71,7 +71,7 @@ export type StatCard = StatField;
 
 // ── Filters ───────────────────────────────────────────────────────────────────
 
-export type FilterKind = 'select' | 'text';
+export type FilterKind = 'select' | 'text' | 'checkbox';
 
 export interface ReportFilterDef {
   kind: FilterKind;

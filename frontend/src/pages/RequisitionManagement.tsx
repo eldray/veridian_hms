@@ -1,4 +1,4 @@
-// src/pages/stock/Requisitions.tsx  (or wherever your file lives)
+// src/pages/RequisitionManagement.tsx
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -7,25 +7,22 @@ import {
   Calendar, Clock, AlertCircle
 } from 'lucide-react';
 import AsyncSelect from 'react-select/async';
-import { useStockStore } from '../../stores/stockStore';
-import { useAuthStore } from '../../stores/authStore'; // adjust path if needed
+import { useStockStore } from '../store/stockStore';
+import { useAuthStore } from '../store/authStore';
 import {
   getRequisition as apiGetRequisition,
   lookupRequisitionStock,
+  updateRequisitionStatus,
   type Requisition,
   type RequisitionStockLookupItem,
-} from '../../api';
-import { PageHeader } from '../../components/PageHeader'; // adjust paths
-import { Button } from '../../components/Button';
-import { Card } from '../../components/Card';
-import { StatCard } from '../../components/StatCard';
-import { SearchInput } from '../../components/SearchInput';
-import { FilterSelect } from '../../components/FilterSelect';
-import { Badge, type BadgeTone } from '../../components/Badge';
-import { Pagination } from '../../components/Pagination';
-import { toastSuccess as success, toastError, confirmDialog } from '../../utils/toast'; // adjust
-import { cn, TABLE_SHELL, TH_ROW, TH, TD, TR, INPUT, SELECT } from '../../utils/ui'; // adjust
-import { humanStatus, statusTone } from '../../utils/status'; // adjust
+} from '../api';
+import {
+  PageHeader, Button, Card, StatCard, SearchInput, FilterSelect, Badge, Pagination,
+  cn, TABLE_SHELL, TH_ROW, TH, TD, TR, INPUT, SELECT, statusTone, humanStatus,
+} from '../components/ui';
+import type { BadgeTone } from '../components/ui';
+import { useToast } from '../store/toastStore';
+import { confirmDialog } from '../context/ConfirmDialog';
 
 // ─────────────────────────────────────────────────────────────
 // Types for the form
@@ -49,6 +46,7 @@ const emptyLine = (): FormLine => ({
 // ─────────────────────────────────────────────────────────────
 export default function RequisitionsPage() {
   const navigate = useNavigate();
+  const { success, error: toastError } = useToast();
   const { user, hasRole } = useAuthStore(); // adjust to your auth shape
   const {
     requisitions,
@@ -56,7 +54,6 @@ export default function RequisitionsPage() {
     getRequisitions,
     createRequisition,
     deleteRequisition,
-    updateRequisitionStatus,
     approveRequisition,
   } = useStockStore();
 

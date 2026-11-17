@@ -12,6 +12,7 @@ import { QueuedVisits, type QueuedVisit } from '../components/worklist/QueuedVis
 import { LabTestModal } from '../components/medical-entries/modals/LabTestModal';
 import { getLabWorklist } from '../api';
 import { generatePDF, openPrintWindow } from '../utils/pdfGenerator';
+import { PrintFormatToggle, getPrintFormat } from '../components/PrintFormatToggle';
 import { getPatientName } from '../utils/patient';
 import { pickVisit } from '../utils/visitSelection';
 import SendDocumentModal from '../components/SendDocumentModal';
@@ -215,8 +216,9 @@ const MultiParameterResultForm: React.FC<{
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
-      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+      {/* FIX: stacking context — overlay is z-0 inside the modal root, dialog sits on z-10 above it. */}
+      <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4">
         <div className={cn(TABLE_SHELL, 'shadow-2xl max-w-4xl w-full max-h-[94vh] flex flex-col')}>
 
           {/* Header */}
@@ -591,7 +593,7 @@ export default function LabResultEntry() {
         ? parameters
         : [{ name: getTestName(test), value: typeof test.result === 'object' ? test.result?.value : test.result, normalRange: test.normalRange, unit: test.units }];
 
-      const html = generatePDF('labResults', {
+      const html = generatePDF(getPrintFormat('lab') === 'slip' ? 'thermalLabResults' : 'labResults', {
         labTests: [{
           testName: getTestName(test),
           parameters: resultLines,
@@ -634,7 +636,7 @@ export default function LabResultEntry() {
         };
       });
 
-      const html = generatePDF('labResults', {
+      const html = generatePDF(getPrintFormat('lab') === 'slip' ? 'thermalLabResults' : 'labResults', {
         labTests: labTestsData,
         patient: { ...patient, fullName: getPatientName(patient) },
         attendance,
@@ -748,6 +750,7 @@ export default function LabResultEntry() {
 
             {completedTests.length > 0 && (
               <>
+                <PrintFormatToggle doc="lab" />
                 <Button
                   variant="secondary"
                   icon={Printer}
@@ -1236,8 +1239,9 @@ export default function LabResultEntry() {
       {/* ── SINGLE RESULT ENTRY MODAL ── */}
       {resultEntryTest && !isMultiParamModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setResultEntryTest(null)} />
-          <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+          {/* FIX: stacking context — overlay z-0, dialog wrapper relative z-10. */}
+          <div className="fixed inset-0 z-0 bg-black/40 backdrop-blur-sm" onClick={() => setResultEntryTest(null)} />
+          <div className="relative z-10 flex min-h-full items-center justify-center p-3 sm:p-4">
             <div className={cn(TABLE_SHELL, 'max-w-md w-full')}>
 
               <div className="bg-[var(--bg-main)] border-b border-[var(--border-color)] px-5 py-4">

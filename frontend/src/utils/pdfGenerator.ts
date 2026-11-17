@@ -7,6 +7,8 @@ import { generateLeaveRegisterHTML } from './pdfTemplates/leaveRegisterPDF';
 import { generateLeaveRequestFormHTML } from './pdfTemplates/leaveRequestFormPDF';
 import { generateReceiptHTML } from './pdfTemplates/receiptPDF';
 import { generateThermalReceiptHTML } from './pdfTemplates/thermalReceiptPDF';
+import { generateThermalPrescriptionHTML } from './pdfTemplates/thermalPrescriptionPDF';
+import { generateThermalLabResultsHTML } from './pdfTemplates/thermalLabResultsPDF';
 import { generateInsuranceClaimHTML } from './pdfTemplates/insuranceClaimPDF';
 import { generateClaimBatchHTML } from './pdfTemplates/claimBatchPDF';
 import { generateBillStatementHTML } from './pdfTemplates/billStatementPDF';
@@ -23,6 +25,8 @@ import { generateHandoverHTML } from './pdfTemplates/handoverPDF';
 export type PDFType =
   | 'receipt'
   | 'thermalReceipt'
+  | 'thermalPrescription'
+  | 'thermalLabResults'
   | 'insuranceClaim'
   | 'billStatement'
   | 'visitSummary'
@@ -43,23 +47,29 @@ export type PDFType =
   | 'leaveRequestForm'
   | 'claimBatch';
 
+/** The pages pass the lab technician once for the whole print; the templates read it per test. */
+const withPerformer = (tests: any[], name?: string): any[] =>
+  (Array.isArray(tests) ? tests : []).map((t) => (name && !t?.performedByName ? { ...t, performedByName: name } : t));
+
 export const generatePDF = (
   type: PDFType,
   data: any,
   hospital: any
 ): string => {
   // Debug logging
-  console.log('📄 generatePDF called with type:', type);
-  console.log('📄 Data keys:', Object.keys(data || {}));
   
   switch (type) {
     case 'receipt':
       return generateReceiptHTML(data.bill, data.patient, data.payment, hospital);
     case 'thermalReceipt':
-      return generateThermalReceiptHTML(data.bill, data.patient, data.payment, hospital);
+      return generateThermalReceiptHTML(data.bill, data.patient, data.payment, hospital, data.paperWidth);
+    case 'thermalPrescription':
+      // Accepts data.medications (list) or data.medication (single).
+      return generateThermalPrescriptionHTML(data.medications ?? data.medication, data.patient, data.attendance, hospital, data.prescriberName, data.paperWidth);
+    case 'thermalLabResults':
+      return generateThermalLabResultsHTML(withPerformer(data.labTests, data.performedByName), data.patient, data.attendance, hospital, data.paperWidth);
     case 'insuranceClaim':
-      // New signature: (claim, hospital)
-      return generateInsuranceClaimHTML(data.claim, hospital);
+      return generateInsuranceClaimHTML(data.claim, data.patient ?? data.claim?.Patient ?? data.claim?.patient, hospital);
     case 'claimBatch':
       return generateClaimBatchHTML(data.batch, hospital);
     case 'billStatement':
@@ -69,7 +79,7 @@ export const generatePDF = (
     case 'labResults':
     case 'lab-results':  // ✅ Handle both
     case 'labResult':    // ✅ Handle labResult too
-      return generateLabResultsHTML(data.labTests, data.patient, data.attendance, hospital);
+      return generateLabResultsHTML(withPerformer(data.labTests, data.performedByName), data.patient, data.attendance, hospital);
     case 'dischargeSummary':
       return generateDischargeSummaryHTML(data.admission, data.attendance, data.patient, data.clinicalData, hospital);
     case 'prescription':
@@ -120,7 +130,9 @@ case 'shiftSummary':
 
 // Open print window function
 export const openPrintWindow = (htmlContent: string, title = 'Document', autoPrint = false) => {
-  const printWindow = window.open('', '_blank', 'width=420,height=680');
+  // Receipt slips are narrow; A4 documents need room to be read before printing.
+  const isSlip = htmlContent.includes('id="slip"');
+  const printWindow = window.open('', '_blank', isSlip ? 'width=420,height=680' : 'width=960,height=900');
   if (!printWindow) {
     alert('Please allow popups to print documents');
     return;

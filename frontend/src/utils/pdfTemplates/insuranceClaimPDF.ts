@@ -1,913 +1,214 @@
-// src/utils/pdfTemplates/insuranceClaimPDF.ts - REDESIGNED PROFESSIONAL VERSION
-import type { Hospital } from '../../types';
+// src/utils/pdfTemplates/insuranceClaimPDF.ts
+// Insurance / NHIA claim form for one attendance.
+// Prints only what the claim actually holds. A missing member number, CCC, G-DRG or facility code
+// is shown as blank and listed in a "not ready to submit" box, never replaced by a made-up default.
 import {
   NHIS_ATTENDANCE_OPTIONS, NHIS_SERVICE_OUTCOME_LABELS, mapAttendanceToNHIS,
   nhisSpecialtiesFor, normalizeNHISAttendanceCode, normalizeNHISOutcomeCode, OPD_SCHEME_SPECIALTY,
 } from '../nhisAttendanceMapping';
+import {
+  esc, orDash, human, money, fmtDate, ageText, sexText, patientName, diagnosesOf,
+  resolveHospital, docTitle, section, table, signatures, note, kvGrid, pageShell,
+} from './printKit';
 
-// ==========================================
-// HELPER FUNCTIONS
-// ==========================================
+const n = (v: unknown): number => Number(v) || 0;
+const amt = (v: unknown): string => money(v).replace('GHS ', '');
+const STATUS_LABEL: Record<string, string> = {
+  draft: 'DRAFT', submitted: 'SUBMITTED', approved: 'APPROVED', rejected: 'REJECTED', paid: 'PAID', partially_paid: 'PART PAID',
+};
 
-const formatDate = (dateString?: string): string => {
-  if (!dateString) return '';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '';
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  } catch {
-    return '';
+export const generateInsuranceClaimHTML = (claim: any, patient: any, hospital: any): string => {
+  const h = resolveHospital(hospital);
+  const att = claim?.Attendance || {};
+  const diagnoses = diagnosesOf(att);
+  const labTests: any[] = att.LabTest || [];
+  const scans: any[] = att.Scan || [];
+  const medications: any[] = att.Medication || [];
+  const procedures: any[] = att.Procedure || [];
+  const services: any[] = att.ServiceRendered || [];
+
+  const isNHIS =
+    claim?.InsuranceProvider?.type === 'nhis' || claim?.insuranceProvider?.type === 'nhis' ||
+    claim?.typeOfService === 'NHIS' || att.paymentMode === 'nhis';
+
+  const attendedAt = att.dateTime || att.createdAt || claim?.createdAt;
+  const claimNo = claim?.claimNumber || '';
+  const status = String(claim?.status || 'draft');
+
+  // The member number is the insurer's number; a hospital folder number must never stand in for it.
+  const memberNo = String(patient?.insurancePolicyNumber || patient?.nhisNumber || '').trim();
+  const ccc = String(att.nhisCCC || '').trim();
+  const facilityCode = h.nhisFacilityCode;
+  const principalGDRG = String(claim?.principalGDRG || claim?.gdrgCodes?.[0] || '').trim();
+
+  const mapped = mapAttendanceToNHIS(att.attendanceType, !!att.Admission);
+  const serviceCode = claim?.typeOfService || mapped.typeOfService;
+  const mdc = nhisSpecialtiesFor(serviceCode, [claim?.mdcCode, principalGDRG])[0] || OPD_SCHEME_SPECIALTY;
+  const dob = patient?.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+  const ref = attendedAt ? new Date(attendedAt) : new Date();
+  const ageYears = dob && !isNaN(dob.getTime())
+    ? Math.max(0, ref.getFullYear() - dob.getFullYear() - (ref.getMonth() < dob.getMonth() || (ref.getMonth() === dob.getMonth() && ref.getDate() < dob.getDate()) ? 1 : 0))
+    : null;
+  const ageSplit = ageYears === null ? '' : ageYears >= 12 ? 'A' : 'C';
+  const provider = claim?.InsuranceProvider?.name || claim?.insuranceProvider?.name || '';
+  const typeOfService = serviceCode === 'IPD' ? 'In-patient' : 'Out-patient';
+  const outcome = NHIS_SERVICE_OUTCOME_LABELS[normalizeNHISOutcomeCode(claim?.serviceOutcome)] ?? 'Discharged';
+  const attendanceType =
+    NHIS_ATTENDANCE_OPTIONS.find((o) => o.value === (normalizeNHISAttendanceCode(claim?.typeOfAttendance) || mapped.typeOfAttendance))?.label ||
+    'Emergency / acute episode';
+
+  // ── Line items ────────────────────────────────────────────────────────────────
+  const medItems = medications.map((m) => {
+    const unit = n(m.unitPrice ?? m.dispensedUnitCost);
+    const qty = n(m.quantity) || 1;
+    return {
+      code: m.code || m.StockItem?.drugCode || '',
+      name: m.name || m.ServiceCatalog?.name || 'Medicine',
+      detail: [m.dosage, m.frequency, m.duration && `x ${m.duration}`].filter(Boolean).join(' '),
+      qty, unit, total: qty * unit,
+    };
+  });
+  const investigations = [...labTests, ...scans].map((i) => ({
+    code: i.ServiceCatalog?.investigationCode || i.ServiceCatalog?.nhisServiceCode || '',
+    name: i.ServiceCatalog?.name || i.name || 'Investigation',
+    date: i.requestedAt || i.createdAt,
+    total: n(i.unitPrice),
+  }));
+  const procItems = procedures.map((p) => ({ code: p.ServiceCatalog?.code || '', name: p.ServiceCatalog?.name || p.name || 'Procedure', total: n(p.unitPrice) }));
+  const svcItems = services.map((s) => ({ code: s.ServiceCatalog?.code || '', name: s.ServiceCatalog?.name || s.name || 'Service', total: n(s.unitPrice) }));
+
+  const totalClaim = n(claim?.totalClaimAmount) || n(claim?.Bill?.totalAmount);
+  const medTotal = medItems.reduce((s, m) => s + m.total, 0);
+  const invTotal = investigations.reduce((s, i) => s + i.total, 0);
+  const procTotal = procItems.reduce((s, p) => s + p.total, 0);
+  const svcTotal = svcItems.reduce((s, x) => s + x.total, 0);
+  const gdrgAmount = totalClaim - medTotal - invTotal - procTotal - svcTotal;
+  const approved = n(claim?.approvedAmount);
+  const paid = n(claim?.paidAmount);
+
+  // ── Readiness check (NHIS claims need these to be accepted) ─────────────────────
+  const missing: string[] = [];
+  if (isNHIS) {
+    if (!memberNo) missing.push('member (NHIS) number');
+    if (!ccc) missing.push('Claim Check Code (CCC)');
+    if (!principalGDRG) missing.push('principal G-DRG code');
+    if (!facilityCode) missing.push('facility NHIA code (set it in hospital settings)');
+    if (!diagnoses.length) missing.push('diagnosis (ICD-10)');
   }
-};
 
-const formatDateLong = (dateString?: string): string => {
-  if (!dateString) return '';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  } catch {
-    return '';
-  }
-};
+  const noun = isNHIS ? 'NHIS claim form' : 'Insurance claim';
+  const body = `
+    ${docTitle(noun, { ref: claimNo, refLabel: 'Claim no.', date: attendedAt, dateLabel: 'Attendance', status: STATUS_LABEL[status] || status.toUpperCase() })}
 
-const formatDateTime = (dateString?: string): string => {
-  if (!dateString) return '';
-  try {
-    const d = new Date(dateString);
-    if (isNaN(d.getTime())) return '';
-    return d.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  } catch {
-    return '';
-  }
-};
+    ${missing.length ? note(`<b>Not ready to submit — missing:</b> ${missing.map(esc).join('; ')}.`, 'warn') : ''}
 
-const formatCurrency = (amount: any): string => {
-  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  if (isNaN(num)) return '0.00';
-  return num.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-};
+    ${section('Member', kvGrid(
+      [
+        ['Member name', `<b>${esc(patientName(patient))}</b>`],
+        [isNHIS ? 'NHIS member no.' : 'Policy / member no.', memberNo ? `<b>${esc(memberNo)}</b>` : '<span class="muted">—</span>'],
+        ['Claim check code (CCC)', orDash(ccc)],
+        ['Folder no.', orDash(patient?.folderNumber)],
+        ['Sex', sexText(patient)],
+        ['Date of birth', esc(fmtDate(patient?.dateOfBirth))],
+        ['Age at attendance', esc(ageText(patient, attendedAt))],
+        ['Contact', orDash(patient?.contact || patient?.phone || patient?.mobile)],
+      ],
+      4,
+    ), { keepTogether: true })}
 
-const escapeHtml = (text: string): string => {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
-};
+    ${section('Facility and service', kvGrid(
+      [
+        ['Facility', `<b>${esc(h.name)}</b>`],
+        ['NHIA facility code', orDash(facilityCode)],
+        ['Insurer / scheme', orDash(provider)],
+        ['Type of service', esc(typeOfService)],
+        ['Type of attendance', esc(attendanceType)],
+        ['Specialty (MDC) / age split', `${esc(mdc)}${esc(ageSplit)}`],
+        ['Principal G-DRG', principalGDRG ? `<b>${esc(principalGDRG)}</b>` : '<span class="muted">—</span>'],
+        ['Service outcome', esc(outcome)],
+        ...(att.Admission
+          ? ([
+              ['Admitted', esc(fmtDate(att.Admission.admissionDate))],
+              ['Discharged', att.Admission.dischargeDate ? esc(fmtDate(att.Admission.dischargeDate)) : '<span class="muted">—</span>'],
+            ] as Array<[string, string]>)
+          : []),
+      ],
+      4,
+    ), { keepTogether: true })}
 
-const getStatusClass = (status: string): string => {
-  const map: Record<string, string> = {
-    draft: 'status-draft',
-    submitted: 'status-submitted',
-    approved: 'status-approved',
-    paid: 'status-paid',
-    rejected: 'status-rejected',
-  };
-  return map[status?.toLowerCase()] || 'status-draft';
-};
+    ${section('Diagnoses', table({
+      head: ['#', 'ICD-10', 'Diagnosis', 'Type'],
+      widths: ['5%', '14%', '61%', '20%'],
+      align: ['c'],
+      rows: diagnoses.map((d, i) => [String(i + 1), orDash(d.code), esc(d.name), orDash(d.type)]),
+      empty: 'No diagnosis recorded',
+    }), { keepTogether: true })}
 
-const getStatusLabel = (status: string): string => {
-  const map: Record<string, string> = {
-    draft: 'DRAFT',
-    submitted: 'SUBMITTED',
-    approved: 'APPROVED',
-    paid: 'PAID',
-    rejected: 'REJECTED',
-  };
-  return map[status?.toLowerCase()] || status?.toUpperCase() || 'DRAFT';
-};
+    ${medItems.length ? section('Medicines', table({
+      head: ['Code', 'Medicine', 'Qty', 'Unit price', 'Amount'],
+      widths: ['14%', '46%', '8%', '16%', '16%'],
+      align: [undefined, undefined, 'c', 'r', 'r'],
+      rows: medItems.map((m) => [orDash(m.code), `<b>${esc(m.name)}</b>${m.detail ? `<div class="muted" style="font-size:8pt">${esc(m.detail)}</div>` : ''}`, String(m.qty), esc(amt(m.unit)), esc(amt(m.total))]),
+      foot: [['', '', '', 'Subtotal', esc(amt(medTotal))]],
+    })) : ''}
 
-// ==========================================
-// MAIN EXPORTED FUNCTION
-// ==========================================
+    ${investigations.length ? section('Investigations', table({
+      head: ['Code', 'Investigation', 'Date', 'Amount'],
+      widths: ['16%', '50%', '18%', '16%'],
+      align: [undefined, undefined, undefined, 'r'],
+      rows: investigations.map((i) => [orDash(i.code), esc(i.name), esc(fmtDate(i.date)), esc(amt(i.total))]),
+      foot: [['', '', 'Subtotal', esc(amt(invTotal))]],
+    })) : ''}
 
-export const generateInsuranceClaimHTML = (
-  claim: any,
-  patient: any,
-  hospital: any
-): string => {
-  // Detect claim type
-  const isNHIS = claim?.InsuranceProvider?.type === 'nhis' || 
-                 claim?.insuranceProvider?.type === 'nhis' ||
-                 claim?.typeOfService === 'NHIS' ||
-                 claim?.Attendance?.paymentMode === 'nhis';
+    ${procItems.length ? section('Procedures', table({
+      head: ['Code', 'Procedure', 'Amount'],
+      widths: ['16%', '68%', '16%'],
+      align: [undefined, undefined, 'r'],
+      rows: procItems.map((p) => [orDash(p.code), esc(p.name), esc(amt(p.total))]),
+      foot: [['', 'Subtotal', esc(amt(procTotal))]],
+    })) : ''}
 
-  // Extract data
-  const attendance = claim?.Attendance;
-  const diagnoses = attendance?.AttendanceDiagnosis || [];
-  const labTests = attendance?.LabTest || [];
-  const scans = attendance?.Scan || [];
-  const medications = attendance?.Medication || [];
-  const procedures = attendance?.Procedure || [];
-  const services = attendance?.ServiceRendered || [];
+    ${svcItems.length ? section('Other services', table({
+      head: ['Code', 'Service', 'Amount'],
+      widths: ['16%', '68%', '16%'],
+      align: [undefined, undefined, 'r'],
+      rows: svcItems.map((s) => [orDash(s.code), esc(s.name), esc(amt(s.total))]),
+      foot: [['', 'Subtotal', esc(amt(svcTotal))]],
+    })) : ''}
 
-  // Calculate age
-  const calculateAge = (dob: string, refDate: string): number => {
-    if (!dob) return 0;
-    try {
-      const birth = new Date(dob);
-      const ref = new Date(refDate);
-      if (isNaN(birth.getTime()) || isNaN(ref.getTime())) return 0;
-      let age = ref.getFullYear() - birth.getFullYear();
-      const m = ref.getMonth() - birth.getMonth();
-      if (m < 0 || (m === 0 && ref.getDate() < birth.getDate())) age--;
-      return Math.max(0, age);
-    } catch {
-      return 0;
-    }
-  };
+    ${section('Claim summary', table({
+      head: ['Component', 'Amount (GHS)'],
+      widths: ['70%', '30%'],
+      align: [undefined, 'r'],
+      rows: [
+        ['G-DRG tariff (consultation, bed, nursing and other bundled services)', esc(amt(Math.max(0, gdrgAmount)))],
+        ['Medicines', esc(amt(medTotal))],
+        ['Investigations', esc(amt(invTotal))],
+        ['Procedures', esc(amt(procTotal))],
+        ['Other services', esc(amt(svcTotal))],
+      ],
+      foot: [
+        ['Total claim amount', esc(amt(totalClaim))],
+        ...(approved > 0 || paid > 0
+          ? [['Approved by insurer', esc(amt(approved))], ['Paid by insurer', esc(amt(paid))], ['Outstanding', esc(amt(Math.max(0, (approved || totalClaim) - paid)))]]
+          : []),
+      ],
+    }), { keepTogether: true })}
 
-  const age = patient?.dateOfBirth ? calculateAge(patient.dateOfBirth, attendance?.dateTime || new Date().toISOString()) : 0;
+    ${note('<b>Declaration:</b> I certify that the services listed were provided to the member named above, that the details are correct, and that no part of this claim has been, or will be, charged to the member.')}
 
-  // Get patient info
-  const patientName = patient?.surname && patient?.otherNames 
-    ? `${patient.surname} ${patient.otherNames}` 
-    : patient?.fullName || 'Unknown Patient';
-  const patientId = patient?.folderNumber || patient?.id || 'N/A';
-  const patientContact = patient?.contact || patient?.phone || patient?.mobile || 'N/A';
-  const patientGender = patient?.gender || 'N/A';
-  const patientDOB = patient?.dateOfBirth ? formatDateLong(patient.dateOfBirth) : 'N/A';
-  const memberNumber = patient?.insurancePolicyNumber || patient?.nhisNumber || patient?.folderNumber || 'N/A';
-  const cccCode = attendance?.nhisCCC || patient?.nhisNumber || '';
-
-  // Get hospital info
-  const hospitalName = hospital?.name || 'Veridian Hospital';
-  const hospitalAddress = hospital?.address || '123 Medical Center Drive, Accra, Ghana';
-  const hospitalPhone = hospital?.phone || '+233-24-123-4567';
-  const hospitalEmail = hospital?.email || 'info@veridianhospital.gov.gh';
-  const facilityCode = hospital?.nhisFacilityCode || 'FAC001';
-
-  // Get claim info
-  const claimNumber = claim?.claimNumber || 'N/A';
-  const status = claim?.status || 'draft';
-  const totalAmount = claim?.totalClaimAmount || claim?.Bill?.totalAmount || 0;
-  const approvedAmount = claim?.approvedAmount || 0;
-  const paidAmount = claim?.paidAmount || 0;
-  const principalGDRG = claim?.principalGDRG || claim?.gdrgCodes?.[0] || 'OPDC06A';
-  const mappedAttendance = mapAttendanceToNHIS(attendance?.attendanceType, !!attendance?.Admission);
-  const serviceTypeCode = claim?.typeOfService || mappedAttendance.typeOfService;
-  // The printed form states the specialty the way the claim sends it: an outpatient visit under
-  // the OPDC scheme, an admission under the clinical family that attended it.
-  const mdcCode = nhisSpecialtiesFor(serviceTypeCode, [claim?.mdcCode, principalGDRG])[0] || OPD_SCHEME_SPECIALTY;
-  const ageSplit = age >= 12 ? 'A' : 'C';
-  const providerName = claim?.InsuranceProvider?.name || claim?.insuranceProvider?.name || 'N/A';
-  const typeOfService = serviceTypeCode === 'IPD' ? 'In-Patient' : 'Out-Patient';
-  const serviceOutcome = NHIS_SERVICE_OUTCOME_LABELS[normalizeNHISOutcomeCode(claim?.serviceOutcome)] ?? 'Discharged';
-  const typeOfAttendance = NHIS_ATTENDANCE_OPTIONS.find(o => o.value === (normalizeNHISAttendanceCode(claim?.typeOfAttendance) || mappedAttendance.typeOfAttendance))?.label || 'Emergency/Acute Episode';
-
-  // Calculate totals
-  const medicationsTotal = medications.reduce((sum: number, m: any) => sum + ((m.quantity || 1) * (m.unitPrice || m.dispensedUnitCost || 0)), 0);
-  const investigationsTotal = [...labTests, ...scans].reduce((sum: number, i: any) => sum + (i.unitPrice || 0), 0);
-  const proceduresTotal = procedures.reduce((sum: number, p: any) => sum + (p.unitPrice || 0), 0);
-  const servicesTotal = services.reduce((sum: number, s: any) => sum + (s.unitPrice || 0), 0);
-  const gdrgAmount = totalAmount - medicationsTotal - investigationsTotal - proceduresTotal - servicesTotal;
-
-  // Combine investigations
-  const investigations = [
-    ...labTests.map((l: any) => ({ 
-      name: l.ServiceCatalog?.name || l.name || 'Lab Test',
-      date: l.requestedAt || l.createdAt,
-      code: l.ServiceCatalog?.investigationCode || l.ServiceCatalog?.nhisServiceCode || '',
-      amount: l.unitPrice || 0
-    })),
-    ...scans.map((s: any) => ({ 
-      name: s.ServiceCatalog?.name || s.name || 'Scan',
-      date: s.requestedAt || s.createdAt,
-      code: s.ServiceCatalog?.investigationCode || s.ServiceCatalog?.nhisServiceCode || '',
-      amount: s.unitPrice || 0
-    }))
-  ];
-
-  // Generate items HTML
-  const generateItemsHTML = () => {
-    let html = '';
-    const allItems = [
-      ...medications.map((m: any) => ({ 
-        type: 'Medication', 
-        name: m.name || m.ServiceCatalog?.name || 'Medication', 
-        details: `${m.dosage || ''} ${m.frequency || ''} x ${m.duration || ''}`.trim() || 'As prescribed',
-        code: m.code || m.StockItem?.drugCode || '',
-        quantity: m.quantity || 1,
-        unitPrice: m.unitPrice || m.dispensedUnitCost || 0,
-        total: (m.quantity || 1) * (m.unitPrice || m.dispensedUnitCost || 0)
-      })),
-      ...investigations.map((i: any) => ({ 
-        type: 'Investigation', 
-        name: i.name, 
-        details: '',
-        code: i.code,
-        quantity: 1,
-        unitPrice: i.amount,
-        total: i.amount
-      })),
-      ...procedures.map((p: any) => ({ 
-        type: 'Procedure', 
-        name: p.ServiceCatalog?.name || p.name || 'Procedure', 
-        details: '',
-        code: p.ServiceCatalog?.code || '',
-        quantity: 1,
-        unitPrice: p.unitPrice || 0,
-        total: p.unitPrice || 0
-      })),
-      ...services.map((s: any) => ({ 
-        type: 'Service', 
-        name: s.ServiceCatalog?.name || s.name || 'Service', 
-        details: '',
-        code: s.ServiceCatalog?.code || '',
-        quantity: 1,
-        unitPrice: s.unitPrice || 0,
-        total: s.unitPrice || 0
-      }))
-    ];
-
-    if (allItems.length === 0) {
-      return `
-        <tr>
-          <td colspan="6" style="padding: 30px; text-align: center; color: #94a3b8;">
-            <div style="font-size: 32px; margin-bottom: 8px;">📋</div>
-            No line items found
-          </td>
-        </tr>
-      `;
-    }
-
-    allItems.forEach((item: any, idx: number) => {
-      html += `
-        <tr style="${idx % 2 === 0 ? 'background: #f8fafc;' : ''}">
-          <td style="padding: 8px 12px;">
-            <div style="font-weight: 500;">${escapeHtml(item.name)}</div>
-            ${item.details ? `<div style="font-size: 11px; color: #94a3b8;">${escapeHtml(item.details)}</div>` : ''}
-          </td>
-          <td style="padding: 8px 12px;">
-            <span style="font-size: 11px; padding: 2px 8px; background: #f1f5f9; border-radius: 10px; color: #475569;">
-              ${escapeHtml(item.type)}
-            </span>
-          </td>
-          <td style="padding: 8px 12px; text-align: center;">${item.quantity}</td>
-          <td style="padding: 8px 12px; text-align: right;">${formatCurrency(item.unitPrice)}</td>
-          <td style="padding: 8px 12px; text-align: right; font-weight: 600;">${formatCurrency(item.total)}</td>
-        </tr>
-      `;
-    });
-
-    return html;
-  };
-
-  // Generate diagnoses HTML
-  const generateDiagnosesHTML = () => {
-    if (diagnoses.length === 0) {
-      return `
-        <tr>
-          <td colspan="3" style="padding: 16px; text-align: center; color: #94a3b8;">No diagnoses recorded</td>
-        </tr>
-      `;
-    }
-    return diagnoses.map((d: any) => `
-      <tr>
-        <td style="padding: 8px 12px; font-weight: 500;">${escapeHtml(d.Diagnosis?.name || d.description || '—')}</td>
-        <td style="padding: 8px 12px; font-family: monospace;">${escapeHtml(d.Diagnosis?.icdCode || d.icdCode || '—')}</td>
-        <td style="padding: 8px 12px; font-family: monospace;">${isNHIS ? principalGDRG : '—'}</td>
-      </tr>
-    `).join('');
-  };
-
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Insurance Claim - ${claimNumber}</title>
-  <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: #f1f5f9;
-      padding: 30px;
-      color: #1e293b;
-    }
-    
-    .page-container {
-      max-width: 1100px;
-      margin: 0 auto;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
-      overflow: hidden;
-    }
-    
-    /* ── HEADER ── */
-    .header {
-      background: linear-gradient(135deg, ${isNHIS ? '#0f766e' : '#1e40af'} 0%, ${isNHIS ? '#14b8a6' : '#3b82f6'} 100%);
-      color: white;
-      padding: 30px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      position: relative;
-    }
-    
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 20px;
-    }
-    
-    .logo-placeholder {
-      width: 70px;
-      height: 70px;
-      background: rgba(255,255,255,0.15);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: white;
-      border: 2px solid rgba(255,255,255,0.3);
-    }
-    
-    .hospital-info h1 {
-      font-size: 24px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-      margin-bottom: 4px;
-    }
-    
-    .hospital-info p {
-      font-size: 13px;
-      opacity: 0.9;
-      line-height: 1.4;
-    }
-    
-    .header-right {
-      text-align: right;
-    }
-    
-    .document-badge {
-      background: rgba(255,255,255,0.2);
-      padding: 6px 18px;
-      border-radius: 20px;
-      font-weight: 600;
-      font-size: 13px;
-      letter-spacing: 0.5px;
-    }
-    
-    .document-number {
-      font-size: 14px;
-      font-weight: 600;
-      margin-top: 6px;
-      opacity: 0.9;
-    }
-    
-    .status-badge {
-      display: inline-block;
-      padding: 4px 14px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 600;
-      margin-top: 6px;
-    }
-    
-    .status-draft { background: #fef3c7; color: #d97706; }
-    .status-submitted { background: #dbeafe; color: #2563eb; }
-    .status-approved { background: #dcfce7; color: #16a34a; }
-    .status-paid { background: #d1fae5; color: #065f46; }
-    .status-rejected { background: #fee2e2; color: #dc2626; }
-    
-    /* ── PATIENT BAR ── */
-    .patient-bar {
-      background: #f8fafc;
-      padding: 16px 40px;
-      border-bottom: 2px solid #e2e8f0;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-    }
-    
-    .patient-bar-item {
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .patient-bar-item .label {
-      font-size: 10px;
-      font-weight: 700;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .patient-bar-item .value {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0f172a;
-      margin-top: 2px;
-    }
-    
-    /* ── CONTENT ── */
-    .content {
-      padding: 30px 40px 40px;
-    }
-    
-    /* ── INFO GRID ── */
-    .info-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-      margin-bottom: 24px;
-    }
-    
-    .info-card {
-      background: #f8fafc;
-      padding: 14px 18px;
-      border-radius: 10px;
-      border-left: 3px solid ${isNHIS ? '#14b8a6' : '#3b82f6'};
-    }
-    
-    .info-card .label {
-      font-size: 10px;
-      font-weight: 700;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .info-card .value {
-      font-size: 15px;
-      font-weight: 600;
-      color: #0f172a;
-      margin-top: 2px;
-    }
-    
-    /* ── SECTION TITLE ── */
-    .section-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #0f172a;
-      margin-bottom: 16px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #e2e8f0;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .section-title .count {
-      font-size: 12px;
-      font-weight: 400;
-      color: #94a3b8;
-    }
-    
-    /* ── TABLES ── */
-    .data-table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-      margin-bottom: 20px;
-    }
-    
-    .data-table th {
-      background: #f1f5f9;
-      padding: 10px 12px;
-      text-align: left;
-      font-weight: 600;
-      color: #475569;
-      font-size: 11px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      border-bottom: 2px solid #e2e8f0;
-    }
-    
-    .data-table td {
-      padding: 8px 12px;
-      border-bottom: 1px solid #f1f5f9;
-      vertical-align: middle;
-    }
-    
-    .data-table tr:last-child td {
-      border-bottom: none;
-    }
-    
-    .data-table tr:hover {
-      background: #f8fafc;
-    }
-    
-    /* ── TOTALS ── */
-    .totals-section {
-      background: #f0fdf4;
-      border-radius: 12px;
-      padding: 20px 24px;
-      border: 2px solid #bbf7d0;
-      margin: 24px 0;
-    }
-    
-    .total-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 6px 0;
-      border-bottom: 1px solid #d1fae5;
-    }
-    
-    .total-row:last-child {
-      border-bottom: none;
-      padding-bottom: 0;
-    }
-    
-    .total-row .label {
-      font-weight: 500;
-      color: #475569;
-    }
-    
-    .total-row .value {
-      font-weight: 600;
-      color: #0f172a;
-    }
-    
-    .total-row .value.grand {
-      font-size: 20px;
-      color: ${isNHIS ? '#0f766e' : '#1e40af'};
-    }
-    
-    .total-row .value.approved {
-      color: #16a34a;
-    }
-    
-    .total-row .value.paid {
-      color: #2563eb;
-    }
-    
-    /* ── FOOTER ── */
-    .footer {
-      margin-top: 30px;
-      padding-top: 24px;
-      border-top: 2px solid #e2e8f0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-    
-    .footer-left {
-      font-size: 12px;
-      color: #94a3b8;
-      line-height: 1.6;
-    }
-    
-    .footer-right {
-      text-align: right;
-      font-size: 12px;
-      color: #94a3b8;
-    }
-    
-    .signature-line {
-      width: 180px;
-      height: 1px;
-      background: #94a3b8;
-      margin: 8px auto 4px;
-    }
-    
-    .signature-label {
-      font-size: 11px;
-      color: #94a3b8;
-    }
-    
-    /* ── PRINT BUTTONS ── */
-    .no-print {
-      padding: 20px 40px;
-      background: #f8fafc;
-      border-top: 1px solid #e2e8f0;
-      text-align: center;
-      display: flex;
-      justify-content: center;
-      gap: 12px;
-    }
-    
-    .print-btn {
-      background: linear-gradient(135deg, ${isNHIS ? '#0f766e' : '#1e40af'} 0%, ${isNHIS ? '#14b8a6' : '#3b82f6'} 100%);
-      color: white;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    
-    .print-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 15px rgba(20, 184, 166, 0.4);
-    }
-    
-    .close-btn {
-      background: #e2e8f0;
-      color: #475569;
-      border: none;
-      padding: 12px 32px;
-      border-radius: 10px;
-      font-size: 15px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-    
-    .close-btn:hover {
-      background: #cbd5e1;
-    }
-    
-    /* ── PRINT STYLES ── */
-    @media print {
-      body {
-        background: white;
-        padding: 10px;
-      }
-      
-      .page-container {
-        box-shadow: none;
-        border-radius: 0;
-      }
-      
-      .no-print {
-        display: none !important;
-      }
-      
-      .header {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      
-      .totals-section {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-      
-      .status-badge {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
-      }
-    }
-    
-    /* ── RESPONSIVE ── */
-    @media screen and (max-width: 768px) {
-      body { padding: 10px; }
-      .header { flex-direction: column; text-align: center; gap: 12px; padding: 20px; }
-      .header-left { flex-direction: column; }
-      .header-right { text-align: center; }
-      .patient-bar { grid-template-columns: 1fr 1fr; padding: 12px 20px; }
-      .content { padding: 20px; }
-      .info-grid { grid-template-columns: 1fr 1fr; }
-      .data-table { font-size: 12px; }
-      .data-table th, .data-table td { padding: 6px 8px; }
-      .no-print { flex-direction: column; padding: 16px; }
-      .footer { flex-direction: column; text-align: center; }
-    }
-    
-    @media screen and (max-width: 480px) {
-      .patient-bar { grid-template-columns: 1fr; }
-      .info-grid { grid-template-columns: 1fr; }
-      .data-table { font-size: 11px; }
-      .data-table th, .data-table td { padding: 4px 6px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="page-container">
-    
-    <!-- ── HEADER ── -->
-    <div class="header">
-      <div class="header-left">
-        <div class="logo-placeholder">🏥</div>
-        <div class="hospital-info">
-          <h1>${escapeHtml(hospitalName)}</h1>
-          <p>${escapeHtml(hospitalAddress)}</p>
-          <p>Tel: ${escapeHtml(hospitalPhone)} &nbsp;|&nbsp; Email: ${escapeHtml(hospitalEmail)}</p>
-          ${isNHIS ? `<p style="font-size: 12px; opacity: 0.8;">HI Code: ${escapeHtml(facilityCode)}</p>` : ''}
-        </div>
-      </div>
-      <div class="header-right">
-        <div class="document-badge">${isNHIS ? 'NHIS' : 'PRIVATE'} INSURANCE CLAIM</div>
-        <div class="document-number">${escapeHtml(claimNumber)}</div>
-        <span class="status-badge ${getStatusClass(status)}">${getStatusLabel(status)}</span>
-      </div>
-    </div>
-
-    <!-- ── PATIENT BAR ── -->
-    <div class="patient-bar">
-      <div class="patient-bar-item">
-        <span class="label">Patient Name</span>
-        <span class="value">${escapeHtml(patientName)}</span>
-      </div>
-      <div class="patient-bar-item">
-        <span class="label">Folder Number</span>
-        <span class="value">${escapeHtml(patientId)}</span>
-      </div>
-      <div class="patient-bar-item">
-        <span class="label">Date of Birth</span>
-        <span class="value">${escapeHtml(patientDOB)} (${age} yrs)</span>
-      </div>
-      <div class="patient-bar-item">
-        <span class="label">Gender</span>
-        <span class="value" style="text-transform: capitalize;">${escapeHtml(patientGender)}</span>
-      </div>
-      <div class="patient-bar-item">
-        <span class="label">Member / CCC No.</span>
-        <span class="value" style="font-family: monospace;">${escapeHtml(memberNumber)}</span>
-      </div>
-      <div class="patient-bar-item">
-        <span class="label">Contact</span>
-        <span class="value">${escapeHtml(patientContact)}</span>
-      </div>
-    </div>
-
-    <!-- ── CONTENT ── -->
-    <div class="content">
-      
-      <!-- ── INFO CARDS ── -->
-      <div class="info-grid">
-        <div class="info-card">
-          <div class="label">Provider</div>
-          <div class="value">${escapeHtml(providerName)}</div>
-        </div>
-        <div class="info-card">
-          <div class="label">Type of Service</div>
-          <div class="value">${typeOfService}</div>
-        </div>
-        <div class="info-card">
-          <div class="label">Type of Attendance</div>
-          <div class="value">${typeOfAttendance}</div>
-        </div>
-        <div class="info-card">
-          <div class="label">Service Outcome</div>
-          <div class="value">${serviceOutcome}</div>
-        </div>
-        ${isNHIS ? `
-          <div class="info-card">
-            <div class="label">G-DRG Code</div>
-            <div class="value" style="font-family: monospace;">${principalGDRG}</div>
-          </div>
-          <div class="info-card">
-            <div class="label">MDC / Age Split</div>
-            <div class="value" style="font-family: monospace;">${mdcCode}${ageSplit}</div>
-          </div>
-        ` : ''}
-        <div class="info-card">
-          <div class="label">Generated On</div>
-          <div class="value">${formatDateTime(new Date().toISOString())}</div>
-        </div>
-      </div>
-
-      <!-- ── DIAGNOSES ── -->
-      <div class="section-title">
-        🩺 Diagnoses
-        <span class="count">(${diagnoses.length})</span>
-      </div>
-      
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 50%;">Diagnosis Description</th>
-            <th style="width: 25%;">ICD-10 Code</th>
-            ${isNHIS ? `<th style="width: 25%;">G-DRG</th>` : ''}
-          </tr>
-        </thead>
-        <tbody>
-          ${generateDiagnosesHTML()}
-        </tbody>
-      </table>
-
-      <!-- ── LINE ITEMS ── -->
-      <div class="section-title">
-        📋 Line Items
-        <span class="count">(${medications.length + investigations.length + procedures.length + services.length})</span>
-      </div>
-      
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 32%;">Description</th>
-            <th style="width: 15%;">Type</th>
-            <th style="width: 10%; text-align: center;">Qty</th>
-            <th style="width: 18%; text-align: right;">Unit Price</th>
-            <th style="width: 25%; text-align: right;">Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${generateItemsHTML()}
-        </tbody>
-      </table>
-
-      <!-- ── TOTALS ── -->
-      <div class="totals-section">
-        <div class="total-row">
-          <span class="label">Subtotal - Services</span>
-          <span class="value">${formatCurrency(gdrgAmount)}</span>
-        </div>
-        ${medicationsTotal > 0 ? `
-          <div class="total-row">
-            <span class="label">Subtotal - Medications</span>
-            <span class="value">${formatCurrency(medicationsTotal)}</span>
-          </div>
-        ` : ''}
-        ${investigationsTotal > 0 ? `
-          <div class="total-row">
-            <span class="label">Subtotal - Investigations</span>
-            <span class="value">${formatCurrency(investigationsTotal)}</span>
-          </div>
-        ` : ''}
-        ${proceduresTotal > 0 ? `
-          <div class="total-row">
-            <span class="label">Subtotal - Procedures</span>
-            <span class="value">${formatCurrency(proceduresTotal)}</span>
-          </div>
-        ` : ''}
-        <div class="total-row" style="border-bottom: 2px solid #bbf7d0; padding-bottom: 10px; margin-bottom: 8px;">
-          <span class="label" style="font-size: 16px; font-weight: 700;">Total Claim Amount</span>
-          <span class="value grand">GHS ${formatCurrency(totalAmount)}</span>
-        </div>
-        ${approvedAmount > 0 ? `
-          <div class="total-row">
-            <span class="label">Approved Amount</span>
-            <span class="value approved">GHS ${formatCurrency(approvedAmount)}</span>
-          </div>
-        ` : ''}
-        ${paidAmount > 0 ? `
-          <div class="total-row">
-            <span class="label">Paid Amount</span>
-            <span class="value paid">GHS ${formatCurrency(paidAmount)}</span>
-          </div>
-        ` : ''}
-        <div class="total-row" style="border-top: 2px solid #bbf7d0; padding-top: 10px; margin-top: 8px;">
-          <span class="label" style="font-size: 16px; font-weight: 700;">Outstanding Balance</span>
-          <span class="value" style="font-size: 18px; color: ${(totalAmount - approvedAmount - paidAmount) > 0 ? '#dc2626' : '#16a34a'}; font-weight: 700;">
-            GHS ${formatCurrency(Math.max(0, totalAmount - approvedAmount - paidAmount))}
-          </span>
-        </div>
-      </div>
-
-      <!-- ── SIGNATURES ── -->
-      <div style="display: flex; justify-content: space-between; margin-top: 30px; padding-top: 24px; border-top: 2px solid #e2e8f0; flex-wrap: wrap; gap: 20px;">
-        <div style="text-align: center; min-width: 180px;">
-          <div class="signature-line"></div>
-          <div class="signature-label">Client/Guardian Signature</div>
-        </div>
-        <div style="text-align: center; min-width: 180px;">
-          <div class="signature-line"></div>
-          <div class="signature-label">Provider's Signature / Stamp</div>
-        </div>
-        <div style="text-align: center; min-width: 180px;">
-          <div class="signature-line"></div>
-          <div class="signature-label">Date</div>
-        </div>
-      </div>
-
-      <!-- ── FOOTER ── -->
-      <div class="footer">
-        <div class="footer-left">
-          <p>This is an official insurance claim document from ${escapeHtml(hospitalName)}.</p>
-          <p style="margin-top: 4px; font-size: 11px; color: #cbd5e1;">
-            Claim ID: ${escapeHtml(claimNumber)}-${new Date().getTime().toString().slice(-6)}
-          </p>
-        </div>
-        <div class="footer-right">
-          <p style="font-size: 11px; color: #94a3b8;">
-            ${isNHIS ? 'NHIS Claim Form - Official' : 'Private Insurance Claim Form'}
-          </p>
-          <p style="font-size: 11px; color: #94a3b8; margin-top: 2px;">
-            Generated: ${new Date().toLocaleString()}
-          </p>
-        </div>
-      </div>
-      
-    </div>
-    
-    <!-- ── PRINT BUTTONS ── -->
-    <div class="no-print">
-      <button class="print-btn" onclick="window.print()">
-        🖨️ Print Claim Form
-      </button>
-      <button class="close-btn" onclick="window.close()">
-        ✕ Close
-      </button>
-    </div>
-    
-  </div>
-</body>
-</html>
+    ${signatures([
+      { role: 'Member / guardian', plain: true },
+      { role: 'Attending clinician' },
+      { role: 'Claims officer (stamp)', plain: true },
+    ])}
   `;
+
+  return pageShell({
+    title: `${noun} ${claimNo}`,
+    hospital: h,
+    body,
+    footerRef: claimNo ? `Claim ${claimNo}` : undefined,
+    printLabel: 'Print claim',
+  });
 };
