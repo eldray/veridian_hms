@@ -9,6 +9,7 @@ import { useToast } from '../store/toastStore';
 import { getVitalsForEncounters } from '../api';
 import NewAttendanceModal from '../components/NewAttendanceModal';
 import { CompactAdditionalInfo } from '../components/patients/CompactAdditionalInfo';
+import { PatientAvatar } from '../components/patients/PatientAvatar';
 import { VitalsTrendGraph } from '../components/vitals/VitalsTrendGraph';
 import {
   ArrowLeft, Edit, Calendar, Users, Pill, FlaskConical, Scissors,
@@ -115,7 +116,6 @@ export default function PatientDetails() {
   const [vitalsList, setVitalsList] = useState<any[]>([]);
   const [documents, setDocuments] = useState<GeneratedDocument[]>([]);
   const [documentsLoading, setDocumentsLoading] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
   const { getDocumentsByEntity, downloadDocument } = useDocumentStore();
   const patient = useMemo(() => {
     if (!currentPatient) return null;
@@ -204,7 +204,6 @@ export default function PatientDetails() {
     finally { setDocumentsLoading(false); }
   };
   useEffect(() => { loadData(); }, [id, refreshTrigger]);
-  useEffect(() => { setImageFailed(false); }, [id]);
   useEffect(() => {
     const totalVisits = patientAttendances.length;
     const completedVisits = patientAttendances.filter(a => a.status === 'completed').length;
@@ -339,11 +338,7 @@ export default function PatientDetails() {
       <div className="overflow-hidden rounded-xl border border-[var(--border-color)] bg-[var(--bg-card)]">
         <div className="h-1 bg-[var(--icon-cyan-text)]/70" />
         <div className="flex flex-wrap items-center gap-3 px-3 pt-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[var(--icon-cyan-bg)]">
-            {patient.imageUrl && !imageFailed ? (
-              <img src={patient.imageUrl} alt={getPatientFullName(patient) || 'Patient photo'} className="h-full w-full object-cover" onError={() => setImageFailed(true)} />
-            ) : (<Users className="h-6 w-6 text-[var(--icon-cyan-text)]" />)}
-          </div>
+          <PatientAvatar imageUrl={patient.imageUrl} name={getPatientFullName(patient)} size="lg" className="rounded-xl bg-[var(--icon-cyan-bg)]" fallbackClassName="text-[var(--icon-cyan-text)]" />
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="truncate text-xl font-bold leading-tight text-[var(--text-primary)]">{getPatientFullName(patient)}</h2>
